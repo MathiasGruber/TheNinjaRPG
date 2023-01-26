@@ -1,0 +1,10 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "eslint.workingDirectories": ["/workspace/app/", "/workspace/"],
+  "editor.formatOnSave": true,
+  "prettier.printWidth": 300,
+  "prettier.prettierPath": "./app/node_modules/prettier"
+}

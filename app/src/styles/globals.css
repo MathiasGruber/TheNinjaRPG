@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  @font-face {
+    font-family: "fontasia";
+    src: url("/fonts/fontasia-webfont.eot");
+    src: url("/fonts/fontasia-webfont.eot?#iefix") format("embedded-opentype"),
+      url("/fonts/fontasia-webfont.woff") format("woff"),
+      url("/fonts/fontasia-webfont.ttf") format("truetype"),
+      url("/fonts/fontasia-webfont.svg#fontasiaregular") format("svg");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+}
+
+body {
+  @apply bg-[url('/wallpaperDouble.webp')] bg-repeat-y;
+  @apply bg-center;
+  @apply bg-[size:100%];
+  @apply bg-[position:top];
+}
+
+html {
+  font-size: 12px;
+}
+
+h1 {
+  @apply text-2xl;
+}
+h2 {
+  @apply text-xl;
+}
+h3 {
+  @apply text-lg;
+}
+
+@layer utilities {
+  .background-animate {
+    background-size: 400% 400%;
+    -webkit-animation: AnimationName 1s ease infinite;
+    -moz-animation: AnimationName 1s ease infinite;
+    -o-animation: AnimationName 1s ease infinite;
+    animation: AnimationName 1s ease infinite;
+  }
+
+  @-webkit-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
+  }
+  @-moz-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
+  }
+  @-o-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
+  }
+  @keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
+  }
+}

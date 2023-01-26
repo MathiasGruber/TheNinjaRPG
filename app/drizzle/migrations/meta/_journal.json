@@ -1,0 +1,83 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1687003442906,
+      "tag": "0000_groovy_sauron",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1687244533179,
+      "tag": "0001_lying_cannonball",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1687244713915,
+      "tag": "0002_serious_mysterio",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1687245794199,
+      "tag": "0003_unique_darkstar",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1687245947634,
+      "tag": "0004_next_the_renegades",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1687459346312,
+      "tag": "0005_same_infant_terrible",
+      "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1688492722804,
+      "tag": "0006_slippery_ozymandias",
+      "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1688541981379,
+      "tag": "0007_calm_drax",
+      "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1688554728674,
+      "tag": "0008_red_argent",
+      "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1688673539491,
+      "tag": "0009_safe_cardiac",
+      "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1688900749818,
+      "tag": "0010_jazzy_strong_guy",
+      "breakpoints": false
+    }
+  ]
+}

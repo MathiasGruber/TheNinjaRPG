@@ -1,0 +1,2660 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "prevId": "",
+  "version": "5",
+  "dialect": "mysql",
+  "tables": {
+    "Battle": {
+      "name": "Battle",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "background": {
+          "autoincrement": false,
+          "name": "background",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "battleType": {
+          "autoincrement": false,
+          "name": "battleType",
+          "type": "enum('ARENA','COMBAT','SPARRING')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usersState": {
+          "autoincrement": false,
+          "name": "usersState",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usersEffects": {
+          "autoincrement": false,
+          "name": "usersEffects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "groundEffects": {
+          "autoincrement": false,
+          "name": "groundEffects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "version",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Battle_id_version_key": {
+          "name": "Battle_id_version_key",
+          "columns": ["id", "version"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "BattleAction": {
+      "name": "BattleAction",
+      "columns": {
+        "id": {
+          "autoincrement": true,
+          "name": "id",
+          "type": "int",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "battleId": {
+          "autoincrement": false,
+          "name": "battleId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "battleVersion": {
+          "autoincrement": false,
+          "name": "battleVersion",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "autoincrement": false,
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appliedEffects": {
+          "autoincrement": false,
+          "name": "appliedEffects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "BattleAction_battleId_idx": {
+          "name": "BattleAction_battleId_idx",
+          "columns": ["battleId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "Bloodline": {
+      "name": "Bloodline",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effects": {
+          "autoincrement": false,
+          "name": "effects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "autoincrement": false,
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "regenIncrease": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "regenIncrease",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "village": {
+          "autoincrement": false,
+          "name": "village",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "autoincrement": false,
+          "name": "image",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "autoincrement": false,
+          "name": "rank",
+          "type": "enum('D','C','B','A','S')",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Bloodline_name_key": {
+          "name": "Bloodline_name_key",
+          "columns": ["name"],
+          "isUnique": true
+        },
+        "Bloodline_image_key": {
+          "name": "Bloodline_image_key",
+          "columns": ["image"],
+          "isUnique": true
+        },
+        "Bloodline_village_idx": {
+          "name": "Bloodline_village_idx",
+          "columns": ["village"],
+          "isUnique": false
+        },
+        "Bloodline_rank_idx": {
+          "name": "Bloodline_rank_idx",
+          "columns": ["rank"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "BloodlineRolls": {
+      "name": "BloodlineRolls",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bloodlineId": {
+          "autoincrement": false,
+          "name": "bloodlineId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "used",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "BloodlineRolls_userId_key": {
+          "name": "BloodlineRolls_userId_key",
+          "columns": ["userId"],
+          "isUnique": true
+        },
+        "BloodlineRolls_bloodlineId_idx": {
+          "name": "BloodlineRolls_bloodlineId_idx",
+          "columns": ["bloodlineId"],
+          "isUnique": false
+        },
+        "BloodlineRolls_userId_idx": {
+          "name": "BloodlineRolls_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "BugReport": {
+      "name": "BugReport",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "autoincrement": false,
+          "name": "title",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "autoincrement": false,
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "default": "'No summary provided'",
+          "autoincrement": false,
+          "name": "summary",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "system": {
+          "autoincrement": false,
+          "name": "system",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_resolved": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "is_resolved",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "popularity": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "popularity",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conversationId": {
+          "autoincrement": false,
+          "name": "conversationId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "BugReport_conversationId_key": {
+          "name": "BugReport_conversationId_key",
+          "columns": ["conversationId"],
+          "isUnique": true
+        },
+        "BugReport_userId_idx": {
+          "name": "BugReport_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "BugVotes": {
+      "name": "BugVotes",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "autoincrement": false,
+          "name": "value",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bugId": {
+          "autoincrement": false,
+          "name": "bugId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "BugVotes_bugId_userId_key": {
+          "name": "BugVotes_bugId_userId_key",
+          "columns": ["bugId", "userId"],
+          "isUnique": true
+        },
+        "BugVotes_userId_idx": {
+          "name": "BugVotes_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "Conversation": {
+      "name": "Conversation",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "autoincrement": false,
+          "name": "title",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdById": {
+          "autoincrement": false,
+          "name": "createdById",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isLocked": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isLocked",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isPublic": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "isPublic",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Conversation_title_key": {
+          "name": "Conversation_title_key",
+          "columns": ["title"],
+          "isUnique": true
+        },
+        "Conversation_createdById_idx": {
+          "name": "Conversation_createdById_idx",
+          "columns": ["createdById"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "ConversationComment": {
+      "name": "ConversationComment",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "content": {
+          "autoincrement": false,
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conversationId": {
+          "autoincrement": false,
+          "name": "conversationId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isPinned": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isPinned",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "ConversationComment_userId_idx": {
+          "name": "ConversationComment_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "ConversationComment_conversationId_idx": {
+          "name": "ConversationComment_conversationId_idx",
+          "columns": ["conversationId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "ForumBoard": {
+      "name": "ForumBoard",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "autoincrement": false,
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "group": {
+          "autoincrement": false,
+          "name": "group",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nPosts": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "nPosts",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nThreads": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "nThreads",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "ForumBoard_name_key": {
+          "name": "ForumBoard_name_key",
+          "columns": ["name"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "ForumPost": {
+      "name": "ForumPost",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "content": {
+          "autoincrement": false,
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "threadId": {
+          "autoincrement": false,
+          "name": "threadId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "ForumPost_userId_idx": {
+          "name": "ForumPost_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "ForumPost_threadId_idx": {
+          "name": "ForumPost_threadId_idx",
+          "columns": ["threadId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "ForumThread": {
+      "name": "ForumThread",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "autoincrement": false,
+          "name": "title",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "boardId": {
+          "autoincrement": false,
+          "name": "boardId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nPosts": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "nPosts",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isPinned": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isPinned",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isLocked": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isLocked",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "ForumThread_boardId_idx": {
+          "name": "ForumThread_boardId_idx",
+          "columns": ["boardId"],
+          "isUnique": false
+        },
+        "ForumThread_userId_idx": {
+          "name": "ForumThread_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "HistoricalAvatar": {
+      "name": "HistoricalAvatar",
+      "columns": {
+        "id": {
+          "autoincrement": true,
+          "name": "id",
+          "type": "int",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "avatar": {
+          "autoincrement": false,
+          "name": "avatar",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replicateId": {
+          "autoincrement": false,
+          "name": "replicateId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updatedAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "default": "'started'",
+          "autoincrement": false,
+          "name": "status",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "done": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "done",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "HistoricalAvatar_replicateId_key": {
+          "name": "HistoricalAvatar_replicateId_key",
+          "columns": ["replicateId"],
+          "isUnique": true
+        },
+        "HistoricalAvatar_avatar_key": {
+          "name": "HistoricalAvatar_avatar_key",
+          "columns": ["avatar"],
+          "isUnique": true
+        },
+        "HistoricalAvatar_userId_idx": {
+          "name": "HistoricalAvatar_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "HistoricalAvatar_replicateId_idx": {
+          "name": "HistoricalAvatar_replicateId_idx",
+          "columns": ["replicateId"],
+          "isUnique": false
+        },
+        "HistoricalAvatar_avatar_idx": {
+          "name": "HistoricalAvatar_avatar_idx",
+          "columns": ["avatar"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "Item": {
+      "name": "Item",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "autoincrement": false,
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effects": {
+          "autoincrement": false,
+          "name": "effects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "itemType": {
+          "autoincrement": false,
+          "name": "itemType",
+          "type": "enum('WEAPON','CONSUMABLE','ARMOR','ACCESSORY','MATERIAL','EVENT','OTHER')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rarity": {
+          "autoincrement": false,
+          "name": "rarity",
+          "type": "enum('COMMON','RARE','EPIC','LEGENDARY')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slot": {
+          "autoincrement": false,
+          "name": "slot",
+          "type": "enum('HEAD','CHEST','LEGS','FEET','HAND','ITEM')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "cost",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weaponType": {
+          "autoincrement": false,
+          "name": "weaponType",
+          "type": "enum('STAFF','AXE','FIST_WEAPON','SHURIKEN','SICKLE','DAGGER','SWORD','POLEARM','FLAIL','CHAIN','FAN','BOW','HAMMER')",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "canStack": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "canStack",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stackSize": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "stackSize",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "autoincrement": false,
+          "name": "target",
+          "type": "enum('SELF','OTHER_USER','OPPONENT','ALLY','CHARACTER','GROUND','EMPTY_GROUND')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chakraCostPerc": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "chakraCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "autoincrement": false,
+          "name": "image",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "staminaCostPerc": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "staminaCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destroyOnUse": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "destroyOnUse",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "range": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "range",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "default": "'SINGLE'",
+          "autoincrement": false,
+          "name": "method",
+          "type": "enum('SINGLE','ALL','AOE_CIRCLE_SPAWN','AOE_LINE_SHOOT','AOE_CIRCLE_SHOOT','AOE_SPIRAL_SHOOT')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actionCostPerc": {
+          "default": 60,
+          "autoincrement": false,
+          "name": "actionCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "healthCostPerc": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "healthCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "battleDescription": {
+          "default": "('')",
+          "autoincrement": false,
+          "name": "battleDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Item_name_key": {
+          "name": "Item_name_key",
+          "columns": ["name"],
+          "isUnique": true
+        },
+        "Item_image_key": {
+          "name": "Item_image_key",
+          "columns": ["image"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "Jutsu": {
+      "name": "Jutsu",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "autoincrement": false,
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effects": {
+          "autoincrement": false,
+          "name": "effects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "autoincrement": false,
+          "name": "target",
+          "type": "enum('SELF','OTHER_USER','OPPONENT','ALLY','CHARACTER','GROUND','EMPTY_GROUND')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "range": {
+          "autoincrement": false,
+          "name": "range",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cooldown": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "cooldown",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bloodlineId": {
+          "autoincrement": false,
+          "name": "bloodlineId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requiredRank": {
+          "autoincrement": false,
+          "name": "requiredRank",
+          "type": "enum('STUDENT','GENIN','CHUNIN','JONIN','COMMANDER','ELDER','NONE')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jutsuType": {
+          "autoincrement": false,
+          "name": "jutsuType",
+          "type": "enum('NORMAL','SPECIAL','BLOODLINE','FORBIDDEN','LOYALTY','CLAN','EVENT','AI')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "autoincrement": false,
+          "name": "image",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jutsuWeapon": {
+          "autoincrement": false,
+          "name": "jutsuWeapon",
+          "type": "enum('STAFF','AXE','FIST_WEAPON','SHURIKEN','SICKLE','DAGGER','SWORD','POLEARM','FLAIL','CHAIN','FAN','BOW','HAMMER')",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "battleDescription": {
+          "autoincrement": false,
+          "name": "battleDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chakraCostPerc": {
+          "default": 0.05,
+          "autoincrement": false,
+          "name": "chakraCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "healthCostPerc": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "healthCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jutsuRank": {
+          "default": "'D'",
+          "autoincrement": false,
+          "name": "jutsuRank",
+          "type": "enum('D','C','B','A','S')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "staminaCostPerc": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "staminaCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "villageId": {
+          "autoincrement": false,
+          "name": "villageId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "method": {
+          "default": "'SINGLE'",
+          "autoincrement": false,
+          "name": "method",
+          "type": "enum('SINGLE','ALL','AOE_CIRCLE_SPAWN','AOE_LINE_SHOOT','AOE_CIRCLE_SHOOT','AOE_SPIRAL_SHOOT')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actionCostPerc": {
+          "default": 80,
+          "autoincrement": false,
+          "name": "actionCostPerc",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Jutsu_name_key": {
+          "name": "Jutsu_name_key",
+          "columns": ["name"],
+          "isUnique": true
+        },
+        "Jutsu_image_key": {
+          "name": "Jutsu_image_key",
+          "columns": ["image"],
+          "isUnique": true
+        },
+        "Jutsu_bloodlineId_idx": {
+          "name": "Jutsu_bloodlineId_idx",
+          "columns": ["bloodlineId"],
+          "isUnique": false
+        },
+        "Jutsu_villageId_idx": {
+          "name": "Jutsu_villageId_idx",
+          "columns": ["villageId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "PaypalSubscription": {
+      "name": "PaypalSubscription",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdById": {
+          "autoincrement": false,
+          "name": "createdById",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "affectedUserId": {
+          "autoincrement": false,
+          "name": "affectedUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "autoincrement": false,
+          "name": "status",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "federalStatus": {
+          "autoincrement": false,
+          "name": "federalStatus",
+          "type": "enum('NONE','NORMAL','SILVER','GOLD')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "orderId": {
+          "autoincrement": false,
+          "name": "orderId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subscriptionId": {
+          "autoincrement": false,
+          "name": "subscriptionId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "PaypalSubscription_subscriptionId_key": {
+          "name": "PaypalSubscription_subscriptionId_key",
+          "columns": ["subscriptionId"],
+          "isUnique": true
+        },
+        "PaypalSubscription_orderId_key": {
+          "name": "PaypalSubscription_orderId_key",
+          "columns": ["orderId"],
+          "isUnique": true
+        },
+        "PaypalSubscription_createdById_idx": {
+          "name": "PaypalSubscription_createdById_idx",
+          "columns": ["createdById"],
+          "isUnique": false
+        },
+        "PaypalSubscription_affectedUserId_idx": {
+          "name": "PaypalSubscription_affectedUserId_idx",
+          "columns": ["affectedUserId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "PaypalTransaction": {
+      "name": "PaypalTransaction",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdById": {
+          "autoincrement": false,
+          "name": "createdById",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "affectedUserId": {
+          "autoincrement": false,
+          "name": "affectedUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transactionId": {
+          "autoincrement": false,
+          "name": "transactionId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transactionUpdatedDate": {
+          "autoincrement": false,
+          "name": "transactionUpdatedDate",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "orderId": {
+          "autoincrement": false,
+          "name": "orderId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoiceId": {
+          "autoincrement": false,
+          "name": "invoiceId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "amount",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reputationPoints": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "reputationPoints",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "default": "'USD'",
+          "autoincrement": false,
+          "name": "currency",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "autoincrement": false,
+          "name": "status",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rawData": {
+          "autoincrement": false,
+          "name": "rawData",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "PaypalTransaction_orderId_key": {
+          "name": "PaypalTransaction_orderId_key",
+          "columns": ["orderId"],
+          "isUnique": true
+        },
+        "PaypalTransaction_createdById_idx": {
+          "name": "PaypalTransaction_createdById_idx",
+          "columns": ["createdById"],
+          "isUnique": false
+        },
+        "PaypalTransaction_affectedUserId_idx": {
+          "name": "PaypalTransaction_affectedUserId_idx",
+          "columns": ["affectedUserId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "PaypalWebhookMessage": {
+      "name": "PaypalWebhookMessage",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "eventType": {
+          "autoincrement": false,
+          "name": "eventType",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rawData": {
+          "autoincrement": false,
+          "name": "rawData",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "handled": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "handled",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {},
+      "foreignKeys": {}
+    },
+    "ReportLog": {
+      "name": "ReportLog",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "targetUserId": {
+          "autoincrement": false,
+          "name": "targetUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "staffUserId": {
+          "autoincrement": false,
+          "name": "staffUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "autoincrement": false,
+          "name": "action",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "ReportLog_targetUserId_idx": {
+          "name": "ReportLog_targetUserId_idx",
+          "columns": ["targetUserId"],
+          "isUnique": false
+        },
+        "ReportLog_staffUserId_idx": {
+          "name": "ReportLog_staffUserId_idx",
+          "columns": ["staffUserId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserAttribute": {
+      "name": "UserAttribute",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "attribute": {
+          "autoincrement": false,
+          "name": "attribute",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserAttribute_attribute_userId_key": {
+          "name": "UserAttribute_attribute_userId_key",
+          "columns": ["attribute", "userId"],
+          "isUnique": true
+        },
+        "UserAttribute_userId_idx": {
+          "name": "UserAttribute_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserData": {
+      "name": "UserData",
+      "columns": {
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "username": {
+          "autoincrement": false,
+          "name": "username",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender": {
+          "autoincrement": false,
+          "name": "gender",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "curHealth": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "curHealth",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maxHealth": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "maxHealth",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "curChakra": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "curChakra",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maxChakra": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "maxChakra",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "curStamina": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "curStamina",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maxStamina": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "maxStamina",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "regeneration": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "regeneration",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "money": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "money",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bank": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "bank",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "experience": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "experience",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "default": "'STUDENT'",
+          "autoincrement": false,
+          "name": "rank",
+          "type": "enum('STUDENT','GENIN','CHUNIN','JONIN','COMMANDER','ELDER','NONE')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "level",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "villageId": {
+          "autoincrement": false,
+          "name": "villageId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bloodlineId": {
+          "autoincrement": false,
+          "name": "bloodlineId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "default": "'AWAKE'",
+          "autoincrement": false,
+          "name": "status",
+          "type": "enum('AWAKE','HOSPITALIZED','TRAVEL','BATTLE')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "strength": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "strength",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intelligence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "intelligence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "willpower": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "willpower",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "speed": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "speed",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ninjutsuOffence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "ninjutsuOffence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ninjutsuDefence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "ninjutsuDefence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "genjutsuOffence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "genjutsuOffence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "genjutsuDefence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "genjutsuDefence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taijutsuOffence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "taijutsuOffence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taijutsuDefence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "taijutsuDefence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reputationPoints": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "reputationPoints",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reputationPointsTotal": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "reputationPointsTotal",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "popularity_points": {
+          "default": 6,
+          "autoincrement": false,
+          "name": "popularity_points",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "popularity_points_total": {
+          "default": 6,
+          "autoincrement": false,
+          "name": "popularity_points_total",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "federalStatus": {
+          "default": "'NONE'",
+          "autoincrement": false,
+          "name": "federalStatus",
+          "type": "enum('NONE','NORMAL','SILVER','GOLD')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approved_tos": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "approved_tos",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avatar": {
+          "autoincrement": false,
+          "name": "avatar",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sector": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "sector",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "longitude": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "longitude",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "latitude": {
+          "default": 7,
+          "autoincrement": false,
+          "name": "latitude",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location": {
+          "default": "''",
+          "autoincrement": false,
+          "name": "location",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deletionAt": {
+          "autoincrement": false,
+          "name": "deletionAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "travelFinishAt": {
+          "autoincrement": false,
+          "name": "travelFinishAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isBanned": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isBanned",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "default": "'USER'",
+          "autoincrement": false,
+          "name": "role",
+          "type": "enum('USER','MODERATOR','ADMIN')",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "battleId": {
+          "autoincrement": false,
+          "name": "battleId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isAi": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "isAi",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bukijutsuDefence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "bukijutsuDefence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bukijutsuOffence": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "bukijutsuOffence",
+          "type": "double",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "eloPve": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "eloPve",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "eloPvp": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "eloPvp",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "regenAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "regenAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserData_userId_key": {
+          "name": "UserData_userId_key",
+          "columns": ["userId"],
+          "isUnique": true
+        },
+        "UserData_username_key": {
+          "name": "UserData_username_key",
+          "columns": ["username"],
+          "isUnique": true
+        },
+        "UserData_bloodlineId_idx": {
+          "name": "UserData_bloodlineId_idx",
+          "columns": ["bloodlineId"],
+          "isUnique": false
+        },
+        "UserData_villageId_idx": {
+          "name": "UserData_villageId_idx",
+          "columns": ["villageId"],
+          "isUnique": false
+        },
+        "UserData_battleId_idx": {
+          "name": "UserData_battleId_idx",
+          "columns": ["battleId"],
+          "isUnique": false
+        },
+        "UserData_userId_idx": {
+          "name": "UserData_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserItem": {
+      "name": "UserItem",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "itemId": {
+          "autoincrement": false,
+          "name": "itemId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "quantity",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "equipped": {
+          "autoincrement": false,
+          "name": "equipped",
+          "type": "enum('HEAD','CHEST','LEGS','FEET','HAND_1','HAND_2','ITEM_1','ITEM_2','ITEM_3','ITEM_4','ITEM_5','ITEM_6','ITEM_7')",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserItem_userId_idx": {
+          "name": "UserItem_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "UserItem_itemId_idx": {
+          "name": "UserItem_itemId_idx",
+          "columns": ["itemId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserJutsu": {
+      "name": "UserJutsu",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jutsuId": {
+          "autoincrement": false,
+          "name": "jutsuId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "autoincrement": false,
+          "name": "updatedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "level",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "equipped": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "equipped",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finishTraining": {
+          "autoincrement": false,
+          "name": "finishTraining",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserJutsu_userId_jutsuId_key": {
+          "name": "UserJutsu_userId_jutsuId_key",
+          "columns": ["userId", "jutsuId"],
+          "isUnique": true
+        },
+        "UserJutsu_userId_idx": {
+          "name": "UserJutsu_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "UserJutsu_jutsuId_idx": {
+          "name": "UserJutsu_jutsuId_idx",
+          "columns": ["jutsuId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserReport": {
+      "name": "UserReport",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "reporterUserId": {
+          "autoincrement": false,
+          "name": "reporterUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reportedUserId": {
+          "autoincrement": false,
+          "name": "reportedUserId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "system": {
+          "autoincrement": false,
+          "name": "system",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "infraction": {
+          "autoincrement": false,
+          "name": "infraction",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "autoincrement": false,
+          "name": "reason",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "banEnd": {
+          "autoincrement": false,
+          "name": "banEnd",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adminResolved": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "adminResolved",
+          "type": "tinyint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "default": "'UNVIEWED'",
+          "autoincrement": false,
+          "name": "status",
+          "type": "enum('UNVIEWED','REPORT_CLEARED','BAN_ACTIVATED','BAN_ESCALATED')",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserReport_reporterUserId_idx": {
+          "name": "UserReport_reporterUserId_idx",
+          "columns": ["reporterUserId"],
+          "isUnique": false
+        },
+        "UserReport_reportedUserId_idx": {
+          "name": "UserReport_reportedUserId_idx",
+          "columns": ["reportedUserId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UserReportComment": {
+      "name": "UserReportComment",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "content": {
+          "autoincrement": false,
+          "name": "content",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reportId": {
+          "autoincrement": false,
+          "name": "reportId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "autoincrement": false,
+          "name": "decision",
+          "type": "enum('UNVIEWED','REPORT_CLEARED','BAN_ACTIVATED','BAN_ESCALATED')",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "UserReportComment_userId_idx": {
+          "name": "UserReportComment_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "UserReportComment_reportId_idx": {
+          "name": "UserReportComment_reportId_idx",
+          "columns": ["reportId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "UsersInConversation": {
+      "name": "UsersInConversation",
+      "columns": {
+        "conversationId": {
+          "autoincrement": false,
+          "name": "conversationId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "autoincrement": false,
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignedAt": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "assignedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {
+        "UsersInConversation_conversationId_userId": {
+          "name": "UsersInConversation_conversationId_userId",
+          "columns": ["conversationId", "userId"]
+        }
+      },
+      "indexes": {
+        "UsersInConversation_userId_idx": {
+          "name": "UsersInConversation_userId_idx",
+          "columns": ["userId"],
+          "isUnique": false
+        },
+        "UsersInConversation_conversationId_idx": {
+          "name": "UsersInConversation_conversationId_idx",
+          "columns": ["conversationId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "Village": {
+      "name": "Village",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sector": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "sector",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hexColor": {
+          "default": "'#000000'",
+          "autoincrement": false,
+          "name": "hexColor",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "Village_name_key": {
+          "name": "Village_name_key",
+          "columns": ["name"],
+          "isUnique": true
+        },
+        "Village_sector_key": {
+          "name": "Village_sector_key",
+          "columns": ["sector"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "VillageStructure": {
+      "name": "VillageStructure",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "autoincrement": false,
+          "name": "name",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "autoincrement": false,
+          "name": "image",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "villageId": {
+          "autoincrement": false,
+          "name": "villageId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "default": 1,
+          "autoincrement": false,
+          "name": "level",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_level": {
+          "default": 10,
+          "autoincrement": false,
+          "name": "max_level",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cur_sp": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "cur_sp",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_sp": {
+          "default": 100,
+          "autoincrement": false,
+          "name": "max_sp",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {
+        "VillageStructure_name_villageId_key": {
+          "name": "VillageStructure_name_villageId_key",
+          "columns": ["name", "villageId"],
+          "isUnique": true
+        },
+        "VillageStructure_villageId_idx": {
+          "name": "VillageStructure_villageId_idx",
+          "columns": ["villageId"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "_prisma_migrations": {
+      "name": "_prisma_migrations",
+      "columns": {
+        "id": {
+          "autoincrement": false,
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "checksum": {
+          "autoincrement": false,
+          "name": "checksum",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finished_at": {
+          "autoincrement": false,
+          "name": "finished_at",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "migration_name": {
+          "autoincrement": false,
+          "name": "migration_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "logs": {
+          "autoincrement": false,
+          "name": "logs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolled_back_at": {
+          "autoincrement": false,
+          "name": "rolled_back_at",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "default": "(CURRENT_TIMESTAMP(3))",
+          "autoincrement": false,
+          "name": "started_at",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applied_steps_count": {
+          "default": 0,
+          "autoincrement": false,
+          "name": "applied_steps_count",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "compositePrimaryKeys": {},
+      "indexes": {},
+      "foreignKeys": {}
+    }
+  },
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}
