@@ -14,11 +14,19 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+//************************//
+//****** DEPRECATED ******//
+//************************//
+
 model Example {
     id        String   @id @default(cuid())
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
+
+//*****************************//
+//****** USER AUTH MODEL ******//
+//*****************************//
 
 // Necessary for Next auth
 model Account {
@@ -48,13 +56,14 @@ model Session {
 }
 
 model User {
-    id            String    @id @default(cuid())
+    id            String      @id @default(cuid())
     name          String?
-    email         String?   @unique
+    email         String?     @unique
     emailVerified DateTime?
     image         String?
     accounts      Account[]
     sessions      Session[]
+    UserStats     UserStats[]
 }
 
 model VerificationToken {
@@ -63,4 +72,54 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+//*****************************//
+//********* VILLAGE ***********//
+//*****************************//
+
+model Village {
+    id        String      @id @default(cuid())
+    name      String
+    longitude Int
+    latitude  Int
+    UserStats UserStats[]
+}
+
+//*****************************//
+//******* USER GENERAL ********//
+//*****************************//
+
+enum Gender {
+    Female
+    Male
+}
+
+model UserStats {
+    id                String  @id @default(cuid())
+    userId            String
+    user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    gender            Gender
+    // Rank & Village
+    rank              String
+    level             Int
+    villageId         String
+    village           Village @relation(fields: [villageId], references: [id])
+    // Generals
+    strength          Int
+    intelligence      Int
+    willpower         Int
+    speed             Int
+    // Specialities
+    ninjutsu_offence  Int
+    ninjutsu_defence  Int
+    genjutsu_offence  Int
+    genjutsu_defence  Int
+    taijutsu_offence  Int
+    taijutsu_defence  Int
+    weapon_offence    Int
+    weapon_defence    Int
+    // Purchase Points
+    reputation_points Int
+    popularity_points Int
 }

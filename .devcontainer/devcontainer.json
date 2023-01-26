@@ -20,7 +20,8 @@
 	"ms-azuretools.vscode-docker",
 	"esbenp.prettier-vscode",
 	"dbaeumer.vscode-eslint",
-	"Prisma.prisma"
+	"Prisma.prisma",
+	"GitHub.copilot"
 ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
