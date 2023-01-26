@@ -21,7 +21,8 @@
 	"esbenp.prettier-vscode",
 	"dbaeumer.vscode-eslint",
 	"Prisma.prisma",
-	"GitHub.copilot"
+	"GitHub.copilot",
+	"bradlc.vscode-tailwindcss"
 ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
