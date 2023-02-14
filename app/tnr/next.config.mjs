@@ -7,7 +7,19 @@
 
 /** @type {import("next").NextConfig} */
 const config = {
-  reactStrictMode: true,
+  reactStrictMode: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "theninja-user-uploads.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "theninja-user-uploads.s3.us-west-2.amazonaws.com",
+      },
+    ],
+  },
   /* If trying out the experimental appDir, comment the i18n config out
    * @see https://github.com/vercel/next.js/issues/41980 */
   i18n: {

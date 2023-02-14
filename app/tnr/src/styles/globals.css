@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  @font-face {
+    font-family: "fontasia";
+    src: url("/fonts/fontasia-webfont.eot");
+    src: url("/fonts/fontasia-webfont.eot?#iefix") format("embedded-opentype"),
+      url("/fonts/fontasia-webfont.woff") format("woff"),
+      url("/fonts/fontasia-webfont.ttf") format("truetype"),
+      url("/fonts/fontasia-webfont.svg#fontasiaregular") format("svg");
+    font-weight: normal;
+    font-style: normal;
+  }
+}
+
+body {
+  @apply bg-[url('/wallpaper.jpg')];
+  @apply bg-cover;
+  @apply bg-center;
+  @apply min-h-screen;
+}
+
+html {
+  font-size: 12px;
+}

@@ -5,5 +5,8 @@
   },
   "[prisma]": {
     "editor.defaultFormatter": "Prisma.prisma"
-  }
+  },
+  "eslint.workingDirectories": ["/workspace/app/tnr/"],
+  "editor.formatOnSave": true,
+  "prettier.printWidth": 300
 }

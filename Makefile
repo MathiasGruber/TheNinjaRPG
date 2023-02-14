@@ -40,6 +40,12 @@ enter: # Connect to app container.
 	@echo "${YELLOW}Enter into app docker container${RESET}"
 	docker exec -it tnr_app bash
 
+.PHONY: initial_setup
+initial_setup: # Connect to app container.
+	@echo "${YELLOW}Enter into app docker container${RESET}"
+	docker exec -it tnr_app yarn prisma generate
+	docker exec -it tnr_app yarn prisma migrate dev --name init
+
 --------------MIGRATIONS----------------: # -------------------------------------------------------
 
 .PHONY: sync

@@ -18,6 +18,13 @@ export const authOptions: NextAuthOptions = {
   },
   // Configure one or more authentication providers
   adapter: PrismaAdapter(prisma),
+  theme: {
+    colorScheme: "light", // "auto" | "dark" | "light"
+    logo: "/images/frontguy5.png",
+  },
+  pages: {
+    signIn: "/login",
+  },
   providers: [
     DiscordProvider({
       clientId: env.DISCORD_CLIENT_ID,

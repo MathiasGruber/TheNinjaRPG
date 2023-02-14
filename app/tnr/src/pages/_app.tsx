@@ -3,6 +3,7 @@ import { type Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
 
 import { api } from "../utils/api";
+import Layout from "../layout/Layout";
 
 import "../styles/globals.css";
 
@@ -12,9 +13,9 @@ const MyApp: AppType<{ session: Session | null }> = ({
 }) => {
   return (
     <SessionProvider session={session}>
-      <div className="bg-[url('/wallpaper.jpg')]">
+      <Layout>
         <Component {...pageProps} />
-      </div>
+      </Layout>
     </SessionProvider>
   );
 };

@@ -1,0 +1,236 @@
+import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import ContentBox from "../layout/ContentBox";
+import InputField from "../layout/InputField";
+import SelectField from "../layout/SelectField";
+import CheckBox from "../layout/CheckBox";
+import SubmitButton from "../layout/SubmitButton";
+import Loader from "../layout/Loader";
+import Map from "../layout/Map";
+import { useUser } from "../utils/UserContext";
+import { api } from "../utils/api";
+import { registrationSchema } from "../validators/register";
+import { attributes } from "../validators/register";
+import { colors } from "../validators/register";
+import { genders } from "../validators/register";
+import { type RegistrationSchema } from "../validators/register";
+import { show_toast } from "../libs/toast";
+
+const Register: React.FC = () => {
+  // Router
+  const router = useRouter();
+
+  // User data
+  const {
+    data: userData,
+    status: userStatus,
+    refetch: refetchUserData,
+  } = useUser();
+
+  // Available villages
+  const { data: villages } = api.village.getAll.useQuery(undefined);
+
+  // Create avatar mutation
+  const createAvatar = api.profile.createAvatar.useMutation();
+
+  // Create character mutation
+  const createCharacter = api.profile.createCharacter.useMutation({
+    onSuccess: async () => {
+      await refetchUserData();
+      createAvatar.mutate();
+      void router.push("/profile");
+    },
+    onError: (error) => {
+      show_toast(
+        "Error on character creation. Please validate input & try again",
+        error.message,
+        "error"
+      );
+    },
+  });
+
+  // Form handling
+  const {
+    register,
+    watch,
+    setError,
+    clearErrors,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegistrationSchema>({
+    resolver: zodResolver(registrationSchema),
+  });
+
+  // Handle username changes
+  const watchUsername = watch("username", "");
+
+  // Checking for unique username
+  const { data: databaseUsername } = api.profile.getUsername.useQuery({
+    username: watchUsername,
+  });
+
+  // If selected username found in database, set error. If not, clear error.
+  if (databaseUsername && errors.username === undefined) {
+    setError("username", {
+      type: "custom",
+      message: "The selected username already exists in the database",
+    });
+  } else if (!databaseUsername && errors.username?.type == "custom") {
+    clearErrors("username");
+  }
+
+  // If we have userdata, we should not be here
+  if (userStatus === "success" && userData) {
+    void router.push("/");
+  }
+
+  // If we are still trying to load user data
+  if (userStatus === "loading") {
+    return <Loader explanation="Loading registration page..." />;
+  }
+
+  // Handle form submit
+  const onSubmit = handleSubmit((data) => {
+    createCharacter.mutate(data);
+  });
+
+  // Options used for select fields
+  const option_attributes = attributes.map((attribute, index) => (
+    <option value={attribute} key={index}>
+      {attribute}
+    </option>
+  ));
+  const option_colors = colors.map((color, index) => (
+    <option value={color} key={index}>
+      {color}
+    </option>
+  ));
+
+  return (
+    <form onSubmit={onSubmit}>
+      <ContentBox
+        title="Create Character"
+        subtitle="Set up your character. An AI will generate an avatar for you based on your choices."
+      >
+        <div className="grid grid-cols-2">
+          <div>
+            <InputField
+              id="username"
+              label="Enter Username"
+              register={register}
+              error={errors.username?.message}
+            />
+            <SelectField
+              id="village"
+              label="Select Village"
+              register={register}
+              error={errors.village?.message}
+              placeholder="Pick a village"
+            >
+              {villages?.map((village) => (
+                <option key={village.id} value={village.id}>
+                  {village.name}
+                </option>
+              ))}
+            </SelectField>
+            <Map />
+          </div>
+          <div>
+            <SelectField
+              id="gender"
+              label="Gender"
+              register={register}
+              error={errors.gender?.message}
+              placeholder="Select gender"
+            >
+              {genders.map((gender, index) => (
+                <option value={gender} key={index}>
+                  {gender}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              id="hair_color"
+              label="Hair Color"
+              register={register}
+              error={errors.hair_color?.message}
+            >
+              {option_colors}
+            </SelectField>
+            <SelectField
+              id="eye_color"
+              label="Eye Color"
+              register={register}
+              error={errors.eye_color?.message}
+            >
+              {option_colors}
+            </SelectField>
+            <SelectField
+              id="skin_color"
+              label="Skin Color"
+              register={register}
+              error={errors.skin_color?.message}
+            >
+              {option_colors}
+            </SelectField>
+            <SelectField
+              id="attribute_1"
+              label="Attribute #1"
+              register={register}
+              placeholder="Select Attribute"
+              error={errors.attribute_1?.message}
+            >
+              {option_attributes}
+            </SelectField>
+            <SelectField
+              id="attribute_2"
+              label="Attribute #2"
+              register={register}
+              placeholder="Select Attribute"
+              error={errors.attribute_2?.message}
+            >
+              {option_attributes}
+            </SelectField>
+            <SelectField
+              id="attribute_3"
+              label="Attribute #3"
+              register={register}
+              placeholder="Select Attribute"
+              error={errors.attribute_3?.message}
+            >
+              {option_attributes}
+            </SelectField>
+            <SubmitButton id="create" label="Create Character" />
+          </div>
+        </div>
+
+        <CheckBox
+          id="read_tos"
+          label={
+            <Link href="/terms" target="_blank" rel="noopener noreferrer">
+              I have read & agree to the Terms of Service
+            </Link>
+          }
+          register={register}
+          error={errors.read_tos?.message}
+        />
+        <CheckBox
+          id="read_privacy"
+          label={
+            <Link href="/policy" target="_blank" rel="noopener noreferrer">
+              I have read & agree to the Privacy Policy
+            </Link>
+          }
+          register={register}
+          error={errors.read_privacy?.message}
+        />
+      </ContentBox>
+    </form>
+  );
+};
+
+export default Register;

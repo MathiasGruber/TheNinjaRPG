@@ -1,0 +1,146 @@
+import { type NextPage } from "next";
+import { useState } from "react";
+import { useRouter } from "next/router";
+import ContentBox from "../layout/ContentBox";
+import Button from "../layout/Button";
+import AvatarImage from "../layout/Avatar";
+import Loader from "../layout/Loader";
+import Modal from "../layout/Modal";
+import { api } from "../utils/api";
+import { show_toast } from "../libs/toast";
+import { useRequiredUser } from "../utils/UserContext";
+
+const Avatar: NextPage = () => {
+  // Queries & mutations
+  const [showModel, setShowModel] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const { data: userData, refetch: refetchUserData } = useRequiredUser();
+  // Fetch historical avatars query
+  const historicalAvatars = api.profile.getHistoricalAvatars.useQuery();
+  console.log(historicalAvatars);
+  // Update avatar mutation
+  const updateAvatar = api.profile.updateAvatar.useMutation({
+    onMutate: () => {
+      setLoading(true);
+    },
+    onSuccess: async () => {
+      await refetchUserData();
+    },
+    onError: (error) => {
+      show_toast("Error changing avatar", error.message, "error");
+    },
+    onSettled: () => {
+      setLoading(false);
+    },
+  });
+  // Create new avatar mutation
+  const createAvatar = api.profile.createAvatar.useMutation({
+    onMutate: () => {
+      setLoading(true);
+    },
+    onSuccess: async () => {
+      await refetchUserData();
+    },
+    onError: (error) => {
+      show_toast("Error creating avatar", error.message, "error");
+    },
+    onSettled: () => {
+      setLoading(false);
+    },
+  });
+  const userAttributes = api.profile.getUserAttributes.useQuery();
+  if (!userData || loading) {
+    return <Loader explanation="Creating avatar..." />;
+  }
+  return (
+    <>
+      <ContentBox
+        title="Change Avatar"
+        subtitle="AI generates the avatar for your character. "
+      >
+        {showModel && (
+          <Modal
+            title="Confirm Avatar Change"
+            message="Changing your avatar will cost 1 popularity point. We would love to enable unlimited re-creations, but the model generating the avatars runs on NVidia A100 GPU cluster, and each generation costs a little bit of money. We are working on a solution to make this free, but for now, we need to charge a small fee to cover the cost of the GPU cluster."
+            onAccept={() => {
+              createAvatar.mutate();
+              setShowModel(false);
+            }}
+            setIsOpen={setShowModel}
+            buttons={
+              <Button
+                id="create"
+                label="New Avatar (1 popularity point)"
+                onClick={() => {
+                  createAvatar.mutate();
+                }}
+              />
+            }
+          />
+        )}
+        <div className="flex">
+          <div className="basis-1/2">
+            {userData && (
+              <AvatarImage
+                href={userData?.avatar}
+                alt={userData?.username}
+                size={512}
+              />
+            )}
+          </div>
+          <div className="basis-1/2">
+            <h2 className="font-bold">Current Attributes</h2>
+            <ul className="ml-5 list-disc">
+              <li key="rank">{userData?.rank}</li>
+              {userAttributes.data?.map((attribute) => (
+                <li key={attribute.id}>{attribute.attribute}</li>
+              ))}
+            </ul>
+            <h2 className="mt-5 font-bold">Create a new avatar</h2>
+
+            {userData?.popularity_points > 0 ? (
+              <>
+                <p className="italic">- Costs 1 popularity point</p>
+                <Button
+                  id="create"
+                  label="New Avatar"
+                  onClick={() => {
+                    setShowModel(true);
+                  }}
+                />
+              </>
+            ) : (
+              <p className="text-red-500">
+                Creating a new avatar costs 1 popularity point
+              </p>
+            )}
+          </div>
+        </div>
+      </ContentBox>
+      {historicalAvatars.data && (
+        <ContentBox
+          title="Previous Avatars"
+          subtitle="You can revert to previous avatars if you don't like the current one."
+        >
+          <div className="flex flex-row">
+            {historicalAvatars.data.map((avatar) => (
+              <div
+                key={avatar.id}
+                className=" basis-1/4"
+                onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+              >
+                <AvatarImage
+                  href={avatar.avatar}
+                  alt={userData?.username}
+                  size={200}
+                />
+              </div>
+            ))}
+          </div>
+        </ContentBox>
+      )}
+    </>
+  );
+};
+
+export default Avatar;
