@@ -10,10 +10,10 @@ async function main() {
     { name: "Konoki", longitude: 35.0, latitude: 35.0, sector: 105 },
     { name: "Shroud", longitude: 40.0, latitude: 40.0, sector: 90 },
     { name: "Silence", longitude: 40.0, latitude: 40.0, sector: 80 },
-    { name: "Current", longitude: 40.0, latitude: 40.0, sector: 105 },
-    { name: "Horizon", longitude: 40.0, latitude: 40.0, sector: 105 },
-    { name: "Samui", longitude: 40.0, latitude: 40.0, sector: 105 },
-    { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 105 },
+    { name: "Current", longitude: 40.0, latitude: 40.0, sector: 68 },
+    { name: "Horizon", longitude: 40.0, latitude: 40.0, sector: 50 },
+    { name: "Samui", longitude: 40.0, latitude: 40.0, sector: 120 },
+    { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 85 },
   ];
   for (const village of villages) {
     await prisma.village.upsert({

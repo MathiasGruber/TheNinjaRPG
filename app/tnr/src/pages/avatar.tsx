@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useRef, useCallback } from "react";
 import { type NextPage } from "next";
 import { useState } from "react";
 import ContentBox from "../layout/ContentBox";
@@ -11,12 +13,63 @@ import { useRequiredUser } from "../utils/UserContext";
 
 const Avatar: NextPage = () => {
   // Queries & mutations
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(0);
   const [showModel, setShowModel] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const { data: userData, refetch: refetchUserData } = useRequiredUser();
   // Fetch historical avatars query
-  const historicalAvatars = api.avatar.getHistoricalAvatars.useQuery();
-  console.log(historicalAvatars);
+  const avatarLimit = 10;
+  const {
+    data: historicalAvatars,
+    fetchNextPage,
+    hasNextPage,
+  } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
+    {
+      limit: avatarLimit,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
+  // Infinite scroll for fetching avatars
+  // Setup observer with intersectionobsever initially
+  const observer = useRef<IntersectionObserver | null>();
+  useEffect(() => {
+    observer.current = new IntersectionObserver((entries) => {
+      const first = entries[0];
+      if (first && first.isIntersecting) {
+        setPage((prev) => prev + 1);
+      }
+    });
+  }, []); // do this only once, on mount
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchNextPage();
+    };
+    if (hasNextPage) {
+      fetchData().catch(() => {
+        show_toast(
+          "Error fetching avatars",
+          "Error fetching next batch of avatars",
+          "error"
+        );
+      });
+    }
+  }, [page, hasNextPage, fetchNextPage]);
+  useEffect(() => {
+    if (lastElement && observer.current) {
+      observer.current.observe(lastElement);
+    }
+    return () => {
+      if (lastElement && observer.current) {
+        observer.current.unobserve(lastElement);
+      }
+    };
+  }, [lastElement]);
   // Update avatar mutation
   const updateAvatar = api.avatar.updateAvatar.useMutation({
     onMutate: () => {
@@ -84,6 +137,7 @@ const Avatar: NextPage = () => {
                 href={userData?.avatar}
                 alt={userData?.username}
                 size={512}
+                priority
               />
             )}
           </div>
@@ -114,17 +168,18 @@ const Avatar: NextPage = () => {
           </div>
         </div>
       </ContentBox>
-      {historicalAvatars.data && (
+      {pageAvatars && (
         <ContentBox
           title="Previous Avatars"
           subtitle="You can revert to previous avatars if you don't like the current one."
         >
-          <div className="flex flex-row">
-            {historicalAvatars.data.map((avatar) => (
+          <div className="flex flex-wrap">
+            {pageAvatars.map((avatar, i) => (
               <div
                 key={avatar.id}
-                className=" basis-1/4"
+                className=" my-2 basis-1/4"
                 onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+                ref={i === pageAvatars.length - 1 ? setLastElement : null}
               >
                 <AvatarImage
                   href={avatar.avatar}

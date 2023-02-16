@@ -69,15 +69,37 @@ export const avatarRouter = createTRPCRouter({
     }
   }),
   // Get previous avatars
-  getHistoricalAvatars: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.historicalAvatar.findMany({
-      where: { userId: ctx.session.user.id },
-      orderBy: { createdAt: "desc" },
-    });
-  }),
+  getHistoricalAvatars: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(1000).nullish(),
+        cursor: z.number().nullish(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 50;
+      const { cursor } = input;
+      const avatars = await ctx.prisma.historicalAvatar.findMany({
+        take: limit + 1,
+        where: { userId: ctx.session.user.id },
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { id: "desc" },
+      });
+      // Next cursor
+      let nextCursor: typeof cursor | undefined = undefined;
+      if (avatars.length > limit) {
+        const nextItem = avatars.pop();
+        nextCursor = nextItem?.id;
+      }
+      // Return data, total and next cursor
+      return {
+        data: avatars,
+        nextCursor,
+      };
+    }),
   // Update user avatar based on hisotical avatar
   updateAvatar: protectedProcedure
-    .input(z.object({ avatar: z.string().cuid() }))
+    .input(z.object({ avatar: z.number() }))
     .mutation(async ({ ctx, input }) => {
       // Check if avatar exists
       const avatar = await ctx.prisma.historicalAvatar.findUniqueOrThrow({
