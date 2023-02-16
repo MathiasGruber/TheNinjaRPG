@@ -17,6 +17,7 @@ export const colors = [
   "White",
   "Gray",
 ] as const;
+export const skin_colors = ["Light", "Dark", "Olive", "Alibino"] as const;
 export const genders = ["Male", "Female"] as const;
 
 export const registrationSchema = z
@@ -33,7 +34,7 @@ export const registrationSchema = z
     gender: z.enum(genders),
     hair_color: z.enum(colors),
     eye_color: z.enum(colors),
-    skin_color: z.enum(colors),
+    skin_color: z.enum(skin_colors),
     attribute_1: z.enum(attributes),
     attribute_2: z.enum(attributes),
     attribute_3: z.enum(attributes),

@@ -12,8 +12,6 @@ This is the source code for the game TheNinja-RPG.com.
 
 - Pagination on old avatars
 
-- Register globe spinning
-- Register globe mark village location
 - Spin out avatar routes to separate file
 
 - Bugs page

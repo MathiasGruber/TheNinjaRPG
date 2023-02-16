@@ -7,12 +7,19 @@ const prisma = new PrismaClient();
 async function main() {
   // Default villages
   const villages = [
-    { name: "Konoki", longitude: 35.0, latitude: 35.0 },
-    { name: "Shroud", longitude: 40.0, latitude: 40.0 },
+    { name: "Konoki", longitude: 35.0, latitude: 35.0, sector: 105 },
+    { name: "Shroud", longitude: 40.0, latitude: 40.0, sector: 90 },
+    { name: "Silence", longitude: 40.0, latitude: 40.0, sector: 80 },
+    { name: "Current", longitude: 40.0, latitude: 40.0, sector: 105 },
+    { name: "Horizon", longitude: 40.0, latitude: 40.0, sector: 105 },
+    { name: "Samui", longitude: 40.0, latitude: 40.0, sector: 105 },
+    { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 105 },
   ];
   for (const village of villages) {
     await prisma.village.upsert({
-      where: { name: village.name },
+      where: {
+        name: village.name,
+      },
       update: {},
       create: village,
     });

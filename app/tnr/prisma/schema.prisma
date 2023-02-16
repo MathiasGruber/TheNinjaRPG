@@ -151,6 +151,7 @@ model Village {
     name      String     @unique
     longitude Int
     latitude  Int
+    sector    Int        @default(1)
     UserData  UserData[]
 }
 

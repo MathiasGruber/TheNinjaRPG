@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Village` ADD COLUMN `sector` INTEGER NOT NULL DEFAULT 1;

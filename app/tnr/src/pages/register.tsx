@@ -14,7 +14,7 @@ import { useUser } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { registrationSchema } from "../validators/register";
 import { attributes } from "../validators/register";
-import { colors } from "../validators/register";
+import { colors, skin_colors } from "../validators/register";
 import { genders } from "../validators/register";
 import { type RegistrationSchema } from "../validators/register";
 import { show_toast } from "../libs/toast";
@@ -108,6 +108,11 @@ const Register: React.FC = () => {
       {color}
     </option>
   ));
+  const option_skins = skin_colors.map((color, index) => (
+    <option value={color} key={index}>
+      {color}
+    </option>
+  ));
 
   return (
     <form onSubmit={onSubmit}>
@@ -115,7 +120,7 @@ const Register: React.FC = () => {
         title="Create Character"
         subtitle="Set up your character. An AI will generate an avatar for you based on your choices."
       >
-        <div className="grid grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           <div>
             <InputField
               id="username"
@@ -136,7 +141,7 @@ const Register: React.FC = () => {
                 </option>
               ))}
             </SelectField>
-            <Map />
+            <Map intersection={false} highlights={villages} />
           </div>
           <div>
             <SelectField
@@ -175,7 +180,7 @@ const Register: React.FC = () => {
               register={register}
               error={errors.skin_color?.message}
             >
-              {option_colors}
+              {option_skins}
             </SelectField>
             <SelectField
               id="attribute_1"

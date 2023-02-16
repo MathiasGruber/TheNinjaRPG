@@ -6,7 +6,7 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { useUser } from "../utils/UserContext";
 
-const MenuBoxProfile: React.FC = (props) => {
+const MenuBoxProfile: React.FC = () => {
   const { data: userData } = useUser();
   if (!userData) {
     return <div></div>;

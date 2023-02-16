@@ -1,6 +1,5 @@
 import { type NextPage } from "next";
 import { useState } from "react";
-import { useRouter } from "next/router";
 import ContentBox from "../layout/ContentBox";
 import Button from "../layout/Button";
 import AvatarImage from "../layout/Avatar";

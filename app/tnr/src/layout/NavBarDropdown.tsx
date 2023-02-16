@@ -4,6 +4,7 @@ import Link from "next/link";
 export interface NavBarDropdownLink {
   href: string;
   name: string;
+  icon?: React.ReactNode;
   onClick?: () => Promise<undefined>;
 }
 

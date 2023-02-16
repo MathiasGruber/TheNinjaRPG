@@ -45,6 +45,7 @@ initial_setup: # Connect to app container.
 	@echo "${YELLOW}Enter into app docker container${RESET}"
 	docker exec -it tnr_app yarn prisma generate
 	docker exec -it tnr_app yarn prisma migrate dev --name init
+	docker exec -it tnr_app yarn prisma db seed
 
 --------------MIGRATIONS----------------: # -------------------------------------------------------
 

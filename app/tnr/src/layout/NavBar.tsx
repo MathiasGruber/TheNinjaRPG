@@ -30,6 +30,10 @@ const NavBar: React.FC = () => {
       href: "features",
       name: "Features",
     },
+    {
+      href: "https://github.com/MathiasGruber/TheNinjaRPG",
+      name: "GitHub",
+    },
   ];
   // Add login or logout button
   if (sessionData) {
@@ -91,6 +95,7 @@ const NavBar: React.FC = () => {
               className="basis-1/5 font-bold"
               href={link.href}
               onClick={link.onClick}
+              prefetch={false}
             >
               {link.name}
             </Link>
