@@ -15,10 +15,10 @@ const Avatar: NextPage = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const { data: userData, refetch: refetchUserData } = useRequiredUser();
   // Fetch historical avatars query
-  const historicalAvatars = api.profile.getHistoricalAvatars.useQuery();
+  const historicalAvatars = api.avatar.getHistoricalAvatars.useQuery();
   console.log(historicalAvatars);
   // Update avatar mutation
-  const updateAvatar = api.profile.updateAvatar.useMutation({
+  const updateAvatar = api.avatar.updateAvatar.useMutation({
     onMutate: () => {
       setLoading(true);
     },
@@ -33,7 +33,7 @@ const Avatar: NextPage = () => {
     },
   });
   // Create new avatar mutation
-  const createAvatar = api.profile.createAvatar.useMutation({
+  const createAvatar = api.avatar.createAvatar.useMutation({
     onMutate: () => {
       setLoading(true);
     },
@@ -109,9 +109,7 @@ const Avatar: NextPage = () => {
                 />
               </>
             ) : (
-              <p className="text-red-500">
-                Creating a new avatar costs 1 popularity point
-              </p>
+              <p className="text-red-500">Requires 1 popularity point</p>
             )}
           </div>
         </div>

@@ -34,7 +34,7 @@ const Register: React.FC = () => {
   const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Create avatar mutation
-  const createAvatar = api.profile.createAvatar.useMutation();
+  const createAvatar = api.avatar.createAvatar.useMutation();
 
   // Create character mutation
   const createCharacter = api.profile.createCharacter.useMutation({
