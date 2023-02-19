@@ -10,14 +10,21 @@ This is the source code for the game TheNinja-RPG.com.
 
 # Current ToDo List
 
-- Pagination on old avatars
-
-- Spin out avatar routes to separate file
-
 - Bugs page
-- Features page
+- Refactor infinite scrolling implementation
+- Infinite scrolling for bugs and for comments
+- Validate rich text input, likely with https://www.npmjs.com/package/sanitize-html-react. Only if needed though!
+- Delete bug
+- Ban feature for spammers
+
+- Automatic phpmyadmin login
+
 - Forum page
 - Tavern page with redis
 
 - Travel system
 - Async battle system
+
+# Licensing
+
+This source code is released with [no license](https://choosealicense.com/no-permission/), meaning that the work is under exclusive copyright. The reason for this is that we do not wish for countless of online game copies to be released and float around the internet.

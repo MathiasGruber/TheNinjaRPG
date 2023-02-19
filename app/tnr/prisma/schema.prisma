@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+    provider        = "prisma-client-js"
+    previewFeatures = ["filteredRelationCount"]
 }
 
 datasource db {
@@ -69,54 +70,58 @@ model User {
 }
 
 model UserData {
-    userId            String     @unique
-    user              User       @relation(fields: [userId], references: [id])
-    username          String     @unique
+    userId            String       @unique
+    user              User         @relation(fields: [userId], references: [id])
+    username          String       @unique
     // Statistics    
     gender            String
     // Bars
-    cur_health        Int        @default(100)
-    max_health        Int        @default(100)
-    cur_chakra        Int        @default(100)
-    max_chakra        Int        @default(100)
-    cur_stamina       Int        @default(100)
-    max_stamina       Int        @default(100)
-    regeneration      Int        @default(100)
+    cur_health        Int          @default(100)
+    max_health        Int          @default(100)
+    cur_chakra        Int          @default(100)
+    max_chakra        Int          @default(100)
+    cur_stamina       Int          @default(100)
+    max_stamina       Int          @default(100)
+    regeneration      Int          @default(100)
     // Financials
-    money             Int        @default(100)
-    bank              Int        @default(100)
+    money             Int          @default(100)
+    bank              Int          @default(100)
     // Experience
-    experience        Int        @default(0)
-    pvp_experience    Int        @default(0)
+    experience        Int          @default(0)
+    pvp_experience    Int          @default(0)
     // Rank & Village
-    rank              String     @default("Student")
-    level             Int        @default(1)
+    rank              String       @default("Student")
+    level             Int          @default(1)
     villageId         String?
-    village           Village?   @relation(fields: [villageId], references: [id])
+    village           Village?     @relation(fields: [villageId], references: [id])
     bloodlineId       String?
-    bloodline         Bloodline? @relation(fields: [bloodlineId], references: [id])
+    bloodline         Bloodline?   @relation(fields: [bloodlineId], references: [id])
     // Generals
-    status            String     @default("Awake")
-    strength          Int        @default(10)
-    intelligence      Int        @default(10)
-    willpower         Int        @default(10)
-    speed             Int        @default(10)
+    status            String       @default("Awake")
+    strength          Int          @default(10)
+    intelligence      Int          @default(10)
+    willpower         Int          @default(10)
+    speed             Int          @default(10)
     // Specialities
-    ninjutsu_offence  Int        @default(10)
-    ninjutsu_defence  Int        @default(10)
-    genjutsu_offence  Int        @default(10)
-    genjutsu_defence  Int        @default(10)
-    taijutsu_offence  Int        @default(10)
-    taijutsu_defence  Int        @default(10)
-    weapon_offence    Int        @default(10)
-    weapon_defence    Int        @default(10)
+    ninjutsu_offence  Int          @default(10)
+    ninjutsu_defence  Int          @default(10)
+    genjutsu_offence  Int          @default(10)
+    genjutsu_defence  Int          @default(10)
+    taijutsu_offence  Int          @default(10)
+    taijutsu_defence  Int          @default(10)
+    weapon_offence    Int          @default(10)
+    weapon_defence    Int          @default(10)
     // Purchase Points
-    reputation_points Int        @default(0)
-    popularity_points Int        @default(1) // Required for initial avatar creation
+    reputation_points Int          @default(0)
+    popularity_points Int          @default(1) // Required for initial avatar creation
     // Approved ToS
-    approved_tos      Boolean    @default(false)
+    approved_tos      Boolean      @default(false)
     // Avatar link
     avatar            String?
+    // Relations
+    BugReport         BugReport[]
+    BugVotes          BugUpVotes[]
+    BugComment        BugComment[]
 }
 
 model VerificationToken {
@@ -135,7 +140,7 @@ model UserAttribute {
 }
 
 model HistoricalAvatar {
-    id        String   @id @default(cuid())
+    id        Int      @id @default(autoincrement())
     avatar    String
     user      User     @relation(fields: [userId], references: [id])
     createdAt DateTime @default(now())
@@ -159,4 +164,42 @@ model Bloodline {
     id       String     @id @default(cuid())
     name     String     @unique
     UserData UserData[]
+}
+
+//*****************************//
+//*********  SOCIAL ***********//
+//*****************************//
+
+model BugReport {
+    id          String       @id @default(cuid())
+    title       String
+    description String       @db.Text
+    summary     String       @default("No summary provided")
+    system      String
+    user        UserData     @relation(fields: [userId], references: [userId])
+    createdAt   DateTime     @default(now())
+    userId      String
+    votes       BugUpVotes[]
+    comments    BugComment[]
+}
+
+model BugUpVotes {
+    id        String    @id @default(cuid())
+    bug       BugReport @relation(fields: [bugId], references: [id])
+    user      UserData  @relation(fields: [userId], references: [userId])
+    createdAt DateTime  @default(now())
+    bugId     String
+    userId    String
+
+    @@unique([bugId, userId])
+}
+
+model BugComment {
+    id        String    @id @default(cuid())
+    content   String    @db.Text
+    createdAt DateTime  @default(now())
+    user      UserData  @relation(fields: [userId], references: [userId])
+    userId    String
+    bug       BugReport @relation(fields: [bugId], references: [id])
+    bugId     String
 }

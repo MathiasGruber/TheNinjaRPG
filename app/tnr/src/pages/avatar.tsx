@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useRef, useCallback } from "react";
+import { useRef } from "react";
 import { type NextPage } from "next";
 import { useState } from "react";
 import ContentBox from "../layout/ContentBox";
@@ -113,22 +113,19 @@ const Avatar: NextPage = () => {
         {showModel && (
           <Modal
             title="Confirm Avatar Change"
-            message="Changing your avatar will cost 1 popularity point. We would love to enable unlimited re-creations, but the model generating the avatars runs on NVidia A100 GPU cluster, and each generation costs a little bit of money. We are working on a solution to make this free, but for now, we need to charge a small fee to cover the cost of the GPU cluster."
             onAccept={() => {
               createAvatar.mutate();
               setShowModel(false);
             }}
             setIsOpen={setShowModel}
-            buttons={
-              <Button
-                id="create"
-                label="New Avatar (1 popularity point)"
-                onClick={() => {
-                  createAvatar.mutate();
-                }}
-              />
-            }
-          />
+          >
+            Changing your avatar will cost 1 popularity point. We would love to
+            enable unlimited re-creations, but the model generating the avatars
+            runs on NVidia A100 GPU cluster, and each generation costs a little
+            bit of money. We are working on a solution to make this free, but
+            for now, we need to charge a small fee to cover the cost of the GPU
+            cluster.
+          </Modal>
         )}
         <div className="flex">
           <div className="basis-1/2">

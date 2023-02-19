@@ -2,9 +2,9 @@ import React from "react";
 
 interface ModalProps {
   title: string;
-  message: string | React.ReactNode;
-  buttons?: React.ReactNode;
-  isOpen?: boolean;
+  children: string | React.ReactNode;
+  form?: string;
+  proceed_label?: string;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onAccept?: () => void;
 }
@@ -18,7 +18,7 @@ const Modal: React.FC<ModalProps> = (props) => {
           props.setIsOpen(false);
         }}
       ></div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform rounded-lg bg-white shadow dark:bg-gray-700">
+      <div className="absolute top-1/2 left-1/2 w-11/12 -translate-x-1/2 -translate-y-1/2 transform rounded-lg bg-white shadow dark:bg-gray-700">
         <div className="flex items-start justify-between rounded-t border-b p-4 dark:border-gray-600">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             {props.title}
@@ -47,21 +47,18 @@ const Modal: React.FC<ModalProps> = (props) => {
           </button>
         </div>
         <div className="space-y-6 p-6">
-          <p className="text-base leading-relaxed text-gray-500 dark:text-gray-400">
-            {props.message}
-          </p>
+          <div className="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+            {props.children}
+          </div>
         </div>
         <div className="flex items-center space-x-2 rounded-b border-t border-gray-200 p-6 dark:border-gray-600">
-          <button
-            data-modal-hide="defaultModal"
-            type="button"
-            className="rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+          <input
+            type="submit"
+            value={props.proceed_label ? props.proceed_label : "Proceed"}
             onClick={props.onAccept}
-          >
-            Proceed
-          </button>
+            className="rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+          ></input>
           <button
-            data-modal-hide="defaultModal"
             type="button"
             onClick={() => props.setIsOpen(false)}
             className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:z-10 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-600"

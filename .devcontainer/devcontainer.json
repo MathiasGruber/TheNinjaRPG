@@ -22,7 +22,8 @@
 	"dbaeumer.vscode-eslint",
 	"Prisma.prisma",
 	"GitHub.copilot",
-	"bradlc.vscode-tailwindcss"
+	"bradlc.vscode-tailwindcss",
+	"wix.vscode-import-cost"
 ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],

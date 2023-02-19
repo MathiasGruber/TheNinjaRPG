@@ -6,7 +6,7 @@ const IconEdit: React.FC = () => {
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       fill="currentColor"
-      className="h-6 w-6 fill-current"
+      className="h-6 w-6 fill-current hover:fill-orange-500"
     >
       <path
         fillRule="evenodd"

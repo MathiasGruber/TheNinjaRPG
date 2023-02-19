@@ -8,7 +8,7 @@ interface EditBtnProps {
 
 const EditBtn: React.FC<EditBtnProps> = (props) => {
   return (
-    <Link href={props.href ?? ""}>
+    <Link href={props.href ?? "/"}>
       <IconEdit />
     </Link>
   );

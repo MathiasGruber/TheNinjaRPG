@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+
 import ContentBox from "../layout/ContentBox";
 import InputField from "../layout/InputField";
 import SelectField from "../layout/SelectField";
@@ -10,6 +11,7 @@ import CheckBox from "../layout/CheckBox";
 import SubmitButton from "../layout/SubmitButton";
 import Loader from "../layout/Loader";
 import Map from "../layout/Map";
+
 import { useUser } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { registrationSchema } from "../validators/register";

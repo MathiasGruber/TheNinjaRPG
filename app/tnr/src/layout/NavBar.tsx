@@ -19,20 +19,16 @@ const NavBar: React.FC = () => {
       name: "Home",
     },
     {
-      href: "forum",
+      href: "/forum",
       name: "Forum",
     },
     {
-      href: "report_bug",
+      href: "/bugs",
       name: "Bugs",
     },
     {
-      href: "features",
-      name: "Features",
-    },
-    {
-      href: "https://github.com/MathiasGruber/TheNinjaRPG",
-      name: "GitHub",
+      href: "/github",
+      name: "Contribute",
     },
   ];
   // Add login or logout button
