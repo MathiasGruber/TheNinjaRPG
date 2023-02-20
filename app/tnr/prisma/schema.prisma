@@ -56,12 +56,19 @@ model Session {
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+enum Role {
+    USER
+    MODERATOR
+    ADMIN
+}
+
 model User {
     id               String             @id @default(cuid())
     name             String?
     email            String?            @unique
     emailVerified    DateTime?
     image            String?
+    role             Role               @default(USER)
     accounts         Account[]
     sessions         Session[]
     userdata         UserData?
@@ -120,7 +127,7 @@ model UserData {
     avatar            String?
     // Relations
     BugReport         BugReport[]
-    BugVotes          BugUpVotes[]
+    BugVotes          BugVotes[]
     BugComment        BugComment[]
 }
 
@@ -179,15 +186,18 @@ model BugReport {
     user        UserData     @relation(fields: [userId], references: [userId])
     createdAt   DateTime     @default(now())
     userId      String
-    votes       BugUpVotes[]
+    is_resolved Boolean      @default(false)
+    popularity  Int          @default(0)
+    votes       BugVotes[]
     comments    BugComment[]
 }
 
-model BugUpVotes {
+model BugVotes {
     id        String    @id @default(cuid())
     bug       BugReport @relation(fields: [bugId], references: [id])
     user      UserData  @relation(fields: [userId], references: [userId])
     createdAt DateTime  @default(now())
+    value     Int       @db.TinyInt
     bugId     String
     userId    String
 

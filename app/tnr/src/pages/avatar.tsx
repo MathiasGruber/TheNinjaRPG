@@ -1,32 +1,28 @@
-import { useEffect } from "react";
-import { useRef } from "react";
 import { type NextPage } from "next";
 import { useState } from "react";
 import ContentBox from "../layout/ContentBox";
 import Button from "../layout/Button";
 import AvatarImage from "../layout/Avatar";
 import Loader from "../layout/Loader";
-import Modal from "../layout/Modal";
+import Confirm from "../layout/Confirm";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { useRequiredUser } from "../utils/UserContext";
+import { useInfinitePagination } from "../libs/pagination";
 
 const Avatar: NextPage = () => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [page, setPage] = useState(0);
-  const [showModel, setShowModel] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const { data: userData, refetch: refetchUserData } = useRequiredUser();
   // Fetch historical avatars query
-  const avatarLimit = 10;
   const {
     data: historicalAvatars,
     fetchNextPage,
     hasNextPage,
   } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
     {
-      limit: avatarLimit,
+      limit: 20,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -34,42 +30,13 @@ const Avatar: NextPage = () => {
     }
   );
   const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
-  // Infinite scroll for fetching avatars
-  // Setup observer with intersectionobsever initially
-  const observer = useRef<IntersectionObserver | null>();
-  useEffect(() => {
-    observer.current = new IntersectionObserver((entries) => {
-      const first = entries[0];
-      if (first && first.isIntersecting) {
-        setPage((prev) => prev + 1);
-      }
-    });
-  }, []); // do this only once, on mount
 
-  useEffect(() => {
-    const fetchData = async () => {
-      await fetchNextPage();
-    };
-    if (hasNextPage) {
-      fetchData().catch(() => {
-        show_toast(
-          "Error fetching avatars",
-          "Error fetching next batch of avatars",
-          "error"
-        );
-      });
-    }
-  }, [page, hasNextPage, fetchNextPage]);
-  useEffect(() => {
-    if (lastElement && observer.current) {
-      observer.current.observe(lastElement);
-    }
-    return () => {
-      if (lastElement && observer.current) {
-        observer.current.unobserve(lastElement);
-      }
-    };
-  }, [lastElement]);
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
   // Update avatar mutation
   const updateAvatar = api.avatar.updateAvatar.useMutation({
     onMutate: () => {
@@ -110,23 +77,6 @@ const Avatar: NextPage = () => {
         title="Change Avatar"
         subtitle="AI generates the avatar for your character. "
       >
-        {showModel && (
-          <Modal
-            title="Confirm Avatar Change"
-            onAccept={() => {
-              createAvatar.mutate();
-              setShowModel(false);
-            }}
-            setIsOpen={setShowModel}
-          >
-            Changing your avatar will cost 1 popularity point. We would love to
-            enable unlimited re-creations, but the model generating the avatars
-            runs on NVidia A100 GPU cluster, and each generation costs a little
-            bit of money. We are working on a solution to make this free, but
-            for now, we need to charge a small fee to cover the cost of the GPU
-            cluster.
-          </Modal>
-        )}
         <div className="flex">
           <div className="basis-1/2">
             {userData && (
@@ -151,13 +101,21 @@ const Avatar: NextPage = () => {
             {userData?.popularity_points > 0 ? (
               <>
                 <p className="italic">- Costs 1 popularity point</p>
-                <Button
-                  id="create"
-                  label="New Avatar"
-                  onClick={() => {
-                    setShowModel(true);
+                <Confirm
+                  title="Confirm Avatar Change"
+                  button={<Button id="create" label="New Avatar" />}
+                  onAccept={(e) => {
+                    e.preventDefault();
+                    createAvatar.mutate();
                   }}
-                />
+                >
+                  Changing your avatar will cost 1 popularity point. We would
+                  love to enable unlimited re-creations, but the model
+                  generating the avatars runs on NVidia A100 GPU cluster, and
+                  each generation costs a little bit of money. We are working on
+                  a solution to make this free, but for now, we need to charge a
+                  small fee to cover the cost of the GPU cluster.
+                </Confirm>
               </>
             ) : (
               <p className="text-red-500">Requires 1 popularity point</p>

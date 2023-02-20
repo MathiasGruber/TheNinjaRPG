@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import IconGlobe from "./IconGlobe";
-import IconHome from "./IconHome";
+import IconGlobe from "../icons/IconGlobe";
+import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown, { type NavBarDropdownLink } from "./NavBarDropdown";

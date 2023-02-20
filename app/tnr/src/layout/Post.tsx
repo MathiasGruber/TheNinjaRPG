@@ -10,7 +10,7 @@ interface PostProps {
   };
   title: string;
   children: React.ReactNode;
-  options: React.ReactNode;
+  options?: React.ReactNode;
 }
 
 const Post: React.FC<PostProps> = (props) => {

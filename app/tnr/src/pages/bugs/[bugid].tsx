@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type NextPage } from "next";
 import { useForm, FormProvider } from "react-hook-form";
 import { useSession } from "next-auth/react";
@@ -14,47 +15,62 @@ import { api } from "../../utils/api";
 import { type CreateCommentSchema } from "../../validators/bugs";
 import { createCommentSchema } from "../../validators/bugs";
 import { show_toast } from "../../libs/toast";
+import { useInfinitePagination } from "../../libs/pagination";
 
 const BugReport: NextPage = () => {
-  // Get the bug report & comments in question
+  const { data: sessionData } = useSession();
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
   const bug_id = router.query.bugid as string;
-  const { data: bug, refetch: refetchBug } = api.bugs.get.useQuery(
+
+  const { data: bug } = api.bugs.get.useQuery(
     { id: bug_id },
     { enabled: bug_id !== undefined }
   );
-  const { data: comments, refetch: refetchComments } =
-    api.bugs.getComments.useQuery(
-      { id: bug_id },
-      { enabled: bug_id !== undefined }
-    );
-  // Post comment
+
+  const {
+    data: comments,
+    fetchNextPage,
+    hasNextPage,
+    refetch,
+  } = api.bugs.getComments.useInfiniteQuery(
+    { id: bug_id, limit: 20 },
+    {
+      enabled: bug_id !== undefined,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const allComments = comments?.pages.map((page) => page.data).flat();
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
   const createComment = api.bugs.createComment.useMutation({
     onSuccess: async () => {
-      await refetchComments();
+      await refetch();
     },
     onError: (error) => {
       show_toast("Error on creating comment", error.message, "error");
     },
   });
-  // User data
-  const { data: sessionData } = useSession();
+
   // Form handling
   const methods = useForm<CreateCommentSchema>({
     resolver: zodResolver(createCommentSchema),
   });
-  // Destruct methods
   const {
     register,
     handleSubmit,
     control,
     formState: { errors },
   } = methods;
-  // Handle form submit
   const onSubmit = handleSubmit(async (data) => {
-    console.log("Calling onsubmit", data);
     createComment.mutate(data);
-    await refetchComments();
+    await refetch();
   });
 
   return (
@@ -80,18 +96,8 @@ const BugReport: NextPage = () => {
         </ContentBox>
 
         <ContentBox title="Further Input / Chat">
-          {comments &&
-            comments.map((comment) => (
-              <Post
-                key={comment.id}
-                title={comment.user.username}
-                user={comment.user}
-              >
-                {ReactHtmlParser(comment.content)}
-              </Post>
-            ))}
           {bug && sessionData && (
-            <div>
+            <div className="mb-3">
               <RichInput
                 id="comment"
                 height="200"
@@ -100,9 +106,23 @@ const BugReport: NextPage = () => {
                 error={errors.comment?.message}
               />
               <HiddenField register={register} id="bug_id" value={bug.id} />
-              <SubmitButton id="submit_comment" label="Add Comment" />
+              <div className="flex flex-row-reverse">
+                <SubmitButton id="submit_comment" label="Add Comment" />
+                <SubmitButton id="submit_resolve" label="Comment & Resolve" />
+              </div>
             </div>
           )}
+          {allComments &&
+            allComments.map((comment, i) => (
+              <div
+                key={comment.id}
+                ref={i === allComments.length - 1 ? setLastElement : null}
+              >
+                <Post title={comment.user.username} user={comment.user}>
+                  {ReactHtmlParser(comment.content)}
+                </Post>
+              </div>
+            ))}
         </ContentBox>
       </form>
     </FormProvider>

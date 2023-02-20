@@ -1,10 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import MenuBox from "./MenuBox";
-import EditBtn from "./EditBtn";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { useUser } from "../utils/UserContext";
+import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData } = useUser();
@@ -14,7 +14,11 @@ const MenuBoxProfile: React.FC = () => {
   return (
     <MenuBox
       title={"Hi " + userData.username}
-      link={<EditBtn href="/avatar" />}
+      link={
+        <Link href="/avatar">
+          <WrenchScrewdriverIcon className="h-6 w-6 hover:fill-orange-500" />
+        </Link>
+      }
     >
       <div className="flex-col items-center justify-center">
         <Link href="/avatar">
@@ -22,6 +26,7 @@ const MenuBoxProfile: React.FC = () => {
             href={userData.avatar}
             alt={userData.username}
             size={100}
+            priority
           />
         </Link>
 

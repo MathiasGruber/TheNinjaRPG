@@ -72,7 +72,7 @@ export const avatarRouter = createTRPCRouter({
   getHistoricalAvatars: protectedProcedure
     .input(
       z.object({
-        limit: z.number().min(1).max(1000).nullish(),
+        limit: z.number().min(1).max(100).nullish(),
         cursor: z.number().nullish(),
       })
     )
@@ -91,7 +91,7 @@ export const avatarRouter = createTRPCRouter({
         const nextItem = avatars.pop();
         nextCursor = nextItem?.id;
       }
-      // Return data, total and next cursor
+      // Return data and next cursor
       return {
         data: avatars,
         nextCursor,

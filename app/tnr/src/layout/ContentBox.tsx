@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import IconChevronLeft from "./IconChevronLeft";
+import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
 
 interface ContentBoxProps {
   children: React.ReactNode;
@@ -18,15 +18,13 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           <div>
             <h2 className="text-2xl font-bold text-orange-900">
               {props.back_href ? (
-                <div className="flex flex-row items-center ">
-                  <IconChevronLeft />
-                  <Link
-                    className="ml-1 hover:text-orange-700"
-                    href={props.back_href}
-                  >
-                    {props.title}
-                  </Link>
-                </div>
+                <Link
+                  className="ml-1 flex flex-row items-center hover:text-orange-700"
+                  href={props.back_href}
+                >
+                  <ChevronDoubleLeftIcon className="h-6 w-6" />
+                  {props.title}
+                </Link>
               ) : (
                 <div>{props.title}</div>
               )}

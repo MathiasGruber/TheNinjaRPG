@@ -11,11 +11,13 @@ This is the source code for the game TheNinja-RPG.com.
 # Current ToDo List
 
 - Bugs page
-- Refactor infinite scrolling implementation
-- Infinite scrolling for bugs and for comments
+- Remove linked comments when bugs are deleted
 - Validate rich text input, likely with https://www.npmjs.com/package/sanitize-html-react. Only if needed though!
-- Delete bug
 - Ban feature for spammers
+- Stop hover thing on un-clickable cards
+- Streamline onError for useQuery and useMutation - overwrite general
+- Throw errors on attempted admin actions from backend
+- Show what user voted for previously
 
 - Automatic phpmyadmin login
 

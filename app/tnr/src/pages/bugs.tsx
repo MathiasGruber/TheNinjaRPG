@@ -10,8 +10,11 @@ import InputField from "../layout/InputField";
 import SelectField from "../layout/SelectField";
 import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
-import IconThumbsUp from "../layout/IconThumbsUp";
-import IconThumbsDown from "../layout/IconThumbsDown";
+import Confirm from "../layout/Confirm";
+import { HandThumbDownIcon } from "@heroicons/react/24/outline";
+import { HandThumbUpIcon } from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
+
 import Modal from "../layout/Modal";
 import Post from "../layout/Post";
 import { api } from "../utils/api";
@@ -19,81 +22,116 @@ import { systems } from "../validators/bugs";
 import { type BugreportSchema } from "../validators/bugs";
 import { bugreportSchema } from "../validators/bugs";
 import { show_toast } from "../libs/toast";
+import { useInfinitePagination } from "../libs/pagination";
 
 const BugReport: NextPage = () => {
-  const { data: bugs, refetch: refetchBugs } = api.bugs.getAll.useQuery();
+  const { data: sessionData } = useSession();
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showActive, setShowActive] = useState<boolean>(true);
+
+  const {
+    data: bugs,
+    fetchNextPage,
+    hasNextPage,
+    refetch,
+  } = api.bugs.getAll.useInfiniteQuery(
+    {
+      is_active: showActive,
+      limit: 20,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const allBugs = bugs?.pages.map((page) => page.data).flat();
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
 
   const createReport = api.bugs.create.useMutation({
     onSuccess: async () => {
-      await refetchBugs();
+      await refetch();
     },
     onError: (error) => {
       show_toast("Error on fetching latest bugs", error.message, "error");
     },
   });
 
-  const createUpvote = api.bugs.upvote.useMutation({
+  const createVote = api.bugs.vote.useMutation({
     onSuccess: async () => {
-      await refetchBugs();
+      await refetch();
     },
     onError: (error) => {
       show_toast("Error on upvoting bug", error.message, "error");
     },
   });
 
-  const createDownvote = api.bugs.downvote.useMutation({
+  const deleteReport = api.bugs.delete.useMutation({
     onSuccess: async () => {
-      await refetchBugs();
+      await refetch();
     },
     onError: (error) => {
-      show_toast("Error on upvoting bug", error.message, "error");
+      show_toast("Error on deleting bug", error.message, "error");
     },
   });
-  const [showModal, setShowModal] = useState<boolean>(false);
-  // User data
-  const { data: sessionData } = useSession();
+
   // Form handling
   const methods = useForm<BugreportSchema>({
     resolver: zodResolver(bugreportSchema),
   });
-  // Destruct methods
   const {
     register,
     handleSubmit,
     control,
     formState: { errors },
   } = methods;
-  // Handle form submit
   const onSubmit = handleSubmit(async (data) => {
-    console.log("Calling onsubmit");
     createReport.mutate(data);
-    await refetchBugs();
+    await refetch();
     setShowModal(false);
   });
 
   return (
-    <FormProvider {...methods}>
-      <form onSubmit={onSubmit}>
-        <ContentBox
-          title="Report Bugs"
-          subtitle="Found a bug? Let us know!"
-          topRightContent={
-            sessionData && (
-              <Button
-                id="report"
-                label="New Report"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowModal(true);
-                }}
+    <ContentBox
+      title="Report Bugs"
+      subtitle="Found a bug? Let us know!"
+      topRightContent={
+        sessionData && (
+          <div className="flex flex-row items-baseline">
+            <label className="relative mr-3 inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                value=""
+                className="peer sr-only"
+                onClick={() => setShowActive((prev) => !prev)}
               />
-            )
-          }
-        >
+              <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:top-[3px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-orange-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300"></div>
+              <span className="ml-3 text-base text-gray-900">
+                Showing {showActive ? "active" : "solved"}
+              </span>
+            </label>
+            <Button
+              id="report"
+              label="New Report"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowModal(true);
+              }}
+            />
+          </div>
+        )
+      }
+    >
+      <FormProvider {...methods}>
+        <form onSubmit={onSubmit}>
           {showModal && sessionData && (
             <Modal
               title="Write a new bug report"
-              form="report_bug"
               proceed_label="Submit"
               setIsOpen={setShowModal}
             >
@@ -139,49 +177,71 @@ const BugReport: NextPage = () => {
               </div>
             </Modal>
           )}
+        </form>
+      </FormProvider>
 
-          {bugs &&
-            bugs.map((bug) => (
-              <Link key={bug.id} href={"/bugs/" + bug.id}>
-                <Post
-                  title={bug.title}
-                  options={
-                    <div className="flex flex-col items-center">
-                      <p className="text-2xl font-bold">{bug._count.votes}</p>
-                      <p className="">votes</p>
-                      <div className="flex flex-row">
-                        <div
-                          onClick={(e) => {
-                            e.preventDefault();
-                            createDownvote.mutate({ id: bug.id });
-                          }}
-                        >
-                          <IconThumbsDown />
-                        </div>
-                        <div
-                          onClick={(e) => {
-                            e.preventDefault();
-                            createUpvote.mutate({ id: bug.id });
-                          }}
-                        >
-                          <IconThumbsUp />
-                        </div>
+      {allBugs &&
+        allBugs.map((bug, i) => (
+          <div
+            key={bug.id}
+            ref={i === allBugs.length - 1 ? setLastElement : null}
+          >
+            <Link href={"/bugs/" + bug.id}>
+              <Post
+                title={bug.title}
+                options={
+                  <div className="flex flex-col items-center">
+                    <p className="text-2xl font-bold">{bug.popularity}</p>
+                    <p className="">votes</p>
+                    <div className="flex flex-row">
+                      <div
+                        className="mr-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          createVote.mutate({ id: bug.id, value: -1 });
+                        }}
+                      >
+                        <HandThumbDownIcon className="h-6 w-6 hover:fill-orange-500" />
                       </div>
+                      <div
+                        className="mr-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          createVote.mutate({ id: bug.id, value: 1 });
+                        }}
+                      >
+                        <HandThumbUpIcon className="h-6 w-6 hover:fill-orange-500" />
+                      </div>
+                      {sessionData?.user?.role == "ADMIN" && (
+                        <Confirm
+                          title="Confirm Bug Report Deletion"
+                          button={
+                            <TrashIcon className="h-6 w-6 hover:fill-orange-500" />
+                          }
+                          onAccept={(e) => {
+                            e.preventDefault();
+                            deleteReport.mutate({ id: bug.id });
+                          }}
+                        >
+                          You are about to delete a bug report. Are you sure? If
+                          the bug is resolved, it should simply be closed.
+                        </Confirm>
+                      )}
                     </div>
-                  }
-                >
-                  <div>
-                    {bug.summary}
-                    <br />
-                    <b>System:</b> {bug.system}, <b>Report by</b>{" "}
-                    {bug.user.username}
                   </div>
-                </Post>
-              </Link>
-            ))}
-        </ContentBox>
-      </form>
-    </FormProvider>
+                }
+              >
+                <div>
+                  {bug.summary}
+                  <br />
+                  <b>System:</b> {bug.system}, <b>Report by</b>{" "}
+                  {bug.user.username} at {bug.createdAt.toLocaleDateString()}
+                </div>
+              </Post>
+            </Link>
+          </div>
+        ))}
+    </ContentBox>
   );
 };
 

@@ -2,7 +2,7 @@ interface ButtonProps {
   id: string;
   label: string;
   image?: React.ReactNode;
-  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 const Button: React.FC<ButtonProps> = (props) => {
@@ -11,7 +11,7 @@ const Button: React.FC<ButtonProps> = (props) => {
       <button
         id={props.id}
         className="flex w-full flex-row items-center justify-center rounded-md bg-amber-900 p-2 px-2 font-bold text-white hover:bg-orange-800"
-        onClick={(e) => props.onClick(e)}
+        onClick={props.onClick}
       >
         {props.image && props.image}
         {props.label}

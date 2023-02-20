@@ -6,28 +6,48 @@ import { createCommentSchema } from "../../../validators/bugs";
 
 export const bugsRouter = createTRPCRouter({
   // Get all bugs in the system
-  getAll: publicProcedure.query(({ ctx }) => {
-    return ctx.prisma.bugReport.findMany({
-      include: {
-        _count: {
-          select: { votes: true },
+  getAll: publicProcedure
+    .input(
+      z.object({
+        is_active: z.boolean(),
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const bugs = await ctx.prisma.bugReport.findMany({
+        skip: skip,
+        take: input.limit,
+        where: {
+          is_resolved: !input.is_active,
         },
-        user: {
-          select: {
-            username: true,
-            avatar: true,
-            rank: true,
-            level: true,
+        include: {
+          user: {
+            select: {
+              username: true,
+              avatar: true,
+              rank: true,
+              level: true,
+            },
           },
         },
-      },
-      orderBy: {
-        votes: {
-          _count: "desc",
-        },
-      },
-    });
-  }),
+        orderBy: [
+          {
+            popularity: "desc",
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+      });
+      const nextCursor = bugs.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: bugs,
+        nextCursor: nextCursor,
+      };
+    }),
   // Get a single bug report
   get: publicProcedure
     .input(z.object({ id: z.string().cuid() }))
@@ -59,42 +79,72 @@ export const bugsRouter = createTRPCRouter({
         },
       });
     }),
-  // Upvote a bug report
-  upvote: protectedProcedure
+  // Delete a bug report
+  delete: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.prisma.bugUpVotes.upsert({
-        where: {
-          bugId_userId: {
-            bugId: input.id,
-            userId: ctx.session.user.id,
-          },
-        },
-        create: {
-          bugId: input.id,
-          userId: ctx.session.user.id,
-        },
-        update: {},
-      });
+      if (ctx.session.user.role === "ADMIN") {
+        return ctx.prisma.bugReport.delete({
+          where: { id: input.id },
+        });
+      }
     }),
-  // Downvote a bug report
-  downvote: protectedProcedure
+  // Mark a bug report as solved
+  markSolved: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      try {
-        await ctx.prisma.bugUpVotes.delete({
+      if (ctx.session.user.role === "ADMIN") {
+        return ctx.prisma.bugReport.update({
+          where: { id: input.id },
+          data: {
+            is_resolved: true,
+          },
+        });
+      }
+    }),
+  // Upvote a bug report
+  vote: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().cuid(),
+        value: z.number().min(-1).max(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.$transaction(async (tx) => {
+        // First upsert tracking entry
+        await tx.bugVotes.upsert({
           where: {
             bugId_userId: {
               bugId: input.id,
               userId: ctx.session.user.id,
             },
           },
+          create: {
+            bugId: input.id,
+            userId: ctx.session.user.id,
+            value: input.value,
+          },
+          update: {
+            value: input.value,
+          },
         });
-      } catch (e) {
-        console.log("Could not delete upvote: ", e);
-      }
+        // Count total popularity of bug report
+        const popularity = await tx.bugVotes.aggregate({
+          where: { bugId: input.id },
+          _sum: {
+            value: true,
+          },
+        });
+        // Then update bug popularity
+        await tx.bugReport.update({
+          where: { id: input.id },
+          data: {
+            popularity: popularity._sum.value as number,
+          },
+        });
+      });
     }),
-
   // Comment on a bug report
   createComment: protectedProcedure
     .input(createCommentSchema)
@@ -109,9 +159,19 @@ export const bugsRouter = createTRPCRouter({
     }),
   // Get comments for a given bug report
   getComments: publicProcedure
-    .input(z.object({ id: z.string().cuid() }))
+    .input(
+      z.object({
+        id: z.string().cuid(),
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.bugComment.findMany({
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const comments = await ctx.prisma.bugComment.findMany({
+        skip: skip,
+        take: input.limit,
         where: { bugId: input.id },
         include: {
           user: {
@@ -123,6 +183,15 @@ export const bugsRouter = createTRPCRouter({
             },
           },
         },
+        orderBy: {
+          createdAt: "desc",
+        },
       });
+      const nextCursor =
+        comments.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: comments,
+        nextCursor: nextCursor,
+      };
     }),
 });
