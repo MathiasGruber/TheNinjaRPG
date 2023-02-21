@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import { TrashIcon } from "@heroicons/react/24/outline";
@@ -49,16 +49,16 @@ const Comment: React.FC<CommentProps> = (props) => {
     },
   });
 
-  const methods = useForm<MutateCommentSchema>({
-    resolver: zodResolver(mutateCommentSchema),
-  });
   const {
     register,
     handleSubmit,
     reset,
     control,
     formState: { errors },
-  } = methods;
+  } = useForm<MutateCommentSchema>({
+    resolver: zodResolver(mutateCommentSchema),
+  });
+
   const onSubmit = handleSubmit((data) => {
     editComment.mutate(data);
     reset();
@@ -92,23 +92,21 @@ const Comment: React.FC<CommentProps> = (props) => {
       {...props}
     >
       {editing ? (
-        <FormProvider {...methods}>
-          <form onSubmit={onSubmit}>
-            <RichInput
-              id="comment"
-              height="200"
-              placeholder={props.comment.content}
-              control={control}
-              error={errors.comment?.message}
-            />
-            <HiddenField
-              register={register}
-              id="object_id"
-              value={props.comment.id}
-            />
-            <SubmitButton id="edit_comment" label="Edit Comment" />
-          </form>
-        </FormProvider>
+        <form onSubmit={onSubmit}>
+          <RichInput
+            id="comment"
+            height="200"
+            placeholder={props.comment.content}
+            control={control}
+            error={errors.comment?.message}
+          />
+          <HiddenField
+            register={register}
+            id="object_id"
+            value={props.comment.id}
+          />
+          <SubmitButton id="edit_comment" label="Edit Comment" />
+        </form>
       ) : (
         props.children
       )}

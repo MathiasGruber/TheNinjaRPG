@@ -104,24 +104,6 @@ export const bugsRouter = createTRPCRouter({
         });
       }
     }),
-  // Mark a bug report as solved
-  markSolved: protectedProcedure
-    .input(z.object({ id: z.string().cuid() }))
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role === "ADMIN") {
-        return ctx.prisma.bugReport.update({
-          where: { id: input.id },
-          data: {
-            is_resolved: true,
-          },
-        });
-      } else {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "You do not have permission to solve this bug report.",
-        });
-      }
-    }),
   // Upvote a bug report
   vote: protectedProcedure
     .input(
@@ -177,6 +159,34 @@ export const bugsRouter = createTRPCRouter({
         },
       });
     }),
+  // Comment on a bug report
+  resolveComment: protectedProcedure
+    .input(mutateCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role === "ADMIN") {
+        await ctx.prisma.$transaction(async (tx) => {
+          // First upsert tracking entry
+          await tx.bugComment.create({
+            data: {
+              content: sanitize(input.comment),
+              userId: ctx.session.user.id,
+              bugId: input.object_id,
+            },
+          });
+          await tx.bugReport.update({
+            where: { id: input.object_id },
+            data: {
+              is_resolved: true,
+            },
+          });
+        });
+      } else {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have permission to resolve this bug report.",
+        });
+      }
+    }),
   // Edit a comment
   editComment: protectedProcedure
     .input(mutateCommentSchema)
@@ -204,7 +214,10 @@ export const bugsRouter = createTRPCRouter({
       const comment = await ctx.prisma.bugComment.findUnique({
         where: { id: input.id },
       });
-      if (comment?.userId === ctx.session.user.id) {
+      if (
+        comment?.userId === ctx.session.user.id ||
+        ctx.session.user.role === "ADMIN"
+      ) {
         return ctx.prisma.bugComment.delete({
           where: { id: input.id },
         });

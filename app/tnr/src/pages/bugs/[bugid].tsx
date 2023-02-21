@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
@@ -24,7 +24,7 @@ const BugReport: NextPage = () => {
   const router = useRouter();
   const bug_id = router.query.bugid as string;
 
-  const { data: bug } = api.bugs.get.useQuery(
+  const { data: bug, refetch: refetchBug } = api.bugs.get.useQuery(
     { id: bug_id },
     { enabled: bug_id !== undefined }
   );
@@ -59,19 +59,34 @@ const BugReport: NextPage = () => {
     },
   });
 
-  // Form handling
-  const methods = useForm<MutateCommentSchema>({
-    resolver: zodResolver(mutateCommentSchema),
+  const resolveComment = api.bugs.resolveComment.useMutation({
+    onSuccess: async () => {
+      await refetchBug();
+      await refetch();
+    },
+    onError: (error) => {
+      show_toast("Error on creating comment", error.message, "error");
+    },
   });
+
+  // Form handling
   const {
     register,
     handleSubmit,
     reset,
     control,
     formState: { errors },
-  } = methods;
-  const onSubmit = handleSubmit((data) => {
+  } = useForm<MutateCommentSchema>({
+    resolver: zodResolver(mutateCommentSchema),
+  });
+
+  const handleSubmitComment = handleSubmit((data) => {
     createComment.mutate(data);
+    reset();
+  });
+
+  const handleSubmitResolve = handleSubmit((data) => {
+    resolveComment.mutate(data);
     reset();
   });
 
@@ -101,30 +116,34 @@ const BugReport: NextPage = () => {
       </ContentBox>
 
       <ContentBox title="Further Input / Chat">
-        <FormProvider {...methods}>
-          <form onSubmit={onSubmit}>
-            {bug && sessionData && (
-              <div className="mb-3">
-                <RichInput
-                  id="comment"
-                  height="200"
-                  placeholder="Add information or ask questions"
-                  control={control}
-                  error={errors.comment?.message}
+        <form>
+          {bug && !bug.is_resolved && sessionData && (
+            <div className="mb-3">
+              <RichInput
+                id="comment"
+                height="200"
+                placeholder="Add information or ask questions"
+                control={control}
+                error={errors.comment?.message}
+              />
+              <HiddenField register={register} id="object_id" value={bug.id} />
+              <div className="flex flex-row-reverse">
+                <SubmitButton
+                  id="submit_comment"
+                  label="Add Comment"
+                  onClick={handleSubmitComment}
                 />
-                <HiddenField
-                  register={register}
-                  id="object_id"
-                  value={bug.id}
-                />
-                <div className="flex flex-row-reverse">
-                  <SubmitButton id="submit_comment" label="Add Comment" />
-                  <SubmitButton id="submit_resolve" label="Comment & Resolve" />
-                </div>
+                {sessionData.user?.role === "ADMIN" && (
+                  <SubmitButton
+                    id="submit_resolve"
+                    label="Comment & Resolve"
+                    onClick={handleSubmitResolve}
+                  />
+                )}
               </div>
-            )}
-          </form>
-        </FormProvider>
+            </div>
+          )}
+        </form>
         {allComments &&
           allComments.map((comment, i) => (
             <div

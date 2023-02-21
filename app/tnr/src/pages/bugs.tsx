@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -81,16 +81,16 @@ const BugReport: NextPage = () => {
   });
 
   // Form handling
-  const methods = useForm<BugreportSchema>({
-    resolver: zodResolver(bugreportSchema),
-  });
   const {
     register,
     handleSubmit,
     reset,
     control,
     formState: { errors },
-  } = methods;
+  } = useForm<BugreportSchema>({
+    resolver: zodResolver(bugreportSchema),
+  });
+
   const onSubmit = handleSubmit(async (data) => {
     createReport.mutate(data);
     await refetch();
@@ -129,58 +129,55 @@ const BugReport: NextPage = () => {
         )
       }
     >
-      <FormProvider {...methods}>
-        <form onSubmit={onSubmit}>
-          {showModal && sessionData && (
-            <Modal
-              title="Write a new bug report"
-              proceed_label="Submit"
-              setIsOpen={setShowModal}
-            >
-              <div>
-                <InputField
-                  id="title"
-                  label="Title for your report"
-                  register={register}
-                  error={errors.title?.message}
-                />
-                <SelectField
-                  id="system"
-                  label="Where did the error occur?"
-                  register={register}
-                  error={errors.system?.message}
-                  placeholder="Pick page"
-                >
-                  {systems.map((system) => (
-                    <option key={system} value={system}>
-                      {system === "unknown" ? (
-                        <>
-                          Do not know. Please provide details in the
-                          description.
-                        </>
-                      ) : (
-                        window.location.origin + "/" + system
-                      )}
-                    </option>
-                  ))}
-                </SelectField>
-                <RichInput
-                  id="description"
-                  label="Describe the bug"
-                  height="300"
-                  placeholder="
+      <form onSubmit={onSubmit}>
+        {showModal && sessionData && (
+          <Modal
+            title="Write a new bug report"
+            proceed_label="Submit"
+            setIsOpen={setShowModal}
+          >
+            <div>
+              <InputField
+                id="title"
+                label="Title for your report"
+                register={register}
+                error={errors.title?.message}
+              />
+              <SelectField
+                id="system"
+                label="Where did the error occur?"
+                register={register}
+                error={errors.system?.message}
+                placeholder="Pick page"
+              >
+                {systems.map((system) => (
+                  <option key={system} value={system}>
+                    {system === "unknown" ? (
+                      <>
+                        Do not know. Please provide details in the description.
+                      </>
+                    ) : (
+                      window.location.origin + "/" + system
+                    )}
+                  </option>
+                ))}
+              </SelectField>
+              <RichInput
+                id="description"
+                label="Describe the bug"
+                height="300"
+                placeholder="
                   <p><b>Describe the bug: </b> write here...</p>
                   <p><b>How to reproduce: </b> write here...</p>
                   <p><b>Expected behavior: </b> write here...</p>
                   <p><b>Device Information: </b> mobile/tablet/desktop? browser?</p>"
-                  control={control}
-                  error={errors.description?.message}
-                />
-              </div>
-            </Modal>
-          )}
-        </form>
-      </FormProvider>
+                control={control}
+                error={errors.description?.message}
+              />
+            </div>
+          </Modal>
+        )}
+      </form>
 
       {allBugs &&
         allBugs.map((bug, i) => (
