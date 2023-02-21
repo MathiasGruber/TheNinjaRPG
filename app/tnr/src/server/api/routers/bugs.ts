@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { bugreportSchema } from "../../../validators/bugs";
 import { createCommentSchema } from "../../../validators/bugs";
+import sanitize from "../../../utils/sanitize";
 
 export const bugsRouter = createTRPCRouter({
   // Get all bugs in the system
@@ -30,6 +32,14 @@ export const bugsRouter = createTRPCRouter({
               avatar: true,
               rank: true,
               level: true,
+            },
+          },
+          votes: {
+            where: {
+              ...(ctx.session?.user ? { userId: ctx.session.user?.id } : {}),
+            },
+            select: {
+              value: true,
             },
           },
         },
@@ -73,7 +83,7 @@ export const bugsRouter = createTRPCRouter({
       return ctx.prisma.bugReport.create({
         data: {
           title: input.title,
-          description: input.description,
+          description: sanitize(input.description),
           system: input.system,
           userId: ctx.session.user.id,
         },
@@ -83,9 +93,14 @@ export const bugsRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role === "ADMIN") {
+      if (ctx.session.user.role === "BLAH") {
         return ctx.prisma.bugReport.delete({
           where: { id: input.id },
+        });
+      } else {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have permission to delete this bug report.",
         });
       }
     }),
@@ -99,6 +114,11 @@ export const bugsRouter = createTRPCRouter({
           data: {
             is_resolved: true,
           },
+        });
+      } else {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have permission to solve this bug report.",
         });
       }
     }),
@@ -151,7 +171,7 @@ export const bugsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.bugComment.create({
         data: {
-          content: input.comment,
+          content: sanitize(input.comment),
           userId: ctx.session.user.id,
           bugId: input.bug_id,
         },

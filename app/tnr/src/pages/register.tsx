@@ -46,11 +46,7 @@ const Register: React.FC = () => {
       void router.push("/profile");
     },
     onError: (error) => {
-      show_toast(
-        "Error on character creation. Please validate input & try again",
-        error.message,
-        "error"
-      );
+      show_toast("Error on character creation", error.message, "error");
     },
   });
 

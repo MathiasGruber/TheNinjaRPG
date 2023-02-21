@@ -65,12 +65,14 @@ const BugReport: NextPage = () => {
   const {
     register,
     handleSubmit,
+    reset,
     control,
     formState: { errors },
   } = methods;
   const onSubmit = handleSubmit(async (data) => {
     createComment.mutate(data);
     await refetch();
+    reset();
   });
 
   return (
@@ -83,12 +85,16 @@ const BugReport: NextPage = () => {
         >
           {bug && (
             <>
-              <Post title={"Summary: " + bug.title} user={bug.user}>
+              <Post
+                title={"Summary: " + bug.title}
+                user={bug.user}
+                hover_effect={false}
+              >
                 <b>System:</b> {bug.system}
                 <hr />
                 {bug.summary}
               </Post>
-              <Post title="Report Details">
+              <Post title="Report Details" hover_effect={false}>
                 {ReactHtmlParser(bug.description)}
               </Post>
             </>
@@ -118,7 +124,11 @@ const BugReport: NextPage = () => {
                 key={comment.id}
                 ref={i === allComments.length - 1 ? setLastElement : null}
               >
-                <Post title={comment.user.username} user={comment.user}>
+                <Post
+                  title={comment.user.username}
+                  user={comment.user}
+                  hover_effect={false}
+                >
                   {ReactHtmlParser(comment.content)}
                 </Post>
               </div>

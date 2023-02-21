@@ -87,6 +87,7 @@ const BugReport: NextPage = () => {
   const {
     register,
     handleSubmit,
+    reset,
     control,
     formState: { errors },
   } = methods;
@@ -94,6 +95,7 @@ const BugReport: NextPage = () => {
     createReport.mutate(data);
     await refetch();
     setShowModal(false);
+    reset();
   });
 
   return (
@@ -201,7 +203,13 @@ const BugReport: NextPage = () => {
                           createVote.mutate({ id: bug.id, value: -1 });
                         }}
                       >
-                        <HandThumbDownIcon className="h-6 w-6 hover:fill-orange-500" />
+                        <HandThumbDownIcon
+                          className={`h-6 w-6 ${
+                            bug.votes?.[0]?.value && bug.votes?.[0]?.value < 0
+                              ? "fill-orange-500"
+                              : "hover:fill-orange-500"
+                          }`}
+                        />
                       </div>
                       <div
                         className="mr-1"
@@ -210,7 +218,13 @@ const BugReport: NextPage = () => {
                           createVote.mutate({ id: bug.id, value: 1 });
                         }}
                       >
-                        <HandThumbUpIcon className="h-6 w-6 hover:fill-orange-500" />
+                        <HandThumbUpIcon
+                          className={`h-6 w-6 ${
+                            bug.votes?.[0]?.value && bug.votes?.[0]?.value > 0
+                              ? "fill-orange-500"
+                              : "hover:fill-orange-500"
+                          }`}
+                        />
                       </div>
                       {sessionData?.user?.role == "ADMIN" && (
                         <Confirm

@@ -142,14 +142,14 @@ model VerificationToken {
 model UserAttribute {
     id        String @id @default(cuid())
     attribute String
-    user      User   @relation(fields: [userId], references: [id])
+    user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
     userId    String
 }
 
 model HistoricalAvatar {
     id        Int      @id @default(autoincrement())
     avatar    String
-    user      User     @relation(fields: [userId], references: [id])
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
     userId    String
 }
@@ -183,7 +183,7 @@ model BugReport {
     description String       @db.Text
     summary     String       @default("No summary provided")
     system      String
-    user        UserData     @relation(fields: [userId], references: [userId])
+    user        UserData     @relation(fields: [userId], references: [userId], onDelete: Cascade)
     createdAt   DateTime     @default(now())
     userId      String
     is_resolved Boolean      @default(false)
@@ -194,8 +194,8 @@ model BugReport {
 
 model BugVotes {
     id        String    @id @default(cuid())
-    bug       BugReport @relation(fields: [bugId], references: [id])
-    user      UserData  @relation(fields: [userId], references: [userId])
+    bug       BugReport @relation(fields: [bugId], references: [id], onDelete: Cascade)
+    user      UserData  @relation(fields: [userId], references: [userId], onDelete: Cascade)
     createdAt DateTime  @default(now())
     value     Int       @db.TinyInt
     bugId     String
@@ -208,8 +208,8 @@ model BugComment {
     id        String    @id @default(cuid())
     content   String    @db.Text
     createdAt DateTime  @default(now())
-    user      UserData  @relation(fields: [userId], references: [userId])
+    user      UserData  @relation(fields: [userId], references: [userId], onDelete: Cascade)
     userId    String
-    bug       BugReport @relation(fields: [bugId], references: [id])
+    bug       BugReport @relation(fields: [bugId], references: [id], onDelete: Cascade)
     bugId     String
 }

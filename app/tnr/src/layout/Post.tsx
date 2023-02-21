@@ -11,11 +11,16 @@ interface PostProps {
   title: string;
   children: React.ReactNode;
   options?: React.ReactNode;
+  hover_effect?: boolean;
 }
 
 const Post: React.FC<PostProps> = (props) => {
   return (
-    <div className="mb-3 flex flex-row rounded-lg border border-gray-200 bg-orange-50 p-6 shadow hover:bg-gray-100">
+    <div
+      className={`mb-3 flex flex-row rounded-lg border border-gray-200 bg-orange-50 p-6 shadow ${
+        props.hover_effect ? "hover:bg-gray-100" : ""
+      }`}
+    >
       {props.user && (
         <div className="mr-3 basis-3/12 text-center">
           <AvatarImage
