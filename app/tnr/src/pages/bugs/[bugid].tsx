@@ -11,9 +11,10 @@ import ContentBox from "../../layout/ContentBox";
 import RichInput from "../../layout/RichInput";
 import HiddenField from "../../layout/HiddenField";
 import Post from "../../layout/Post";
+import Comment from "../../layout/Comment";
 import { api } from "../../utils/api";
-import { type CreateCommentSchema } from "../../validators/bugs";
-import { createCommentSchema } from "../../validators/bugs";
+import { type MutateCommentSchema } from "../../validators/bugs";
+import { mutateCommentSchema } from "../../validators/bugs";
 import { show_toast } from "../../libs/toast";
 import { useInfinitePagination } from "../../libs/pagination";
 
@@ -59,8 +60,8 @@ const BugReport: NextPage = () => {
   });
 
   // Form handling
-  const methods = useForm<CreateCommentSchema>({
-    resolver: zodResolver(createCommentSchema),
+  const methods = useForm<MutateCommentSchema>({
+    resolver: zodResolver(mutateCommentSchema),
   });
   const {
     register,
@@ -69,73 +70,79 @@ const BugReport: NextPage = () => {
     control,
     formState: { errors },
   } = methods;
-  const onSubmit = handleSubmit(async (data) => {
+  const onSubmit = handleSubmit((data) => {
     createComment.mutate(data);
-    await refetch();
     reset();
   });
 
   return (
-    <FormProvider {...methods}>
-      <form onSubmit={onSubmit}>
-        <ContentBox
-          title="Report Bugs"
-          back_href="/bugs"
-          subtitle="Details about bug report"
-        >
-          {bug && (
-            <>
-              <Post
-                title={"Summary: " + bug.title}
-                user={bug.user}
-                hover_effect={false}
-              >
-                <b>System:</b> {bug.system}
-                <hr />
-                {bug.summary}
-              </Post>
-              <Post title="Report Details" hover_effect={false}>
-                {ReactHtmlParser(bug.description)}
-              </Post>
-            </>
-          )}
-        </ContentBox>
+    <>
+      <ContentBox
+        title="Report Bugs"
+        back_href="/bugs"
+        subtitle="Details about bug report"
+      >
+        {bug && (
+          <>
+            <Post
+              title={"Summary: " + bug.title}
+              user={bug.user}
+              hover_effect={false}
+            >
+              <b>System:</b> {bug.system}
+              <hr />
+              {bug.summary}
+            </Post>
+            <Post title="Report Details" hover_effect={false}>
+              {ReactHtmlParser(bug.description)}
+            </Post>
+          </>
+        )}
+      </ContentBox>
 
-        <ContentBox title="Further Input / Chat">
-          {bug && sessionData && (
-            <div className="mb-3">
-              <RichInput
-                id="comment"
-                height="200"
-                placeholder="Add information or ask questions"
-                control={control}
-                error={errors.comment?.message}
-              />
-              <HiddenField register={register} id="bug_id" value={bug.id} />
-              <div className="flex flex-row-reverse">
-                <SubmitButton id="submit_comment" label="Add Comment" />
-                <SubmitButton id="submit_resolve" label="Comment & Resolve" />
+      <ContentBox title="Further Input / Chat">
+        <FormProvider {...methods}>
+          <form onSubmit={onSubmit}>
+            {bug && sessionData && (
+              <div className="mb-3">
+                <RichInput
+                  id="comment"
+                  height="200"
+                  placeholder="Add information or ask questions"
+                  control={control}
+                  error={errors.comment?.message}
+                />
+                <HiddenField
+                  register={register}
+                  id="object_id"
+                  value={bug.id}
+                />
+                <div className="flex flex-row-reverse">
+                  <SubmitButton id="submit_comment" label="Add Comment" />
+                  <SubmitButton id="submit_resolve" label="Comment & Resolve" />
+                </div>
               </div>
-            </div>
-          )}
-          {allComments &&
-            allComments.map((comment, i) => (
-              <div
-                key={comment.id}
-                ref={i === allComments.length - 1 ? setLastElement : null}
+            )}
+          </form>
+        </FormProvider>
+        {allComments &&
+          allComments.map((comment, i) => (
+            <div
+              key={comment.id}
+              ref={i === allComments.length - 1 ? setLastElement : null}
+            >
+              <Comment
+                user={comment.user}
+                hover_effect={false}
+                comment={comment}
+                refetchComments={async () => await refetch()}
               >
-                <Post
-                  title={comment.user.username}
-                  user={comment.user}
-                  hover_effect={false}
-                >
-                  {ReactHtmlParser(comment.content)}
-                </Post>
-              </div>
-            ))}
-        </ContentBox>
-      </form>
-    </FormProvider>
+                {ReactHtmlParser(comment.content)}
+              </Comment>
+            </div>
+          ))}
+      </ContentBox>
+    </>
   );
 };
 

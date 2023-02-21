@@ -191,6 +191,7 @@ const BugReport: NextPage = () => {
             <Link href={"/bugs/" + bug.id}>
               <Post
                 title={bug.title}
+                hover_effect={true}
                 options={
                   <div className="flex flex-col items-center">
                     <p className="text-2xl font-bold">{bug.popularity}</p>

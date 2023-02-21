@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { bugreportSchema } from "../../../validators/bugs";
-import { createCommentSchema } from "../../../validators/bugs";
+import { mutateCommentSchema } from "../../../validators/bugs";
 import sanitize from "../../../utils/sanitize";
 
 export const bugsRouter = createTRPCRouter({
@@ -93,7 +93,7 @@ export const bugsRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role === "BLAH") {
+      if (ctx.session.user.role === "ADMIN") {
         return ctx.prisma.bugReport.delete({
           where: { id: input.id },
         });
@@ -167,15 +167,53 @@ export const bugsRouter = createTRPCRouter({
     }),
   // Comment on a bug report
   createComment: protectedProcedure
-    .input(createCommentSchema)
+    .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.bugComment.create({
         data: {
           content: sanitize(input.comment),
           userId: ctx.session.user.id,
-          bugId: input.bug_id,
+          bugId: input.object_id,
         },
       });
+    }),
+  // Edit a comment
+  editComment: protectedProcedure
+    .input(mutateCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.bugComment.findUnique({
+        where: { id: input.object_id },
+      });
+      if (comment?.userId === ctx.session.user.id) {
+        return ctx.prisma.bugComment.update({
+          where: { id: input.object_id },
+          data: {
+            content: sanitize(input.comment),
+          },
+        });
+      } else {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have permission to edit this comment.",
+        });
+      }
+    }),
+  deleteComment: protectedProcedure
+    .input(z.object({ id: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.bugComment.findUnique({
+        where: { id: input.id },
+      });
+      if (comment?.userId === ctx.session.user.id) {
+        return ctx.prisma.bugComment.delete({
+          where: { id: input.id },
+        });
+      } else {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have permission to delete this comment.",
+        });
+      }
     }),
   // Get comments for a given bug report
   getComments: publicProcedure
@@ -196,6 +234,7 @@ export const bugsRouter = createTRPCRouter({
         include: {
           user: {
             select: {
+              userId: true,
               username: true,
               avatar: true,
               rank: true,

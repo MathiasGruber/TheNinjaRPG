@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { Village } from "@prisma/client";
+import { type Village } from "@prisma/client";
 
 type NonEmptyArray<T> = T[] & { 0: T };
 

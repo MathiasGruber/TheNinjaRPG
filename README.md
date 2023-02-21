@@ -11,8 +11,7 @@ This is the source code for the game TheNinja-RPG.com.
 # Current ToDo List
 
 - Ban feature for spammers
-- Streamline onError for useQuery and useMutation - overwrite general
-- Delete/edit own comments
+- Resolve bug reports
 
 - Automatic phpmyadmin login
 

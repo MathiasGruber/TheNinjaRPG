@@ -12,12 +12,12 @@ const Modal: React.FC<ModalProps> = (props) => {
   return (
     <>
       <div
-        className="absolute top-0 left-0 right-0 bottom-0 h-full w-full bg-black opacity-80"
+        className="fixed top-0 left-0 right-0 bottom-0 z-10 h-full w-full bg-black opacity-80"
         onClick={() => {
           props.setIsOpen(false);
         }}
       ></div>
-      <div className="absolute top-1/2 left-1/2 w-11/12 -translate-x-1/2 -translate-y-1/2 transform rounded-lg bg-white shadow dark:bg-gray-700">
+      <div className=" fixed top-1/2 left-1/2 z-20 w-11/12 -translate-x-1/2 -translate-y-1/2 transform rounded-lg bg-white shadow dark:bg-gray-700">
         <div className="flex items-start justify-between rounded-t border-b p-4 dark:border-gray-600">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             {props.title}

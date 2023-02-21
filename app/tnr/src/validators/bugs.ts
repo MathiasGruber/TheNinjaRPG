@@ -30,12 +30,12 @@ export const bugreportSchema = z
 
 export type BugreportSchema = z.infer<typeof bugreportSchema>;
 
-export const createCommentSchema = z
+export const mutateCommentSchema = z
   .object({
     comment: z.string().min(10).max(1000),
-    bug_id: z.string().cuid(),
+    object_id: z.string().cuid(),
   })
   .strict()
   .required();
 
-export type CreateCommentSchema = z.infer<typeof createCommentSchema>;
+export type MutateCommentSchema = z.infer<typeof mutateCommentSchema>;

@@ -1,14 +1,14 @@
 import React from "react";
 import AvatarImage from "./Avatar";
 
-interface PostProps {
+export interface PostProps {
   user?: {
     username: string;
     avatar: string | null;
     level: number;
     rank: string;
   };
-  title: string;
+  title?: string;
   children: React.ReactNode;
   options?: React.ReactNode;
   hover_effect?: boolean;
@@ -35,9 +35,11 @@ const Post: React.FC<PostProps> = (props) => {
         </div>
       )}
       <div className="grow">
-        <h3 className="text-xl font-bold tracking-tight text-gray-900">
-          {props.title}
-        </h3>
+        {props.title && (
+          <h3 className="text-xl font-bold tracking-tight text-gray-900">
+            {props.title}
+          </h3>
+        )}
         <div className="font-normal text-gray-700">{props.children}</div>
       </div>
       {props.options && <div>{props.options}</div>}
