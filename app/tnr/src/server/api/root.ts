@@ -4,6 +4,7 @@ import { profileRouter } from "./routers/profile";
 import { avatarRouter } from "./routers/avatar";
 import { bugsRouter } from "./routers/bugs";
 import { villageRouter } from "./routers/village";
+import { reportsRouter } from "./routers/reports";
 
 /**
  * This is the primary router for your server.
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   village: villageRouter,
   avatar: avatarRouter,
   bugs: bugsRouter,
+  reports: reportsRouter,
 });
 
 // export type definition of API

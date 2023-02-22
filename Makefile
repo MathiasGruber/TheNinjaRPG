@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=docs,unit_test,makemigrations,makemigrations_silent,command
+ARGS_TARGETS=docs,prototype_migrations,makemigrations
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -44,8 +44,9 @@ enter: # Connect to app container.
 initial_setup: # Connect to app container.
 	@echo "${YELLOW}Enter into app docker container${RESET}"
 	docker exec -it tnr_app yarn prisma generate
-	docker exec -it tnr_app yarn prisma migrate dev --name init
+	docker exec -it tnr_app yarn prisma migrate dev
 	docker exec -it tnr_app yarn prisma db seed
+
 
 --------------MIGRATIONS----------------: # -------------------------------------------------------
 
@@ -53,3 +54,15 @@ initial_setup: # Connect to app container.
 sync: # Make sure node_modules is updated in editor
 	@echo "${YELLOW}Update node_modules in devcontainer${RESET}"
 	cd app/tnr && yarn install
+
+.PHONY: prototype_migrations
+prototype_migrations: # Prototype migrations locally
+	@echo "${YELLOW}Run prisma db push ${RESET}"
+	docker exec -it tnr_app yarn prisma db push
+
+.PHONY: makemigrations
+makemigrations: # Create local migrations
+	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
+	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS}
+	cd app/tnr && yarn install
+	

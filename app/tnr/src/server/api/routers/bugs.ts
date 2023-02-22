@@ -99,7 +99,7 @@ export const bugsRouter = createTRPCRouter({
         });
       } else {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
+          code: "UNAUTHORIZED",
           message: "You do not have permission to delete this bug report.",
         });
       }
@@ -182,7 +182,7 @@ export const bugsRouter = createTRPCRouter({
         });
       } else {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
+          code: "UNAUTHORIZED",
           message: "You do not have permission to resolve this bug report.",
         });
       }
@@ -203,7 +203,7 @@ export const bugsRouter = createTRPCRouter({
         });
       } else {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
+          code: "UNAUTHORIZED",
           message: "You do not have permission to edit this comment.",
         });
       }
@@ -223,7 +223,7 @@ export const bugsRouter = createTRPCRouter({
         });
       } else {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
+          code: "UNAUTHORIZED",
           message: "You do not have permission to delete this comment.",
         });
       }

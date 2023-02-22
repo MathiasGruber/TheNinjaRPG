@@ -2,13 +2,18 @@ import { z } from "zod";
 
 export const systems = [
   "avatar",
+  "bugs",
   "profile",
+  "reports",
   "register",
   "login",
   "tavern",
+  "travel",
   "terms",
   "policy",
   "rules",
+  "github",
+  "welcome",
   "unknown",
 ] as const;
 
