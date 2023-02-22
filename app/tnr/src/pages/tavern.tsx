@@ -3,7 +3,7 @@ import ContentBox from "../layout/ContentBox";
 
 const Tavern: NextPage = () => {
   return (
-    <ContentBox title="Game Rules">
+    <ContentBox title="Tavern">
       <div>NOT IMPLEMENTED</div>
     </ContentBox>
   );

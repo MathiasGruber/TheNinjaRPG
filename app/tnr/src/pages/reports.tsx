@@ -1,12 +1,12 @@
 import { type NextPage } from "next";
 import ContentBox from "../layout/ContentBox";
 
-const Contact: NextPage = () => {
+const Reports: NextPage = () => {
   return (
-    <ContentBox title="Game Rules">
+    <ContentBox title="Reports">
       <div>NOT IMPLEMENTED</div>
     </ContentBox>
   );
 };
 
-export default Contact;
+export default Reports;

@@ -3,6 +3,7 @@ import Header from "./Header";
 import Link from "next/link";
 import MenuBox from "./MenuBox";
 import MenuBoxProfile from "./MenuBoxProfile";
+import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
 import { ToastContainer } from "react-toastify";
@@ -62,11 +63,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
               </div>
             </div>
             <div className="col-span-1 hidden md:block">
-              {userData && (
-                <MenuBox title="Main Menu">
-                  <div>RIGHT MENU</div>
-                </MenuBox>
-              )}
+              {userData && <MenuBoxGame />}
             </div>
             <Footer />
           </div>

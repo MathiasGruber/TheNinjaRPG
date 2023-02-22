@@ -1,12 +1,12 @@
 import { type NextPage } from "next";
 import ContentBox from "../layout/ContentBox";
 
-const FeatureRequest: NextPage = () => {
+const Travel: NextPage = () => {
   return (
-    <ContentBox title="Feature Requests">
+    <ContentBox title="Travel">
       <div>NOT IMPLEMENTED</div>
     </ContentBox>
   );
 };
 
-export default FeatureRequest;
+export default Travel;

@@ -13,7 +13,7 @@ const MenuBox: React.FC<MenuBoxProps> = (props) => {
         <div>{props.title}</div>
         <div className="grow"></div> <div>{props.link}</div>
       </div>
-      <div className="m-1 rounded-md bg-yellow-50 p-5">{props.children}</div>
+      <div className="m-1 rounded-md bg-yellow-50 p-3">{props.children}</div>
     </div>
   );
 };

@@ -81,6 +81,7 @@ const GitHub: NextPage = () => {
             width={100}
             height={100}
             alt="GitHub Logo"
+            className="hover:opacity-50"
           ></Image>
         </Link>
       </div>
