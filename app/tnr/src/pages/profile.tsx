@@ -25,6 +25,7 @@ const Profile: NextPage = () => {
           <p>Money: {userData?.money}</p>
           <p>Bank: {userData?.bank}</p>
           <p>Status: {userData?.status}</p>
+          <p>Gender: {userData?.gender}</p>
           <br />
           <b>Associations</b>
           <p>Clan: None</p>

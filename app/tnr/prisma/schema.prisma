@@ -185,7 +185,7 @@ model Bloodline {
 model BugReport {
     id          String       @id @default(cuid())
     title       String
-    description String       @db.Text
+    content     String       @db.Text
     summary     String       @default("No summary provided")
     system      String
     user        UserData     @relation(fields: [userId], references: [userId], onDelete: Cascade)
@@ -228,7 +228,7 @@ model UserReport {
     createdAt      DateTime            @default(now())
     system         String
     infraction     Json
-    reportReason   String
+    reason         String
     is_resolved    Boolean             @default(false)
     banEnd         DateTime?
     comments       UserReportComment[]

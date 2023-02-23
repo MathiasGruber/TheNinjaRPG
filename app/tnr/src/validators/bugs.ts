@@ -27,7 +27,7 @@ export const bugreportSchema = z
       })
       .min(10)
       .max(50),
-    description: z.string(),
+    content: z.string(),
     system: z.enum(systems),
   })
   .strict()

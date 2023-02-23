@@ -28,6 +28,7 @@ export const bugsRouter = createTRPCRouter({
         include: {
           user: {
             select: {
+              userId: true,
               username: true,
               avatar: true,
               rank: true,
@@ -67,6 +68,7 @@ export const bugsRouter = createTRPCRouter({
         include: {
           user: {
             select: {
+              userId: true,
               username: true,
               avatar: true,
               rank: true,
@@ -83,7 +85,7 @@ export const bugsRouter = createTRPCRouter({
       return ctx.prisma.bugReport.create({
         data: {
           title: input.title,
-          description: sanitize(input.description),
+          content: sanitize(input.content),
           system: input.system,
           userId: ctx.session.user.id,
         },

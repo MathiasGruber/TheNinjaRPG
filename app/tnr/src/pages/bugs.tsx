@@ -11,9 +11,13 @@ import SelectField from "../layout/SelectField";
 import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
-import { HandThumbDownIcon } from "@heroicons/react/24/outline";
-import { HandThumbUpIcon } from "@heroicons/react/24/outline";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import ReportUser from "../layout/Report";
+import {
+  HandThumbDownIcon,
+  HandThumbUpIcon,
+  TrashIcon,
+  FlagIcon,
+} from "@heroicons/react/24/outline";
 
 import Modal from "../layout/Modal";
 import Post from "../layout/Post";
@@ -163,7 +167,7 @@ const BugReport: NextPage = () => {
                 ))}
               </SelectField>
               <RichInput
-                id="description"
+                id="content"
                 label="Describe the bug"
                 height="300"
                 placeholder="
@@ -172,7 +176,7 @@ const BugReport: NextPage = () => {
                   <p><b>Expected behavior: </b> write here...</p>
                   <p><b>Device Information: </b> mobile/tablet/desktop? browser?</p>"
                 control={control}
-                error={errors.description?.message}
+                error={errors.content?.message}
               />
             </div>
           </Modal>
@@ -222,6 +226,21 @@ const BugReport: NextPage = () => {
                               ? "fill-orange-500"
                               : "hover:fill-orange-500"
                           }`}
+                        />
+                      </div>
+                      <div
+                        className="mr-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        <ReportUser
+                          user={bug.user}
+                          content={bug}
+                          system="bug_report"
+                          button={
+                            <FlagIcon className="h-6 w-6 hover:fill-orange-500" />
+                          }
                         />
                       </div>
                       {sessionData?.user?.role == "ADMIN" && (

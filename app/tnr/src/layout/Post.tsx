@@ -3,6 +3,7 @@ import AvatarImage from "./Avatar";
 
 export interface PostProps {
   user?: {
+    userId: string;
     username: string;
     avatar: string | null;
     level: number;

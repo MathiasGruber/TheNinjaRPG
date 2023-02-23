@@ -2,26 +2,24 @@ import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import {
+  PencilSquareIcon,
+  TrashIcon,
+  FlagIcon,
+} from "@heroicons/react/24/outline";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
-import HiddenField from "./HiddenField";
 import SubmitButton from "./SubmitButton";
 import Confirm from "../layout/Confirm";
+import ReportUser from "../layout/Report";
 import { type MutateCommentSchema } from "../validators/bugs";
 import { mutateCommentSchema } from "../validators/bugs";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { type BugComment } from "@prisma/client";
 
 interface CommentProps extends PostProps {
-  comment: {
-    id: string;
-    content: string;
-    user: {
-      userId: string;
-    };
-  };
+  comment: BugComment;
   refetchComments: () => void;
 }
 
@@ -50,12 +48,14 @@ const Comment: React.FC<CommentProps> = (props) => {
   });
 
   const {
-    register,
     handleSubmit,
     reset,
     control,
     formState: { errors },
   } = useForm<MutateCommentSchema>({
+    defaultValues: {
+      object_id: props.comment.id,
+    },
     resolver: zodResolver(mutateCommentSchema),
   });
 
@@ -68,13 +68,20 @@ const Comment: React.FC<CommentProps> = (props) => {
   return (
     <Post
       options={
-        sessionData?.user?.id === props.comment.user.userId && (
+        props.user &&
+        sessionData?.user?.id === props.user.userId && (
           <div className="flex flex-row">
             <PencilSquareIcon
               className={`h-6 w-6 ${
                 editing ? "fill-orange-500" : "hover:fill-orange-500"
               }`}
               onClick={() => setEditing((prev) => !prev)}
+            />
+            <ReportUser
+              user={props.user}
+              content={props.comment}
+              system="bug_comment"
+              button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
             />
             <Confirm
               title="Confirm Bug Report Deletion"
@@ -99,11 +106,6 @@ const Comment: React.FC<CommentProps> = (props) => {
             placeholder={props.comment.content}
             control={control}
             error={errors.comment?.message}
-          />
-          <HiddenField
-            register={register}
-            id="object_id"
-            value={props.comment.id}
           />
           <SubmitButton id="edit_comment" label="Edit Comment" />
         </form>

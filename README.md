@@ -11,6 +11,7 @@ This is the source code for the game TheNinja-RPG.com.
 # Current ToDo List
 
 - Ban feature for spammers
+- Ability to remove avatars
 
 - Automatic phpmyadmin login
 

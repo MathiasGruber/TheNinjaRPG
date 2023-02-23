@@ -2,14 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { type Prisma } from "@prisma/client";
+import { userReportSchema } from "../../../validators/reports";
 import sanitize from "../../../utils/sanitize";
-
-export const systems = [
-  "bug_report",
-  "bug_comment",
-  "forum_port",
-  "tavern_post",
-] as const;
 
 export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them
@@ -71,15 +65,8 @@ export const reportsRouter = createTRPCRouter({
     }),
   // Create a new user report
   create: protectedProcedure
-    .input(
-      z.object({
-        system: z.enum(systems),
-        system_id: z.string().cuid(),
-        reported_userId: z.string().cuid(),
-        reportReason: z.string().min(1).max(1000),
-      })
-    )
-    .mutation(({ ctx, input }) => {
+    .input(userReportSchema)
+    .mutation(async ({ ctx, input }) => {
       const getReport = (system: typeof input.system) => {
         switch (system) {
           case "bug_report":
@@ -97,14 +84,24 @@ export const reportsRouter = createTRPCRouter({
             });
         }
       };
-      return ctx.prisma.userReport.create({
-        data: {
-          reporterUserId: ctx.session.user.id,
-          reportedUserId: input.reported_userId,
-          system: input.system,
-          infraction: getReport(input.system) as unknown as Prisma.JsonArray,
-          reportReason: sanitize(input.reportReason),
-        },
+      //  as unknown as Prisma.JsonArray;
+      await getReport(input.system).then((report) => {
+        if (report) {
+          return ctx.prisma.userReport.create({
+            data: {
+              reporterUserId: ctx.session.user.id,
+              reportedUserId: input.reported_userId,
+              system: input.system,
+              infraction: report as unknown as Prisma.JsonObject,
+              reason: sanitize(input.reason),
+            },
+          });
+        } else {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found.",
+          });
+        }
       });
     }),
   // Create a new comment on a given UserReport

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type NextPage } from "next";
 import { useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
@@ -9,7 +9,6 @@ import ReactHtmlParser from "react-html-parser";
 import SubmitButton from "../../layout/SubmitButton";
 import ContentBox from "../../layout/ContentBox";
 import RichInput from "../../layout/RichInput";
-import HiddenField from "../../layout/HiddenField";
 import Post from "../../layout/Post";
 import Comment from "../../layout/Comment";
 import { api } from "../../utils/api";
@@ -71,24 +70,36 @@ const BugReport: NextPage = () => {
 
   // Form handling
   const {
-    register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors },
   } = useForm<MutateCommentSchema>({
     resolver: zodResolver(mutateCommentSchema),
   });
 
-  const handleSubmitComment = handleSubmit((data) => {
-    createComment.mutate(data);
-    reset();
-  });
+  useEffect(() => {
+    if (bug) {
+      setValue("object_id", bug.id);
+    }
+  }, [bug, setValue]);
 
-  const handleSubmitResolve = handleSubmit((data) => {
-    resolveComment.mutate(data);
-    reset();
-  });
+  const handleSubmitComment = handleSubmit(
+    (data) => {
+      createComment.mutate(data);
+      reset();
+    },
+    (errors) => console.error(errors)
+  );
+
+  const handleSubmitResolve = handleSubmit(
+    (data) => {
+      resolveComment.mutate(data);
+      reset();
+    },
+    (errors) => console.error(errors)
+  );
 
   return (
     <>
@@ -109,7 +120,7 @@ const BugReport: NextPage = () => {
               {bug.summary}
             </Post>
             <Post title="Report Details" hover_effect={false}>
-              {ReactHtmlParser(bug.description)}
+              {ReactHtmlParser(bug.content)}
             </Post>
           </>
         )}
@@ -126,7 +137,6 @@ const BugReport: NextPage = () => {
                 control={control}
                 error={errors.comment?.message}
               />
-              <HiddenField register={register} id="object_id" value={bug.id} />
               <div className="flex flex-row-reverse">
                 <SubmitButton
                   id="submit_comment"
