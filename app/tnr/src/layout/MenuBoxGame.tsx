@@ -1,27 +1,36 @@
 import React from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import {
+  ShieldExclamationIcon,
+  InformationCircleIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
+
 import MenuBox from "./MenuBox";
 
-import { getUserNotifications } from "../libs/menus";
 import { getMainGameLinks } from "../libs/menus";
 import { useUser } from "../utils/UserContext";
+import { type NavBarDropdownLink } from "../libs/menus";
 
-const MenuBoxGame: React.FC = () => {
+interface MenuBoxGameProps {
+  notifications: NavBarDropdownLink[] | undefined;
+}
+
+const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   const { data: sessionData } = useSession();
   const { data: userData } = useUser();
 
   const systems = getMainGameLinks(userData);
-  const notifications = getUserNotifications(userData, sessionData);
 
   if (!userData) {
     return <div></div>;
   }
   return (
     <MenuBox title="Main Menu">
-      {notifications.length > 0 && (
+      {props.notifications && props.notifications.length > 0 && (
         <ul className="grid grid-cols-1 gap-2">
-          {notifications.map((notification, i) => (
+          {props.notifications.map((notification, i) => (
             <Link key={i} href={notification.href}>
               <div
                 className={`flex flex-row items-center rounded-lg border-2 border-slate-800 p-1 pl-3 hover:opacity-70 ${
@@ -30,7 +39,15 @@ const MenuBoxGame: React.FC = () => {
                     : "bg-slate-500"
                 }`}
               >
-                {notification.icon}
+                {notification.color === "red" && (
+                  <ShieldExclamationIcon className="mr-2 h-6 w-6" />
+                )}
+                {notification.color === "blue" && (
+                  <InformationCircleIcon className="mr-2 h-6 w-6" />
+                )}
+                {notification.color === "green" && (
+                  <ShieldCheckIcon className="mr-2 h-6 w-6" />
+                )}
                 {notification.name}
               </div>
             </Link>

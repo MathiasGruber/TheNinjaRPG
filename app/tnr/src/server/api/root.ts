@@ -6,6 +6,7 @@ import { bugsRouter } from "./routers/bugs";
 import { commentsRouter } from "./routers/comments";
 import { villageRouter } from "./routers/village";
 import { reportsRouter } from "./routers/reports";
+import { notificationsRouter } from "./routers/notifications";
 
 /**
  * This is the primary router for your server.
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   bugs: bugsRouter,
   reports: reportsRouter,
   comments: commentsRouter,
+  notifications: notificationsRouter,
 });
 
 // export type definition of API

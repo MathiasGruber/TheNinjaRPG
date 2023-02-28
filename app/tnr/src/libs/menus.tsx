@@ -76,22 +76,3 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
   ];
   return links;
 };
-
-/**
- * Get notifications for the user
- */
-export const getUserNotifications = (
-  userData: UserDataWithRelations,
-  sessionData: Session | null
-) => {
-  const notifications: NavBarDropdownLink[] = [];
-  if (sessionData?.user?.isBanned) {
-    notifications.push({
-      href: "/reports",
-      name: "You are banned!",
-      color: "red",
-      icon: <ShieldExclamationIcon key="reports" className="mr-2 h-6 w-6" />,
-    });
-  }
-  return notifications;
-};

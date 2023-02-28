@@ -21,6 +21,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   } = api.profile.getUser.useQuery(undefined, {
     enabled: sessionData?.user !== undefined,
   });
+  const { data: notificationsData } = api.notifications.getAll.useQuery(
+    undefined,
+    {
+      enabled: sessionData?.user !== undefined,
+    }
+  );
 
   return (
     <>
@@ -58,7 +64,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
               </div>
             </div>
             <div className="col-span-1 hidden md:block">
-              {userData && <MenuBoxGame />}
+              {userData && <MenuBoxGame notifications={notificationsData} />}
             </div>
             <Footer />
           </div>
