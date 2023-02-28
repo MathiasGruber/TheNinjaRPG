@@ -1,16 +1,21 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { type Prisma } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { userReportSchema } from "../../../validators/reports";
+import { reportCommentSchema } from "../../../validators/reports";
+import { ReportAction } from "@prisma/client";
 import sanitize from "../../../utils/sanitize";
+import { canModerateReports } from "../../../validators/reports";
+import { canSeeReport } from "../../../validators/reports";
+import { canEscalateBan } from "../../../validators/reports";
 
 export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them
   getAll: protectedProcedure
     .input(
       z.object({
-        is_active: z.boolean(),
+        is_active: z.boolean().optional(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
       })
@@ -22,7 +27,21 @@ export const reportsRouter = createTRPCRouter({
         skip: skip,
         take: input.limit,
         where: {
-          is_resolved: !input.is_active,
+          // if is_active is not undefined, then filter on active/inactive, otherwise do nothing
+          ...(input.is_active !== undefined
+            ? input.is_active
+              ? {
+                  status: {
+                    in: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
+                  },
+                }
+              : {
+                  status: {
+                    notIn: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
+                  },
+                }
+            : {}),
+          // Subset on user reports if user is not a moderator
           ...(ctx.session.user.role === "USER"
             ? {
                 OR: [
@@ -32,24 +51,7 @@ export const reportsRouter = createTRPCRouter({
               }
             : {}),
         },
-        include: {
-          reporterUser: {
-            select: {
-              username: true,
-              avatar: true,
-              rank: true,
-              level: true,
-            },
-          },
-          reportedUser: {
-            select: {
-              username: true,
-              avatar: true,
-              rank: true,
-              level: true,
-            },
-          },
-        },
+        ...getIncludes,
         orderBy: [
           {
             createdAt: "desc",
@@ -63,11 +65,22 @@ export const reportsRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  // Get a single report
+  get: protectedProcedure
+    .input(z.object({ id: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      const report = await fetchUserReport(ctx.prisma, input.id);
+      if (canSeeReport(ctx.session.user, report)) {
+        return report;
+      } else {
+        throw serverError("UNAUTHORIZED", "You have no access to the report");
+      }
+    }),
   // Create a new user report
   create: protectedProcedure
     .input(userReportSchema)
     .mutation(async ({ ctx, input }) => {
-      const getReport = (system: typeof input.system) => {
+      const getInfraction = (system: typeof input.system) => {
         switch (system) {
           case "bug_report":
             return ctx.prisma.bugReport.findUnique({
@@ -78,14 +91,10 @@ export const reportsRouter = createTRPCRouter({
               where: { id: input.system_id },
             });
           default:
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Invalid report system.",
-            });
+            throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      //  as unknown as Prisma.JsonArray;
-      await getReport(input.system).then((report) => {
+      await getInfraction(input.system).then((report) => {
         if (report) {
           return ctx.prisma.userReport.create({
             data: {
@@ -97,112 +106,162 @@ export const reportsRouter = createTRPCRouter({
             },
           });
         } else {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Report not found.",
-          });
+          throw serverError("NOT_FOUND", "Infraction not found.");
         }
       });
     }),
-  // Create a new comment on a given UserReport
-  createComment: protectedProcedure
-    .input(
-      z.object({
-        report_id: z.string().cuid(),
-        comment: z.string().min(1).max(1000),
-      })
-    )
+  // Ban a user. If no escalation: moderator-only. If escalated: admin-only
+  ban: protectedProcedure
+    .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const report = await ctx.prisma.userReport.findUnique({
-        where: { id: input.report_id },
-      });
-      if (!report) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Report not found.",
-        });
+      // Guards
+      const user = ctx.session.user;
+      const report = await fetchUserReport(ctx.prisma, input.object_id);
+      const hasModRights = canModerateReports(user, report);
+      if (!input.banTime || input.banTime <= 0) {
+        throw serverError("BAD_REQUEST", "Ban time must be specified.");
       }
-      if (report.is_resolved) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "This report has already been resolved",
-        });
+      if (!hasModRights) {
+        throw serverError("UNAUTHORIZED", "You cannot resolve this report");
       }
-      if (
-        report.reporterUserId === ctx.session.user.id ||
-        report.reportedUserId === ctx.session.user.id ||
-        ["MODERATOR", "ADMIN"].includes(ctx.session.user.role)
-      ) {
-        return ctx.prisma.userReportComment.create({
+      // Perform the ban
+      await ctx.prisma.$transaction(async (tx) => {
+        if (report.reportedUserId) {
+          await tx.userData.update({
+            where: { userId: report.reportedUserId },
+            data: {
+              isBanned: true,
+            },
+          });
+        }
+        await tx.userReport.update({
+          where: { id: input.object_id },
           data: {
-            userId: ctx.session.user.id,
-            reportId: input.report_id,
-            content: sanitize(input.comment),
+            status: ReportAction.BAN_ACTIVATED,
+            adminResolved: ctx.session.user.role === "ADMIN",
+            banEnd:
+              input.banTime !== undefined
+                ? new Date(
+                    new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000
+                  )
+                : undefined,
           },
         });
-      } else {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You do not have access to the report",
+        await tx.userReportComment.create({
+          data: {
+            userId: ctx.session.user.id,
+            reportId: input.object_id,
+            content: sanitize(input.comment),
+            decision: ReportAction.BAN_ACTIVATED,
+          },
         });
-      }
-    }),
-  // Resolve a given UserReport
-  resolve: protectedProcedure
-    .input(
-      z.object({
-        report_id: z.string().cuid(),
-        is_resolved: z.boolean(),
-        reasoning: z.string().min(1).max(1000),
-        banEnd: z.date().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const report = await ctx.prisma.userReport.findUnique({
-        where: { id: input.report_id },
       });
-      if (!report) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Report not found.",
-        });
+    }),
+  // Escalate a report to admin. Only if already banned, and no previous escalation
+  escalate: protectedProcedure
+    .input(reportCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Guards
+      const report = await fetchUserReport(ctx.prisma, input.object_id);
+      if (canEscalateBan(ctx.session.user, report)) {
+        throw serverError("UNAUTHORIZED", "User can escalate ban once.");
       }
-      if (
-        report.reporterUserId === ctx.session.user.id ||
-        ["MODERATOR", "ADMIN"].includes(ctx.session.user.role)
-      ) {
-        await ctx.prisma.$transaction(async (tx) => {
-          // If a ban time, set the user as banned
-          if (input.banEnd && report.reportedUserId) {
+      // Perform the escalation
+      await ctx.prisma.$transaction(async (tx) => {
+        await tx.userReport.update({
+          where: { id: input.object_id },
+          data: {
+            status: ReportAction.BAN_ESCALATED,
+          },
+        });
+        await tx.userReportComment.create({
+          data: {
+            userId: ctx.session.user.id,
+            reportId: input.object_id,
+            content: sanitize(input.comment),
+            decision: ReportAction.BAN_ESCALATED,
+          },
+        });
+      });
+    }),
+  clear: protectedProcedure
+    .input(reportCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Guards
+      const report = await fetchUserReport(ctx.prisma, input.object_id);
+      // Perform the clear
+      await ctx.prisma.$transaction(async (tx) => {
+        // If there are other reports where ban is active, do not clear ban. Otherwise do
+        if (report.reportedUserId) {
+          const reports = await tx.userReport.findMany({
+            where: {
+              reportedUserId: report.reportedUserId,
+              status: ReportAction.BAN_ACTIVATED,
+              banEnd: { gte: new Date() },
+              NOT: { id: report.id },
+            },
+          });
+          if (reports.length === 0) {
             await tx.userData.update({
               where: { userId: report.reportedUserId },
               data: {
-                isBanned: true,
+                isBanned: false,
               },
             });
           }
-          // Update the report
-          await tx.userReport.update({
-            where: { id: input.report_id },
-            data: {
-              is_resolved: input.is_resolved,
-              banEnd: input.banEnd,
-            },
-          });
-          // Create a new comment with resolve reason
-          await tx.userReportComment.create({
-            data: {
-              userId: ctx.session.user.id,
-              reportId: input.report_id,
-              content: sanitize(input.reasoning),
-            },
-          });
+        }
+        await tx.userReport.update({
+          where: { id: report.id },
+          data: {
+            adminResolved: ctx.session.user.role === "ADMIN",
+            status: ReportAction.REPORT_CLEARED,
+          },
         });
-      } else {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You do not have access to the report",
+        await tx.userReportComment.create({
+          data: {
+            userId: ctx.session.user.id,
+            reportId: report.id,
+            content: sanitize(input.comment),
+            decision: ReportAction.REPORT_CLEARED,
+          },
         });
-      }
+      });
     }),
 });
+
+/**
+ * Fetches the user report in question. Throws an error if not found.
+ */
+export const fetchUserReport = async (client: PrismaClient, id: string) => {
+  const report = await client.userReport.findUniqueOrThrow({
+    where: { id },
+    ...getIncludes,
+  });
+  return report;
+};
+
+/**
+ * Includes to be used for queries against reports
+ */
+const getIncludes = {
+  include: {
+    reporterUser: {
+      select: {
+        userId: true,
+        username: true,
+        avatar: true,
+        rank: true,
+        level: true,
+      },
+    },
+    reportedUser: {
+      select: {
+        userId: true,
+        username: true,
+        avatar: true,
+        rank: true,
+        level: true,
+      },
+    },
+  },
+};

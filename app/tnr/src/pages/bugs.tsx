@@ -12,6 +12,7 @@ import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
 import ReportUser from "../layout/Report";
+import Toggle from "../layout/Toggle";
 import {
   HandThumbDownIcon,
   HandThumbUpIcon,
@@ -31,7 +32,6 @@ import { useInfinitePagination } from "../libs/pagination";
 const BugReport: NextPage = () => {
   const { data: sessionData } = useSession();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showModal, setShowModal] = useState<boolean>(false);
   const [showActive, setShowActive] = useState<boolean>(true);
 
   const {
@@ -57,9 +57,20 @@ const BugReport: NextPage = () => {
     lastElement,
   });
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors },
+  } = useForm<BugreportSchema>({
+    resolver: zodResolver(bugreportSchema),
+  });
+
   const createReport = api.bugs.create.useMutation({
     onSuccess: async () => {
       await refetch();
+      reset();
     },
     onError: (error) => {
       show_toast("Error on fetching latest bugs", error.message, "error");
@@ -84,22 +95,8 @@ const BugReport: NextPage = () => {
     },
   });
 
-  // Form handling
-  const {
-    register,
-    handleSubmit,
-    reset,
-    control,
-    formState: { errors },
-  } = useForm<BugreportSchema>({
-    resolver: zodResolver(bugreportSchema),
-  });
-
-  const onSubmit = handleSubmit(async (data) => {
+  const onSubmit = handleSubmit((data) => {
     createReport.mutate(data);
-    await refetch();
-    setShowModal(false);
-    reset();
   });
 
   return (
@@ -109,38 +106,14 @@ const BugReport: NextPage = () => {
       topRightContent={
         sessionData && (
           <div className="flex flex-row items-baseline">
-            <label className="relative mr-3 inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                value=""
-                className="peer sr-only"
-                onClick={() => setShowActive((prev) => !prev)}
-              />
-              <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:top-[3px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-orange-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300"></div>
-              <span className="ml-3 text-base text-gray-900">
-                Showing {showActive ? "active" : "solved"}
-              </span>
-            </label>
-            <Button
-              id="report"
-              label="New Report"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowModal(true);
-              }}
-            />
-          </div>
-        )
-      }
-    >
-      <form onSubmit={onSubmit}>
-        {showModal && sessionData && (
-          <Modal
-            title="Write a new bug report"
-            proceed_label="Submit"
-            setIsOpen={setShowModal}
-          >
-            <div>
+            <Toggle value={showActive} setShowActive={setShowActive} />
+
+            <Confirm
+              title="Write a new bug report"
+              proceed_label="Submit"
+              button={<Button id="report" label="New Report" />}
+              onAccept={onSubmit}
+            >
               <InputField
                 id="title"
                 label="Title for your report"
@@ -178,11 +151,11 @@ const BugReport: NextPage = () => {
                 control={control}
                 error={errors.content?.message}
               />
-            </div>
-          </Modal>
-        )}
-      </form>
-
+            </Confirm>
+          </div>
+        )
+      }
+    >
       {allBugs &&
         allBugs.map((bug, i) => (
           <div

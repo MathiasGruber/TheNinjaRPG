@@ -9,25 +9,52 @@ import {
 } from "@heroicons/react/24/outline";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
-import SubmitButton from "./SubmitButton";
+import Button from "./Button";
 import Confirm from "../layout/Confirm";
 import ReportUser from "../layout/Report";
-import { type MutateCommentSchema } from "../validators/bugs";
-import { mutateCommentSchema } from "../validators/bugs";
+import { type MutateCommentSchema } from "../validators/comments";
+import { type DeleteCommentSchema } from "../validators/comments";
+import { mutateCommentSchema } from "../validators/comments";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { type BugComment } from "@prisma/client";
+import { type UserReportComment } from "@prisma/client";
 
-interface CommentProps extends PostProps {
+/**
+ * Component for handling comments on user reports
+ * @param props
+ * @returns
+ */
+interface UserReportCommentProps extends PostProps {
+  comment: UserReportComment;
+  refetchComments: () => void;
+}
+export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <BaseComment
+      {...props}
+      enable_reporting={false}
+      editing={editing}
+      setEditing={setEditing}
+    />
+  );
+};
+
+/**
+ * Component for handling comments on bug reports
+ * @param props
+ * @returns
+ */
+interface BugCommentProps extends PostProps {
   comment: BugComment;
   refetchComments: () => void;
 }
-
-const Comment: React.FC<CommentProps> = (props) => {
-  const { data: sessionData } = useSession();
+export const CommentOnBug: React.FC<BugCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
 
-  const editComment = api.bugs.editComment.useMutation({
+  const editComment = api.comments.editBugComment.useMutation({
     onSuccess: () => {
       props.refetchComments();
       setEditing(false);
@@ -37,7 +64,7 @@ const Comment: React.FC<CommentProps> = (props) => {
     },
   });
 
-  const deleteComment = api.bugs.deleteComment.useMutation({
+  const deleteComment = api.comments.deleteBugComment.useMutation({
     onSuccess: () => {
       props.refetchComments();
       setEditing(false);
@@ -47,6 +74,34 @@ const Comment: React.FC<CommentProps> = (props) => {
     },
   });
 
+  return (
+    <BaseComment
+      {...props}
+      enable_reporting={true}
+      editComment={editComment.mutate}
+      deleteComment={deleteComment.mutate}
+      editing={editing}
+      setEditing={setEditing}
+    />
+  );
+};
+
+/**
+ * Base component on which other comment components are built
+ * @param props
+ * @returns
+ */
+interface BaseCommentProps extends PostProps {
+  comment: BugComment | UserReportComment;
+  enable_reporting: boolean;
+  editing: boolean;
+  setEditing: React.Dispatch<React.SetStateAction<boolean>>;
+  editComment?: (data: MutateCommentSchema) => void;
+  deleteComment?: (data: DeleteCommentSchema) => void;
+  refetchComments: () => void;
+}
+const BaseComment: React.FC<BaseCommentProps> = (props) => {
+  const { data: sessionData } = useSession();
   const {
     handleSubmit,
     reset,
@@ -60,9 +115,9 @@ const Comment: React.FC<CommentProps> = (props) => {
   });
 
   const onSubmit = handleSubmit((data) => {
-    editComment.mutate(data);
+    props.editComment && props.editComment(data);
     reset();
-    setEditing(false);
+    props.setEditing(false);
   });
 
   return (
@@ -71,34 +126,41 @@ const Comment: React.FC<CommentProps> = (props) => {
         props.user &&
         sessionData?.user?.id === props.user.userId && (
           <div className="flex flex-row">
-            <PencilSquareIcon
-              className={`h-6 w-6 ${
-                editing ? "fill-orange-500" : "hover:fill-orange-500"
-              }`}
-              onClick={() => setEditing((prev) => !prev)}
-            />
-            <ReportUser
-              user={props.user}
-              content={props.comment}
-              system="bug_comment"
-              button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
-            />
-            <Confirm
-              title="Confirm Bug Report Deletion"
-              button={<TrashIcon className="h-6 w-6 hover:fill-orange-500" />}
-              onAccept={(e) => {
-                e.preventDefault();
-                deleteComment.mutate({ id: props.comment.id });
-              }}
-            >
-              You are about to delete a comment. Are you sure?
-            </Confirm>
+            {props.editComment && (
+              <PencilSquareIcon
+                className={`h-6 w-6 ${
+                  props.editing ? "fill-orange-500" : "hover:fill-orange-500"
+                }`}
+                onClick={() => props.setEditing((prev) => !prev)}
+              />
+            )}
+            {props.enable_reporting && (
+              <ReportUser
+                user={props.user}
+                content={props.comment}
+                system="bug_comment"
+                button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
+              />
+            )}
+            {props.deleteComment && (
+              <Confirm
+                title="Confirm Bug Report Deletion"
+                button={<TrashIcon className="h-6 w-6 hover:fill-orange-500" />}
+                onAccept={(e) => {
+                  e.preventDefault();
+                  props.deleteComment &&
+                    props.deleteComment({ id: props.comment.id });
+                }}
+              >
+                You are about to delete a comment. Are you sure?
+              </Confirm>
+            )}
           </div>
         )
       }
       {...props}
     >
-      {editing ? (
+      {props.editing ? (
         <form onSubmit={onSubmit}>
           <RichInput
             id="comment"
@@ -107,7 +169,7 @@ const Comment: React.FC<CommentProps> = (props) => {
             control={control}
             error={errors.comment?.message}
           />
-          <SubmitButton id="edit_comment" label="Edit Comment" />
+          <Button id="edit_comment" label="Edit Comment" />
         </form>
       ) : (
         props.children
@@ -115,5 +177,3 @@ const Comment: React.FC<CommentProps> = (props) => {
     </Post>
   );
 };
-
-export default Comment;

@@ -3,6 +3,7 @@ import { exampleRouter } from "./routers/example";
 import { profileRouter } from "./routers/profile";
 import { avatarRouter } from "./routers/avatar";
 import { bugsRouter } from "./routers/bugs";
+import { commentsRouter } from "./routers/comments";
 import { villageRouter } from "./routers/village";
 import { reportsRouter } from "./routers/reports";
 
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   avatar: avatarRouter,
   bugs: bugsRouter,
   reports: reportsRouter,
+  comments: commentsRouter,
 });
 
 // export type definition of API

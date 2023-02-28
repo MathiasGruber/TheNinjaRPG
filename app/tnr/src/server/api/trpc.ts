@@ -65,6 +65,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
  * transformer
  */
 import { initTRPC, TRPCError } from "@trpc/server";
+import { type TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
 import superjson from "superjson";
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
@@ -122,3 +123,13 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
  * @see https://trpc.io/docs/procedures
  */
 export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+
+/**
+ * 4. EXPORTS
+ */
+export const serverError = (code: TRPC_ERROR_CODE_KEY, message: string) => {
+  return new TRPCError({
+    code,
+    message,
+  });
+};

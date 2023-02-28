@@ -219,6 +219,14 @@ model BugComment {
     bugId     String
 }
 
+enum ReportAction {
+    UNVIEWED
+    REPORT_CLEARED
+    BAN_ACTIVATED
+    BAN_ESCALATED
+    BAN_FINISHED
+}
+
 model UserReport {
     id             String              @id @default(cuid())
     reporterUser   UserData?           @relation("reporter", fields: [reporterUserId], references: [userId], onDelete: SetNull)
@@ -229,17 +237,20 @@ model UserReport {
     system         String
     infraction     Json
     reason         String
-    is_resolved    Boolean             @default(false)
     banEnd         DateTime?
+    adminResolved  Boolean             @default(false)
+    status         ReportAction        @default(UNVIEWED)
     comments       UserReportComment[]
 }
 
 model UserReportComment {
-    id        String     @id @default(cuid())
+    id        String        @id @default(cuid())
     content   String
-    createdAt DateTime   @default(now())
-    user      UserData   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    createdAt DateTime      @default(now())
+    user      UserData      @relation(fields: [userId], references: [userId], onDelete: Cascade)
     userId    String
-    report    UserReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+    report    UserReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
     reportId  String
+    // Banning information
+    decision  ReportAction?
 }

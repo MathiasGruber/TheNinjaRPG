@@ -10,16 +10,33 @@ export interface PostProps {
     rank: string;
   };
   title?: string;
+  color?: "default" | "green" | "red" | "blue";
   children: React.ReactNode;
   options?: React.ReactNode;
   hover_effect?: boolean;
 }
 
 const Post: React.FC<PostProps> = (props) => {
+  let color = "bg-orange-50";
+  let hover = "hover:bg-gray-100";
+  switch (props.color) {
+    case "green":
+      color = "bg-green-200";
+      hover = "hover:bg-green-300";
+      break;
+    case "red":
+      color = "bg-red-300";
+      hover = "hover:bg-red-400";
+      break;
+    case "blue":
+      color = "bg-blue-200";
+      hover = "hover:bg-blue-300";
+      break;
+  }
   return (
     <div
-      className={`mb-3 flex flex-row rounded-lg border border-gray-200 bg-orange-50 p-6 shadow ${
-        props.hover_effect ? "hover:bg-gray-100" : ""
+      className={`mb-3 flex flex-row rounded-lg border ${color} p-6 shadow ${
+        props.hover_effect ? hover : ""
       }`}
     >
       {props.user && (

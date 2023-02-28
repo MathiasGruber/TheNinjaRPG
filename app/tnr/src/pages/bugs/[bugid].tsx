@@ -5,15 +5,19 @@ import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
+import {
+  ChatBubbleLeftEllipsisIcon,
+  CheckIcon,
+} from "@heroicons/react/24/solid";
 
-import SubmitButton from "../../layout/SubmitButton";
+import Button from "../../layout/Button";
 import ContentBox from "../../layout/ContentBox";
 import RichInput from "../../layout/RichInput";
 import Post from "../../layout/Post";
-import Comment from "../../layout/Comment";
+import { CommentOnBug } from "../../layout/Comment";
 import { api } from "../../utils/api";
-import { type MutateCommentSchema } from "../../validators/bugs";
-import { mutateCommentSchema } from "../../validators/bugs";
+import { type MutateCommentSchema } from "../../validators/comments";
+import { mutateCommentSchema } from "../../validators/comments";
 import { show_toast } from "../../libs/toast";
 import { useInfinitePagination } from "../../libs/pagination";
 
@@ -33,7 +37,7 @@ const BugReport: NextPage = () => {
     fetchNextPage,
     hasNextPage,
     refetch,
-  } = api.bugs.getComments.useInfiniteQuery(
+  } = api.comments.getBugComments.useInfiniteQuery(
     { id: bug_id, limit: 20 },
     {
       enabled: bug_id !== undefined,
@@ -49,7 +53,7 @@ const BugReport: NextPage = () => {
     lastElement,
   });
 
-  const createComment = api.bugs.createComment.useMutation({
+  const createComment = api.comments.createBugComment.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -58,7 +62,7 @@ const BugReport: NextPage = () => {
     },
   });
 
-  const resolveComment = api.bugs.resolveComment.useMutation({
+  const resolveComment = api.bugs.resolve.useMutation({
     onSuccess: async () => {
       await refetchBug();
       await refetch();
@@ -138,15 +142,20 @@ const BugReport: NextPage = () => {
                 error={errors.comment?.message}
               />
               <div className="flex flex-row-reverse">
-                <SubmitButton
+                <Button
                   id="submit_comment"
                   label="Add Comment"
+                  image={
+                    <ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />
+                  }
                   onClick={handleSubmitComment}
                 />
                 {sessionData.user?.role === "ADMIN" && (
-                  <SubmitButton
+                  <Button
                     id="submit_resolve"
                     label="Comment & Resolve"
+                    color="green"
+                    image={<CheckIcon className="mr-1 h-5 w-5" />}
                     onClick={handleSubmitResolve}
                   />
                 )}
@@ -160,14 +169,14 @@ const BugReport: NextPage = () => {
               key={comment.id}
               ref={i === allComments.length - 1 ? setLastElement : null}
             >
-              <Comment
+              <CommentOnBug
                 user={comment.user}
                 hover_effect={false}
                 comment={comment}
                 refetchComments={async () => await refetch()}
               >
                 {ReactHtmlParser(comment.content)}
-              </Comment>
+              </CommentOnBug>
             </div>
           ))}
       </ContentBox>

@@ -1,10 +1,94 @@
+import { useState } from "react";
 import { type NextPage } from "next";
+
+import Link from "next/link";
 import ContentBox from "../layout/ContentBox";
+import Toggle from "../layout/Toggle";
+import Post from "../layout/Post";
+import Countdown from "../layout/Countdown";
+import ParsedReportJson from "../layout/ReportReason";
+
+import { useSession } from "next-auth/react";
+import { api } from "../utils/api";
+import { useInfinitePagination } from "../libs/pagination";
+import { useRequiredUser } from "../utils/UserContext";
+import { reportCommentExplain } from "../utils/reports";
+import { reportCommentColor } from "../utils/reports";
 
 const Reports: NextPage = () => {
+  const { data: sessionData } = useSession();
+  useRequiredUser();
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const [showActive, setShowActive] = useState<boolean>(true);
+
+  const {
+    data: reports,
+    fetchNextPage,
+    hasNextPage,
+  } = api.reports.getAll.useInfiniteQuery(
+    {
+      ...(sessionData?.user?.role === "USER" ? {} : { is_active: showActive }),
+      limit: 20,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const allReports = reports?.pages.map((page) => page.data).flat();
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
   return (
-    <ContentBox title="Reports">
-      <div>NOT IMPLEMENTED</div>
+    <ContentBox
+      title="Reports"
+      subtitle={
+        sessionData?.user?.role === "USER"
+          ? "View your reports"
+          : "Overview of all reports"
+      }
+      topRightContent={
+        sessionData &&
+        sessionData.user?.role !== "USER" && (
+          <div className="flex flex-row items-baseline">
+            <Toggle value={showActive} setShowActive={setShowActive} />
+          </div>
+        )
+      }
+    >
+      {allReports &&
+        allReports.flatMap(
+          (report, i) =>
+            report.reportedUser && (
+              <div
+                key={report.id}
+                ref={i === allReports.length - 1 ? setLastElement : null}
+              >
+                <Link href={"/reports/" + report.id}>
+                  <Post
+                    title={reportCommentExplain(report.status)}
+                    color={reportCommentColor(report.status)}
+                    user={report.reportedUser}
+                    hover_effect={true}
+                  >
+                    {report.banEnd && (
+                      <div className="mb-3">
+                        <b>Ban countdown:</b>{" "}
+                        <Countdown targetDate={report.banEnd} />
+                        <hr />
+                      </div>
+                    )}
+                    <ParsedReportJson report={report} />
+                    <b>Report by</b> {report.reporterUser?.username}
+                  </Post>
+                </Link>
+              </div>
+            )
+        )}
     </ContentBox>
   );
 };

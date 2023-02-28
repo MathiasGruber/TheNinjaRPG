@@ -15,7 +15,6 @@ interface LoginProps {
 }
 
 const Login: NextPage<LoginProps> = (props) => {
-  console.log(props.providers);
   return (
     <ContentBox
       title="Login or Register"

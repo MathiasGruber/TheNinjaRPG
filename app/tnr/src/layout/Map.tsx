@@ -126,7 +126,6 @@ const Map: React.FC<MapProps> = (props) => {
               new THREE.BufferAttribute(vertices, 3)
             );
             const consistentRandom = Math.abs((t.c.x + t.c.y + t.c.z) / 3) / 20;
-            console.log(consistentRandom);
             const material =
               t.w === 0
                 ? groundMaterials[

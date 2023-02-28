@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { createAvatar, fetchAvatar, getPrompt } from "../../../libs/replicate";
 import { uploadAvatar } from "../../../libs/aws";
 
@@ -13,10 +12,7 @@ export const avatarRouter = createTRPCRouter({
       where: { userId: ctx.session.user.id },
     });
     if (!currentUser || currentUser?.popularity_points <= 0) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "You do not have any popularity points",
-      });
+      throw serverError("FORBIDDEN", "Not enough pop points");
     }
     // Set user avatar to undefined
     await ctx.prisma.userData.update({
@@ -39,10 +35,7 @@ export const avatarRouter = createTRPCRouter({
       if (result.status == "failed" || result.status == "canceled") {
         counter += 1;
         if (counter > 5) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Your avatar could not be created with 5 attempts",
-          });
+          throw serverError("TIMEOUT", "Could not be created with 5 attempts");
         }
         result = await createAvatar(prompt);
       }

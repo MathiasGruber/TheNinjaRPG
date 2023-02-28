@@ -30,6 +30,7 @@
     "@types/sanitize-html": "^2.8.0",
     "@types/three": "0.149.0",
     "aws-sdk": "^2.1310.0",
+    "html2canvas": "^1.4.1",
     "next": "13.1.2",
     "next-auth": "4.19.2",
     "react": "18.2.0",
@@ -40,6 +41,7 @@
     "sanitize-html": "^2.10.0",
     "superjson": "1.9.1",
     "three": "0.149.0",
+    "use-react-screenshot": "^3.0.0",
     "zod": "^3.20.2"
   },
   "devDependencies": {

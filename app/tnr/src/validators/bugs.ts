@@ -27,20 +27,10 @@ export const bugreportSchema = z
       })
       .min(10)
       .max(50),
-    content: z.string(),
+    content: z.string().min(50).max(5000),
     system: z.enum(systems),
   })
   .strict()
   .required();
 
 export type BugreportSchema = z.infer<typeof bugreportSchema>;
-
-export const mutateCommentSchema = z
-  .object({
-    comment: z.string().min(10).max(1000),
-    object_id: z.string().cuid(),
-  })
-  .strict()
-  .required();
-
-export type MutateCommentSchema = z.infer<typeof mutateCommentSchema>;

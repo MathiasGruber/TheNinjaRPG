@@ -8,7 +8,7 @@ import ContentBox from "../layout/ContentBox";
 import InputField from "../layout/InputField";
 import SelectField from "../layout/SelectField";
 import CheckBox from "../layout/CheckBox";
-import SubmitButton from "../layout/SubmitButton";
+import Button from "../layout/Button";
 import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 
@@ -91,9 +91,13 @@ const Register: React.FC = () => {
   }
 
   // Handle form submit
-  const onSubmit = handleSubmit((data) => {
-    createCharacter.mutate(data);
-  });
+  const handleCreateCharacter = handleSubmit(
+    (data) => {
+      console.log(data);
+      createCharacter.mutate(data);
+    },
+    (errors) => console.error(errors)
+  );
 
   // Options used for select fields
   const option_attributes = attributes.map((attribute, index) => (
@@ -113,7 +117,7 @@ const Register: React.FC = () => {
   ));
 
   return (
-    <form onSubmit={onSubmit}>
+    <form>
       <ContentBox
         title="Create Character"
         subtitle="Set up your character. An AI will generate an avatar for you based on your choices."
@@ -207,7 +211,11 @@ const Register: React.FC = () => {
             >
               {option_attributes}
             </SelectField>
-            <SubmitButton id="create" label="Create Character" />
+            <Button
+              id="create"
+              label="Create Character"
+              onClick={handleCreateCharacter}
+            />
           </div>
         </div>
 
