@@ -106,7 +106,7 @@ const BugReport: NextPage = () => {
       subtitle="Found a bug? Let us know!"
       topRightContent={
         sessionData && (
-          <div className="flex flex-row items-baseline">
+          <div className="flex flex-row items-center">
             <Toggle value={showActive} setShowActive={setShowActive} />
             {userData && !sessionData.user?.isBanned && (
               <Confirm

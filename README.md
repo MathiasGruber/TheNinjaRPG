@@ -11,7 +11,6 @@ This is the source code for the game TheNinja-RPG.com.
 # Current ToDo List
 
 - Ban feature for spammers
-- Filter on user on reports page
 - Inform that new user reports to be handled a present
 - Ability to remove avatars
 

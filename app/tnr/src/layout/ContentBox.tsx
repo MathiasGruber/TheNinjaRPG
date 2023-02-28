@@ -14,7 +14,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
   return (
     <>
       <div className="mb-5 sm:container">
-        <div className="flex flex-row items-end">
+        <div className="flex flex-row items-center">
           <div>
             <h2 className="text-2xl font-bold text-orange-900">
               {props.back_href ? (

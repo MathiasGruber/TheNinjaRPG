@@ -6,6 +6,8 @@ import ContentBox from "../layout/ContentBox";
 import Toggle from "../layout/Toggle";
 import Post from "../layout/Post";
 import Countdown from "../layout/Countdown";
+import InputField from "../layout/InputField";
+import Loader from "../layout/Loader";
 import ParsedReportJson from "../layout/ReportReason";
 
 import { useSession } from "next-auth/react";
@@ -18,16 +20,20 @@ import { reportCommentColor } from "../utils/reports";
 const Reports: NextPage = () => {
   const { data: sessionData } = useSession();
   useRequiredUser();
+
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [showActive, setShowActive] = useState<boolean>(true);
 
   const {
     data: reports,
+    isFetching,
     fetchNextPage,
     hasNextPage,
   } = api.reports.getAll.useInfiniteQuery(
     {
       ...(sessionData?.user?.role === "USER" ? {} : { is_active: showActive }),
+      ...(searchTerm ? { username: searchTerm } : {}),
       limit: 20,
     },
     {
@@ -49,18 +55,27 @@ const Reports: NextPage = () => {
       subtitle={
         sessionData?.user?.role === "USER"
           ? "View your reports"
-          : "Overview of all reports"
+          : "Overall Overview"
       }
       topRightContent={
         sessionData &&
         sessionData.user?.role !== "USER" && (
-          <div className="flex flex-row items-baseline">
+          <div className="flex flex-row items-center">
+            <InputField
+              id="title"
+              placeholder="Search Username"
+              onEndEditing={(value) => setSearchTerm(value)}
+            />
+            <div className="px-2"></div>
             <Toggle value={showActive} setShowActive={setShowActive} />
           </div>
         )
       }
     >
-      {allReports &&
+      {isFetching ? (
+        <Loader explanation="Fetching Results..." />
+      ) : (
+        allReports &&
         allReports.flatMap(
           (report, i) =>
             report.reportedUser && (
@@ -88,7 +103,8 @@ const Reports: NextPage = () => {
                 </Link>
               </div>
             )
-        )}
+        )
+      )}
     </ContentBox>
   );
 };

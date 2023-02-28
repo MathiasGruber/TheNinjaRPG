@@ -18,6 +18,12 @@ export const reportsRouter = createTRPCRouter({
         is_active: z.boolean().optional(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
+        username: z
+          .string()
+          .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
+            message: "Must only contain alphanumeric characters and no spaces",
+          })
+          .optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -48,6 +54,16 @@ export const reportsRouter = createTRPCRouter({
                   { reportedUserId: ctx.session.user.id },
                   { reporterUserId: ctx.session.user.id },
                 ],
+              }
+            : {}),
+          // Subset on username if provided
+          ...(input.username !== undefined
+            ? {
+                reportedUser: {
+                  username: {
+                    contains: input.username,
+                  },
+                },
               }
             : {}),
         },
