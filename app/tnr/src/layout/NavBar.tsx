@@ -4,47 +4,19 @@ import IconGlobe from "../icons/IconGlobe";
 import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
-import NavBarDropdown, { type NavBarDropdownLink } from "./NavBarDropdown";
+import NavBarDropdown from "./NavBarDropdown";
+
 import { useSession } from "next-auth/react";
-import { signOut, signIn } from "next-auth/react";
 import { useUser } from "../utils/UserContext";
+import { getMainNavbarLinks } from "../libs/menus";
+import { getMainGameLinks } from "../libs/menus";
 
 const NavBar: React.FC = () => {
   const { data: sessionData } = useSession();
   const { data: userData } = useUser();
-  // Main links in navbar
-  const links: NavBarDropdownLink[] = [
-    {
-      href: "/",
-      name: "Home",
-    },
-    {
-      href: "/forum",
-      name: "Forum",
-    },
-    {
-      href: "/bugs",
-      name: "Bugs",
-    },
-    {
-      href: "/github",
-      name: "Contribute",
-    },
-  ];
-  // Add login or logout button
-  if (sessionData) {
-    links.push({
-      href: "/",
-      name: "Logout",
-      onClick: () => signOut(),
-    });
-  } else {
-    links.push({
-      href: "/",
-      name: "Login",
-      onClick: () => signIn(),
-    });
-  }
+  // Main links
+  const navLinks = getMainNavbarLinks(sessionData);
+  const gameLinks = getMainGameLinks(userData);
   // Top element of mobile navbar
   const topElement = userData && (
     <div className="flex flex-row">
@@ -85,7 +57,7 @@ const NavBar: React.FC = () => {
     <>
       <div className="rounded-md bg-gradient-to-t from-orange-800 to-orange-600 text-center">
         <div className="hidden w-full flex-row p-3 md:flex">
-          {links.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.name}
               className="basis-1/5 font-bold"
@@ -104,7 +76,7 @@ const NavBar: React.FC = () => {
           <NavBarDropdown
             icon={<IconHome />}
             position="left"
-            links={links}
+            links={navLinks}
             topElement={topElement}
             topElementLink="avatar"
           />
@@ -115,7 +87,11 @@ const NavBar: React.FC = () => {
           </h1>
         </div>
         <div>
-          <NavBarDropdown icon={<IconGlobe />} position="right" />
+          <NavBarDropdown
+            icon={<IconGlobe />}
+            links={gameLinks}
+            position="right"
+          />
         </div>
       </div>
     </>

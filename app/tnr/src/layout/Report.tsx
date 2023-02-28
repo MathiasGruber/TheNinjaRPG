@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ReactHtmlParser from "react-html-parser";
@@ -31,6 +32,7 @@ interface ReportUserProps {
 }
 
 const ReportUser: React.FC<ReportUserProps> = (props) => {
+  const { data: sessionData } = useSession();
   const [showModal, setShowModal] = useState<boolean>(false);
 
   const createReport = api.reports.create.useMutation({
@@ -75,36 +77,44 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
         <Modal
           title="Report User"
           setIsOpen={setShowModal}
-          proceed_label="Report User"
-          onAccept={onSubmit}
+          proceed_label={sessionData?.user?.isBanned ? "Stop" : "Report User"}
+          onAccept={sessionData?.user?.isBanned ? undefined : onSubmit}
         >
-          <Post
-            title={props.content.title}
-            user={props.user}
-            hover_effect={false}
-          >
-            {props.content.symmary && (
-              <div>
-                {ReactHtmlParser(props.content.symmary)}
+          {sessionData?.user?.isBanned ? (
+            <div>
+              You are currently banned, and can therefore not report others
+            </div>
+          ) : (
+            <>
+              <Post
+                title={props.content.title}
+                user={props.user}
+                hover_effect={false}
+              >
+                {props.content.symmary && (
+                  <div>
+                    {ReactHtmlParser(props.content.symmary)}
+                    <hr />
+                  </div>
+                )}
                 <hr />
-              </div>
-            )}
-            <hr />
-            {props.content.content && (
-              <div>
-                {ReactHtmlParser(props.content.content)}
-                <hr />
-              </div>
-            )}
-          </Post>
-          <RichInput
-            id="reason"
-            label="Report reason"
-            height="200"
-            placeholder="Unless obvious, please state the reason for this report"
-            control={control}
-            error={errors.reason?.message}
-          />
+                {props.content.content && (
+                  <div>
+                    {ReactHtmlParser(props.content.content)}
+                    <hr />
+                  </div>
+                )}
+              </Post>
+              <RichInput
+                id="reason"
+                label="Report reason"
+                height="200"
+                placeholder="Unless obvious, please state the reason for this report"
+                control={control}
+                error={errors.reason?.message}
+              />
+            </>
+          )}
         </Modal>
       </form>
     );

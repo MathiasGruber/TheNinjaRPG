@@ -33,11 +33,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           refetch: refetchUser,
         }}
       >
-        <div className="w-full border-b-2 border-slate-600 bg-slate-200 px-2 font-sans text-base opacity-40">
-          <p className="text-center font-bold text-red-500 opacity-100">
-            Early Access
-          </p>
-        </div>
         <h1 className="my-2 hidden text-center font-fontasia text-5xl text-white md:block md:text-8xl">
           <Link href="/">TheNinja-RPG</Link>
         </h1>

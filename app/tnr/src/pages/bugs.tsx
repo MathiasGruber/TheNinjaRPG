@@ -13,6 +13,7 @@ import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
 import ReportUser from "../layout/Report";
 import Toggle from "../layout/Toggle";
+import Post from "../layout/Post";
 import {
   HandThumbDownIcon,
   HandThumbUpIcon,
@@ -20,17 +21,17 @@ import {
   FlagIcon,
 } from "@heroicons/react/24/outline";
 
-import Modal from "../layout/Modal";
-import Post from "../layout/Post";
 import { api } from "../utils/api";
 import { systems } from "../validators/bugs";
-import { type BugreportSchema } from "../validators/bugs";
 import { bugreportSchema } from "../validators/bugs";
 import { show_toast } from "../libs/toast";
 import { useInfinitePagination } from "../libs/pagination";
+import { useUser } from "../utils/UserContext";
+import { type BugreportSchema } from "../validators/bugs";
 
 const BugReport: NextPage = () => {
   const { data: sessionData } = useSession();
+  const { data: userData } = useUser();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [showActive, setShowActive] = useState<boolean>(true);
 
@@ -107,51 +108,53 @@ const BugReport: NextPage = () => {
         sessionData && (
           <div className="flex flex-row items-baseline">
             <Toggle value={showActive} setShowActive={setShowActive} />
-
-            <Confirm
-              title="Write a new bug report"
-              proceed_label="Submit"
-              button={<Button id="report" label="New Report" />}
-              onAccept={onSubmit}
-            >
-              <InputField
-                id="title"
-                label="Title for your report"
-                register={register}
-                error={errors.title?.message}
-              />
-              <SelectField
-                id="system"
-                label="Where did the error occur?"
-                register={register}
-                error={errors.system?.message}
-                placeholder="Pick page"
+            {userData && !sessionData.user?.isBanned && (
+              <Confirm
+                title="Write a new bug report"
+                proceed_label="Submit"
+                button={<Button id="report" label="New Report" />}
+                onAccept={onSubmit}
               >
-                {systems.map((system) => (
-                  <option key={system} value={system}>
-                    {system === "unknown" ? (
-                      <>
-                        Do not know. Please provide details in the description.
-                      </>
-                    ) : (
-                      window.location.origin + "/" + system
-                    )}
-                  </option>
-                ))}
-              </SelectField>
-              <RichInput
-                id="content"
-                label="Describe the bug"
-                height="300"
-                placeholder="
+                <InputField
+                  id="title"
+                  label="Title for your report"
+                  register={register}
+                  error={errors.title?.message}
+                />
+                <SelectField
+                  id="system"
+                  label="Where did the error occur?"
+                  register={register}
+                  error={errors.system?.message}
+                  placeholder="Pick page"
+                >
+                  {systems.map((system) => (
+                    <option key={system} value={system}>
+                      {system === "unknown" ? (
+                        <>
+                          Do not know. Please provide details in the
+                          description.
+                        </>
+                      ) : (
+                        window.location.origin + "/" + system
+                      )}
+                    </option>
+                  ))}
+                </SelectField>
+                <RichInput
+                  id="content"
+                  label="Describe the bug"
+                  height="300"
+                  placeholder="
                   <p><b>Describe the bug: </b> write here...</p>
                   <p><b>How to reproduce: </b> write here...</p>
                   <p><b>Expected behavior: </b> write here...</p>
                   <p><b>Device Information: </b> mobile/tablet/desktop? browser?</p>"
-                control={control}
-                error={errors.content?.message}
-              />
-            </Confirm>
+                  control={control}
+                  error={errors.content?.message}
+                />
+              </Confirm>
+            )}
           </div>
         )
       }

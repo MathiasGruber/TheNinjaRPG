@@ -82,6 +82,9 @@ export const bugsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(bugreportSchema)
     .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
       return ctx.prisma.bugReport.create({
         data: {
           title: input.title,
@@ -112,6 +115,9 @@ export const bugsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
       await ctx.prisma.$transaction(async (tx) => {
         // First upsert tracking entry
         await tx.bugVotes.upsert({
@@ -150,6 +156,9 @@ export const bugsRouter = createTRPCRouter({
   resolve: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
       if (ctx.session.user.role === "ADMIN") {
         await ctx.prisma.$transaction(async (tx) => {
           // First upsert tracking entry

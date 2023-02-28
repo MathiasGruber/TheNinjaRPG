@@ -9,13 +9,14 @@ import { useRouter } from "next/router";
 const userdataWithRelations = Prisma.validator<Prisma.UserDataArgs>()({
   include: { village: true, bloodline: true },
 });
-export type UserDataWithRelations = Prisma.UserDataGetPayload<
-  typeof userdataWithRelations
->;
+export type UserDataWithRelations =
+  | Prisma.UserDataGetPayload<typeof userdataWithRelations>
+  | null
+  | undefined;
 
 // User context
 export const UserContext = createContext<{
-  data: UserDataWithRelations | null | undefined;
+  data: UserDataWithRelations;
   status: string;
   refetch: (options?: any) => Promise<any> | void;
 }>({ data: undefined, status: "unknown", refetch: () => undefined });

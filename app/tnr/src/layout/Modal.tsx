@@ -12,7 +12,7 @@ const Modal: React.FC<ModalProps> = (props) => {
   return (
     <>
       <div
-        className="fixed top-0 left-0 right-0 bottom-0 z-10 h-full w-full bg-black opacity-80"
+        className="fixed top-0 left-0 right-0 bottom-0 z-20 h-full w-full bg-black opacity-80"
         onClick={() => {
           props.setIsOpen(false);
         }}
@@ -24,7 +24,7 @@ const Modal: React.FC<ModalProps> = (props) => {
           </h3>
           <button
             type="button"
-            className="ml-auto inline-flex items-center rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+            className="ml-auto inline-flex items-center rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
             onClick={() => {
               props.setIsOpen(false);
             }}

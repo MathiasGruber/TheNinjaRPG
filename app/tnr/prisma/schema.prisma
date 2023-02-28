@@ -68,6 +68,7 @@ model User {
     email            String?            @unique
     emailVerified    DateTime?
     image            String?
+    isBanned         Boolean            @default(false)
     role             Role               @default(USER)
     accounts         Account[]
     sessions         Session[]
@@ -123,8 +124,6 @@ model UserData {
     popularity_points   Int                 @default(1) // Required for initial avatar creation
     // Approved ToS
     approved_tos        Boolean             @default(false)
-    // Whether the user is banned
-    isBanned            Boolean             @default(false)
     // Avatar link
     avatar              String?
     // Relations

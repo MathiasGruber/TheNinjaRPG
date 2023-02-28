@@ -127,8 +127,8 @@ export const reportsRouter = createTRPCRouter({
       // Perform the ban
       await ctx.prisma.$transaction(async (tx) => {
         if (report.reportedUserId) {
-          await tx.userData.update({
-            where: { userId: report.reportedUserId },
+          await tx.user.update({
+            where: { id: report.reportedUserId },
             data: {
               isBanned: true,
             },
@@ -202,8 +202,8 @@ export const reportsRouter = createTRPCRouter({
             },
           });
           if (reports.length === 0) {
-            await tx.userData.update({
-              where: { userId: report.reportedUserId },
+            await tx.user.update({
+              where: { id: report.reportedUserId },
               data: {
                 isBanned: false,
               },

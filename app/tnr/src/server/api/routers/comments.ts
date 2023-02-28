@@ -18,6 +18,9 @@ export const commentsRouter = createTRPCRouter({
   createBugComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
       return ctx.prisma.bugComment.create({
         data: {
           content: sanitize(input.comment),
@@ -29,6 +32,9 @@ export const commentsRouter = createTRPCRouter({
   editBugComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
       const comment = await ctx.prisma.bugComment.findUnique({
         where: { id: input.object_id },
       });

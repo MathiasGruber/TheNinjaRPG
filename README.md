@@ -12,13 +12,11 @@ This is the source code for the game TheNinja-RPG.com.
 
 - Ban feature for spammers
 - Filter on user on reports page
-- Ability to unban banned user
 - Inform that new user reports to be handled a present
 - Ability to remove avatars
 
 - Facebook logn: enable user deletion
-
-- Automatic phpmyadmin login
+- Github login: get working
 
 - Forum page
 - Tavern page with redis

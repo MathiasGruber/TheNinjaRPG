@@ -18,7 +18,7 @@ export interface PostProps {
 
 const Post: React.FC<PostProps> = (props) => {
   let color = "bg-orange-50";
-  let hover = "hover:bg-gray-100";
+  let hover = "hover:bg-orange-100";
   switch (props.color) {
     case "green":
       color = "bg-green-200";

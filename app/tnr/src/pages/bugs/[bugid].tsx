@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { type NextPage } from "next";
 import { useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
+import { type NextPage } from "next";
+
 import ReactHtmlParser from "react-html-parser";
 import {
   ChatBubbleLeftEllipsisIcon,
@@ -14,12 +15,14 @@ import Button from "../../layout/Button";
 import ContentBox from "../../layout/ContentBox";
 import RichInput from "../../layout/RichInput";
 import Post from "../../layout/Post";
+
 import { CommentOnBug } from "../../layout/Comment";
 import { api } from "../../utils/api";
-import { type MutateCommentSchema } from "../../validators/comments";
 import { mutateCommentSchema } from "../../validators/comments";
 import { show_toast } from "../../libs/toast";
+import { useUser } from "../../utils/UserContext";
 import { useInfinitePagination } from "../../libs/pagination";
+import { type MutateCommentSchema } from "../../validators/comments";
 
 const BugReport: NextPage = () => {
   const { data: sessionData } = useSession();
@@ -132,36 +135,39 @@ const BugReport: NextPage = () => {
 
       <ContentBox title="Further Input / Chat">
         <form>
-          {bug && !bug.is_resolved && sessionData && (
-            <div className="mb-3">
-              <RichInput
-                id="comment"
-                height="200"
-                placeholder="Add information or ask questions"
-                control={control}
-                error={errors.comment?.message}
-              />
-              <div className="flex flex-row-reverse">
-                <Button
-                  id="submit_comment"
-                  label="Add Comment"
-                  image={
-                    <ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />
-                  }
-                  onClick={handleSubmitComment}
+          {bug &&
+            !bug.is_resolved &&
+            sessionData &&
+            !sessionData?.user?.isBanned && (
+              <div className="mb-3">
+                <RichInput
+                  id="comment"
+                  height="200"
+                  placeholder="Add information or ask questions"
+                  control={control}
+                  error={errors.comment?.message}
                 />
-                {sessionData.user?.role === "ADMIN" && (
+                <div className="flex flex-row-reverse">
                   <Button
-                    id="submit_resolve"
-                    label="Comment & Resolve"
-                    color="green"
-                    image={<CheckIcon className="mr-1 h-5 w-5" />}
-                    onClick={handleSubmitResolve}
+                    id="submit_comment"
+                    label="Add Comment"
+                    image={
+                      <ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />
+                    }
+                    onClick={handleSubmitComment}
                   />
-                )}
+                  {sessionData.user?.role === "ADMIN" && (
+                    <Button
+                      id="submit_resolve"
+                      label="Comment & Resolve"
+                      color="green"
+                      image={<CheckIcon className="mr-1 h-5 w-5" />}
+                      onClick={handleSubmitResolve}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </form>
         {allComments &&
           allComments.map((comment, i) => (

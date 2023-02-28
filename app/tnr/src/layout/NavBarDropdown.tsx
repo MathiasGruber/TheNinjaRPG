@@ -1,12 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-
-export interface NavBarDropdownLink {
-  href: string;
-  name: string;
-  icon?: React.ReactNode;
-  onClick?: () => Promise<undefined>;
-}
+import { type NavBarDropdownLink } from "../libs/menus";
 
 interface NavBarDropdownProps {
   icon: React.ReactNode;
@@ -38,17 +32,19 @@ const NavBarDropdown: React.FC<NavBarDropdownProps> = (props) => {
             )}
 
             {props.links?.map((link) => (
-              <Link
-                key={link.name}
-                className="flex w-full justify-between px-4 py-2 text-left text-sm leading-5 text-gray-700"
-                href={link.href}
-                onClick={async () => {
-                  await link.onClick?.();
-                  setOpen(false);
-                }}
-              >
-                {link.name}
-              </Link>
+              <div key={link.name} className="flex flex-row items-center">
+                <div className="px-2">{link.icon && link.icon}</div>
+                <Link
+                  className="flex w-full justify-between px-1 py-2 text-left text-sm leading-5 text-gray-700"
+                  href={link.href}
+                  onClick={async () => {
+                    await link.onClick?.();
+                    setOpen(false);
+                  }}
+                >
+                  {link.name}
+                </Link>
+              </div>
             ))}
           </div>
         </div>
