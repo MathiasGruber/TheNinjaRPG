@@ -10,8 +10,7 @@ This is the source code for the game TheNinja-RPG.com.
 
 # Current ToDo List
 
-- Ban feature for spammers
-- Inform that new user reports to be handled a present
+- RateLimited with upstash
 - Ability to remove avatars
 
 - Facebook logn: enable user deletion

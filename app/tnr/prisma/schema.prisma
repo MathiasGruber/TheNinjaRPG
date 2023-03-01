@@ -121,7 +121,7 @@ model UserData {
     weapon_defence      Int                 @default(10)
     // Purchase Points
     reputation_points   Int                 @default(0)
-    popularity_points   Int                 @default(1) // Required for initial avatar creation
+    popularity_points   Int                 @default(6) // Required for initial avatar creation
     // Approved ToS
     approved_tos        Boolean             @default(false)
     // Avatar link
@@ -133,6 +133,7 @@ model UserData {
     filedInfractions    UserReport[]        @relation("reporter")
     receivedInfractions UserReport[]        @relation("reported")
     reportComments      UserReportComment[]
+    ForumPost           ForumPost[]
 }
 
 model VerificationToken {
@@ -250,6 +251,33 @@ model UserReportComment {
     userId    String
     report    UserReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
     reportId  String
-    // Banning information
     decision  ReportAction?
+}
+
+model ForumBoard {
+    id        String        @id @default(cuid())
+    name      String        @unique
+    summary   String        @db.Text
+    group     String
+    createdAt DateTime      @default(now())
+    threads   ForumThread[]
+}
+
+model ForumThread {
+    id        String      @id @default(cuid())
+    title     String
+    createdAt DateTime    @default(now())
+    board     ForumBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+    boardId   String
+    posts     ForumPost[]
+}
+
+model ForumPost {
+    id        String      @id @default(cuid())
+    content   String      @db.Text
+    createdAt DateTime    @default(now())
+    user      UserData    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId    String
+    thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+    threadId  String
 }

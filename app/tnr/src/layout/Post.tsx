@@ -9,10 +9,12 @@ export interface PostProps {
     level: number;
     rank: string;
   };
+  image?: React.ReactNode;
   title?: string;
   color?: "default" | "green" | "red" | "blue";
   children: React.ReactNode;
   options?: React.ReactNode;
+  align_middle?: boolean;
   hover_effect?: boolean;
 }
 
@@ -35,29 +37,22 @@ const Post: React.FC<PostProps> = (props) => {
   }
   return (
     <div
-      className={`mb-3 flex flex-row rounded-lg border ${color} p-6 shadow ${
-        props.hover_effect ? hover : ""
-      }`}
+      className={`mb-3 flex flex-row ${
+        props.align_middle ? "items-center" : ""
+      } rounded-lg border ${color} p-6 shadow ${props.hover_effect ? hover : ""}`}
     >
+      {props.image}
       {props.user && (
         <div className="mr-3 basis-3/12 text-center">
-          <AvatarImage
-            href={props.user.avatar}
-            alt={props.user.username}
-            size={100}
-          />
+          <AvatarImage href={props.user.avatar} alt={props.user.username} size={100} />
           <p>{props.user.username}</p>
           <p>
             Lvl. {props.user.level} {props.user.rank}
           </p>
         </div>
       )}
-      <div className="grow">
-        {props.title && (
-          <h3 className="text-xl font-bold tracking-tight text-gray-900">
-            {props.title}
-          </h3>
-        )}
+      <div className="grow basis-1/2">
+        {props.title && <h3 className="text-xl font-bold tracking-tight text-gray-900">{props.title}</h3>}
         <div className="font-normal text-gray-700">{props.children}</div>
       </div>
       {props.options && <div>{props.options}</div>}
