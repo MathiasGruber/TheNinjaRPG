@@ -63,7 +63,7 @@ const BugReport: NextPage = () => {
     handleSubmit,
     reset,
     control,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<BugreportSchema>({
     resolver: zodResolver(bugreportSchema),
   });
@@ -112,6 +112,7 @@ const BugReport: NextPage = () => {
               <Confirm
                 title="Write a new bug report"
                 proceed_label="Submit"
+                isValid={isValid}
                 button={<Button id="report" label="New Report" />}
                 onAccept={onSubmit}
               >

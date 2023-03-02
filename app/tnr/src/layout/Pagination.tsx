@@ -1,7 +1,4 @@
 import React from "react";
-import { Editor } from "@tinymce/tinymce-react";
-import { type Control } from "react-hook-form";
-import { Controller } from "react-hook-form";
 
 interface PaginationProps {
   current: number;

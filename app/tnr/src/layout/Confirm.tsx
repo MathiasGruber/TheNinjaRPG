@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { type FieldErrors } from "react-hook-form";
 import Modal from "./Modal";
 
 interface ConfirmProps {

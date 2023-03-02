@@ -10,8 +10,6 @@ export const reportCommentColor = (status: ReportAction | null) => {
       return "red";
     case "BAN_ESCALATED":
       return "blue";
-    case "BAN_FINISHED":
-      return "green";
     default:
       return "default";
   }
@@ -25,8 +23,7 @@ export const reportCommentExplain = (status: ReportAction | null) => {
       return "User Banned";
     case "BAN_ESCALATED":
       return "Escalated to Admin";
-    case "BAN_FINISHED":
-      return "Ban Finished";
+
     default:
       return "";
   }

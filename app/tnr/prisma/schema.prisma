@@ -135,6 +135,7 @@ model UserData {
     reportComments      UserReportComment[]
     ForumPost           ForumPost[]
     ForumThread         ForumThread[]
+    TavernComment       TavernComment[]
 }
 
 model VerificationToken {
@@ -225,7 +226,6 @@ enum ReportAction {
     REPORT_CLEARED
     BAN_ACTIVATED
     BAN_ESCALATED
-    BAN_FINISHED
 }
 
 model UserReport {
@@ -290,4 +290,18 @@ model ForumPost {
     userId    String
     thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
     threadId  String
+}
+
+enum Tavern {
+    GLOBAL
+    KONOKI
+}
+
+model TavernComment {
+    id        String   @id @default(cuid())
+    content   String   @db.Text
+    createdAt DateTime @default(now())
+    user      UserData @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId    String
+    tavern    Tavern
 }

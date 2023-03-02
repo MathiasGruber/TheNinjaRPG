@@ -42,7 +42,7 @@ const BugReport: NextPage = () => {
     setValue,
     reset,
     control,
-    formState: { isValid, errors },
+    formState: { errors },
   } = useForm<MutateCommentSchema>({
     resolver: zodResolver(mutateCommentSchema),
   });

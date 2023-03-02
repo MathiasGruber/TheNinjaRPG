@@ -18,7 +18,6 @@ interface MenuBoxGameProps {
 }
 
 const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
-  const { data: sessionData } = useSession();
   const { data: userData } = useUser();
 
   const systems = getMainGameLinks(userData);
@@ -34,9 +33,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
             <Link key={i} href={notification.href}>
               <div
                 className={`flex flex-row items-center rounded-lg border-2 border-slate-800 p-1 pl-3 hover:opacity-70 ${
-                  notification.color
-                    ? `bg-${notification.color}-500`
-                    : "bg-slate-500"
+                  notification.color ? `bg-${notification.color}-500` : "bg-slate-500"
                 }`}
               >
                 {notification.color === "red" && (

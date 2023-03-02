@@ -267,4 +267,8 @@ export const commentsRouter = createTRPCRouter({
         throw serverError("UNAUTHORIZED", "You can only delete own comments");
       }
     }),
+  /**
+   * TAVERN POSTS
+   * Creating, editing, deleting and getting comments on forum threads
+   */
 });

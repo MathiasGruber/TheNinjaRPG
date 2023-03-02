@@ -1,5 +1,4 @@
 import React from "react";
-import { type FieldErrors } from "react-hook-form";
 
 interface ModalProps {
   title: string;
