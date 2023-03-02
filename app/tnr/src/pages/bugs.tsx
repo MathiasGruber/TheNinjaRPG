@@ -131,10 +131,7 @@ const BugReport: NextPage = () => {
                   {systems.map((system) => (
                     <option key={system} value={system}>
                       {system === "unknown" ? (
-                        <>
-                          Do not know. Please provide details in the
-                          description.
-                        </>
+                        <>Do not know. Please provide details in the description.</>
                       ) : (
                         window.location.origin + "/" + system
                       )}
@@ -161,10 +158,7 @@ const BugReport: NextPage = () => {
     >
       {allBugs &&
         allBugs.map((bug, i) => (
-          <div
-            key={bug.id}
-            ref={i === allBugs.length - 1 ? setLastElement : null}
-          >
+          <div key={bug.id} ref={i === allBugs.length - 1 ? setLastElement : null}>
             <Link href={"/bugs/" + bug.id}>
               <Post
                 title={bug.title}
@@ -230,8 +224,8 @@ const BugReport: NextPage = () => {
                             deleteReport.mutate({ id: bug.id });
                           }}
                         >
-                          You are about to delete a bug report. Are you sure? If
-                          the bug is resolved, it should simply be closed.
+                          You are about to delete a bug report. Are you sure? If the bug
+                          is resolved, it should simply be closed.
                         </Confirm>
                       )}
                     </div>
@@ -241,8 +235,8 @@ const BugReport: NextPage = () => {
                 <div>
                   {bug.summary}
                   <br />
-                  <b>System:</b> {bug.system}, <b>Report by</b>{" "}
-                  {bug.user.username} at {bug.createdAt.toLocaleDateString()}
+                  <b>System:</b> {bug.system}, <b>Report by</b> {bug.user.username} at{" "}
+                  {bug.createdAt.toLocaleDateString()}
                 </div>
               </Post>
             </Link>

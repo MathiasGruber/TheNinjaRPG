@@ -1,12 +1,14 @@
 import React from "react";
 import { type NextPage } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 import ContentBox from "../layout/ContentBox";
 import Post from "../layout/Post";
 import Loading from "../layout/Loader";
 
 import { api } from "../utils/api";
+import { secondsPassed } from "../utils/time";
 import { groupBy } from "../utils/grouping";
 
 const Forum: NextPage = () => {
@@ -18,22 +20,42 @@ const Forum: NextPage = () => {
   groups.forEach((boards, group) => {
     const splits = group.split(":");
     forum.push(
-      <ContentBox key={group} title={splits?.[0] ? splits?.[0] : "Unknown"} subtitle={splits?.[1]}>
+      <ContentBox
+        key={group}
+        title={splits?.[0] ? splits?.[0] : "Unknown"}
+        subtitle={splits?.[1]}
+      >
         {boards.map((board) => {
           return (
-            <Post
-              key={board.id}
-              title={board.name}
-              hover_effect={true}
-              align_middle={true}
-              image={
-                <div className="mr-3 basis-1/12">
-                  <Image src={"/images/f_icon.png"} width={100} height={100} alt="Forum Icon"></Image>
-                </div>
-              }
-            >
-              {board.summary}
-            </Post>
+            <Link key={board.id} href={"/forum/" + board.id}>
+              <Post
+                title={board.name}
+                hover_effect={true}
+                align_middle={true}
+                image={
+                  <div className="mr-3 basis-1/12">
+                    <Image
+                      src={"/images/f_icon.png"}
+                      width={100}
+                      height={100}
+                      alt="Forum Icon"
+                      className={
+                        secondsPassed(board.updatedAt) > 3600 * 24 ? "opacity-50" : ""
+                      }
+                    ></Image>
+                  </div>
+                }
+                options={
+                  <div className="ml-3">
+                    <span className="font-bold">{board.nThreads} </span> topics
+                    <br />
+                    <span className="font-bold">{board.nPosts} </span> replies
+                  </div>
+                }
+              >
+                {board.summary}
+              </Post>
+            </Link>
           );
         })}
       </ContentBox>

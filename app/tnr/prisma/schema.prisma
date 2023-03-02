@@ -134,6 +134,7 @@ model UserData {
     receivedInfractions UserReport[]        @relation("reported")
     reportComments      UserReportComment[]
     ForumPost           ForumPost[]
+    ForumThread         ForumThread[]
 }
 
 model VerificationToken {
@@ -260,6 +261,9 @@ model ForumBoard {
     summary   String        @db.Text
     group     String
     createdAt DateTime      @default(now())
+    updatedAt DateTime      @updatedAt
+    nPosts    Int           @default(0)
+    nThreads  Int           @default(0)
     threads   ForumThread[]
 }
 
@@ -267,8 +271,14 @@ model ForumThread {
     id        String      @id @default(cuid())
     title     String
     createdAt DateTime    @default(now())
+    updatedAt DateTime    @updatedAt
     board     ForumBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
     boardId   String
+    user      UserData    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId    String
+    nPosts    Int         @default(0)
+    isPinned  Boolean     @default(false)
+    isLocked  Boolean     @default(false)
     posts     ForumPost[]
 }
 

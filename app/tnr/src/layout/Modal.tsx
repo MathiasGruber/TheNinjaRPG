@@ -1,9 +1,11 @@
 import React from "react";
+import { type FieldErrors } from "react-hook-form";
 
 interface ModalProps {
   title: string;
   children: string | React.ReactNode;
   proceed_label?: string;
+  isValid?: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
 }
@@ -13,7 +15,8 @@ const Modal: React.FC<ModalProps> = (props) => {
     <>
       <div
         className="fixed top-0 left-0 right-0 bottom-0 z-20 h-full w-full bg-black opacity-80"
-        onClick={() => {
+        onClick={(e) => {
+          e.preventDefault();
           props.setIsOpen(false);
         }}
       ></div>
@@ -25,7 +28,8 @@ const Modal: React.FC<ModalProps> = (props) => {
           <button
             type="button"
             className="ml-auto inline-flex items-center rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
               props.setIsOpen(false);
             }}
           >
@@ -55,14 +59,19 @@ const Modal: React.FC<ModalProps> = (props) => {
             type="submit"
             value={props.proceed_label ? props.proceed_label : "Proceed"}
             onClick={(e) => {
-              props.setIsOpen(false);
               props.onAccept && props.onAccept(e);
+              if (props.isValid === undefined || props.isValid) {
+                props.setIsOpen(false);
+              }
             }}
             className="rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
           ></input>
           <button
             type="button"
-            onClick={() => props.setIsOpen(false)}
+            onClick={(e) => {
+              e.preventDefault();
+              props.setIsOpen(false);
+            }}
             className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:z-10 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-600"
           >
             Close

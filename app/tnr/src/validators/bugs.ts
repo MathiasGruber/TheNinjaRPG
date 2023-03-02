@@ -9,6 +9,7 @@ export const systems = [
   "login",
   "tavern",
   "travel",
+  "forum",
   "terms",
   "policy",
   "rules",

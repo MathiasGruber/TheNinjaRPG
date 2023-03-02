@@ -64,5 +64,11 @@ prototype_migrations: # Prototype migrations locally
 makemigrations: # Create local migrations
 	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
 	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS}
+	docker restart tnr_app
 	cd app/tnr && yarn install
+
+.PHONY: seed
+seed: # Seed database
+	@echo "${YELLOW}Run prisma db seed ${RESET}"
+	docker exec -it tnr_app yarn prisma db seed
 	

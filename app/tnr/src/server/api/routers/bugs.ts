@@ -79,21 +79,19 @@ export const bugsRouter = createTRPCRouter({
       });
     }),
   // Create a new bug report
-  create: protectedProcedure
-    .input(bugreportSchema)
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.isBanned) {
-        throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      return ctx.prisma.bugReport.create({
-        data: {
-          title: input.title,
-          content: sanitize(input.content),
-          system: input.system,
-          userId: ctx.session.user.id,
-        },
-      });
-    }),
+  create: protectedProcedure.input(bugreportSchema).mutation(async ({ ctx, input }) => {
+    if (ctx.session.user.isBanned) {
+      throw serverError("UNAUTHORIZED", "You are banned");
+    }
+    return ctx.prisma.bugReport.create({
+      data: {
+        title: input.title,
+        content: sanitize(input.content),
+        system: input.system,
+        userId: ctx.session.user.id,
+      },
+    });
+  }),
   // Delete a bug report
   delete: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))

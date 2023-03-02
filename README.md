@@ -11,7 +11,9 @@ This is the source code for the game TheNinja-RPG.com.
 # Current ToDo List
 
 - RateLimited with upstash
+- Message on no reports, threads, bug reports, thread posts
 - Ability to remove avatars
+- Thread pinning
 
 - Facebook logn: enable user deletion
 - Github login: get working

@@ -6,10 +6,7 @@ import { useRouter } from "next/router";
 import { type NextPage } from "next";
 
 import ReactHtmlParser from "react-html-parser";
-import {
-  ChatBubbleLeftEllipsisIcon,
-  CheckIcon,
-} from "@heroicons/react/24/solid";
+import { ChatBubbleLeftEllipsisIcon, CheckIcon } from "@heroicons/react/24/solid";
 
 import Button from "../../layout/Button";
 import ContentBox from "../../layout/ContentBox";
@@ -20,7 +17,6 @@ import { CommentOnBug } from "../../layout/Comment";
 import { api } from "../../utils/api";
 import { mutateCommentSchema } from "../../validators/comments";
 import { show_toast } from "../../libs/toast";
-import { useUser } from "../../utils/UserContext";
 import { useInfinitePagination } from "../../libs/pagination";
 import { type MutateCommentSchema } from "../../validators/comments";
 
@@ -75,7 +71,6 @@ const BugReport: NextPage = () => {
     },
   });
 
-  // Form handling
   const {
     handleSubmit,
     reset,
@@ -117,11 +112,7 @@ const BugReport: NextPage = () => {
       >
         {bug && (
           <>
-            <Post
-              title={"Summary: " + bug.title}
-              user={bug.user}
-              hover_effect={false}
-            >
+            <Post title={"Summary: " + bug.title} user={bug.user} hover_effect={false}>
               <b>System:</b> {bug.system}
               <hr />
               {bug.summary}
@@ -135,39 +126,34 @@ const BugReport: NextPage = () => {
 
       <ContentBox title="Further Input / Chat">
         <form>
-          {bug &&
-            !bug.is_resolved &&
-            sessionData &&
-            !sessionData?.user?.isBanned && (
-              <div className="mb-3">
-                <RichInput
-                  id="comment"
-                  height="200"
-                  placeholder="Add information or ask questions"
-                  control={control}
-                  error={errors.comment?.message}
+          {bug && !bug.is_resolved && sessionData && !sessionData?.user?.isBanned && (
+            <div className="mb-3">
+              <RichInput
+                id="comment"
+                height="200"
+                placeholder="Add information or ask questions"
+                control={control}
+                error={errors.comment?.message}
+              />
+              <div className="flex flex-row-reverse">
+                <Button
+                  id="submit_comment"
+                  label="Add Comment"
+                  image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                  onClick={handleSubmitComment}
                 />
-                <div className="flex flex-row-reverse">
+                {sessionData.user?.role === "ADMIN" && (
                   <Button
-                    id="submit_comment"
-                    label="Add Comment"
-                    image={
-                      <ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />
-                    }
-                    onClick={handleSubmitComment}
+                    id="submit_resolve"
+                    label="Comment & Resolve"
+                    color="green"
+                    image={<CheckIcon className="mr-1 h-5 w-5" />}
+                    onClick={handleSubmitResolve}
                   />
-                  {sessionData.user?.role === "ADMIN" && (
-                    <Button
-                      id="submit_resolve"
-                      label="Comment & Resolve"
-                      color="green"
-                      image={<CheckIcon className="mr-1 h-5 w-5" />}
-                      onClick={handleSubmitResolve}
-                    />
-                  )}
-                </div>
+                )}
               </div>
-            )}
+            </div>
+          )}
         </form>
         {allComments &&
           allComments.map((comment, i) => (

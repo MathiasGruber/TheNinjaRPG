@@ -74,8 +74,7 @@ export const reportsRouter = createTRPCRouter({
           },
         ],
       });
-      const nextCursor =
-        reports.length < input.limit ? null : currentCursor + 1;
+      const nextCursor = reports.length < input.limit ? null : currentCursor + 1;
       return {
         data: reports,
         nextCursor: nextCursor,
@@ -157,9 +156,7 @@ export const reportsRouter = createTRPCRouter({
             adminResolved: ctx.session.user.role === "ADMIN",
             banEnd:
               input.banTime !== undefined
-                ? new Date(
-                    new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000
-                  )
+                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
                 : undefined,
           },
         });

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { type FieldErrors } from "react-hook-form";
 import Modal from "./Modal";
 
 interface ConfirmProps {
@@ -6,6 +7,7 @@ interface ConfirmProps {
   button: React.ReactNode;
   children: string | React.ReactNode;
   proceed_label?: string;
+  isValid?: boolean;
   onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
 }
 
@@ -18,6 +20,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
         setIsOpen={setShowModal}
         proceed_label={props.proceed_label}
         onAccept={props.onAccept}
+        isValid={props.isValid}
       >
         {props.children}
       </Modal>
