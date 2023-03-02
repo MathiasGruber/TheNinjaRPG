@@ -81,16 +81,10 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
           onAccept={sessionData?.user?.isBanned ? undefined : onSubmit}
         >
           {sessionData?.user?.isBanned ? (
-            <div>
-              You are currently banned, and can therefore not report others
-            </div>
+            <div>You are currently banned, and can therefore not report others</div>
           ) : (
             <>
-              <Post
-                title={props.content.title}
-                user={props.user}
-                hover_effect={false}
-              >
+              <Post title={props.content.title} user={props.user} hover_effect={false}>
                 {props.content.symmary && (
                   <div>
                     {ReactHtmlParser(props.content.symmary)}

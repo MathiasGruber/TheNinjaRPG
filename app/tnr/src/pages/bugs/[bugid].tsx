@@ -15,9 +15,9 @@ import Post from "../../layout/Post";
 
 import { CommentOnBug } from "../../layout/Comment";
 import { api } from "../../utils/api";
-import { mutateCommentSchema } from "../../validators/comments";
 import { show_toast } from "../../libs/toast";
 import { useInfinitePagination } from "../../libs/pagination";
+import { mutateCommentSchema } from "../../validators/comments";
 import { type MutateCommentSchema } from "../../validators/comments";
 
 const BugReport: NextPage = () => {

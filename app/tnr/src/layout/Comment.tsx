@@ -2,11 +2,7 @@ import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  FlagIcon,
-} from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outline";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Button from "./Button";
@@ -17,6 +13,8 @@ import { type DeleteCommentSchema } from "../validators/comments";
 import { mutateCommentSchema } from "../validators/comments";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { type systems } from "../validators/reports";
+import { type ForumPost } from "@prisma/client";
 import { type BugComment } from "@prisma/client";
 import { type UserReportComment } from "@prisma/client";
 
@@ -32,10 +30,45 @@ interface UserReportCommentProps extends PostProps {
 export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
 
+  return <BaseComment {...props} editing={editing} setEditing={setEditing} />;
+};
+
+/**
+ * Component for handling comments on forum threads
+ */
+interface ForumCommentProps extends PostProps {
+  comment: ForumPost;
+  refetchComments: () => void;
+}
+export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
+  const [editing, setEditing] = useState(false);
+
+  const editComment = api.comments.editForumComment.useMutation({
+    onSuccess: () => {
+      props.refetchComments();
+      setEditing(false);
+    },
+    onError: (error) => {
+      show_toast("Error on editing comment", error.message, "error");
+    },
+  });
+
+  const deleteComment = api.comments.deleteForumComment.useMutation({
+    onSuccess: () => {
+      props.refetchComments();
+      setEditing(false);
+    },
+    onError: (error) => {
+      show_toast("Error on deleting comment", error.message, "error");
+    },
+  });
+
   return (
     <BaseComment
       {...props}
-      enable_reporting={false}
+      system="forum_comment"
+      editComment={editComment.mutate}
+      deleteComment={deleteComment.mutate}
       editing={editing}
       setEditing={setEditing}
     />
@@ -77,7 +110,7 @@ export const CommentOnBug: React.FC<BugCommentProps> = (props) => {
   return (
     <BaseComment
       {...props}
-      enable_reporting={true}
+      system="bug_comment"
       editComment={editComment.mutate}
       deleteComment={deleteComment.mutate}
       editing={editing}
@@ -92,9 +125,9 @@ export const CommentOnBug: React.FC<BugCommentProps> = (props) => {
  * @returns
  */
 interface BaseCommentProps extends PostProps {
-  comment: BugComment | UserReportComment;
-  enable_reporting: boolean;
+  comment: BugComment | UserReportComment | ForumPost;
   editing: boolean;
+  system?: (typeof systems)[number];
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;
@@ -134,22 +167,21 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                 onClick={() => props.setEditing((prev) => !prev)}
               />
             )}
-            {props.enable_reporting && (
+            {props.system && (
               <ReportUser
                 user={props.user}
                 content={props.comment}
-                system="bug_comment"
+                system={props.system}
                 button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
               />
             )}
             {props.deleteComment && (
               <Confirm
-                title="Confirm Bug Report Deletion"
+                title="Confirm Deletion"
                 button={<TrashIcon className="h-6 w-6 hover:fill-orange-500" />}
                 onAccept={(e) => {
                   e.preventDefault();
-                  props.deleteComment &&
-                    props.deleteComment({ id: props.comment.id });
+                  props.deleteComment && props.deleteComment({ id: props.comment.id });
                 }}
               >
                 You are about to delete a comment. Are you sure?

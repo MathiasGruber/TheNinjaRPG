@@ -5,8 +5,8 @@ import { type UserReport } from "@prisma/client";
 export const systems = [
   "bug_report",
   "bug_comment",
-  "forum_port",
-  "tavern_post",
+  "forum_comment",
+  "tavern_comment",
 ] as const;
 
 export const userReportSchema = z.object({
