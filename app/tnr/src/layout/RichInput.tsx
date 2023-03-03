@@ -5,6 +5,7 @@ import { Controller } from "react-hook-form";
 
 interface RichInputProps {
   id: string;
+  key?: number;
   label?: string;
   height: string;
   placeholder?: string;
@@ -26,6 +27,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         }}
         render={({ field: { onChange, ref } }) => (
           <Editor
+            key={props.key}
             apiKey="rms0hylum5thsurrzmsqdj0zorybr350bgnawqyq4sa6nsue"
             onInit={(evt, editor) => {
               ref(editor);
@@ -66,11 +68,9 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             }}
           />
         )}
-      ></Controller>
+      />
 
-      {props.error && (
-        <p className="text-xs italic text-red-500"> {props.error}</p>
-      )}
+      {props.error && <p className="text-xs italic text-red-500"> {props.error}</p>}
     </div>
   );
 };

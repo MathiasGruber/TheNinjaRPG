@@ -1,11 +1,34 @@
+import { useState } from "react";
 import { type NextPage } from "next";
-import ContentBox from "../layout/ContentBox";
+
+import Conversation from "../layout/Conversation";
+import NavTabs from "../layout/NavTabs";
+
+import { useRequiredUser } from "../utils/UserContext";
 
 const Tavern: NextPage = () => {
+  const [activeTab, setActiveTab] = useState<string>("Global");
+  const { data: userData } = useRequiredUser();
+
+  const localTavern = userData?.village ? userData?.village?.name : "Syndicate";
   return (
-    <ContentBox title="Tavern">
-      <div>NOT IMPLEMENTED</div>
-    </ContentBox>
+    <>
+      <Conversation
+        convo_title={activeTab}
+        title={activeTab + " Tavern"}
+        subtitle="Broadcast across all villages."
+        chatbox_options={
+          <>
+            <div className="grow"></div>
+            <NavTabs
+              current={activeTab}
+              options={["Global", localTavern]}
+              setValue={setActiveTab}
+            />
+          </>
+        }
+      />
+    </>
   );
 };
 

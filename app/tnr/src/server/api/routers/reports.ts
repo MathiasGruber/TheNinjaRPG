@@ -109,14 +109,15 @@ export const reportsRouter = createTRPCRouter({
             return ctx.prisma.forumPost.findUnique({
               where: { id: input.system_id },
             });
+          case "conversation_comment":
+            return ctx.prisma.conversationComment.findUnique({
+              where: { id: input.system_id },
+            });
           default:
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
       await getInfraction(input.system).then((report) => {
-        console.log("====================================");
-        console.log(report);
-        console.log("====================================");
         if (report) {
           return ctx.prisma.userReport.create({
             data: {

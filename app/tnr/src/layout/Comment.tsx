@@ -14,6 +14,7 @@ import { mutateCommentSchema } from "../validators/comments";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { type systems } from "../validators/reports";
+import { type ConversationComment } from "@prisma/client";
 import { type ForumPost } from "@prisma/client";
 import { type BugComment } from "@prisma/client";
 import { type UserReportComment } from "@prisma/client";
@@ -31,6 +32,48 @@ export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
 
   return <BaseComment {...props} editing={editing} setEditing={setEditing} />;
+};
+
+/**
+ * Component for handling comments on conversations
+ */
+interface ConversationCommentProps extends PostProps {
+  comment: ConversationComment;
+  refetchComments: () => void;
+}
+export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
+  const [editing, setEditing] = useState(false);
+
+  const editComment = api.comments.editConversationComment.useMutation({
+    onSuccess: () => {
+      props.refetchComments();
+      setEditing(false);
+    },
+    onError: (error) => {
+      show_toast("Error on editing comment", error.message, "error");
+    },
+  });
+
+  const deleteComment = api.comments.deleteConversationComment.useMutation({
+    onSuccess: () => {
+      props.refetchComments();
+      setEditing(false);
+    },
+    onError: (error) => {
+      show_toast("Error on deleting comment", error.message, "error");
+    },
+  });
+
+  return (
+    <BaseComment
+      {...props}
+      system="conversation_comment"
+      editComment={editComment.mutate}
+      deleteComment={deleteComment.mutate}
+      editing={editing}
+      setEditing={setEditing}
+    />
+  );
 };
 
 /**
@@ -125,7 +168,7 @@ export const CommentOnBug: React.FC<BugCommentProps> = (props) => {
  * @returns
  */
 interface BaseCommentProps extends PostProps {
-  comment: BugComment | UserReportComment | ForumPost;
+  comment: BugComment | UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
   system?: (typeof systems)[number];
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;

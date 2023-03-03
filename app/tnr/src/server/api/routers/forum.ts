@@ -140,7 +140,7 @@ export const forumRouter = createTRPCRouter({
 });
 
 /**
- * Fetches the user report in question. Throws an error if not found.
+ * Fetches the forum board. Throws an error if not found.
  */
 export const fetchBoard = async (client: PrismaClient, id: string) => {
   const board = await client.forumBoard.findUniqueOrThrow({
@@ -150,7 +150,7 @@ export const fetchBoard = async (client: PrismaClient, id: string) => {
 };
 
 /**
- * Fetches the user report in question. Throws an error if not found.
+ * Fetches the forum thread. Throws an error if not found.
  */
 export const fetchThread = async (client: PrismaClient, id: string) => {
   const thread = await client.forumThread.findUniqueOrThrow({

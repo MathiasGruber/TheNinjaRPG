@@ -16,14 +16,60 @@ async function main() {
     { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 85 },
   ];
   for (const village of villages) {
-    await prisma.village.upsert({
+    // Create Village
+    const villageData = await prisma.village.upsert({
       where: {
         name: village.name,
       },
       update: {},
       create: village,
     });
+    // Village elder
+    const elderUser = await prisma.user.upsert({
+      where: {
+        email: village.name + "@tnr.com",
+      },
+      update: {},
+      create: {
+        email: village.name + "@tnr.com",
+      },
+    });
+    await prisma.userData.upsert({
+      where: {
+        userId: elderUser.id,
+      },
+      update: {},
+      create: {
+        userId: elderUser.id,
+        gender: Math.random() > 0.5 ? "Female" : "Male",
+        username: village.name + " Elder",
+        villageId: villageData.id,
+        rank: "Elder",
+        status: "Active",
+      },
+    });
+    // Village conversation
+    await prisma.conversation.upsert({
+      where: {
+        title: village.name,
+      },
+      update: {},
+      create: {
+        title: village.name,
+        createdById: elderUser.id,
+      },
+    });
   }
+  // Global conversation
+  await prisma.conversation.upsert({
+    where: {
+      title: "Global",
+    },
+    update: {},
+    create: {
+      title: "Global",
+    },
+  });
   // Forum setup
   const boards = [
     {

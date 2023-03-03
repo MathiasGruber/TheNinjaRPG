@@ -7,6 +7,7 @@ export const systems = [
   "bug_comment",
   "forum_comment",
   "tavern_comment",
+  "conversation_comment",
 ] as const;
 
 export const userReportSchema = z.object({

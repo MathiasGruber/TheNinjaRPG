@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { type PrismaClient } from "@prisma/client";
+import { type Conversation } from "@prisma/client";
 
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
@@ -268,7 +270,134 @@ export const commentsRouter = createTRPCRouter({
       }
     }),
   /**
-   * TAVERN POSTS
+   * Conversation POSTS
    * Creating, editing, deleting and getting comments on forum threads
    */
+  getConversationComments: protectedProcedure
+    .input(
+      z
+        .object({
+          convo_id: z.string().cuid().optional(),
+          convo_title: z.string().min(1).max(10).optional(),
+          cursor: z.number().nullish(),
+          limit: z.number().min(1).max(100),
+        })
+        .refine(
+          (data) => !!data.convo_id || !!data.convo_title,
+          "Either convo_id or convo_title is required"
+        )
+    )
+    .query(async ({ ctx, input }) => {
+      // Guard
+      const convo = await fetchConversation(
+        ctx.prisma,
+        input.convo_id,
+        input.convo_title,
+        ctx.session.user.id
+      );
+      // Fetch comments
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const comments = await ctx.prisma.conversationComment.findMany({
+        skip: skip,
+        take: input.limit,
+        where: { conversationId: convo.id },
+        include: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              avatar: true,
+              rank: true,
+              level: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+      const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
+      return {
+        convo: convo,
+        data: comments,
+        nextCursor: nextCursor,
+      };
+    }),
+  createConversationComment: protectedProcedure
+    .input(mutateCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Guard
+      const convo = await fetchConversation(ctx.prisma, input.object_id);
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      return ctx.prisma.conversationComment.create({
+        data: {
+          content: sanitize(input.comment),
+          userId: ctx.session.user.id,
+          conversationId: convo.id,
+        },
+      });
+    }),
+  editConversationComment: protectedProcedure
+    .input(mutateCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
+        where: { id: input.object_id },
+      });
+      if (comment?.userId === ctx.session.user.id) {
+        return ctx.prisma.conversationComment.update({
+          where: { id: input.object_id },
+          data: {
+            content: sanitize(input.comment),
+          },
+        });
+      } else {
+        throw serverError("UNAUTHORIZED", "You can only edit own comments");
+      }
+    }),
+  deleteConversationComment: protectedProcedure
+    .input(deleteCommentSchema)
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
+        where: { id: input.id },
+      });
+      if (
+        comment?.userId === ctx.session.user.id ||
+        ctx.session.user.role === "ADMIN"
+      ) {
+        return ctx.prisma.conversationComment.delete({
+          where: { id: input.id },
+        });
+      } else {
+        throw serverError("UNAUTHORIZED", "You can only delete own comments");
+      }
+    }),
 });
+
+/**
+ * Fetches the forum thread. Throws an error if not found.
+ */
+export const fetchConversation = async (
+  client: PrismaClient,
+  id?: string,
+  title?: string,
+  userId?: string
+) => {
+  if (id) {
+    const convo = await client.conversation.findUniqueOrThrow({
+      where: { id },
+    });
+    return convo;
+  } else if (title && userId) {
+    const convo = await client.conversation.findUniqueOrThrow({
+      where: { title: title },
+    });
+    return convo;
+  }
+  throw serverError("NOT_FOUND", "Conversation not found");
+};

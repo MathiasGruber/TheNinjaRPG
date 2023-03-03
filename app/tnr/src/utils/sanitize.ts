@@ -6,6 +6,7 @@ const sanitize = (html: string) => {
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ["src"],
+      span: ["style"],
     },
   });
 };

@@ -78,64 +78,65 @@ model User {
 }
 
 model UserData {
-    userId              String              @unique
-    user                User                @relation(fields: [userId], references: [id])
-    username            String              @unique
+    userId              String                @unique
+    user                User                  @relation(fields: [userId], references: [id])
+    username            String                @unique
     // Statistics    
     gender              String
     // Bars
-    cur_health          Int                 @default(100)
-    max_health          Int                 @default(100)
-    cur_chakra          Int                 @default(100)
-    max_chakra          Int                 @default(100)
-    cur_stamina         Int                 @default(100)
-    max_stamina         Int                 @default(100)
-    regeneration        Int                 @default(100)
+    cur_health          Int                   @default(100)
+    max_health          Int                   @default(100)
+    cur_chakra          Int                   @default(100)
+    max_chakra          Int                   @default(100)
+    cur_stamina         Int                   @default(100)
+    max_stamina         Int                   @default(100)
+    regeneration        Int                   @default(100)
     // Financials
-    money               Int                 @default(100)
-    bank                Int                 @default(100)
+    money               Int                   @default(100)
+    bank                Int                   @default(100)
     // Experience
-    experience          Int                 @default(0)
-    pvp_experience      Int                 @default(0)
+    experience          Int                   @default(0)
+    pvp_experience      Int                   @default(0)
     // Rank & Village
-    rank                String              @default("Student")
-    level               Int                 @default(1)
+    rank                String                @default("Student")
+    level               Int                   @default(1)
     villageId           String?
-    village             Village?            @relation(fields: [villageId], references: [id])
+    village             Village?              @relation(fields: [villageId], references: [id])
     bloodlineId         String?
-    bloodline           Bloodline?          @relation(fields: [bloodlineId], references: [id])
+    bloodline           Bloodline?            @relation(fields: [bloodlineId], references: [id])
     // Generals
-    status              String              @default("Awake")
-    strength            Int                 @default(10)
-    intelligence        Int                 @default(10)
-    willpower           Int                 @default(10)
-    speed               Int                 @default(10)
+    status              String                @default("Awake")
+    strength            Int                   @default(10)
+    intelligence        Int                   @default(10)
+    willpower           Int                   @default(10)
+    speed               Int                   @default(10)
     // Specialities
-    ninjutsu_offence    Int                 @default(10)
-    ninjutsu_defence    Int                 @default(10)
-    genjutsu_offence    Int                 @default(10)
-    genjutsu_defence    Int                 @default(10)
-    taijutsu_offence    Int                 @default(10)
-    taijutsu_defence    Int                 @default(10)
-    weapon_offence      Int                 @default(10)
-    weapon_defence      Int                 @default(10)
+    ninjutsu_offence    Int                   @default(10)
+    ninjutsu_defence    Int                   @default(10)
+    genjutsu_offence    Int                   @default(10)
+    genjutsu_defence    Int                   @default(10)
+    taijutsu_offence    Int                   @default(10)
+    taijutsu_defence    Int                   @default(10)
+    weapon_offence      Int                   @default(10)
+    weapon_defence      Int                   @default(10)
     // Purchase Points
-    reputation_points   Int                 @default(0)
-    popularity_points   Int                 @default(6) // Required for initial avatar creation
+    reputation_points   Int                   @default(0)
+    popularity_points   Int                   @default(6) // Required for initial avatar creation
     // Approved ToS
-    approved_tos        Boolean             @default(false)
+    approved_tos        Boolean               @default(false)
     // Avatar link
     avatar              String?
     // Relations
     BugReport           BugReport[]
     BugVotes            BugVotes[]
     BugComment          BugComment[]
-    filedInfractions    UserReport[]        @relation("reporter")
-    receivedInfractions UserReport[]        @relation("reported")
+    filedInfractions    UserReport[]          @relation("reporter")
+    receivedInfractions UserReport[]          @relation("reported")
     reportComments      UserReportComment[]
     ForumPost           ForumPost[]
     ForumThread         ForumThread[]
-    TavernComment       TavernComment[]
+    Conversation        Conversation[]
+    ConversationComment ConversationComment[]
 }
 
 model VerificationToken {
@@ -292,16 +293,24 @@ model ForumPost {
     threadId  String
 }
 
-enum Tavern {
-    GLOBAL
-    KONOKI
+model Conversation {
+    id          String                @id @default(cuid())
+    title       String?               @unique
+    createdBy   UserData?             @relation(fields: [createdById], references: [userId], onDelete: Cascade)
+    createdById String?
+    createdAt   DateTime              @default(now())
+    updatedAt   DateTime              @updatedAt
+    isLocked    Boolean               @default(false)
+    messages    ConversationComment[]
 }
 
-model TavernComment {
-    id        String   @id @default(cuid())
-    content   String   @db.Text
-    createdAt DateTime @default(now())
-    user      UserData @relation(fields: [userId], references: [userId], onDelete: Cascade)
-    userId    String
-    tavern    Tavern
+model ConversationComment {
+    id             String        @id @default(cuid())
+    content        String        @db.Text
+    createdAt      DateTime      @default(now())
+    user           UserData      @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId         String
+    conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    conversationId String?
+    isPinned       Boolean       @default(false)
 }
