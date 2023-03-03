@@ -16,10 +16,10 @@
 }
 
 body {
-  @apply bg-[url('/wallpaper.jpg')];
-  @apply bg-cover;
+  @apply bg-[url('/wallpaperDouble.webp')] bg-repeat-y;
   @apply bg-center;
-  @apply min-h-screen;
+  @apply bg-[size:100%];
+  @apply bg-[position:top];
 }
 
 html {
