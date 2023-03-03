@@ -14,6 +14,7 @@ const Tavern: NextPage = () => {
   return (
     <>
       <Conversation
+        refreshKey={0}
         convo_title={activeTab}
         title={activeTab + " Tavern"}
         subtitle="Broadcast across all villages."

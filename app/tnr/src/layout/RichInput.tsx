@@ -5,7 +5,7 @@ import { Controller } from "react-hook-form";
 
 interface RichInputProps {
   id: string;
-  key?: number;
+  refreshKey?: number;
   label?: string;
   height: string;
   placeholder?: string;
@@ -20,6 +20,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         {props.label}
       </label>
       <Controller
+        key={props.refreshKey}
         name={props.id}
         control={props.control}
         rules={{
@@ -27,7 +28,6 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         }}
         render={({ field: { onChange, ref } }) => (
           <Editor
-            key={props.key}
             apiKey="rms0hylum5thsurrzmsqdj0zorybr350bgnawqyq4sa6nsue"
             onInit={(evt, editor) => {
               ref(editor);

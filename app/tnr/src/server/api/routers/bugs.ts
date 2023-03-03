@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { type PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { bugreportSchema } from "../../../validators/bugs";
-import { mutateCommentSchema } from "../../../validators/comments";
 import sanitize from "../../../utils/sanitize";
 
 export const bugsRouter = createTRPCRouter({
@@ -83,13 +83,21 @@ export const bugsRouter = createTRPCRouter({
     if (ctx.session.user.isBanned) {
       throw serverError("UNAUTHORIZED", "You are banned");
     }
-    return ctx.prisma.bugReport.create({
-      data: {
-        title: input.title,
-        content: sanitize(input.content),
-        system: input.system,
-        userId: ctx.session.user.id,
-      },
+    return await ctx.prisma.$transaction(async (tx) => {
+      const convo = await tx.conversation.create({
+        data: {
+          createdById: ctx.session.user.id,
+        },
+      });
+      return tx.bugReport.create({
+        data: {
+          title: input.title,
+          content: sanitize(input.content),
+          system: input.system,
+          userId: ctx.session.user.id,
+          conversationId: convo.id,
+        },
+      });
     });
   }),
   // Delete a bug report
@@ -113,6 +121,8 @@ export const bugsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Guards
+      const report = await fetchBugReport(ctx.prisma, input.id);
       if (ctx.session.user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
@@ -121,12 +131,12 @@ export const bugsRouter = createTRPCRouter({
         await tx.bugVotes.upsert({
           where: {
             bugId_userId: {
-              bugId: input.id,
+              bugId: report.id,
               userId: ctx.session.user.id,
             },
           },
           create: {
-            bugId: input.id,
+            bugId: report.id,
             userId: ctx.session.user.id,
             value: input.value,
           },
@@ -136,41 +146,41 @@ export const bugsRouter = createTRPCRouter({
         });
         // Count total popularity of bug report
         const popularity = await tx.bugVotes.aggregate({
-          where: { bugId: input.id },
+          where: { bugId: report.id },
           _sum: {
             value: true,
           },
         });
         // Then update bug popularity
         await tx.bugReport.update({
-          where: { id: input.id },
+          where: { id: report.id },
           data: {
             popularity: popularity._sum.value as number,
           },
         });
       });
     }),
-  // Comment on a bug report
+  // Resolve / unresolve bug report
   resolve: protectedProcedure
-    .input(mutateCommentSchema)
+    .input(
+      z.object({
+        id: z.string().cuid(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.isBanned) {
-        throw serverError("UNAUTHORIZED", "You are banned");
-      }
       if (ctx.session.user.role === "ADMIN") {
+        const report = await fetchBugReport(ctx.prisma, input.id);
         await ctx.prisma.$transaction(async (tx) => {
-          // First upsert tracking entry
-          await tx.bugComment.create({
+          await tx.bugReport.update({
+            where: { id: report.id },
             data: {
-              content: sanitize(input.comment),
-              userId: ctx.session.user.id,
-              bugId: input.object_id,
+              is_resolved: !report.is_resolved,
             },
           });
-          await tx.bugReport.update({
-            where: { id: input.object_id },
+          await tx.conversation.update({
+            where: { id: report.conversationId },
             data: {
-              is_resolved: true,
+              isLocked: !report.is_resolved,
             },
           });
         });
@@ -179,3 +189,13 @@ export const bugsRouter = createTRPCRouter({
       }
     }),
 });
+
+/**
+ * Fetches the bug report in question. Throws an error if not found.
+ */
+export const fetchBugReport = async (client: PrismaClient, id: string) => {
+  const report = await client.bugReport.findUniqueOrThrow({
+    where: { id },
+  });
+  return report;
+};

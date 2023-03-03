@@ -16,7 +16,6 @@ import { show_toast } from "../libs/toast";
 import { type systems } from "../validators/reports";
 import { type ConversationComment } from "@prisma/client";
 import { type ForumPost } from "@prisma/client";
-import { type BugComment } from "@prisma/client";
 import { type UserReportComment } from "@prisma/client";
 
 /**
@@ -119,56 +118,13 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
 };
 
 /**
- * Component for handling comments on bug reports
- * @param props
- * @returns
- */
-interface BugCommentProps extends PostProps {
-  comment: BugComment;
-  refetchComments: () => void;
-}
-export const CommentOnBug: React.FC<BugCommentProps> = (props) => {
-  const [editing, setEditing] = useState(false);
-
-  const editComment = api.comments.editBugComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
-    },
-    onError: (error) => {
-      show_toast("Error on editing comment", error.message, "error");
-    },
-  });
-
-  const deleteComment = api.comments.deleteBugComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
-    },
-    onError: (error) => {
-      show_toast("Error on deleting comment", error.message, "error");
-    },
-  });
-
-  return (
-    <BaseComment
-      {...props}
-      system="bug_comment"
-      editComment={editComment.mutate}
-      deleteComment={deleteComment.mutate}
-      editing={editing}
-      setEditing={setEditing}
-    />
-  );
-};
-
 /**
  * Base component on which other comment components are built
  * @param props
  * @returns
  */
 interface BaseCommentProps extends PostProps {
-  comment: BugComment | UserReportComment | ForumPost | ConversationComment;
+  comment: UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
   system?: (typeof systems)[number];
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;

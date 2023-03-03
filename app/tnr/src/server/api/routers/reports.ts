@@ -101,10 +101,6 @@ export const reportsRouter = createTRPCRouter({
             return ctx.prisma.bugReport.findUnique({
               where: { id: input.system_id },
             });
-          case "bug_comment":
-            return ctx.prisma.bugComment.findUnique({
-              where: { id: input.system_id },
-            });
           case "forum_comment":
             return ctx.prisma.forumPost.findUnique({
               where: { id: input.system_id },

@@ -129,7 +129,6 @@ model UserData {
     // Relations
     BugReport           BugReport[]
     BugVotes            BugVotes[]
-    BugComment          BugComment[]
     filedInfractions    UserReport[]          @relation("reporter")
     receivedInfractions UserReport[]          @relation("reported")
     reportComments      UserReportComment[]
@@ -186,18 +185,19 @@ model Bloodline {
 //*****************************//
 
 model BugReport {
-    id          String       @id @default(cuid())
-    title       String
-    content     String       @db.Text
-    summary     String       @default("No summary provided")
-    system      String
-    user        UserData     @relation(fields: [userId], references: [userId], onDelete: Cascade)
-    createdAt   DateTime     @default(now())
-    userId      String
-    is_resolved Boolean      @default(false)
-    popularity  Int          @default(0)
-    votes       BugVotes[]
-    comments    BugComment[]
+    id             String       @id @default(cuid())
+    title          String
+    content        String       @db.Text
+    summary        String       @default("No summary provided")
+    system         String
+    user           UserData     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    createdAt      DateTime     @default(now())
+    userId         String
+    is_resolved    Boolean      @default(false)
+    popularity     Int          @default(0)
+    votes          BugVotes[]
+    conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    conversationId String       @unique
 }
 
 model BugVotes {
@@ -210,16 +210,6 @@ model BugVotes {
     userId    String
 
     @@unique([bugId, userId])
-}
-
-model BugComment {
-    id        String    @id @default(cuid())
-    content   String    @db.Text
-    createdAt DateTime  @default(now())
-    user      UserData  @relation(fields: [userId], references: [userId], onDelete: Cascade)
-    userId    String
-    bug       BugReport @relation(fields: [bugId], references: [id], onDelete: Cascade)
-    bugId     String
 }
 
 enum ReportAction {
@@ -302,6 +292,7 @@ model Conversation {
     updatedAt   DateTime              @updatedAt
     isLocked    Boolean               @default(false)
     messages    ConversationComment[]
+    BugReport   BugReport[]
 }
 
 model ConversationComment {

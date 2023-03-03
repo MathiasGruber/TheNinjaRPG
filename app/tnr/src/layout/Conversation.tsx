@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,7 @@ import { type MutateCommentSchema } from "../validators/comments";
 interface ConversationProps {
   convo_title?: string;
   convo_id?: string;
+  refreshKey: number;
   title: string;
   subtitle: string;
   chatbox_options?: React.ReactNode;
@@ -36,7 +37,12 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     hasNextPage,
     refetch,
   } = api.comments.getConversationComments.useInfiniteQuery(
-    { convo_id: props.convo_id, convo_title: props.convo_title, limit: 10 },
+    {
+      convo_id: props.convo_id,
+      convo_title: props.convo_title,
+      limit: 10,
+      refreshKey: props.refreshKey,
+    },
     {
       enabled: props.convo_id !== undefined || props.convo_title !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -85,9 +91,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     },
     (errors) => console.error(errors)
   );
-
+  console.log(props.refreshKey);
   return (
-    <>
+    <div key={props.refreshKey}>
       {conversation &&
         !conversation.isLocked &&
         sessionData &&
@@ -97,7 +103,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               <div className="mb-3">
                 <RichInput
                   id="comment"
-                  key={editorKey}
+                  refreshKey={editorKey}
                   height="150"
                   placeholder=""
                   control={control}
@@ -116,9 +122,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
             </form>
           </ContentBox>
         )}
-      <ContentBox title="Messages">
-        {allComments &&
-          allComments.map((comment, i) => {
+      {allComments && allComments.length > 0 && (
+        <ContentBox title="Messages">
+          {allComments.map((comment, i) => {
             return (
               <div
                 key={comment.id}
@@ -135,8 +141,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               </div>
             );
           })}
-      </ContentBox>
-    </>
+        </ContentBox>
+      )}
+    </div>
   );
 };
 
