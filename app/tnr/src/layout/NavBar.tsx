@@ -24,6 +24,7 @@ const NavBar: React.FC = () => {
         <AvatarImage
           href={userData.avatar}
           alt={userData.username}
+          hover_effect={true}
           size={100}
         />
       </div>
@@ -87,11 +88,7 @@ const NavBar: React.FC = () => {
           </h1>
         </div>
         <div>
-          <NavBarDropdown
-            icon={<IconGlobe />}
-            links={gameLinks}
-            position="right"
-          />
+          <NavBarDropdown icon={<IconGlobe />} links={gameLinks} position="right" />
         </div>
       </div>
     </>

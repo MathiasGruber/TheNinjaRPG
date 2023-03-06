@@ -33,6 +33,26 @@ export const profileRouter = createTRPCRouter({
         where: { username: input.username },
       });
     }),
+  // Return list of 5 most similar users in database
+  searchUsers: protectedProcedure
+    .input(
+      z.object({
+        username: z.string().trim(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return await ctx.prisma.userData.findMany({
+        where: {
+          username: {
+            contains: input.username,
+          },
+          approved_tos: true,
+          NOT: { userId: ctx.session.user.id },
+        },
+        select: { userId: true, username: true, avatar: true, rank: true, level: true },
+        take: 5,
+      });
+    }),
   // Get public information on a user
   getPublicUser: publicProcedure
     .input(z.object({ userId: z.string() }))
@@ -63,6 +83,7 @@ export const profileRouter = createTRPCRouter({
           username: input.username,
           gender: input.gender,
           userId: ctx.session.user.id,
+          approved_tos: true,
         },
       });
       // Unique attributes

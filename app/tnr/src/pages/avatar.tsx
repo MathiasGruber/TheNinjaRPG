@@ -109,12 +109,12 @@ const Avatar: NextPage = () => {
                     createAvatar.mutate();
                   }}
                 >
-                  Changing your avatar will cost 1 popularity point. We would
-                  love to enable unlimited re-creations, but the model
-                  generating the avatars runs on NVidia A100 GPU cluster, and
-                  each generation costs a little bit of money. We are working on
-                  a solution to make this free, but for now, we need to charge a
-                  small fee to cover the cost of the GPU cluster.
+                  Changing your avatar will cost 1 popularity point. We would love to
+                  enable unlimited re-creations, but the model generating the avatars
+                  runs on NVidia A100 GPU cluster, and each generation costs a little
+                  bit of money. We are working on a solution to make this free, but for
+                  now, we need to charge a small fee to cover the cost of the GPU
+                  cluster.
                 </Confirm>
               </>
             ) : (
@@ -139,6 +139,7 @@ const Avatar: NextPage = () => {
                 <AvatarImage
                   href={avatar.avatar}
                   alt={userData?.username}
+                  hover_effect={true}
                   size={200}
                 />
               </div>

@@ -7,6 +7,7 @@ interface AvatarImageProps {
   alt: string;
   size: number;
   priority?: boolean;
+  hover_effect?: boolean;
 }
 
 const AvatarImage: React.FC<AvatarImageProps> = (props) => {
@@ -15,7 +16,9 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
   } else {
     return (
       <Image
-        className="m-auto w-5/6 rounded-2xl border-2 border-black hover:border-amber-500 hover:opacity-80"
+        className={`m-auto w-5/6 rounded-2xl border-2 border-black ${
+          props.hover_effect ? "hover:border-amber-500 hover:opacity-80" : ""
+        }`}
         src={props.href}
         alt={props.alt + " AvatarImage"}
         width={props.size}

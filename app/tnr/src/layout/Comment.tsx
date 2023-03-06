@@ -157,7 +157,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
       options={
         props.user &&
         sessionData?.user?.id === props.user.userId && (
-          <div className="flex flex-row">
+          <div className="flex flex-col sm:flex-row">
             {props.editComment && (
               <PencilSquareIcon
                 className={`h-6 w-6 ${

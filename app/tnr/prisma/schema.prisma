@@ -136,6 +136,7 @@ model UserData {
     ForumThread         ForumThread[]
     Conversation        Conversation[]
     ConversationComment ConversationComment[]
+    UsersInConversation UsersInConversation[]
 }
 
 model VerificationToken {
@@ -284,15 +285,17 @@ model ForumPost {
 }
 
 model Conversation {
-    id          String                @id @default(cuid())
-    title       String?               @unique
-    createdBy   UserData?             @relation(fields: [createdById], references: [userId], onDelete: Cascade)
-    createdById String?
-    createdAt   DateTime              @default(now())
-    updatedAt   DateTime              @updatedAt
-    isLocked    Boolean               @default(false)
-    messages    ConversationComment[]
-    BugReport   BugReport[]
+    id                  String                @id @default(cuid())
+    title               String?               @unique
+    createdBy           UserData?             @relation(fields: [createdById], references: [userId], onDelete: Cascade)
+    createdById         String?
+    createdAt           DateTime              @default(now())
+    updatedAt           DateTime              @updatedAt
+    isLocked            Boolean               @default(false)
+    isPublic            Boolean               @default(true)
+    messages            ConversationComment[]
+    BugReport           BugReport[]
+    UsersInConversation UsersInConversation[]
 }
 
 model ConversationComment {
@@ -304,4 +307,14 @@ model ConversationComment {
     conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
     conversationId String?
     isPinned       Boolean       @default(false)
+}
+
+model UsersInConversation {
+    conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    conversationId String
+    user           UserData     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId         String
+    assignedAt     DateTime     @default(now())
+
+    @@id([conversationId, userId])
 }

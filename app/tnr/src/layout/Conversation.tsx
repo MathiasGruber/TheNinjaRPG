@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import ReactHtmlParser from "react-html-parser";
+import Pusher from "pusher-js";
 
 import { CommentOnConversation } from "../layout/Comment";
 import ContentBox from "../layout/ContentBox";
@@ -24,6 +25,7 @@ interface ConversationProps {
   title: string;
   subtitle: string;
   chatbox_options?: React.ReactNode;
+  topRightContent?: React.ReactNode;
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
@@ -85,26 +87,46 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     },
   });
 
+  useEffect(() => {
+    if (conversation) {
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+      });
+      const channel = pusher.subscribe(conversation.id);
+      channel.bind("event", async (data: any) => {
+        console.log(data);
+        await refetch();
+      });
+      return () => {
+        pusher.unsubscribe(conversation.id);
+      };
+    }
+  }, [conversation, refetch]);
+
   const handleSubmitComment = handleSubmit(
     (data) => {
       createComment.mutate(data);
     },
     (errors) => console.error(errors)
   );
-  console.log(props.refreshKey);
+
   return (
     <div key={props.refreshKey}>
       {conversation &&
         !conversation.isLocked &&
         sessionData &&
         !sessionData?.user?.isBanned && (
-          <ContentBox title={props.title} subtitle={props.subtitle}>
+          <ContentBox
+            title={props.title}
+            subtitle={props.subtitle}
+            topRightContent={props.topRightContent}
+          >
             <form>
               <div className="mb-3">
                 <RichInput
                   id="comment"
                   refreshKey={editorKey}
-                  height="150"
+                  height="200"
                   placeholder=""
                   control={control}
                   error={errors.comment?.message}

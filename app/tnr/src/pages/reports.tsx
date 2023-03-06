@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type NextPage } from "next";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import Link from "next/link";
 import ContentBox from "../layout/ContentBox";
@@ -16,6 +18,8 @@ import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUser } from "../utils/UserContext";
 import { reportCommentExplain } from "../utils/reports";
 import { reportCommentColor } from "../utils/reports";
+import { userSearchSchema } from "../validators/register";
+import { type UserSearchSchema } from "../validators/register";
 
 const Reports: NextPage = () => {
   const { data: sessionData } = useSession();
@@ -43,6 +47,23 @@ const Reports: NextPage = () => {
   );
   const allReports = reports?.pages.map((page) => page.data).flat();
 
+  const {
+    register,
+    watch,
+    formState: { errors },
+  } = useForm<UserSearchSchema>({
+    resolver: zodResolver(userSearchSchema),
+  });
+
+  const watchUsername = watch("username", "");
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setSearchTerm(watchUsername);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [watchUsername, setSearchTerm]);
+
   useInfinitePagination({
     fetchNextPage,
     hasNextPage,
@@ -53,18 +74,17 @@ const Reports: NextPage = () => {
     <ContentBox
       title="Reports"
       subtitle={
-        sessionData?.user?.role === "USER"
-          ? "View your reports"
-          : "Overall Overview"
+        sessionData?.user?.role === "USER" ? "View your reports" : "Overall Overview"
       }
       topRightContent={
         sessionData &&
         sessionData.user?.role !== "USER" && (
           <div className="flex flex-row items-center">
             <InputField
-              id="title"
+              id="username"
               placeholder="Search Username"
-              onEndEditing={(value) => setSearchTerm(value)}
+              register={register}
+              error={errors.username?.message}
             />
             <div className="px-2"></div>
             <Toggle value={showActive} setShowActive={setShowActive} />
@@ -92,8 +112,7 @@ const Reports: NextPage = () => {
                   >
                     {report.banEnd && (
                       <div className="mb-3">
-                        <b>Ban countdown:</b>{" "}
-                        <Countdown targetDate={report.banEnd} />
+                        <b>Ban countdown:</b> <Countdown targetDate={report.banEnd} />
                         <hr />
                       </div>
                     )}

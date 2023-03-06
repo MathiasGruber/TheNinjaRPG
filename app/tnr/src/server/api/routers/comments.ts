@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type PrismaClient } from "@prisma/client";
+import Pusher from "pusher";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
@@ -10,6 +11,7 @@ import { canPostReportComment } from "../../../validators/reports";
 import { fetchUserReport } from "./reports";
 import { fetchThread } from "./forum";
 import { canSeeReport } from "../../../validators/reports";
+import { createConversationSchema } from "../../../validators/comments";
 import sanitize from "../../../utils/sanitize";
 
 export const commentsRouter = createTRPCRouter({
@@ -181,6 +183,116 @@ export const commentsRouter = createTRPCRouter({
    * Conversation POSTS
    * Creating, editing, deleting and getting comments on forum threads
    */
+  getUserConversations: protectedProcedure
+    .input(
+      z.object({
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const conversations = await ctx.prisma.conversation.findMany({
+        skip: skip,
+        take: input.limit,
+        where: {
+          isPublic: false,
+          OR: [
+            {
+              UsersInConversation: {
+                some: {
+                  userId: ctx.session.user.id,
+                },
+              },
+            },
+          ],
+        },
+        include: {
+          UsersInConversation: {
+            include: {
+              user: {
+                select: {
+                  userId: true,
+                  username: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+      const nextCursor = conversations.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: conversations,
+        nextCursor: nextCursor,
+      };
+    }),
+  createConversation: protectedProcedure
+    .input(createConversationSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      return await ctx.prisma.$transaction(async (tx) => {
+        const convo = await tx.conversation.create({
+          data: {
+            title: input.title,
+            createdById: ctx.session.user.id,
+            isPublic: false,
+            isLocked: false,
+            UsersInConversation: {
+              create: [...input.users, ctx.session.user.id].map((user) => {
+                return {
+                  userId: user,
+                };
+              }),
+            },
+          },
+        });
+        await tx.conversationComment.create({
+          data: {
+            content: sanitize(input.comment),
+            userId: ctx.session.user.id,
+            conversationId: convo.id,
+          },
+        });
+        return convo;
+      });
+    }),
+  exitConversation: protectedProcedure
+    .input(
+      z.object({
+        convo_id: z.string().cuid(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Guard
+      const convo = await fetchConversation({
+        client: ctx.prisma,
+        id: input.convo_id,
+        userId: ctx.session.user.id,
+      });
+      // Remove user from conversation
+      await ctx.prisma.usersInConversation.deleteMany({
+        where: {
+          userId: ctx.session.user.id,
+          conversationId: convo.id,
+        },
+      });
+      // If user is the last in conversation, delete without waiting
+      if (convo.UsersInConversation.length === 1) {
+        void ctx.prisma.conversation.delete({
+          where: { id: convo.id },
+        });
+        void ctx.prisma.conversationComment.deleteMany({
+          where: { conversationId: convo.id },
+        });
+      }
+    }),
   getConversationComments: protectedProcedure
     .input(
       z
@@ -198,12 +310,12 @@ export const commentsRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Guard
-      const convo = await fetchConversation(
-        ctx.prisma,
-        input.convo_id,
-        input.convo_title,
-        ctx.session.user.id
-      );
+      const convo = await fetchConversation({
+        client: ctx.prisma,
+        id: input.convo_id,
+        title: input.convo_title,
+        userId: ctx.session.user.id,
+      });
       // Fetch comments
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
@@ -237,17 +349,32 @@ export const commentsRouter = createTRPCRouter({
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guard
-      const convo = await fetchConversation(ctx.prisma, input.object_id);
+      const convo = await fetchConversation({
+        client: ctx.prisma,
+        id: input.object_id,
+        userId: ctx.session.user.id,
+      });
       if (ctx.session.user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
-      return ctx.prisma.conversationComment.create({
+      const comment = ctx.prisma.conversationComment.create({
         data: {
           content: sanitize(input.comment),
           userId: ctx.session.user.id,
           conversationId: convo.id,
         },
       });
+      const pusher = new Pusher({
+        appId: process.env.PUSHER_APP_ID,
+        key: process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
+        secret: process.env.PUSHER_APP_SECRET,
+        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+        useTLS: true,
+      });
+      await pusher.trigger(convo.id, "event", {
+        message: "hello world",
+      });
+      return comment;
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
@@ -291,22 +418,39 @@ export const commentsRouter = createTRPCRouter({
 /**
  * Fetches the forum thread. Throws an error if not found.
  */
-export const fetchConversation = async (
-  client: PrismaClient,
-  id?: string,
-  title?: string,
-  userId?: string
-) => {
-  if (id) {
-    const convo = await client.conversation.findUniqueOrThrow({
-      where: { id },
-    });
+interface FetchThreadOptions {
+  client: PrismaClient;
+  id?: string;
+  title?: string;
+  userId?: string;
+}
+export const fetchConversation = async (params: FetchThreadOptions) => {
+  const { client, id, title, userId } = params;
+  const getConvo = async () => {
+    if (id) {
+      const convo = await client.conversation.findUniqueOrThrow({
+        where: { id: id },
+        include: { UsersInConversation: true },
+      });
+      return convo;
+    } else if (title && userId) {
+      const convo = await client.conversation.findUniqueOrThrow({
+        where: { title: title },
+        include: { UsersInConversation: true },
+      });
+      return convo;
+    } else {
+      throw serverError("BAD_REQUEST", "Invalid request");
+    }
+  };
+  const convo = await getConvo();
+  console.log("=======");
+  console.log(convo);
+  console.log(userId);
+  console.log("=======");
+  if (convo.isPublic || convo.UsersInConversation.some((u) => u.userId === userId)) {
     return convo;
-  } else if (title && userId) {
-    const convo = await client.conversation.findUniqueOrThrow({
-      where: { title: title },
-    });
-    return convo;
+  } else {
+    throw serverError("UNAUTHORIZED", "Conversation not found");
   }
-  throw serverError("NOT_FOUND", "Conversation not found");
 };

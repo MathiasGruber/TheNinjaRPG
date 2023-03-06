@@ -9,7 +9,7 @@ interface NavTabsProps {
 const NavTabs: React.FC<NavTabsProps> = (props) => {
   return (
     <>
-      <div className="border-b border-gray-200 text-center text-sm font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+      <div className="border-b border-gray-700 text-center text-sm font-medium text-gray-400">
         <ul className="-mb-px flex flex-wrap">
           {props.options.map((option) => (
             <li className="mr-2" key={option}>

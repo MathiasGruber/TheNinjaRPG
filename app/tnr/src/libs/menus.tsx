@@ -1,5 +1,9 @@
 import { type ReactNode } from "react";
-import { GlobeAmericasIcon, UserGroupIcon } from "@heroicons/react/24/solid";
+import {
+  GlobeAmericasIcon,
+  UserGroupIcon,
+  InboxStackIcon,
+} from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
 import { signOut, signIn } from "next-auth/react";
@@ -62,6 +66,11 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       href: "/tavern",
       name: "Tavern",
       icon: <UserGroupIcon key="tavern" className="h-6 w-6" />,
+    },
+    {
+      href: "/inbox",
+      name: "Inbox",
+      icon: <InboxStackIcon key="inbox" className="h-6 w-6" />,
     },
     {
       href: "/reports",

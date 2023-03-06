@@ -19,11 +19,9 @@ const Modal: React.FC<ModalProps> = (props) => {
           props.setIsOpen(false);
         }}
       ></div>
-      <div className=" fixed top-1/2 left-1/2 z-20 w-11/12 -translate-x-1/2 -translate-y-1/2 transform rounded-lg bg-white shadow dark:bg-gray-700">
-        <div className="flex items-start justify-between rounded-t border-b p-4 dark:border-gray-600">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {props.title}
-          </h3>
+      <div className="fixed top-1/2 left-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow">
+        <div className="flex items-start justify-between rounded-t border-b border-gray-600 p-4">
+          <h3 className="text-xl font-semibold text-white">{props.title}</h3>
           <button
             type="button"
             className="ml-auto inline-flex items-center rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
@@ -49,11 +47,11 @@ const Modal: React.FC<ModalProps> = (props) => {
           </button>
         </div>
         <div className="space-y-6 p-6">
-          <div className="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+          <div className="text-base leading-relaxed text-gray-400">
             {props.children}
           </div>
         </div>
-        <div className="flex items-center space-x-2 rounded-b border-t border-gray-200 p-6 dark:border-gray-600">
+        <div className="flex items-center space-x-2 rounded-b border-t border-gray-600 p-6">
           <input
             type="submit"
             value={props.proceed_label ? props.proceed_label : "Proceed"}
@@ -63,7 +61,7 @@ const Modal: React.FC<ModalProps> = (props) => {
                 props.setIsOpen(false);
               }
             }}
-            className="rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            className="rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-800"
           ></input>
           <button
             type="button"
@@ -71,7 +69,7 @@ const Modal: React.FC<ModalProps> = (props) => {
               e.preventDefault();
               props.setIsOpen(false);
             }}
-            className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:z-10 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-600"
+            className="rounded-lg border  border-gray-500 bg-gray-700 px-5 py-2.5  text-sm font-medium text-gray-300  hover:bg-gray-600 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-600"
           >
             Close
           </button>

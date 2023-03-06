@@ -43,16 +43,22 @@ const Post: React.FC<PostProps> = (props) => {
     >
       {props.image}
       {props.user && (
-        <div className="mr-3 basis-3/12 text-center">
+        <div className="... mr-3 basis-2/12 truncate text-center  text-sm sm:basis-3/12 sm:text-base">
           <AvatarImage href={props.user.avatar} alt={props.user.username} size={100} />
-          <p>{props.user.username}</p>
-          <p>
-            Lvl. {props.user.level} {props.user.rank}
-          </p>
+          <div className="hidden sm:block">
+            <p>{props.user.username}</p>
+            <p>
+              Lvl. {props.user.level} {props.user.rank}
+            </p>
+          </div>
         </div>
       )}
       <div className="grow basis-1/2">
-        {props.title && <h3 className="text-xl font-bold tracking-tight text-gray-900">{props.title}</h3>}
+        {props.title && (
+          <h3 className="text-xl font-bold tracking-tight text-gray-900">
+            {props.title}
+          </h3>
+        )}
         <div className="font-normal text-gray-700">{props.children}</div>
       </div>
       {props.options && <div>{props.options}</div>}

@@ -26,6 +26,7 @@ const MenuBoxProfile: React.FC = () => {
             href={userData.avatar}
             alt={userData.username}
             size={100}
+            hover_effect={true}
             priority
           />
         </Link>

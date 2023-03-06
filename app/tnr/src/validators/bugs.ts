@@ -7,6 +7,7 @@ export const systems = [
   "reports",
   "register",
   "login",
+  "inbox",
   "tavern",
   "travel",
   "forum",
@@ -20,14 +21,7 @@ export const systems = [
 
 export const bugreportSchema = z
   .object({
-    title: z
-      .string()
-      .trim()
-      .regex(new RegExp("^[a-zA-Z0-9_\\s]+$"), {
-        message: "Must only contain alphanumeric characters",
-      })
-      .min(10)
-      .max(50),
+    title: z.string().trim().min(10).max(50),
     content: z.string().min(50).max(5000),
     system: z.enum(systems),
   })

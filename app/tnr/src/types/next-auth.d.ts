@@ -24,6 +24,10 @@ declare global {
       AWS_S3_ACCESS_KEY_ID: string;
       AWS_S3_SECRET_ACCESS_KEY: string;
       REPLICATE_API_TOKEN: string;
+      PUSHER_APP_ID: string;
+      PUSHER_APP_SECRET: string;
+      NEXT_PUBLIC_PUSHER_APP_KEY: string;
+      NEXT_PUBLIC_PUSHER_APP_CLUSTER: string;
     }
   }
 }

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const mutateCommentSchema = z
   .object({
-    comment: z.string().min(20).max(1000),
+    comment: z.string().min(4).max(1000),
     object_id: z.string().cuid(),
   })
   .strict()
@@ -18,3 +18,15 @@ export const deleteCommentSchema = z
   .required();
 
 export type DeleteCommentSchema = z.infer<typeof deleteCommentSchema>;
+
+export const createConversationSchema = z
+  .object({
+    title: z.string().min(4).max(100),
+    comment: z.string().min(4).max(1000),
+    users: z.array(z.string().cuid()).nonempty().max(5),
+    username: z.string(),
+  })
+  .strict()
+  .required();
+
+export type CreateConversationSchema = z.infer<typeof createConversationSchema>;

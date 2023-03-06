@@ -9,27 +9,22 @@ export const attributes = [
   "Hard features",
   "Tattoo",
 ] as const;
-export const colors = [
-  "Black",
-  "Brown",
-  "Blue",
-  "Red",
-  "White",
-  "Gray",
-] as const;
+export const colors = ["Black", "Brown", "Blue", "Red", "White", "Gray"] as const;
 export const skin_colors = ["Light", "Dark", "Olive", "Alibino"] as const;
 export const genders = ["Male", "Female"] as const;
 
+export const usernameSchema = z
+  .string()
+  .trim()
+  .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
+    message: "Must only contain alphanumeric characters and no spaces",
+  })
+  .min(5)
+  .max(20);
+
 export const registrationSchema = z
   .object({
-    username: z
-      .string()
-      .trim()
-      .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
-        message: "Must only contain alphanumeric characters and no spaces",
-      })
-      .min(5)
-      .max(20),
+    username: usernameSchema,
     village: z.string().cuid({ message: "Must select a village" }),
     gender: z.enum(genders),
     hair_color: z.enum(colors),
@@ -45,8 +40,7 @@ export const registrationSchema = z
   .required()
   .refine(
     (data) =>
-      data.attribute_1 !== data.attribute_2 &&
-      data.attribute_1 !== data.attribute_3,
+      data.attribute_1 !== data.attribute_2 && data.attribute_1 !== data.attribute_3,
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_1"],
@@ -54,8 +48,7 @@ export const registrationSchema = z
   )
   .refine(
     (data) =>
-      data.attribute_2 !== data.attribute_1 &&
-      data.attribute_2 !== data.attribute_3,
+      data.attribute_2 !== data.attribute_1 && data.attribute_2 !== data.attribute_3,
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_2"],
@@ -63,11 +56,16 @@ export const registrationSchema = z
   )
   .refine(
     (data) =>
-      data.attribute_3 !== data.attribute_1 &&
-      data.attribute_3 !== data.attribute_2,
+      data.attribute_3 !== data.attribute_1 && data.attribute_3 !== data.attribute_2,
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_3"],
     }
   );
 export type RegistrationSchema = z.infer<typeof registrationSchema>;
+
+export const userSearchSchema = z.object({
+  username: usernameSchema,
+});
+
+export type UserSearchSchema = z.infer<typeof userSearchSchema>;
