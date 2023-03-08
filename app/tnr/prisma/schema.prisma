@@ -8,21 +8,7 @@ generator client {
 
 datasource db {
     provider = "mysql"
-    // NOTE: When using postgresql, mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
     url      = env("DATABASE_URL")
-}
-
-//************************//
-//****** DEPRECATED ******//
-//************************//
-
-model Example {
-    id        String   @id @default(cuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
 }
 
 //*****************************//
@@ -75,6 +61,14 @@ model User {
     userdata         UserData?
     attributes       UserAttribute[]
     HistoricalAvatar HistoricalAvatar[]
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
 }
 
 model UserData {
@@ -131,6 +125,7 @@ model UserData {
     // Timers
     createdAt               DateTime              @default(now())
     updatedAt               DateTime              @default(now()) @updatedAt
+    deletionAt              DateTime?
     // Relations
     BugReport               BugReport[]
     BugVotes                BugVotes[]
@@ -144,14 +139,6 @@ model UserData {
     UsersInConversation     UsersInConversation[]
     logsAsTarget            ReportLog[]           @relation("target")
     logsAsStaff             ReportLog[]           @relation("staff")
-}
-
-model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
-
-    @@unique([identifier, token])
 }
 
 model UserAttribute {

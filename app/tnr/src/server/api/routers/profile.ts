@@ -1,18 +1,62 @@
 import { z } from "zod";
+import { ReportAction } from "@prisma/client";
+import { type NavBarDropdownLink } from "../../../libs/menus";
 
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+  serverError,
+} from "../trpc";
 import { registrationSchema } from "../../../validators/register";
 
 export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.userData.findUnique({
+    // User
+    const user = await ctx.prisma.userData.findUnique({
       where: { userId: ctx.session.user.id },
       include: {
         village: true,
         bloodline: true,
       },
     });
+    // Notifications
+    const notifications: NavBarDropdownLink[] = [];
+    // Get number of un-resolved user reports
+    if (ctx.session.user.role === "MODERATOR" || ctx.session.user.role === "ADMIN") {
+      const userReports = await ctx.prisma.userReport.count({
+        where: {
+          status: {
+            in: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
+          },
+        },
+      });
+      if (userReports > 0) {
+        notifications.push({
+          href: "/reports",
+          name: `${userReports} waiting!`,
+          color: "blue",
+        });
+      }
+    }
+    // Check if user is banned
+    if (ctx.session.user.isBanned) {
+      notifications.push({
+        href: "/reports",
+        name: "You are banned!",
+        color: "red",
+      });
+    }
+    // Add deletion timer to notifications
+    if (user?.deletionAt) {
+      notifications?.push({
+        href: "/profile",
+        name: "Being deleted",
+        color: "red",
+      });
+    }
+    return { userData: user, notifications: notifications };
   }),
   // Get user attributes
   getUserAttributes: protectedProcedure.query(async ({ ctx }) => {
@@ -164,4 +208,68 @@ export const profileRouter = createTRPCRouter({
       });
       return user;
     }),
+  toggleDeletionTimer: protectedProcedure.mutation(async ({ ctx }) => {
+    const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
+      where: { userId: ctx.session.user.id },
+    });
+    await ctx.prisma.userData.update({
+      where: { userId: ctx.session.user.id },
+      data: {
+        ...(currentUser.deletionAt
+          ? { deletionAt: null }
+          : { deletionAt: new Date(new Date().getTime() + 2 * 86400000) }),
+      },
+    });
+  }),
+  cofirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
+    const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
+      where: { userId: ctx.session.user.id },
+    });
+    if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
+      throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
+    }
+    await ctx.prisma.$transaction([
+      ctx.prisma.userData.delete({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.userAttribute.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.user.delete({
+        where: { id: ctx.session.user.id },
+      }),
+      ctx.prisma.historicalAvatar.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.bugReport.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.bugVotes.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.reportLog.deleteMany({
+        where: {
+          OR: [
+            { targetUserId: ctx.session.user.id },
+            { staffUserId: ctx.session.user.id },
+          ],
+        },
+      }),
+      ctx.prisma.userReport.deleteMany({
+        where: { reportedUserId: ctx.session.user.id },
+      }),
+      ctx.prisma.userReportComment.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.forumPost.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.conversationComment.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+      ctx.prisma.usersInConversation.deleteMany({
+        where: { userId: ctx.session.user.id },
+      }),
+    ]);
+  }),
 });

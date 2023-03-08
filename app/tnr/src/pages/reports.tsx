@@ -1,7 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type NextPage } from "next";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import Link from "next/link";
 import ContentBox from "../layout/ContentBox";
@@ -18,8 +16,6 @@ import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUser } from "../utils/UserContext";
 import { reportCommentExplain } from "../utils/reports";
 import { reportCommentColor } from "../utils/reports";
-import { userSearchSchema } from "../validators/register";
-import { type UserSearchSchema } from "../validators/register";
 import { useUserSearch } from "../utils/search";
 
 const Reports: NextPage = () => {

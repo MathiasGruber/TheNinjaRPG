@@ -46,7 +46,7 @@ export const getMainNavbarLinks = (sessionData: Session | null) => {
     links.push({
       href: "/",
       name: "Logout",
-      onClick: () => signOut(),
+      onClick: () => signOut({ callbackUrl: "/" }),
     });
   } else {
     links.push({

@@ -14,19 +14,14 @@ import { api } from "../utils/api";
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Get logged in user
   const { data: sessionData } = useSession();
+  // Get user data
   const {
-    data: userData,
+    data: data,
     status: userStatus,
     refetch: refetchUser,
   } = api.profile.getUser.useQuery(undefined, {
     enabled: sessionData?.user !== undefined,
   });
-  const { data: notificationsData } = api.notifications.getAll.useQuery(
-    undefined,
-    {
-      enabled: sessionData?.user !== undefined,
-    }
-  );
 
   return (
     <>
@@ -34,7 +29,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       <Header />
       <UserContext.Provider
         value={{
-          data: userData,
+          data: data?.userData,
           status: userStatus,
           refetch: refetchUser,
         }}
@@ -46,7 +41,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         <div className="container">
           <div className="grid grid-cols-3 md:grid-cols-5">
             <div className="col-span-1 hidden md:block">
-              {userData && (
+              {data?.userData && (
                 <>
                   <MenuBoxProfile />
                   <MenuBox title="Game Map">
@@ -58,13 +53,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
             <div className="col-span-3">
               <NavBar />
               <div className="mx-1 mt-2 rounded-md bg-orange-100 p-1 md:mx-0">
-                <div className="rounded-md bg-yellow-50 p-5">
-                  {props.children}
-                </div>
+                <div className="rounded-md bg-yellow-50 p-5">{props.children}</div>
               </div>
             </div>
             <div className="col-span-1 hidden md:block">
-              {userData && <MenuBoxGame notifications={notificationsData} />}
+              {data?.userData && <MenuBoxGame notifications={data?.notifications} />}
             </div>
             <Footer />
           </div>

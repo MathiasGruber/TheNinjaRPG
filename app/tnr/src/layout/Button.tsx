@@ -1,7 +1,8 @@
 interface ButtonProps {
   id: string;
-  label: string;
+  label: string | React.ReactNode;
   image?: React.ReactNode;
+  disabled?: boolean;
   color?: "default" | "green" | "red" | "blue";
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
@@ -27,8 +28,11 @@ const Button: React.FC<ButtonProps> = (props) => {
   return (
     <div className="m-1">
       <button
+        {...(props.disabled && { disabled: true })}
         id={props.id}
-        className={`flex w-full flex-row items-center justify-center rounded-md p-3 px-5 font-bold text-white ${color} ${hover}`}
+        className={`flex w-full flex-row items-center justify-center rounded-md p-3 px-5 font-bold text-white ${color} ${hover} ${
+          props.disabled ? "cursor-not-allowed opacity-50" : ""
+        }`}
         onClick={props.onClick}
       >
         {props.image && props.image}

@@ -9,6 +9,7 @@ import InputField from "../layout/InputField";
 import { api } from "../utils/api";
 import { useInfinitePagination } from "../libs/pagination";
 import { useUserSearch } from "../utils/search";
+import { type ArrayElement } from "../utils/typeutils";
 
 const Users: NextPage = () => {
   const [activeTab, setActiveTab] = useState<string>("Online");
@@ -31,6 +32,7 @@ const Users: NextPage = () => {
     }
   );
   const allUsers = users?.pages.map((page) => page.data).flat();
+  type User = ArrayElement<typeof allUsers>;
 
   useInfinitePagination({
     fetchNextPage,
@@ -38,16 +40,11 @@ const Users: NextPage = () => {
     lastElement,
   });
 
-  type ArrayElement<A> = A extends readonly (infer T)[] ? T : never;
-
-  type User = ArrayElement<typeof allUsers>;
-
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar", width: 7 },
     { key: "username", header: "Username", type: "string" },
     { key: "rank", header: "Rank", type: "string" },
   ];
-
   if (activeTab === "Strongest") {
     columns.push({ key: "level", header: "Lvl.", type: "string" });
   } else if (activeTab === "Online") {
