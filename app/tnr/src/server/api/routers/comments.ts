@@ -188,6 +188,7 @@ export const commentsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
+        selectedConvo: z.string().cuid().nullish().optional(),
       })
     )
     .query(async ({ ctx, input }) => {

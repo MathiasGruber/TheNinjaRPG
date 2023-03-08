@@ -20,14 +20,15 @@ import { reportCommentExplain } from "../utils/reports";
 import { reportCommentColor } from "../utils/reports";
 import { userSearchSchema } from "../validators/register";
 import { type UserSearchSchema } from "../validators/register";
+import { useUserSearch } from "../utils/search";
 
 const Reports: NextPage = () => {
   const { data: sessionData } = useSession();
   useRequiredUser();
 
-  const [searchTerm, setSearchTerm] = useState<string>("");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [showActive, setShowActive] = useState<boolean>(true);
+  const { register, errors, searchTerm } = useUserSearch();
 
   const {
     data: reports,
@@ -46,23 +47,6 @@ const Reports: NextPage = () => {
     }
   );
   const allReports = reports?.pages.map((page) => page.data).flat();
-
-  const {
-    register,
-    watch,
-    formState: { errors },
-  } = useForm<UserSearchSchema>({
-    resolver: zodResolver(userSearchSchema),
-  });
-
-  const watchUsername = watch("username", "");
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setSearchTerm(watchUsername);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchUsername, setSearchTerm]);
 
   useInfinitePagination({
     fetchNextPage,

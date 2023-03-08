@@ -3,6 +3,7 @@ import {
   GlobeAmericasIcon,
   UserGroupIcon,
   InboxStackIcon,
+  BookOpenIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
@@ -71,6 +72,11 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       href: "/inbox",
       name: "Inbox",
       icon: <InboxStackIcon key="inbox" className="h-6 w-6" />,
+    },
+    {
+      href: "/users",
+      name: "Users",
+      icon: <BookOpenIcon key="users" className="h-6 w-6" />,
     },
     {
       href: "/reports",

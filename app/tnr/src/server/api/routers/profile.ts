@@ -60,7 +60,11 @@ export const profileRouter = createTRPCRouter({
       return ctx.prisma.userData.findUnique({
         where: { userId: input.userId },
         select: {
+          userId: true,
+          username: true,
           gender: true,
+          status: true,
+          rank: true,
           cur_health: true,
           max_health: true,
           cur_stamina: true,
@@ -69,8 +73,61 @@ export const profileRouter = createTRPCRouter({
           max_chakra: true,
           level: true,
           village: true,
+          pvp_experience: true,
+          reputation_points: true,
+          popularity_points: true,
+          experience: true,
+          bloodline: true,
+          avatar: true,
         },
       });
+    }),
+  // Get public users
+  getPublicUsers: publicProcedure
+    .input(
+      z.object({
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+        orderBy: z.enum(["updatedAt", "level", "reputation_points_total"]),
+        username: z
+          .string()
+          .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
+            message: "Must only contain alphanumeric characters and no spaces",
+          })
+          .optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const users = await ctx.prisma.userData.findMany({
+        skip: skip,
+        take: input.limit,
+        where: {
+          ...(input.username !== undefined
+            ? {
+                username: {
+                  contains: input.username,
+                },
+              }
+            : {}),
+        },
+        select: {
+          userId: true,
+          username: true,
+          avatar: true,
+          rank: true,
+          level: true,
+          updatedAt: true,
+          reputation_points_total: true,
+        },
+        orderBy: { [input.orderBy]: "desc" },
+      });
+      const nextCursor = users.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: users,
+        nextCursor: nextCursor,
+      };
     }),
   // Create Character
   createCharacter: protectedProcedure

@@ -1,24 +1,17 @@
 import { type PrismaClient } from "@prisma/client";
-import { type Session } from "next-auth";
 import { type UserData } from "@prisma/client";
+import { serverError } from "../server/api/trpc";
+import { uploadAvatar } from "./aws";
 
-export const getPrompt = async (
-  ctx: {
-    session: Session;
-    prisma: PrismaClient;
-  },
-  currentUser: UserData
-) => {
-  const userAttributes = await ctx.prisma.userAttribute.findMany({
-    where: { userId: ctx.session?.user?.id },
+export const getPrompt = async (client: PrismaClient, user: UserData) => {
+  const userAttributes = await client.userAttribute.findMany({
+    where: { userId: user.userId },
     distinct: ["attribute"],
   });
-  const attributes = userAttributes
-    .map((attribute) => attribute.attribute)
-    .join(", ");
+  const attributes = userAttributes.map((attribute) => attribute.attribute).join(", ");
   const getAge = (rank: string) => {
     switch (rank) {
-      case " Student":
+      case "Student":
         return "child";
       case "Genin":
         return "young adult";
@@ -29,12 +22,12 @@ export const getPrompt = async (
       case "Special Jounin":
         return "adult";
       default:
-        return "adult";
+        return "old";
     }
   };
 
-  return `${currentUser.gender}, ${getAge(
-    currentUser.rank
+  return `${user.gender}, ${getAge(
+    user.rank
   )}, ${attributes}, anime, soft lighting, detailed face, by makoto shinkai, stanley artgerm lau, wlop, rossdraws, concept art, digital painting, looking into camera`;
 };
 
@@ -47,9 +40,7 @@ interface ReplicateReturn {
   output: string[] | null;
   status: string;
 }
-export const createAvatar = async (
-  prompt: string
-): Promise<ReplicateReturn> => {
+export const createAvatar = async (prompt: string): Promise<ReplicateReturn> => {
   return fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
@@ -58,8 +49,7 @@ export const createAvatar = async (
       Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
     },
     body: JSON.stringify({
-      version:
-        "27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
+      version: "27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
       input: {
         prompt: prompt,
         width: 512,
@@ -87,4 +77,46 @@ export const fetchAvatar = async (id: string): Promise<ReplicateReturn> => {
       Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
     },
   }).then((response) => response.json() as Promise<ReplicateReturn>);
+};
+
+/**
+ * Update the avatar for a user
+ */
+export const updateAvatar = async (client: PrismaClient, user: UserData) => {
+  // Get prompt
+  const prompt = await getPrompt(client, user);
+  // Create avatar, rerun if NSFW
+  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+  let result = await createAvatar(prompt);
+  let counter = 0;
+  while (result.status !== "succeeded") {
+    // If failed or canceled, rerun
+    if (result.status == "failed" || result.status == "canceled") {
+      counter += 1;
+      if (counter > 5) {
+        throw serverError("TIMEOUT", "Could not be created with 5 attempts");
+      }
+      result = await createAvatar(prompt);
+    }
+    // If starting or processing, just wait
+    if (result.status == "starting" || result.status == "processing") {
+      await sleep(2000);
+      result = await fetchAvatar(result.id);
+    }
+    // If succeeded, download image and upload to S3
+    if (result.status == "succeeded" && result.output?.[0]) {
+      const s3_avatar = await uploadAvatar(result.output[0], result.id);
+      await client.userData.update({
+        where: { userId: user.userId },
+        data: { avatar: s3_avatar },
+      });
+      await client.historicalAvatar.create({
+        data: {
+          avatar: s3_avatar,
+          userId: user.userId,
+        },
+      });
+      break;
+    }
+  }
 };

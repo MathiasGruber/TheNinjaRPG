@@ -15,7 +15,17 @@ async function main() {
     { name: "Samui", longitude: 40.0, latitude: 40.0, sector: 120 },
     { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 85 },
   ];
-  for (const village of villages) {
+  // Elders
+  const elders = [
+    { name: "Haruto", gender: "Male", attributes: ["wrinkles", "gray hair"] },
+    { name: "Hisame", gender: "Male", attributes: ["wrinkles", "gray hair"] },
+    { name: "Raion", gender: "Male", attributes: ["wrinkles", "gray hair"] },
+    { name: "Ryouichi", gender: "Male", attributes: ["wrinkles", "gray hair"] },
+    { name: "Junko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
+    { name: "Kimiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
+    { name: "Yukiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
+  ];
+  villages.map(async (village, i) => {
     // Create Village
     const villageData = await prisma.village.upsert({
       where: {
@@ -24,7 +34,7 @@ async function main() {
       update: {},
       create: village,
     });
-    // Village elder
+    // Village elders
     const elderUser = await prisma.user.upsert({
       where: {
         email: village.name + "@tnr.com",
@@ -41,12 +51,27 @@ async function main() {
       update: {},
       create: {
         userId: elderUser.id,
-        gender: Math.random() > 0.5 ? "Female" : "Male",
-        username: village.name + " Elder",
+        gender: elders[i]?.gender as string,
+        username: elders[i]?.name as string,
         villageId: villageData.id,
-        rank: "Elder",
+        rank: "Elder GPT",
         status: "Active",
       },
+    });
+    elders[i]?.attributes.map(async (attribute) => {
+      await prisma.userAttribute.upsert({
+        where: {
+          attribute_userId: {
+            userId: elderUser.id,
+            attribute: attribute,
+          },
+        },
+        update: {},
+        create: {
+          userId: elderUser.id,
+          attribute,
+        },
+      });
     });
     // Village conversation
     await prisma.conversation.upsert({
@@ -59,7 +84,7 @@ async function main() {
         createdById: elderUser.id,
       },
     });
-  }
+  });
   // Global conversation
   await prisma.conversation.upsert({
     where: {

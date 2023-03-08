@@ -19,8 +19,8 @@ export const usernameSchema = z
   .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
     message: "Must only contain alphanumeric characters and no spaces",
   })
-  .min(5)
-  .max(20);
+  .min(3)
+  .max(12);
 
 export const registrationSchema = z
   .object({

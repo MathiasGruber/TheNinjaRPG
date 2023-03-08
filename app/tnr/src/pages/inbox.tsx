@@ -10,12 +10,7 @@ import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
 import InputField from "../layout/InputField";
 import AvatarImage from "../layout/Avatar";
-import {
-  PencilSquareIcon,
-  Bars4Icon,
-  UserGroupIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/solid";
+import { PencilSquareIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
@@ -26,10 +21,174 @@ import { createConversationSchema } from "../validators/comments";
 import { type CreateConversationSchema } from "../validators/comments";
 
 const Tavern: NextPage = () => {
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showConversations, setShowConversations] = useState(true);
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
+
+  return (
+    <div className={`grid grid-cols-4`}>
+      <div className={`mr-3  ${selectedConvo ? "col-span-1" : "col-span-3"}`}>
+        <ShowConversations
+          selectedConvo={selectedConvo}
+          setSelectedConvo={setSelectedConvo}
+        />
+      </div>
+      <div className={`${selectedConvo ? "col-span-3" : "col-span-1"}`}>
+        {selectedConvo ? (
+          <Conversation
+            refreshKey={0}
+            convo_id={selectedConvo}
+            title="Inbox"
+            subtitle="Private messages"
+            topRightContent={
+              <NewConversationPrompt setSelectedConvo={setSelectedConvo} />
+            }
+          />
+        ) : (
+          <div className="flex flex-row">
+            <div className="grow"></div>
+            {<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Tavern;
+
+/**
+ * Component for displaying a conversations
+ */
+interface ShowConversationsProps {
+  selectedConvo?: string | null;
+  setSelectedConvo: React.Dispatch<React.SetStateAction<string | null>>;
+}
+const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const { selectedConvo, setSelectedConvo } = props;
+
+  const {
+    data: conversations,
+    fetchNextPage,
+    hasNextPage,
+    refetch,
+  } = api.comments.getUserConversations.useInfiniteQuery(
+    {
+      limit: 10,
+      selectedConvo: props.selectedConvo,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const allConversations = conversations?.pages.map((page) => page.data).flat();
+
+  useEffect(() => {
+    if (selectedConvo && !allConversations?.find((c) => c.id === selectedConvo)) {
+      setSelectedConvo(null);
+    }
+  }, [selectedConvo, setSelectedConvo, allConversations]);
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
+  const exitConversation = api.comments.exitConversation.useMutation({
+    onSuccess: async () => {
+      await refetch();
+    },
+    onError: (error) => {
+      show_toast("Error on exiting conversation", error.message, "error");
+    },
+  });
+  return (
+    <div>
+      {allConversations && (
+        <div className="relative overflow-y-auto">
+          <ul className="space-y-2">
+            <li>
+              <a
+                href="#"
+                className="flex items-center rounded-lg p-2 text-base font-normal"
+              >
+                {selectedConvo ? (
+                  <XMarkIcon
+                    className="h-6 w-6 hover:fill-orange-500"
+                    onClick={() => setSelectedConvo(null)}
+                  />
+                ) : (
+                  <UserGroupIcon className="h-6 w-6" />
+                )}
+                <span className="... ml-3 truncate font-bold">Chats</span>
+              </a>
+              <hr />
+              {allConversations.map((convo, i) => (
+                <div
+                  className={`my-3 flex h-12 flex-row items-center rounded-lg p-1 hover:bg-orange-200 ${
+                    selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
+                  }`}
+                  ref={i === allConversations.length - 1 ? setLastElement : null}
+                  key={convo.id}
+                  onClick={() => setSelectedConvo(convo.id)}
+                >
+                  {convo.UsersInConversation.length > 0 &&
+                    convo.UsersInConversation.map((user, i) => (
+                      <div
+                        key={user.userId}
+                        className={`absolute w-14`}
+                        style={{ left: `${i * 2}rem` }}
+                      >
+                        <AvatarImage
+                          href={user.user.avatar}
+                          alt={user.user.username}
+                          size={50}
+                          priority
+                        />
+                      </div>
+                    ))}
+                  <span
+                    className="... truncate text-sm"
+                    style={{
+                      marginLeft:
+                        (convo.UsersInConversation.length * 2 + 1.5).toString() + "rem",
+                    }}
+                  >
+                    {convo.title}
+                    <br />
+                    {convo.createdAt.toDateString()}s
+                  </span>
+                  <div className="grow"></div>
+                  <XMarkIcon
+                    className="ml-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      exitConversation.mutate({ convo_id: convo.id });
+                    }}
+                  />
+                </div>
+              ))}
+            </li>
+          </ul>
+          <span className="italic">- Messages deleted after 14 days</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Component for creating a new conversation
+ */
+interface NewConversationPromptProps {
+  setSelectedConvo: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
+  const { data: sessionData } = useSession();
+  const { data: userData } = useRequiredUser();
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedUsers, setSelectedUsers] = useState<
     {
       username: string;
@@ -37,8 +196,6 @@ const Tavern: NextPage = () => {
       userId: string;
     }[]
   >([]);
-  const { data: sessionData } = useSession();
-  const { data: userData } = useRequiredUser();
 
   const {
     register,
@@ -61,34 +218,6 @@ const Tavern: NextPage = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [watchUsername, setSearchTerm]);
 
-  const {
-    data: conversations,
-    fetchNextPage,
-    hasNextPage,
-    refetch,
-  } = api.comments.getUserConversations.useInfiniteQuery(
-    {
-      limit: 10,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
-    }
-  );
-  const allConversations = conversations?.pages.map((page) => page.data).flat();
-
-  useEffect(() => {
-    if (selectedConvo && !allConversations?.find((c) => c.id === selectedConvo)) {
-      setSelectedConvo(null);
-    }
-  }, [selectedConvo, allConversations]);
-
-  useInfinitePagination({
-    fetchNextPage,
-    hasNextPage,
-    lastElement,
-  });
-
   const { data: searchResults } = api.profile.searchUsers.useQuery(
     { username: searchTerm },
     {
@@ -97,22 +226,13 @@ const Tavern: NextPage = () => {
   );
 
   const createConversation = api.comments.createConversation.useMutation({
-    onSuccess: async () => {
+    onSuccess: (data) => {
       reset();
       setSelectedUsers([]);
-      await refetch();
+      props.setSelectedConvo(data.id);
     },
     onError: (error) => {
       show_toast("Error on creating new conversation", error.message, "error");
-    },
-  });
-
-  const exitConversation = api.comments.exitConversation.useMutation({
-    onSuccess: async () => {
-      await refetch();
-    },
-    onError: (error) => {
-      show_toast("Error on exiting conversation", error.message, "error");
     },
   });
 
@@ -124,9 +244,9 @@ const Tavern: NextPage = () => {
     (error) => console.log(error)
   );
 
-  const topRightContent = sessionData && (
+  return (
     <div className="flex flex-row items-center">
-      {userData && !sessionData.user?.isBanned && (
+      {userData && sessionData && !sessionData.user?.isBanned && (
         <Confirm
           title="Create a new conversation"
           proceed_label="Submit"
@@ -239,108 +359,4 @@ const Tavern: NextPage = () => {
       )}
     </div>
   );
-
-  return (
-    <div className={`grid grid-cols-4`}>
-      {showConversations ? (
-        allConversations && (
-          <div className={`mr-3  ${selectedConvo ? "col-span-1" : "col-span-3"}`}>
-            <div className="relative overflow-y-auto">
-              <ul className="space-y-2">
-                <li>
-                  <a
-                    href="#"
-                    className="flex items-center rounded-lg p-2 text-base font-normal"
-                  >
-                    {selectedConvo ? (
-                      <XMarkIcon
-                        className="h-6 w-6 hover:fill-orange-500"
-                        onClick={() => setSelectedConvo(null)}
-                      />
-                    ) : (
-                      <UserGroupIcon className="h-6 w-6" />
-                    )}
-                    <span className="... ml-3 truncate font-bold">Chats</span>
-                  </a>
-                  <hr />
-                  {allConversations.map((convo, i) => (
-                    <div
-                      className={`my-3 flex h-12 flex-row items-center rounded-lg p-1 hover:bg-orange-200 ${
-                        selectedConvo && selectedConvo === convo.id
-                          ? "bg-orange-200"
-                          : ""
-                      }`}
-                      ref={i === allConversations.length - 1 ? setLastElement : null}
-                      key={convo.id}
-                      onClick={() => setSelectedConvo(convo.id)}
-                    >
-                      {convo.UsersInConversation.length > 0 &&
-                        convo.UsersInConversation.map((user, i) => (
-                          <div
-                            key={user.userId}
-                            className={`absolute w-14`}
-                            style={{ left: `${i * 2}rem` }}
-                          >
-                            <AvatarImage
-                              href={user.user.avatar}
-                              alt={user.user.username}
-                              size={50}
-                              priority
-                            />
-                          </div>
-                        ))}
-                      <span
-                        className="... truncate text-sm"
-                        style={{
-                          marginLeft:
-                            (convo.UsersInConversation.length * 2 + 1.5).toString() +
-                            "rem",
-                        }}
-                      >
-                        {convo.title}
-                        <br />
-                        {convo.createdAt.toDateString()}s
-                      </span>
-                      <div className="grow"></div>
-                      <XMarkIcon
-                        className="ml-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          exitConversation.mutate({ convo_id: convo.id });
-                        }}
-                      />
-                    </div>
-                  ))}
-                </li>
-              </ul>
-              <span className="italic">- Messages deleted after 14 days</span>
-            </div>
-          </div>
-        )
-      ) : (
-        <Bars4Icon
-          className="mr-3 h-9 w-9 hover:fill-orange-500"
-          onClick={() => setShowConversations((prev) => !prev)}
-        />
-      )}
-      <div className={`${selectedConvo ? "col-span-3" : "col-span-1"}`}>
-        {selectedConvo ? (
-          <Conversation
-            refreshKey={0}
-            convo_id={selectedConvo}
-            title="Conversation"
-            subtitle="Broadcast across all villages."
-            topRightContent={topRightContent}
-          />
-        ) : (
-          <div className="flex flex-row">
-            <div className="grow"></div>
-            {topRightContent}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 };
-
-export default Tavern;

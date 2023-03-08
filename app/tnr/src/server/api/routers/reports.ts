@@ -2,13 +2,16 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { type Prisma } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
+import { ReportAction } from "@prisma/client";
+
 import { userReportSchema } from "../../../validators/reports";
 import { reportCommentSchema } from "../../../validators/reports";
-import { ReportAction } from "@prisma/client";
 import sanitize from "../../../utils/sanitize";
+import { updateAvatar } from "../../../libs/replicate";
 import { canModerateReports } from "../../../validators/reports";
 import { canSeeReport } from "../../../validators/reports";
 import { canEscalateBan } from "../../../validators/reports";
+import { canChangeAvatar } from "../../../validators/reports";
 
 export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them
@@ -243,6 +246,30 @@ export const reportsRouter = createTRPCRouter({
           },
         });
       });
+    }),
+  updateUserAvatar: protectedProcedure
+    .input(z.object({ userId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.prisma.userData.findUniqueOrThrow({
+        where: { userId: input.userId },
+      });
+      if (canChangeAvatar(ctx.session.user)) {
+        const updated = await ctx.prisma.userData.update({
+          where: { userId: user.userId },
+          data: { avatar: null },
+        });
+        void updateAvatar(ctx.prisma, user);
+        await ctx.prisma.reportLog.create({
+          data: {
+            staffUserId: ctx.session.user.id,
+            action: "AVATAR_CHANGE",
+            targetUserId: user.userId,
+          },
+        });
+        return updated;
+      } else {
+        throw serverError("UNAUTHORIZED", "You cannot avatars");
+      }
     }),
 });
 

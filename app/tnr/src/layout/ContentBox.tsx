@@ -8,6 +8,7 @@ interface ContentBoxProps {
   back_href?: string;
   subtitle?: string;
   topRightContent?: React.ReactNode;
+  padding?: boolean;
 }
 
 const ContentBox: React.FC<ContentBoxProps> = (props) => {
@@ -30,15 +31,17 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
               )}
             </h2>
 
-            {props.subtitle && (
-              <h3 className=" text-orange-900">{props.subtitle}</h3>
-            )}
+            {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
           </div>
           <div className="grow"></div>
           <div>{props.topRightContent}</div>
         </div>
 
-        <div className="border-2 border-double border-amber-900 bg-amber-50 p-3 shadow-lg">
+        <div
+          className={`border-2 border-double border-amber-900 bg-amber-50 shadow-lg ${
+            props.padding === undefined || props.padding ? "p-3" : ""
+          }`}
+        >
           {props.children}
         </div>
       </div>

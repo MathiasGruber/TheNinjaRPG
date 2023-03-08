@@ -23,7 +23,7 @@ export const createConversationSchema = z
   .object({
     title: z.string().min(4).max(100),
     comment: z.string().min(4).max(1000),
-    users: z.array(z.string().cuid()).nonempty().max(5),
+    users: z.array(z.string().cuid()).min(1).max(5),
     username: z.string(),
   })
   .strict()

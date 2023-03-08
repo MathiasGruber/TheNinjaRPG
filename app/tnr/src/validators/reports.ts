@@ -88,3 +88,10 @@ export const canClearReport = (user: PermUser, report: UserReport) => {
       report.reportedUserId === user.id)
   );
 };
+
+/**
+ * Can change another user's avatar
+ */
+export const canChangeAvatar = (user: PermUser) => {
+  return ["MODERATOR", "ADMIN"].includes(user.role);
+};

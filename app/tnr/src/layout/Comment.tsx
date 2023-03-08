@@ -152,13 +152,14 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
     props.setEditing(false);
   });
 
+  const isAuthor = props.user && sessionData?.user?.id === props.user.userId;
+
   return (
     <Post
       options={
-        props.user &&
-        sessionData?.user?.id === props.user.userId && (
+        props.user && (
           <div className="flex flex-col sm:flex-row">
-            {props.editComment && (
+            {isAuthor && props.editComment && (
               <PencilSquareIcon
                 className={`h-6 w-6 ${
                   props.editing ? "fill-orange-500" : "hover:fill-orange-500"
@@ -174,7 +175,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                 button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
               />
             )}
-            {props.deleteComment && (
+            {isAuthor && props.deleteComment && (
               <Confirm
                 title="Confirm Deletion"
                 button={<TrashIcon className="h-6 w-6 hover:fill-orange-500" />}
