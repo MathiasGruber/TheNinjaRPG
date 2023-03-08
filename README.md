@@ -12,14 +12,6 @@ This is the source code for the game TheNinja-RPG.com.
 
 - RateLimited with upstash
 - Message on no reports, threads, bug reports, thread posts
-- Ability to remove avatars
-- Thread pinning
-
-- Facebook logn: enable user deletion
-- Github login: get working
-
-- Forum page
-- Tavern page with redis
 
 - Travel system
 - Async battle system

@@ -4,6 +4,7 @@ interface ButtonProps {
   image?: React.ReactNode;
   disabled?: boolean;
   color?: "default" | "green" | "red" | "blue";
+  noJustify?: boolean;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
@@ -26,11 +27,13 @@ const Button: React.FC<ButtonProps> = (props) => {
   }
 
   return (
-    <div className="m-1">
+    <div className="relative m-1">
       <button
         {...(props.disabled && { disabled: true })}
         id={props.id}
-        className={`flex w-full flex-row items-center justify-center rounded-md p-3 px-5 font-bold text-white ${color} ${hover} ${
+        className={`relative flex w-full flex-row items-center ${
+          props.noJustify ? "" : "justify-center"
+        } rounded-md p-3 px-5 font-bold text-white ${color} ${hover} ${
           props.disabled ? "cursor-not-allowed opacity-50" : ""
         }`}
         onClick={props.onClick}

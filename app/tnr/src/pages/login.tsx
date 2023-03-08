@@ -1,8 +1,12 @@
 import { type NextPage } from "next";
+import { useRouter } from "next/router";
+
 import Image from "next/image";
 import Button from "../layout/Button";
 import ContentBox from "../layout/ContentBox";
+
 import { getProviders, signIn } from "next-auth/react";
+import { show_toast } from "../libs/toast";
 
 interface Provider {
   id: string;
@@ -15,6 +19,18 @@ interface LoginProps {
 }
 
 const Login: NextPage<LoginProps> = (props) => {
+  // Catch error when logging in with an email that is already linked
+  const router = useRouter();
+  const error = router.query.error as string;
+  console.log(error);
+  if (error === "OAuthAccountNotLinked") {
+    show_toast(
+      "Error on login",
+      "The email in question is already linked, but not with this login provider",
+      "error"
+    );
+  }
+
   return (
     <ContentBox
       title="Login or Register"
@@ -22,15 +38,15 @@ const Login: NextPage<LoginProps> = (props) => {
     >
       {props.providers &&
         Object.values(props.providers).map((provider) => {
-          console.log(provider);
           return provider ? (
             <Button
               key={provider.id}
+              noJustify={true}
               image={
                 <Image
                   src={`/images/${provider.id}.png`}
                   alt={provider.name}
-                  className="mr-3"
+                  className="relative left-0 mr-3"
                   height={40}
                   width={40}
                 />
