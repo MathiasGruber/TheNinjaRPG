@@ -17,7 +17,6 @@ const Profile: NextPage = () => {
 
   const toggleDeletionTimer = api.profile.toggleDeletionTimer.useMutation({
     onSuccess: async () => {
-      console.log("Toggling");
       await refetchUser();
     },
     onError: (error) => {

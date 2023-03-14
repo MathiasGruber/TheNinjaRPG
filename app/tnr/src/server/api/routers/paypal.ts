@@ -209,7 +209,6 @@ export const paypalRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
       const subscription = await getPaypalSubscription(input.subscriptionId, token);
-      console.log(subscription);
       if (subscription === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not fetch subscription");
       }

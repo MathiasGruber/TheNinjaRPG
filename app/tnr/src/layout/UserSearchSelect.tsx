@@ -81,7 +81,6 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
             watchUsers.filter((e) => e.userId !== user.userId),
             "userId"
           );
-          console.log(newSelected);
           setValue("users", newSelected);
         }}
       />

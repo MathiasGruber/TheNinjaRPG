@@ -22,7 +22,7 @@ const Login: NextPage<LoginProps> = (props) => {
   // Catch error when logging in with an email that is already linked
   const router = useRouter();
   const error = router.query.error as string;
-  console.log(error);
+
   if (error === "OAuthAccountNotLinked") {
     show_toast(
       "Error on login",

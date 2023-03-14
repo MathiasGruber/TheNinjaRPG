@@ -90,7 +90,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       });
       const channel = pusher.subscribe(conversation.id);
       channel.bind("event", async (data: any) => {
-        console.log(data);
         await refetch();
       });
       return () => {

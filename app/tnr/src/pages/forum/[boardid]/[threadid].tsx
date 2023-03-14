@@ -32,7 +32,6 @@ const BugReport: NextPage = () => {
       enabled: thread_id !== undefined,
     }
   );
-  console.log(comments);
   const allComments = comments?.data;
   const thread = comments?.thread;
   const totalPages = comments?.total;

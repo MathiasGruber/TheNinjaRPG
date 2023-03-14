@@ -204,7 +204,6 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
   const users = userSearchMethods.watch("users");
   useEffect(() => {
     if (users && users.length > 0) {
-      console.log("Set users", users);
       create.setValue(
         "users",
         users.map((u) => u.userId)
@@ -226,7 +225,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     (data) => {
       createConversation.mutate(data);
     },
-    (error) => console.log(error)
+    (error) => console.error(error)
   );
 
   return (

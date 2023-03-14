@@ -26,11 +26,7 @@ const Register: React.FC = () => {
   const router = useRouter();
 
   // User data
-  const {
-    data: userData,
-    status: userStatus,
-    refetch: refetchUserData,
-  } = useUser();
+  const { data: userData, status: userStatus, refetch: refetchUserData } = useUser();
 
   // Available villages
   const { data: villages } = api.village.getAll.useQuery(undefined);
@@ -93,7 +89,6 @@ const Register: React.FC = () => {
   // Handle form submit
   const handleCreateCharacter = handleSubmit(
     (data) => {
-      console.log(data);
       createCharacter.mutate(data);
     },
     (errors) => console.error(errors)

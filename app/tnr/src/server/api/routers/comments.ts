@@ -445,10 +445,6 @@ export const fetchConversation = async (params: FetchThreadOptions) => {
     }
   };
   const convo = await getConvo();
-  console.log("=======");
-  console.log(convo);
-  console.log(userId);
-  console.log("=======");
   if (convo.isPublic || convo.UsersInConversation.some((u) => u.userId === userId)) {
     return convo;
   } else {

@@ -49,7 +49,13 @@ const PaypalShop: NextPage = () => {
   return (
     <>
       {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID && (
-        <>
+        <PayPalScriptProvider
+          options={{
+            ...OPTIONS,
+            vault: true,
+            intent: activeTab === "Reputation" ? "capture" : "subscription",
+          }}
+        >
           <ContentBox
             title={activeTab}
             subtitle="Premium game features"
@@ -65,20 +71,12 @@ const PaypalShop: NextPage = () => {
               </>
             }
           >
-            <PayPalScriptProvider
-              options={{ ...OPTIONS, vault: true, intent: "capture" }}
-            >
-              {activeTab === "Reputation" && <ReputationStore currency={currency} />}
-            </PayPalScriptProvider>
-            <PayPalScriptProvider
-              options={{ ...OPTIONS, intent: "subscription", vault: true }}
-            >
-              {activeTab === "Federal" && <FederalStore />}
-            </PayPalScriptProvider>
+            {activeTab === "Reputation" && <ReputationStore currency={currency} />}
+            {activeTab === "Federal" && <FederalStore />}
             {activeTab === "History" && <TransactionHistory />}
           </ContentBox>
           {activeTab === "Federal" && <SubscriptionsOverview />}
-        </>
+        </PayPalScriptProvider>
       )}
     </>
   );
@@ -98,7 +96,6 @@ const ReputationStore = (props: { currency: string }) => {
 
   const buyReps = api.paypal.resolveOrder.useMutation({
     onSuccess: () => {
-      console.log("SUCCESS");
       show_toast("Successfully bought reputation points", "Order finished", "success");
     },
     onError: (error) => {
@@ -129,7 +126,6 @@ const ReputationStore = (props: { currency: string }) => {
 
   useEffect(() => {
     if (userData && userData.username && watchedUsers.length === 0) {
-      console.log("SETTING OWN USER");
       userSearchMethods.setValue("users", [userData]);
     }
   }, [userData, userSearchMethods, watchedUsers]);
@@ -215,7 +211,6 @@ const PayPalSubscriptionButton = (props: {
   const subscribe = api.paypal.resolveSubscription.useMutation({
     onSuccess: () => {
       show_toast("Successfully started subscription", "Order finished", "success");
-      console.log("Started subscription");
       props.onSuccess && props.onSuccess();
     },
     onError: (error) => {

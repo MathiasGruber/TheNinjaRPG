@@ -21,11 +21,9 @@ const PublicProfile: NextPage = () => {
     { userId: userId },
     { enabled: userId !== undefined }
   );
-  console.log(profile);
 
   const updateAvatar = api.reports.updateUserAvatar.useMutation({
     onSuccess: async (data) => {
-      console.log("UPDATING AVATAR", data);
       await refetchProfile();
     },
     onError: (error) => {
