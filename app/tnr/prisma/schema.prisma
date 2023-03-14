@@ -374,3 +374,12 @@ model PaypalSubscription {
     createdAt      DateTime      @default(now())
     updatedAt      DateTime      @updatedAt
 }
+
+model PaypalWebhookMessage {
+    id        String   @id @default(cuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    eventType String
+    rawData   Json
+    handled   Boolean  @default(false)
+}

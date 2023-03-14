@@ -109,7 +109,7 @@ export const paypalRouter = createTRPCRouter({
     .input(
       z.object({
         subscriptionId: z.string(),
-        orderId: z.string(),
+        orderId: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -118,15 +118,11 @@ export const paypalRouter = createTRPCRouter({
       if (subscription === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not fetch subscription");
       }
-      const affectedUserId = subscription.custom_id?.split("-")?.[1];
-      if (affectedUserId === undefined) {
+      const users = subscription.custom_id?.split("-");
+      const createdByUserId = users?.[0];
+      const affectedUserId = users?.[1];
+      if (affectedUserId === undefined || createdByUserId === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not extract user ID");
-      }
-      if (subscription.status !== "ACTIVE") {
-        throw serverError(
-          "INTERNAL_SERVER_ERROR",
-          "Could not activate subscription immidiately. Please check your paypal to see if the payment has gone through. If payment has gone through, please wait a few minutes, and if your federal status has not been updated, then contact us through our paypal email to get support."
-        );
       }
       const plan2FedStatus = (planId: string) => {
         switch (planId) {
@@ -140,11 +136,14 @@ export const paypalRouter = createTRPCRouter({
             return FederalStatus.NONE;
         }
       };
-      const newStatus = plan2FedStatus(subscription.plan_id);
+      const newStatus =
+        subscription.status === "ACTIVE"
+          ? plan2FedStatus(subscription.plan_id)
+          : FederalStatus.NONE;
 
       await updateSubscription({
         client: ctx.prisma,
-        createdById: ctx.session.user.id,
+        createdById: createdByUserId,
         orderId: input.orderId,
         affectedUserId: affectedUserId,
         federalStatus: newStatus,
