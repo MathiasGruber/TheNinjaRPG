@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import AvatarImage from "./Avatar";
+import Button from "./Button";
 import { secondsPassed } from "../utils/time";
 
 export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;
   header: string;
   width?: number;
-  type: "avatar" | "string" | "time_passed";
+  type: "avatar" | "string" | "time_passed" | "date";
 };
 
 type TableProps<T, K extends keyof T> = {
@@ -14,6 +15,10 @@ type TableProps<T, K extends keyof T> = {
   columns: Array<ColumnDefinitionType<T, K>>;
   linkColumn?: K;
   linkPrefix?: string;
+  buttons?: {
+    label: string;
+    onClick: (row: T) => void;
+  }[];
   setLastElement?: (element: HTMLDivElement | null) => void;
 };
 
@@ -31,6 +36,11 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                 {column.header}
               </th>
             ))}
+            {props.buttons && (
+              <th scope="col" className="px-6 py-3">
+                Actions
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -66,6 +76,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                     />
                   )}
                   {column.type === "string" && (row[column.key] as string)}
+                  {column.type === "date" && (row[column.key] as Date).toLocaleString()}
                   {column.type === "time_passed" && (
                     <p className="text-center">
                       {Math.floor(secondsPassed(row[column.key] as Date) / 60)}
@@ -75,6 +86,22 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                   )}
                 </td>
               ))}
+              {props.buttons && (
+                <td className="px-6 py-4">
+                  {props.buttons.map((button, i) => (
+                    <Button
+                      id={`button-${i}`}
+                      key={`button-${i}`}
+                      label={button.label}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        button.onClick(row);
+                      }}
+                    />
+                  ))}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

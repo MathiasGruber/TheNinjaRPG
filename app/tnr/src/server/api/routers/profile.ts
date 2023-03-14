@@ -82,6 +82,7 @@ export const profileRouter = createTRPCRouter({
     .input(
       z.object({
         username: z.string().trim(),
+        showYourself: z.boolean(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -91,9 +92,16 @@ export const profileRouter = createTRPCRouter({
             contains: input.username,
           },
           approved_tos: true,
-          NOT: { userId: ctx.session.user.id },
+          ...(input.showYourself ? {} : { userId: { not: ctx.session.user.id } }),
         },
-        select: { userId: true, username: true, avatar: true, rank: true, level: true },
+        select: {
+          userId: true,
+          username: true,
+          avatar: true,
+          rank: true,
+          level: true,
+          federalStatus: true,
+        },
         take: 5,
       });
     }),
@@ -123,6 +131,7 @@ export const profileRouter = createTRPCRouter({
           experience: true,
           bloodline: true,
           avatar: true,
+          federalStatus: true,
         },
       });
     }),

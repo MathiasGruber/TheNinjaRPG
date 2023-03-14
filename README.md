@@ -12,7 +12,7 @@ This is the source code for the game TheNinja-RPG.com.
 
 - RateLimited with upstash
 - Message on no reports, threads, bug reports, thread posts
-
+- Paypal on dev vercel
 - Travel system
 - Async battle system
 

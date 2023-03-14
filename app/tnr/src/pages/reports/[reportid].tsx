@@ -77,11 +77,17 @@ const BugReport: NextPage = () => {
     reset,
     register,
     setValue,
+    watch,
     control,
     formState: { errors },
   } = useForm<ReportCommentSchema>({
+    defaultValues: {
+      banTime: 0,
+    },
     resolver: zodResolver(reportCommentSchema),
   });
+
+  const watchedLength = watch("banTime", 0);
 
   const createComment = api.comments.createReportComment.useMutation({
     onSuccess: async () => {
@@ -201,12 +207,14 @@ const BugReport: NextPage = () => {
             {canBan && (
               <SliderField
                 id="banTime"
-                label="Select ban duration in days"
                 default={0}
                 min={0}
                 max={365}
                 unit="days"
+                label="Select ban duration in days"
                 register={register}
+                setValue={setValue}
+                watchedValue={watchedLength}
                 error={errors.banTime?.message}
               />
             )}
@@ -227,17 +235,15 @@ const BugReport: NextPage = () => {
                     <Button
                       id="submit_comment"
                       label="Add Comment"
-                      image={
-                        <ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />
-                      }
+                      image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
                     />
                   }
                   onAccept={async () => {
                     await handleSubmitComment();
                   }}
                 >
-                  You are about to post a comment on this report. Please note
-                  that this comment can not be edited or deleted afterwards
+                  You are about to post a comment on this report. Please note that this
+                  comment can not be edited or deleted afterwards
                 </Confirm>
               )}
               {!canBan && canEscalate && (
@@ -255,10 +261,10 @@ const BugReport: NextPage = () => {
                     await handleSubmitEscalation();
                   }}
                 >
-                  You can chose to escalate this report to admin-level. Please
-                  only do this if you feel strongly the decision is wrong, and
-                  know that if you do not have good reason for escalating, it
-                  may result in further extension of the ban.
+                  You can chose to escalate this report to admin-level. Please only do
+                  this if you feel strongly the decision is wrong, and know that if you
+                  do not have good reason for escalating, it may result in further
+                  extension of the ban.
                 </Confirm>
               )}
               {canBan && (
@@ -276,10 +282,9 @@ const BugReport: NextPage = () => {
                     await handleSubmitBan();
                   }}
                 >
-                  You are about to ban the user. Please note that the comment
-                  and decision can not be edited or deleted. You can unban the
-                  person by posting another comment and &rdquo;Clear&rdquo; the
-                  report.
+                  You are about to ban the user. Please note that the comment and
+                  decision can not be edited or deleted. You can unban the person by
+                  posting another comment and &rdquo;Clear&rdquo; the report.
                 </Confirm>
               )}
               {canClear && (
@@ -297,8 +302,8 @@ const BugReport: NextPage = () => {
                     await handleSubmitClear();
                   }}
                 >
-                  You are about to clear the report. Please note that the
-                  comment and decision can not be edited or deleted.
+                  You are about to clear the report. Please note that the comment and
+                  decision can not be edited or deleted.
                 </Confirm>
               )}
             </div>

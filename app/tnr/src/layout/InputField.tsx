@@ -15,7 +15,7 @@ const InputField: React.FC<InputFieldProps> = (props) => {
     ? "border-2 border-red-500"
     : "border border-amber-900";
   return (
-    <div className="relative m-1 ">
+    <div className="relative m-1 grow">
       {props.label && (
         <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
           {props.label}

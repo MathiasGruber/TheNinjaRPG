@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FederalStatus } from "@prisma/client";
 
 // List of possible attributes
 export const attributes = [
@@ -67,5 +68,23 @@ export type RegistrationSchema = z.infer<typeof registrationSchema>;
 export const userSearchSchema = z.object({
   username: usernameSchema,
 });
-
 export type UserSearchSchema = z.infer<typeof userSearchSchema>;
+
+export const getSearchValidator = (props: { max: number }) => {
+  return z.object({
+    username: usernameSchema,
+    users: z
+      .array(
+        z.object({
+          userId: z.string().cuid(),
+          username: usernameSchema,
+          avatar: z.string().url().optional().nullish(),
+          rank: z.string(),
+          level: z.number(),
+          federalStatus: z.nativeEnum(FederalStatus),
+        })
+      )
+      .min(1)
+      .max(props.max),
+  });
+};

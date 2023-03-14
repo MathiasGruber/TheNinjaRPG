@@ -1,3 +1,4 @@
+import { type z } from "zod";
 import { useState, useEffect } from "react";
 import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
@@ -10,17 +11,18 @@ import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
 import InputField from "../layout/InputField";
 import AvatarImage from "../layout/Avatar";
+import UserSearchSelect from "../layout/UserSearchSelect";
 import { PencilSquareIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import { getUnique } from "../utils/grouping";
 import { useRequiredUser } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
 import { createConversationSchema } from "../validators/comments";
 import { type CreateConversationSchema } from "../validators/comments";
+import { getSearchValidator } from "../validators/register";
 
-const Tavern: NextPage = () => {
+const Inbox: NextPage = () => {
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
 
   return (
@@ -53,7 +55,7 @@ const Tavern: NextPage = () => {
   );
 };
 
-export default Tavern;
+export default Inbox;
 
 /**
  * Component for displaying a conversations
@@ -188,47 +190,31 @@ interface NewConversationPromptProps {
 const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
   const { data: sessionData } = useSession();
   const { data: userData } = useRequiredUser();
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedUsers, setSelectedUsers] = useState<
-    {
-      username: string;
-      avatar: string | null;
-      userId: string;
-    }[]
-  >([]);
+  const maxUsers = 5;
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    reset,
-    setValue,
-    control,
-    formState: { errors, isValid },
-  } = useForm<CreateConversationSchema>({
+  const create = useForm<CreateConversationSchema>({
     resolver: zodResolver(createConversationSchema),
   });
 
-  const watchUsername = watch("username", "");
+  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+  });
 
+  const users = userSearchMethods.watch("users");
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setSearchTerm(watchUsername);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchUsername, setSearchTerm]);
-
-  const { data: searchResults } = api.profile.searchUsers.useQuery(
-    { username: searchTerm },
-    {
-      enabled: searchTerm !== "",
+    if (users && users.length > 0) {
+      console.log("Set users", users);
+      create.setValue(
+        "users",
+        users.map((u) => u.userId)
+      );
     }
-  );
+  }, [users, create]);
 
   const createConversation = api.comments.createConversation.useMutation({
     onSuccess: (data) => {
-      reset();
-      setSelectedUsers([]);
+      create.reset();
       props.setSelectedConvo(data.id);
     },
     onError: (error) => {
@@ -236,9 +222,8 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     },
   });
 
-  const onSubmit = handleSubmit(
+  const onSubmit = create.handleSubmit(
     (data) => {
-      console.log(data);
       createConversation.mutate(data);
     },
     (error) => console.log(error)
@@ -250,7 +235,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
         <Confirm
           title="Create a new conversation"
           proceed_label="Submit"
-          isValid={isValid}
+          isValid={create.formState.isValid}
           button={
             <Button
               id="conversation"
@@ -260,100 +245,26 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
           }
           onAccept={onSubmit}
         >
-          <InputField
-            id="username"
+          <UserSearchSelect
+            useFormMethods={userSearchMethods}
             label="Users to send to"
-            register={register}
-            error={errors.username ? errors.username?.message : errors.users?.message}
-            placeholder="Search for user"
-            options={
-              <>
-                {searchResults && watchUsername && (
-                  <div className="relative z-50 my-0.5 block w-full rounded-lg border-2 border-slate-500 bg-slate-100">
-                    {searchResults?.map((user) => (
-                      <div
-                        className="flex flex-row items-center p-2.5 hover:bg-slate-200"
-                        key={user.userId}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const newSelected = getUnique(
-                            [...selectedUsers, user],
-                            "userId"
-                          );
-                          setSelectedUsers(newSelected);
-                          setValue("username", "");
-                          setValue(
-                            "users",
-                            newSelected.map((e) => e.userId)
-                          );
-                        }}
-                      >
-                        <div className="basis-1/12">
-                          <AvatarImage
-                            href={user.avatar}
-                            alt={user.username}
-                            size={100}
-                            priority
-                          />
-                        </div>
-                        <div className="ml-2">
-                          <p>{user.username}</p>
-                          <p>
-                            Lvl. {user.level} {user.rank}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {selectedUsers.map((user) => (
-                  <span
-                    key={user.userId}
-                    className="mr-2 mt-1 inline-flex items-center rounded-lg  bg-gray-100 px-2 py-1 text-sm font-medium text-gray-800"
-                  >
-                    <div className="m-1 w-10">
-                      <AvatarImage
-                        href={user.avatar}
-                        alt={user.username}
-                        size={100}
-                        priority
-                      />
-                    </div>
-                    {user.username}
-                    <XMarkIcon
-                      className="ml-2 h-6 w-6 rounded-full hover:bg-gray-300"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newSelected = getUnique(
-                          selectedUsers.filter((e) => e.userId !== user.userId),
-                          "userId"
-                        );
-                        setSelectedUsers(newSelected);
-                        setValue(
-                          "users",
-                          newSelected.map((e) => e.userId)
-                        );
-                      }}
-                    />
-                  </span>
-                ))}
-              </>
-            }
+            showYourself={false}
+            maxUsers={maxUsers}
           />
 
           <InputField
             id="title"
             label="Conversation name"
-            register={register}
-            error={errors.title?.message}
+            register={create.register}
+            error={create.formState.errors.title?.message}
           />
           <RichInput
             id="comment"
             label="Initial conversation message"
             height="300"
             placeholder=""
-            control={control}
-            error={errors.comment?.message}
+            control={create.control}
+            error={create.formState.errors.comment?.message}
           />
         </Confirm>
       )}

@@ -120,6 +120,7 @@ const Profile: NextPage = () => {
           <b>Special</b>
           <p>Reputation points: {userData.reputation_points}</p>
           <p>Popularity points: {userData.popularity_points}</p>
+          <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
         </div>
         <div>
           <b>Generals</b>

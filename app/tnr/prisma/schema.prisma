@@ -72,6 +72,13 @@ model VerificationToken {
     @@unique([identifier, token])
 }
 
+enum FederalStatus {
+    NONE
+    NORMAL
+    SILVER
+    GOLD
+}
+
 model UserData {
     userId                  String                @unique
     user                    User                  @relation(fields: [userId], references: [id])
@@ -119,6 +126,7 @@ model UserData {
     reputation_points_total Int                   @default(0)
     popularity_points       Int                   @default(6) // Required for initial avatar creation    
     popularity_points_total Int                   @default(6) // Required for initial avatar creation
+    federalStatus           FederalStatus         @default(NONE)
     // Approved ToS
     approved_tos            Boolean               @default(false)
     // Avatar link
@@ -140,6 +148,10 @@ model UserData {
     UsersInConversation     UsersInConversation[]
     logsAsTarget            ReportLog[]           @relation("target")
     logsAsStaff             ReportLog[]           @relation("staff")
+    receivedTransactions    PaypalTransaction[]   @relation("receivedTransactions")
+    paidTransactions        PaypalTransaction[]   @relation("paidTransactions")
+    paidSubscriptions       PaypalSubscription[]  @relation("paidSubscriptions")
+    receivedSubscriptions   PaypalSubscription[]  @relation("receivedSubscriptions")
 }
 
 model UserAttribute {
@@ -324,4 +336,41 @@ model UsersInConversation {
     assignedAt     DateTime     @default(now())
 
     @@id([conversationId, userId])
+}
+
+//*****************************//
+//*********  PAYPAL ***********//
+//*****************************//
+
+model PaypalTransaction {
+    id                     String   @id @default(cuid())
+    createdBy              UserData @relation("paidTransactions", fields: [createdById], references: [userId], onDelete: Cascade)
+    createdById            String
+    affectedUser           UserData @relation("receivedTransactions", fields: [affectedUserId], references: [userId], onDelete: Cascade)
+    affectedUserId         String
+    transactionId          String
+    transactionUpdatedDate String
+    orderId                String?  @unique
+    invoiceId              String?
+    createdAt              DateTime @default(now())
+    updatedAt              DateTime @updatedAt
+    amount                 Float    @default(0)
+    reputationPoints       Int      @default(0)
+    currency               String   @default("USD")
+    status                 String
+    rawData                Json
+}
+
+model PaypalSubscription {
+    id             String        @id @default(cuid())
+    createdBy      UserData      @relation("paidSubscriptions", fields: [createdById], references: [userId], onDelete: Cascade)
+    createdById    String
+    affectedUser   UserData      @relation("receivedSubscriptions", fields: [affectedUserId], references: [userId], onDelete: Cascade)
+    affectedUserId String
+    status         String
+    federalStatus  FederalStatus
+    orderId        String?       @unique
+    subscriptionId String        @unique
+    createdAt      DateTime      @default(now())
+    updatedAt      DateTime      @updatedAt
 }

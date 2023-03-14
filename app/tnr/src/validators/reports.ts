@@ -22,7 +22,7 @@ export type UserReportSchema = z.infer<typeof userReportSchema>;
 export const reportCommentSchema = z.object({
   comment: z.string().min(10).max(1000),
   object_id: z.string().cuid(),
-  banTime: z.number().min(0).max(365).optional(),
+  banTime: z.number().min(0).max(365),
 });
 
 export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;

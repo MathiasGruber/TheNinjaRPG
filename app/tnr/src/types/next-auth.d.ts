@@ -28,6 +28,11 @@ declare global {
       PUSHER_APP_SECRET: string;
       NEXT_PUBLIC_PUSHER_APP_KEY: string;
       NEXT_PUBLIC_PUSHER_APP_CLUSTER: string;
+      PAYPAL_CLIENT_SECRET: string;
+      NEXT_PUBLIC_PAYPAL_CLIENT_ID: string;
+      NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL: string;
+      NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER: string;
+      NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD: string;
     }
   }
 }

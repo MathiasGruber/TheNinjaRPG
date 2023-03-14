@@ -54,11 +54,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const allComments = coments?.pages.map((page) => page.data).flat();
   const conversation = coments?.pages[0]?.convo;
 
-  useInfinitePagination({
-    fetchNextPage,
-    hasNextPage,
-    lastElement,
-  });
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   const {
     handleSubmit,

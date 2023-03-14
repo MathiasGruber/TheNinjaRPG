@@ -24,19 +24,19 @@ export const show_toast = (title: string, message: string, type: string) => {
   // Show different types
   switch (type) {
     case "success":
-      toast.success(message, params);
+      toast.success(msg, params);
       break;
     case "error":
       toast.error(msg, params);
       break;
     case "info":
-      toast.info(message, params);
+      toast.info(msg, params);
       break;
     case "warning":
-      toast.warning(message, params);
+      toast.warning(msg, params);
       break;
     default:
-      toast(message, params);
+      toast(msg, params);
       break;
   }
 };

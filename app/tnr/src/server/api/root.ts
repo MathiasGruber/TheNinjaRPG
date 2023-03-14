@@ -6,6 +6,7 @@ import { commentsRouter } from "./routers/comments";
 import { villageRouter } from "./routers/village";
 import { reportsRouter } from "./routers/reports";
 import { forumRouter } from "./routers/forum";
+import { paypalRouter } from "./routers/paypal";
 
 /**
  * This is the primary router for your server.
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   reports: reportsRouter,
   comments: commentsRouter,
   forum: forumRouter,
+  paypal: paypalRouter,
 });
 
 // export type definition of API

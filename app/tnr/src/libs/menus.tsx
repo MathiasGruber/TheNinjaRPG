@@ -4,6 +4,7 @@ import {
   UserGroupIcon,
   InboxStackIcon,
   BookOpenIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
@@ -87,6 +88,11 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       href: "/travel",
       name: "Travel",
       icon: <GlobeAmericasIcon key="travel" className="h-6 w-6" />,
+    },
+    {
+      href: "/points",
+      name: "Points",
+      icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
     },
   ];
   return links;
