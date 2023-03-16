@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type NextPage } from "next";
 
-import Map from "../layout/Map";
+import Map, { type Tile } from "../layout/Map";
 import ContentBox from "../layout/ContentBox";
 import NavTabs from "../layout/NavTabs";
 
@@ -18,13 +18,13 @@ const Travel: NextPage = () => {
       topRightContent={
         <NavTabs
           current={activeTab}
-          options={["Global", "Your Location"]}
+          options={["Global", `Your Location`]}
           setValue={setActiveTab}
         />
       }
     >
       {villages && activeTab === "Global" && (
-        <Map intersection={false} highlights={villages} />
+        <Map intersection={true} highlights={villages} />
       )}
     </ContentBox>
   );

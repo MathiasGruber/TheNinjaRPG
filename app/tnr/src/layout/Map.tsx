@@ -5,31 +5,33 @@ import { type Village } from "@prisma/client";
 
 type NonEmptyArray<T> = T[] & { 0: T };
 
-interface MapProps {
-  highlights?: Village[];
-  intersection: boolean;
-}
-
-interface Point {
+export interface Point {
   x: number;
   y: number;
   z: number;
 }
 
-interface Tile {
+export interface Tile {
   b: NonEmptyArray<Point>; // boundary
   c: Point; // centerPoint
-  w: number; // isWater
+  t: number; // 0=ocean, 1=land, 2=desert
 }
 
-interface HexagonalFaceMesh extends THREE.Mesh {
+export interface HexagonalFaceMesh extends THREE.Mesh {
   currentHex: number;
   material: THREE.MeshBasicMaterial;
 }
 
-interface MapData {
+export interface MapData {
   radius: number;
   tiles: NonEmptyArray<Tile>;
+}
+
+interface MapProps {
+  highlights?: Village[];
+  intersection: boolean;
+  onTileClick?: (sector: number | null, tile: Tile | null) => void;
+  onTileHover?: (sector: number | null, tile: Tile | null) => void;
 }
 
 const Map: React.FC<MapProps> = (props) => {
@@ -38,16 +40,16 @@ const Map: React.FC<MapProps> = (props) => {
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
       const bounding_box = mountRef.current.getBoundingClientRect();
-      mouse.x = (event.offsetX - bounding_box.width / 2) / bounding_box.width;
-      mouse.y = -((event.offsetY - bounding_box.height / 2) / bounding_box.height);
+      mouse.x = (event.offsetX / bounding_box.width) * 2 - 1;
+      mouse.y = -((event.offsetY / bounding_box.height) * 2 - 1);
     }
   };
-  console.log("MAP PROPS: ", props);
+
   useEffect(() => {
     if (mountRef.current) {
       // Interacivity with mouse
       if (props.intersection) {
-        document.addEventListener("mousemove", onDocumentMouseMove, false);
+        mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
       }
       let intersected: HexagonalFaceMesh | undefined = undefined;
 
@@ -61,10 +63,10 @@ const Map: React.FC<MapProps> = (props) => {
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-      const raycaster = new THREE.Raycaster(); // create once
+      const raycaster = new THREE.Raycaster();
 
       // Materials
-      const groundMaterials = [
+      const groundMats = [
         new THREE.MeshBasicMaterial({ color: 0x7cfc00, transparent: true }),
         new THREE.MeshBasicMaterial({ color: 0x397d02, transparent: true }),
         new THREE.MeshBasicMaterial({ color: 0x77ee00, transparent: true }),
@@ -75,9 +77,15 @@ const Map: React.FC<MapProps> = (props) => {
         new THREE.MeshBasicMaterial({ color: 0x00aa11, transparent: true }),
       ];
 
-      const oceanMaterial = [
+      const oceanMats = [
         new THREE.MeshBasicMaterial({ color: 0x2767d7, transparent: true }),
         new THREE.MeshBasicMaterial({ color: 0x1c54b5, transparent: true }),
+      ];
+
+      const dessertMats = [
+        new THREE.MeshBasicMaterial({ color: 0xf9e79f, transparent: true }),
+        new THREE.MeshBasicMaterial({ color: 0xfad7a0, transparent: true }),
+        new THREE.MeshBasicMaterial({ color: 0xf5cba7, transparent: true }),
       ];
 
       // Renderer the canvas
@@ -97,12 +105,28 @@ const Map: React.FC<MapProps> = (props) => {
 
       // Group to hold the sphere and the line segments.
       const group = new THREE.Group();
+      let hexasphere: MapData | undefined = undefined;
+
+      if (props.intersection && props.onTileClick) {
+        const onClick = () => {
+          const intersects = raycaster.intersectObjects(scene.children);
+          if (intersects.length > 0) {
+            const sector = intersects?.[0]?.object?.userData?.id as number;
+            const tile = hexasphere?.tiles[sector];
+            if (tile !== undefined) {
+              props.onTileClick?.(sector, tile);
+            }
+          }
+        };
+        renderer.domElement.addEventListener("click", onClick, true);
+      }
 
       // Spheres from here: https://www.robscanlon.com/hexasphere/
       const fetchData = async () => {
         // Create the map first
         const response = await fetch("map/hexasphere.json");
-        const hexasphere = await response.json().then((data) => data as MapData);
+        hexasphere = await response.json().then((data) => data as MapData);
+        if (!hexasphere) return;
         for (let i = 0; i < hexasphere.tiles.length; i++) {
           const t = hexasphere.tiles[i];
           if (t) {
@@ -119,11 +143,14 @@ const Map: React.FC<MapProps> = (props) => {
             geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
             const consistentRandom = Math.abs((t.c.x + t.c.y + t.c.z) / 3) / 20;
             const material =
-              t.w === 0
-                ? groundMaterials[Math.floor(consistentRandom * groundMaterials.length)]
-                : oceanMaterial[Math.floor(consistentRandom * oceanMaterial.length)];
+              t.t === 0
+                ? oceanMats[Math.floor(consistentRandom * oceanMats.length)]
+                : t.t === 1
+                ? groundMats[Math.floor(consistentRandom * groundMats.length)]
+                : dessertMats[Math.floor(consistentRandom * dessertMats.length)];
 
             const mesh = new THREE.Mesh(geometry, material?.clone());
+            mesh.userData.id = i;
             group.add(mesh);
           }
         }
@@ -134,7 +161,7 @@ const Map: React.FC<MapProps> = (props) => {
         if (props.highlights) {
           // Loop through the highlights
           props.highlights.forEach((highlight) => {
-            const sector = hexasphere.tiles[highlight.sector]?.c;
+            const sector = hexasphere?.tiles[highlight.sector]?.c;
             if (sector) {
               // Create the line
               const points = [];
@@ -176,14 +203,11 @@ const Map: React.FC<MapProps> = (props) => {
       //Enable controls
       const controls = new TrackballControls(camera, renderer.domElement);
       controls.staticMoving = true;
-      // Slow down zooming
       controls.zoomSpeed = 0.1;
-
-      // Spinning camara
       let lastTime = Date.now();
       let cameraAngle = -Math.PI / 1.5;
 
-      //Render the image
+      // Render the image
       function render() {
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
@@ -201,7 +225,13 @@ const Map: React.FC<MapProps> = (props) => {
               // store color of closest object (for later restoration)
               intersected.currentHex = intersected.material.color.getHex();
               // set a new color for closest object
-              intersected.material.color.setHex(0xffff00);
+              intersected.material.color.setHex(0x00ffd8);
+              // Call outside stuff
+              if (props.onTileHover) {
+                const sector = intersected.userData.id as number;
+                const tile = hexasphere?.tiles[sector];
+                if (tile) props.onTileHover(sector, tile);
+              }
             }
           } // there are no intersections
           else {
