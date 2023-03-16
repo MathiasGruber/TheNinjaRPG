@@ -23,7 +23,7 @@ const PublicProfile: NextPage = () => {
   );
 
   const updateAvatar = api.reports.updateUserAvatar.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       await refetchProfile();
     },
     onError: (error) => {

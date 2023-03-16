@@ -89,7 +89,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
       });
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", async (data: any) => {
+      channel.bind("event", async () => {
         await refetch();
       });
       return () => {

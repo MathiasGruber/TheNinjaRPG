@@ -63,6 +63,7 @@ export const getMainNavbarLinks = (sessionData: Session | null) => {
  * Get main game links
  */
 export const getMainGameLinks = (userData: UserDataWithRelations) => {
+  console.log(userData)
   const links: NavBarDropdownLink[] = [
     {
       href: "/tavern",

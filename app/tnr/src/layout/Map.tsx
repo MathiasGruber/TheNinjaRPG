@@ -39,13 +39,10 @@ const Map: React.FC<MapProps> = (props) => {
     if (mountRef.current) {
       const bounding_box = mountRef.current.getBoundingClientRect();
       mouse.x = (event.offsetX - bounding_box.width / 2) / bounding_box.width;
-      mouse.y = -(
-        (event.offsetY - bounding_box.height / 2) /
-        bounding_box.height
-      );
+      mouse.y = -((event.offsetY - bounding_box.height / 2) / bounding_box.height);
     }
   };
-
+  console.log("MAP PROPS: ", props);
   useEffect(() => {
     if (mountRef.current) {
       // Interacivity with mouse
@@ -105,9 +102,7 @@ const Map: React.FC<MapProps> = (props) => {
       const fetchData = async () => {
         // Create the map first
         const response = await fetch("map/hexasphere.json");
-        const hexasphere = await response
-          .json()
-          .then((data) => data as MapData);
+        const hexasphere = await response.json().then((data) => data as MapData);
         for (let i = 0; i < hexasphere.tiles.length; i++) {
           const t = hexasphere.tiles[i];
           if (t) {
@@ -121,19 +116,12 @@ const Map: React.FC<MapProps> = (props) => {
                 .map((p) => t.b[p])
                 .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : []))
             );
-            geometry.setAttribute(
-              "position",
-              new THREE.BufferAttribute(vertices, 3)
-            );
+            geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
             const consistentRandom = Math.abs((t.c.x + t.c.y + t.c.z) / 3) / 20;
             const material =
               t.w === 0
-                ? groundMaterials[
-                    Math.floor(consistentRandom * groundMaterials.length)
-                  ]
-                : oceanMaterial[
-                    Math.floor(consistentRandom * oceanMaterial.length)
-                  ];
+                ? groundMaterials[Math.floor(consistentRandom * groundMaterials.length)]
+                : oceanMaterial[Math.floor(consistentRandom * oceanMaterial.length)];
 
             const mesh = new THREE.Mesh(geometry, material?.clone());
             group.add(mesh);
@@ -150,15 +138,9 @@ const Map: React.FC<MapProps> = (props) => {
             if (sector) {
               // Create the line
               const points = [];
+              points.push(new THREE.Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
               points.push(
-                new THREE.Vector3(sector.x / 3, sector.y / 3, sector.z / 3)
-              );
-              points.push(
-                new THREE.Vector3(
-                  sector.x / 2.5,
-                  sector.y / 2.5,
-                  sector.z / 2.5
-                )
+                new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
               );
               const lineMaterial = new THREE.LineBasicMaterial({
                 color: lineColor,
@@ -168,7 +150,6 @@ const Map: React.FC<MapProps> = (props) => {
               const line = new THREE.LineSegments(geometry, lineMaterial);
               group.add(line);
               // Label
-
               const map = new THREE.TextureLoader().load(
                 `villages/${highlight.name}Marker.png`
               );
@@ -177,11 +158,7 @@ const Map: React.FC<MapProps> = (props) => {
               // Set position to top of pint
               Object.assign(
                 labelSprite.position,
-                new THREE.Vector3(
-                  sector.x / 2.5,
-                  sector.y / 2.5,
-                  sector.z / 2.5
-                )
+                new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
               );
               Object.assign(labelSprite.scale, new THREE.Vector3(3, 1, 1));
               group.add(labelSprite);
@@ -270,7 +247,7 @@ const Map: React.FC<MapProps> = (props) => {
         document.removeEventListener("mousemove", onDocumentMouseMove);
       };
     }
-  }, []);
+  }, [props.highlights, props.intersection]);
 
   return <div ref={mountRef}></div>;
 };

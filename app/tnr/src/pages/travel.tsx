@@ -1,10 +1,31 @@
+import { useState } from "react";
 import { type NextPage } from "next";
+
+import Map from "../layout/Map";
 import ContentBox from "../layout/ContentBox";
+import NavTabs from "../layout/NavTabs";
+
+import { api } from "../utils/api";
 
 const Travel: NextPage = () => {
+  const [activeTab, setActiveTab] = useState<string>("Global");
+  const { data: villages } = api.village.getAll.useQuery(undefined);
+
   return (
-    <ContentBox title="Travel">
-      <div>NOT IMPLEMENTED</div>
+    <ContentBox
+      title="Travel"
+      subtitle="The world of Seichi"
+      topRightContent={
+        <NavTabs
+          current={activeTab}
+          options={["Global", "Your Location"]}
+          setValue={setActiveTab}
+        />
+      }
+    >
+      {villages && activeTab === "Global" && (
+        <Map intersection={false} highlights={villages} />
+      )}
     </ContentBox>
   );
 };
