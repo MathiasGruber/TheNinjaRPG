@@ -566,6 +566,11 @@ abort-controller@^3.0.0:
   dependencies:
     event-target-shim "^5.0.0"
 
+abstract-astar@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/abstract-astar/-/abstract-astar-0.2.0.tgz#203e4880bec5e8ee6d72c4d987c1b1a9ef993662"
+  integrity sha512-gtpsiAQu7CF+VfCFKkOEtgB8C8WN5U0TTokFn66aNg0vd0ahBd9kJ5fn8xLnSxm2g+kE/LwUzsMeIryONTf7oQ==
+
 acorn-jsx@^5.3.2:
   version "5.3.2"
   resolved "https://registry.yarnpkg.com/acorn-jsx/-/acorn-jsx-5.3.2.tgz#7ed5bb55908b3b2f1bc55c6af1653bada7f07937"
@@ -609,6 +614,11 @@ ajv@^6.10.0, ajv@^6.12.4:
     fast-json-stable-stringify "^2.0.0"
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
+
+alea@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/alea/-/alea-1.0.1.tgz#957f60741c5ad11b13f72aa02a6b89fe96a26dc4"
+  integrity sha512-QU+wv+ziDXaMxRdsQg/aH7sVfWdhKps5YP97IIwFkHCsbDZA3k87JXoZ5/iuemf4ntytzIWeScrRpae8+lDrXA==
 
 ansi-regex@^5.0.1:
   version "5.0.1"
@@ -1759,6 +1769,11 @@ hi-base32@^0.5.0:
   resolved "https://registry.yarnpkg.com/hi-base32/-/hi-base32-0.5.1.tgz#1279f2ddae2673219ea5870c2121d2a33132857e"
   integrity sha512-EmBBpvdYh/4XxsnUybsPag6VikPYnN30td+vQk+GI3qpahVEG9+gTkG0aXVxTjBqQ5T6ijbWIu77O+C5WFWsnA==
 
+honeycomb-grid@^4.0.0-beta.8:
+  version "4.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/honeycomb-grid/-/honeycomb-grid-4.0.0-beta.8.tgz#4b099ba21483738140840cf0ce5d2c3fb134bcf7"
+  integrity sha512-KsPTiDFP+3PJZVSFn+IbrshiGkXK9EWzrY7Q81skG+FJbqKVZ4d7HfrNh6MHsfCEp4RXQ0mb1A4oNP5SUzsAhQ==
+
 html2canvas@^1.4.1:
   version "1.4.1"
   resolved "https://registry.yarnpkg.com/html2canvas/-/html2canvas-1.4.1.tgz#7cef1888311b5011d507794a066041b14669a543"
@@ -2838,6 +2853,11 @@ side-channel@^1.0.4:
     call-bind "^1.0.0"
     get-intrinsic "^1.0.2"
     object-inspect "^1.9.0"
+
+simplex-noise@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/simplex-noise/-/simplex-noise-4.0.1.tgz#1573a4eaa46ce488bdf5f1e7ab3a1f798126781f"
+  integrity sha512-zl/+bdSqW7HJOQ0oDbxrNYaF4F5ik0i7M6YOYmEoIJNtg16NpvWaTTM1Y7oV/7T0jFljawLgYPS81Uu2rsfo1A==
 
 slash@^3.0.0:
   version "3.0.0"

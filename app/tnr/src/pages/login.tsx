@@ -55,7 +55,7 @@ const Login: NextPage<LoginProps> = (props) => {
               label={`Login with ${provider.name}`}
               onClick={() =>
                 signIn(provider.id, {
-                  callbackUrl: "/",
+                  callbackUrl: window.location.origin,
                 })
               }
             />

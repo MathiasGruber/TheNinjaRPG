@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -12,6 +13,7 @@ import Button from "../layout/Button";
 import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 
+import { fetchMap } from "../libs/travel/map";
 import { useUser } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { registrationSchema } from "../validators/register";
@@ -22,6 +24,11 @@ import { type RegistrationSchema } from "../validators/register";
 import { show_toast } from "../libs/toast";
 
 const Register: React.FC = () => {
+  const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
+  void useMemo(async () => {
+    setMap(await fetchMap());
+  }, []);
+
   // Router
   const router = useRouter();
 
@@ -138,7 +145,9 @@ const Register: React.FC = () => {
                 </option>
               ))}
             </SelectField>
-            {villages && <Map intersection={false} highlights={villages} />}
+            {villages && (
+              <Map intersection={false} highlights={villages} hexasphere={map} />
+            )}
           </div>
           <div>
             <SelectField

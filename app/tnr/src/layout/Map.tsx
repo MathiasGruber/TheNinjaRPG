@@ -1,42 +1,26 @@
 import { useEffect, useRef } from "react";
+
 import * as THREE from "three";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import alea from "alea";
+
 import { type Village } from "@prisma/client";
-
-type NonEmptyArray<T> = T[] & { 0: T };
-
-export interface Point {
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface Tile {
-  b: NonEmptyArray<Point>; // boundary
-  c: Point; // centerPoint
-  t: number; // 0=ocean, 1=land, 2=desert
-}
-
-export interface HexagonalFaceMesh extends THREE.Mesh {
-  currentHex: number;
-  material: THREE.MeshBasicMaterial;
-}
-
-export interface MapData {
-  radius: number;
-  tiles: NonEmptyArray<Tile>;
-}
+import { type MapTile, type HexagonalFaceMesh, type MapData } from "../libs/travel/map";
+import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
+import { TrackballControls } from "../libs/travel/TrackBallControls";
 
 interface MapProps {
   highlights?: Village[];
   intersection: boolean;
-  onTileClick?: (sector: number | null, tile: Tile | null) => void;
-  onTileHover?: (sector: number | null, tile: Tile | null) => void;
+  hexasphere: MapData;
+  onTileClick?: (sector: number | null, tile: MapTile | null) => void;
+  onTileHover?: (sector: number | null, tile: MapTile | null) => void;
 }
 
 const Map: React.FC<MapProps> = (props) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const mouse = new THREE.Vector2();
+  const { hexasphere } = props;
+
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
       const bounding_box = mountRef.current.getBoundingClientRect();
@@ -65,28 +49,8 @@ const Map: React.FC<MapProps> = (props) => {
       const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
       const raycaster = new THREE.Raycaster();
 
-      // Materials
-      const groundMats = [
-        new THREE.MeshBasicMaterial({ color: 0x7cfc00, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x397d02, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x77ee00, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x61b329, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x83f52c, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x4cbb17, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x00ee00, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x00aa11, transparent: true }),
-      ];
-
-      const oceanMats = [
-        new THREE.MeshBasicMaterial({ color: 0x2767d7, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0x1c54b5, transparent: true }),
-      ];
-
-      const dessertMats = [
-        new THREE.MeshBasicMaterial({ color: 0xf9e79f, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0xfad7a0, transparent: true }),
-        new THREE.MeshBasicMaterial({ color: 0xf5cba7, transparent: true }),
-      ];
+      // Random number gen
+      const prng = alea(42);
 
       // Renderer the canvas
       const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -94,9 +58,19 @@ const Map: React.FC<MapProps> = (props) => {
       renderer.setClearColor(0x000000, 0);
       mountRef.current.appendChild(renderer.domElement);
 
+      // Window size listener
+      function handleResize() {
+        if (mountRef.current) {
+          const WIDTH = mountRef.current.getBoundingClientRect().width;
+          renderer.setSize(WIDTH, WIDTH);
+        }
+      }
+      window.addEventListener("resize", handleResize);
+
       // create a point light (goes in all directions)
       scene.add(new THREE.AmbientLight(0x71abef));
       const pointLight = new THREE.PointLight(0x666666);
+
       // set its position
       pointLight.position.x = 60;
       pointLight.position.y = 50;
@@ -105,7 +79,6 @@ const Map: React.FC<MapProps> = (props) => {
 
       // Group to hold the sphere and the line segments.
       const group = new THREE.Group();
-      let hexasphere: MapData | undefined = undefined;
 
       if (props.intersection && props.onTileClick) {
         const onClick = () => {
@@ -122,78 +95,72 @@ const Map: React.FC<MapProps> = (props) => {
       }
 
       // Spheres from here: https://www.robscanlon.com/hexasphere/
-      const fetchData = async () => {
-        // Create the map first
-        const response = await fetch("map/hexasphere.json");
-        hexasphere = await response.json().then((data) => data as MapData);
-        if (!hexasphere) return;
-        for (let i = 0; i < hexasphere.tiles.length; i++) {
-          const t = hexasphere.tiles[i];
-          if (t) {
-            const geometry = new THREE.BufferGeometry();
-            const points =
-              t.b.length > 5
-                ? [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]
-                : [0, 1, 2, 0, 2, 3, 0, 3, 4];
-            const vertices = new Float32Array(
-              points
-                .map((p) => t.b[p])
-                .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : []))
+      // Create the map first
+      for (let i = 0; i < hexasphere.tiles.length; i++) {
+        const t = hexasphere.tiles[i];
+        if (t) {
+          const geometry = new THREE.BufferGeometry();
+          const points =
+            t.b.length > 5
+              ? [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]
+              : [0, 1, 2, 0, 2, 3, 0, 3, 4];
+          const vertices = new Float32Array(
+            points
+              .map((p) => t.b[p])
+              .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : []))
+          );
+          geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+          const consistentRandom = prng();
+          const material =
+            t.t === 0
+              ? oceanMats[Math.floor(consistentRandom * oceanMats.length)]
+              : t.t === 1
+              ? groundMats[Math.floor(consistentRandom * groundMats.length)]
+              : dessertMats[Math.floor(consistentRandom * dessertMats.length)];
+
+          const mesh = new THREE.Mesh(geometry, material?.clone());
+          mesh.userData.id = i;
+          group.add(mesh);
+        }
+      }
+
+      // Next we add highlights
+      const lineColor = "#000000";
+      const lineWidth = 1;
+      if (props.highlights) {
+        // Loop through the highlights
+        props.highlights.forEach((highlight) => {
+          const sector = hexasphere?.tiles[highlight.sector]?.c;
+          if (sector) {
+            // Create the line
+            const points = [];
+            points.push(new THREE.Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
+            points.push(
+              new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
             );
-            geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-            const consistentRandom = Math.abs((t.c.x + t.c.y + t.c.z) / 3) / 20;
-            const material =
-              t.t === 0
-                ? oceanMats[Math.floor(consistentRandom * oceanMats.length)]
-                : t.t === 1
-                ? groundMats[Math.floor(consistentRandom * groundMats.length)]
-                : dessertMats[Math.floor(consistentRandom * dessertMats.length)];
-
-            const mesh = new THREE.Mesh(geometry, material?.clone());
-            mesh.userData.id = i;
-            group.add(mesh);
+            const lineMaterial = new THREE.LineBasicMaterial({
+              color: lineColor,
+              linewidth: lineWidth,
+            });
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.LineSegments(geometry, lineMaterial);
+            group.add(line);
+            // Label
+            const map = new THREE.TextureLoader().load(
+              `villages/${highlight.name}Marker.png`
+            );
+            const material = new THREE.SpriteMaterial({ map: map });
+            const labelSprite = new THREE.Sprite(material);
+            // Set position to top of pin
+            Object.assign(
+              labelSprite.position,
+              new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
+            );
+            Object.assign(labelSprite.scale, new THREE.Vector3(3, 1, 1));
+            group.add(labelSprite);
           }
-        }
-
-        // Next we add highlights
-        const lineColor = "#000000";
-        const lineWidth = 1;
-        if (props.highlights) {
-          // Loop through the highlights
-          props.highlights.forEach((highlight) => {
-            const sector = hexasphere?.tiles[highlight.sector]?.c;
-            if (sector) {
-              // Create the line
-              const points = [];
-              points.push(new THREE.Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
-              points.push(
-                new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
-              );
-              const lineMaterial = new THREE.LineBasicMaterial({
-                color: lineColor,
-                linewidth: lineWidth,
-              });
-              const geometry = new THREE.BufferGeometry().setFromPoints(points);
-              const line = new THREE.LineSegments(geometry, lineMaterial);
-              group.add(line);
-              // Label
-              const map = new THREE.TextureLoader().load(
-                `villages/${highlight.name}Marker.png`
-              );
-              const material = new THREE.SpriteMaterial({ map: map });
-              const labelSprite = new THREE.Sprite(material);
-              // Set position to top of pint
-              Object.assign(
-                labelSprite.position,
-                new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
-              );
-              Object.assign(labelSprite.scale, new THREE.Vector3(3, 1, 1));
-              group.add(labelSprite);
-            }
-          });
-        }
-      };
-      void fetchData();
+        });
+      }
 
       scene.add(group);
 
@@ -202,6 +169,7 @@ const Map: React.FC<MapProps> = (props) => {
 
       //Enable controls
       const controls = new TrackballControls(camera, renderer.domElement);
+      controls.noPan = true;
       controls.staticMoving = true;
       controls.zoomSpeed = 0.1;
       let lastTime = Date.now();
@@ -270,12 +238,14 @@ const Map: React.FC<MapProps> = (props) => {
         renderer.render(scene, camera);
       }
       render();
-    }
-    // Remove the intersection listener
-    if (props.intersection) {
-      return () => {
-        document.removeEventListener("mousemove", onDocumentMouseMove);
-      };
+
+      // Remove the intersection listener
+      if (props.intersection) {
+        return () => {
+          document.removeEventListener("mousemove", onDocumentMouseMove);
+          window.removeEventListener("resize", handleResize);
+        };
+      }
     }
   }, [props.highlights, props.intersection]);
 

@@ -6,6 +6,7 @@ import { commentsRouter } from "./routers/comments";
 import { villageRouter } from "./routers/village";
 import { reportsRouter } from "./routers/reports";
 import { forumRouter } from "./routers/forum";
+import { travelRouter } from "./routers/travel";
 import { paypalRouter } from "./routers/paypal";
 
 /**
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   comments: commentsRouter,
   forum: forumRouter,
   paypal: paypalRouter,
+  travel: travelRouter,
 });
 
 // export type definition of API

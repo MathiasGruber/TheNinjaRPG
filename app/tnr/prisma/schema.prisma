@@ -131,6 +131,10 @@ model UserData {
     approved_tos            Boolean               @default(false)
     // Avatar link
     avatar                  String?
+    // Location
+    sector                  Int                   @default(0)
+    longitude               Int                   @default(10)
+    latitude                Int                   @default(7)
     // Timers
     createdAt               DateTime              @default(now())
     updatedAt               DateTime              @default(now()) @updatedAt
