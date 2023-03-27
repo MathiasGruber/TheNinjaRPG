@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { UserStatus } from "@prisma/client";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();
@@ -7,13 +8,13 @@ const prisma = new PrismaClient();
 async function main() {
   // Default villages
   const villages = [
-    { name: "Konoki", longitude: 35.0, latitude: 35.0, sector: 105 },
-    { name: "Shroud", longitude: 40.0, latitude: 40.0, sector: 90 },
-    { name: "Silence", longitude: 40.0, latitude: 40.0, sector: 80 },
-    { name: "Current", longitude: 40.0, latitude: 40.0, sector: 68 },
-    { name: "Horizon", longitude: 40.0, latitude: 40.0, sector: 50 },
-    { name: "Samui", longitude: 40.0, latitude: 40.0, sector: 120 },
-    { name: "Shine", longitude: 40.0, latitude: 40.0, sector: 85 },
+    { name: "Konoki", sector: 105 },
+    { name: "Shroud", sector: 74 },
+    { name: "Silence", sector: 297 },
+    { name: "Current", sector: 4 },
+    { name: "Horizon", sector: 66 },
+    { name: "Samui", sector: 116 },
+    { name: "Shine", sector: 90 },
   ];
   // Elders
   const elders = [
@@ -31,7 +32,7 @@ async function main() {
       where: {
         name: village.name,
       },
-      update: {},
+      update: village,
       create: village,
     });
     // Village elders
@@ -55,7 +56,7 @@ async function main() {
         username: elders[i]?.name as string,
         villageId: villageData.id,
         rank: "Elder GPT",
-        status: "Active",
+        status: UserStatus.AWAKE,
       },
     });
     elders[i]?.attributes.map(async (attribute) => {

@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { type Grid, Hex, ring } from "honeycomb-grid";
-import { BoundingBox, Ellipse } from "honeycomb-grid";
-import { HexOffset, HexOptions, Orientation, Point } from "honeycomb-grid";
+import { type BoundingBox, type Ellipse } from "honeycomb-grid";
+import { type Orientation, type Point } from "honeycomb-grid";
+import { type HexOffset, type HexOptions } from "honeycomb-grid";
 import { defaultHexSettings } from "honeycomb-grid";
 import { createHexDimensions } from "honeycomb-grid";
 import { createHexOrigin } from "honeycomb-grid";
@@ -19,6 +20,11 @@ export interface MapTile {
   b: NonEmptyArray<MapPoint>; // boundary
   c: MapPoint; // centerPoint
   t: number; // 0=ocean, 1=land, 2=desert
+}
+
+export interface SectorPoint {
+  x: number;
+  y: number;
 }
 
 export interface HexagonalFaceMesh extends THREE.Mesh {
@@ -91,16 +97,11 @@ export const createUserSprite = (
     cur_health: number;
     max_health: number;
   },
-  grid: Grid<TerrainHex>
+  dimensions: { height: number; width: number }
 ) => {
   // Group is used to group components of the user Marker
   const group = new THREE.Group();
-
-  // Get the hex where this is placed
-  const hex = grid.getHex({ col: userData.longitude, row: userData.latitude });
-  if (!hex) return group;
-  const { height: h, width: w } = hex;
-  const { x, y } = hex.center;
+  const { height: h, width: w } = dimensions;
 
   // Marker
   const marker = new THREE.TextureLoader().load("map/userMarker.webp");
@@ -121,8 +122,7 @@ export const createUserSprite = (
   Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 0.9, 2));
   group.add(sprite);
 
-  // Move object to the center of the hex in question
-  Object.assign(group.position, new THREE.Vector3(-x, -y, 0));
+  // Name
   group.name = userData.userId;
 
   //sprite.scale.set(0.5, 0.5, 0.5);

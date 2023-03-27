@@ -1,15 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import * as THREE from "three";
 import alea from "alea";
+import * as TWEEN from "@tweenjs/tween.js";
 
 import { type Village } from "@prisma/client";
-import { type MapTile, type HexagonalFaceMesh, type MapData } from "../libs/travel/map";
+import { type MapTile, type MapData, type MapPoint } from "../libs/travel/map";
+import { type HexagonalFaceMesh } from "../libs/travel/map";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/travel/TrackBallControls";
+import { useUser } from "../utils/UserContext";
 
 interface MapProps {
   highlights?: Village[];
+  userLocation?: boolean;
   intersection: boolean;
   hexasphere: MapData;
   onTileClick?: (sector: number | null, tile: MapTile | null) => void;
@@ -17,7 +21,9 @@ interface MapProps {
 }
 
 const Map: React.FC<MapProps> = (props) => {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const { data: userData } = useUser();
+  const [hoverSector, setHoverSector] = useState<number | null>(null);
+  const mountRef = useRef<HTMLDivElement | null>(null);
   const mouse = new THREE.Vector2();
   const { hexasphere } = props;
 
@@ -79,7 +85,6 @@ const Map: React.FC<MapProps> = (props) => {
 
       // Group to hold the sphere and the line segments.
       const group = new THREE.Group();
-
       if (props.intersection && props.onTileClick) {
         const onClick = () => {
           const intersects = raycaster.intersectObjects(scene.children);
@@ -91,7 +96,7 @@ const Map: React.FC<MapProps> = (props) => {
             }
           }
         };
-        renderer.domElement.addEventListener("click", onClick, true);
+        renderer.domElement.addEventListener("dblclick", onClick, true);
       }
 
       // Spheres from here: https://www.robscanlon.com/hexasphere/
@@ -111,15 +116,17 @@ const Map: React.FC<MapProps> = (props) => {
           );
           geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
           const consistentRandom = prng();
-          const material =
-            t.t === 0
-              ? oceanMats[Math.floor(consistentRandom * oceanMats.length)]
-              : t.t === 1
-              ? groundMats[Math.floor(consistentRandom * groundMats.length)]
-              : dessertMats[Math.floor(consistentRandom * dessertMats.length)];
-
+          let material = null;
+          if (t.t === 0) {
+            material = oceanMats[Math.floor(consistentRandom * oceanMats.length)];
+          } else if (t.t === 1) {
+            material = groundMats[Math.floor(consistentRandom * groundMats.length)];
+          } else {
+            material = dessertMats[Math.floor(consistentRandom * dessertMats.length)];
+          }
           const mesh = new THREE.Mesh(geometry, material?.clone());
           mesh.userData.id = i;
+          mesh.name = `${i}`;
           group.add(mesh);
         }
       }
@@ -151,6 +158,7 @@ const Map: React.FC<MapProps> = (props) => {
             );
             const material = new THREE.SpriteMaterial({ map: map });
             const labelSprite = new THREE.Sprite(material);
+
             // Set position to top of pin
             Object.assign(
               labelSprite.position,
@@ -161,22 +169,54 @@ const Map: React.FC<MapProps> = (props) => {
           }
         });
       }
-
       scene.add(group);
 
-      //Set the camera position
-      camera.position.z = 20;
+      // Add user label
+      const userLocation = { h: 0.9, c: 0, l: 0.7 };
+      if (props.userLocation && userData) {
+        const mesh = group.getObjectByName(`${userData.sector}`);
+        if (mesh) {
+          (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
+          new TWEEN.Tween(userLocation)
+            .to({ h: 0.9, c: 1, l: 0.8 }, 100)
+            .yoyo(true)
+            .repeat(Infinity)
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .start();
+        }
+      }
 
       //Enable controls
       const controls = new TrackballControls(camera, renderer.domElement);
       controls.noPan = true;
       controls.staticMoving = true;
       controls.zoomSpeed = 0.1;
+      const cameraDistance = 22;
       let lastTime = Date.now();
-      let cameraAngle = -Math.PI / 1.5;
+      let sigma = 0;
+      let phi = 0;
+
+      // Initial camera positioning
+      if (props.userLocation && userData) {
+        const sector = hexasphere?.tiles[userData.sector]?.c;
+        if (sector) {
+          const { x, y, z } = sector;
+          sigma = Math.atan2(y, x);
+          phi = Math.acos(z / Math.sqrt(x * x + y * y + z * z));
+        }
+      }
 
       // Render the image
       function render() {
+        if (userLocation && userData) {
+          const mesh = group.getObjectByName(`${userData.sector}`);
+          (mesh as HexagonalFaceMesh).material.color.setHSL(
+            userLocation.h,
+            userLocation.c,
+            userLocation.l
+          );
+          TWEEN.update();
+        }
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
           raycaster.setFromCamera(mouse, camera);
@@ -195,38 +235,36 @@ const Map: React.FC<MapProps> = (props) => {
               // set a new color for closest object
               intersected.material.color.setHex(0x00ffd8);
               // Call outside stuff
+              const sector = intersected.userData.id;
               if (props.onTileHover) {
-                const sector = intersected.userData.id as number;
                 const tile = hexasphere?.tiles[sector];
                 if (tile) props.onTileHover(sector, tile);
               }
+              setHoverSector(sector);
             }
-          } // there are no intersections
-          else {
-            // restore previous intersection object (if it exists) to its original color
+          } else {
             if (intersected) {
               intersected.material.color.setHex(intersected.currentHex);
             }
-            // remove previous intersection object reference
-            //     by setting current intersection object to "nothing"
             intersected = undefined;
           }
         }
 
         // Rotate the camara, only if trackball not enabled && highlight not selected
+        const current = controls.up0 as MapPoint;
+        const previous = controls?.object as { up: MapPoint };
         if (
-          controls.up0.x === controls.object.up.x &&
-          controls.up0.y === controls.object.up.y &&
-          controls.up0.z === controls.object.up.z
+          current.x === previous.up.x &&
+          current.y === previous.up.y &&
+          current.z === previous.up.z
         ) {
-          const cameraDistance = 10;
           const dt = Date.now() - lastTime;
-          const rotateCameraBy = (2 * Math.PI) / (50000 / dt);
-          cameraAngle += rotateCameraBy;
+          const rotateCameraBy = (1 * Math.PI) / (50000 / dt);
+          phi += rotateCameraBy;
           lastTime = Date.now();
-          camera.position.x = cameraDistance * Math.cos(cameraAngle);
-          camera.position.y = cameraDistance * Math.sin(cameraAngle);
-          //camera.position.z = cameraDistance * Math.sin(cameraAngle);
+          camera.position.x = cameraDistance * Math.sin(phi) * Math.cos(sigma);
+          camera.position.y = cameraDistance * Math.sin(phi) * Math.sin(sigma);
+          camera.position.z = cameraDistance * Math.cos(phi);
           camera.lookAt(scene.position);
         }
 
@@ -244,12 +282,27 @@ const Map: React.FC<MapProps> = (props) => {
         return () => {
           document.removeEventListener("mousemove", onDocumentMouseMove);
           window.removeEventListener("resize", handleResize);
+          mountRef.current = null;
         };
       }
     }
   }, [props.highlights, props.intersection]);
 
-  return <div ref={mountRef}></div>;
+  return (
+    <>
+      <div ref={mountRef}></div>
+      <div className="absolute right-0 top-0 m-5">
+        <ul>
+          {hoverSector && (
+            <>
+              <li>- Highlighting sector {hoverSector}</li>
+              <li>- Double click tile to move there</li>
+            </>
+          )}
+        </ul>
+      </div>
+    </>
+  );
 };
 
 export default Map;

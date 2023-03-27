@@ -5,12 +5,14 @@ import {
   InboxStackIcon,
   BookOpenIcon,
   CurrencyDollarIcon,
+  BuildingStorefrontIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
 import { signOut, signIn } from "next-auth/react";
 import { type Session } from "next-auth";
 import { type UserDataWithRelations } from "../utils/UserContext";
+import { calcIsInVillage } from "./travel/controls";
 
 export interface NavBarDropdownLink {
   href: string;
@@ -63,7 +65,6 @@ export const getMainNavbarLinks = (sessionData: Session | null) => {
  * Get main game links
  */
 export const getMainGameLinks = (userData: UserDataWithRelations) => {
-  console.log(userData)
   const links: NavBarDropdownLink[] = [
     {
       href: "/tavern",
@@ -96,5 +97,21 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
     },
   ];
+  // Is in village
+  if (
+    userData &&
+    userData.sector === userData.village?.sector &&
+    calcIsInVillage({
+      x: userData.longitude,
+      y: userData.latitude,
+    })
+  ) {
+    links.push({
+      href: "/village",
+      name: "Village",
+      icon: <BuildingStorefrontIcon key="village" className="h-6 w-6" />,
+    });
+  }
+
   return links;
 };

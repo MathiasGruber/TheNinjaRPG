@@ -145,7 +145,7 @@ const Register: React.FC = () => {
                 </option>
               ))}
             </SelectField>
-            {villages && (
+            {villages && map && (
               <Map intersection={false} highlights={villages} hexasphere={map} />
             )}
           </div>

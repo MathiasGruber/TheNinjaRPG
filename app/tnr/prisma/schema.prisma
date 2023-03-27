@@ -79,6 +79,12 @@ enum FederalStatus {
     GOLD
 }
 
+enum UserStatus {
+    AWAKE
+    TRAVEL
+    BATTLE
+}
+
 model UserData {
     userId                  String                @unique
     user                    User                  @relation(fields: [userId], references: [id])
@@ -107,7 +113,7 @@ model UserData {
     bloodlineId             String?
     bloodline               Bloodline?            @relation(fields: [bloodlineId], references: [id])
     // Generals
-    status                  String                @default("Awake")
+    status                  UserStatus            @default(AWAKE)
     strength                Int                   @default(10)
     intelligence            Int                   @default(10)
     willpower               Int                   @default(10)
@@ -135,10 +141,12 @@ model UserData {
     sector                  Int                   @default(0)
     longitude               Int                   @default(10)
     latitude                Int                   @default(7)
+    location                String                @default("")
     // Timers
     createdAt               DateTime              @default(now())
     updatedAt               DateTime              @default(now()) @updatedAt
     deletionAt              DateTime?
+    travelFinishAt          DateTime?
     // Relations
     BugReport               BugReport[]
     BugVotes                BugVotes[]
@@ -180,12 +188,10 @@ model HistoricalAvatar {
 //*****************************//
 
 model Village {
-    id        String     @id @default(cuid())
-    name      String     @unique
-    longitude Int
-    latitude  Int
-    sector    Int        @default(1)
-    UserData  UserData[]
+    id       String     @id @default(cuid())
+    name     String     @unique
+    sector   Int        @unique @default(1)
+    UserData UserData[]
 }
 
 model Bloodline {

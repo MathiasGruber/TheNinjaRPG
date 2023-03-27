@@ -186,6 +186,10 @@ export const profileRouter = createTRPCRouter({
   createCharacter: protectedProcedure
     .input(registrationSchema)
     .mutation(async ({ ctx, input }) => {
+      // Fetch village
+      const village = await ctx.prisma.village.findUniqueOrThrow({
+        where: { id: input.village },
+      });
       // Create user
       const user = await ctx.prisma.userData.create({
         data: {
@@ -194,6 +198,7 @@ export const profileRouter = createTRPCRouter({
           gender: input.gender,
           userId: ctx.session.user.id,
           approved_tos: true,
+          sector: village.sector,
         },
       });
       // Unique attributes

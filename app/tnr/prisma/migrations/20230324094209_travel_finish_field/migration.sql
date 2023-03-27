@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `UserData` ADD COLUMN `travelFinishAt` DATETIME(3) NULL,
+    MODIFY `latitude` INTEGER NOT NULL DEFAULT 7,
+    MODIFY `longitude` INTEGER NOT NULL DEFAULT 10;

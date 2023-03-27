@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 
+import { type Village } from "@prisma/client";
 import { Grid, rectangle } from "honeycomb-grid";
 import * as THREE from "three";
 import { Orientation } from "honeycomb-grid";
@@ -7,35 +8,38 @@ import { createNoise2D } from "simplex-noise";
 import alea from "alea";
 
 import { api } from "../utils/api";
-import { type MapTile, type TerrainHex } from "../libs/travel/map";
+import { type MapTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
 import { type HexagonalFaceMesh } from "../libs/travel/map";
+import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../libs/travel/constants";
+import { VILLAGE_LONG, VILLAGE_LAT } from "../libs/travel/constants";
+import { calcIsInVillage } from "../libs/travel/controls";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getTileInfo, getBackgroundColor } from "../libs/travel/biome";
 import { defineHex } from "../libs/travel/map";
 import { createUserSprite } from "../libs/travel/map";
 import { PathCalculator } from "../libs/travel/map";
 import { useRequiredUser } from "../utils/UserContext";
+import { show_toast } from "../libs/toast";
 
 interface SectorProps {
   sector: number;
   tile: MapTile;
-  setPosition: React.Dispatch<React.SetStateAction<[number, number] | null>>;
+  target: SectorPoint | null;
+  showVillage?: Village;
+  setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
+  setPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }
 
 const Sector: React.FC<SectorProps> = (props) => {
-  const { data: userData } = useRequiredUser();
-  const [target, setTarget] = useState<TerrainHex | undefined>(undefined);
+  const { data: userData, refetch: refetchUser } = useRequiredUser();
   const [moves, setMoves] = useState(0);
   const isInSector = userData?.sector === props.sector;
-  const mouse = new THREE.Vector2();
-  const mountRef = useRef<HTMLDivElement>(null);
   const origin = useRef<TerrainHex | undefined>(undefined);
+  const mountRef = useRef<HTMLDivElement | null>(null);
   const pathFinder = useRef<PathCalculator | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
-
-  // Map tiles
-  const Y_TILES = 15;
-  const X_TILES = 20;
+  const mouse = new THREE.Vector2();
+  const { target, setTarget, setPosition } = props;
 
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -47,36 +51,42 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { color } = getBackgroundColor(props.tile);
 
-  const { mutate: move } = api.travel.move.useMutation({
-    onSuccess: (data) => {
+  const { mutate: move } = api.travel.moveInSector.useMutation({
+    onSuccess: async (data) => {
       if (userData && target) {
-        props.setPosition([data.longitude, data.latitude]);
+        setPosition({ x: data.longitude, y: data.latitude });
         userData.longitude = data.longitude;
         userData.latitude = data.latitude;
         origin.current = grid?.current?.getHex({
           col: userData.longitude,
           row: userData.latitude,
         });
+        if (data.refetchUser) {
+          await refetchUser();
+        }
         setMoves((prev) => prev + 1);
       }
     },
     onError: (error) => {
-      console.error("Error moving user", error);
+      show_toast("Error moving", error.message, "error");
     },
   });
 
   useEffect(() => {
     if (target && origin.current && pathFinder.current) {
-      const shortestPath = pathFinder.current.getShortestPath(origin.current, target);
-      const nextTile = shortestPath?.[1];
-      if (nextTile) {
-        move({ longitude: nextTile.col, latitude: nextTile.row });
+      const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
+      if (!targetHex) return;
+      const path = pathFinder.current.getShortestPath(origin.current, targetHex);
+      const next = path?.[1];
+      if (next) {
+        move({ longitude: next.col, latitude: next.row });
       }
     }
   }, [target, userData, moves, move]);
 
   useEffect(() => {
     if (mountRef.current && userData) {
+      console.log("SETTING ORIGIN AND STUFF");
       // Mouse move listener
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
 
@@ -87,7 +97,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Map size
       const WIDTH = mountRef.current.getBoundingClientRect().width;
       const HEIGHT = WIDTH * hexagonLengthToWidth;
-      const HEXSIZE = (WIDTH / X_TILES / 2) * stackingDisplacement;
+      const HEXSIZE = (WIDTH / SECTOR_WIDTH / 2) * stackingDisplacement;
 
       // Seeded noise generator for map gen
       const prng = alea(props.sector + 1);
@@ -99,15 +109,16 @@ const Sector: React.FC<SectorProps> = (props) => {
         origin: { x: -HEXSIZE, y: -HEXSIZE },
         orientation: Orientation.FLAT,
       });
-      grid.current = new Grid(Tile, rectangle({ width: X_TILES, height: Y_TILES })).map(
-        (tile) => {
-          const nx = tile.col / X_TILES - 0.5;
-          const ny = tile.row / Y_TILES - 0.5;
-          tile.level = noiseGen(nx, ny) / 2 + 0.5;
-          tile.cost = 1;
-          return tile;
-        }
-      );
+      grid.current = new Grid(
+        Tile,
+        rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT })
+      ).map((tile) => {
+        const nx = tile.col / SECTOR_WIDTH - 0.5;
+        const ny = tile.row / SECTOR_HEIGHT - 0.5;
+        tile.level = noiseGen(nx, ny) / 2 + 0.5;
+        tile.cost = 1;
+        return tile;
+      });
 
       // Setup scene and camara
       const scene = new THREE.Scene();
@@ -161,7 +172,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       grid.current.forEach((tile) => {
         if (tile) {
           const { material, sprites } = getTileInfo(prng, tile, props.tile);
-          sprites.map((sprite) => group_assets.add(sprite));
+          if (!props.showVillage || !calcIsInVillage({ x: tile.col, y: tile.row })) {
+            sprites.map((sprite) => group_assets.add(sprite));
+          }
 
           const geometry = new THREE.BufferGeometry();
           const corners = tile.corners;
@@ -180,9 +193,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           edges.translate(0, 0, 1);
           const edgeMesh = new THREE.Line(edges, lineMaterial);
           group_edges.add(edgeMesh);
-          if (tile.row === 1 && tile.col === 1) {
-            console.log(tile);
-          }
         }
       });
 
@@ -191,8 +201,41 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Add user on map
       if (isInSector) {
-        const userMesh = createUserSprite(userData, grid.current);
-        group_users.add(userMesh);
+        // Get the hex where this is placed
+        const hex = grid.current.getHex({
+          col: userData.longitude,
+          row: userData.latitude,
+        });
+        if (hex) {
+          const userMesh = createUserSprite(userData, hex);
+          group_users.add(userMesh);
+        }
+      }
+
+      // Add village in this sector
+      if (props.showVillage) {
+        const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
+        if (hex) {
+          const { height: h, x, y } = hex;
+          // Village graphic
+          const graphic = new THREE.TextureLoader().load(
+            `map/${props.showVillage.name}.webp`
+          );
+          const graphicMat = new THREE.SpriteMaterial({ map: graphic });
+          const graphicSprite = new THREE.Sprite(graphicMat);
+          Object.assign(graphicSprite.scale, new THREE.Vector3(h * 2.2, h * 2.2, 1));
+          Object.assign(graphicSprite.position, new THREE.Vector3(x, y, 2));
+          group_assets.add(graphicSprite);
+          // Village text
+          const text = new THREE.TextureLoader().load(
+            `villages/${props.showVillage.name}Marker.png`
+          );
+          const textMat = new THREE.SpriteMaterial({ map: text });
+          const textSprite = new THREE.Sprite(textMat);
+          Object.assign(textSprite.scale, new THREE.Vector3(h * 1.5, h * 0.5, 1));
+          Object.assign(textSprite.position, new THREE.Vector3(x, y + h, 2));
+          group_assets.add(textSprite);
+        }
       }
 
       // Enable controls
@@ -214,7 +257,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         const intersects = raycaster.intersectObjects(scene.children);
         if (intersects.length > 0) {
           const target = (intersects?.[0]?.object as HexagonalFaceMesh).userData.tile;
-          setTarget(target);
+          setTarget({ x: target.col, y: target.row });
         }
       };
       renderer.domElement.addEventListener("click", onClick, true);
@@ -230,8 +273,18 @@ const Sector: React.FC<SectorProps> = (props) => {
         // Update the user position if a path is set
         if (userData) {
           const userMesh = group_users.getObjectByName(userData.userId);
-          if (origin.current && userMesh) {
-            const { x, y } = origin.current.center;
+          if (origin.current && grid.current && userMesh) {
+            let { x, y } = origin.current.center;
+            if (
+              props.showVillage &&
+              calcIsInVillage({ x: userData.longitude, y: userData.latitude })
+            ) {
+              const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
+              if (hex) {
+                x = hex.center.x;
+                y = hex.center.y;
+              }
+            }
             Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
           }
         }
@@ -288,15 +341,24 @@ const Sector: React.FC<SectorProps> = (props) => {
       }
       render();
 
+      // Every time we refresh this component, fire off a move counter to make sure other useEffects are updated
+      setMoves((prev) => prev + 1);
+
       // Remove the mouseover listener
       return () => {
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         window.removeEventListener("resize", handleResize);
+        renderer.dispose();
+        mountRef.current = null;
       };
     }
-  }, []);
+  }, [props.sector]);
 
-  return <div ref={mountRef}></div>;
+  return (
+    <>
+      <div ref={mountRef}></div>
+    </>
+  );
 };
 
 export default Sector;

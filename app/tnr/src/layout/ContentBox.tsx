@@ -38,7 +38,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
         </div>
 
         <div
-          className={`border-2 border-double border-amber-900 bg-amber-50 shadow-lg ${
+          className={`relative border-2 border-double border-amber-900 bg-amber-50 shadow-lg ${
             props.padding === undefined || props.padding ? "p-3" : ""
           }`}
         >
