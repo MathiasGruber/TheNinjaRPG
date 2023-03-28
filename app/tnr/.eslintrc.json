@@ -1,9 +1,7 @@
 {
   "overrides": [
     {
-      "extends": [
-        "plugin:@typescript-eslint/recommended-requiring-type-checking"
-      ],
+      "extends": ["plugin:@typescript-eslint/recommended-requiring-type-checking"],
       "files": ["*.ts", "*.tsx"],
       "parserOptions": {
         "project": "tsconfig.json"
@@ -19,6 +17,7 @@
   "rules": {
     "@typescript-eslint/consistent-type-imports": "warn",
     "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-this-alias": "off",
     "@typescript-eslint/no-misused-promises": [
       2,
       {

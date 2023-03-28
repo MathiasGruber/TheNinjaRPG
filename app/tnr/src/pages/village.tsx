@@ -10,7 +10,7 @@ import { api } from "../utils/api";
 
 const TermsOfService: NextPage = () => {
   const { data: userData } = useRequiredUser();
-  const village_id = userData?.village?.id;
+  const village_id = userData?.village?.id as string;
   const { data } = api.village.get.useQuery(
     { id: village_id },
     { enabled: village_id !== undefined }
