@@ -7,7 +7,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        fontasia: ["Fontasia", "sans-serif"],
+        fontasia: ["Fontasia", "Impact", "sans-serif"],
       },
     },
   },

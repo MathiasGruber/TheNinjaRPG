@@ -8,7 +8,7 @@ const Welcome: React.FC = () => {
       <div className="flex flex-col items-center lg:flex-row">
         <Image
           className="basis-1/2 lg:w-8/12"
-          src="/images/frontguy5.png"
+          src="/images/frontguy5.webp"
           alt="TNR Logo"
           width={240}
           height={270}
