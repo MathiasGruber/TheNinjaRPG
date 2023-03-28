@@ -7,8 +7,10 @@ generator client {
 }
 
 datasource db {
-    provider = "mysql"
-    url      = env("DATABASE_URL")
+    provider          = "mysql"
+    url               = env("DATABASE_URL")
+    shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+    relationMode      = "prisma"
 }
 
 //*****************************//
@@ -33,6 +35,7 @@ model Account {
     user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([provider, providerAccountId])
+    @@index([userId])
 }
 
 model Session {
@@ -41,6 +44,8 @@ model Session {
     userId       String
     expires      DateTime
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
 }
 
 enum Role {
@@ -164,6 +169,9 @@ model UserData {
     paidTransactions        PaypalTransaction[]   @relation("paidTransactions")
     paidSubscriptions       PaypalSubscription[]  @relation("paidSubscriptions")
     receivedSubscriptions   PaypalSubscription[]  @relation("receivedSubscriptions")
+
+    @@index([bloodlineId])
+    @@index([villageId])
 }
 
 model UserAttribute {
@@ -173,6 +181,7 @@ model UserAttribute {
     userId    String
 
     @@unique([attribute, userId])
+    @@index([userId])
 }
 
 model HistoricalAvatar {
@@ -181,6 +190,8 @@ model HistoricalAvatar {
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
     userId    String
+
+    @@index([userId])
 }
 
 //*****************************//
@@ -207,6 +218,7 @@ model VillageStructure {
     max_sp    Int     @default(100)
 
     @@unique([name, villageId])
+    @@index([villageId])
 }
 
 model Bloodline {
@@ -233,6 +245,8 @@ model BugReport {
     votes          BugVotes[]
     conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
     conversationId String       @unique
+
+    @@index([userId])
 }
 
 model BugVotes {
@@ -245,6 +259,7 @@ model BugVotes {
     userId    String
 
     @@unique([bugId, userId])
+    @@index([userId])
 }
 
 enum ReportAction {
@@ -262,6 +277,9 @@ model ReportLog {
     staffUserId  String?
     createdAt    DateTime  @default(now())
     action       String
+
+    @@index([targetUserId])
+    @@index([staffUserId])
 }
 
 model UserReport {
@@ -278,6 +296,9 @@ model UserReport {
     adminResolved  Boolean             @default(false)
     status         ReportAction        @default(UNVIEWED)
     comments       UserReportComment[]
+
+    @@index([reporterUserId])
+    @@index([reportedUserId])
 }
 
 model UserReportComment {
@@ -289,6 +310,9 @@ model UserReportComment {
     report    UserReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
     reportId  String
     decision  ReportAction?
+
+    @@index([userId])
+    @@index([reportId])
 }
 
 model ForumBoard {
@@ -316,6 +340,9 @@ model ForumThread {
     isPinned  Boolean     @default(false)
     isLocked  Boolean     @default(false)
     posts     ForumPost[]
+
+    @@index([boardId])
+    @@index([userId])
 }
 
 model ForumPost {
@@ -326,6 +353,9 @@ model ForumPost {
     userId    String
     thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
     threadId  String
+
+    @@index([userId])
+    @@index([threadId])
 }
 
 model Conversation {
@@ -340,6 +370,8 @@ model Conversation {
     messages            ConversationComment[]
     BugReport           BugReport[]
     UsersInConversation UsersInConversation[]
+
+    @@index([createdById])
 }
 
 model ConversationComment {
@@ -351,6 +383,9 @@ model ConversationComment {
     conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
     conversationId String?
     isPinned       Boolean       @default(false)
+
+    @@index([userId])
+    @@index([conversationId])
 }
 
 model UsersInConversation {
@@ -361,6 +396,8 @@ model UsersInConversation {
     assignedAt     DateTime     @default(now())
 
     @@id([conversationId, userId])
+    @@index([userId])
+    @@index([conversationId])
 }
 
 //*****************************//
@@ -384,6 +421,9 @@ model PaypalTransaction {
     currency               String   @default("USD")
     status                 String
     rawData                Json
+
+    @@index([createdById])
+    @@index([affectedUserId])
 }
 
 model PaypalSubscription {
@@ -398,6 +438,9 @@ model PaypalSubscription {
     subscriptionId String        @unique
     createdAt      DateTime      @default(now())
     updatedAt      DateTime      @updatedAt
+
+    @@index([createdById])
+    @@index([affectedUserId])
 }
 
 model PaypalWebhookMessage {

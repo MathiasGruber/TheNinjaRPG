@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `UserData` ADD COLUMN `location` VARCHAR(191) NOT NULL DEFAULT '';
