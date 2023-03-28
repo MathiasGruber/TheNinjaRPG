@@ -26,6 +26,21 @@ async function main() {
     { name: "Kimiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
     { name: "Yukiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
   ];
+  // Buildings
+  const buildings = [
+    { name: "Home", image: "/buildings/Home.webp" },
+    { name: "Training Grounds", image: "/buildings/Training.webp" },
+    { name: "Clan Hall", image: "/buildings/Clan.webp" },
+    { name: "Alliance Hall", image: "/buildings/Alliance.webp" },
+    { name: "Battle Arena", image: "/buildings/Arena.webp" },
+    { name: "Mission Hall", image: "/buildings/Missions.webp" },
+    { name: "Bank", image: "/buildings/Bank.webp" },
+    { name: "Item shop", image: "/buildings/Shop.webp" },
+    { name: "Hospital", image: "/buildings/Hospital.webp" },
+    { name: "ANBU", image: "/buildings/ANBU.webp" },
+    { name: "Casino", image: "/buildings/Casino.webp" },
+    { name: "Black Market", image: "/buildings/BlackMarket.webp" },
+  ];
   villages.map(async (village, i) => {
     // Create Village
     const villageData = await prisma.village.upsert({
@@ -34,6 +49,19 @@ async function main() {
       },
       update: village,
       create: village,
+    });
+    // Buildings
+    buildings.map(async (building) => {
+      await prisma.villageStructure.upsert({
+        where: {
+          name_villageId: {
+            name: building.name,
+            villageId: villageData.id,
+          },
+        },
+        update: building,
+        create: { ...building, villageId: villageData.id },
+      });
     });
     // Village elders
     const elderUser = await prisma.user.upsert({

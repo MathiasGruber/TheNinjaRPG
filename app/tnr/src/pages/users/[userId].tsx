@@ -98,6 +98,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Health"
                     color="bg-red-500"
                     showText={true}
+                    height={3}
                     current={profile.cur_health}
                     total={profile.max_health}
                   />
@@ -106,6 +107,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Chakra"
                     color="bg-blue-500"
                     showText={true}
+                    height={3}
                     current={profile.cur_chakra}
                     total={profile.max_chakra}
                   />
@@ -114,6 +116,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Stamina"
                     color="bg-green-500"
                     showText={true}
+                    height={3}
                     current={profile.cur_stamina}
                     total={profile.max_stamina}
                   />

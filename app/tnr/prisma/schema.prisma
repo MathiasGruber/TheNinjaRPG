@@ -188,10 +188,25 @@ model HistoricalAvatar {
 //*****************************//
 
 model Village {
-    id       String     @id @default(cuid())
-    name     String     @unique
-    sector   Int        @unique @default(1)
-    UserData UserData[]
+    id                String             @id @default(cuid())
+    name              String             @unique
+    sector            Int                @unique @default(1)
+    UserData          UserData[]
+    VillageStructures VillageStructure[]
+}
+
+model VillageStructure {
+    id        String  @id @default(cuid())
+    name      String
+    image     String
+    village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+    villageId String
+    level     Int     @default(1)
+    max_level Int     @default(10)
+    cur_sp    Int     @default(100)
+    max_sp    Int     @default(100)
+
+    @@unique([name, villageId])
 }
 
 model Bloodline {
