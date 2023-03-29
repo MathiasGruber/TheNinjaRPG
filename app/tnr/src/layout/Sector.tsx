@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Orientation } from "honeycomb-grid";
 import { createNoise2D } from "simplex-noise";
 import alea from "alea";
+import Stats from "three/examples/jsm/libs/stats.module";
 
 import { api } from "../utils/api";
 import { type MapTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
@@ -86,7 +87,9 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData) {
-      console.log("SETTING ORIGIN AND STUFF");
+      const stats = Stats();
+      document.body.appendChild(stats.dom);
+
       // Mouse move listener
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
 
@@ -338,6 +341,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         // Render the scene
         requestAnimationFrame(render);
         renderer.render(scene, camera);
+        stats.update();
       }
       render();
 

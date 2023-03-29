@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
+import Stats from "three/examples/jsm/libs/stats.module";
 
 import { type Village } from "@prisma/client";
 import { type MapTile, type MapData, type MapPoint } from "../libs/travel/map";
@@ -37,6 +38,8 @@ const Map: React.FC<MapProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current) {
+      const stats = Stats();
+      document.body.appendChild(stats.dom);
       // Interacivity with mouse
       if (props.intersection) {
         mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
@@ -274,6 +277,7 @@ const Map: React.FC<MapProps> = (props) => {
         // Render the scene
         requestAnimationFrame(render);
         renderer.render(scene, camera);
+        stats.update();
       }
       render();
 
