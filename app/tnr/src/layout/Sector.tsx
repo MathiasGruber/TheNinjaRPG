@@ -320,7 +320,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             ) as HexagonalFaceMesh;
             if (mesh.userData.highlight === false) {
               mesh.userData.highlight = true;
-              mesh.material.color.offsetHSL(0, 0, 0.2);
+              mesh.material.color.offsetHSL(0, 0, 0.1);
             }
             newHighlights.add(mesh.name);
           });

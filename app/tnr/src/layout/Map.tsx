@@ -130,6 +130,7 @@ const Map: React.FC<MapProps> = (props) => {
           }
           const mesh = new THREE.Mesh(geometry, material?.clone());
           mesh.userData.id = i;
+          mesh.userData.type = "tile";
           mesh.name = `${i}`;
           group.add(mesh);
         }
@@ -224,7 +225,9 @@ const Map: React.FC<MapProps> = (props) => {
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
           raycaster.setFromCamera(mouse, camera);
-          const intersects = raycaster.intersectObjects(scene.children);
+          const intersects = raycaster
+            .intersectObjects(scene.children)
+            .filter((mesh) => mesh.object.userData.type === "tile");
           if (intersects.length > 0) {
             // if the closest object intersected is not the currently stored intersection object
             if (intersects[0] && intersects[0].object != intersected) {
