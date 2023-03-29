@@ -149,6 +149,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       const raycaster = new THREE.Raycaster();
       renderer.setSize(WIDTH, HEIGHT);
       renderer.setClearColor(color, 1);
+      renderer.setPixelRatio(window.devicePixelRatio);
       renderer.sortObjects = false;
       mountRef.current.appendChild(renderer.domElement);
 

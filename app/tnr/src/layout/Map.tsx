@@ -65,6 +65,7 @@ const Map: React.FC<MapProps> = (props) => {
       const renderer = new THREE.WebGLRenderer({ alpha: true });
       renderer.setSize(WIDTH, HEIGHT);
       renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(window.devicePixelRatio);
       mountRef.current.appendChild(renderer.domElement);
 
       // Window size listener

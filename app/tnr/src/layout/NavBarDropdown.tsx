@@ -13,7 +13,7 @@ interface NavBarDropdownProps {
 const NavBarDropdown: React.FC<NavBarDropdownProps> = (props) => {
   const [open, setOpen] = useState<boolean>(false);
   return (
-    <div className="relative inline-block">
+    <div className="relative z-50 inline-block">
       <button onClick={() => setOpen(!open)}>{props.icon}</button>
 
       {open && (
