@@ -87,11 +87,14 @@ const Map: React.FC<MapProps> = (props) => {
       pointLight.position.z = 230;
       scene.add(pointLight);
 
-      // Group to hold the sphere and the line segments.
-      const group = new THREE.Group();
+      // Groups to hold items
+      const group_tiles = new THREE.Group();
+      const group_highlights = new THREE.Group();
+
+      // Add on double click tile handler
       if (props.intersection && props.onTileClick) {
         const onClick = () => {
-          const intersects = raycaster.intersectObjects(scene.children);
+          const intersects = raycaster.intersectObjects(group_tiles.children);
           if (intersects.length > 0) {
             const sector = intersects?.[0]?.object?.userData?.id as number;
             const tile = hexasphere?.tiles[sector];
@@ -130,9 +133,8 @@ const Map: React.FC<MapProps> = (props) => {
           }
           const mesh = new THREE.Mesh(geometry, material?.clone());
           mesh.userData.id = i;
-          mesh.userData.type = "tile";
           mesh.name = `${i}`;
-          group.add(mesh);
+          group_tiles.add(mesh);
         }
       }
 
@@ -156,7 +158,7 @@ const Map: React.FC<MapProps> = (props) => {
             });
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             const line = new THREE.LineSegments(geometry, lineMaterial);
-            group.add(line);
+            group_highlights.add(line);
             // Label
             const map = new THREE.TextureLoader().load(
               `villages/${highlight.name}Marker.png`
@@ -170,16 +172,17 @@ const Map: React.FC<MapProps> = (props) => {
               new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
             );
             Object.assign(labelSprite.scale, new THREE.Vector3(3, 1, 1));
-            group.add(labelSprite);
+            group_highlights.add(labelSprite);
           }
         });
       }
-      scene.add(group);
+      scene.add(group_highlights);
+      scene.add(group_tiles);
 
       // Add user label
       const userLocation = { h: 0.9, c: 0, l: 0.7 };
       if (props.userLocation && userData) {
-        const mesh = group.getObjectByName(`${userData.sector}`);
+        const mesh = group_tiles.getObjectByName(`${userData.sector}`);
         if (mesh) {
           (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
           new TWEEN.Tween(userLocation)
@@ -214,7 +217,7 @@ const Map: React.FC<MapProps> = (props) => {
       // Render the image
       function render() {
         if (userLocation && userData) {
-          const mesh = group.getObjectByName(`${userData.sector}`);
+          const mesh = group_tiles.getObjectByName(`${userData.sector}`);
           (mesh as HexagonalFaceMesh).material.color.setHSL(
             userLocation.h,
             userLocation.c,
@@ -225,9 +228,7 @@ const Map: React.FC<MapProps> = (props) => {
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
           raycaster.setFromCamera(mouse, camera);
-          const intersects = raycaster
-            .intersectObjects(scene.children)
-            .filter((mesh) => mesh.object.userData.type === "tile");
+          const intersects = raycaster.intersectObjects(group_tiles.children);
           if (intersects.length > 0) {
             // if the closest object intersected is not the currently stored intersection object
             if (intersects[0] && intersects[0].object != intersected) {
