@@ -6,7 +6,11 @@ import * as TWEEN from "@tweenjs/tween.js";
 import Stats from "three/examples/jsm/libs/stats.module";
 
 import { type Village } from "@prisma/client";
-import { type MapTile, type MapData, type MapPoint } from "../libs/travel/map";
+import {
+  type GlobalTile,
+  type GlobalMapData,
+  type GlobalPoint,
+} from "../libs/travel/map";
 import { type HexagonalFaceMesh } from "../libs/travel/map";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/travel/TrackBallControls";
@@ -16,9 +20,9 @@ interface MapProps {
   highlights?: Village[];
   userLocation?: boolean;
   intersection: boolean;
-  hexasphere: MapData;
-  onTileClick?: (sector: number | null, tile: MapTile | null) => void;
-  onTileHover?: (sector: number | null, tile: MapTile | null) => void;
+  hexasphere: GlobalMapData;
+  onTileClick?: (sector: number | null, tile: GlobalTile | null) => void;
+  onTileHover?: (sector: number | null, tile: GlobalTile | null) => void;
 }
 
 const Map: React.FC<MapProps> = (props) => {
@@ -259,8 +263,8 @@ const Map: React.FC<MapProps> = (props) => {
         }
 
         // Rotate the camara, only if trackball not enabled && highlight not selected
-        const current = controls.up0 as MapPoint;
-        const previous = controls?.object as { up: MapPoint };
+        const current = controls.up0 as GlobalPoint;
+        const previous = controls?.object as { up: GlobalPoint };
         if (
           current.x === previous.up.x &&
           current.y === previous.up.y &&

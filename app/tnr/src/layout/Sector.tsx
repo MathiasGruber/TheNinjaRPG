@@ -9,7 +9,7 @@ import alea from "alea";
 import Stats from "three/examples/jsm/libs/stats.module";
 
 import { api } from "../utils/api";
-import { type MapTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
+import { type GlobalTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
 import { type HexagonalFaceMesh } from "../libs/travel/map";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../libs/travel/constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../libs/travel/constants";
@@ -24,7 +24,7 @@ import { show_toast } from "../libs/toast";
 
 interface SectorProps {
   sector: number;
-  tile: MapTile;
+  tile: GlobalTile;
   target: SectorPoint | null;
   showVillage?: Village;
   setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
@@ -32,15 +32,27 @@ interface SectorProps {
 }
 
 const Sector: React.FC<SectorProps> = (props) => {
-  const { data: userData, refetch: refetchUser } = useRequiredUser();
+  // Incoming props
+  const { target, setTarget, setPosition } = props;
+
+  // Convenience counter for forcing reload
   const [moves, setMoves] = useState(0);
-  const isInSector = userData?.sector === props.sector;
+
+  // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const pathFinder = useRef<PathCalculator | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new THREE.Vector2();
-  const { target, setTarget, setPosition } = props;
+
+  // Data from db
+  const { data: userData, refetch: refetchUser } = useRequiredUser();
+
+  // Convenience calculations
+  const isInSector = userData?.sector === props.sector;
+
+  // Background color for the map
+  const { color } = getBackgroundColor(props.tile);
 
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -50,18 +62,19 @@ const Sector: React.FC<SectorProps> = (props) => {
     }
   };
 
-  const { color } = getBackgroundColor(props.tile);
+  // Convenience method for finding hex
+  const findHex = (point: SectorPoint) => {
+    return grid?.current?.getHex({
+      col: point.x,
+      row: point.y,
+    });
+  };
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
       if (userData && target) {
         setPosition({ x: data.longitude, y: data.latitude });
-        userData.longitude = data.longitude;
-        userData.latitude = data.latitude;
-        origin.current = grid?.current?.getHex({
-          col: userData.longitude,
-          row: userData.latitude,
-        });
+        origin.current = findHex({ x: data.longitude, y: data.latitude });
         if (data.refetchUser) {
           await refetchUser();
         }
@@ -87,7 +100,10 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData) {
-      const stats = Stats();
+      console.log("DRAWING THE SCENE AGAIN!");
+
+      // Performance monitor
+      const stats = new Stats();
       document.body.appendChild(stats.dom);
 
       // Mouse move listener
@@ -203,17 +219,16 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Reverse the order of objects in the group_assets
       group_assets.children.sort((a, b) => b.position.y - a.position.y);
 
+      // Set the origin
+      origin.current = grid?.current?.getHex({
+        col: userData.longitude,
+        row: userData.latitude,
+      });
+
       // Add user on map
-      if (isInSector) {
-        // Get the hex where this is placed
-        const hex = grid.current.getHex({
-          col: userData.longitude,
-          row: userData.latitude,
-        });
-        if (hex) {
-          const userMesh = createUserSprite(userData, hex);
-          group_users.add(userMesh);
-        }
+      if (isInSector && origin.current) {
+        const userMesh = createUserSprite(userData, origin.current);
+        group_users.add(userMesh);
       }
 
       // Add village in this sector
@@ -266,12 +281,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       };
       renderer.domElement.addEventListener("click", onClick, true);
 
-      // Set the origin
-      origin.current = grid?.current?.getHex({
-        col: userData.longitude,
-        row: userData.latitude,
-      });
-
       // Render the image
       function render() {
         // Update the user position if a path is set
@@ -281,7 +290,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             let { x, y } = origin.current.center;
             if (
               props.showVillage &&
-              calcIsInVillage({ x: userData.longitude, y: userData.latitude })
+              calcIsInVillage({ x: origin.current.col, y: origin.current.row })
             ) {
               const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
               if (hex) {

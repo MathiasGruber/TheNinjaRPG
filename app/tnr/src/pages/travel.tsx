@@ -16,28 +16,33 @@ import {
   calcGlobalTravelTime,
 } from "../libs/travel/controls";
 import { useRequiredUser } from "../utils/UserContext";
-import { type MapTile, type SectorPoint } from "../libs/travel/map";
+import { type GlobalTile, type SectorPoint } from "../libs/travel/map";
 
 const Travel: NextPage = () => {
+  // What is shown on this page
   const [showModal, setShowModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("");
 
-  const [currentSector, setCurrentSector] = useState<number | null>(null);
-  const [currentTile, setCurrentTile] = useState<MapTile | null>(null);
-  const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
+  // Globe data
   const [globe, setGlobe] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
-  const [targetTile, setTargetTile] = useState<SectorPoint | null>(null);
+
+  // Current and target sectors & positions
+  const [currentSector, setCurrentSector] = useState<number | null>(null);
+  const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
+  const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
+  const [targetPosition, setTargetPosition] = useState<SectorPoint | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
 
+  // Data from database
   const { data: userData, refetch: refetchUser } = useRequiredUser();
   const { data: villages } = api.village.getAll.useQuery(undefined);
 
+  // Sector tab link
   const sectorLink = currentSector
     ? currentPosition
       ? `You (${currentPosition.x}, ${currentPosition.y})`
       : `Sector ${currentSector}`
     : "";
-  const onEdge = isAtEdge(currentPosition);
 
   void useMemo(async () => {
     setGlobe(await fetchMap());
@@ -47,7 +52,7 @@ const Travel: NextPage = () => {
     if (!currentSector && userData && globe) {
       setCurrentSector(userData.sector);
       setCurrentPosition({ x: userData.longitude, y: userData.latitude });
-      setCurrentTile(globe.tiles[userData.sector] as MapTile);
+      setCurrentTile(globe.tiles[userData.sector] as GlobalTile);
     }
   }, [userData, currentSector, globe]);
 
@@ -62,7 +67,7 @@ const Travel: NextPage = () => {
       setActiveTab("Global");
       setCurrentSector(data.sector);
       if (globe) {
-        setCurrentTile(globe.tiles[data.sector] as MapTile);
+        setCurrentTile(globe.tiles[data.sector] as GlobalTile);
       }
     },
     onError: (error) => {
@@ -79,6 +84,10 @@ const Travel: NextPage = () => {
       console.error("Error travelling", error);
     },
   });
+
+  // Convenience variables
+  const onEdge = isAtEdge(currentPosition);
+  const isGlobal = activeTab === "Global";
 
   return (
     <ContentBox
@@ -97,7 +106,7 @@ const Travel: NextPage = () => {
         />
       }
     >
-      {villages && globe && activeTab === "Global" && (
+      {villages && globe && isGlobal && (
         <Map
           intersection={true}
           highlights={villages}
@@ -109,13 +118,13 @@ const Travel: NextPage = () => {
           hexasphere={globe}
         />
       )}
-      {villages && currentSector && currentTile && activeTab !== "Global" && (
+      {villages && currentSector && currentTile && !isGlobal && (
         <Sector
           tile={currentTile}
           sector={currentSector}
-          target={targetTile}
+          target={targetPosition}
           showVillage={villages.find((village) => village.sector == currentSector)}
-          setTarget={setTargetTile}
+          setTarget={setTargetPosition}
           setPosition={setCurrentPosition}
         />
       )}
@@ -127,7 +136,7 @@ const Travel: NextPage = () => {
           isValid={false}
           onAccept={() => {
             if (!onEdge && currentPosition) {
-              setTargetTile(findNearestEdge(currentPosition));
+              setTargetPosition(findNearestEdge(currentPosition));
               setActiveTab(sectorLink);
             } else {
               startGlobalMove({ sector: targetSector });

@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge } from "../../../libs/travel/controls";
-import { type MapData } from "../../../libs/travel/map";
+import { type GlobalMapData } from "../../../libs/travel/map";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "../../../utils/time";
 import * as map from "../../../../public/map/hexasphere.json";
@@ -32,7 +32,7 @@ export const travelRouter = createTRPCRouter({
       const travelTime = calcGlobalTravelTime(
         userData.sector,
         input.sector,
-        map as unknown as MapData
+        map as unknown as GlobalMapData
       );
       const endTime = secondsFromNow(travelTime);
       return await ctx.prisma.userData.update({

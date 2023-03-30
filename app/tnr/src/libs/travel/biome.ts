@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { type TerrainHex, type MapTile } from "./map";
+import { type TerrainHex, type GlobalTile } from "./map";
 
 /**
  * Map materials & colors
@@ -33,7 +33,7 @@ interface TileInfo {
   asset: "ocean" | "ground" | "dessert";
 }
 
-export const getTileInfo = (prng: () => number, hex: TerrainHex, tile: MapTile) => {
+export const getTileInfo = (prng: () => number, hex: TerrainHex, tile: GlobalTile) => {
   const material = getMaterial(hex, tile);
   material.sprites = getMapSprite(prng, material.density, material.asset, hex);
   return material;
@@ -147,7 +147,7 @@ const loadAsset = (filepath: string) => {
   return sprite;
 };
 
-const getMaterial = (hex: TerrainHex, tile: MapTile) => {
+const getMaterial = (hex: TerrainHex, tile: GlobalTile) => {
   if (tile.t === 0) {
     if (hex.level < 0.3) {
       return { material: oceanMats[0], asset: "ocean", density: 1 } as TileInfo;
@@ -199,7 +199,7 @@ const getMaterial = (hex: TerrainHex, tile: MapTile) => {
   }
 };
 
-export const getBackgroundColor = (tile: MapTile) => {
+export const getBackgroundColor = (tile: GlobalTile) => {
   if (tile.t === 0) {
     return { color: oceanColors[0] };
   } else if (tile.t === 1) {

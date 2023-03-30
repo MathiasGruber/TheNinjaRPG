@@ -1,4 +1,4 @@
-import { type SectorPoint, type MapData } from "./map";
+import { type SectorPoint, type GlobalMapData } from "./map";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 
@@ -28,7 +28,7 @@ export const findNearestEdge = (position: SectorPoint) => {
 export const calcGlobalTravelTime = (
   sectorA: number,
   sectorB: number,
-  map: MapData
+  map: GlobalMapData
 ) => {
   const a = map?.tiles[sectorA]?.c;
   const b = map?.tiles[sectorB]?.c;

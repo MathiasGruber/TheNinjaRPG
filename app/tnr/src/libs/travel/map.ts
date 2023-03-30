@@ -10,15 +10,15 @@ import { aStar } from "abstract-astar";
 
 type NonEmptyArray<T> = T[] & { 0: T };
 
-export interface MapPoint {
+export interface GlobalPoint {
   x: number;
   y: number;
   z: number;
 }
 
-export interface MapTile {
-  b: NonEmptyArray<MapPoint>; // boundary
-  c: MapPoint; // centerPoint
+export interface GlobalTile {
+  b: NonEmptyArray<GlobalPoint>; // boundary
+  c: GlobalPoint; // centerPoint
   t: number; // 0=ocean, 1=land, 2=desert
 }
 
@@ -38,9 +38,9 @@ export interface HexagonalFaceMesh extends THREE.Mesh {
   };
 }
 
-export interface MapData {
+export interface GlobalMapData {
   radius: number;
-  tiles: NonEmptyArray<MapTile>;
+  tiles: NonEmptyArray<GlobalTile>;
 }
 
 /**
@@ -48,7 +48,7 @@ export interface MapData {
  */
 export const fetchMap = async () => {
   const response = await fetch("map/hexasphere.json");
-  const hexasphere = await response.json().then((data) => data as MapData);
+  const hexasphere = await response.json().then((data) => data as GlobalMapData);
   return hexasphere;
 };
 
