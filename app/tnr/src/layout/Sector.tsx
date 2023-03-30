@@ -103,7 +103,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       console.log("DRAWING THE SCENE AGAIN!");
 
       // Performance monitor
-      const stats = new Stats();
+      const stats = Stats();
       document.body.appendChild(stats.dom);
 
       // Mouse move listener
