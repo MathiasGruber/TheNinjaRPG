@@ -66,10 +66,12 @@ const Map: React.FC<MapProps> = (props) => {
       const prng = alea(42);
 
       // Renderer the canvas
-      const renderer = new THREE.WebGLRenderer({ alpha: true });
+      const renderer = new THREE.WebGLRenderer({ depth: false });
       renderer.setSize(WIDTH, HEIGHT);
       renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = false;
+      renderer.sortObjects = false;
       mountRef.current.appendChild(renderer.domElement);
 
       // Window size listener
@@ -126,6 +128,7 @@ const Map: React.FC<MapProps> = (props) => {
             material = dessertMats[Math.floor(consistentRandom * dessertMats.length)];
           }
           const mesh = new THREE.Mesh(geometry, material?.clone());
+          mesh.matrixAutoUpdate = false;
           mesh.userData.id = i;
           mesh.name = `${i}`;
           group_tiles.add(mesh);

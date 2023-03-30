@@ -141,7 +141,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Setup scene and camara
       const scene = new THREE.Scene();
-      const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -100, 100);
+      const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 0);
       camera.zoom = 2;
       camera.updateProjectionMatrix();
 
@@ -153,11 +153,12 @@ const Sector: React.FC<SectorProps> = (props) => {
       let highlights = new Set<string>();
 
       // Renderer the canvas
-      const renderer = new THREE.WebGLRenderer({ alpha: true });
+      const renderer = new THREE.WebGLRenderer();
       const raycaster = new THREE.Raycaster();
       renderer.setSize(WIDTH, HEIGHT);
       renderer.setClearColor(color, 1);
       renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = false;
       renderer.sortObjects = false;
       mountRef.current.appendChild(renderer.domElement);
 
@@ -181,6 +182,11 @@ const Sector: React.FC<SectorProps> = (props) => {
       const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
       const lineMaterial = new THREE.LineBasicMaterial({ color: 0x555555 });
 
+      // Create hexagonal tile
+      // const vertices = new Float32Array(
+      //   points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, 0] : []))
+      // );
+
       grid.current.forEach((tile) => {
         if (tile) {
           const { material, sprites } = getTileInfo(prng, tile, props.tile);
@@ -199,11 +205,13 @@ const Sector: React.FC<SectorProps> = (props) => {
           mesh.userData.tile = tile;
           mesh.userData.hex = material?.color.getHex();
           mesh.userData.highlight = false;
+          mesh.matrixAutoUpdate = false;
           group_tiles.add(mesh);
 
           const edges = new THREE.EdgesGeometry(geometry);
           edges.translate(0, 0, 1);
           const edgeMesh = new THREE.Line(edges, lineMaterial);
+          edgeMesh.matrixAutoUpdate = false;
           group_edges.add(edgeMesh);
         }
       });
