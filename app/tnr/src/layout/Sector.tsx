@@ -142,7 +142,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Setup scene and camara
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -100, 100);
-      camera.zoom = 1;
+      camera.zoom = 2;
       camera.updateProjectionMatrix();
 
       // Mouse intersections
@@ -225,12 +225,6 @@ const Sector: React.FC<SectorProps> = (props) => {
         row: userData.latitude,
       });
 
-      // Add user on map
-      if (isInSector && origin.current) {
-        const userMesh = createUserSprite(userData, origin.current);
-        group_users.add(userMesh);
-      }
-
       // Add village in this sector
       if (props.showVillage) {
         const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
@@ -263,7 +257,16 @@ const Sector: React.FC<SectorProps> = (props) => {
       controls.zoomSpeed = 1.0;
       controls.minZoom = 1;
       controls.maxZoom = 2;
-      controls.target.set(0, 0, 0);
+
+      // Add user on map
+      if (isInSector && origin.current) {
+        const userMesh = createUserSprite(userData, origin.current);
+        group_users.add(userMesh);
+        const { x, y } = origin.current.center;
+        // Set initial position of controls & camera
+        controls.target.set(-WIDTH / 2 - x, -HEIGHT / 2 - y, 0);
+        camera.position.copy(controls.target);
+      }
 
       // Add the group to the scene
       scene.add(group_tiles);
