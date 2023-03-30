@@ -259,6 +259,8 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
+      controls.touches.ONE = THREE.TOUCH.PAN;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
       controls.enableRotate = false;
       controls.zoomSpeed = 1.0;
       controls.minZoom = 1;
