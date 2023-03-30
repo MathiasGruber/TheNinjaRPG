@@ -81,16 +81,6 @@ const Map: React.FC<MapProps> = (props) => {
       }
       window.addEventListener("resize", handleResize);
 
-      // create a point light (goes in all directions)
-      scene.add(new THREE.AmbientLight(0x71abef));
-      const pointLight = new THREE.PointLight(0x666666);
-
-      // set its position
-      pointLight.position.x = 60;
-      pointLight.position.y = 50;
-      pointLight.position.z = 230;
-      scene.add(pointLight);
-
       // Groups to hold items
       const group_tiles = new THREE.Group();
       const group_highlights = new THREE.Group();

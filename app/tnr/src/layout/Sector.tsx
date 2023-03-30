@@ -152,14 +152,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       pathFinder.current = new PathCalculator(grid.current);
       let highlights = new Set<string>();
 
-      // Create a point light (goes in all directions)
-      scene.add(new THREE.AmbientLight(0x71abef));
-      const pointLight = new THREE.PointLight(0x666666);
-      pointLight.position.x = 0;
-      pointLight.position.y = 0;
-      pointLight.position.z = 200;
-      scene.add(pointLight);
-
       // Renderer the canvas
       const renderer = new THREE.WebGLRenderer({ alpha: true });
       const raycaster = new THREE.Raycaster();
