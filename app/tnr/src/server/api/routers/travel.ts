@@ -34,6 +34,7 @@ export const travelRouter = createTRPCRouter({
           username: true,
           longitude: true,
           latitude: true,
+          location: true,
           cur_health: true,
           max_health: true,
           sector: true,

@@ -127,8 +127,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
         if (data.userId !== userData.userId) updateUsersList(data);
-        console.log("WEBSOCKET MESSAGE");
-        console.log(users);
       });
 
       // Performance monitor
@@ -320,7 +318,9 @@ const Sector: React.FC<SectorProps> = (props) => {
           const groups = groupBy(
             users.map((user) => ({
               ...user,
-              group: `${user.latitude},${user.longitude}`,
+              group: !user.location.includes("Village")
+                ? `${user.latitude},${user.longitude}`
+                : user.location,
             })),
             "group"
           );
@@ -336,11 +336,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               // Get location
               if (userHex && userMesh && grid.current) {
                 let { x, y } = userHex.center;
-                if (tileUsers.length > 1) {
-                  const angle = (i / tileUsers.length) * 2 * Math.PI;
-                  x += 0.25 * userHex.width * Math.sin(angle);
-                  y -= 0.25 * userHex.height * Math.cos(angle);
-                }
+                let spread = 0.25;
                 if (
                   props.showVillage &&
                   calcIsInVillage({ x: userHex.col, y: userHex.row })
@@ -352,7 +348,13 @@ const Sector: React.FC<SectorProps> = (props) => {
                   if (hex) {
                     x = hex.center.x;
                     y = hex.center.y;
+                    spread = 0.75;
                   }
+                }
+                if (tileUsers.length > 1) {
+                  const angle = (i / tileUsers.length) * 2 * Math.PI;
+                  x += spread * userHex.width * Math.sin(angle);
+                  y -= spread * userHex.height * Math.cos(angle);
                 }
                 Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
               }
