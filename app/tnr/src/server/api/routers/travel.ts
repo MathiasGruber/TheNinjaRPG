@@ -35,6 +35,7 @@ export const travelRouter = createTRPCRouter({
           longitude: true,
           latitude: true,
           cur_health: true,
+          max_health: true,
           sector: true,
           avatar: true,
         },
@@ -125,7 +126,7 @@ export const travelRouter = createTRPCRouter({
         Math.abs(userData.longitude - longitude),
         Math.abs(userData.latitude - latitude)
       );
-      const output = { ...userData, longitude, latitude, refetchUser: false };
+      const output = { ...userData, longitude, latitude };
       if (distance === 0) {
         return output;
       } else if (distance === 1) {
@@ -137,10 +138,7 @@ export const travelRouter = createTRPCRouter({
         if (village && calcIsInVillage({ x: longitude, y: latitude })) {
           location = `${village.name} Village`;
         }
-        if (location !== userData.location) {
-          output.refetchUser = true;
-          output.location = location;
-        }
+        if (location !== userData.location) output.location = location;
         // Update user
         await ctx.prisma.userData.update({
           where: { userId: ctx.session.user.id },
@@ -172,6 +170,7 @@ export const fetchUser = async (client: PrismaClient, id: string) => {
       username: true,
       avatar: true,
       cur_health: true,
+      max_health: true,
       longitude: true,
       latitude: true,
       location: true,

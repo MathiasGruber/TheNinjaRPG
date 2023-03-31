@@ -7,7 +7,6 @@ interface StatusBarProps {
   color: string;
   current: number;
   total: number;
-  height: number;
 }
 
 const StatusBar: React.FC<StatusBarProps> = (props) => {
@@ -19,7 +18,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
         </div>
       )}
 
-      <div className={`h-${props.height} w-full border-2 border-black`}>
+      <div className={`h-3 w-full border-2 border-black`}>
         <div
           className={`h-full w-3/6 ${props.color}`}
           style={{
@@ -28,7 +27,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
         ></div>
       </div>
       {props.tooltip && (
-        <span className="absolute z-50  rounded-md bg-gray-800 p-2 text-sm font-bold text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="absolute z-50 rounded-md bg-gray-800 p-2 text-sm font-bold text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
           {props.tooltip}
         </span>
       )}

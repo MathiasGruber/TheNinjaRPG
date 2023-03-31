@@ -23,6 +23,7 @@ import { createUserSprite } from "../libs/travel/map";
 import { PathCalculator } from "../libs/travel/map";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
+import { groupBy } from "../utils/grouping";
 
 interface SectorProps {
   sector: number;
@@ -77,20 +78,25 @@ const Sector: React.FC<SectorProps> = (props) => {
     });
   };
 
+  // Convenience method for updating user list
+  const updateUsersList = (data: UserData) => {
+    if (users) {
+      const idx = users.findIndex((user) => user.userId === data.userId);
+      if (idx !== -1) {
+        users[idx] = data;
+      } else {
+        users.push(data);
+      }
+    }
+  };
+
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
       origin.current = findHex({ x: data.longitude, y: data.latitude });
-      if (users) {
-        const idx = users.findIndex((user) => user.userId === data.userId);
-        if (idx !== -1) {
-          users[idx] = data;
-        } else {
-          users.push(data);
-        }
-      }
+      updateUsersList(data as UserData);
       setPosition({ x: data.longitude, y: data.latitude });
       setMoves((prev) => prev + 1);
-      if (data.refetchUser) {
+      if (data.location !== userData?.location) {
         await refetchUser();
       }
     },
@@ -120,15 +126,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       });
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
-        if (data.userId !== userData.userId) {
-          const idx = users.findIndex((user) => user.userId === data.userId);
-          if (idx !== -1) {
-            users[idx] = data;
-          } else {
-            users.push(data);
-          }
-        }
-
+        if (data.userId !== userData.userId) updateUsersList(data);
         console.log("WEBSOCKET MESSAGE");
         console.log(users);
       });
@@ -319,33 +317,48 @@ const Sector: React.FC<SectorProps> = (props) => {
       function render() {
         // Update the user position if a path is set
         if (userData && users) {
-          users.forEach((user) => {
-            // Add user if does not exist
-            const userHex = findHex({ x: user.longitude, y: user.latitude });
-            let userMesh = group_users.getObjectByName(user.userId);
-            if (!userMesh && userHex) {
-              userMesh = createUserSprite(userData, userHex);
-              group_users.add(userMesh);
-            }
-            // Get location
-            if (userHex && userMesh && grid.current) {
-              let { x, y } = userHex.center;
-              if (
-                props.showVillage &&
-                calcIsInVillage({ x: userHex.col, y: userHex.row })
-              ) {
-                const hex = grid.current.getHex({
-                  col: VILLAGE_LONG,
-                  row: VILLAGE_LAT,
-                });
-                if (hex) {
-                  x = hex.center.x;
-                  y = hex.center.y;
-                }
+          const groups = groupBy(
+            users.map((user) => ({
+              ...user,
+              group: `${user.latitude},${user.longitude}`,
+            })),
+            "group"
+          );
+          groups.forEach((tileUsers, group) => {
+            tileUsers.forEach((user, i) => {
+              // Add user if does not exist
+              const userHex = findHex({ x: user.longitude, y: user.latitude });
+              let userMesh = group_users.getObjectByName(user.userId);
+              if (!userMesh && userHex) {
+                userMesh = createUserSprite(user, userHex);
+                group_users.add(userMesh);
               }
-              Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
-            }
+              // Get location
+              if (userHex && userMesh && grid.current) {
+                let { x, y } = userHex.center;
+                if (tileUsers.length > 1) {
+                  const angle = (i / tileUsers.length) * 2 * Math.PI;
+                  x += 0.25 * userHex.width * Math.sin(angle);
+                  y -= 0.25 * userHex.height * Math.cos(angle);
+                }
+                if (
+                  props.showVillage &&
+                  calcIsInVillage({ x: userHex.col, y: userHex.row })
+                ) {
+                  const hex = grid.current.getHex({
+                    col: VILLAGE_LONG,
+                    row: VILLAGE_LAT,
+                  });
+                  if (hex) {
+                    x = hex.center.x;
+                    y = hex.center.y;
+                  }
+                }
+                Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
+              }
+            });
           });
+
           // Hide all users who are not in the sector anymore
         }
 
