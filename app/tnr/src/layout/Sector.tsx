@@ -17,6 +17,7 @@ import { calcIsInVillage } from "../libs/travel/controls";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getTileInfo, getBackgroundColor } from "../libs/travel/biome";
 import { defineHex } from "../libs/travel/map";
+import { cleanUp } from "../libs/travel/map";
 import { createUserSprite } from "../libs/travel/map";
 import { PathCalculator } from "../libs/travel/map";
 import { useRequiredUser } from "../utils/UserContext";
@@ -100,8 +101,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData) {
-      console.log("DRAWING THE SCENE AGAIN!");
-
       // Performance monitor
       const stats = Stats();
       document.body.appendChild(stats.dom);
@@ -285,6 +284,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Render the image
+      let animationId = 0;
       function render() {
         // Update the user position if a path is set
         if (userData) {
@@ -352,7 +352,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         controls.update();
 
         // Render the scene
-        requestAnimationFrame(render);
+        animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
         stats.update();
       }
@@ -365,8 +365,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       return () => {
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         window.removeEventListener("resize", handleResize);
-        renderer.dispose();
         mountRef.current = null;
+        cleanUp(scene, renderer);
+        cancelAnimationFrame(animationId);
       };
     }
   }, [props.sector]);

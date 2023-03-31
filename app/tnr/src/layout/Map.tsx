@@ -11,6 +11,7 @@ import {
   type GlobalMapData,
   type GlobalPoint,
 } from "../libs/travel/map";
+import { cleanUp } from "../libs/travel/map";
 import { type HexagonalFaceMesh } from "../libs/travel/map";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/travel/TrackBallControls";
@@ -42,6 +43,8 @@ const Map: React.FC<MapProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current) {
+      console.log("DRAWING MAP");
+
       const stats = Stats();
       document.body.appendChild(stats.dom);
       // Interacivity with mouse
@@ -212,7 +215,9 @@ const Map: React.FC<MapProps> = (props) => {
       }
 
       // Render the image
+      let animationId = 0;
       function render() {
+        console.log("RENDER MAP");
         if (userLocation && userData) {
           const mesh = group_tiles.getObjectByName(`${userData.sector}`);
           (mesh as HexagonalFaceMesh).material.color.setHSL(
@@ -277,7 +282,7 @@ const Map: React.FC<MapProps> = (props) => {
         controls.update();
 
         // Render the scene
-        requestAnimationFrame(render);
+        animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
         stats.update();
       }
@@ -289,6 +294,8 @@ const Map: React.FC<MapProps> = (props) => {
           document.removeEventListener("mousemove", onDocumentMouseMove);
           window.removeEventListener("resize", handleResize);
           mountRef.current = null;
+          cleanUp(scene, renderer);
+          cancelAnimationFrame(animationId);
         };
       }
     }
