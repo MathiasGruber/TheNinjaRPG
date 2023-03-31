@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { type PrismaClient } from "@prisma/client";
-import Pusher from "pusher";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
@@ -12,6 +11,7 @@ import { fetchUserReport } from "./reports";
 import { fetchThread } from "./forum";
 import { canSeeReport } from "../../../validators/reports";
 import { createConversationSchema } from "../../../validators/comments";
+import { getServerPusher } from "../../../libs/pusher";
 import sanitize from "../../../utils/sanitize";
 
 export const commentsRouter = createTRPCRouter({
@@ -365,13 +365,7 @@ export const commentsRouter = createTRPCRouter({
           conversationId: convo.id,
         },
       });
-      const pusher = new Pusher({
-        appId: process.env.PUSHER_APP_ID,
-        key: process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
-        secret: process.env.PUSHER_APP_SECRET,
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-        useTLS: true,
-      });
+      const pusher = getServerPusher();
       await pusher.trigger(convo.id, "event", {
         message: "hello world",
       });

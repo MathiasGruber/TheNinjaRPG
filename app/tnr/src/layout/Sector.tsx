@@ -1,12 +1,13 @@
 import { useRef, useEffect, useState } from "react";
 
-import { type Village } from "@prisma/client";
+import { type Village, type UserData } from "@prisma/client";
 import { Grid, rectangle } from "honeycomb-grid";
 import * as THREE from "three";
 import { Orientation } from "honeycomb-grid";
 import { createNoise2D } from "simplex-noise";
 import alea from "alea";
 import Stats from "three/examples/jsm/libs/stats.module";
+import Pusher from "pusher-js";
 
 import { api } from "../utils/api";
 import { type GlobalTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
@@ -48,6 +49,10 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Data from db
   const { data: userData, refetch: refetchUser } = useRequiredUser();
+  const { data: users } = api.travel.getSectorData.useQuery(
+    { sector: props.sector },
+    { staleTime: Infinity }
+  );
 
   // Convenience calculations
   const isInSector = userData?.sector === props.sector;
@@ -74,13 +79,19 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
-      if (userData && target) {
-        origin.current = findHex({ x: data.longitude, y: data.latitude });
-        setPosition({ x: data.longitude, y: data.latitude });
-        setMoves((prev) => prev + 1);
-        if (data.refetchUser) {
-          await refetchUser();
+      origin.current = findHex({ x: data.longitude, y: data.latitude });
+      if (users) {
+        const idx = users.findIndex((user) => user.userId === data.userId);
+        if (idx !== -1) {
+          users[idx] = data;
+        } else {
+          users.push(data);
         }
+      }
+      setPosition({ x: data.longitude, y: data.latitude });
+      setMoves((prev) => prev + 1);
+      if (data.refetchUser) {
+        await refetchUser();
       }
     },
     onError: (error) => {
@@ -101,7 +112,27 @@ const Sector: React.FC<SectorProps> = (props) => {
   }, [target, userData, moves, move]);
 
   useEffect(() => {
-    if (mountRef.current && userData) {
+    if (mountRef.current && userData && users) {
+      console.log("DRAWING SECTOR");
+      // Websocket connection
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+      });
+      const channel = pusher.subscribe(props.sector.toString());
+      channel.bind("event", (data: UserData) => {
+        if (data.userId !== userData.userId) {
+          const idx = users.findIndex((user) => user.userId === data.userId);
+          if (idx !== -1) {
+            users[idx] = data;
+          } else {
+            users.push(data);
+          }
+        }
+
+        console.log("WEBSOCKET MESSAGE");
+        console.log(users);
+      });
+
       // Performance monitor
       const stats = Stats();
       document.body.appendChild(stats.dom);
@@ -260,12 +291,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       controls.minZoom = 1;
       controls.maxZoom = 2;
 
-      // Add user on map
+      // Set initial position of controls & camera
       if (isInSector && origin.current) {
-        const userMesh = createUserSprite(userData, origin.current);
-        group_users.add(userMesh);
         const { x, y } = origin.current.center;
-        // Set initial position of controls & camera
         controls.target.set(-WIDTH / 2 - x, -HEIGHT / 2 - y, 0);
         camera.position.copy(controls.target);
       }
@@ -290,22 +318,35 @@ const Sector: React.FC<SectorProps> = (props) => {
       let animationId = 0;
       function render() {
         // Update the user position if a path is set
-        if (userData) {
-          const userMesh = group_users.getObjectByName(userData.userId);
-          if (origin.current && grid.current && userMesh) {
-            let { x, y } = origin.current.center;
-            if (
-              props.showVillage &&
-              calcIsInVillage({ x: origin.current.col, y: origin.current.row })
-            ) {
-              const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
-              if (hex) {
-                x = hex.center.x;
-                y = hex.center.y;
-              }
+        if (userData && users) {
+          users.forEach((user) => {
+            // Add user if does not exist
+            const userHex = findHex({ x: user.longitude, y: user.latitude });
+            let userMesh = group_users.getObjectByName(user.userId);
+            if (!userMesh && userHex) {
+              userMesh = createUserSprite(userData, userHex);
+              group_users.add(userMesh);
             }
-            Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
-          }
+            // Get location
+            if (userHex && userMesh && grid.current) {
+              let { x, y } = userHex.center;
+              if (
+                props.showVillage &&
+                calcIsInVillage({ x: userHex.col, y: userHex.row })
+              ) {
+                const hex = grid.current.getHex({
+                  col: VILLAGE_LONG,
+                  row: VILLAGE_LAT,
+                });
+                if (hex) {
+                  x = hex.center.x;
+                  y = hex.center.y;
+                }
+              }
+              Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
+            }
+          });
+          // Hide all users who are not in the sector anymore
         }
 
         // Use raycaster to detect mouse intersections
@@ -366,15 +407,16 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Remove the mouseover listener
       return () => {
-        mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         window.removeEventListener("resize", handleResize);
+        mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current = null;
+        pusher.unsubscribe(props.sector.toString());
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
         void refetchUser();
       };
     }
-  }, [props.sector]);
+  }, [props.sector, users]);
 
   return (
     <>

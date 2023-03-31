@@ -9,9 +9,38 @@ import { isAtEdge } from "../../../libs/travel/controls";
 import { type GlobalMapData } from "../../../libs/travel/map";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "../../../utils/time";
+import { getServerPusher } from "../../../libs/pusher";
 import * as map from "../../../../public/map/hexasphere.json";
 
 export const travelRouter = createTRPCRouter({
+  // Get users within a given sector
+  getSectorData: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .query(async ({ input, ctx }) => {
+      const userData = await fetchUser(ctx.prisma, ctx.session.user.id);
+      if (userData.sector !== input.sector) {
+        throw serverError("FORBIDDEN", `You are not in sector ${input.sector}`);
+      }
+      const users = await ctx.prisma.userData.findMany({
+        where: {
+          sector: input.sector,
+          OR: [
+            { updatedAt: { gt: secondsFromNow(-300) } },
+            { userId: ctx.session.user.id },
+          ],
+        },
+        select: {
+          userId: true,
+          username: true,
+          longitude: true,
+          latitude: true,
+          cur_health: true,
+          sector: true,
+          avatar: true,
+        },
+      });
+      return users;
+    }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
@@ -35,7 +64,8 @@ export const travelRouter = createTRPCRouter({
         map as unknown as GlobalMapData
       );
       const endTime = secondsFromNow(travelTime);
-      return await ctx.prisma.userData.update({
+      // Update database
+      const newUserData = await ctx.prisma.userData.update({
         where: { userId: ctx.session.user.id },
         data: {
           sector: input.sector,
@@ -43,6 +73,11 @@ export const travelRouter = createTRPCRouter({
           travelFinishAt: endTime,
         },
       });
+      // Update over websockets
+      const pusher = getServerPusher();
+      void pusher.trigger(userData.sector.toString(), "event", newUserData);
+      // Return new userdata
+      return newUserData;
     }),
   // Finish travel on the globe
   finishGlobalMove: protectedProcedure.mutation(async ({ ctx }) => {
@@ -90,7 +125,7 @@ export const travelRouter = createTRPCRouter({
         Math.abs(userData.longitude - longitude),
         Math.abs(userData.latitude - latitude)
       );
-      const output = { ...input, refetchUser: false };
+      const output = { ...userData, longitude, latitude, refetchUser: false };
       if (distance === 0) {
         return output;
       } else if (distance === 1) {
@@ -102,11 +137,22 @@ export const travelRouter = createTRPCRouter({
         if (village && calcIsInVillage({ x: longitude, y: latitude })) {
           location = `${village.name} Village`;
         }
-        if (location !== userData.location) output.refetchUser = true;
+        if (location !== userData.location) {
+          output.refetchUser = true;
+          output.location = location;
+        }
         // Update user
         await ctx.prisma.userData.update({
           where: { userId: ctx.session.user.id },
           data: { longitude, latitude, location },
+        });
+        // Push websockets message
+        const pusher = getServerPusher();
+        void pusher.trigger(userData.sector.toString(), "event", {
+          ...userData,
+          longitude,
+          latitude,
+          location,
         });
         return output;
       } else {
@@ -122,6 +168,10 @@ export const fetchUser = async (client: PrismaClient, id: string) => {
   const userData = await client.userData.findUniqueOrThrow({
     where: { userId: id },
     select: {
+      userId: true,
+      username: true,
+      avatar: true,
+      cur_health: true,
       longitude: true,
       latitude: true,
       location: true,
