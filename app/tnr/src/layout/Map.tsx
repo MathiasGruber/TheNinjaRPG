@@ -43,8 +43,6 @@ const Map: React.FC<MapProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current) {
-      console.log("DRAWING MAP");
-
       const stats = Stats();
       document.body.appendChild(stats.dom);
       // Interacivity with mouse
@@ -217,7 +215,6 @@ const Map: React.FC<MapProps> = (props) => {
       // Render the image
       let animationId = 0;
       function render() {
-        console.log("RENDER MAP");
         if (userLocation && userData) {
           const mesh = group_tiles.getObjectByName(`${userData.sector}`);
           (mesh as HexagonalFaceMesh).material.color.setHSL(
@@ -289,15 +286,16 @@ const Map: React.FC<MapProps> = (props) => {
       render();
 
       // Remove the intersection listener
-      if (props.intersection) {
-        return () => {
+
+      return () => {
+        if (props.intersection) {
           document.removeEventListener("mousemove", onDocumentMouseMove);
-          window.removeEventListener("resize", handleResize);
-          mountRef.current = null;
-          cleanUp(scene, renderer);
-          cancelAnimationFrame(animationId);
-        };
-      }
+        }
+        window.removeEventListener("resize", handleResize);
+        mountRef.current = null;
+        cleanUp(scene, renderer);
+        cancelAnimationFrame(animationId);
+      };
     }
   }, [props.highlights, props.intersection]);
 

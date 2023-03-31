@@ -55,6 +55,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Background color for the map
   const { color } = getBackgroundColor(props.tile);
 
+  // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
       const bounding_box = mountRef.current.getBoundingClientRect();
@@ -74,12 +75,12 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
       if (userData && target) {
-        setPosition({ x: data.longitude, y: data.latitude });
         origin.current = findHex({ x: data.longitude, y: data.latitude });
+        setPosition({ x: data.longitude, y: data.latitude });
+        setMoves((prev) => prev + 1);
         if (data.refetchUser) {
           await refetchUser();
         }
-        setMoves((prev) => prev + 1);
       }
     },
     onError: (error) => {
@@ -219,10 +220,12 @@ const Sector: React.FC<SectorProps> = (props) => {
       group_assets.children.sort((a, b) => b.position.y - a.position.y);
 
       // Set the origin
-      origin.current = grid?.current?.getHex({
-        col: userData.longitude,
-        row: userData.latitude,
-      });
+      if (!origin.current) {
+        origin.current = grid?.current?.getHex({
+          col: userData.longitude,
+          row: userData.latitude,
+        });
+      }
 
       // Add village in this sector
       if (props.showVillage) {
@@ -368,6 +371,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         mountRef.current = null;
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
+        void refetchUser();
       };
     }
   }, [props.sector]);

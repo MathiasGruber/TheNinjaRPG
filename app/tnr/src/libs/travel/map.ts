@@ -170,13 +170,14 @@ export class PathCalculator {
   };
 }
 
+/**
+ * Cleanup three.js scene and renderer, removing all objects, materials and geometries
+ */
 export const cleanUp = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => {
   scene.traverse(function (object) {
     if ("isMesh" in object || "isSprite" in object || "isLine" in object) {
       if ("material" in object) (object.material as THREE.Material).dispose();
       if ("geometry" in object) (object.geometry as THREE.BufferGeometry).dispose();
-    } else {
-      console.log("DISPOSE: ", object);
     }
   });
   renderer.dispose();
