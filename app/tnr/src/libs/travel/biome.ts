@@ -132,7 +132,7 @@ const getMapSprite = (
     const posX = -x + w / 2 + (prng() - 0.5) * h;
     const posY = -y + h / 2 + (prng() - 0.5) * h;
     Object.assign(sprite.scale, new THREE.Vector3(h, h, 1));
-    Object.assign(sprite.position, new THREE.Vector3(posX, posY, 2));
+    Object.assign(sprite.position, new THREE.Vector3(posX, posY, -8));
   });
   // Sort so the ones with the highest y's are last
   sprites.sort((a, b) => a.position.y - b.position.y);

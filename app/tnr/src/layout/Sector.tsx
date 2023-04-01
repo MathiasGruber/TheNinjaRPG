@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 
+import { useRouter } from "next/router";
 import { type Village, type UserData } from "@prisma/client";
 import { Grid, rectangle } from "honeycomb-grid";
 import * as THREE from "three";
@@ -54,6 +55,9 @@ const Sector: React.FC<SectorProps> = (props) => {
     { sector: props.sector },
     { staleTime: Infinity }
   );
+
+  // Router for forwarding
+  const router = useRouter();
 
   // Convenience calculations
   const isInSector = userData?.sector === props.sector;
@@ -119,7 +123,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && users) {
-      console.log("DRAWING SECTOR");
       // Websocket connection
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
@@ -168,16 +171,17 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Setup scene and camara
       const scene = new THREE.Scene();
-      const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 0);
+      console.log("WIDTH: ", WIDTH, "HEIGHT: ", HEIGHT);
+      const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
       camera.zoom = 2;
       camera.updateProjectionMatrix();
 
-      // Mouse intersections
-      let intersected: HexagonalFaceMesh | undefined = undefined;
-
       // Store current highlights and create a path calculator object
       pathFinder.current = new PathCalculator(grid.current);
+
+      // Intersections & highlights from interactions
       let highlights = new Set<string>();
+      let userTooltips = new Set<string>();
 
       // Renderer the canvas
       const renderer = new THREE.WebGLRenderer();
@@ -209,11 +213,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
       const lineMaterial = new THREE.LineBasicMaterial({ color: 0x555555 });
 
-      // Create hexagonal tile
-      // const vertices = new Float32Array(
-      //   points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, 0] : []))
-      // );
-
       grid.current.forEach((tile) => {
         if (tile) {
           const { material, sprites } = getTileInfo(prng, tile, props.tile);
@@ -224,11 +223,12 @@ const Sector: React.FC<SectorProps> = (props) => {
           const geometry = new THREE.BufferGeometry();
           const corners = tile.corners;
           const vertices = new Float32Array(
-            points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, 0] : []))
+            points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
           );
           geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
           const mesh = new THREE.Mesh(geometry, material?.clone());
           mesh.name = `${tile.row},${tile.col}`;
+          mesh.userData.type = "tile";
           mesh.userData.tile = tile;
           mesh.userData.hex = material?.color.getHex();
           mesh.userData.highlight = false;
@@ -266,7 +266,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           const graphicMat = new THREE.SpriteMaterial({ map: graphic });
           const graphicSprite = new THREE.Sprite(graphicMat);
           Object.assign(graphicSprite.scale, new THREE.Vector3(h * 2.2, h * 2.2, 1));
-          Object.assign(graphicSprite.position, new THREE.Vector3(x, y, 2));
+          Object.assign(graphicSprite.position, new THREE.Vector3(x, y, -7));
           group_assets.add(graphicSprite);
           // Village text
           const text = new THREE.TextureLoader().load(
@@ -275,7 +275,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           const textMat = new THREE.SpriteMaterial({ map: text });
           const textSprite = new THREE.Sprite(textMat);
           Object.assign(textSprite.scale, new THREE.Vector3(h * 1.5, h * 0.5, 1));
-          Object.assign(textSprite.position, new THREE.Vector3(x, y + h, 2));
+          Object.assign(textSprite.position, new THREE.Vector3(x, y + h, -7));
           group_assets.add(textSprite);
         }
       }
@@ -285,7 +285,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       controls.enableRotate = false;
       controls.zoomSpeed = 1.0;
       controls.minZoom = 1;
-      controls.maxZoom = 2;
+      controls.maxZoom = 3;
 
       // Set initial position of controls & camera
       if (isInSector && origin.current) {
@@ -303,16 +303,37 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Capture clicks to update move direction
       const onClick = () => {
         const intersects = raycaster.intersectObjects(scene.children);
-        if (intersects.length > 0) {
-          const target = (intersects?.[0]?.object as HexagonalFaceMesh).userData.tile;
-          setTarget({ x: target.col, y: target.row });
-        }
+        intersects.every((intersect) => {
+          console.log(intersect.object);
+          if (intersect.object.userData.type === "tile") {
+            const target = intersect.object.userData.tile as TerrainHex;
+            setTarget({ x: target.col, y: target.row });
+            return false;
+          } else if (intersect.object.userData.type === "attack") {
+            console.log("ATTACK", intersect.object.userData.userId);
+            return false;
+          } else if (intersect.object.userData.type === "info") {
+            const userId = intersect.object.userData.userId as string;
+            void router.push(`/users/${userId}`);
+            return false;
+          }
+          return true;
+        });
       };
       renderer.domElement.addEventListener("click", onClick, true);
+
+      // Add some more users for testing
+      // for (let i = 0; i < 32; i++) {
+      //   users.push({ ...users[0], userId: i });
+      // }
+      // console.log(users);
 
       // Render the image
       let animationId = 0;
       function render() {
+        // Use raycaster to detect mouse intersections
+        raycaster.setFromCamera(mouse, camera);
+
         // Update the user position if a path is set
         if (userData && users) {
           const groups = groupBy(
@@ -348,7 +369,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                   if (hex) {
                     x = hex.center.x;
                     y = hex.center.y;
-                    spread = 0.75;
+                    spread = 0.25;
                   }
                 }
                 if (tileUsers.length > 1) {
@@ -360,24 +381,40 @@ const Sector: React.FC<SectorProps> = (props) => {
               }
             });
           });
-
+          group_users.children.sort((a, b) => b.position.y - a.position.y);
           // Hide all users who are not in the sector anymore
         }
 
-        // Use raycaster to detect mouse intersections
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(scene.children);
-        if (intersects.length > 0) {
-          if (intersects[0] && intersects[0].object != intersected) {
-            intersected = intersects[0].object as HexagonalFaceMesh;
+        // Detect intersections with users for tooltips
+        const newUserTooltips = new Set<string>();
+        const userIntersects = raycaster.intersectObjects(group_users.children);
+        if (userIntersects.length > 0) {
+          const user = userIntersects[0]?.object.parent;
+          if (user && user.userData.type === "user") {
+            const attack = user?.children[2] as THREE.Sprite;
+            const info = user?.children[3] as THREE.Sprite;
+            if (attack) attack.visible = true;
+            if (info) info.visible = true;
+            newUserTooltips.add(user.name);
+            userTooltips.add(user.name);
           }
-        } else {
-          intersected = undefined;
         }
+        userTooltips.forEach((userId) => {
+          if (!newUserTooltips.has(userId)) {
+            const user = group_users.getObjectByName(userId);
+            if (user) {
+              (user?.children[2] as THREE.Sprite).visible = false;
+              (user?.children[3] as THREE.Sprite).visible = false;
+            }
+          }
+        });
+        userTooltips = newUserTooltips;
 
-        // If any intersections
+        // Detect intersections with tiles for movement
+        const intersects = raycaster.intersectObjects(group_tiles.children);
         const newHighlights = new Set<string>();
-        if (intersected && userData) {
+        if (intersects.length > 0 && intersects[0]) {
+          const intersected = intersects[0].object as HexagonalFaceMesh;
           // Fetch the shortest path on the map using A*
           const target = intersected.userData.tile;
           const shortestPath =

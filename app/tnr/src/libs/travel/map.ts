@@ -108,7 +108,7 @@ export const createUserSprite = (
   const markerMat = new THREE.SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new THREE.Sprite(markerMat);
   Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 1));
-  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.8, 2));
+  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.8, -6));
   group.add(markerSprite);
 
   // Avatar Sprite
@@ -119,11 +119,35 @@ export const createUserSprite = (
   const material = new THREE.SpriteMaterial({ map: map, alphaMap: alphaMap });
   const sprite = new THREE.Sprite(material);
   Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
-  Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 0.9, 2));
+  Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 0.9, -5));
   group.add(sprite);
+
+  // Attack button
+  const attack = new THREE.TextureLoader().load("map/attack.png");
+  const attackMat = new THREE.SpriteMaterial({ map: attack });
+  const attackSprite = new THREE.Sprite(attackMat);
+  attackSprite.visible = false;
+  attackSprite.userData.userId = userData.userId;
+  attackSprite.userData.type = "attack";
+  Object.assign(attackSprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
+  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.3, -4));
+  group.add(attackSprite);
+
+  // Info button
+  const info = new THREE.TextureLoader().load("map/info.png");
+  const infoMat = new THREE.SpriteMaterial({ map: info });
+  const infoSprite = new THREE.Sprite(infoMat);
+  infoSprite.visible = false;
+  infoSprite.userData.userId = userData.userId;
+  infoSprite.userData.type = "info";
+  Object.assign(infoSprite.scale, new THREE.Vector3(h * 0.7, h * 0.7, 1));
+  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.3, -4));
+  group.add(infoSprite);
 
   // Name
   group.name = userData.userId;
+  group.userData.type = "user";
+  group.userData.userId = userData.userId;
 
   //sprite.scale.set(0.5, 0.5, 0.5);
   //sprite.name = userData.username;
