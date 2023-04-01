@@ -325,13 +325,13 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Add some more users for testing
-      for (let i = 0; i < 3; i++) {
-        users.push({ ...users[0], userId: i });
-      }
-      // console.log(users);
-      const hex = findHex({ x: userData?.longitude, y: userData?.latitude });
-      const multiple = createMultipleUserSprite(10, "test", hex);
-      scene.add(multiple);
+      // for (let i = 0; i < 3; i++) {
+      //   users.push({ ...users[0], userId: i });
+      // }
+      // // console.log(users);
+      // const hex = findHex({ x: userData?.longitude, y: userData?.latitude });
+      // const multiple = createMultipleUserSprite(10, "test", hex);
+      // scene.add(multiple);
 
       // Render the image
       let lastTime = Date.now();
