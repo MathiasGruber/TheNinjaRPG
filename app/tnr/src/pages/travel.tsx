@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { type NextPage } from "next";
 import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
 
+import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 import Sector from "../layout/Sector";
 import ContentBox from "../layout/ContentBox";
@@ -140,6 +141,7 @@ const Travel: NextPage = () => {
           setPosition={setCurrentPosition}
         />
       )}
+      {!villages && <Loader explanation="Loading data" />}
       {showModal && globe && userData && targetSector && (
         <Modal
           title="World Travel"
