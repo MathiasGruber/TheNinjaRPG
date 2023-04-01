@@ -20,11 +20,12 @@ import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getTileInfo, getBackgroundColor } from "../libs/travel/biome";
 import { defineHex } from "../libs/travel/map";
 import { cleanUp } from "../libs/travel/map";
-import { createUserSprite } from "../libs/travel/map";
+import { createUserSprite, createMultipleUserSprite } from "../libs/travel/map";
 import { PathCalculator } from "../libs/travel/map";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 import { groupBy } from "../utils/grouping";
+import { getUnique } from "../utils/grouping";
 
 interface SectorProps {
   sector: number;
@@ -304,7 +305,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       const onClick = () => {
         const intersects = raycaster.intersectObjects(scene.children);
         intersects.every((intersect) => {
-          console.log(intersect.object);
           if (intersect.object.userData.type === "tile") {
             const target = intersect.object.userData.tile as TerrainHex;
             setTarget({ x: target.col, y: target.row });
@@ -325,13 +325,18 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Add some more users for testing
-      // for (let i = 0; i < 32; i++) {
-      //   users.push({ ...users[0], userId: i });
-      // }
+      for (let i = 0; i < 3; i++) {
+        users.push({ ...users[0], userId: i });
+      }
       // console.log(users);
+      const hex = findHex({ x: userData?.longitude, y: userData?.latitude });
+      const multiple = createMultipleUserSprite(10, "test", hex);
+      scene.add(multiple);
 
       // Render the image
+      let lastTime = Date.now();
       let animationId = 0;
+      let phi = 0;
       function render() {
         // Use raycaster to detect mouse intersections
         raycaster.setFromCamera(mouse, camera);
@@ -359,7 +364,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               // Get location
               if (userHex && userMesh && grid.current) {
                 let { x, y } = userHex.center;
-                let spread = 0.25;
+                let spread = 0.1;
                 if (
                   props.showVillage &&
                   calcIsInVillage({ x: userHex.col, y: userHex.row })
@@ -371,11 +376,14 @@ const Sector: React.FC<SectorProps> = (props) => {
                   if (hex) {
                     x = hex.center.x;
                     y = hex.center.y;
-                    spread = 0.25;
+                    spread = 0.1;
                   }
                 }
+                const dt = Date.now() - lastTime;
+                phi += (1 * Math.PI) / (5000 / dt);
+                lastTime = Date.now();
                 if (tileUsers.length > 1) {
-                  const angle = (i / tileUsers.length) * 2 * Math.PI;
+                  const angle = (i / tileUsers.length) * 2 * Math.PI + phi;
                   x += spread * userHex.width * Math.sin(angle);
                   y -= spread * userHex.height * Math.cos(angle);
                 }
@@ -387,15 +395,28 @@ const Sector: React.FC<SectorProps> = (props) => {
           // Hide all users who are not in the sector anymore
         }
 
-        // Detect intersections with users for tooltips
+        // Detect intersections with users for tooltips with attack/info
+        // If more than one user intersected, do not show
         const newUserTooltips = new Set<string>();
         const userIntersects = raycaster.intersectObjects(group_users.children);
         if (userIntersects.length > 0) {
-          const user = userIntersects[0]?.object.parent;
-          if (user && user.userData.type === "user") {
+          // How many users are we intersecting here?
+          const userGroups = getUnique(
+            userIntersects
+              .filter(
+                (i) =>
+                  i.object?.parent?.userData.userId !== undefined &&
+                  i.object?.parent?.userData.type === "user"
+              )
+              .map((i) => i.object.parent as THREE.Group),
+            "name"
+          );
+          const user = userGroups[0];
+          if (userGroups.length === 1 && user) {
+            const userId = user.userData.userId as string;
             const attack = user?.children[2] as THREE.Sprite;
             const info = user?.children[3] as THREE.Sprite;
-            if (attack) attack.visible = true;
+            if (attack && userData?.userId !== userId) attack.visible = true;
             if (info) info.visible = true;
             newUserTooltips.add(user.name);
             userTooltips.add(user.name);

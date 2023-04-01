@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { type NextPage } from "next";
+import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
 
 import Map from "../layout/Map";
 import Sector from "../layout/Sector";
@@ -21,6 +22,7 @@ import { type GlobalTile, type SectorPoint } from "../libs/travel/map";
 const Travel: NextPage = () => {
   // What is shown on this page
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
@@ -35,7 +37,9 @@ const Travel: NextPage = () => {
 
   // Data from database
   const { data: userData, refetch: refetchUser } = useRequiredUser();
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+  });
 
   // Sector tab link
   const sectorLink = currentSector
@@ -99,11 +103,19 @@ const Travel: NextPage = () => {
       }
       padding={false}
       topRightContent={
-        <NavTabs
-          current={activeTab}
-          options={[sectorLink, "Global"]}
-          setValue={setActiveTab}
-        />
+        <div className="flex flex-row items-center">
+          {activeTab === sectorLink && (
+            <MagnifyingGlassCircleIcon
+              className={`h-5 w-5 ${showSorrounding ? "fill-orange-500" : ""}`}
+              onClick={() => setShowSorrounding((prev) => !prev)}
+            />
+          )}
+          <NavTabs
+            current={activeTab}
+            options={[sectorLink, "Global"]}
+            setValue={setActiveTab}
+          />
+        </div>
       }
     >
       {villages && globe && isGlobal && (
