@@ -107,8 +107,9 @@ export const createUserSprite = (
   const marker = new THREE.TextureLoader().load("map/userMarker.webp");
   const markerMat = new THREE.SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new THREE.Sprite(markerMat);
+  markerSprite.userData.type = "marker";
   Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 1));
-  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.8, -6));
+  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.9, -6));
   group.add(markerSprite);
 
   // Avatar Sprite
@@ -119,7 +120,7 @@ export const createUserSprite = (
   const material = new THREE.SpriteMaterial({ map: map, alphaMap: alphaMap });
   const sprite = new THREE.Sprite(material);
   Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
-  Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 0.9, -5));
+  Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 1.0, -5));
   group.add(sprite);
 
   // Attack button
@@ -130,7 +131,7 @@ export const createUserSprite = (
   attackSprite.userData.userId = userData.userId;
   attackSprite.userData.type = "attack";
   Object.assign(attackSprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
-  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.3, -4));
+  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.4, -4));
   group.add(attackSprite);
 
   // Info button
@@ -141,7 +142,7 @@ export const createUserSprite = (
   infoSprite.userData.userId = userData.userId;
   infoSprite.userData.type = "info";
   Object.assign(infoSprite.scale, new THREE.Vector3(h * 0.7, h * 0.7, 1));
-  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.3, -4));
+  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.4, -4));
   group.add(infoSprite);
 
   // Name

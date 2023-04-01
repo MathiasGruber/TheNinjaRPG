@@ -316,6 +316,8 @@ const Sector: React.FC<SectorProps> = (props) => {
             const userId = intersect.object.userData.userId as string;
             void router.push(`/users/${userId}`);
             return false;
+          } else if (intersect.object.userData.type === "marker") {
+            return false;
           }
           return true;
         });
