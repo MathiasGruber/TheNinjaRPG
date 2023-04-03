@@ -1,4 +1,4 @@
-import { type SectorPoint, type GlobalMapData } from "./map";
+import { type SectorPoint, type GlobalMapData } from "./sector";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 

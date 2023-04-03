@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge } from "../../../libs/travel/controls";
-import { type GlobalMapData } from "../../../libs/travel/map";
+import { type GlobalMapData } from "../../../libs/travel/types";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";

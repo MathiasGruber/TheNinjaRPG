@@ -1,64 +1,21 @@
 import * as THREE from "three";
-import { type Grid, Hex, ring } from "honeycomb-grid";
+import { createNoise2D } from "simplex-noise";
+import { Grid, ring, rectangle } from "honeycomb-grid";
 import { type BoundingBox, type Ellipse } from "honeycomb-grid";
-import { type Orientation, type Point } from "honeycomb-grid";
+import { Orientation, type Point } from "honeycomb-grid";
 import { type HexOffset, type HexOptions } from "honeycomb-grid";
 import { defaultHexSettings } from "honeycomb-grid";
 import { createHexDimensions } from "honeycomb-grid";
 import { createHexOrigin } from "honeycomb-grid";
 import { aStar } from "abstract-astar";
-
-type NonEmptyArray<T> = T[] & { 0: T };
-
-export interface GlobalPoint {
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface GlobalTile {
-  b: NonEmptyArray<GlobalPoint>; // boundary
-  c: GlobalPoint; // centerPoint
-  t: number; // 0=ocean, 1=land, 2=desert
-}
-
-export interface SectorPoint {
-  x: number;
-  y: number;
-}
-
-export interface HexagonalFaceMesh extends THREE.Mesh {
-  currentHex: number;
-  material: THREE.MeshBasicMaterial;
-  userData: {
-    id: number;
-    hex: number;
-    tile: TerrainHex;
-    highlight: boolean;
-  };
-}
-
-export interface GlobalMapData {
-  radius: number;
-  tiles: NonEmptyArray<GlobalTile>;
-}
-
-/**
- * Fetches the map data from the server.
- */
-export const fetchMap = async () => {
-  const response = await fetch("map/hexasphere.json");
-  const hexasphere = await response.json().then((data) => data as GlobalMapData);
-  return hexasphere;
-};
+import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
+import { TerrainHex, type GlobalTile } from "./types";
+import { getTileInfo } from "./biome";
+import { calcIsInVillage } from "./controls";
 
 /**
  * Hexagonal tile used by honeycomb.js
  */
-export class TerrainHex extends Hex {
-  level!: number;
-  cost!: number;
-}
 export function defineHex(hexOptions?: Partial<HexOptions>): typeof TerrainHex {
   const { dimensions, orientation, origin, offset } = {
     ...defaultHexSettings,
@@ -83,6 +40,87 @@ export function defineHex(hexOptions?: Partial<HexOptions>): typeof TerrainHex {
     }
   };
 }
+
+/**
+ * Creates heaxognal grid & draw it using Three.js. Return groups of objects drawn
+ */
+export const createSectorBackground = (
+  width: number,
+  prng: () => number,
+  hasVillage: boolean,
+  globalTile: GlobalTile
+) => {
+  // Calculate hex size
+  const stackingDisplacement = 1.31;
+  const hexsize = (width / SECTOR_WIDTH / 2) * stackingDisplacement;
+
+  // Used for procedural map generation
+  const noiseGen = createNoise2D(prng);
+
+  // Create the grid first
+  const Tile = defineHex({
+    dimensions: hexsize,
+    origin: { x: -hexsize, y: -hexsize },
+    orientation: Orientation.FLAT,
+  });
+  const honeycombGrid = new Grid(
+    Tile,
+    rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT })
+  ).map((tile) => {
+    const nx = tile.col / SECTOR_WIDTH - 0.5;
+    const ny = tile.row / SECTOR_HEIGHT - 0.5;
+    tile.level = noiseGen(nx, ny) / 2 + 0.5;
+    tile.cost = 1;
+    return tile;
+  });
+
+  // Groups for organizing objects
+  const group_tiles = new THREE.Group();
+  const group_edges = new THREE.Group();
+  const group_assets = new THREE.Group();
+
+  // Hex points
+  const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
+
+  // Line material to use for edges
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x555555 });
+
+  // Draw the tiles
+  honeycombGrid.forEach((tile) => {
+    if (tile) {
+      const { material, sprites } = getTileInfo(prng, tile, globalTile);
+      if (!hasVillage || !calcIsInVillage({ x: tile.col, y: tile.row })) {
+        sprites.map((sprite) => group_assets.add(sprite));
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      const corners = tile.corners;
+      const vertices = new Float32Array(
+        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
+      );
+      geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+      const mesh = new THREE.Mesh(geometry, material?.clone());
+      mesh.name = `${tile.row},${tile.col}`;
+      mesh.userData.type = "tile";
+      mesh.userData.tile = tile;
+      mesh.userData.hex = material?.color.getHex();
+      mesh.userData.highlight = false;
+      mesh.matrixAutoUpdate = false;
+      group_tiles.add(mesh);
+
+      const edges = new THREE.EdgesGeometry(geometry);
+      edges.translate(0, 0, 1);
+      const edgeMesh = new THREE.Line(edges, lineMaterial);
+      edgeMesh.matrixAutoUpdate = false;
+      group_edges.add(edgeMesh);
+    }
+  });
+
+  // Reverse the order of objects in the group_assets
+  group_assets.children.sort((a, b) => b.position.y - a.position.y);
+
+  return { group_tiles, group_edges, group_assets, honeycombGrid };
+};
 
 /**
  * User sprite, which loads the avatar image and displays the health bar as a Three.js sprite
@@ -242,16 +280,3 @@ export class PathCalculator {
     return shortestPath;
   };
 }
-
-/**
- * Cleanup three.js scene and renderer, removing all objects, materials and geometries
- */
-export const cleanUp = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => {
-  scene.traverse(function (object) {
-    if ("isMesh" in object || "isSprite" in object || "isLine" in object) {
-      if ("material" in object) (object.material as THREE.Material).dispose();
-      if ("geometry" in object) (object.geometry as THREE.BufferGeometry).dispose();
-    }
-  });
-  renderer.dispose();
-};

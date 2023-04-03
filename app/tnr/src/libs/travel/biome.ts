@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { type TerrainHex, type GlobalTile } from "./map";
+import { type TerrainHex, type GlobalTile } from "./sector";
 
 /**
  * Map materials & colors

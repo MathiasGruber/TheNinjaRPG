@@ -10,7 +10,7 @@ import NavTabs from "../layout/NavTabs";
 import Modal from "../layout/Modal";
 import Countdown from "../layout/Countdown";
 
-import { fetchMap } from "../libs/travel/map";
+import { fetchMap } from "../libs/travel/globe";
 import { api } from "../utils/api";
 import {
   isAtEdge,
@@ -18,7 +18,7 @@ import {
   calcGlobalTravelTime,
 } from "../libs/travel/controls";
 import { useRequiredUser } from "../utils/UserContext";
-import { type GlobalTile, type SectorPoint } from "../libs/travel/map";
+import { type GlobalTile, type SectorPoint } from "../libs/travel/types";
 
 const Travel: NextPage = () => {
   // What is shown on this page

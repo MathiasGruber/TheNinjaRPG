@@ -2,30 +2,30 @@ import { useRef, useEffect, useState } from "react";
 
 import { useRouter } from "next/router";
 import { type Village, type UserData } from "@prisma/client";
-import { Grid, rectangle } from "honeycomb-grid";
+import { type Grid } from "honeycomb-grid";
 import * as THREE from "three";
-import { Orientation } from "honeycomb-grid";
-import { createNoise2D } from "simplex-noise";
 import alea from "alea";
 import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
 
 import { api } from "../utils/api";
-import { type GlobalTile, type TerrainHex, type SectorPoint } from "../libs/travel/map";
-import { type HexagonalFaceMesh } from "../libs/travel/map";
-import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../libs/travel/constants";
+import {
+  type GlobalTile,
+  type TerrainHex,
+  type SectorPoint,
+  type HexagonalFaceMesh,
+} from "../libs/travel/types";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../libs/travel/constants";
 import { calcIsInVillage } from "../libs/travel/controls";
 import { OrbitControls } from "../libs/travel/OrbitControls";
-import { getTileInfo, getBackgroundColor } from "../libs/travel/biome";
-import { defineHex } from "../libs/travel/map";
-import { cleanUp } from "../libs/travel/map";
-import { createUserSprite, createMultipleUserSprite } from "../libs/travel/map";
-import { PathCalculator } from "../libs/travel/map";
+import { getBackgroundColor } from "../libs/travel/biome";
+import { cleanUp, setupScene } from "../libs/travel/util";
+import { createUserSprite, createMultipleUserSprite } from "../libs/travel/sector";
+import { createSectorBackground } from "../libs/travel/sector";
+import { PathCalculator } from "../libs/travel/sector";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 import { groupBy } from "../utils/grouping";
-import { getUnique } from "../utils/grouping";
 
 interface SectorProps {
   sector: number;
@@ -124,6 +124,13 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && users) {
+      // Used for map size calculations
+      const hexagonLengthToWidth = 0.885;
+
+      // Map size
+      const WIDTH = mountRef.current.getBoundingClientRect().width;
+      const HEIGHT = WIDTH * hexagonLengthToWidth;
+
       // Websocket connection
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
@@ -140,42 +147,35 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Mouse move listener
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
 
-      // Used for map size calculations
-      const hexagonLengthToWidth = 0.885;
-      const stackingDisplacement = 1.31;
-
-      // Map size
-      const WIDTH = mountRef.current.getBoundingClientRect().width;
-      const HEIGHT = WIDTH * hexagonLengthToWidth;
-      const HEXSIZE = (WIDTH / SECTOR_WIDTH / 2) * stackingDisplacement;
-
       // Seeded noise generator for map gen
       const prng = alea(props.sector + 1);
-      const noiseGen = createNoise2D(prng);
 
-      // Defined sector grid
-      const Tile = defineHex({
-        dimensions: HEXSIZE,
-        origin: { x: -HEXSIZE, y: -HEXSIZE },
-        orientation: Orientation.FLAT,
+      // Setup scene, renderer and raycaster
+      const { scene, renderer, raycaster, handleResize } = setupScene({
+        mountRef: mountRef,
+        width: WIDTH,
+        height: HEIGHT,
+        sortObjects: false,
+        color: color,
+        colorAlpha: 1,
+        width2height: hexagonLengthToWidth,
       });
-      grid.current = new Grid(
-        Tile,
-        rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT })
-      ).map((tile) => {
-        const nx = tile.col / SECTOR_WIDTH - 0.5;
-        const ny = tile.row / SECTOR_HEIGHT - 0.5;
-        tile.level = noiseGen(nx, ny) / 2 + 0.5;
-        tile.cost = 1;
-        return tile;
-      });
+      mountRef.current.appendChild(renderer.domElement);
 
-      // Setup scene and camara
-      const scene = new THREE.Scene();
-      console.log("WIDTH: ", WIDTH, "HEIGHT: ", HEIGHT);
+      // Setup camara
       const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
       camera.zoom = 2;
       camera.updateProjectionMatrix();
+
+      // Draw the map
+      const { group_tiles, group_edges, group_assets, honeycombGrid } =
+        createSectorBackground(
+          WIDTH,
+          prng,
+          props.showVillage !== undefined,
+          props.tile
+        );
+      grid.current = honeycombGrid;
 
       // Store current highlights and create a path calculator object
       pathFinder.current = new PathCalculator(grid.current);
@@ -185,68 +185,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       let userTooltips = new Set<string>();
       let userCounters = new Set<string>();
 
-      // Renderer the canvas
-      const renderer = new THREE.WebGLRenderer();
-      const raycaster = new THREE.Raycaster();
-      renderer.setSize(WIDTH, HEIGHT);
-      renderer.setClearColor(color, 1);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = false;
-      renderer.sortObjects = false;
-      mountRef.current.appendChild(renderer.domElement);
-
-      // Window size listener
-      function handleResize() {
-        if (mountRef.current) {
-          const WIDTH = mountRef.current.getBoundingClientRect().width;
-          const HEIGHT = WIDTH * hexagonLengthToWidth;
-          renderer.setSize(WIDTH, HEIGHT);
-        }
-      }
-      window.addEventListener("resize", handleResize);
-
-      // Create the hexagonal map
-      const group_tiles = new THREE.Group();
-      const group_edges = new THREE.Group();
+      // Three.js groups for organization
       const group_users = new THREE.Group();
-      const group_assets = new THREE.Group();
-
-      // Draw the map
-      const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x555555 });
-
-      grid.current.forEach((tile) => {
-        if (tile) {
-          const { material, sprites } = getTileInfo(prng, tile, props.tile);
-          if (!props.showVillage || !calcIsInVillage({ x: tile.col, y: tile.row })) {
-            sprites.map((sprite) => group_assets.add(sprite));
-          }
-
-          const geometry = new THREE.BufferGeometry();
-          const corners = tile.corners;
-          const vertices = new Float32Array(
-            points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
-          );
-          geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-          const mesh = new THREE.Mesh(geometry, material?.clone());
-          mesh.name = `${tile.row},${tile.col}`;
-          mesh.userData.type = "tile";
-          mesh.userData.tile = tile;
-          mesh.userData.hex = material?.color.getHex();
-          mesh.userData.highlight = false;
-          mesh.matrixAutoUpdate = false;
-          group_tiles.add(mesh);
-
-          const edges = new THREE.EdgesGeometry(geometry);
-          edges.translate(0, 0, 1);
-          const edgeMesh = new THREE.Line(edges, lineMaterial);
-          edgeMesh.matrixAutoUpdate = false;
-          group_edges.add(edgeMesh);
-        }
-      });
-
-      // Reverse the order of objects in the group_assets
-      group_assets.children.sort((a, b) => b.position.y - a.position.y);
 
       // Set the origin
       if (!origin.current) {

@@ -10,9 +10,9 @@ import {
   type GlobalTile,
   type GlobalMapData,
   type GlobalPoint,
-} from "../libs/travel/map";
-import { cleanUp } from "../libs/travel/map";
-import { type HexagonalFaceMesh } from "../libs/travel/map";
+  type HexagonalFaceMesh,
+} from "../libs/travel/types";
+import { cleanUp, setupScene } from "../libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/travel/TrackBallControls";
 import { useUser } from "../utils/UserContext";
@@ -59,30 +59,23 @@ const Map: React.FC<MapProps> = (props) => {
       const near = 0.5;
       const far = 1000;
 
-      const scene = new THREE.Scene();
+      // Setup scene, renderer and raycaster
+      const { scene, renderer, raycaster, handleResize } = setupScene({
+        mountRef: mountRef,
+        width: WIDTH,
+        height: HEIGHT,
+        sortObjects: false,
+        color: 0x000000,
+        colorAlpha: 0,
+        width2height: 1,
+      });
+      mountRef.current.appendChild(renderer.domElement);
+
+      // Setup camera
       const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-      const raycaster = new THREE.Raycaster();
 
       // Random number gen
       const prng = alea(42);
-
-      // Renderer the canvas
-      const renderer = new THREE.WebGLRenderer({ depth: false });
-      renderer.setSize(WIDTH, HEIGHT);
-      renderer.setClearColor(0x000000, 0);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = false;
-      renderer.sortObjects = false;
-      mountRef.current.appendChild(renderer.domElement);
-
-      // Window size listener
-      function handleResize() {
-        if (mountRef.current) {
-          const WIDTH = mountRef.current.getBoundingClientRect().width;
-          renderer.setSize(WIDTH, WIDTH);
-        }
-      }
-      window.addEventListener("resize", handleResize);
 
       // Groups to hold items
       const group_tiles = new THREE.Group();
