@@ -97,18 +97,18 @@ export const createUserSprite = (
     cur_health: number;
     max_health: number;
   },
-  dimensions: { height: number; width: number }
+  hex: TerrainHex
 ) => {
   // Group is used to group components of the user Marker
   const group = new THREE.Group();
-  const { height: h, width: w } = dimensions;
+  const { height: h, width: w } = hex;
 
   // Marker
   const marker = new THREE.TextureLoader().load("map/userMarker.webp");
   const markerMat = new THREE.SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new THREE.Sprite(markerMat);
   markerSprite.userData.type = "marker";
-  Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 1));
+  Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 0.00000001));
   Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.9, -6));
   group.add(markerSprite);
 
@@ -119,48 +119,37 @@ export const createUserSprite = (
   map.minFilter = THREE.LinearFilter;
   const material = new THREE.SpriteMaterial({ map: map, alphaMap: alphaMap });
   const sprite = new THREE.Sprite(material);
-  Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
+  Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 0.00000001));
   Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 1.0, -6));
   group.add(sprite);
 
   // Attack button
   const attack = new THREE.TextureLoader().load("map/attack.png");
-  const attackMat = new THREE.SpriteMaterial({ map: attack });
+  const attackMat = new THREE.SpriteMaterial({ map: attack, depthTest: false });
   const attackSprite = new THREE.Sprite(attackMat);
   attackSprite.visible = false;
   attackSprite.userData.userId = userData.userId;
   attackSprite.userData.type = "attack";
-  Object.assign(attackSprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
-  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.4, -4));
+  Object.assign(attackSprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 0.00000001));
+  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.4, -5));
   group.add(attackSprite);
 
   // Info button
   const info = new THREE.TextureLoader().load("map/info.png");
-  const infoMat = new THREE.SpriteMaterial({ map: info });
+  const infoMat = new THREE.SpriteMaterial({ map: info, depthTest: false });
   const infoSprite = new THREE.Sprite(infoMat);
   infoSprite.visible = false;
   infoSprite.userData.userId = userData.userId;
   infoSprite.userData.type = "info";
-  Object.assign(infoSprite.scale, new THREE.Vector3(h * 0.7, h * 0.7, 1));
-  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.4, -4));
+  Object.assign(infoSprite.scale, new THREE.Vector3(h * 0.7, h * 0.7, 0.00000001));
+  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.4, -5));
   group.add(infoSprite);
 
   // Name
   group.name = userData.userId;
   group.userData.type = "user";
   group.userData.userId = userData.userId;
-
-  //sprite.scale.set(0.5, 0.5, 0.5);
-  //sprite.name = userData.username;
-
-  //   const healthBar = new THREE.Sprite(
-  //     new THREE.SpriteMaterial({
-  //       color: 0x00ff00,
-  //     })
-  //   );
-  //   healthBar.scale.set(0.5, 0.05, 0.05);
-  //   healthBar.position.set(0, 0.3, 0);
-  //   sprite.add(healthBar);
+  group.userData.hex = hex;
 
   return group;
 };
@@ -177,15 +166,6 @@ export const createMultipleUserSprite = (
   const group = new THREE.Group();
   const { height: h, width: w } = dimensions;
 
-  // Marker
-  const marker = new THREE.TextureLoader().load("map/userMarker.webp");
-  const markerMat = new THREE.SpriteMaterial({ map: marker, alphaMap: marker });
-  const markerSprite = new THREE.Sprite(markerMat);
-  markerSprite.userData.type = "marker";
-  Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 1));
-  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.9, -6));
-  group.add(markerSprite);
-
   // Avatar Sprite
   const canvas = document.createElement("canvas");
   const r = 3;
@@ -194,23 +174,27 @@ export const createMultipleUserSprite = (
   const context = canvas.getContext("2d");
   if (context) {
     context.font = `bold ${(r * h) / 2}px Serif`;
-
     context.textAlign = "center";
     context.textBaseline = "middle";
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = ((r - 0.1) * h) / 2;
-    context.beginPath();
-    context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-    context.fillStyle = "green";
-    context.fill();
-    context.lineWidth = 1;
-    context.strokeStyle = "#003300";
-    context.stroke();
-
+    // NOTE: drawing a circle here there is a bug with alphaMap and userSprite sorting
+    //       Therefore doing a square for now
+    // const centerX = canvas.width / 2;
+    // const centerY = canvas.height / 2;
+    // const radius = ((r - 0.1) * h) / 2;
+    // context.beginPath();
+    // context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+    // context.fillStyle = "darkorange";
+    // context.fill();
+    // context.lineWidth = 1;
+    // context.strokeStyle = "#003300";
+    // context.stroke();
+    context.fillStyle = "firebrick";
+    context.fillRect(0, 0, r * h, r * h);
+    context.lineWidth = h / 2;
+    context.strokeStyle = "maroon";
+    context.strokeRect(0, 0, r * h, r * h);
     context.fillStyle = "white";
-    context.fillText(`+${nUsers}`, (r * h) / 2, (r * h) / 2);
+    context.fillText(`${nUsers}`, (r * h) / 2, (r * h) / 2);
   }
   const texture = new THREE.Texture(canvas);
   texture.generateMipmaps = false;
@@ -218,19 +202,9 @@ export const createMultipleUserSprite = (
   texture.needsUpdate = true;
   const material = new THREE.SpriteMaterial({ map: texture });
   const sprite = new THREE.Sprite(material);
-  sprite.position.set(w / 2, h * 1.0, -6);
-  sprite.scale.set(h * 0.8, h * 0.8, 1);
+  sprite.position.set(w * 0.8, h * 1.3, -4);
+  sprite.scale.set(h * 0.5, h * 0.5, 0.00000001);
   group.add(sprite);
-
-  // const alphaMap = new THREE.TextureLoader().load("map/userSpriteMask.webp");
-  // const map = new THREE.TextureLoader().load(userData.avatar || "");
-  // map.generateMipmaps = false;
-  // map.minFilter = THREE.LinearFilter;
-  // const material = new THREE.SpriteMaterial({ map: map, alphaMap: alphaMap });
-  // const sprite = new THREE.Sprite(material);
-  // Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 1));
-  // Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 1.0, -6));
-  // group.add(sprite);
 
   // Name
   group.name = location;

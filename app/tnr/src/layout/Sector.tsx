@@ -183,6 +183,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Intersections & highlights from interactions
       let highlights = new Set<string>();
       let userTooltips = new Set<string>();
+      let userCounters = new Set<string>();
 
       // Renderer the canvas
       const renderer = new THREE.WebGLRenderer();
@@ -304,23 +305,25 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Capture clicks to update move direction
       const onClick = () => {
         const intersects = raycaster.intersectObjects(scene.children);
-        intersects.every((intersect) => {
-          if (intersect.object.userData.type === "tile") {
-            const target = intersect.object.userData.tile as TerrainHex;
-            setTarget({ x: target.col, y: target.row });
-            return false;
-          } else if (intersect.object.userData.type === "attack") {
-            console.log("ATTACK", intersect.object.userData.userId);
-            return false;
-          } else if (intersect.object.userData.type === "info") {
-            const userId = intersect.object.userData.userId as string;
-            void router.push(`/users/${userId}`);
-            return false;
-          } else if (intersect.object.userData.type === "marker") {
-            return false;
-          }
-          return true;
-        });
+        intersects
+          .filter((i) => i.object.visible)
+          .every((i) => {
+            if (i.object.userData.type === "tile") {
+              const target = i.object.userData.tile as TerrainHex;
+              setTarget({ x: target.col, y: target.row });
+              return false;
+            } else if (i.object.userData.type === "attack") {
+              console.log("ATTACK", i.object.userData.userId);
+              return false;
+            } else if (i.object.userData.type === "info") {
+              const userId = i.object.userData.userId as string;
+              void router.push(`/users/${userId}`);
+              return false;
+            } else if (i.object.userData.type === "marker") {
+              return false;
+            }
+            return true;
+          });
       };
       renderer.domElement.addEventListener("click", onClick, true);
 
@@ -328,10 +331,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       // for (let i = 0; i < 3; i++) {
       //   users.push({ ...users[0], userId: i });
       // }
-      // // console.log(users);
-      // const hex = findHex({ x: userData?.longitude, y: userData?.latitude });
-      // const multiple = createMultipleUserSprite(10, "test", hex);
-      // scene.add(multiple);
 
       // Render the image
       let lastTime = Date.now();
@@ -352,6 +351,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             })),
             "group"
           );
+          const newUserCounts = new Set<string>();
           groups.forEach((tileUsers, group) => {
             tileUsers.forEach((user, i) => {
               // Add user if does not exist
@@ -363,6 +363,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               }
               // Get location
               if (userHex && userMesh && grid.current) {
+                userMesh.userData.tile = userHex;
                 let { x, y } = userHex.center;
                 let spread = 0.1;
                 if (
@@ -390,8 +391,37 @@ const Sector: React.FC<SectorProps> = (props) => {
                 Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
               }
             });
+            // Add indicator of how many users are there if more than 1
+            const nUsers = tileUsers.length;
+            if (nUsers > 2 && tileUsers[0]) {
+              const user = tileUsers[0];
+              const x = user.longitude;
+              const y = user.latitude;
+              const indicatorName = `${x}-${y}-${nUsers}`;
+              const hex = findHex({ x: x, y: y });
+              let indicatorMesh = group_users.getObjectByName(indicatorName);
+              if (hex) {
+                if (!indicatorMesh) {
+                  indicatorMesh = createMultipleUserSprite(nUsers, "test", hex);
+                  indicatorMesh.name = indicatorName;
+                  indicatorMesh.position.set(-hex.center.x, -hex.center.y, 0);
+                  group_users.add(indicatorMesh);
+                } else {
+                  indicatorMesh.visible = true;
+                }
+                newUserCounts.add(indicatorName);
+              }
+            }
           });
           group_users.children.sort((a, b) => b.position.y - a.position.y);
+          // Hide all user counters which are not used anymore
+          userCounters.forEach((name) => {
+            if (!newUserCounts.has(name)) {
+              const mesh = group_users.getObjectByName(name);
+              if (mesh) mesh.visible = false;
+            }
+          });
+          userCounters = newUserCounts;
           // Hide all users who are not in the sector anymore
         }
 
@@ -399,27 +429,27 @@ const Sector: React.FC<SectorProps> = (props) => {
         // If more than one user intersected, do not show
         const newUserTooltips = new Set<string>();
         const userIntersects = raycaster.intersectObjects(group_users.children);
-        if (userIntersects.length > 0) {
-          // How many users are we intersecting here?
-          const userGroups = getUnique(
-            userIntersects
-              .filter(
-                (i) =>
-                  i.object?.parent?.userData.userId !== undefined &&
-                  i.object?.parent?.userData.type === "user"
-              )
-              .map((i) => i.object.parent as THREE.Group),
-            "name"
+        const userMesh = userIntersects.find(
+          (i) =>
+            i.object.parent?.userData.type === "user" &&
+            i.object.parent?.userData.userId !== userData?.userId
+        )?.object.parent;
+        if (users && userMesh && userIntersects.length > 0) {
+          const userHex = userMesh.userData.tile as TerrainHex;
+          const locationUsers = users.filter(
+            (g) =>
+              g.latitude === userHex.row &&
+              g.longitude === userHex.col &&
+              g.userId !== userData?.userId
           );
-          const user = userGroups[0];
-          if (userGroups.length === 1 && user) {
-            const userId = user.userData.userId as string;
-            const attack = user?.children[2] as THREE.Sprite;
-            const info = user?.children[3] as THREE.Sprite;
+          if (locationUsers.length === 1 && userMesh) {
+            const userId = userMesh.userData.userId as string;
+            const attack = userMesh?.children[2] as THREE.Sprite;
+            const info = userMesh?.children[3] as THREE.Sprite;
             if (attack && userData?.userId !== userId) attack.visible = true;
             if (info) info.visible = true;
-            newUserTooltips.add(user.name);
-            userTooltips.add(user.name);
+            newUserTooltips.add(userMesh.name);
+            userTooltips.add(userMesh.name);
           }
         }
         userTooltips.forEach((userId) => {
@@ -443,7 +473,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           const shortestPath =
             origin.current &&
             pathFinder?.current?.getShortestPath(origin.current, target);
-
           // Highlight the path
           void shortestPath?.forEach((tile) => {
             const mesh = group_tiles.getObjectByName(
