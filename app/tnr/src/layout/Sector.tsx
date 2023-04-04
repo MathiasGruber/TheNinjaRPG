@@ -194,7 +194,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Intersections & highlights from interactions
       let highlights = new Set<string>();
       let currentTooltips = new Set<string>();
-      let userCounters = new Set<string>();
 
       // js groups for organization
       const group_users = new Group();
