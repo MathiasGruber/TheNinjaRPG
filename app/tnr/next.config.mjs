@@ -8,7 +8,7 @@
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: false,
-  runtime: "experimental-edge",
+  runtime: "edge",
   images: {
     remotePatterns: [
       {
