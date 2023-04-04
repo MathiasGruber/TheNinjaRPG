@@ -325,58 +325,53 @@ export const drawUsers = (info: {
 
   // Draw the users
   const newUserCounts = new Set<string>();
-  groups.forEach((tileUsers, group) => {
-    tileUsers.forEach((user, i) => {
-      // Add user if does not exist
-      const userHex = findHex(info.grid, { x: user.longitude, y: user.latitude });
-      let userMesh = info.group_users.getObjectByName(user.userId);
-      if (!userMesh && userHex) {
-        userMesh = createUserSprite(user, userHex);
-        info.group_users.add(userMesh);
-      }
-      // Get location
-      if (userHex && userMesh && info.grid) {
-        userMesh.userData.tile = userHex;
-        let { x, y } = userHex.center;
-        let spread = 0.1;
-        if (info.showVillage && calcIsInVillage({ x: userHex.col, y: userHex.row })) {
-          const hex = info.grid.getHex({
-            col: VILLAGE_LONG,
-            row: VILLAGE_LAT,
-          });
-          if (hex) {
-            x = hex.center.x;
-            y = hex.center.y;
-            spread = 0.1;
-          }
-        }
-        if (tileUsers.length > 1) {
-          const angleChange = (i / tileUsers.length) * 2 * Math.PI + phi;
-          x += spread * userHex.width * Math.sin(angleChange);
-          y -= spread * userHex.height * Math.cos(angleChange);
-        }
-        userMesh.position.set(-x, -y, 0);
-      }
-    });
-    // Add indicator of how many users are there if more than 1
-    const nUsers = tileUsers.length;
-    if (nUsers > 2 && tileUsers[0]) {
-      const user = tileUsers[0];
-      const x = user.longitude;
-      const y = user.latitude;
-      const indicatorName = `${x}-${y}-${nUsers}`;
-      const hex = findHex(info.grid, { x: x, y: y });
-      let indicatorMesh = info.group_users.getObjectByName(indicatorName);
+  groups.forEach((tileUsers) => {
+    if (tileUsers[0]) {
+      // Determine the location
+      const firstUser = tileUsers[0];
+      const nUsers = tileUsers.length;
+      const inVillage =
+        info.showVillage &&
+        calcIsInVillage({ x: firstUser.longitude, y: firstUser.latitude });
+      const hex = findHex(info.grid, {
+        x: inVillage ? VILLAGE_LONG : firstUser.longitude,
+        y: inVillage ? VILLAGE_LAT : firstUser.latitude,
+      });
       if (hex) {
-        if (!indicatorMesh) {
-          indicatorMesh = createMultipleUserSprite(nUsers, "test", hex);
-          indicatorMesh.name = indicatorName;
-          indicatorMesh.position.set(-hex.center.x, -hex.center.y, 0);
-          info.group_users.add(indicatorMesh);
-        } else {
-          indicatorMesh.visible = true;
+        // Loop through the users in the group
+        tileUsers.forEach((user, i) => {
+          let userMesh = info.group_users.getObjectByName(user.userId);
+          if (!userMesh && hex) {
+            userMesh = createUserSprite(user, hex);
+            info.group_users.add(userMesh);
+          }
+          // Get location
+          if (userMesh && info.grid) {
+            userMesh.userData.tile = hex;
+            let { x, y } = hex.center;
+            const spread = inVillage ? 0.2 : 0.1;
+            if (nUsers > 1) {
+              const angleChange = (i / tileUsers.length) * 2 * Math.PI + phi;
+              x += spread * hex.width * Math.sin(angleChange);
+              y -= spread * hex.height * Math.cos(angleChange);
+            }
+            userMesh.position.set(-x, -y, 0);
+          }
+        });
+        // Add indicator of how many users are there if more than 1
+        if (nUsers > 2 && tileUsers[0]) {
+          const indicatorName = `${hex.col}-${hex.row}-${nUsers}`;
+          let indicatorMesh = info.group_users.getObjectByName(indicatorName);
+          if (!indicatorMesh) {
+            indicatorMesh = createMultipleUserSprite(nUsers, "test", hex);
+            indicatorMesh.name = indicatorName;
+            indicatorMesh.position.set(-hex.center.x, -hex.center.y, 0);
+            info.group_users.add(indicatorMesh);
+          } else {
+            indicatorMesh.visible = true;
+          }
+          newUserCounts.add(indicatorName);
         }
-        newUserCounts.add(indicatorName);
       }
     }
   });

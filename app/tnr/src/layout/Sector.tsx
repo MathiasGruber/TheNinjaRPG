@@ -1,5 +1,7 @@
 import React from "react";
 import { useRef, useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
 import { Vector2, OrthographicCamera, Group } from "three";
 import { useRouter } from "next/router";
@@ -27,33 +29,6 @@ import { PathCalculator, findHex } from "../libs/travel/sector";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 
-interface SorroundingUsersProps {
-  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  userData: UserData;
-  users: SectorUser[];
-}
-
-const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
-  const users = props.users.filter(
-    (user) =>
-      user.latitude === props.userData.latitude &&
-      user.longitude === props.userData.longitude &&
-      user.userId !== props.userData.userId
-  );
-  return (
-    <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>
-      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
-        {users.map((user, i) => (
-          <div key={i}>
-            {user.username}
-            <AvatarImage href={user.avatar} alt={user.username} size={512} priority />
-          </div>
-        ))}
-      </div>
-    </Modal>
-  );
-};
-
 interface SectorProps {
   sector: number;
   tile: GlobalTile;
@@ -69,8 +44,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Incoming props
   const { target, setTarget, setPosition } = props;
 
-  // Convenience counter for forcing reload
+  // State pertaining to the sector
   const [moves, setMoves] = useState(0);
+  const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
@@ -114,6 +90,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         users.push(data);
       }
     }
+    setSorrounding(users || []);
   };
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
@@ -146,6 +123,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   useEffect(() => {
     if (mountRef.current && userData && users) {
       console.log("DRAWING SECTOR");
+      // Update the state containing sorrounding users on first load
+      setSorrounding(users || []);
+
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;
 
@@ -346,11 +326,12 @@ const Sector: React.FC<SectorProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
-      {props.showSorrounding && users && userData && (
+      {props.showSorrounding && users && userData && origin.current && (
         <SorroundingUsers
           setIsOpen={props.setShowSorrounding}
-          users={users}
-          userData={userData}
+          users={sorrounding}
+          userId={userData.userId}
+          hex={origin.current}
         />
       )}
     </>
@@ -358,3 +339,53 @@ const Sector: React.FC<SectorProps> = (props) => {
 };
 
 export default Sector;
+
+interface SorroundingUsersProps {
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  userId: string;
+  hex: TerrainHex;
+  users: SectorUser[];
+}
+
+const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
+  const users = props.users.filter(
+    (user) =>
+      user.latitude === props.hex.row &&
+      user.longitude === props.hex.col &&
+      user.userId !== props.userId
+  );
+  return (
+    <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>
+      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
+        {users.map((user, i) => (
+          <div key={i} className="relative">
+            <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80">
+              <Link href="/">
+                <Image
+                  src={"/map/attack.png"}
+                  width={40}
+                  height={40}
+                  alt={`Attack-${user.userId}`}
+                />
+              </Link>
+            </div>
+            <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80">
+              <Link href={`/users/${user.userId}`}>
+                <Image
+                  src={"/map/info.png"}
+                  width={40}
+                  height={40}
+                  alt={`Info-${user.userId}`}
+                />
+              </Link>
+            </div>
+            <div className="p-3">
+              <AvatarImage href={user.avatar} alt={user.username} size={512} priority />
+            </div>
+            {user.username}
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+};
