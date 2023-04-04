@@ -1,4 +1,21 @@
-import * as THREE from "three";
+//import * as THREE from "three";
+import {
+  Vector3,
+  LineBasicMaterial,
+  EdgesGeometry,
+  Line,
+  TextureLoader,
+  LinearFilter,
+  Texture,
+  SpriteMaterial,
+  Sprite,
+  Group,
+  BufferGeometry,
+  BufferAttribute,
+  Mesh,
+  type Raycaster,
+} from "three";
+import { type UserData } from "@prisma/client";
 import { createNoise2D } from "simplex-noise";
 import { Grid, ring, rectangle } from "honeycomb-grid";
 import { type BoundingBox, type Ellipse } from "honeycomb-grid";
@@ -8,10 +25,14 @@ import { defaultHexSettings } from "honeycomb-grid";
 import { createHexDimensions } from "honeycomb-grid";
 import { createHexOrigin } from "honeycomb-grid";
 import { aStar } from "abstract-astar";
+
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
+import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 import { TerrainHex, type GlobalTile } from "./types";
+import { type SectorPoint, type HexagonalFaceMesh } from "./types";
 import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
+import { groupBy } from "../../utils/grouping";
 
 /**
  * Hexagonal tile used by honeycomb.js
@@ -41,10 +62,18 @@ export function defineHex(hexOptions?: Partial<HexOptions>): typeof TerrainHex {
   };
 }
 
+/** Find a given hex in a grid */
+export const findHex = (grid: Grid<TerrainHex> | null, point: SectorPoint) => {
+  return grid?.getHex({
+    col: point.x,
+    row: point.y,
+  });
+};
+
 /**
- * Creates heaxognal grid & draw it using Three.js. Return groups of objects drawn
+ * Creates heaxognal grid & draw it using js. Return groups of objects drawn
  */
-export const createSectorBackground = (
+export const drawSectorBasics = (
   width: number,
   prng: () => number,
   hasVillage: boolean,
@@ -75,15 +104,15 @@ export const createSectorBackground = (
   });
 
   // Groups for organizing objects
-  const group_tiles = new THREE.Group();
-  const group_edges = new THREE.Group();
-  const group_assets = new THREE.Group();
+  const group_tiles = new Group();
+  const group_edges = new Group();
+  const group_assets = new Group();
 
   // Hex points
   const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
 
   // Line material to use for edges
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x555555 });
+  const lineMaterial = new LineBasicMaterial({ color: 0x555555 });
 
   // Draw the tiles
   honeycombGrid.forEach((tile) => {
@@ -93,13 +122,13 @@ export const createSectorBackground = (
         sprites.map((sprite) => group_assets.add(sprite));
       }
 
-      const geometry = new THREE.BufferGeometry();
+      const geometry = new BufferGeometry();
       const corners = tile.corners;
       const vertices = new Float32Array(
         points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
       );
-      geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-      const mesh = new THREE.Mesh(geometry, material?.clone());
+      geometry.setAttribute("position", new BufferAttribute(vertices, 3));
+      const mesh = new Mesh(geometry, material?.clone());
       mesh.name = `${tile.row},${tile.col}`;
       mesh.userData.type = "tile";
       mesh.userData.tile = tile;
@@ -108,9 +137,9 @@ export const createSectorBackground = (
       mesh.matrixAutoUpdate = false;
       group_tiles.add(mesh);
 
-      const edges = new THREE.EdgesGeometry(geometry);
+      const edges = new EdgesGeometry(geometry);
       edges.translate(0, 0, 1);
-      const edgeMesh = new THREE.Line(edges, lineMaterial);
+      const edgeMesh = new Line(edges, lineMaterial);
       edgeMesh.matrixAutoUpdate = false;
       group_edges.add(edgeMesh);
     }
@@ -123,7 +152,7 @@ export const createSectorBackground = (
 };
 
 /**
- * User sprite, which loads the avatar image and displays the health bar as a Three.js sprite
+ * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
 export const createUserSprite = (
   userData: {
@@ -138,49 +167,49 @@ export const createUserSprite = (
   hex: TerrainHex
 ) => {
   // Group is used to group components of the user Marker
-  const group = new THREE.Group();
+  const group = new Group();
   const { height: h, width: w } = hex;
 
   // Marker
-  const marker = new THREE.TextureLoader().load("map/userMarker.webp");
-  const markerMat = new THREE.SpriteMaterial({ map: marker, alphaMap: marker });
-  const markerSprite = new THREE.Sprite(markerMat);
+  const marker = new TextureLoader().load("map/userMarker.webp");
+  const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
+  const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
-  Object.assign(markerSprite.scale, new THREE.Vector3(h, h * 1.2, 0.00000001));
-  Object.assign(markerSprite.position, new THREE.Vector3(w / 2, h * 0.9, -6));
+  Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 0.00000001));
+  Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
   group.add(markerSprite);
 
   // Avatar Sprite
-  const alphaMap = new THREE.TextureLoader().load("map/userSpriteMask.webp");
-  const map = new THREE.TextureLoader().load(userData.avatar || "");
+  const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
+  const map = new TextureLoader().load(userData.avatar || "");
   map.generateMipmaps = false;
-  map.minFilter = THREE.LinearFilter;
-  const material = new THREE.SpriteMaterial({ map: map, alphaMap: alphaMap });
-  const sprite = new THREE.Sprite(material);
-  Object.assign(sprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 0.00000001));
-  Object.assign(sprite.position, new THREE.Vector3(w / 2, h * 1.0, -6));
+  map.minFilter = LinearFilter;
+  const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
+  const sprite = new Sprite(material);
+  Object.assign(sprite.scale, new Vector3(h * 0.8, h * 0.8, 0.00000001));
+  Object.assign(sprite.position, new Vector3(w / 2, h * 1.0, -6));
   group.add(sprite);
 
   // Attack button
-  const attack = new THREE.TextureLoader().load("map/attack.png");
-  const attackMat = new THREE.SpriteMaterial({ map: attack, depthTest: false });
-  const attackSprite = new THREE.Sprite(attackMat);
+  const attack = new TextureLoader().load("map/attack.png");
+  const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
+  const attackSprite = new Sprite(attackMat);
   attackSprite.visible = false;
   attackSprite.userData.userId = userData.userId;
   attackSprite.userData.type = "attack";
-  Object.assign(attackSprite.scale, new THREE.Vector3(h * 0.8, h * 0.8, 0.00000001));
-  Object.assign(attackSprite.position, new THREE.Vector3(w * 0.9, h * 1.4, -5));
+  Object.assign(attackSprite.scale, new Vector3(h * 0.8, h * 0.8, 0.00000001));
+  Object.assign(attackSprite.position, new Vector3(w * 0.9, h * 1.4, -5));
   group.add(attackSprite);
 
   // Info button
-  const info = new THREE.TextureLoader().load("map/info.png");
-  const infoMat = new THREE.SpriteMaterial({ map: info, depthTest: false });
-  const infoSprite = new THREE.Sprite(infoMat);
+  const info = new TextureLoader().load("map/info.png");
+  const infoMat = new SpriteMaterial({ map: info, depthTest: false });
+  const infoSprite = new Sprite(infoMat);
   infoSprite.visible = false;
   infoSprite.userData.userId = userData.userId;
   infoSprite.userData.type = "info";
-  Object.assign(infoSprite.scale, new THREE.Vector3(h * 0.7, h * 0.7, 0.00000001));
-  Object.assign(infoSprite.position, new THREE.Vector3(w * 0.1, h * 1.4, -5));
+  Object.assign(infoSprite.scale, new Vector3(h * 0.7, h * 0.7, 0.00000001));
+  Object.assign(infoSprite.position, new Vector3(w * 0.1, h * 1.4, -5));
   group.add(infoSprite);
 
   // Name
@@ -193,7 +222,7 @@ export const createUserSprite = (
 };
 
 /**
- * User sprite, which loads the avatar image and displays the health bar as a Three.js sprite
+ * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
 export const createMultipleUserSprite = (
   nUsers: number,
@@ -201,7 +230,7 @@ export const createMultipleUserSprite = (
   dimensions: { height: number; width: number }
 ) => {
   // Group is used to group components of the user Marker
-  const group = new THREE.Group();
+  const group = new Group();
   const { height: h, width: w } = dimensions;
 
   // Avatar Sprite
@@ -234,12 +263,12 @@ export const createMultipleUserSprite = (
     context.fillStyle = "white";
     context.fillText(`${nUsers}`, (r * h) / 2, (r * h) / 2);
   }
-  const texture = new THREE.Texture(canvas);
+  const texture = new Texture(canvas);
   texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
+  texture.minFilter = LinearFilter;
   texture.needsUpdate = true;
-  const material = new THREE.SpriteMaterial({ map: texture });
-  const sprite = new THREE.Sprite(material);
+  const material = new SpriteMaterial({ map: texture });
+  const sprite = new Sprite(material);
   sprite.position.set(w * 0.8, h * 1.3, -4);
   sprite.scale.set(h * 0.5, h * 0.5, 0.00000001);
   group.add(sprite);
@@ -249,6 +278,238 @@ export const createMultipleUserSprite = (
   group.userData.type = "users";
 
   return group;
+};
+
+/**
+ * Draw village on map
+ */
+export const drawVillage = (villageName: string, grid: Grid<TerrainHex>) => {
+  const hex = grid.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
+  const group = new Group();
+  if (hex) {
+    const { height: h, x, y } = hex;
+    // Village graphic
+    const graphic = new TextureLoader().load(`map/${villageName}.webp`);
+    const graphicMat = new SpriteMaterial({ map: graphic });
+    const graphicSprite = new Sprite(graphicMat);
+    graphicSprite.scale.set(h * 2.2, h * 2.2, 1);
+    graphicSprite.position.set(x, y, -7);
+    group.add(graphicSprite);
+    // Village text
+    const text = new TextureLoader().load(`villages/${villageName}Marker.png`);
+    const textMat = new SpriteMaterial({ map: text });
+    const textSprite = new Sprite(textMat);
+    textSprite.scale.set(h * 1.5, h * 0.5, 1);
+    textSprite.position.set(x, y + h, -7);
+    group.add(textSprite);
+  }
+  return group;
+};
+
+/**
+ * Draw/update the users on the map. Should be called on every render
+ */
+export const drawUsers = (info: {
+  group_users: Group;
+  users: {
+    userId: string;
+    username: string;
+    cur_health: number;
+    max_health: number;
+    avatar: string | null;
+    sector: number;
+    longitude: number;
+    latitude: number;
+    location: string;
+  }[];
+  grid: Grid<TerrainHex>;
+  showVillage: boolean;
+  lastTime: number;
+  angle: number;
+  currentCounters: Set<string>;
+}) => {
+  // Group the users by their location
+  const groups = groupBy(
+    info.users.map((user) => ({
+      ...user,
+      group: !user.location.includes("Village")
+        ? `${user.latitude},${user.longitude}`
+        : user.location,
+    })),
+    "group"
+  );
+
+  // Calculate new angle, which is used for rotating users placed on same location
+  const dt = Date.now() - info.lastTime;
+  const phi = info.angle + (1 * Math.PI) / (5000 / dt);
+
+  // Draw the users
+  const newUserCounts = new Set<string>();
+  groups.forEach((tileUsers, group) => {
+    tileUsers.forEach((user, i) => {
+      // Add user if does not exist
+      const userHex = findHex(info.grid, { x: user.longitude, y: user.latitude });
+      let userMesh = info.group_users.getObjectByName(user.userId);
+      if (!userMesh && userHex) {
+        userMesh = createUserSprite(user, userHex);
+        info.group_users.add(userMesh);
+      }
+      // Get location
+      if (userHex && userMesh && info.grid) {
+        userMesh.userData.tile = userHex;
+        let { x, y } = userHex.center;
+        let spread = 0.1;
+        if (info.showVillage && calcIsInVillage({ x: userHex.col, y: userHex.row })) {
+          const hex = info.grid.getHex({
+            col: VILLAGE_LONG,
+            row: VILLAGE_LAT,
+          });
+          if (hex) {
+            x = hex.center.x;
+            y = hex.center.y;
+            spread = 0.1;
+          }
+        }
+        if (tileUsers.length > 1) {
+          const angleChange = (i / tileUsers.length) * 2 * Math.PI + phi;
+          x += spread * userHex.width * Math.sin(angleChange);
+          y -= spread * userHex.height * Math.cos(angleChange);
+        }
+        userMesh.position.set(-x, -y, 0);
+      }
+    });
+    // Add indicator of how many users are there if more than 1
+    const nUsers = tileUsers.length;
+    if (nUsers > 2 && tileUsers[0]) {
+      const user = tileUsers[0];
+      const x = user.longitude;
+      const y = user.latitude;
+      const indicatorName = `${x}-${y}-${nUsers}`;
+      const hex = findHex(info.grid, { x: x, y: y });
+      let indicatorMesh = info.group_users.getObjectByName(indicatorName);
+      if (hex) {
+        if (!indicatorMesh) {
+          indicatorMesh = createMultipleUserSprite(nUsers, "test", hex);
+          indicatorMesh.name = indicatorName;
+          indicatorMesh.position.set(-hex.center.x, -hex.center.y, 0);
+          info.group_users.add(indicatorMesh);
+        } else {
+          indicatorMesh.visible = true;
+        }
+        newUserCounts.add(indicatorName);
+      }
+    }
+  });
+  info.group_users.children.sort((a, b) => b.position.y - a.position.y);
+  // Hide all user counters which are not used anymore
+  info.currentCounters.forEach((name) => {
+    if (!newUserCounts.has(name)) {
+      const mesh = info.group_users.getObjectByName(name);
+      if (mesh) mesh.visible = false;
+    }
+  });
+
+  // Return new counters + angle
+  return { newUserCounts, phi };
+  // Hide all users who are not in the sector anymore
+  // userCounters = newUserCounts;
+  // TODO: lastTime = Date.now();
+};
+
+/**
+ * Get intersections with user sprites, and show info/attack buttons if needed.
+   If more than one user intersected, do not show
+ */
+export const intersectUsers = (info: {
+  group_users: Group;
+  raycaster: Raycaster;
+  users: {
+    userId: string;
+    username: string;
+    cur_health: number;
+    max_health: number;
+    avatar: string | null;
+    sector: number;
+    longitude: number;
+    latitude: number;
+    location: string;
+  }[];
+  userData: UserData;
+  currentTooltips: Set<string>;
+}) => {
+  const { group_users, raycaster, users, userData, currentTooltips } = info;
+  const intersects = raycaster.intersectObjects(group_users.children);
+  const newUserTooltips = new Set<string>();
+  const userMesh = intersects.find(
+    (i) =>
+      i.object.parent?.userData.type === "user" &&
+      i.object.parent?.userData.userId !== userData.userId
+  )?.object.parent;
+  if (users && userMesh && intersects.length > 0) {
+    const userHex = userMesh.userData.tile as TerrainHex;
+    const locationUsers = users.filter(
+      (g) =>
+        g.latitude === userHex.row &&
+        g.longitude === userHex.col &&
+        g.userId !== userData.userId
+    );
+    if (locationUsers.length === 1 && userMesh) {
+      const userId = userMesh.userData.userId as string;
+      const attack = userMesh?.children[2] as Sprite;
+      const info = userMesh?.children[3] as Sprite;
+      if (attack && userData.userId !== userId) attack.visible = true;
+      if (info) info.visible = true;
+      newUserTooltips.add(userMesh.name);
+    }
+  }
+  currentTooltips.forEach((userId) => {
+    if (!newUserTooltips.has(userId)) {
+      const user = group_users.getObjectByName(userId);
+      if (user) {
+        (user?.children[2] as Sprite).visible = false;
+        (user?.children[3] as Sprite).visible = false;
+      }
+    }
+  });
+  return newUserTooltips;
+};
+
+export const intersectTiles = (info: {
+  group_tiles: Group;
+  raycaster: Raycaster;
+  pathFinder: PathCalculator;
+  origin: TerrainHex;
+  currentHighlights: Set<string>;
+}) => {
+  const { group_tiles, raycaster, origin, pathFinder, currentHighlights } = info;
+  const intersects = raycaster.intersectObjects(group_tiles.children);
+  const newHighlights = new Set<string>();
+  if (intersects.length > 0 && intersects[0]) {
+    const intersected = intersects[0].object as HexagonalFaceMesh;
+    // Fetch the shortest path on the map using A*
+    const target = intersected.userData.tile;
+    const shortestPath = origin && pathFinder.getShortestPath(origin, target);
+    // Highlight the path
+    void shortestPath?.forEach((tile) => {
+      const mesh = group_tiles.getObjectByName(
+        `${tile.row},${tile.col}`
+      ) as HexagonalFaceMesh;
+      if (mesh.userData.highlight === false) {
+        mesh.userData.highlight = true;
+        mesh.material.color.offsetHSL(0, 0, 0.1);
+      }
+      newHighlights.add(mesh.name);
+    });
+  }
+  // Remove highlights from tiles that are no longer in the path
+  currentHighlights.forEach((name) => {
+    if (!newHighlights.has(name)) {
+      const mesh = group_tiles.getObjectByName(name) as HexagonalFaceMesh;
+      mesh.userData.highlight = false;
+      mesh.material.color.setHex(mesh.userData.hex);
+    }
+  });
+  return newHighlights;
 };
 
 /**

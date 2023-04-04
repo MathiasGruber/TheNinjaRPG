@@ -1,9 +1,9 @@
 import { useRef, useEffect, useState } from "react";
 
+import { Vector2, OrthographicCamera, Group } from "three";
 import { useRouter } from "next/router";
 import { type Village, type UserData } from "@prisma/client";
 import { type Grid } from "honeycomb-grid";
-import * as THREE from "three";
 import alea from "alea";
 import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
@@ -13,19 +13,15 @@ import {
   type GlobalTile,
   type TerrainHex,
   type SectorPoint,
-  type HexagonalFaceMesh,
 } from "../libs/travel/types";
-import { VILLAGE_LONG, VILLAGE_LAT } from "../libs/travel/constants";
-import { calcIsInVillage } from "../libs/travel/controls";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getBackgroundColor } from "../libs/travel/biome";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { createUserSprite, createMultipleUserSprite } from "../libs/travel/sector";
-import { createSectorBackground } from "../libs/travel/sector";
-import { PathCalculator } from "../libs/travel/sector";
+import { drawSectorBasics, drawVillage, drawUsers } from "../libs/travel/sector";
+import { intersectUsers, intersectTiles } from "../libs/travel/sector";
+import { PathCalculator, findHex } from "../libs/travel/sector";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
-import { groupBy } from "../utils/grouping";
 
 interface SectorProps {
   sector: number;
@@ -48,7 +44,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const pathFinder = useRef<PathCalculator | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
-  const mouse = new THREE.Vector2();
+  const mouse = new Vector2();
 
   // Data from db
   const { data: userData, refetch: refetchUser } = useRequiredUser();
@@ -75,14 +71,6 @@ const Sector: React.FC<SectorProps> = (props) => {
     }
   };
 
-  // Convenience method for finding hex
-  const findHex = (point: SectorPoint) => {
-    return grid?.current?.getHex({
-      col: point.x,
-      row: point.y,
-    });
-  };
-
   // Convenience method for updating user list
   const updateUsersList = (data: UserData) => {
     if (users) {
@@ -97,7 +85,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
-      origin.current = findHex({ x: data.longitude, y: data.latitude });
+      origin.current = findHex(grid.current, { x: data.longitude, y: data.latitude });
       updateUsersList(data as UserData);
       setPosition({ x: data.longitude, y: data.latitude });
       setMoves((prev) => prev + 1);
@@ -163,30 +151,31 @@ const Sector: React.FC<SectorProps> = (props) => {
       mountRef.current.appendChild(renderer.domElement);
 
       // Setup camara
-      const camera = new THREE.OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
+      const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
       camera.zoom = 2;
       camera.updateProjectionMatrix();
 
       // Draw the map
       const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        createSectorBackground(
-          WIDTH,
-          prng,
-          props.showVillage !== undefined,
-          props.tile
-        );
+        drawSectorBasics(WIDTH, prng, props.showVillage !== undefined, props.tile);
       grid.current = honeycombGrid;
+
+      // Draw any village in this sector
+      if (props.showVillage) {
+        const village = drawVillage(props.showVillage.name, grid.current);
+        group_assets.add(village);
+      }
 
       // Store current highlights and create a path calculator object
       pathFinder.current = new PathCalculator(grid.current);
 
       // Intersections & highlights from interactions
       let highlights = new Set<string>();
-      let userTooltips = new Set<string>();
+      let currentTooltips = new Set<string>();
       let userCounters = new Set<string>();
 
-      // Three.js groups for organization
-      const group_users = new THREE.Group();
+      // js groups for organization
+      const group_users = new Group();
 
       // Set the origin
       if (!origin.current) {
@@ -194,32 +183,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           col: userData.longitude,
           row: userData.latitude,
         });
-      }
-
-      // Add village in this sector
-      if (props.showVillage) {
-        const hex = grid.current.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
-        if (hex) {
-          const { height: h, x, y } = hex;
-          // Village graphic
-          const graphic = new THREE.TextureLoader().load(
-            `map/${props.showVillage.name}.webp`
-          );
-          const graphicMat = new THREE.SpriteMaterial({ map: graphic });
-          const graphicSprite = new THREE.Sprite(graphicMat);
-          Object.assign(graphicSprite.scale, new THREE.Vector3(h * 2.2, h * 2.2, 1));
-          Object.assign(graphicSprite.position, new THREE.Vector3(x, y, -7));
-          group_assets.add(graphicSprite);
-          // Village text
-          const text = new THREE.TextureLoader().load(
-            `villages/${props.showVillage.name}Marker.png`
-          );
-          const textMat = new THREE.SpriteMaterial({ map: text });
-          const textSprite = new THREE.Sprite(textMat);
-          Object.assign(textSprite.scale, new THREE.Vector3(h * 1.5, h * 0.5, 1));
-          Object.assign(textSprite.position, new THREE.Vector3(x, y + h, -7));
-          group_assets.add(textSprite);
-        }
       }
 
       // Enable controls
@@ -268,173 +231,54 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Add some more users for testing
-      // for (let i = 0; i < 3; i++) {
-      //   users.push({ ...users[0], userId: i });
-      // }
+      for (let i = 0; i < 16; i++) {
+        users.push({ ...users[0], userId: i });
+      }
 
       // Render the image
       let lastTime = Date.now();
       let animationId = 0;
-      let phi = 0;
+      let userAngle = 0;
       function render() {
         // Use raycaster to detect mouse intersections
         raycaster.setFromCamera(mouse, camera);
 
-        // Update the user position if a path is set
-        if (userData && users) {
-          const groups = groupBy(
-            users.map((user) => ({
-              ...user,
-              group: !user.location.includes("Village")
-                ? `${user.latitude},${user.longitude}`
-                : user.location,
-            })),
-            "group"
-          );
-          const newUserCounts = new Set<string>();
-          groups.forEach((tileUsers, group) => {
-            tileUsers.forEach((user, i) => {
-              // Add user if does not exist
-              const userHex = findHex({ x: user.longitude, y: user.latitude });
-              let userMesh = group_users.getObjectByName(user.userId);
-              if (!userMesh && userHex) {
-                userMesh = createUserSprite(user, userHex);
-                group_users.add(userMesh);
-              }
-              // Get location
-              if (userHex && userMesh && grid.current) {
-                userMesh.userData.tile = userHex;
-                let { x, y } = userHex.center;
-                let spread = 0.1;
-                if (
-                  props.showVillage &&
-                  calcIsInVillage({ x: userHex.col, y: userHex.row })
-                ) {
-                  const hex = grid.current.getHex({
-                    col: VILLAGE_LONG,
-                    row: VILLAGE_LAT,
-                  });
-                  if (hex) {
-                    x = hex.center.x;
-                    y = hex.center.y;
-                    spread = 0.1;
-                  }
-                }
-                const dt = Date.now() - lastTime;
-                phi += (1 * Math.PI) / (5000 / dt);
-                lastTime = Date.now();
-                if (tileUsers.length > 1) {
-                  const angle = (i / tileUsers.length) * 2 * Math.PI + phi;
-                  x += spread * userHex.width * Math.sin(angle);
-                  y -= spread * userHex.height * Math.cos(angle);
-                }
-                Object.assign(userMesh.position, new THREE.Vector3(-x, -y, 0));
-              }
-            });
-            // Add indicator of how many users are there if more than 1
-            const nUsers = tileUsers.length;
-            if (nUsers > 2 && tileUsers[0]) {
-              const user = tileUsers[0];
-              const x = user.longitude;
-              const y = user.latitude;
-              const indicatorName = `${x}-${y}-${nUsers}`;
-              const hex = findHex({ x: x, y: y });
-              let indicatorMesh = group_users.getObjectByName(indicatorName);
-              if (hex) {
-                if (!indicatorMesh) {
-                  indicatorMesh = createMultipleUserSprite(nUsers, "test", hex);
-                  indicatorMesh.name = indicatorName;
-                  indicatorMesh.position.set(-hex.center.x, -hex.center.y, 0);
-                  group_users.add(indicatorMesh);
-                } else {
-                  indicatorMesh.visible = true;
-                }
-                newUserCounts.add(indicatorName);
-              }
-            }
-          });
-          group_users.children.sort((a, b) => b.position.y - a.position.y);
-          // Hide all user counters which are not used anymore
-          userCounters.forEach((name) => {
-            if (!newUserCounts.has(name)) {
-              const mesh = group_users.getObjectByName(name);
-              if (mesh) mesh.visible = false;
-            }
+        // Assume we have user, users and a grid
+        if (userData && users && grid.current) {
+          // Draw all users on the map + indicators for positions with multiple users
+          const { newUserCounts, phi } = drawUsers({
+            group_users: group_users,
+            users: users,
+            grid: grid.current,
+            showVillage: props.showVillage !== undefined,
+            lastTime: lastTime,
+            angle: userAngle,
+            currentCounters: userCounters,
           });
           userCounters = newUserCounts;
-          // Hide all users who are not in the sector anymore
-        }
+          userAngle = phi;
+          lastTime = Date.now();
 
-        // Detect intersections with users for tooltips with attack/info
-        // If more than one user intersected, do not show
-        const newUserTooltips = new Set<string>();
-        const userIntersects = raycaster.intersectObjects(group_users.children);
-        const userMesh = userIntersects.find(
-          (i) =>
-            i.object.parent?.userData.type === "user" &&
-            i.object.parent?.userData.userId !== userData?.userId
-        )?.object.parent;
-        if (users && userMesh && userIntersects.length > 0) {
-          const userHex = userMesh.userData.tile as TerrainHex;
-          const locationUsers = users.filter(
-            (g) =>
-              g.latitude === userHex.row &&
-              g.longitude === userHex.col &&
-              g.userId !== userData?.userId
-          );
-          if (locationUsers.length === 1 && userMesh) {
-            const userId = userMesh.userData.userId as string;
-            const attack = userMesh?.children[2] as THREE.Sprite;
-            const info = userMesh?.children[3] as THREE.Sprite;
-            if (attack && userData?.userId !== userId) attack.visible = true;
-            if (info) info.visible = true;
-            newUserTooltips.add(userMesh.name);
-            userTooltips.add(userMesh.name);
-          }
-        }
-        userTooltips.forEach((userId) => {
-          if (!newUserTooltips.has(userId)) {
-            const user = group_users.getObjectByName(userId);
-            if (user) {
-              (user?.children[2] as THREE.Sprite).visible = false;
-              (user?.children[3] as THREE.Sprite).visible = false;
-            }
-          }
-        });
-        userTooltips = newUserTooltips;
-
-        // Detect intersections with tiles for movement
-        const intersects = raycaster.intersectObjects(group_tiles.children);
-        const newHighlights = new Set<string>();
-        if (intersects.length > 0 && intersects[0]) {
-          const intersected = intersects[0].object as HexagonalFaceMesh;
-          // Fetch the shortest path on the map using A*
-          const target = intersected.userData.tile;
-          const shortestPath =
-            origin.current &&
-            pathFinder?.current?.getShortestPath(origin.current, target);
-          // Highlight the path
-          void shortestPath?.forEach((tile) => {
-            const mesh = group_tiles.getObjectByName(
-              `${tile.row},${tile.col}`
-            ) as HexagonalFaceMesh;
-            if (mesh.userData.highlight === false) {
-              mesh.userData.highlight = true;
-              mesh.material.color.offsetHSL(0, 0, 0.1);
-            }
-            newHighlights.add(mesh.name);
+          // Draw interactions with user sprites
+          currentTooltips = intersectUsers({
+            group_users,
+            raycaster,
+            users,
+            userData,
+            currentTooltips,
           });
         }
 
-        // Remove highlights from tiles that are no longer in the path
-        highlights.forEach((name) => {
-          if (!newHighlights.has(name)) {
-            const mesh = group_tiles.getObjectByName(name) as HexagonalFaceMesh;
-            mesh.userData.highlight = false;
-            mesh.material.color.setHex(mesh.userData.hex);
-          }
-        });
-        highlights = newHighlights;
+        // Detect intersections with tiles for movement
+        if (pathFinder.current && origin.current) {
+          highlights = intersectTiles({
+            group_tiles,
+            raycaster,
+            pathFinder: pathFinder.current,
+            origin: origin.current,
+            currentHighlights: highlights,
+          });
+        }
 
         // Trackball updates
         controls.update();

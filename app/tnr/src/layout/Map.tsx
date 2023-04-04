@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-
-import * as THREE from "three";
+import {
+  Vector2,
+  Vector3,
+  LineBasicMaterial,
+  LineSegments,
+  TextureLoader,
+  PerspectiveCamera,
+  SpriteMaterial,
+  Sprite,
+  Group,
+  BufferGeometry,
+  BufferAttribute,
+  Mesh,
+} from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
 import Stats from "three/examples/jsm/libs/stats.module";
@@ -30,7 +42,7 @@ const Map: React.FC<MapProps> = (props) => {
   const { data: userData } = useUser();
   const [hoverSector, setHoverSector] = useState<number | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const mouse = new THREE.Vector2();
+  const mouse = new Vector2();
   const { hexasphere } = props;
 
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -72,14 +84,14 @@ const Map: React.FC<MapProps> = (props) => {
       mountRef.current.appendChild(renderer.domElement);
 
       // Setup camera
-      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      const camera = new PerspectiveCamera(fov, aspect, near, far);
 
       // Random number gen
       const prng = alea(42);
 
       // Groups to hold items
-      const group_tiles = new THREE.Group();
-      const group_highlights = new THREE.Group();
+      const group_tiles = new Group();
+      const group_highlights = new Group();
 
       // Add on double click tile handler
       if (props.intersection && props.onTileClick) {
@@ -101,7 +113,7 @@ const Map: React.FC<MapProps> = (props) => {
       for (let i = 0; i < hexasphere.tiles.length; i++) {
         const t = hexasphere.tiles[i];
         if (t) {
-          const geometry = new THREE.BufferGeometry();
+          const geometry = new BufferGeometry();
           const points =
             t.b.length > 5
               ? [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]
@@ -111,7 +123,7 @@ const Map: React.FC<MapProps> = (props) => {
               .map((p) => t.b[p])
               .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : []))
           );
-          geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+          geometry.setAttribute("position", new BufferAttribute(vertices, 3));
           const consistentRandom = prng();
           let material = null;
           if (t.t === 0) {
@@ -121,7 +133,7 @@ const Map: React.FC<MapProps> = (props) => {
           } else {
             material = dessertMats[Math.floor(consistentRandom * dessertMats.length)];
           }
-          const mesh = new THREE.Mesh(geometry, material?.clone());
+          const mesh = new Mesh(geometry, material?.clone());
           mesh.matrixAutoUpdate = false;
           mesh.userData.id = i;
           mesh.name = `${i}`;
@@ -139,30 +151,28 @@ const Map: React.FC<MapProps> = (props) => {
           if (sector) {
             // Create the line
             const points = [];
-            points.push(new THREE.Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
-            points.push(
-              new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
-            );
-            const lineMaterial = new THREE.LineBasicMaterial({
+            points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
+            points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
+            const lineMaterial = new LineBasicMaterial({
               color: lineColor,
               linewidth: lineWidth,
             });
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            const line = new THREE.LineSegments(geometry, lineMaterial);
+            const geometry = new BufferGeometry().setFromPoints(points);
+            const line = new LineSegments(geometry, lineMaterial);
             group_highlights.add(line);
             // Label
-            const map = new THREE.TextureLoader().load(
+            const map = new TextureLoader().load(
               `villages/${highlight.name}Marker.png`
             );
-            const material = new THREE.SpriteMaterial({ map: map });
-            const labelSprite = new THREE.Sprite(material);
+            const material = new SpriteMaterial({ map: map });
+            const labelSprite = new Sprite(material);
 
             // Set position to top of pin
             Object.assign(
               labelSprite.position,
-              new THREE.Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
+              new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
             );
-            Object.assign(labelSprite.scale, new THREE.Vector3(3, 1, 1));
+            Object.assign(labelSprite.scale, new Vector3(3, 1, 1));
             group_highlights.add(labelSprite);
           }
         });
