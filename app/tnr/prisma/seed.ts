@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { UserStatus } from "@prisma/client";
+import { PrismaClient } from "@prisma/client/edge";
+import { UserStatus } from "@prisma/client/edge";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();

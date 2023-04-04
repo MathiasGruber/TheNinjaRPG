@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client";
-import { UserStatus } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client/edge";
+import { UserStatus } from "@prisma/client/edge";
 
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";

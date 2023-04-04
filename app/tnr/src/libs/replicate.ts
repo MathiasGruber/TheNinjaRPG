@@ -1,5 +1,5 @@
-import { type PrismaClient } from "@prisma/client";
-import { type UserData } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client/edge";
+import { type UserData } from "@prisma/client/edge";
 import { serverError } from "../server/api/trpc";
 import { uploadAvatar } from "./aws";
 

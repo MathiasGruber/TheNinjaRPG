@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
-import { type Prisma } from "@prisma/client";
-import { type PrismaClient } from "@prisma/client";
-import { ReportAction } from "@prisma/client";
+import { type Prisma } from "@prisma/client/edge";
+import { type PrismaClient } from "@prisma/client/edge";
+import { ReportAction } from "@prisma/client/edge";
 
 import { userReportSchema } from "../../../validators/reports";
 import { reportCommentSchema } from "../../../validators/reports";
