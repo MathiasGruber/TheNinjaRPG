@@ -17,7 +17,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
       <Modal
         title={props.title}
         setIsOpen={setShowModal}
-        proceed_label={props.proceed_label}
+        proceed_label={props.proceed_label ? props.proceed_label : "Proceed"}
         onAccept={props.onAccept}
         isValid={props.isValid}
       >

@@ -1,6 +1,12 @@
-import * as THREE from "three";
+import {
+  Vector3,
+  MeshBasicMaterial,
+  Sprite,
+  TextureLoader,
+  SpriteMaterial,
+} from "three";
 
-import { type TerrainHex, type GlobalTile } from "./sector";
+import { type TerrainHex, type GlobalTile } from "./types";
 
 /**
  * Map materials & colors
@@ -12,23 +18,23 @@ export const oceanColors = [0x184695, 0x1c54b5, 0x2767d7] as const;
 export const dessertColors = [0xf9e79f, 0xfad7a0, 0xf5cba7] as const;
 
 export const groundMats = groundColors.map(
-  (color) => new THREE.MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true })
 );
 
 export const oceanMats = oceanColors.map(
-  (color) => new THREE.MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true })
 );
 
 export const dessertMats = dessertColors.map(
-  (color) => new THREE.MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true })
 );
 
 /**
  * Returns materials and potential game assets to show on a given tile
  */
 interface TileInfo {
-  material: THREE.MeshBasicMaterial;
-  sprites: THREE.Sprite[];
+  material: MeshBasicMaterial;
+  sprites: Sprite[];
   density: number;
   asset: "ocean" | "ground" | "dessert";
 }
@@ -98,7 +104,7 @@ const getMapSprite = (
   asset: string,
   hex: TerrainHex
 ) => {
-  const sprites: THREE.Sprite[] = [];
+  const sprites: Sprite[] = [];
   // Fetch tile sprite
   let cost = hex.cost;
   for (let i = 0; i < density; i++) {
@@ -131,8 +137,8 @@ const getMapSprite = (
     const { x, y } = hex.center;
     const posX = -x + w / 2 + (prng() - 0.5) * h;
     const posY = -y + h / 2 + (prng() - 0.5) * h;
-    Object.assign(sprite.scale, new THREE.Vector3(h, h, 1));
-    Object.assign(sprite.position, new THREE.Vector3(posX, posY, -8));
+    Object.assign(sprite.scale, new Vector3(h, h, 1));
+    Object.assign(sprite.position, new Vector3(posX, posY, -8));
   });
   // Sort so the ones with the highest y's are last
   sprites.sort((a, b) => a.position.y - b.position.y);
@@ -141,9 +147,9 @@ const getMapSprite = (
 };
 
 const loadAsset = (filepath: string) => {
-  const texture = new THREE.TextureLoader().load(filepath);
-  const material = new THREE.SpriteMaterial({ map: texture });
-  const sprite = new THREE.Sprite(material);
+  const texture = new TextureLoader().load(filepath);
+  const material = new SpriteMaterial({ map: texture });
+  const sprite = new Sprite(material);
   return sprite;
 };
 

@@ -30,6 +30,7 @@ import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 import { TerrainHex, type GlobalTile } from "./types";
 import { type SectorPoint, type HexagonalFaceMesh } from "./types";
+import { type SectorUser } from "./types";
 import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
 import { groupBy } from "../../utils/grouping";
@@ -154,18 +155,7 @@ export const drawSectorBasics = (
 /**
  * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
-export const createUserSprite = (
-  userData: {
-    userId: string;
-    username: string;
-    avatar: string | null;
-    longitude: number;
-    latitude: number;
-    cur_health: number;
-    max_health: number;
-  },
-  hex: TerrainHex
-) => {
+export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   // Group is used to group components of the user Marker
   const group = new Group();
   const { height: h, width: w } = hex;
@@ -311,17 +301,7 @@ export const drawVillage = (villageName: string, grid: Grid<TerrainHex>) => {
  */
 export const drawUsers = (info: {
   group_users: Group;
-  users: {
-    userId: string;
-    username: string;
-    cur_health: number;
-    max_health: number;
-    avatar: string | null;
-    sector: number;
-    longitude: number;
-    latitude: number;
-    location: string;
-  }[];
+  users: SectorUser[];
   grid: Grid<TerrainHex>;
   showVillage: boolean;
   lastTime: number;
@@ -423,17 +403,7 @@ export const drawUsers = (info: {
 export const intersectUsers = (info: {
   group_users: Group;
   raycaster: Raycaster;
-  users: {
-    userId: string;
-    username: string;
-    cur_health: number;
-    max_health: number;
-    avatar: string | null;
-    sector: number;
-    longitude: number;
-    latitude: number;
-    location: string;
-  }[];
+  users: SectorUser[];
   userData: UserData;
   currentTooltips: Set<string>;
 }) => {

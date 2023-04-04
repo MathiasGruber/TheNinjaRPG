@@ -13,7 +13,7 @@ import Button from "../layout/Button";
 import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 
-import { fetchMap } from "../libs/travel/sector";
+import { fetchMap } from "../libs/travel/globe";
 import { useUser } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { registrationSchema } from "../validators/register";

@@ -1,3 +1,4 @@
+import React from "react";
 import { useRef, useEffect, useState } from "react";
 
 import { Vector2, OrthographicCamera, Group } from "three";
@@ -8,11 +9,14 @@ import alea from "alea";
 import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
 
+import AvatarImage from "./Avatar";
+import Modal from "./Modal";
 import { api } from "../utils/api";
 import {
   type GlobalTile,
   type TerrainHex,
   type SectorPoint,
+  type SectorUser,
 } from "../libs/travel/types";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getBackgroundColor } from "../libs/travel/biome";
@@ -23,11 +27,40 @@ import { PathCalculator, findHex } from "../libs/travel/sector";
 import { useRequiredUser } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 
+interface SorroundingUsersProps {
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  userData: UserData;
+  users: SectorUser[];
+}
+
+const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
+  const users = props.users.filter(
+    (user) =>
+      user.latitude === props.userData.latitude &&
+      user.longitude === props.userData.longitude &&
+      user.userId !== props.userData.userId
+  );
+  return (
+    <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>
+      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
+        {users.map((user, i) => (
+          <div key={i}>
+            {user.username}
+            <AvatarImage href={user.avatar} alt={user.username} size={512} priority />
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+};
+
 interface SectorProps {
   sector: number;
   tile: GlobalTile;
   target: SectorPoint | null;
   showVillage?: Village;
+  showSorrounding: boolean;
+  setShowSorrounding: React.Dispatch<React.SetStateAction<boolean>>;
   setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
   setPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }
@@ -112,6 +145,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && users) {
+      console.log("DRAWING SECTOR");
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;
 
@@ -231,8 +265,10 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Add some more users for testing
-      for (let i = 0; i < 16; i++) {
-        users.push({ ...users[0], userId: i });
+      if (users[0]) {
+        for (let i = 0; i < 16; i++) {
+          users.push({ ...users[0], userId: i.toString() });
+        }
       }
 
       // Render the image
@@ -295,6 +331,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Remove the mouseover listener
       return () => {
+        console.log("CLEARING SECTOR");
         window.removeEventListener("resize", handleResize);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current = null;
@@ -309,6 +346,13 @@ const Sector: React.FC<SectorProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {props.showSorrounding && users && userData && (
+        <SorroundingUsers
+          setIsOpen={props.setShowSorrounding}
+          users={users}
+          userData={userData}
+        />
+      )}
     </>
   );
 };

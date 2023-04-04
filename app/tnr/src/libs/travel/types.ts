@@ -39,3 +39,15 @@ export class TerrainHex extends Hex {
   level!: number;
   cost!: number;
 }
+
+export interface SectorUser {
+  userId: string;
+  username: string;
+  cur_health: number;
+  max_health: number;
+  avatar: string | null;
+  sector: number;
+  longitude: number;
+  latitude: number;
+  location: string;
+}

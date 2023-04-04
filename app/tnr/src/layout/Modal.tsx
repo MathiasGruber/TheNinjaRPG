@@ -52,17 +52,19 @@ const Modal: React.FC<ModalProps> = (props) => {
           </div>
         </div>
         <div className="flex items-center space-x-2 rounded-b border-t border-gray-600 p-6">
-          <input
-            type="submit"
-            value={props.proceed_label ? props.proceed_label : "Proceed"}
-            onClick={(e) => {
-              props.onAccept && props.onAccept(e);
-              if (props.isValid === undefined || props.isValid) {
-                props.setIsOpen(false);
-              }
-            }}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-800"
-          ></input>
+          {props.proceed_label && (
+            <input
+              type="submit"
+              value={props.proceed_label}
+              onClick={(e) => {
+                props.onAccept && props.onAccept(e);
+                if (props.isValid === undefined || props.isValid) {
+                  props.setIsOpen(false);
+                }
+              }}
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-800"
+            ></input>
+          )}
           <button
             type="button"
             onClick={(e) => {
