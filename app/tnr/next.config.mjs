@@ -9,6 +9,7 @@
 const config = {
   reactStrictMode: false,
   runtime: "edge",
+  regions: ["iad1"],
   images: {
     remotePatterns: [
       {
