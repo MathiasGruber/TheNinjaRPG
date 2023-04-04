@@ -306,7 +306,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         // Render the scene
         animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
-        stats.update();
+        stats.update(); // TODO: Remove this
       }
       render();
 
