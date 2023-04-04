@@ -3,6 +3,9 @@ import { type UserData } from "@prisma/client";
 import { serverError } from "../server/api/trpc";
 import { uploadAvatar } from "./aws";
 
+/**
+ * The prompt to be used for creating the avatar
+ */
 export const getPrompt = async (client: PrismaClient, user: UserData) => {
   const userAttributes = await client.userAttribute.findMany({
     where: { userId: user.userId },
@@ -33,7 +36,6 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
 
 /**
  * Request new avatar from Replicate API
- * @returns {Promise<{ id: string }>}
  */
 interface ReplicateReturn {
   id: string;

@@ -89,6 +89,14 @@ const Sector: React.FC<SectorProps> = (props) => {
       } else {
         users.push(data);
       }
+      // Remove users who are no longer in the sector
+      (
+        users
+          .map((user, idx) => (user.sector !== props.sector ? idx : null))
+          .filter((idx) => idx !== null) as number[]
+      )
+        .reverse()
+        .map((idx) => users.splice(idx, 1));
     }
     setSorrounding(users || []);
   };
@@ -245,11 +253,11 @@ const Sector: React.FC<SectorProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Add some more users for testing
-      if (users[0]) {
-        for (let i = 0; i < 16; i++) {
-          users.push({ ...users[0], userId: i.toString() });
-        }
-      }
+      // if (users[0]) {
+      //   for (let i = 0; i < 16; i++) {
+      //     users.push({ ...users[0], userId: i.toString() });
+      //   }
+      // }
 
       // Render the image
       let lastTime = Date.now();
@@ -262,17 +270,14 @@ const Sector: React.FC<SectorProps> = (props) => {
         // Assume we have user, users and a grid
         if (userData && users && grid.current) {
           // Draw all users on the map + indicators for positions with multiple users
-          const { newUserCounts, phi } = drawUsers({
+          userAngle = drawUsers({
             group_users: group_users,
             users: users,
             grid: grid.current,
             showVillage: props.showVillage !== undefined,
             lastTime: lastTime,
             angle: userAngle,
-            currentCounters: userCounters,
           });
-          userCounters = newUserCounts;
-          userAngle = phi;
           lastTime = Date.now();
 
           // Draw interactions with user sprites

@@ -306,7 +306,6 @@ export const drawUsers = (info: {
   showVillage: boolean;
   lastTime: number;
   angle: number;
-  currentCounters: Set<string>;
 }) => {
   // Group the users by their location
   const groups = groupBy(
@@ -324,7 +323,7 @@ export const drawUsers = (info: {
   const phi = info.angle + (1 * Math.PI) / (5000 / dt);
 
   // Draw the users
-  const newUserCounts = new Set<string>();
+  const drawnIds = new Set<string>();
   groups.forEach((tileUsers) => {
     if (tileUsers[0]) {
       // Determine the location
@@ -347,6 +346,7 @@ export const drawUsers = (info: {
           }
           // Get location
           if (userMesh && info.grid) {
+            userMesh.visible = true;
             userMesh.userData.tile = hex;
             let { x, y } = hex.center;
             const spread = inVillage ? 0.2 : 0.1;
@@ -356,6 +356,7 @@ export const drawUsers = (info: {
               y -= spread * hex.height * Math.cos(angleChange);
             }
             userMesh.position.set(-x, -y, 0);
+            drawnIds.add(userMesh.name);
           }
         });
         // Add indicator of how many users are there if more than 1
@@ -370,22 +371,21 @@ export const drawUsers = (info: {
           } else {
             indicatorMesh.visible = true;
           }
-          newUserCounts.add(indicatorName);
+          drawnIds.add(indicatorName);
         }
       }
     }
   });
   info.group_users.children.sort((a, b) => b.position.y - a.position.y);
   // Hide all user counters which are not used anymore
-  info.currentCounters.forEach((name) => {
-    if (!newUserCounts.has(name)) {
-      const mesh = info.group_users.getObjectByName(name);
-      if (mesh) mesh.visible = false;
+  info.group_users.children.forEach((object) => {
+    if (!drawnIds.has(object.name)) {
+      object.visible = false;
     }
   });
 
   // Return new counters + angle
-  return { newUserCounts, phi };
+  return phi;
   // Hide all users who are not in the sector anymore
   // userCounters = newUserCounts;
   // TODO: lastTime = Date.now();

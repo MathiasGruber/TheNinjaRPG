@@ -90,6 +90,10 @@ export const travelRouter = createTRPCRouter({
         `Cannot finish travel because your status is: ${userData.status.toLowerCase()}`
       );
     }
+    // Update over websockets
+    const pusher = getServerPusher();
+    void pusher.trigger(userData.sector.toString(), "event", userData);
+    // Return new userdata
     return await ctx.prisma.userData.update({
       where: { userId: ctx.session.user.id },
       data: {
