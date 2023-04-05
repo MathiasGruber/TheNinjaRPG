@@ -38,7 +38,7 @@
     "aws-sdk": "^2.1310.0",
     "honeycomb-grid": "^4.0.0-beta.8",
     "html2canvas": "^1.4.1",
-    "next": "13.1.2",
+    "next": "13.2.4",
     "next-auth": "4.19.2",
     "pusher": "^5.1.2",
     "pusher-js": "^8.0.1",
