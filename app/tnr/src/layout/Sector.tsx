@@ -151,7 +151,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       });
 
       // Performance monitor
-      const stats = Stats();
+      const stats = new Stats();
       document.body.appendChild(stats.dom);
 
       // Mouse move listener
@@ -384,7 +384,13 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
               </Link>
             </div>
             <div className="p-3">
-              <AvatarImage href={user.avatar} alt={user.username} size={512} priority />
+              <AvatarImage
+                href={user.avatar}
+                userId={user.userId}
+                alt={user.username}
+                size={512}
+                priority
+              />
             </div>
             {user.username}
           </div>

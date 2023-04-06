@@ -71,6 +71,7 @@ const PublicProfile: NextPage = () => {
                     <AvatarImage
                       href={profile.avatar}
                       alt={profile.username}
+                      userId={profile.userId}
                       hover_effect={false}
                       priority={true}
                       size={100}
@@ -79,7 +80,7 @@ const PublicProfile: NextPage = () => {
                       <Confirm
                         title="Confirm Deletion"
                         button={
-                          <ArrowPathRoundedSquareIcon className="absolute top-[3%] right-[13%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 fill-black p-1 hover:fill-orange-500" />
+                          <ArrowPathRoundedSquareIcon className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 fill-black p-1 hover:fill-orange-500" />
                         }
                         onAccept={(e) => {
                           e.preventDefault();

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
-import { updateAvatar } from "../../../libs/replicate";
+import { updateAvatar, checkAvatar } from "../../../libs/replicate";
 
 export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
@@ -25,6 +25,16 @@ export const avatarRouter = createTRPCRouter({
     // Update avatar
     await updateAvatar(ctx.prisma, currentUser);
   }),
+  // Check if avatar is finished, and return URL if so. Otherwise, wait or restart
+  checkAvatar: protectedProcedure
+    .input(z.object({ userId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
+        where: { userId: input.userId },
+      });
+      const entry = await checkAvatar(ctx.prisma, currentUser);
+      return { url: entry?.avatar };
+    }),
   // Get previous avatars
   getHistoricalAvatars: protectedProcedure
     .input(
@@ -38,7 +48,7 @@ export const avatarRouter = createTRPCRouter({
       const { cursor } = input;
       const avatars = await ctx.prisma.historicalAvatar.findMany({
         take: limit + 1,
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.session.user.id, done: true, avatar: { not: null } },
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { id: "desc" },
       });

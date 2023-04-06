@@ -9,6 +9,7 @@ generator client {
 datasource db {
     provider          = "mysql"
     url               = env("DATABASE_URL")
+    directUrl         = env("DIRECT_URL")
     shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
     relationMode      = "prisma"
 }
@@ -185,13 +186,19 @@ model UserAttribute {
 }
 
 model HistoricalAvatar {
-    id        Int      @id @default(autoincrement())
-    avatar    String
-    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    createdAt DateTime @default(now())
-    userId    String
+    id          Int      @id @default(autoincrement())
+    replicateId String?  @unique
+    avatar      String?  @unique
+    status      String   @default("started")
+    done        Boolean  @default(false)
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    updatedAt   DateTime @default(now()) @updatedAt
+    createdAt   DateTime @default(now())
+    userId      String
 
     @@index([userId])
+    @@index([replicateId])
+    @@index([avatar])
 }
 
 //*****************************//

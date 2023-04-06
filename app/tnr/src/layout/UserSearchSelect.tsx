@@ -70,7 +70,13 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
       className="my-1 mr-2 inline-flex items-center rounded-lg border  border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
     >
       <div className="m-1 w-10">
-        <AvatarImage href={user.avatar} alt={user.username} size={100} priority />
+        <AvatarImage
+          href={user.avatar}
+          userId={user.userId}
+          alt={user.username}
+          size={100}
+          priority
+        />
       </div>
       {user.username}
       <XMarkIcon
@@ -116,6 +122,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
                     <div className="basis-1/12">
                       <AvatarImage
                         href={user.avatar}
+                        userId={user.userId}
                         alt={user.username}
                         size={100}
                         priority

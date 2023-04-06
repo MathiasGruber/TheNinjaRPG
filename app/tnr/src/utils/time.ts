@@ -22,3 +22,10 @@ export const getDaysHoursMinutesSeconds = (countDown: number) => {
   const seconds = Math.floor((countDown % (1000 * 60)) / 1000);
   return [days, hours, minutes, seconds] as const;
 };
+
+/**
+ * Sleep for x number of milliseconds
+ */
+export const sleep = (ms: number) => {
+  return new Promise((res) => setTimeout(res, ms));
+};

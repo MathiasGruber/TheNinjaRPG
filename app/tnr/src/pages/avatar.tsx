@@ -81,8 +81,9 @@ const Avatar: NextPage = () => {
           <div className="basis-1/2">
             {userData && (
               <AvatarImage
-                href={userData?.avatar}
-                alt={userData?.username}
+                href={userData.avatar}
+                userId={userData.userId}
+                alt={userData.username}
                 size={512}
                 priority
               />
@@ -138,7 +139,8 @@ const Avatar: NextPage = () => {
               >
                 <AvatarImage
                   href={avatar.avatar}
-                  alt={userData?.username}
+                  userId={userData.userId}
+                  alt={userData.username}
                   hover_effect={true}
                   size={200}
                 />

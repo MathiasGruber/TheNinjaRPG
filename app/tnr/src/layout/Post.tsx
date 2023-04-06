@@ -44,7 +44,12 @@ const Post: React.FC<PostProps> = (props) => {
       {props.image}
       {props.user && (
         <div className="... mr-3 basis-2/12 truncate text-center  text-sm sm:basis-3/12 sm:text-base">
-          <AvatarImage href={props.user.avatar} alt={props.user.username} size={100} />
+          <AvatarImage
+            href={props.user.avatar}
+            userId={props.user.userId}
+            alt={props.user.username}
+            size={100}
+          />
           <div className="hidden sm:block">
             <p>{props.user.username}</p>
             <p>

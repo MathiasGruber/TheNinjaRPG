@@ -23,6 +23,7 @@ const NavBar: React.FC = () => {
       <div className="basis-1/3">
         <AvatarImage
           href={userData.avatar}
+          userId={userData.userId}
           alt={userData.username}
           hover_effect={true}
           size={100}

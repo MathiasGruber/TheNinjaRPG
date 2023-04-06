@@ -4,10 +4,10 @@ import { env } from "../../../env/server.mjs";
 import { createTRPCContext } from "../../../server/api/trpc";
 import { appRouter } from "../../../server/api/root";
 
-export const config = {
-  runtime: "edge",
-  regions: ["iad1"],
-};
+// export const config = {
+//   runtime: "experimental-edge",
+//   regions: ["iad1"],
+// };
 
 // export API handler
 export default createNextApiHandler({

@@ -24,6 +24,7 @@ const MenuBoxProfile: React.FC = () => {
         <Link href="/avatar">
           <AvatarImage
             href={userData.avatar}
+            userId={userData.userId}
             alt={userData.username}
             size={100}
             hover_effect={true}

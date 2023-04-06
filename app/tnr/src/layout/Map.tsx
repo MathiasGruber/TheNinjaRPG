@@ -55,7 +55,7 @@ const Map: React.FC<MapProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current) {
-      const stats = Stats();
+      const stats = new Stats();
       document.body.appendChild(stats.dom);
       // Interacivity with mouse
       if (props.intersection) {

@@ -42,7 +42,7 @@ interface ReplicateReturn {
   output: string[] | null;
   status: string;
 }
-export const createAvatar = async (prompt: string): Promise<ReplicateReturn> => {
+export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> => {
   return fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
@@ -82,43 +82,112 @@ export const fetchAvatar = async (id: string): Promise<ReplicateReturn> => {
 };
 
 /**
- * Update the avatar for a user
+ * Send a request to update the avatar for a user
  */
 export const updateAvatar = async (client: PrismaClient, user: UserData) => {
   // Get prompt
   const prompt = await getPrompt(client, user);
-  // Create avatar, rerun if NSFW
-  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-  let result = await createAvatar(prompt);
-  let counter = 0;
-  while (result.status !== "succeeded") {
-    // If failed or canceled, rerun
-    if (result.status == "failed" || result.status == "canceled") {
-      counter += 1;
-      if (counter > 5) {
-        throw serverError("TIMEOUT", "Could not be created with 5 attempts");
-      }
-      result = await createAvatar(prompt);
-    }
-    // If starting or processing, just wait
-    if (result.status == "starting" || result.status == "processing") {
-      await sleep(2000);
-      result = await fetchAvatar(result.id);
-    }
-    // If succeeded, download image and upload to S3
-    if (result.status == "succeeded" && result.output?.[0]) {
-      const s3_avatar = await uploadAvatar(result.output[0], result.id);
-      await client.userData.update({
-        where: { userId: user.userId },
-        data: { avatar: s3_avatar },
-      });
-      await client.historicalAvatar.create({
-        data: {
-          avatar: s3_avatar,
-          userId: user.userId,
-        },
-      });
-      break;
-    }
+  // Send request for avatar to ML server
+  const result = await requestAvatar(prompt);
+  // Update user avatar to null
+  if (user.avatar) {
+    await client.userData.update({
+      where: { userId: user.userId },
+      data: { avatar: null },
+    });
   }
+  // Insert the avatar into history, even though it has not been finished processing yet
+  return await client.historicalAvatar.create({
+    data: {
+      replicateId: result.id,
+      avatar: null,
+      status: result.status,
+      userId: user.userId,
+    },
+  });
+};
+
+/**
+ * Check if any avatars are unfinished. If so, check for updates, and update the avatar if it is finished
+ */
+export const checkAvatar = async (client: PrismaClient, user: UserData) => {
+  console.log("Now checking avatar creation status");
+  console.log("--------------------");
+  const avatars = await client.historicalAvatar.findMany({
+    where: {
+      userId: user.userId,
+      done: false,
+      replicateId: { not: null },
+    },
+  });
+  for (const avatar of avatars) {
+    console.log(avatar);
+    let checkedAvatar = avatar;
+    if (avatar.replicateId) {
+      let url = null;
+      const result = await fetchAvatar(avatar.replicateId);
+      console.log("Fetch result");
+      console.log(result);
+      // If failed or canceled, rerun
+      let isDone = true;
+      if (
+        result.status == "failed" ||
+        result.status == "canceled" ||
+        (result.status == "succeeded" && !result.output)
+      ) {
+        checkedAvatar = await updateAvatar(client, user);
+      } else if (result.status == "succeeded" && result.output?.[0]) {
+        console.log("UPLOADING");
+        url = await uploadAvatar(result.output[0], result.id);
+        console.log("URL: ", url);
+        if (url) {
+          await client.userData.update({
+            where: { userId: user.userId },
+            data: { avatar: url },
+          });
+        }
+      } else {
+        isDone = false;
+      }
+      if (isDone) {
+        checkedAvatar = await client.historicalAvatar.update({
+          where: { id: avatar.id },
+          data: { avatar: url, status: result.status, done: isDone },
+        });
+      }
+    }
+    return checkedAvatar;
+  }
+
+  // let counter = 0;
+  // while (result.status !== "succeeded") {
+  //   // If failed or canceled, rerun
+  //   if (result.status == "failed" || result.status == "canceled") {
+  //     counter += 1;
+  //     if (counter > 5) {
+  //       throw serverError("TIMEOUT", "Could not be created with 5 attempts");
+  //     }
+  //     result = await createAvatar(prompt);
+  //   }
+  //   // If starting or processing, just wait
+  //   if (result.status == "starting" || result.status == "processing") {
+  //     await sleep(2000);
+  //     result = await fetchAvatar(result.id);
+  //   }
+  //   // If succeeded, download image and upload to S3
+  //   if (result.status == "succeeded" && result.output?.[0]) {
+  //     const s3_avatar = await uploadAvatar(result.output[0], result.id);
+  //     await client.userData.update({
+  //       where: { userId: user.userId },
+  //       data: { avatar: s3_avatar },
+  //     });
+  //     await client.historicalAvatar.create({
+  //       data: {
+  //         avatar: s3_avatar,
+  //         userId: user.userId,
+  //       },
+  //     });
+  //     break;
+  //   }
+  // }
 };
