@@ -51,7 +51,6 @@
     "superjson": "1.9.1",
     "three": "0.151.3",
     "tween.js": "^16.6.0",
-    "use-react-screenshot": "^3.0.0",
     "zod": "^3.20.2"
   },
   "devDependencies": {

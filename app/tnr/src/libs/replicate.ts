@@ -120,6 +120,9 @@ export const checkAvatar = async (client: PrismaClient, user: UserData) => {
       replicateId: { not: null },
     },
   });
+  if (avatars.length === 0 && !user.avatar) {
+    return await updateAvatar(client, user);
+  }
   for (const avatar of avatars) {
     console.log(avatar);
     let checkedAvatar = avatar;
