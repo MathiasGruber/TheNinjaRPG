@@ -49,3 +49,14 @@ export const calcIsInVillage = (position: SectorPoint) => {
     position.y >= VILLAGE_LAT - 1
   );
 };
+
+// Maximum distance between two set of longitudes / latitudes
+export const maxDistance = (
+  userData: { longitude: number; latitude: number },
+  b: SectorPoint
+) => {
+  return Math.max(
+    Math.abs(userData.longitude - b.x),
+    Math.abs(userData.latitude - b.y)
+  );
+};

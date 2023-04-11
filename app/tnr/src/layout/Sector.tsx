@@ -103,12 +103,21 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
-      origin.current = findHex(grid.current, { x: data.longitude, y: data.latitude });
-      updateUsersList(data as UserData);
-      setPosition({ x: data.longitude, y: data.latitude });
-      setMoves((prev) => prev + 1);
-      if (data.location !== userData?.location) {
-        await refetchUser();
+      if (data) {
+        console.log("Returned: ", data);
+        origin.current = findHex(grid.current, { x: data.longitude, y: data.latitude });
+        updateUsersList({
+          ...userData,
+          longitude: data.longitude,
+          latitude: data.latitude,
+          location: data.location,
+        } as UserData);
+        setPosition({ x: data.longitude, y: data.latitude });
+        setMoves((prev) => prev + 1);
+        if (data.location !== userData?.location) {
+          console.log("LOCATION CHANGED; REFETCHING USER");
+          await refetchUser();
+        }
       }
     },
     onError: (error) => {

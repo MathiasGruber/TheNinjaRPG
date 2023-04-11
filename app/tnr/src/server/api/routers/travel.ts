@@ -5,7 +5,7 @@ import { UserStatus } from "@prisma/client/edge";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
-import { isAtEdge } from "../../../libs/travel/controls";
+import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
 import { type GlobalMapData } from "../../../libs/travel/types";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "../../../utils/time";
@@ -116,47 +116,30 @@ export const travelRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Where the user wishes to go
       const { longitude, latitude } = input;
-      const userData = await fetchUser(ctx.prisma, ctx.userId);
-      if (userData.status !== UserStatus.AWAKE) {
-        throw serverError(
-          "FORBIDDEN",
-          `Cannot move because your status is: ${userData.status.toLowerCase()}`
-        );
-      }
-      const distance = Math.max(
-        Math.abs(userData.longitude - longitude),
-        Math.abs(userData.latitude - latitude)
-      );
-      const output = { ...userData, longitude, latitude };
-      if (distance === 0) {
-        return output;
-      } else if (distance === 1) {
-        // Get new location
-        let location = "";
-        const village = await ctx.prisma.village.findUnique({
-          where: { sector: userData.sector },
-        });
-        if (village && calcIsInVillage({ x: longitude, y: latitude })) {
-          location = `${village.name} Village`;
-        }
-        if (location !== userData.location) output.location = location;
-        // Update user
-        await ctx.prisma.userData.update({
-          where: { userId: ctx.userId },
-          data: { longitude, latitude, location },
-        });
-        // Push websockets message
-        const pusher = getServerPusher();
-        void pusher.trigger(userData.sector.toString(), "event", {
-          ...userData,
-          longitude,
-          latitude,
-          location,
-        });
-        return output;
+      // Would this new position be a village?
+      const isVillage = calcIsInVillage({ x: longitude, y: latitude });
+      const location = isVillage ? "Village" : "";
+      // Execute a raw query, which checks that user is not moving longer than one square,
+      // is awake, and updates location
+      const result: number = await ctx.prisma.$executeRaw`
+        UPDATE UserData SET longitude = ${longitude}, latitude = ${latitude}, location = ${location}
+        WHERE userId = ${ctx.userId} AND status = 'AWAKE' AND
+          (ABS(longitude - ${longitude}) <= 1 AND ABS(latitude - ${latitude}) <= 1)`;
+      // If successful, return new data, otherwise run queries to figure out why
+      if (result === 1) {
+        return { ...input, location };
       } else {
-        throw serverError("CONFLICT", "Can not move more than one square");
+        const userData = await fetchUser(ctx.prisma, ctx.userId);
+        // Check user status
+        if (userData.status !== UserStatus.AWAKE) {
+          throw serverError("FORBIDDEN", `Status is: ${userData.status.toLowerCase()}`);
+        }
+        // Check distance
+        if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
+          throw serverError("FORBIDDEN", `Cannot move more than one square at a time`);
+        }
       }
     }),
 });

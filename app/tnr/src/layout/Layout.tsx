@@ -22,6 +22,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
     refetch: refetchUser,
   } = api.profile.getUser.useQuery(undefined, {
     enabled: !!userId,
+    staleTime: Infinity,
   });
 
   return (
