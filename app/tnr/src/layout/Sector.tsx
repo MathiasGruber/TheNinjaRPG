@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { type Village, type UserData } from "@prisma/client";
 import { type Grid } from "honeycomb-grid";
 import alea from "alea";
-import Stats from "three/examples/jsm/libs/stats.module";
+// import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
 
 import AvatarImage from "./Avatar";
@@ -151,8 +151,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       });
 
       // Performance monitor
-      const stats = new Stats();
-      document.body.appendChild(stats.dom);
+      // const stats = new Stats();
+      // document.body.appendChild(stats.dom);
 
       // Mouse move listener
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
@@ -306,7 +306,9 @@ const Sector: React.FC<SectorProps> = (props) => {
         // Render the scene
         animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
-        stats.update(); // TODO: Remove this
+
+        // Performance monitor
+        // stats.update(); // TODO: Remove this
       }
       render();
 

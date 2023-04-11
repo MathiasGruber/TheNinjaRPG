@@ -15,7 +15,7 @@ import {
 } from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
-import Stats from "three/examples/jsm/libs/stats.module";
+// import Stats from "three/examples/jsm/libs/stats.module";
 
 import { type Village } from "@prisma/client";
 import {
@@ -55,8 +55,10 @@ const Map: React.FC<MapProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current) {
-      const stats = new Stats();
-      document.body.appendChild(stats.dom);
+      // Performance stats
+      // const stats = new Stats();
+      // document.body.appendChild(stats.dom);
+
       // Interacivity with mouse
       if (props.intersection) {
         mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
@@ -284,7 +286,9 @@ const Map: React.FC<MapProps> = (props) => {
         // Render the scene
         animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
-        stats.update();
+
+        // Performance monitor
+        // stats.update();
       }
       render();
 
