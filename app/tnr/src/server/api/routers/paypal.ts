@@ -92,7 +92,7 @@ export const paypalRouter = createTRPCRouter({
       // Update database - will fail if orderID already exists, due to unique constraint
       await updateReps({
         client: ctx.prisma,
-        createdById: ctx.session.user.id,
+        createdById: ctx.userId,
         transactionId: capture.id,
         transactionUpdatedDate: capture.update_time,
         orderId: input.orderId,
@@ -164,7 +164,7 @@ export const paypalRouter = createTRPCRouter({
       const transaactions = await ctx.prisma.paypalTransaction.findMany({
         skip: skip,
         take: input.limit,
-        where: { createdById: ctx.session.user.id },
+        where: { createdById: ctx.userId },
         include: {
           affectedUser: true,
         },
@@ -181,10 +181,7 @@ export const paypalRouter = createTRPCRouter({
   getPaypalSubscriptions: protectedProcedure.query(async ({ ctx }) => {
     const subscriptions = await ctx.prisma.paypalSubscription.findMany({
       where: {
-        OR: [
-          { createdById: ctx.session.user.id },
-          { affectedUserId: ctx.session.user.id },
-        ],
+        OR: [{ createdById: ctx.userId }, { affectedUserId: ctx.userId }],
         status: "ACTIVE",
       },
       include: {
@@ -217,7 +214,7 @@ export const paypalRouter = createTRPCRouter({
       const users = subscription.custom_id?.split("-");
       const createdByUserId = users?.[0];
       const affectedUserId = users?.[1];
-      if (!users.includes(ctx.session.user.id) || !createdByUserId || !affectedUserId) {
+      if (!users.includes(ctx.userId) || !createdByUserId || !affectedUserId) {
         throw serverError("UNAUTHORIZED", "You are not related to this subscription");
       }
       const status = await cancelPaypalSubscription(input.subscriptionId, token);

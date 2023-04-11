@@ -6,21 +6,22 @@ import MenuBoxProfile from "./MenuBoxProfile";
 import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
+
 import { ToastContainer } from "react-toastify";
 import { UserContext } from "../utils/UserContext";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Get logged in user
-  const { data: sessionData } = useSession();
+  const { userId, isSignedIn } = useAuth();
   // Get user data
   const {
     data: data,
     status: userStatus,
     refetch: refetchUser,
   } = api.profile.getUser.useQuery(undefined, {
-    enabled: sessionData?.user !== undefined,
+    enabled: !!userId,
   });
 
   return (
@@ -41,7 +42,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         <div className="container">
           <div className="grid grid-cols-3 md:grid-cols-5">
             <div className="col-span-1 hidden md:block">
-              {data?.userData && (
+              {data?.userData && isSignedIn && (
                 <>
                   <MenuBoxProfile />
                   <MenuBox title="Game Map">
@@ -57,7 +58,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
               </div>
             </div>
             <div className="col-span-1 hidden md:block">
-              {data?.userData && <MenuBoxGame notifications={data?.notifications} />}
+              {data?.userData && isSignedIn && (
+                <MenuBoxGame notifications={data?.notifications} />
+              )}
             </div>
             <Footer />
           </div>

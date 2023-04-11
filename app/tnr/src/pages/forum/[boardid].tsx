@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
@@ -19,15 +18,14 @@ import { BookmarkIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/
 import { api } from "../../utils/api";
 import { forumBoardSchema } from "../../validators/forum";
 import { show_toast } from "../../libs/toast";
-import { useUser } from "../../utils/UserContext";
+import { useUserData } from "../../utils/UserContext";
 import { secondsPassed } from "../../utils/time";
 import { useInfinitePagination } from "../../libs/pagination";
 import { canModerate } from "../../validators/forum";
 import { type ForumBoardSchema } from "../../validators/forum";
 
 const BugReport: NextPage = () => {
-  const { data: sessionData } = useSession();
-  const { data: userData } = useUser();
+  const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
   const board_id = router.query.boardid as string;
@@ -111,32 +109,31 @@ const BugReport: NextPage = () => {
       back_href="/forum"
       subtitle={board.name}
       topRightContent={
-        sessionData && (
+        userData &&
+        !userData.isBanned && (
           <div className="flex flex-row items-center">
-            {userData && !sessionData.user?.isBanned && (
-              <Confirm
-                title="Create a new thread"
-                proceed_label="Submit"
-                button={<Button id="create" label="New Thread" />}
-                isValid={isValid}
-                onAccept={onSubmit}
-              >
-                <InputField
-                  id="title"
-                  label="Title for your thread"
-                  register={register}
-                  error={errors.title?.message}
-                />
-                <RichInput
-                  id="content"
-                  label="Contents of your thread"
-                  height="300"
-                  placeholder=""
-                  control={control}
-                  error={errors.content?.message}
-                />
-              </Confirm>
-            )}
+            <Confirm
+              title="Create a new thread"
+              proceed_label="Submit"
+              button={<Button id="create" label="New Thread" />}
+              isValid={isValid}
+              onAccept={onSubmit}
+            >
+              <InputField
+                id="title"
+                label="Title for your thread"
+                register={register}
+                error={errors.title?.message}
+              />
+              <RichInput
+                id="content"
+                label="Contents of your thread"
+                height="300"
+                placeholder=""
+                control={control}
+                error={errors.content?.message}
+              />
+            </Confirm>
           </div>
         )
       }
@@ -189,7 +186,7 @@ const BugReport: NextPage = () => {
                   options={
                     <div className="ml-3">
                       <div className="mt-2 flex flex-row items-center ">
-                        {sessionData?.user && canModerate(sessionData.user) ? (
+                        {userData && canModerate(userData) ? (
                           <>
                             <Confirm
                               title={`Confirm ${pinAction}ning thread`}

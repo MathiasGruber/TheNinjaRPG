@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { type PrismaClient } from "@prisma/client/edge";
 
+import sanitize from "../../../utils/sanitize";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { bugreportSchema } from "../../../validators/bugs";
-import sanitize from "../../../utils/sanitize";
+
+import { fetchUser } from "./profile";
 
 export const bugsRouter = createTRPCRouter({
   // Get all bugs in the system
@@ -37,7 +39,7 @@ export const bugsRouter = createTRPCRouter({
           },
           votes: {
             where: {
-              ...(ctx.session?.user ? { userId: ctx.session.user?.id } : {}),
+              ...(ctx.userId ? { userId: ctx.userId } : {}),
             },
             select: {
               value: true,
@@ -80,13 +82,14 @@ export const bugsRouter = createTRPCRouter({
     }),
   // Create a new bug report
   create: protectedProcedure.input(bugreportSchema).mutation(async ({ ctx, input }) => {
-    if (ctx.session.user.isBanned) {
+    const user = await fetchUser(ctx.prisma, ctx.userId);
+    if (user.isBanned) {
       throw serverError("UNAUTHORIZED", "You are banned");
     }
     return await ctx.prisma.$transaction(async (tx) => {
       const convo = await tx.conversation.create({
         data: {
-          createdById: ctx.session.user.id,
+          createdById: ctx.userId,
         },
       });
       return tx.bugReport.create({
@@ -94,7 +97,7 @@ export const bugsRouter = createTRPCRouter({
           title: input.title,
           content: sanitize(input.content),
           system: input.system,
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           conversationId: convo.id,
         },
       });
@@ -104,7 +107,8 @@ export const bugsRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role === "ADMIN") {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.role === "ADMIN") {
         return ctx.prisma.bugReport.delete({
           where: { id: input.id },
         });
@@ -123,7 +127,8 @@ export const bugsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Guards
       const report = await fetchBugReport(ctx.prisma, input.id);
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       await ctx.prisma.$transaction(async (tx) => {
@@ -132,12 +137,12 @@ export const bugsRouter = createTRPCRouter({
           where: {
             bugId_userId: {
               bugId: report.id,
-              userId: ctx.session.user.id,
+              userId: ctx.userId,
             },
           },
           create: {
             bugId: report.id,
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
             value: input.value,
           },
           update: {
@@ -168,7 +173,8 @@ export const bugsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role === "ADMIN") {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.role === "ADMIN") {
         const report = await fetchBugReport(ctx.prisma, input.id);
         await ctx.prisma.$transaction(async (tx) => {
           await tx.bugReport.update({

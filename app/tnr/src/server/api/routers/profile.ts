@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ReportAction } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client/edge";
 import { type NavBarDropdownLink } from "../../../libs/menus";
 
 import {
@@ -8,14 +9,13 @@ import {
   publicProcedure,
   serverError,
 } from "../trpc";
-import { registrationSchema } from "../../../validators/register";
 
 export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
     // User
     const user = await ctx.prisma.userData.findUnique({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
       include: {
         village: true,
         bloodline: true,
@@ -23,45 +23,47 @@ export const profileRouter = createTRPCRouter({
     });
     // Notifications
     const notifications: NavBarDropdownLink[] = [];
-    // Get number of un-resolved user reports
-    if (ctx.session.user.role === "MODERATOR" || ctx.session.user.role === "ADMIN") {
-      const userReports = await ctx.prisma.userReport.count({
-        where: {
-          status: {
-            in: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
+    if (user) {
+      // Get number of un-resolved user reports
+      if (user.role === "MODERATOR" || user.role === "ADMIN") {
+        const userReports = await ctx.prisma.userReport.count({
+          where: {
+            status: {
+              in: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
+            },
           },
-        },
-      });
-      if (userReports > 0) {
+        });
+        if (userReports > 0) {
+          notifications.push({
+            href: "/reports",
+            name: `${userReports} waiting!`,
+            color: "blue",
+          });
+        }
+      }
+      // Check if user is banned
+      if (user.isBanned) {
         notifications.push({
           href: "/reports",
-          name: `${userReports} waiting!`,
-          color: "blue",
+          name: "You are banned!",
+          color: "red",
         });
       }
-    }
-    // Check if user is banned
-    if (ctx.session.user.isBanned) {
-      notifications.push({
-        href: "/reports",
-        name: "You are banned!",
-        color: "red",
-      });
-    }
-    // Add deletion timer to notifications
-    if (user?.deletionAt) {
-      notifications?.push({
-        href: "/profile",
-        name: "Being deleted",
-        color: "red",
-      });
+      // Add deletion timer to notifications
+      if (user?.deletionAt) {
+        notifications?.push({
+          href: "/profile",
+          name: "Being deleted",
+          color: "red",
+        });
+      }
     }
     return { userData: user, notifications: notifications };
   }),
   // Get user attributes
   getUserAttributes: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.userAttribute.findMany({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
       distinct: ["attribute"],
     });
   }),
@@ -92,7 +94,7 @@ export const profileRouter = createTRPCRouter({
             contains: input.username,
           },
           approved_tos: true,
-          ...(input.showYourself ? {} : { userId: { not: ctx.session.user.id } }),
+          ...(input.showYourself ? {} : { userId: { not: ctx.userId } }),
         },
         select: {
           userId: true,
@@ -182,52 +184,13 @@ export const profileRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
-  // Create Character
-  createCharacter: protectedProcedure
-    .input(registrationSchema)
-    .mutation(async ({ ctx, input }) => {
-      // Fetch village
-      const village = await ctx.prisma.village.findUniqueOrThrow({
-        where: { id: input.village },
-      });
-      // Create user
-      const user = await ctx.prisma.userData.create({
-        data: {
-          villageId: input.village,
-          username: input.username,
-          gender: input.gender,
-          userId: ctx.session.user.id,
-          approved_tos: true,
-          sector: village.sector,
-        },
-      });
-      // Unique attributes
-      const unique_attributes = [
-        ...new Set([
-          input.attribute_1,
-          input.attribute_2,
-          input.attribute_3,
-          input.hair_color + " hair",
-          input.eye_color + " eyes",
-          input.skin_color + " skin",
-        ]),
-      ];
-      // Create user attributes
-      await ctx.prisma.userAttribute.createMany({
-        data: unique_attributes.map((attribute) => ({
-          attribute,
-          userId: ctx.session.user.id,
-        })),
-        skipDuplicates: true,
-      });
-      return user;
-    }),
+  // Toggle deletion of user
   toggleDeletionTimer: protectedProcedure.mutation(async ({ ctx }) => {
     const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
     });
     await ctx.prisma.userData.update({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
       data: {
         ...(currentUser.deletionAt
           ? { deletionAt: null }
@@ -235,55 +198,59 @@ export const profileRouter = createTRPCRouter({
       },
     });
   }),
+  // Delete user
   cofirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
     const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
     });
     if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
     }
     await ctx.prisma.$transaction([
       ctx.prisma.userData.delete({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.userAttribute.deleteMany({
-        where: { userId: ctx.session.user.id },
-      }),
-      ctx.prisma.user.delete({
-        where: { id: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.historicalAvatar.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.bugReport.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.bugVotes.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.reportLog.deleteMany({
         where: {
-          OR: [
-            { targetUserId: ctx.session.user.id },
-            { staffUserId: ctx.session.user.id },
-          ],
+          OR: [{ targetUserId: ctx.userId }, { staffUserId: ctx.userId }],
         },
       }),
       ctx.prisma.userReport.deleteMany({
-        where: { reportedUserId: ctx.session.user.id },
+        where: { reportedUserId: ctx.userId },
       }),
       ctx.prisma.userReportComment.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.forumPost.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.conversationComment.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
       ctx.prisma.usersInConversation.deleteMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
       }),
     ]);
   }),
 });
+
+/**
+ * Fetches user by id
+ */
+export const fetchUser = async (client: PrismaClient, id: string) => {
+  return await client.userData.findUniqueOrThrow({
+    where: { userId: id },
+  });
+};

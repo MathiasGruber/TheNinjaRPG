@@ -1,6 +1,6 @@
 import { type z } from "zod";
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import {
@@ -21,7 +21,7 @@ import Table, { type ColumnDefinitionType } from "../layout/Table";
 
 import { api } from "../utils/api";
 import { useInfinitePagination } from "../libs/pagination";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { reps2dollars } from "../utils/paypal";
 import { show_toast } from "../libs/toast";
 import { type BuyRepsSchema, buyRepsSchema } from "../validators/points";
@@ -88,7 +88,7 @@ export default PaypalShop;
  * Reputation Store component
  */
 const ReputationStore = (props: { currency: string }) => {
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
   const [{ isResolved }] = usePayPalScriptReducer();
   const [amount, setAmount] = useState(0);
   const maxUsers = 1;
@@ -254,7 +254,7 @@ const PayPalSubscriptionButton = (props: {
  * Federal Store component
  */
 const FederalStore = () => {
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
   const maxUsers = 1;
   const userSearchSchema = getSearchValidator({ max: maxUsers });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
@@ -421,7 +421,7 @@ const SubscriptionsOverview = () => {
  * Transaction History component
  */
 const TransactionHistory = () => {
-  const { data: sessionData } = useSession();
+  const { userId } = useAuth();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   const {
@@ -431,7 +431,7 @@ const TransactionHistory = () => {
   } = api.paypal.getPaypalTransactions.useInfiniteQuery(
     { limit: 10 },
     {
-      enabled: sessionData !== undefined,
+      enabled: !!userId,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
     }

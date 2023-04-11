@@ -165,7 +165,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
-  Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 0.00000001));
+  Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 1));
   Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
   group.add(markerSprite);
 
@@ -176,7 +176,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
   const sprite = new Sprite(material);
-  Object.assign(sprite.scale, new Vector3(h * 0.8, h * 0.8, 0.00000001));
+  Object.assign(sprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
   Object.assign(sprite.position, new Vector3(w / 2, h * 1.0, -6));
   group.add(sprite);
 
@@ -187,7 +187,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   attackSprite.visible = false;
   attackSprite.userData.userId = userData.userId;
   attackSprite.userData.type = "attack";
-  Object.assign(attackSprite.scale, new Vector3(h * 0.8, h * 0.8, 0.00000001));
+  Object.assign(attackSprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
   Object.assign(attackSprite.position, new Vector3(w * 0.9, h * 1.4, -5));
   group.add(attackSprite);
 
@@ -198,7 +198,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   infoSprite.visible = false;
   infoSprite.userData.userId = userData.userId;
   infoSprite.userData.type = "info";
-  Object.assign(infoSprite.scale, new Vector3(h * 0.7, h * 0.7, 0.00000001));
+  Object.assign(infoSprite.scale, new Vector3(h * 0.7, h * 0.7, 1));
   Object.assign(infoSprite.position, new Vector3(w * 0.1, h * 1.4, -5));
   group.add(infoSprite);
 

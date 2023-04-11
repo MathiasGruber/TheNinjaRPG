@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ReportAction } from "@prisma/client";
 import { type UserReport } from "@prisma/client";
+import { type UserData } from "@prisma/client";
 
 export const systems = [
   "bug_report",
@@ -13,7 +14,7 @@ export const systems = [
 export const userReportSchema = z.object({
   system: z.enum(systems),
   system_id: z.string().cuid(),
-  reported_userId: z.string().cuid(),
+  reported_userId: z.string(),
   reason: z.string().min(1).max(1000),
 });
 
@@ -27,18 +28,13 @@ export const reportCommentSchema = z.object({
 
 export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;
 
-interface PermUser {
-  id: string;
-  role: string;
-}
-
 /**
  * Whether a user can see a given report based on his role & userId
  */
-export const canSeeReport = (user: PermUser, report: UserReport) => {
+export const canSeeReport = (user: UserData, report: UserReport) => {
   return (
-    report.reporterUserId === user.id ||
-    report.reportedUserId === user.id ||
+    report.reporterUserId === user.userId ||
+    report.reportedUserId === user.userId ||
     ["MODERATOR", "ADMIN"].includes(user.role)
   );
 };
@@ -53,7 +49,7 @@ export const canPostReportComment = (report: UserReport) => {
 /**
  * Which user roles have access to moderate reports
  */
-export const canModerateReports = (user: PermUser, report: UserReport) => {
+export const canModerateReports = (user: UserData, report: UserReport) => {
   return (
     (user.role === "ADMIN" && report.status === "UNVIEWED") ||
     (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
@@ -64,7 +60,7 @@ export const canModerateReports = (user: PermUser, report: UserReport) => {
 /**
  * If ban is set by moderator, user can escalate to admin
  */
-export const canEscalateBan = (user: PermUser, report: UserReport) => {
+export const canEscalateBan = (user: UserData, report: UserReport) => {
   return (
     !report.adminResolved &&
     !canModerateReports(user, report) &&
@@ -77,7 +73,7 @@ export const canEscalateBan = (user: PermUser, report: UserReport) => {
 /**
  * Whether a given report (and/or ban) can be cleared
  */
-export const canClearReport = (user: PermUser, report: UserReport) => {
+export const canClearReport = (user: UserData, report: UserReport) => {
   return (
     // Moderators
     canModerateReports(user, report) ||
@@ -85,13 +81,13 @@ export const canClearReport = (user: PermUser, report: UserReport) => {
     (report.status === "BAN_ACTIVATED" &&
       report.banEnd &&
       report.banEnd <= new Date() &&
-      report.reportedUserId === user.id)
+      report.reportedUserId === user.userId)
   );
 };
 
 /**
  * Can change another user's avatar
  */
-export const canChangeAvatar = (user: PermUser) => {
+export const canChangeAvatar = (user: UserData) => {
   return ["MODERATOR", "ADMIN"].includes(user.role);
 };

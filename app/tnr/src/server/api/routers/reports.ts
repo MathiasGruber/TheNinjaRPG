@@ -4,14 +4,16 @@ import { type Prisma } from "@prisma/client/edge";
 import { type PrismaClient } from "@prisma/client/edge";
 import { ReportAction } from "@prisma/client/edge";
 
+import sanitize from "../../../utils/sanitize";
 import { userReportSchema } from "../../../validators/reports";
 import { reportCommentSchema } from "../../../validators/reports";
-import sanitize from "../../../utils/sanitize";
 import { updateAvatar } from "../../../libs/replicate";
 import { canModerateReports } from "../../../validators/reports";
 import { canSeeReport } from "../../../validators/reports";
+import { canClearReport } from "../../../validators/reports";
 import { canEscalateBan } from "../../../validators/reports";
 import { canChangeAvatar } from "../../../validators/reports";
+import { fetchUser } from "./profile";
 
 export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them
@@ -32,6 +34,7 @@ export const reportsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const reports = await ctx.prisma.userReport.findMany({
         skip: skip,
         take: input.limit,
@@ -51,12 +54,9 @@ export const reportsRouter = createTRPCRouter({
                 }
             : {}),
           // Subset on user reports if user is not a moderator
-          ...(ctx.session.user.role === "USER"
+          ...(user.role === "USER"
             ? {
-                OR: [
-                  { reportedUserId: ctx.session.user.id },
-                  { reporterUserId: ctx.session.user.id },
-                ],
+                OR: [{ reportedUserId: ctx.userId }, { reporterUserId: ctx.userId }],
               }
             : {}),
           // Subset on username if provided
@@ -87,8 +87,9 @@ export const reportsRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string().cuid() }))
     .query(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const report = await fetchUserReport(ctx.prisma, input.id);
-      if (canSeeReport(ctx.session.user, report)) {
+      if (canSeeReport(user, report)) {
         return report;
       } else {
         throw serverError("UNAUTHORIZED", "You have no access to the report");
@@ -120,7 +121,7 @@ export const reportsRouter = createTRPCRouter({
         if (report) {
           return ctx.prisma.userReport.create({
             data: {
-              reporterUserId: ctx.session.user.id,
+              reporterUserId: ctx.userId,
               reportedUserId: input.reported_userId,
               system: input.system,
               infraction: report as unknown as Prisma.JsonObject,
@@ -137,7 +138,7 @@ export const reportsRouter = createTRPCRouter({
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guards
-      const user = ctx.session.user;
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const report = await fetchUserReport(ctx.prisma, input.object_id);
       const hasModRights = canModerateReports(user, report);
       if (!input.banTime || input.banTime <= 0) {
@@ -149,18 +150,16 @@ export const reportsRouter = createTRPCRouter({
       // Perform the ban
       await ctx.prisma.$transaction(async (tx) => {
         if (report.reportedUserId) {
-          await tx.user.update({
-            where: { id: report.reportedUserId },
-            data: {
-              isBanned: true,
-            },
+          await tx.userData.update({
+            where: { userId: report.reportedUserId },
+            data: { isBanned: true },
           });
         }
         await tx.userReport.update({
           where: { id: input.object_id },
           data: {
             status: ReportAction.BAN_ACTIVATED,
-            adminResolved: ctx.session.user.role === "ADMIN",
+            adminResolved: user.role === "ADMIN",
             banEnd:
               input.banTime !== undefined
                 ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
@@ -169,7 +168,7 @@ export const reportsRouter = createTRPCRouter({
         });
         await tx.userReportComment.create({
           data: {
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
             reportId: input.object_id,
             content: sanitize(input.comment),
             decision: ReportAction.BAN_ACTIVATED,
@@ -182,9 +181,10 @@ export const reportsRouter = createTRPCRouter({
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guards
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const report = await fetchUserReport(ctx.prisma, input.object_id);
-      if (canEscalateBan(ctx.session.user, report)) {
-        throw serverError("UNAUTHORIZED", "User can escalate ban once.");
+      if (canEscalateBan(user, report)) {
+        throw serverError("UNAUTHORIZED", "This ban cannot be escalated");
       }
       // Perform the escalation
       await ctx.prisma.$transaction(async (tx) => {
@@ -196,7 +196,7 @@ export const reportsRouter = createTRPCRouter({
         });
         await tx.userReportComment.create({
           data: {
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
             reportId: input.object_id,
             content: sanitize(input.comment),
             decision: ReportAction.BAN_ESCALATED,
@@ -208,7 +208,11 @@ export const reportsRouter = createTRPCRouter({
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guards
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const report = await fetchUserReport(ctx.prisma, input.object_id);
+      if (!canClearReport(user, report)) {
+        throw serverError("UNAUTHORIZED", "You cannot clear this report");
+      }
       // Perform the clear
       await ctx.prisma.$transaction(async (tx) => {
         // If there are other reports where ban is active, do not clear ban. Otherwise do
@@ -222,8 +226,8 @@ export const reportsRouter = createTRPCRouter({
             },
           });
           if (reports.length === 0) {
-            await tx.user.update({
-              where: { id: report.reportedUserId },
+            await tx.userData.update({
+              where: { userId: report.reportedUserId },
               data: {
                 isBanned: false,
               },
@@ -233,13 +237,13 @@ export const reportsRouter = createTRPCRouter({
         await tx.userReport.update({
           where: { id: report.id },
           data: {
-            adminResolved: ctx.session.user.role === "ADMIN",
+            adminResolved: user.role === "ADMIN",
             status: ReportAction.REPORT_CLEARED,
           },
         });
         await tx.userReportComment.create({
           data: {
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
             reportId: report.id,
             content: sanitize(input.comment),
             decision: ReportAction.REPORT_CLEARED,
@@ -248,22 +252,20 @@ export const reportsRouter = createTRPCRouter({
       });
     }),
   updateUserAvatar: protectedProcedure
-    .input(z.object({ userId: z.string().cuid() }))
+    .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.prisma.userData.findUniqueOrThrow({
-        where: { userId: input.userId },
-      });
-      if (canChangeAvatar(ctx.session.user)) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (canChangeAvatar(user)) {
         const updated = await ctx.prisma.userData.update({
-          where: { userId: user.userId },
+          where: { userId: input.userId },
           data: { avatar: null },
         });
         void updateAvatar(ctx.prisma, user);
         await ctx.prisma.reportLog.create({
           data: {
-            staffUserId: ctx.session.user.id,
+            staffUserId: ctx.userId,
             action: "AVATAR_CHANGE",
-            targetUserId: user.userId,
+            targetUserId: input.userId,
           },
         });
         return updated;

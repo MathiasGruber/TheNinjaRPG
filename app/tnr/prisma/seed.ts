@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client/edge";
 import { UserStatus } from "@prisma/client/edge";
+import { createId } from "@paralleldrive/cuid2";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();
@@ -64,22 +65,14 @@ async function main() {
       });
     });
     // Village elders
-    const elderUser = await prisma.user.upsert({
-      where: {
-        email: village.name + "@tnr.com",
-      },
-      update: {},
-      create: {
-        email: village.name + "@tnr.com",
-      },
-    });
+    const elderId = createId();
     await prisma.userData.upsert({
       where: {
-        userId: elderUser.id,
+        userId: elderId,
       },
       update: {},
       create: {
-        userId: elderUser.id,
+        userId: elderId,
         gender: elders[i]?.gender as string,
         username: elders[i]?.name as string,
         villageId: villageData.id,
@@ -91,13 +84,13 @@ async function main() {
       await prisma.userAttribute.upsert({
         where: {
           attribute_userId: {
-            userId: elderUser.id,
+            userId: elderId,
             attribute: attribute,
           },
         },
         update: {},
         create: {
-          userId: elderUser.id,
+          userId: elderId,
           attribute,
         },
       });
@@ -110,7 +103,7 @@ async function main() {
       update: {},
       create: {
         title: village.name,
-        createdById: elderUser.id,
+        createdById: elderId,
       },
     });
   });

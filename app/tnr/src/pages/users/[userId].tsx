@@ -1,4 +1,4 @@
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
 
@@ -11,9 +11,11 @@ import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
 import { show_toast } from "../../libs/toast";
 import { canChangeAvatar } from "../../validators/reports";
+import { useUserData } from "../../utils/UserContext";
 
 const PublicProfile: NextPage = () => {
-  const { data: sessionData } = useSession();
+  const { isSignedIn } = useAuth();
+  const { data: userData } = useUserData();
   const router = useRouter();
   const userId = router.query.userId as string;
 
@@ -76,7 +78,7 @@ const PublicProfile: NextPage = () => {
                       priority={true}
                       size={100}
                     />
-                    {sessionData?.user && canChangeAvatar(sessionData.user) && (
+                    {isSignedIn && userData && canChangeAvatar(userData) && (
                       <Confirm
                         title="Confirm Deletion"
                         button={

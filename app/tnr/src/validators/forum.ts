@@ -1,6 +1,5 @@
 import { z } from "zod";
-//import { type User } from "@prisma/client";
-import { type User } from "next-auth";
+import { type UserData } from "@prisma/client";
 
 export const forumBoardSchema = z
   .object({
@@ -16,6 +15,6 @@ export type ForumBoardSchema = z.infer<typeof forumBoardSchema>;
 /**
  * Which user roles have access to moderate
  */
-export const canModerate = (user: User) => {
+export const canModerate = (user: UserData) => {
   return user.role === "ADMIN" || user.role === "MODERATOR";
 };

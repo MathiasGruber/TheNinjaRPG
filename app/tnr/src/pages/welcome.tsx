@@ -1,6 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
 import Button from "../layout/Button";
-import { signIn } from "next-auth/react";
 
 const Welcome: React.FC = () => {
   return (
@@ -31,14 +31,9 @@ const Welcome: React.FC = () => {
                 and sprinkled with a bit of AI technology.
               </p>
 
-              <p className="pt-2 text-3xl font-bold text-red-600">
-                <Button
-                  id="edit_comment"
-                  label="Register or Sign In"
-                  color="red"
-                  onClick={() => void signIn()}
-                />
-              </p>
+              <Link className="pt-2 text-3xl font-bold text-red-600" href="/login">
+                <Button id="edit_comment" label="Register or Sign In" color="red" />
+              </Link>
             </div>
           </TitledBox>
         </div>

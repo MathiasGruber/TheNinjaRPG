@@ -1,8 +1,8 @@
 import { createContext, useEffect } from "react";
 import { useContext } from "react";
-import { useSession } from "next-auth/react";
 import { Prisma } from "@prisma/client";
 import { useRouter } from "next/router";
+import { useAuth } from "@clerk/nextjs";
 
 // Create type for user with relations (usually would be done in route,
 // but exception is made for userdata as we use it in the context provider)
@@ -22,19 +22,19 @@ export const UserContext = createContext<{
 }>({ data: undefined, status: "unknown", refetch: () => undefined });
 
 // Easy hook for getting the current user data
-export const useUser = () => {
+export const useUserData = () => {
   return useContext(UserContext);
 };
 
 // Require the user to be logged in
-export const useRequiredUser = () => {
+export const useRequiredUserData = () => {
   const router = useRouter();
-  const { status: sessionStatus } = useSession();
-  const { data, status, refetch } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { data, status, refetch } = useUserData();
   useEffect(() => {
-    if (data === null || sessionStatus === "unauthenticated") {
+    if (data === null || (!isSignedIn && isLoaded)) {
       void router.push("/");
     }
-  }, [router, data, sessionStatus]);
+  }, [router, data, isLoaded, isSignedIn]);
   return { data, status, refetch };
 };

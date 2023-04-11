@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outline";
@@ -17,7 +16,7 @@ import { type systems } from "../validators/reports";
 import { type ConversationComment } from "@prisma/client";
 import { type ForumPost } from "@prisma/client";
 import { type UserReportComment } from "@prisma/client";
-
+import { useUserData } from "../utils/UserContext";
 /**
  * Component for handling comments on user reports
  * @param props
@@ -133,7 +132,7 @@ interface BaseCommentProps extends PostProps {
   refetchComments: () => void;
 }
 const BaseComment: React.FC<BaseCommentProps> = (props) => {
-  const { data: sessionData } = useSession();
+  const { data: userData } = useUserData();
   const {
     handleSubmit,
     reset,
@@ -152,7 +151,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
     props.setEditing(false);
   });
 
-  const isAuthor = props.user && sessionData?.user?.id === props.user.userId;
+  const isAuthor = props.user && userData?.userId === props.user.userId;
 
   return (
     <Post

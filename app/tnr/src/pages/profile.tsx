@@ -7,13 +7,14 @@ import Button from "../layout/Button";
 import Countdown from "../layout/Countdown";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
-import { signOut } from "next-auth/react";
-import { useRequiredUser } from "../utils/UserContext";
+import { useClerk } from "@clerk/clerk-react";
+import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 
 const Profile: NextPage = () => {
-  const { data: userData, refetch: refetchUser } = useRequiredUser();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { signOut } = useClerk();
 
   const toggleDeletionTimer = api.profile.toggleDeletionTimer.useMutation({
     onSuccess: async () => {
@@ -25,9 +26,7 @@ const Profile: NextPage = () => {
   });
 
   const confirmDeletion = api.profile.cofirmDeletion.useMutation({
-    onSuccess: async () => {
-      await signOut({ callbackUrl: "/" });
-    },
+    onSuccess: () => signOut(),
     onError: (error) => {
       show_toast("Error on performing deletion", error.message, "error");
     },

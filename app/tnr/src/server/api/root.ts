@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "./trpc";
 import { profileRouter } from "./routers/profile";
+import { registerRouter } from "./routers/register";
 import { avatarRouter } from "./routers/avatar";
 import { bugsRouter } from "./routers/bugs";
 import { commentsRouter } from "./routers/comments";
@@ -24,6 +25,7 @@ export const appRouter = createTRPCRouter({
   forum: forumRouter,
   paypal: paypalRouter,
   travel: travelRouter,
+  register: registerRouter,
 });
 
 // export type definition of API

@@ -4,11 +4,11 @@ import { type NextPage } from "next";
 import Conversation from "../layout/Conversation";
 import NavTabs from "../layout/NavTabs";
 
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 
 const Tavern: NextPage = () => {
   const [activeTab, setActiveTab] = useState<string>("Global");
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
 
   const localTavern = userData?.village ? userData?.village?.name : "Syndicate";
   return (

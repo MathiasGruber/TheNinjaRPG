@@ -76,7 +76,7 @@ export const getSearchValidator = (props: { max: number }) => {
     users: z
       .array(
         z.object({
-          userId: z.string().cuid(),
+          userId: z.string(),
           username: usernameSchema,
           avatar: z.string().url().optional().nullish(),
           rank: z.string(),

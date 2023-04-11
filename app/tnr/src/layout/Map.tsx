@@ -27,7 +27,7 @@ import {
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/travel/TrackBallControls";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 
 interface MapProps {
   highlights?: Village[];
@@ -39,7 +39,7 @@ interface MapProps {
 }
 
 const Map: React.FC<MapProps> = (props) => {
-  const { data: userData } = useUser();
+  const { data: userData } = useUserData();
   const [hoverSector, setHoverSector] = useState<number | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const mouse = new Vector2();

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
@@ -15,13 +14,14 @@ import ContentBox from "../../../layout/ContentBox";
 import RichInput from "../../../layout/RichInput";
 import { CommentOnForum } from "../../../layout/Comment";
 
+import { useUserData } from "../../../utils/UserContext";
 import { api } from "../../../utils/api";
 import { show_toast } from "../../../libs/toast";
 import { mutateCommentSchema } from "../../../validators/comments";
 import { type MutateCommentSchema } from "../../../validators/comments";
 
 const BugReport: NextPage = () => {
-  const { data: sessionData } = useSession();
+  const { data: userData } = useUserData();
   const [page, setPage] = useState(0);
   const router = useRouter();
   const thread_id = router.query.threadid as string;
@@ -98,28 +98,25 @@ const BugReport: NextPage = () => {
       {totalPages && <Pagination current={page} total={totalPages} setPage={setPage} />}
       <ContentBox title="Create New Post">
         <form>
-          {thread &&
-            !thread.isLocked &&
-            sessionData &&
-            !sessionData?.user?.isBanned && (
-              <div className="mb-3">
-                <RichInput
-                  id="comment"
-                  height="200"
-                  placeholder="Write your comment here..."
-                  control={control}
-                  error={errors.comment?.message}
+          {thread && !thread.isLocked && userData && !userData.isBanned && (
+            <div className="mb-3">
+              <RichInput
+                id="comment"
+                height="200"
+                placeholder="Write your comment here..."
+                control={control}
+                error={errors.comment?.message}
+              />
+              <div className="flex flex-row-reverse">
+                <Button
+                  id="submit_comment"
+                  label="Post Comment"
+                  image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                  onClick={handleSubmitComment}
                 />
-                <div className="flex flex-row-reverse">
-                  <Button
-                    id="submit_comment"
-                    label="Post Comment"
-                    image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                    onClick={handleSubmitComment}
-                  />
-                </div>
               </div>
-            )}
+            </div>
+          )}
         </form>
       </ContentBox>
     </>

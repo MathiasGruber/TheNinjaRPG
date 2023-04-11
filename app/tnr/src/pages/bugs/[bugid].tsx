@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
 
@@ -13,10 +12,11 @@ import Post from "../../layout/Post";
 import Conversation from "../../layout/Conversation";
 
 import { api } from "../../utils/api";
+import { useUserData } from "../../utils/UserContext";
 import { show_toast } from "../../libs/toast";
 
 const BugReport: NextPage = () => {
-  const { data: sessionData } = useSession();
+  const { data: userData } = useUserData();
   const [conversationKey, setConversationKey] = useState<number>(0);
   const router = useRouter();
   const bug_id = router.query.bugid as string;
@@ -52,7 +52,7 @@ const BugReport: NextPage = () => {
             </Post>
             <Post title="Report Details" hover_effect={false}>
               {ReactHtmlParser(bug.content)}
-              {sessionData?.user?.role === "ADMIN" && (
+              {userData?.role === "ADMIN" && (
                 <>
                   <div className="grow"></div>
                   <Button

@@ -17,17 +17,14 @@ export const travelRouter = createTRPCRouter({
   getSectorData: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
     .query(async ({ input, ctx }) => {
-      const userData = await fetchUser(ctx.prisma, ctx.session.user.id);
+      const userData = await fetchUser(ctx.prisma, ctx.userId);
       if (userData.sector !== input.sector) {
         throw serverError("FORBIDDEN", `You are not in sector ${input.sector}`);
       }
       const users = await ctx.prisma.userData.findMany({
         where: {
           sector: input.sector,
-          OR: [
-            { updatedAt: { gt: secondsFromNow(-300) } },
-            { userId: ctx.session.user.id },
-          ],
+          OR: [{ updatedAt: { gt: secondsFromNow(-300) } }, { userId: ctx.userId }],
         },
         select: {
           userId: true,
@@ -47,7 +44,7 @@ export const travelRouter = createTRPCRouter({
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
     .mutation(async ({ input, ctx }) => {
-      const userData = await fetchUser(ctx.prisma, ctx.session.user.id);
+      const userData = await fetchUser(ctx.prisma, ctx.userId);
       if (!isAtEdge({ x: userData.longitude, y: userData.latitude })) {
         throw serverError(
           "FORBIDDEN",
@@ -68,7 +65,7 @@ export const travelRouter = createTRPCRouter({
       const endTime = secondsFromNow(travelTime);
       // Update database
       const newUserData = await ctx.prisma.userData.update({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
         data: {
           sector: input.sector,
           status: UserStatus.TRAVEL,
@@ -83,7 +80,7 @@ export const travelRouter = createTRPCRouter({
     }),
   // Finish travel on the globe
   finishGlobalMove: protectedProcedure.mutation(async ({ ctx }) => {
-    const userData = await fetchUser(ctx.prisma, ctx.session.user.id);
+    const userData = await fetchUser(ctx.prisma, ctx.userId);
     if (userData.status !== UserStatus.TRAVEL) {
       throw serverError(
         "FORBIDDEN",
@@ -95,7 +92,7 @@ export const travelRouter = createTRPCRouter({
     void pusher.trigger(userData.sector.toString(), "event", userData);
     // Return new userdata
     return await ctx.prisma.userData.update({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
       data: {
         status: UserStatus.AWAKE,
         travelFinishAt: null,
@@ -120,7 +117,7 @@ export const travelRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       const { longitude, latitude } = input;
-      const userData = await fetchUser(ctx.prisma, ctx.session.user.id);
+      const userData = await fetchUser(ctx.prisma, ctx.userId);
       if (userData.status !== UserStatus.AWAKE) {
         throw serverError(
           "FORBIDDEN",
@@ -146,7 +143,7 @@ export const travelRouter = createTRPCRouter({
         if (location !== userData.location) output.location = location;
         // Update user
         await ctx.prisma.userData.update({
-          where: { userId: ctx.session.user.id },
+          where: { userId: ctx.userId },
           data: { longitude, latitude, location },
         });
         // Push websockets message

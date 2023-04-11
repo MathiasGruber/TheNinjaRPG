@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { type NextPage } from "next";
 import { useForm } from "react-hook-form";
-import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
@@ -28,7 +27,7 @@ import { type ReportCommentSchema } from "../../validators/reports";
 import { reportCommentSchema } from "../../validators/reports";
 import { show_toast } from "../../libs/toast";
 import { useInfinitePagination } from "../../libs/pagination";
-import { useRequiredUser } from "../../utils/UserContext";
+import { useRequiredUserData } from "../../utils/UserContext";
 import { reportCommentColor } from "../../utils/reports";
 import { reportCommentExplain } from "../../utils/reports";
 
@@ -38,8 +37,7 @@ import { canEscalateBan } from "../../validators/reports";
 import { canClearReport } from "../../validators/reports";
 
 const BugReport: NextPage = () => {
-  const { data: sessionData } = useSession();
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -166,16 +164,15 @@ const BugReport: NextPage = () => {
     (errors) => console.log(errors)
   );
 
-  if (!userData || !sessionData || !report || !sessionData.user) {
+  if (!userData || !report) {
     return <Loader explanation="Loading data..." />;
   }
 
   // Permissions determining look of page
-  const user = sessionData.user;
   const canComment = canPostReportComment(report);
-  const canEscalate = canEscalateBan(user, report);
-  const canClear = canClearReport(user, report);
-  const canBan = canModerateReports(user, report);
+  const canEscalate = canEscalateBan(userData, report);
+  const canClear = canClearReport(userData, report);
+  const canBan = canModerateReports(userData, report);
   const canWrite = canComment || canEscalate || canClear || canBan;
 
   return (

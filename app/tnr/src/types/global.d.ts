@@ -1,22 +1,3 @@
-import { type DefaultSession, type DefaultUser } from "next-auth";
-
-declare module "next-auth" {
-  /**
-   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
-   */
-  interface Session {
-    user?: {
-      id: string;
-      role: string;
-      isBanned: boolean;
-    } & DefaultSession["user"];
-  }
-  interface User extends DefaultUser {
-    role: string;
-    isBanned: boolean;
-  }
-}
-
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -37,3 +18,6 @@ declare global {
     }
   }
 }
+
+// We must export something for it to be a module
+export {};

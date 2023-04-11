@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ReactHtmlParser from "react-html-parser";
@@ -10,6 +9,7 @@ import Post from "./Post";
 
 import { type UserReportSchema, type systems } from "../validators/reports";
 import { userReportSchema } from "../validators/reports";
+import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 
@@ -32,7 +32,7 @@ interface ReportUserProps {
 }
 
 const ReportUser: React.FC<ReportUserProps> = (props) => {
-  const { data: sessionData } = useSession();
+  const { data: userData } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
 
   const createReport = api.reports.create.useMutation({
@@ -77,10 +77,10 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
         <Modal
           title="Report User"
           setIsOpen={setShowModal}
-          proceed_label={sessionData?.user?.isBanned ? "Stop" : "Report User"}
-          onAccept={sessionData?.user?.isBanned ? undefined : onSubmit}
+          proceed_label={userData?.isBanned ? "Stop" : "Report User"}
+          onAccept={userData?.isBanned ? undefined : onSubmit}
         >
-          {sessionData?.user?.isBanned ? (
+          {userData?.isBanned ? (
             <div>You are currently banned, and can therefore not report others</div>
           ) : (
             <>

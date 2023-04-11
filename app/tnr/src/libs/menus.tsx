@@ -9,8 +9,6 @@ import {
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
-import { signOut, signIn } from "next-auth/react";
-import { type Session } from "next-auth";
 import { type UserDataWithRelations } from "../utils/UserContext";
 import { calcIsInVillage } from "./travel/controls";
 
@@ -19,13 +17,13 @@ export interface NavBarDropdownLink {
   name: string;
   color?: "default" | "red" | "green" | "blue";
   icon?: ReactNode;
-  onClick?: () => Promise<undefined>;
+  onClick?: () => Promise<void>;
 }
 
 /**
  * Get main navbar links
  */
-export const getMainNavbarLinks = (sessionData: Session | null) => {
+export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   const links: NavBarDropdownLink[] = [
     {
       href: "/",
@@ -45,17 +43,10 @@ export const getMainNavbarLinks = (sessionData: Session | null) => {
     },
   ];
   // Add login or logout button
-  if (sessionData) {
+  if (!isSignedIn) {
     links.push({
-      href: "/",
-      name: "Logout",
-      onClick: () => signOut({ callbackUrl: "/" }),
-    });
-  } else {
-    links.push({
-      href: "/",
+      href: "/login",
       name: "Login",
-      onClick: () => signIn(),
     });
   }
   return links;

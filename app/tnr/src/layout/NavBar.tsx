@@ -5,17 +5,19 @@ import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown from "./NavBarDropdown";
+import { UserButton } from "@clerk/nextjs";
 
-import { useSession } from "next-auth/react";
-import { useUser } from "../utils/UserContext";
+import { useAuth } from "@clerk/nextjs";
+import { useUserData } from "../utils/UserContext";
 import { getMainNavbarLinks } from "../libs/menus";
 import { getMainGameLinks } from "../libs/menus";
 
 const NavBar: React.FC = () => {
-  const { data: sessionData } = useSession();
-  const { data: userData } = useUser();
+  // Information on user
+  const { isSignedIn } = useAuth();
+  const { data: userData } = useUserData();
   // Main links
-  const navLinks = getMainNavbarLinks(sessionData);
+  const navLinks = getMainNavbarLinks(isSignedIn);
   const gameLinks = getMainGameLinks(userData);
   // Top element of mobile navbar
   const topElement = userData && (
@@ -64,12 +66,29 @@ const NavBar: React.FC = () => {
               key={link.name}
               className="basis-1/5 font-bold"
               href={link.href}
-              onClick={link.onClick}
+              onClick={async () => {
+                if (link.onClick) {
+                  await link.onClick();
+                }
+              }}
               prefetch={false}
             >
               {link.name}
             </Link>
           ))}
+          {isSignedIn && (
+            <UserButton
+              appearance={{
+                elements: {
+                  rootBox: "basis-1/5 justify-center items-center",
+                  userButtonBox: "basis-1/5 justify-center items-center",
+                },
+              }}
+              signInUrl="/login"
+              afterSignOutUrl="/"
+              afterSwitchSessionUrl="/"
+            />
+          )}
         </div>
       </div>
 

@@ -9,7 +9,7 @@ import {
 import MenuBox from "./MenuBox";
 
 import { getMainGameLinks } from "../libs/menus";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 import { type NavBarDropdownLink } from "../libs/menus";
 
 interface MenuBoxGameProps {
@@ -17,7 +17,7 @@ interface MenuBoxGameProps {
 }
 
 const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
-  const { data: userData } = useUser();
+  const { data: userData } = useUserData();
 
   const systems = getMainGameLinks(userData);
 

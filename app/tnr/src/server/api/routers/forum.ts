@@ -6,6 +6,7 @@ import { serverError } from "../trpc";
 
 import { forumBoardSchema } from "../../../validators/forum";
 import { canModerate } from "../../../validators/forum";
+import { fetchUser } from "./profile";
 
 export const forumRouter = createTRPCRouter({
   // Get all boards in the system
@@ -67,7 +68,8 @@ export const forumRouter = createTRPCRouter({
     .input(forumBoardSchema)
     .mutation(async ({ ctx, input }) => {
       // Guards
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const board = await fetchBoard(ctx.prisma, input.board_id);
@@ -77,14 +79,14 @@ export const forumRouter = createTRPCRouter({
           data: {
             title: input.title,
             boardId: board.id,
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
           },
         });
         await tx.forumPost.create({
           data: {
             content: input.content,
             threadId: thread.id,
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
           },
         });
         await tx.forumBoard.update({
@@ -104,8 +106,9 @@ export const forumRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Guards
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const thread = await fetchThread(ctx.prisma, input.thread_id);
-      if (!canModerate(ctx.session.user)) {
+      if (!canModerate(user)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
       // Update thread
@@ -125,8 +128,9 @@ export const forumRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Guards
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const thread = await fetchThread(ctx.prisma, input.thread_id);
-      if (!canModerate(ctx.session.user)) {
+      if (!canModerate(user)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
       // Update thread

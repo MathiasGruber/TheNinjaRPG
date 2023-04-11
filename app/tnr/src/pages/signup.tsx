@@ -1,15 +1,14 @@
 import { type NextPage } from "next";
 import ContentBox from "../layout/ContentBox";
 
-import { SignIn } from "@clerk/nextjs";
+import { SignUp } from "@clerk/nextjs";
 
 const Login: NextPage = () => {
   return (
     <ContentBox title="Login" subtitle="To login please use one of below providers">
-      <SignIn
-        path="/login"
+      <SignUp
+        path="/signup"
         routing="path"
-        signUpUrl="/signup"
         appearance={{
           elements: {
             rootBox: "w-full",

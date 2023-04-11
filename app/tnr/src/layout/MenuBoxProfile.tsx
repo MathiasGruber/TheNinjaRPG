@@ -3,11 +3,11 @@ import Link from "next/link";
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 
 const MenuBoxProfile: React.FC = () => {
-  const { data: userData } = useUser();
+  const { data: userData } = useUserData();
   if (!userData) {
     return <div></div>;
   }

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -25,13 +24,12 @@ import { api } from "../utils/api";
 import { systems } from "../validators/bugs";
 import { show_toast } from "../libs/toast";
 import { useInfinitePagination } from "../libs/pagination";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 import { bugreportSchema } from "../validators/bugs";
 import { type BugreportSchema } from "../validators/bugs";
 
 const BugReport: NextPage = () => {
-  const { data: sessionData } = useSession();
-  const { data: userData } = useUser();
+  const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [showActive, setShowActive] = useState<boolean>(true);
 
@@ -105,10 +103,10 @@ const BugReport: NextPage = () => {
       title="Report Bugs"
       subtitle="Found a bug? Let us know!"
       topRightContent={
-        sessionData && (
+        userData && (
           <div className="flex flex-row items-center">
             <Toggle value={showActive} setShowActive={setShowActive} />
-            {userData && !sessionData.user?.isBanned && (
+            {!userData.isBanned && (
               <Confirm
                 title="Write a new bug report"
                 proceed_label="Submit"
@@ -214,7 +212,7 @@ const BugReport: NextPage = () => {
                           }
                         />
                       </div>
-                      {sessionData?.user?.role == "ADMIN" && (
+                      {userData?.role == "ADMIN" && (
                         <Confirm
                           title="Confirm Bug Report Deletion"
                           button={

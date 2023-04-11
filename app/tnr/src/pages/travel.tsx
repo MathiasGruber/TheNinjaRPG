@@ -17,7 +17,7 @@ import {
   findNearestEdge,
   calcGlobalTravelTime,
 } from "../libs/travel/controls";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { type GlobalTile, type SectorPoint } from "../libs/travel/types";
 
 const Travel: NextPage = () => {
@@ -37,7 +37,7 @@ const Travel: NextPage = () => {
   const [targetSector, setTargetSector] = useState<number | null>(null);
 
   // Data from database
-  const { data: userData, refetch: refetchUser } = useRequiredUser();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const { data: villages } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
@@ -177,7 +177,7 @@ const Travel: NextPage = () => {
         </Modal>
       )}
       {userData?.travelFinishAt && (
-        <div className="absolute top-0 bottom-0 left-0 right-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
           <div className="m-auto text-center text-white">
             <p className="p-5  text-3xl">Traveling to Sector {userData?.sector}</p>
             <p className="text-5xl">

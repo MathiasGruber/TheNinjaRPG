@@ -1,18 +1,20 @@
 import { z } from "zod";
 import { type PrismaClient } from "@prisma/client/edge";
 
+import sanitize from "../../../utils/sanitize";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { mutateCommentSchema } from "../../../validators/comments";
 import { reportCommentSchema } from "../../../validators/reports";
 import { deleteCommentSchema } from "../../../validators/comments";
 import { canPostReportComment } from "../../../validators/reports";
-import { fetchUserReport } from "./reports";
-import { fetchThread } from "./forum";
 import { canSeeReport } from "../../../validators/reports";
 import { createConversationSchema } from "../../../validators/comments";
 import { getServerPusher } from "../../../libs/pusher";
-import sanitize from "../../../utils/sanitize";
+
+import { fetchUserReport } from "./reports";
+import { fetchThread } from "./forum";
+import { fetchUser } from "./profile";
 
 export const commentsRouter = createTRPCRouter({
   /**
@@ -62,17 +64,18 @@ export const commentsRouter = createTRPCRouter({
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guards
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const report = await fetchUserReport(ctx.prisma, input.object_id);
       if (!canPostReportComment(report)) {
         throw serverError("PRECONDITION_FAILED", "Already been resolved");
       }
-      if (!canSeeReport(ctx.session.user, report)) {
+      if (!canSeeReport(user, report)) {
         throw serverError("UNAUTHORIZED", "No access to the report");
       }
       // Create comment
       return ctx.prisma.userReportComment.create({
         data: {
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           reportId: input.object_id,
           content: sanitize(input.comment),
         },
@@ -130,14 +133,15 @@ export const commentsRouter = createTRPCRouter({
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Guard
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const thread = await fetchThread(ctx.prisma, input.object_id);
-      if (ctx.session.user.isBanned) {
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       return ctx.prisma.forumPost.create({
         data: {
           content: sanitize(input.comment),
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           threadId: thread.id,
         },
       });
@@ -145,13 +149,14 @@ export const commentsRouter = createTRPCRouter({
   editForumComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const comment = await ctx.prisma.forumPost.findUniqueOrThrow({
         where: { id: input.object_id },
       });
-      if (comment?.userId === ctx.session.user.id) {
+      if (comment?.userId === ctx.userId) {
         return ctx.prisma.forumPost.update({
           where: { id: input.object_id },
           data: {
@@ -165,13 +170,11 @@ export const commentsRouter = createTRPCRouter({
   deleteForumComment: protectedProcedure
     .input(deleteCommentSchema)
     .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const comment = await ctx.prisma.forumPost.findUniqueOrThrow({
         where: { id: input.id },
       });
-      if (
-        comment?.userId === ctx.session.user.id ||
-        ctx.session.user.role === "ADMIN"
-      ) {
+      if (comment?.userId === ctx.userId || user.role === "ADMIN") {
         return ctx.prisma.forumPost.delete({
           where: { id: input.id },
         });
@@ -203,7 +206,7 @@ export const commentsRouter = createTRPCRouter({
             {
               UsersInConversation: {
                 some: {
-                  userId: ctx.session.user.id,
+                  userId: ctx.userId,
                 },
               },
             },
@@ -235,18 +238,19 @@ export const commentsRouter = createTRPCRouter({
   createConversation: protectedProcedure
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       return await ctx.prisma.$transaction(async (tx) => {
         const convo = await tx.conversation.create({
           data: {
             title: input.title,
-            createdById: ctx.session.user.id,
+            createdById: ctx.userId,
             isPublic: false,
             isLocked: false,
             UsersInConversation: {
-              create: [...input.users, ctx.session.user.id].map((user) => {
+              create: [...input.users, ctx.userId].map((user) => {
                 return {
                   userId: user,
                 };
@@ -257,7 +261,7 @@ export const commentsRouter = createTRPCRouter({
         await tx.conversationComment.create({
           data: {
             content: sanitize(input.comment),
-            userId: ctx.session.user.id,
+            userId: ctx.userId,
             conversationId: convo.id,
           },
         });
@@ -275,12 +279,12 @@ export const commentsRouter = createTRPCRouter({
       const convo = await fetchConversation({
         client: ctx.prisma,
         id: input.convo_id,
-        userId: ctx.session.user.id,
+        userId: ctx.userId,
       });
       // Remove user from conversation
       await ctx.prisma.usersInConversation.deleteMany({
         where: {
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           conversationId: convo.id,
         },
       });
@@ -315,7 +319,7 @@ export const commentsRouter = createTRPCRouter({
         client: ctx.prisma,
         id: input.convo_id,
         title: input.convo_title,
-        userId: ctx.session.user.id,
+        userId: ctx.userId,
       });
       // Fetch comments
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -353,15 +357,16 @@ export const commentsRouter = createTRPCRouter({
       const convo = await fetchConversation({
         client: ctx.prisma,
         id: input.object_id,
-        userId: ctx.session.user.id,
+        userId: ctx.userId,
       });
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const comment = ctx.prisma.conversationComment.create({
         data: {
           content: sanitize(input.comment),
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           conversationId: convo.id,
         },
       });
@@ -374,13 +379,14 @@ export const commentsRouter = createTRPCRouter({
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.isBanned) {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
+      if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
         where: { id: input.object_id },
       });
-      if (comment?.userId === ctx.session.user.id) {
+      if (comment?.userId === ctx.userId) {
         return ctx.prisma.conversationComment.update({
           where: { id: input.object_id },
           data: {
@@ -394,13 +400,11 @@ export const commentsRouter = createTRPCRouter({
   deleteConversationComment: protectedProcedure
     .input(deleteCommentSchema)
     .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.prisma, ctx.userId);
       const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
         where: { id: input.id },
       });
-      if (
-        comment?.userId === ctx.session.user.id ||
-        ctx.session.user.role === "ADMIN"
-      ) {
+      if (comment?.userId === ctx.userId || user.role === "ADMIN") {
         return ctx.prisma.conversationComment.delete({
           where: { id: input.id },
         });

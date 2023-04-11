@@ -5,7 +5,7 @@ import { createTRPCContext } from "../../../server/api/trpc";
 import { appRouter } from "../../../server/api/root";
 
 export const config = {
-  runtime: "experimental-edge",
+  runtime: "edge",
   regions: ["iad1"],
 };
 

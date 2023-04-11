@@ -16,7 +16,17 @@
   },
   "forwardPorts": [],
   // Add the IDs of extensions you want installed when the container is created.
-  "extensions": ["ms-azuretools.vscode-docker", "esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "Prisma.prisma", "GitHub.copilot", "bradlc.vscode-tailwindcss", "wix.vscode-import-cost", "oderwat.indent-rainbow"],
+  "extensions": [
+	"ms-azuretools.vscode-docker",
+	"esbenp.prettier-vscode",
+	"dbaeumer.vscode-eslint",
+	"Prisma.prisma",
+	"GitHub.copilot",
+	"bradlc.vscode-tailwindcss",
+	"wix.vscode-import-cost",
+	"oderwat.indent-rainbow",
+	"ms-python.python"
+],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
   // Use 'postCreateCommand' to run commands after the container is created.

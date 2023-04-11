@@ -5,11 +5,11 @@ import Image from "next/image";
 import ContentBox from "../layout/ContentBox";
 import StatusBar from "../layout/StatusBar";
 
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 
 const TermsOfService: NextPage = () => {
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
   const village_id = userData?.village?.id as string;
   const { data } = api.village.get.useQuery(
     { id: village_id },

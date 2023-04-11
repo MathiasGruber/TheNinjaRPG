@@ -14,7 +14,7 @@ import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 
 import { fetchMap } from "../libs/travel/globe";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { registrationSchema } from "../validators/register";
 import { attributes } from "../validators/register";
@@ -33,7 +33,11 @@ const Register: React.FC = () => {
   const router = useRouter();
 
   // User data
-  const { data: userData, status: userStatus, refetch: refetchUserData } = useUser();
+  const {
+    data: userData,
+    status: userStatus,
+    refetch: refetchUserData,
+  } = useUserData();
 
   // Available villages
   const { data: villages } = api.village.getAll.useQuery(undefined);
@@ -42,7 +46,7 @@ const Register: React.FC = () => {
   const createAvatar = api.avatar.createAvatar.useMutation();
 
   // Create character mutation
-  const createCharacter = api.profile.createCharacter.useMutation({
+  const createCharacter = api.register.createCharacter.useMutation({
     onSuccess: async () => {
       await refetchUserData();
       createAvatar.mutate();

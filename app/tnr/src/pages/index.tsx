@@ -1,25 +1,25 @@
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import Loader from "../layout/Loader";
 import Welcome from "./welcome";
-import { useUser } from "../utils/UserContext";
+import { useUserData } from "../utils/UserContext";
 
 /**
  * Either shows welcome page, user creation page, or profile
  */
 const Home: NextPage = () => {
   const router = useRouter();
-  const { data: sessionData, status: sessionStatus } = useSession();
-  const { data: userData, status: userStatus } = useUser();
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const { data: userData, status: userStatus } = useUserData();
 
-  if (sessionStatus !== "loading" && !sessionData) {
+  if (isLoaded && !isSignedIn) {
     return <Welcome />;
   }
   if (userStatus !== "loading" && !userData) {
     void router.push("/register");
   }
-  if (userData && sessionData) {
+  if (userData && userId) {
     void router.push("/profile");
   }
   return <Loader explanation="Fetching user data..." />;

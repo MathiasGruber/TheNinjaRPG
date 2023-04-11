@@ -10,17 +10,15 @@ import InputField from "../layout/InputField";
 import Loader from "../layout/Loader";
 import ParsedReportJson from "../layout/ReportReason";
 
-import { useSession } from "next-auth/react";
 import { api } from "../utils/api";
 import { useInfinitePagination } from "../libs/pagination";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { reportCommentExplain } from "../utils/reports";
 import { reportCommentColor } from "../utils/reports";
 import { useUserSearch } from "../utils/search";
 
 const Reports: NextPage = () => {
-  const { data: sessionData } = useSession();
-  useRequiredUser();
+  const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [showActive, setShowActive] = useState<boolean>(true);
@@ -33,7 +31,7 @@ const Reports: NextPage = () => {
     hasNextPage,
   } = api.reports.getAll.useInfiniteQuery(
     {
-      ...(sessionData?.user?.role === "USER" ? {} : { is_active: showActive }),
+      ...(userData?.role === "USER" ? {} : { is_active: showActive }),
       ...(searchTerm ? { username: searchTerm } : {}),
       limit: 20,
     },
@@ -53,12 +51,9 @@ const Reports: NextPage = () => {
   return (
     <ContentBox
       title="Reports"
-      subtitle={
-        sessionData?.user?.role === "USER" ? "View your reports" : "Overall Overview"
-      }
+      subtitle={userData?.role === "USER" ? "View your reports" : "Overall Overview"}
       topRightContent={
-        sessionData &&
-        sessionData.user?.role !== "USER" && (
+        userData?.role !== "USER" && (
           <div className="flex flex-row items-center">
             <InputField
               id="username"

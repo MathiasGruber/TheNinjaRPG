@@ -26,7 +26,7 @@ import { cleanUp, setupScene } from "../libs/travel/util";
 import { drawSectorBasics, drawVillage, drawUsers } from "../libs/travel/sector";
 import { intersectUsers, intersectTiles } from "../libs/travel/sector";
 import { PathCalculator, findHex } from "../libs/travel/sector";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 
 interface SectorProps {
@@ -56,7 +56,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const mouse = new Vector2();
 
   // Data from db
-  const { data: userData, refetch: refetchUser } = useRequiredUser();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const { data: users } = api.travel.getSectorData.useQuery(
     { sector: props.sector },
     { staleTime: Infinity }

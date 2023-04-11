@@ -1,7 +1,6 @@
 import { type z } from "zod";
 import { useState, useEffect } from "react";
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -16,7 +15,7 @@ import { PencilSquareIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/
 
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
 import { createConversationSchema } from "../validators/comments";
 import { type CreateConversationSchema } from "../validators/comments";
@@ -189,8 +188,7 @@ interface NewConversationPromptProps {
 }
 
 const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
-  const { data: sessionData } = useSession();
-  const { data: userData } = useRequiredUser();
+  const { data: userData } = useRequiredUserData();
   const maxUsers = 5;
 
   const create = useForm<CreateConversationSchema>({
@@ -231,7 +229,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
 
   return (
     <div className="flex flex-row items-center">
-      {userData && sessionData && !sessionData.user?.isBanned && (
+      {userData && !userData.isBanned && (
         <Confirm
           title="Create a new conversation"
           proceed_label="Submit"

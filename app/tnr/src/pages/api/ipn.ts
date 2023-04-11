@@ -19,7 +19,7 @@ type IBody = {
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   // Create context
-  const ctx = await createTRPCContext({ req, res });
+  const ctx = createTRPCContext({ req, res });
   const caller = appRouter.createCaller(ctx);
   const body = req.body as IBody;
 

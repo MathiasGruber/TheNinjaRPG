@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -12,6 +11,7 @@ import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
 import Button from "../layout/Button";
 
+import { useUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { mutateCommentSchema } from "../validators/comments";
@@ -29,7 +29,7 @@ interface ConversationProps {
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
-  const { data: sessionData } = useSession();
+  const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
 
@@ -107,38 +107,35 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   return (
     <div key={props.refreshKey}>
-      {conversation &&
-        !conversation.isLocked &&
-        sessionData &&
-        !sessionData?.user?.isBanned && (
-          <ContentBox
-            title={props.title}
-            subtitle={props.subtitle}
-            topRightContent={props.topRightContent}
-          >
-            <form>
-              <div className="mb-3">
-                <RichInput
-                  id="comment"
-                  refreshKey={editorKey}
-                  height="200"
-                  placeholder=""
-                  control={control}
-                  error={errors.comment?.message}
+      {conversation && !conversation.isLocked && userData && !userData.isBanned && (
+        <ContentBox
+          title={props.title}
+          subtitle={props.subtitle}
+          topRightContent={props.topRightContent}
+        >
+          <form>
+            <div className="mb-3">
+              <RichInput
+                id="comment"
+                refreshKey={editorKey}
+                height="200"
+                placeholder=""
+                control={control}
+                error={errors.comment?.message}
+              />
+              <div className="flex flex-row-reverse">
+                <Button
+                  id="submit_comment"
+                  label="Send Message"
+                  image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                  onClick={handleSubmitComment}
                 />
-                <div className="flex flex-row-reverse">
-                  <Button
-                    id="submit_comment"
-                    label="Send Message"
-                    image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                    onClick={handleSubmitComment}
-                  />
-                  {props.chatbox_options}
-                </div>
+                {props.chatbox_options}
               </div>
-            </form>
-          </ContentBox>
-        )}
+            </div>
+          </form>
+        </ContentBox>
+      )}
       {allComments && allComments.length > 0 && (
         <ContentBox title="Messages">
           {allComments.map((comment, i) => {

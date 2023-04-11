@@ -7,14 +7,14 @@ import Loader from "../layout/Loader";
 import Confirm from "../layout/Confirm";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import { useRequiredUser } from "../utils/UserContext";
+import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
 
 const Avatar: NextPage = () => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const { data: userData, refetch: refetchUserData } = useRequiredUser();
+  const { data: userData, refetch: refetchUserData } = useRequiredUserData();
   // Fetch historical avatars query
   const {
     data: historicalAvatars,

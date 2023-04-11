@@ -7,7 +7,7 @@ export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
     // Check if user has any popularity points
     const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.userId },
     });
     if (currentUser?.popularity_points <= 0) {
       throw serverError("FORBIDDEN", "Not enough pop points");
@@ -15,7 +15,7 @@ export const avatarRouter = createTRPCRouter({
     // Set user avatar to undefined
     await ctx.prisma.userData.update({
       where: {
-        userId: ctx.session.user.id,
+        userId: ctx.userId,
       },
       data: {
         avatar: undefined,
@@ -27,7 +27,7 @@ export const avatarRouter = createTRPCRouter({
   }),
   // Check if avatar is finished, and return URL if so. Otherwise, wait or restart
   checkAvatar: protectedProcedure
-    .input(z.object({ userId: z.string().cuid() }))
+    .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
         where: { userId: input.userId },
@@ -48,7 +48,7 @@ export const avatarRouter = createTRPCRouter({
       const { cursor } = input;
       const avatars = await ctx.prisma.historicalAvatar.findMany({
         take: limit + 1,
-        where: { userId: ctx.session.user.id, done: true, avatar: { not: null } },
+        where: { userId: ctx.userId, done: true, avatar: { not: null } },
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { id: "desc" },
       });
@@ -74,7 +74,7 @@ export const avatarRouter = createTRPCRouter({
       });
       // Update user avatar
       return ctx.prisma.userData.update({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.userId },
         data: { avatar: avatar.avatar },
       });
     }),
