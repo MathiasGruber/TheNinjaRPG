@@ -80,6 +80,37 @@ const Sector: React.FC<SectorProps> = (props) => {
     }
   };
 
+  // Movement based on ASDQWE keys
+  const onDocumentKeyDown = (event: KeyboardEvent) => {
+    if (origin.current && pathFinder.current) {
+      const x = origin.current.col;
+      const y = origin.current.row;
+      switch (event.key) {
+        // Up & Down
+        case "w":
+          setTarget({ x: x, y: y + 1 });
+          break;
+        case "s":
+          setTarget({ x: x, y: y - 1 });
+          break;
+        // High left & right
+        case "q":
+          setTarget({ x: x - 1, y: x % 2 === 0 ? y : y + 1 });
+          break;
+        case "e":
+          setTarget({ x: x + 1, y: x % 2 === 0 ? y : y + 1 });
+          break;
+        // Low left & right
+        case "a":
+          setTarget({ x: x - 1, y: x % 2 === 0 ? y - 1 : y });
+          break;
+        case "d":
+          setTarget({ x: x + 1, y: x % 2 === 0 ? y - 1 : y });
+          break;
+      }
+    }
+  };
+
   // Convenience method for updating user list
   const updateUsersList = (data: UserData) => {
     if (users) {
@@ -104,7 +135,6 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: move } = api.travel.moveInSector.useMutation({
     onSuccess: async (data) => {
       if (data) {
-        console.log("Returned: ", data);
         origin.current = findHex(grid.current, { x: data.longitude, y: data.latitude });
         updateUsersList({
           ...userData,
@@ -163,8 +193,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       // const stats = new Stats();
       // document.body.appendChild(stats.dom);
 
-      // Mouse move listener
+      // Listeners
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
+      document.addEventListener("keydown", onDocumentKeyDown, false);
 
       // Seeded noise generator for map gen
       const prng = alea(props.sector + 1);
@@ -328,6 +359,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       return () => {
         console.log("CLEARING SECTOR");
         window.removeEventListener("resize", handleResize);
+        document.removeEventListener("keydown", onDocumentKeyDown, false);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current = null;
         pusher.unsubscribe(props.sector.toString());

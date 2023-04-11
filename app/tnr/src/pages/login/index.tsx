@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-import ContentBox from "../layout/ContentBox";
+import ContentBox from "../../layout/ContentBox";
 
 import { SignIn } from "@clerk/nextjs";
 
@@ -9,6 +9,7 @@ const Login: NextPage = () => {
       <SignIn
         path="/login"
         routing="path"
+        redirectUrl="/profile"
         signUpUrl="/signup"
         appearance={{
           elements: {
