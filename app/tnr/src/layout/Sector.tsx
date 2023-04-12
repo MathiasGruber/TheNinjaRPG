@@ -42,7 +42,7 @@ interface SectorProps {
 
 const Sector: React.FC<SectorProps> = (props) => {
   // Incoming props
-  const { target, setTarget, setPosition } = props;
+  const { sector, target, setTarget, setPosition } = props;
 
   // State pertaining to the sector
   const [moves, setMoves] = useState(0);
@@ -156,16 +156,21 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   useEffect(() => {
-    if (target && origin.current && pathFinder.current) {
+    if (target && origin.current && pathFinder.current && userData && userData.avatar) {
       const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
       if (!targetHex) return;
       const path = pathFinder.current.getShortestPath(origin.current, targetHex);
       const next = path?.[1];
       if (next) {
-        move({ longitude: next.col, latitude: next.row });
+        move({
+          longitude: next.col,
+          latitude: next.row,
+          sector: sector,
+          avatar: userData.avatar,
+        });
       }
     }
-  }, [target, userData, moves, move]);
+  }, [target, userData, moves, sector, move]);
 
   useEffect(() => {
     if (mountRef.current && userData && users) {
@@ -277,7 +282,17 @@ const Sector: React.FC<SectorProps> = (props) => {
               setTarget({ x: target.col, y: target.row });
               return false;
             } else if (i.object.userData.type === "attack") {
-              console.log("ATTACK", i.object.userData.userId);
+              const target = users.find((u) => u.userId === i.object.userData.userId);
+              if (target) {
+                if (
+                  target.longitude === origin.current?.col &&
+                  target.latitude === origin.current?.row
+                ) {
+                  console.log("ATTACK", target);
+                } else {
+                  setTarget({ x: target.longitude, y: target.latitude });
+                }
+              }
               return false;
             } else if (i.object.userData.type === "info") {
               const userId = i.object.userData.userId as string;

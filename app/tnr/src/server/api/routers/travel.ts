@@ -113,23 +113,34 @@ export const travelRouter = createTRPCRouter({
           .int()
           .min(0)
           .max(SECTOR_HEIGHT - 1),
+        sector: z.number().int(),
+        avatar: z.string().url(),
       })
     )
     .mutation(async ({ input, ctx }) => {
       // Where the user wishes to go
-      const { longitude, latitude } = input;
+      const { longitude, latitude, sector } = input;
       // Would this new position be a village?
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
       const location = isVillage ? "Village" : "";
       // Execute a raw query, which checks that user is not moving longer than one square,
       // is awake, and updates location
       const result: number = await ctx.prisma.$executeRaw`
-        UPDATE UserData SET longitude = ${longitude}, latitude = ${latitude}, location = ${location}
-        WHERE userId = ${ctx.userId} AND status = 'AWAKE' AND
+        UPDATE UserData 
+        SET 
+          longitude = ${longitude}, latitude = ${latitude}, 
+          location = ${location}, updatedAt = Now()
+        WHERE 
+          userId = ${ctx.userId} AND status = 'AWAKE' AND sector = ${sector} AND
           (ABS(longitude - ${longitude}) <= 1 AND ABS(latitude - ${latitude}) <= 1)`;
       // If successful, return new data, otherwise run queries to figure out why
       if (result === 1) {
-        return { ...input, location };
+        // Output
+        const output = { ...input, location, userId: ctx.userId };
+        // Push websockets message
+        const pusher = getServerPusher();
+        void pusher.trigger(input.sector.toString(), "event", output);
+        return output;
       } else {
         const userData = await fetchUser(ctx.prisma, ctx.userId);
         // Check user status
@@ -141,6 +152,12 @@ export const travelRouter = createTRPCRouter({
           throw serverError("FORBIDDEN", `Cannot move more than one square at a time`);
         }
       }
+    }),
+  // Attack another user
+  attackUser: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      console.log("NOW ATTACK");
     }),
 });
 

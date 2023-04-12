@@ -1,4 +1,4 @@
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
 import { type AppType } from "next/app";
 
 import { api } from "../utils/api";
@@ -17,9 +17,11 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         },
       }}
     >
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
+      <MultisessionAppSupport>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </MultisessionAppSupport>
     </ClerkProvider>
   );
 };

@@ -7,6 +7,8 @@ const prisma = new PrismaClient();
 
 // Seed the database
 async function main() {
+  // Jutsus
+
   // Default villages
   const villages = [
     { name: "Konoki", sector: 105 },
@@ -77,6 +79,7 @@ async function main() {
         username: elders[i]?.name as string,
         villageId: villageData.id,
         rank: "Elder GPT",
+        isAI: true,
         status: UserStatus.AWAKE,
       },
     });

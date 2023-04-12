@@ -86,7 +86,8 @@ const NavBar: React.FC = () => {
               }}
               signInUrl="/login"
               afterSignOutUrl="/"
-              afterSwitchSessionUrl="/"
+              afterSwitchSessionUrl="/profile"
+              afterMultiSessionSingleSignOutUrl="/login"
             />
           )}
         </div>

@@ -56,6 +56,13 @@ const MenuBoxProfile: React.FC = () => {
           current={userData.cur_stamina}
           total={userData.max_stamina}
         />
+
+        <div className="mt-4">
+          <hr />
+          <p className="mt-2">
+            <b>Status:</b> {userData.status}
+          </p>
+        </div>
       </div>
     </MenuBox>
   );

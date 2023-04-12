@@ -40,15 +40,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           <Link href="/">TheNinja-RPG</Link>
         </h1>
 
-        <div className="container">
+        <div className="container max-w-7xl">
           <div className="grid grid-cols-3 md:grid-cols-5">
             <div className="col-span-1 hidden md:block">
               {data?.userData && isSignedIn && (
                 <>
                   <MenuBoxProfile />
-                  <MenuBox title="Game Map">
-                    <p>NOT IMPLEMENTED</p>
-                  </MenuBox>
                 </>
               )}
             </div>

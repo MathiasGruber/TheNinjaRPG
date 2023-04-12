@@ -38,9 +38,11 @@ enum UserStatus {
 }
 
 model UserData {
+    id                      Int                   @id @default(autoincrement())
     userId                  String                @unique
     username                String                @unique
     isBanned                Boolean               @default(false)
+    isAI                    Boolean               @default(false)
     role                    Role                  @default(USER)
     // Statistics    
     gender                  String
@@ -100,6 +102,9 @@ model UserData {
     updatedAt               DateTime              @default(now()) @updatedAt
     deletionAt              DateTime?
     travelFinishAt          DateTime?
+    // Jutsus & items
+    jutsus                  Jutsu[]
+    items                   Item[]
     // Relations
     BugReport               BugReport[]
     BugVotes                BugVotes[]
@@ -119,7 +124,12 @@ model UserData {
     receivedSubscriptions   PaypalSubscription[]  @relation("receivedSubscriptions")
     UserAttribute           UserAttribute[]
     HistoricalAvatar        HistoricalAvatar[]
+    battle                  Battle?               @relation(fields: [battleId], references: [id])
+    battleId                String?
+    battleActions           BattleAction[]
+    battleEffects           BattleEffects[]
 
+    @@index([battleId])
     @@index([bloodlineId])
     @@index([villageId])
     @@index([userId])
@@ -176,12 +186,6 @@ model VillageStructure {
 
     @@unique([name, villageId])
     @@index([villageId])
-}
-
-model Bloodline {
-    id       String     @id @default(cuid())
-    name     String     @unique
-    UserData UserData[]
 }
 
 //*****************************//
@@ -355,6 +359,177 @@ model UsersInConversation {
     @@id([conversationId, userId])
     @@index([userId])
     @@index([conversationId])
+}
+
+//*****************************//
+//*********  JUTSUS ***********//
+//*****************************//
+
+enum AttackType {
+    NINJUTSU
+    GENJUTSU
+    TAIJUTSU
+    WEAPON
+    BASIC
+}
+
+enum LetterRank {
+    D
+    C
+    B
+    A
+    S
+}
+
+enum Element {
+    FIRE
+    WATER
+    WIND
+    EARTH
+    LIGHTNING
+    NONE
+}
+
+enum AttackTarget {
+    SELF
+    OPPONENT
+    GROUND
+}
+
+model Jutsu {
+    id          String       @id @default(cuid())
+    name        String       @unique
+    description String       @db.Text
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
+    effects     Json
+    type        AttackType
+    rank        LetterRank
+    element1    Element      @default(NONE)
+    element2    Element      @default(NONE)
+    element3    Element      @default(NONE)
+    target      AttackTarget
+    range       Int
+    cost        Int          @default(0)
+    cooldown    Int          @default(0)
+    bloodline   Bloodline?   @relation(fields: [bloodlineId], references: [id])
+    bloodlineId String?
+    users       UserData[]
+
+    @@index([bloodlineId])
+}
+
+//*****************************//
+//********* ITEMS *************//
+//*****************************//
+
+enum ItemType {
+    WEAPON
+    ARMOR
+    ACCESSORY
+    CONSUMABLE
+    MATERIAL
+    OTHER
+}
+
+enum ItemRarity {
+    COMMON
+    UNCOMMON
+    RARE
+    EPIC
+    LEGENDARY
+}
+
+enum ItemSlot {
+    HEAD
+    CHEST
+    LEGS
+    FEET
+    HANDS
+    NECK
+    RING
+    MAINHAND
+    OFFHAND
+    BACKPACK
+}
+
+model Item {
+    id          String     @id @default(cuid())
+    name        String     @unique
+    description String     @db.Text
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+    effects     Json
+    type        ItemType
+    rarity      ItemRarity
+    slot        ItemSlot
+    cost        Int        @default(0)
+    users       UserData[]
+}
+
+//*****************************//
+//******* BLOODLINES **********//
+//*****************************//
+
+model Bloodline {
+    id      String     @id @default(cuid())
+    name    String     @unique
+    effects Json
+    users   UserData[]
+    jutsus  Jutsu[]
+}
+
+//*****************************//
+//*********  COMBAT ***********//
+//*****************************//
+
+enum BattleType {
+    ARENA
+    COMBAT
+    SPARRING
+}
+
+model Battle {
+    id         String         @id @default(cuid())
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
+    background String
+    battleType BattleType
+    users      UserData[]
+    actions    BattleAction[]
+}
+
+model BattleAction {
+    id          String          @id @default(cuid())
+    createdAt   DateTime        @default(now())
+    updatedAt   DateTime        @updatedAt
+    battle      Battle          @relation(fields: [battleId], references: [id])
+    battleId    String
+    user        UserData        @relation(fields: [userId], references: [userId])
+    userId      String
+    description String
+    effects     BattleEffects[]
+
+    @@index([battleId])
+    @@index([userId])
+}
+
+model BattleEffects {
+    id        String       @id @default(cuid())
+    createdAt DateTime     @default(now())
+    updatedAt DateTime     @updatedAt
+    effect    Json
+    endRound  Int
+    hexColumn Int
+    hexRow    Int
+    action    BattleAction @relation(fields: [actionId], references: [id])
+    actionId  String
+    // If user is specified, this is origin of effect. Otherwise use hexRow and hexColumn
+    user      UserData?    @relation(fields: [userId], references: [userId])
+    userId    String?
+
+    @@index([actionId])
+    @@index([userId])
 }
 
 //*****************************//
