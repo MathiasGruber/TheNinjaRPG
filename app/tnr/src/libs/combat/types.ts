@@ -1,4 +1,9 @@
 import { z } from "zod";
+import { UserRank } from "@prisma/client/edge";
+import { AttackTarget } from "@prisma/client/edge";
+import { Element } from "@prisma/client/edge";
+import { LetterRank } from "@prisma/client/edge";
+import { AttackType } from "@prisma/client/edge";
 
 // enum Effect {
 //     STUN // User is stunned
@@ -69,10 +74,17 @@ const HealTag = z.object({
 
 const Jutsu = z.object({
   name: z.string(),
-  rank: z.string(),
-  type: z.string(),
-  element: z.string(),
   description: z.string(),
+  type: z.nativeEnum(AttackType),
+  level: z.nativeEnum(LetterRank),
+  requiredRank: z.nativeEnum(UserRank),
+  element1: z.nativeEnum(Element),
+  element2: z.nativeEnum(Element),
+  element3: z.nativeEnum(Element),
+  target: z.nativeEnum(AttackTarget),
+  range: z.number().int().min(1).max(5),
+  cost: z.number().int().min(1).max(100),
+  cooldown: z.number().int().min(1).max(300),
   effects: z.array(z.union([HealTag, DamageTag, StunTag])),
 });
 export type JutsuType = z.infer<typeof Jutsu>;

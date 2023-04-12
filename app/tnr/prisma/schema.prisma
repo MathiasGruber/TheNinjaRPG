@@ -37,6 +37,15 @@ enum UserStatus {
     BATTLE
 }
 
+enum UserRank {
+    STUDENT
+    GENIN
+    CHUNIN
+    JONIN
+    COMMANDER
+    ELDER
+}
+
 model UserData {
     id                      Int                   @id @default(autoincrement())
     userId                  String                @unique
@@ -61,7 +70,7 @@ model UserData {
     experience              Int                   @default(0)
     pvp_experience          Int                   @default(0)
     // Rank & Village
-    rank                    String                @default("Student")
+    rank                    UserRank              @default(STUDENT)
     level                   Int                   @default(1)
     villageId               String?
     village                 Village?              @relation(fields: [villageId], references: [id])
@@ -397,24 +406,25 @@ enum AttackTarget {
 }
 
 model Jutsu {
-    id          String       @id @default(cuid())
-    name        String       @unique
-    description String       @db.Text
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-    effects     Json
-    type        AttackType
-    rank        LetterRank
-    element1    Element      @default(NONE)
-    element2    Element      @default(NONE)
-    element3    Element      @default(NONE)
-    target      AttackTarget
-    range       Int
-    cost        Int          @default(0)
-    cooldown    Int          @default(0)
-    bloodline   Bloodline?   @relation(fields: [bloodlineId], references: [id])
-    bloodlineId String?
-    users       UserData[]
+    id           String       @id @default(cuid())
+    name         String       @unique
+    description  String       @db.Text
+    createdAt    DateTime     @default(now())
+    updatedAt    DateTime     @updatedAt
+    type         AttackType
+    level        LetterRank
+    requiredRank UserRank
+    element1     Element      @default(NONE)
+    element2     Element      @default(NONE)
+    element3     Element      @default(NONE)
+    target       AttackTarget
+    range        Int
+    cost         Int          @default(0)
+    cooldown     Int          @default(0)
+    bloodline    Bloodline?   @relation(fields: [bloodlineId], references: [id])
+    bloodlineId  String?
+    effects      Json
+    users        UserData[]
 
     @@index([bloodlineId])
 }
