@@ -89,8 +89,8 @@ model UserData {
     genjutsu_defence        Int                   @default(10)
     taijutsu_offence        Int                   @default(10)
     taijutsu_defence        Int                   @default(10)
-    weapon_offence          Int                   @default(10)
-    weapon_defence          Int                   @default(10)
+    bukijutsu_offence       Int                   @default(10)
+    bukijutsu_defence       Int                   @default(10)
     // Purchase Points
     reputation_points       Int                   @default(0)
     reputation_points_total Int                   @default(0)
@@ -370,17 +370,9 @@ model UsersInConversation {
     @@index([conversationId])
 }
 
-//*****************************//
-//*********  JUTSUS ***********//
-//*****************************//
-
-enum AttackType {
-    NINJUTSU
-    GENJUTSU
-    TAIJUTSU
-    WEAPON
-    BASIC
-}
+//*************************************//
+//* ENUMS FOR ITEMS/JUTSUS/BLOODLINES *//
+//*************************************//
 
 enum LetterRank {
     D
@@ -390,48 +382,21 @@ enum LetterRank {
     S
 }
 
-enum Element {
-    FIRE
-    WATER
-    WIND
-    EARTH
-    LIGHTNING
-    NONE
-}
-
 enum AttackTarget {
     SELF
     OPPONENT
     GROUND
 }
 
-model Jutsu {
-    id           String       @id @default(cuid())
-    name         String       @unique
-    description  String       @db.Text
-    createdAt    DateTime     @default(now())
-    updatedAt    DateTime     @updatedAt
-    type         AttackType
-    level        LetterRank
-    requiredRank UserRank
-    element1     Element      @default(NONE)
-    element2     Element      @default(NONE)
-    element3     Element      @default(NONE)
-    target       AttackTarget
-    range        Int
-    cost         Int          @default(0)
-    cooldown     Int          @default(0)
-    bloodline    Bloodline?   @relation(fields: [bloodlineId], references: [id])
-    bloodlineId  String?
-    effects      Json
-    users        UserData[]
-
-    @@index([bloodlineId])
+enum JutsuType {
+    NORMAL
+    SPECIAL
+    BLOODLINE
+    FORBIDDEN
+    LOYALTY
+    CLAN
+    EVENT
 }
-
-//*****************************//
-//********* ITEMS *************//
-//*****************************//
 
 enum ItemType {
     WEAPON
@@ -439,7 +404,23 @@ enum ItemType {
     ACCESSORY
     CONSUMABLE
     MATERIAL
+    EVENT
     OTHER
+}
+
+enum WeaponType {
+    STAFF
+    AXE
+    FIST_WEAPON
+    SICKLE
+    DAGGER
+    SWORD
+    POLEARM
+    FLAIL
+    CHAIN
+    FAN
+    BOW
+    NONE
 }
 
 enum ItemRarity {
@@ -463,6 +444,38 @@ enum ItemSlot {
     BACKPACK
 }
 
+//*****************************//
+//*********  JUTSUS ***********//
+//*****************************//
+
+model Jutsu {
+    id                String       @id @default(cuid())
+    name              String       @unique
+    image             String       @unique
+    description       String       @db.Text
+    battleDescription String       @db.Text
+    createdAt         DateTime     @default(now())
+    updatedAt         DateTime     @updatedAt
+    jutsuWeapon       WeaponType?
+    jutsuType         JutsuType
+    level             LetterRank
+    requiredRank      UserRank
+    target            AttackTarget
+    range             Int
+    cost              Int          @default(0)
+    cooldown          Int          @default(0)
+    bloodline         Bloodline?   @relation(fields: [bloodlineId], references: [id])
+    bloodlineId       String?
+    effects           Json
+    users             UserData[]
+
+    @@index([bloodlineId])
+}
+
+//*****************************//
+//********* ITEMS *************//
+//*****************************//
+
 model Item {
     id          String     @id @default(cuid())
     name        String     @unique
@@ -471,6 +484,7 @@ model Item {
     updatedAt   DateTime   @updatedAt
     effects     Json
     type        ItemType
+    weaponType  WeaponType
     rarity      ItemRarity
     slot        ItemSlot
     cost        Int        @default(0)
@@ -482,11 +496,19 @@ model Item {
 //*****************************//
 
 model Bloodline {
-    id      String     @id @default(cuid())
-    name    String     @unique
-    effects Json
-    users   UserData[]
-    jutsus  Jutsu[]
+    id            String     @id @default(cuid())
+    name          String     @unique
+    image         String     @unique
+    description   String     @db.Text
+    rarity        LetterRank
+    regenIncrease Int        @default(0)
+    village       String
+    effects       Json
+    users         UserData[]
+    jutsus        Jutsu[]
+
+    @@index([village])
+    @@index([rarity])
 }
 
 //*****************************//
