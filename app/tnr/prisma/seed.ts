@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client/edge";
 import { seedVillages } from "./seeds/village";
 import { seedForum } from "./seeds/forum";
 import { seedJutsus } from "./seeds/jutsu";
+import { seedBloodlines } from "./seeds/bloodline";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();
@@ -9,6 +10,7 @@ const prisma = new PrismaClient();
 // Seed the database
 async function main() {
   await seedJutsus(prisma);
+  await seedBloodlines(prisma);
   await seedVillages(prisma);
   await seedForum(prisma);
 }

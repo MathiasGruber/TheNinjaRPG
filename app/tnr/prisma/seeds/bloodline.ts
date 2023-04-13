@@ -22,7 +22,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Tatsumaki",
-    image: "clone_technque.png",
+    image: "tatsumaki.png",
     description:
       "The bloodline is a lineage that imbues its bearers with a mastery over the power of the wind. Those born with this bloodline possess an innate connection to the elements, allowing them to control and manipulate the very air itself to enhance their abilities.",
     rarity: LetterRank.C,
@@ -35,7 +35,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Darkwind",
-    image: "clone_technque.png",
+    image: "darkwind.png",
     description:
       "The bloodline is a rare and feared lineage that grants its wielder an unparalleled mastery over the power of wind, twisted and corrupted by darkness. Those born with this bloodline possess an innate connection to the elements, allowing them to control and manipulate the very air itself with malevolent intent.",
     rarity: LetterRank.B,
@@ -72,13 +72,16 @@ const bloodlines: ZodBloodlineType[] = [
 ];
 
 // Delete anything not in above list, and insert those missing
-export const seedJutsus = async (prisma: PrismaClient) => {
+export const seedBloodlines = async (prisma: PrismaClient) => {
   for (const bloodline of bloodlines) {
-    await prisma.jutsu.upsert({
+    await prisma.bloodline.upsert({
       where: {
         name: bloodline.name,
       },
-      update: {},
+      update: {
+        ...bloodline,
+        effects: bloodline.effects as unknown as Prisma.JsonArray,
+      },
       create: {
         ...bloodline,
         effects: bloodline.effects as unknown as Prisma.JsonArray,

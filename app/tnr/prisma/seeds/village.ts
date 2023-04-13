@@ -65,7 +65,7 @@ export const seedVillages = async (prisma: PrismaClient) => {
     const elderId = createId();
     await prisma.userData.upsert({
       where: {
-        userId: elderId,
+        username: elders[i]?.name as string,
       },
       update: {},
       create: {

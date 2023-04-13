@@ -133,7 +133,7 @@ export const seedJutsus = async (prisma: PrismaClient) => {
       where: {
         name: jutsu.name,
       },
-      update: {},
+      update: { ...jutsu, effects: jutsu.effects as unknown as Prisma.JsonArray },
       create: { ...jutsu, effects: jutsu.effects as unknown as Prisma.JsonArray },
     });
   }
