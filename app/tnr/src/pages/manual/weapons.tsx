@@ -1,31 +1,9 @@
-import { useState } from "react";
 import { type NextPage } from "next";
-import { LetterRank } from "@prisma/client/edge";
-import ManualItem from "../../layout/ManualItem";
+import Image from "next/image";
+import Link from "next/link";
 import ContentBox from "../../layout/ContentBox";
-import { api } from "../../utils/api";
 
 const ManualBloodlines: NextPage = () => {
-  // Settings
-  const [rarity, setRarity] = useState<LetterRank>(LetterRank.D);
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-
-  // Data
-  const {
-    data: bloodlines,
-    fetchNextPage,
-    hasNextPage,
-    refetch,
-  } = api.bloodline.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 20 },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
-    }
-  );
-  const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
-
-  console.log(allBloodlines);
   return (
     <>
       <ContentBox title="Bloodlines" subtitle="What are they?" back_href="/manual">
@@ -46,9 +24,7 @@ const ManualBloodlines: NextPage = () => {
         </p>
       </ContentBox>
       <ContentBox title="Database" subtitle="All known bloodlines">
-        {allBloodlines?.map((bloodline) => (
-          <ManualItem folderPrefix="/bloodlines/" item={bloodline} key={bloodline.id} />
-        ))}
+        Test
       </ContentBox>
     </>
   );

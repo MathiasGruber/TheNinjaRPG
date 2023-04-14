@@ -6,6 +6,9 @@ import { LetterRank } from "@prisma/client/edge";
 import { JutsuType } from "@prisma/client/edge";
 import { WeaponType } from "@prisma/client/edge";
 
+import { DamageTag } from "../../src/libs/combat/types";
+import { StunTag } from "../../src/libs/combat/types";
+
 const jutsus: ZodJutsuType[] = [
   /******************** */
   /**  D-Ranked Jutsus  */
@@ -24,14 +27,13 @@ const jutsus: ZodJutsuType[] = [
     range: 1,
     cooldown: 30,
     effects: [
-      {
-        type: "damage",
+      DamageTag.parse({
         timing: "now",
         calculation: "formula",
         power: 1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Strength"],
-      },
+      }),
     ],
   },
   /******************** */
@@ -50,19 +52,17 @@ const jutsus: ZodJutsuType[] = [
     range: 2,
     cooldown: 30,
     effects: [
-      {
-        type: "damage",
+      DamageTag.parse({
         timing: "now",
         calculation: "formula",
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
-      },
-      {
-        type: "stun",
+      }),
+      StunTag.parse({
         timing: "next",
-        chance: 0.1,
-      },
+        chance: 1,
+      }),
     ],
   },
   /******************** */
@@ -83,19 +83,17 @@ const jutsus: ZodJutsuType[] = [
     range: 2,
     cooldown: 30,
     effects: [
-      {
-        type: "damage",
+      DamageTag.parse({
         timing: "now",
         calculation: "formula",
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
-      },
-      {
-        type: "stun",
+      }),
+      StunTag.parse({
         timing: "next",
-        chance: 0.1,
-      },
+        chance: 1,
+      }),
     ],
   },
   /******************** */
@@ -115,15 +113,14 @@ const jutsus: ZodJutsuType[] = [
     range: 2,
     cooldown: 30,
     effects: [
-      {
-        type: "damage",
+      DamageTag.parse({
         timing: "now",
         calculation: "formula",
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Speed", "Strength"],
         elements: ["Fire"],
-      },
+      }),
     ],
   },
 ];

@@ -17,7 +17,11 @@ const PoolType = ["Health", "Chakra", "Stamina"] as const;
  * Convenience method for a string with a default value
  */
 const msg = (defaultString: string) => {
-  return z.string().default(defaultString).optional();
+  return z.string().default(defaultString);
+};
+
+const type = (defaultString: string) => {
+  return z.literal(defaultString).default(defaultString);
 };
 
 /**
@@ -35,7 +39,7 @@ const msg = (defaultString: string) => {
 /**  BASE ATTRIBUTES  */
 /******************** */
 const BaseAttributes = z.object({
-  timing: z.enum(["now", "next"]),
+  timing: z.enum(["now", "next"]).default("now"),
 });
 
 const MultipleRounds = z.object({
@@ -52,8 +56,8 @@ const StatsBasedStrength = z.object({
   // static: directly equates to the amount returned
   // percentage: power is returned as a percentage
   // formula: power is used in battle formula to calculate return value
-  power: z.number().min(1),
-  calculation: z.enum(["formula", "static", "percentage"]),
+  power: z.number().min(1).default(1),
+  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
   elements: z.array(z.enum(Element)).optional(),
@@ -71,9 +75,9 @@ const CanBeAOE = z.object({
 /******************** */
 /*******  TAGS  *******/
 /******************** */
-const AbsorbTag = z
+export const AbsorbTag = z
   .object({
-    type: z.literal("absorb"),
+    type: type("absorb"),
     description: msg("Absorb damage taken"),
     battleEffect: msg("%target absorbs %amount of the damage"),
     elementalOnly: z.boolean().default(false).optional(),
@@ -82,79 +86,79 @@ const AbsorbTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustArmorTag = z
+export const AdjustArmorTag = z
   .object({
-    type: z.literal("armoradjust"),
+    type: type("armoradjust"),
     description: msg("Adjust armor rating of target"),
     battleEffect: msg("%target armor rating is %changetype by %amount"),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustDamageGivenTag = z
+export const AdjustDamageGivenTag = z
   .object({
-    type: z.literal("damangegivenadjust"),
+    type: type("damangegivenadjust"),
     description: msg("Adjust damage given by target"),
     battleEffect: msg("Damage given by %target is %changetype for %rounds rounds"),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustDamageTakenTag = z
+export const AdjustDamageTakenTag = z
   .object({
-    type: z.literal("damangetakenadjust"),
+    type: type("damangetakenadjust"),
     description: msg("Adjust damage taken of target"),
     battleEffect: msg("Damage sustained by %target is %changetype for %rounds rounds"),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustHealTag = z
+export const AdjustHealTag = z
   .object({
-    type: z.literal("healadjust"),
+    type: type("healadjust"),
     description: msg("Adjust healing ability of target"),
     battleEffect: msg("%target healing ability is %changetype by %amount"),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustPoolCostTag = z
+export const AdjustPoolCostTag = z
   .object({
-    type: z.literal("poolcostadjust"),
+    type: type("poolcostadjust"),
     description: msg("Adjust cost of using jutsu"),
     battleEffect: msg(
       "The %affected cost for %target using jutsu is %changetype by %amount"
     ),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const AdjustStatTag = z
+export const AdjustStatTag = z
   .object({
-    type: z.literal("statadjust"),
+    type: type("statadjust"),
     description: msg("Adjust stats of target"),
     battleEffect: msg("%target's %affected are %changetype by %amount"),
     affectedStats: z.array(z.enum(StatType)).optional(),
     affectedGenerals: z.array(z.enum(GeneralType)).optional(),
-    adjustUp: z.boolean(),
+    adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const ClearTag = z
+export const ClearTag = z
   .object({
-    type: z.literal("clear"),
+    type: type("clear"),
     description: msg("Clears all effects from the target"),
     battleEffect: msg("%target is now clear of all effects"),
   })
@@ -162,9 +166,9 @@ const ClearTag = z
   .merge(MultipleRounds)
   .merge(ChanceBased);
 
-const DamageTag = z
+export const DamageTag = z
   .object({
-    type: z.literal("damage"),
+    type: type("damage"),
     description: msg("Deals damage to target"),
     battleEffect: msg("%target takes %amount damage"),
   })
@@ -173,18 +177,18 @@ const DamageTag = z
   .merge(StatsBasedStrength)
   .merge(CanBeAOE);
 
-const FleeTag = z
+export const FleeTag = z
   .object({
-    type: z.literal("flee"),
+    type: type("flee"),
     description: msg("Flee the battle"),
     battleEffect: msg("%target flees the battle"),
   })
   .merge(BaseAttributes)
   .merge(ChanceBased);
 
-const FleePreventTag = z
+export const FleePreventTag = z
   .object({
-    type: z.literal("fleeprevent"),
+    type: type("fleeprevent"),
     description: msg("Prevents fleeing"),
     battleEffect: msg("%target is cannot be stunned for %rounds rounds"),
   })
@@ -193,9 +197,9 @@ const FleePreventTag = z
   .merge(ChanceBased)
   .merge(CanBeAOE);
 
-const HealTag = z
+export const HealTag = z
   .object({
-    type: z.literal("heal"),
+    type: type("heal"),
     description: msg("Heals the target"),
     battleEffect: msg("%target heals $amount %affected"),
   })
@@ -205,18 +209,18 @@ const HealTag = z
   .merge(StatsBasedStrength)
   .merge(CanBeAOE);
 
-const OneHitKillTag = z
+export const OneHitKillTag = z
   .object({
-    type: z.literal("onehitkill"),
+    type: type("onehitkill"),
     description: msg("Instantly kills the target"),
     battleEffect: msg("%target is killed"),
   })
   .merge(BaseAttributes)
   .merge(ChanceBased);
 
-const OneHitKillPreventTag = z
+export const OneHitKillPreventTag = z
   .object({
-    type: z.literal("onehitkillprevent"),
+    type: type("onehitkillprevent"),
     description: msg("Prevents instant kill effects"),
     battleEffect: msg(
       "%target is now immune to instant kill effects for %rounds rounds"
@@ -226,9 +230,9 @@ const OneHitKillPreventTag = z
   .merge(MultipleRounds)
   .merge(ChanceBased);
 
-const ReflectTag = z
+export const ReflectTag = z
   .object({
-    type: z.literal("reflect"),
+    type: type("reflect"),
     description: msg("Reflect damage taken"),
     battleEffect: msg("%target reflects %amount of the damage to %attacker"),
     elementalOnly: z.boolean().default(false).optional(),
@@ -237,9 +241,9 @@ const ReflectTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-const RobPreventTag = z
+export const RobPreventTag = z
   .object({
-    type: z.literal("robprevent"),
+    type: type("robprevent"),
     description: msg("Prevents robbing of the target"),
     battleEffect: msg("%target can not be robbed for %rounds rounds"),
   })
@@ -247,18 +251,18 @@ const RobPreventTag = z
   .merge(MultipleRounds)
   .merge(ChanceBased);
 
-const RobTag = z
+export const RobTag = z
   .object({
-    type: z.literal("rob"),
+    type: type("rob"),
     description: msg("Robs money from the target"),
     battleEffect: msg("%user steals %amount ryo from %target"),
   })
   .merge(BaseAttributes)
   .merge(StatsBasedStrength);
 
-const SealPreventTag = z
+export const SealPreventTag = z
   .object({
-    type: z.literal("sealprevent"),
+    type: type("sealprevent"),
     description: msg("Prevents bloodline from being sealed"),
     battleEffect: msg("%target's bloodline cannot be sealed for %rounds rounds"),
   })
@@ -267,9 +271,9 @@ const SealPreventTag = z
   .merge(ChanceBased)
   .merge(CanBeAOE);
 
-const SealTag = z
+export const SealTag = z
   .object({
-    type: z.literal("seal"),
+    type: type("seal"),
     description: msg("Seals the target's bloodline effects"),
     battleEffect: msg("%target's bloodline is sealed for the following %rounds rounds"),
   })
@@ -278,9 +282,9 @@ const SealTag = z
   .merge(ChanceBased)
   .merge(CanBeAOE);
 
-const StunPreventTag = z
+export const StunPreventTag = z
   .object({
-    type: z.literal("stunprevent"),
+    type: type("stunprevent"),
     description: msg("Prevents being stunned"),
     battleEffect: msg("%target cannot be stunned for %rounds rounds"),
   })
@@ -289,9 +293,9 @@ const StunPreventTag = z
   .merge(ChanceBased)
   .merge(CanBeAOE);
 
-const StunTag = z
+export const StunTag = z
   .object({
-    type: z.literal("stun"),
+    type: type("stun"),
     description: msg("Stuns the target"),
     battleEffect: msg("%target is stunned for the following %rounds rounds"),
   })
@@ -300,9 +304,9 @@ const StunTag = z
   .merge(ChanceBased)
   .merge(CanBeAOE);
 
-const SummonPreventTag = z
+export const SummonPreventTag = z
   .object({
-    type: z.literal("summonprevent"),
+    type: type("summonprevent"),
     description: msg("Prevents summoning"),
     battleEffect: msg("%target is now prevented from summoning for %rounds rounds"),
   })
@@ -310,9 +314,9 @@ const SummonPreventTag = z
   .merge(MultipleRounds)
   .merge(ChanceBased);
 
-const SummonTag = z
+export const SummonTag = z
   .object({
-    type: z.literal("summon"),
+    type: type("summon"),
     description: msg("Summon an ally"),
     battleEffect: msg("%user summons %target to the battlefield"),
   })
@@ -320,31 +324,35 @@ const SummonTag = z
   .merge(MultipleRounds)
   .merge(ChanceBased);
 
+/******************** */
+/** UNIONS OF TAGS   **/
+/******************** */
 const AllTags = z.union([
-  AbsorbTag,
-  AdjustArmorTag,
-  AdjustDamageGivenTag,
-  AdjustDamageTakenTag,
-  AdjustHealTag,
-  AdjustPoolCostTag,
-  AdjustStatTag,
-  ClearTag,
-  DamageTag,
-  FleeTag,
-  FleePreventTag,
-  HealTag,
-  OneHitKillPreventTag,
-  OneHitKillTag,
-  ReflectTag,
-  RobPreventTag,
-  RobTag,
-  SealPreventTag,
-  SealTag,
-  StunPreventTag,
-  StunTag,
-  SummonPreventTag,
-  SummonTag,
+  AbsorbTag.default({}),
+  AdjustArmorTag.default({}),
+  AdjustDamageGivenTag.default({}),
+  AdjustDamageTakenTag.default({}),
+  AdjustHealTag.default({}),
+  AdjustPoolCostTag.default({}),
+  AdjustStatTag.default({}),
+  ClearTag.default({}),
+  DamageTag.default({}),
+  FleeTag.default({}),
+  FleePreventTag.default({}),
+  HealTag.default({}),
+  OneHitKillPreventTag.default({}),
+  OneHitKillTag.default({}),
+  ReflectTag.default({}),
+  RobPreventTag.default({}),
+  RobTag.default({}),
+  SealPreventTag.default({}),
+  SealTag.default({}),
+  StunPreventTag.default({}),
+  StunTag.default({}),
+  SummonPreventTag.default({}),
+  SummonTag.default({}),
 ]);
+export type ZodAllTags = z.infer<typeof AllTags>;
 
 /**
  * Jutsu Type. Used for validating a jutsu object is set up properly
@@ -380,19 +388,19 @@ const Bloodline = z.object({
   village: z.string(),
   effects: z.array(
     z.union([
-      AbsorbTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustArmorTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustDamageGivenTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustDamageTakenTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustHealTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustPoolCostTag.omit({ minRounds: true, maxRounds: true }),
-      AdjustStatTag.omit({ minRounds: true, maxRounds: true }),
-      DamageTag.omit({ minRounds: true, maxRounds: true }),
-      HealTag.omit({ minRounds: true, maxRounds: true }),
-      ReflectTag.omit({ minRounds: true, maxRounds: true }),
-      RobPreventTag.omit({ minRounds: true, maxRounds: true }),
-      SealPreventTag.omit({ minRounds: true, maxRounds: true }),
-      StunPreventTag.omit({ minRounds: true, maxRounds: true }),
+      AbsorbTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustArmorTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustDamageGivenTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustDamageTakenTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustHealTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustPoolCostTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      AdjustStatTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      DamageTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      HealTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      ReflectTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      RobPreventTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      SealPreventTag.omit({ minRounds: true, maxRounds: true }).default({}),
+      StunPreventTag.omit({ minRounds: true, maxRounds: true }).default({}),
     ])
   ),
 });

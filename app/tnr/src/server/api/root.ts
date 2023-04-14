@@ -9,6 +9,7 @@ import { reportsRouter } from "./routers/reports";
 import { forumRouter } from "./routers/forum";
 import { travelRouter } from "./routers/travel";
 import { paypalRouter } from "./routers/paypal";
+import { bloodlineRouter } from "./routers/bloodline";
 
 /**
  * This is the primary router for your server.
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   paypal: paypalRouter,
   travel: travelRouter,
   register: registerRouter,
+  bloodline: bloodlineRouter,
 });
 
 // export type definition of API

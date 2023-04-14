@@ -7,6 +7,9 @@ import { WeaponType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
 import { ItemSlot } from "@prisma/client/edge";
 
+import { DamageTag } from "../../src/libs/combat/types";
+import { AdjustArmorTag } from "../../src/libs/combat/types";
+
 const items: ZodItemType[] = [
   /************ */
   /** WEAPONS  **/
@@ -24,14 +27,13 @@ const items: ZodItemType[] = [
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.BACKPACK,
     effects: [
-      {
-        type: "damage",
+      DamageTag.parse({
         timing: "now",
         calculation: "formula",
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
-      },
+      }),
     ],
   },
   /********** */
@@ -46,13 +48,13 @@ const items: ZodItemType[] = [
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.CHEST,
     effects: [
-      {
+      AdjustArmorTag.parse({
         type: "armoradjust",
         timing: "now",
         calculation: "static",
         power: 10,
         adjustUp: true,
-      },
+      }),
     ],
   },
 ];
