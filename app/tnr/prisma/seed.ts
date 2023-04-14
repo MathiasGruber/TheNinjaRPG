@@ -3,6 +3,7 @@ import { seedVillages } from "./seeds/village";
 import { seedForum } from "./seeds/forum";
 import { seedJutsus } from "./seeds/jutsu";
 import { seedBloodlines } from "./seeds/bloodline";
+import { seedItems } from "./seeds/items";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();
@@ -11,6 +12,7 @@ const prisma = new PrismaClient();
 async function main() {
   await seedJutsus(prisma);
   await seedBloodlines(prisma);
+  await seedItems(prisma);
   await seedVillages(prisma);
   await seedForum(prisma);
 }

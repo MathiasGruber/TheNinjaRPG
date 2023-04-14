@@ -15,7 +15,16 @@ const bloodlines: ZodBloodlineType[] = [
     rarity: LetterRank.D,
     regenIncrease: 0,
     village: "All",
-    effects: [],
+    effects: [
+      {
+        type: "damage",
+        timing: "now",
+        calculation: "static",
+        power: 1,
+        statTypes: ["Genjutsu"],
+        generalTypes: ["Intelligence", "Willpower"],
+      },
+    ],
   },
   /*********************** */
   /**  C-Ranked Bloodline  */

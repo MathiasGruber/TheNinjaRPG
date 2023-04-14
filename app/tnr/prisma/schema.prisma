@@ -412,6 +412,7 @@ enum WeaponType {
     STAFF
     AXE
     FIST_WEAPON
+    SHURIKEN
     SICKLE
     DAGGER
     SWORD
@@ -420,7 +421,6 @@ enum WeaponType {
     CHAIN
     FAN
     BOW
-    NONE
 }
 
 enum ItemRarity {
@@ -458,12 +458,14 @@ model Jutsu {
     updatedAt         DateTime     @updatedAt
     jutsuWeapon       WeaponType?
     jutsuType         JutsuType
-    level             LetterRank
+    jutsuRank         LetterRank   @default(D)
     requiredRank      UserRank
     target            AttackTarget
     range             Int
-    cost              Int          @default(0)
     cooldown          Int          @default(0)
+    healthCostPerc    Float        @default(0)
+    chakraCostPerc    Float        @default(0.05)
+    staminaCostPerc   Float        @default(0.05)
     bloodline         Bloodline?   @relation(fields: [bloodlineId], references: [id])
     bloodlineId       String?
     effects           Json
@@ -477,18 +479,24 @@ model Jutsu {
 //*****************************//
 
 model Item {
-    id          String     @id @default(cuid())
-    name        String     @unique
-    description String     @db.Text
-    createdAt   DateTime   @default(now())
-    updatedAt   DateTime   @updatedAt
-    effects     Json
-    type        ItemType
-    weaponType  WeaponType
-    rarity      ItemRarity
-    slot        ItemSlot
-    cost        Int        @default(0)
-    users       UserData[]
+    id              String       @id @default(cuid())
+    name            String       @unique
+    image           String       @unique
+    description     String       @db.Text
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+    canStack        Boolean      @default(false)
+    stackSize       Int          @default(1)
+    chakraCostPerc  Float        @default(0.01)
+    staminaCostPerc Float        @default(0.01)
+    cost            Int          @default(1)
+    target          AttackTarget
+    type            ItemType
+    weaponType      WeaponType?
+    rarity          ItemRarity
+    slot            ItemSlot
+    users           UserData[]
+    effects         Json
 }
 
 //*****************************//

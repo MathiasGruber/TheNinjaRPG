@@ -6,6 +6,8 @@ import {
   BookOpenIcon,
   CurrencyDollarIcon,
   BuildingStorefrontIcon,
+  FireIcon,
+  UserIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
@@ -26,8 +28,8 @@ export interface NavBarDropdownLink {
 export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   const links: NavBarDropdownLink[] = [
     {
-      href: "/",
-      name: "Home",
+      href: "/manual",
+      name: "Manual",
     },
     {
       href: "/forum",
@@ -81,6 +83,16 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       href: "/travel",
       name: "Travel",
       icon: <GlobeAmericasIcon key="travel" className="h-6 w-6" />,
+    },
+    {
+      href: "/jutsus",
+      name: "Jutsus",
+      icon: <FireIcon key="jutsus" className="h-6 w-6" />,
+    },
+    {
+      href: "/items",
+      name: "Items",
+      icon: <UserIcon key="items" className="h-6 w-6" />,
     },
     {
       href: "/points",
