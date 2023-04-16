@@ -15,7 +15,7 @@ const jutsus: ZodJutsuType[] = [
   /******************** */
   {
     name: "Clone Technique",
-    image: "clone_technque.png",
+    image: "clone_technique.png",
     description:
       "This jutsu creates a clone, which is then used as a distraction to attack from behind",
     battleDescription:
@@ -28,8 +28,6 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        timing: "now",
-        calculation: "formula",
         power: 1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Strength"],
@@ -53,14 +51,12 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        timing: "now",
-        calculation: "formula",
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
-        timing: "next",
+        timing: "next round",
         chance: 1,
       }),
     ],
@@ -84,14 +80,12 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        timing: "now",
-        calculation: "formula",
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
-        timing: "next",
+        timing: "next round",
         chance: 1,
       }),
     ],
@@ -114,8 +108,6 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        timing: "now",
-        calculation: "formula",
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Speed", "Strength"],

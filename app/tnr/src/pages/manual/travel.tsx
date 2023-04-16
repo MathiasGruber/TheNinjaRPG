@@ -1,30 +1,35 @@
+import { useState, useMemo } from "react";
 import { type NextPage } from "next";
-import Image from "next/image";
-import Link from "next/link";
+import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../libs/travel/constants";
 import ContentBox from "../../layout/ContentBox";
+import Map from "../../layout/Map";
+import { fetchMap } from "../../libs/travel/globe";
+import { api } from "../../utils/api";
 
-const ManualMain: NextPage = () => {
+const ManualTravel: NextPage = () => {
+  const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
+  void useMemo(async () => {
+    setMap(await fetchMap());
+  }, []);
+  const { data: villages } = api.village.getAll.useQuery(undefined);
+
   return (
-    <ContentBox title="Game Manual" subtitle="Learn about the game & look up data">
-      <div className="grid grid-cols-4 gap-4 text-center font-bold">
-        {["combat", "travel", "bloodlines", "jutsus", "armor", "weapons"].map(
-          (page) => (
-            <Link key={page} href={`/manual/${page}`}>
-              <Image
-                className="rounded-2xl border-2 border-black hover:cursor-pointer hover:opacity-50"
-                src={`/manual/${page}.png`}
-                alt={page}
-                width={125}
-                height={125}
-                priority={true}
-              />
-              <p>{page}</p>
-            </Link>
-          )
+    <>
+      <ContentBox title="Travel" subtitle="Navigating the world" back_href="/manual">
+        The world of Seichi is a vast and dangerous place. To navigate it, there are two
+        levels of travel in this game; global travel and sector travel. Global travel
+        shows you the entire planet segregated into so-called &quot;sectors&quot;. When
+        viewing one of these sectors, you will see a {SECTOR_HEIGHT} times{" "}
+        {SECTOR_WIDTH} hexagonal grid. You should think of this grid as a small section
+        of that sector, in which your character can move, explore and interact with
+        other players, meaning that it only represents a smaller section of that actual
+        sector of the world.
+        {villages && map && (
+          <Map intersection={false} highlights={villages} hexasphere={map} />
         )}
-      </div>
-    </ContentBox>
+      </ContentBox>
+    </>
   );
 };
 
-export default ManualMain;
+export default ManualTravel;

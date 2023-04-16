@@ -10,6 +10,8 @@ import { forumRouter } from "./routers/forum";
 import { travelRouter } from "./routers/travel";
 import { paypalRouter } from "./routers/paypal";
 import { bloodlineRouter } from "./routers/bloodline";
+import { jutsuRouter } from "./routers/jutsu";
+import { itemRouter } from "./routers/item";
 
 /**
  * This is the primary router for your server.
@@ -28,6 +30,8 @@ export const appRouter = createTRPCRouter({
   travel: travelRouter,
   register: registerRouter,
   bloodline: bloodlineRouter,
+  jutsu: jutsuRouter,
+  item: itemRouter,
 });
 
 // export type definition of API

@@ -3,6 +3,8 @@ import { type Prisma } from "@prisma/client/edge";
 import { type PrismaClient } from "@prisma/client/edge";
 import { LetterRank } from "@prisma/client/edge";
 import { DamageTag } from "../../src/libs/combat/types";
+import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
+import { AdjustDamageTakenTag } from "../../src/libs/combat/types";
 
 const bloodlines: ZodBloodlineType[] = [
   /*********************** */
@@ -18,11 +20,11 @@ const bloodlines: ZodBloodlineType[] = [
     village: "All",
     effects: [
       DamageTag.parse({
-        timing: "now",
         calculation: "static",
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
+        elements: ["Wind"],
       }),
     ],
   },
@@ -76,7 +78,28 @@ const bloodlines: ZodBloodlineType[] = [
     rarity: LetterRank.S,
     regenIncrease: 10,
     village: "All",
-    effects: [],
+    effects: [
+      AdjustDamageGivenTag.parse({
+        power: 10,
+        statTypes: ["Genjutsu", "Ninjutsu"],
+        generalTypes: ["Intelligence", "Willpower"],
+      }),
+      AdjustDamageGivenTag.parse({
+        power: 20,
+        statTypes: ["Bukijutsu", "Taijutsu"],
+        generalTypes: ["Strength", "Speed"],
+      }),
+      AdjustDamageTakenTag.parse({
+        power: 10,
+        statTypes: ["Genjutsu", "Ninjutsu"],
+        generalTypes: ["Intelligence", "Willpower"],
+      }),
+      AdjustDamageTakenTag.parse({
+        power: 20,
+        statTypes: ["Bukijutsu", "Taijutsu"],
+        generalTypes: ["Strength", "Speed"],
+      }),
+    ],
   },
 ];
 

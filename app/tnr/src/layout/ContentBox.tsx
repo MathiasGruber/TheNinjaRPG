@@ -7,6 +7,7 @@ interface ContentBoxProps {
   title: string;
   back_href?: string;
   subtitle?: string;
+  topRightCorntentBreakpoint?: "sm" | "md" | "lg" | "xl" | "2xl";
   topRightContent?: React.ReactNode;
   padding?: boolean;
 }
@@ -15,7 +16,13 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
   return (
     <>
       <div className="mb-5 sm:container">
-        <div className="flex flex-row items-center">
+        <div
+          className={`flex ${
+            props.topRightCorntentBreakpoint
+              ? `flex-col ${props.topRightCorntentBreakpoint}:flex-row ${props.topRightCorntentBreakpoint}:items-center`
+              : "flex-row items-center"
+          }`}
+        >
           <div>
             <h2 className="text-2xl font-bold text-orange-900">
               {props.back_href ? (
@@ -33,7 +40,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
 
             {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
           </div>
-          <div className="grow"></div>
+          <div className="sm:grow"></div>
           <div>{props.topRightContent}</div>
         </div>
 

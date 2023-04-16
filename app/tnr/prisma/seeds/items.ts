@@ -21,15 +21,14 @@ const items: ZodItemType[] = [
       "This flat, 4-sided star has razor sharp edges that allow it to cut through air and skin alike. Don't throw this at friends!",
     canStack: true,
     stackSize: 10,
+    destroyOnUse: true,
     target: AttackTarget.OPPONENT,
-    type: ItemType.CONSUMABLE,
+    type: ItemType.WEAPON,
     weaponType: WeaponType.SHURIKEN,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.BACKPACK,
     effects: [
       DamageTag.parse({
-        timing: "now",
-        calculation: "formula",
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
@@ -44,13 +43,12 @@ const items: ZodItemType[] = [
     image: "simple_vest.png",
     description: "A leather vest with strategically located pockets for ninja tools",
     target: AttackTarget.OPPONENT,
-    type: ItemType.WEAPON,
+    type: ItemType.ARMOR,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.CHEST,
     effects: [
       AdjustArmorTag.parse({
         type: "armoradjust",
-        timing: "now",
         calculation: "static",
         power: 10,
         adjustUp: true,

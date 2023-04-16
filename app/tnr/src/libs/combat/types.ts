@@ -28,6 +28,8 @@ const type = (defaultString: string) => {
  * Battle Descriptions use the following variables:
  * %user - the name of the one who is affected by the effect
  * %target - the name of the one who is affected by the effect
+ * %usergender - he/she
+ * %targetgender - he/she
  * %attacker - a character attacking the target
  * %rounds - the number of rounds the effect will last
  * %amount - the amount of the effect
@@ -39,7 +41,7 @@ const type = (defaultString: string) => {
 /**  BASE ATTRIBUTES  */
 /******************** */
 const BaseAttributes = z.object({
-  timing: z.enum(["now", "next"]).default("now"),
+  timing: z.enum(["immidiately", "next round"]).default("immidiately"),
 });
 
 const MultipleRounds = z.object({
@@ -57,6 +59,7 @@ const StatsBasedStrength = z.object({
   // percentage: power is returned as a percentage
   // formula: power is used in battle formula to calculate return value
   power: z.number().min(1).default(1),
+  powerPerLevel: z.number().min(0).default(1),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
@@ -65,6 +68,7 @@ const StatsBasedStrength = z.object({
 
 const ChanceBased = z.object({
   chance: z.number().int().min(1).max(100).default(0).optional(),
+  chancePerLevel: z.number().int().min(0).max(100).default(0).optional(),
 });
 
 const CanBeAOE = z.object({
@@ -99,7 +103,7 @@ export const AdjustArmorTag = z
 
 export const AdjustDamageGivenTag = z
   .object({
-    type: type("damangegivenadjust"),
+    type: type("damagegivenadjust"),
     description: msg("Adjust damage given by target"),
     battleEffect: msg("Damage given by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
@@ -110,7 +114,7 @@ export const AdjustDamageGivenTag = z
 
 export const AdjustDamageTakenTag = z
   .object({
-    type: type("damangetakenadjust"),
+    type: type("damagetakenadjust"),
     description: msg("Adjust damage taken of target"),
     battleEffect: msg("Damage sustained by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
@@ -415,6 +419,7 @@ const Item = z.object({
   description: z.string(),
   canStack: z.boolean().optional(),
   stackSize: z.number().int().min(1).max(100).optional(),
+  destroyOnUse: z.boolean().optional(),
   chakraCostPerc: z.number().int().min(1).max(100).optional(),
   staminaCostPerc: z.number().int().min(1).max(100).optional(),
   target: z.nativeEnum(AttackTarget),

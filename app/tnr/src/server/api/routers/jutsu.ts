@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LetterRank } from "@prisma/client/edge";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 
-export const bloodlineRouter = createTRPCRouter({
+export const jutsuRouter = createTRPCRouter({
   getAll: publicProcedure
     .input(
       z.object({
@@ -15,11 +15,11 @@ export const bloodlineRouter = createTRPCRouter({
       // Fetch threads
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const results = await ctx.prisma.bloodline.findMany({
+      const results = await ctx.prisma.jutsu.findMany({
         skip: skip,
         take: input.limit,
         where: {
-          rarity: input.rarity,
+          jutsuRank: input.rarity,
         },
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;

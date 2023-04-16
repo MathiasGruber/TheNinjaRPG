@@ -3,13 +3,17 @@ import React from "react";
 interface NavTabsProps {
   current: string;
   options: string[];
-  setValue: React.Dispatch<React.SetStateAction<string>>;
+  fontSize?: "text-xs" | "text-sm" | "text-base";
+  setValue: React.Dispatch<React.SetStateAction<any>>;
 }
 
 const NavTabs: React.FC<NavTabsProps> = (props) => {
+  const fontSize = props.fontSize ? props.fontSize : "text-sm";
   return (
     <>
-      <div className="border-b border-gray-700 text-center text-sm font-medium text-gray-400">
+      <div
+        className={`border-b border-gray-700 text-center ${fontSize} font-medium text-gray-400`}
+      >
         <ul className="-mb-px flex flex-wrap">
           {props.options.map((option) => (
             <li className="mr-2" key={option}>

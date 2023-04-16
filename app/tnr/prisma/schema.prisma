@@ -400,9 +400,9 @@ enum JutsuType {
 
 enum ItemType {
     WEAPON
+    CONSUMABLE
     ARMOR
     ACCESSORY
-    CONSUMABLE
     MATERIAL
     EVENT
     OTHER
@@ -425,7 +425,6 @@ enum WeaponType {
 
 enum ItemRarity {
     COMMON
-    UNCOMMON
     RARE
     EPIC
     LEGENDARY
@@ -487,6 +486,7 @@ model Item {
     updatedAt       DateTime     @updatedAt
     canStack        Boolean      @default(false)
     stackSize       Int          @default(1)
+    destroyOnUse    Boolean      @default(false)
     chakraCostPerc  Float        @default(0.01)
     staminaCostPerc Float        @default(0.01)
     cost            Int          @default(1)

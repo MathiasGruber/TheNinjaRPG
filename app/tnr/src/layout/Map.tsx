@@ -164,7 +164,7 @@ const Map: React.FC<MapProps> = (props) => {
             group_highlights.add(line);
             // Label
             const map = new TextureLoader().load(
-              `villages/${highlight.name}Marker.png`
+              `/villages/${highlight.name}Marker.png`
             );
             const material = new SpriteMaterial({ map: map });
             const labelSprite = new Sprite(material);

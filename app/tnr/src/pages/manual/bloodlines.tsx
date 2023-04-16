@@ -3,6 +3,9 @@ import { type NextPage } from "next";
 import { LetterRank } from "@prisma/client/edge";
 import ManualItem from "../../layout/ManualItem";
 import ContentBox from "../../layout/ContentBox";
+import NavTabs from "../../layout/NavTabs";
+import Loader from "../../layout/Loader";
+import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
 
 const ManualBloodlines: NextPage = () => {
@@ -13,9 +16,9 @@ const ManualBloodlines: NextPage = () => {
   // Data
   const {
     data: bloodlines,
+    isFetching,
     fetchNextPage,
     hasNextPage,
-    refetch,
   } = api.bloodline.getAll.useInfiniteQuery(
     { rarity: rarity, limit: 20 },
     {
@@ -24,8 +27,8 @@ const ManualBloodlines: NextPage = () => {
     }
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
-  console.log(allBloodlines);
   return (
     <>
       <ContentBox title="Bloodlines" subtitle="What are they?" back_href="/manual">
@@ -45,10 +48,35 @@ const ManualBloodlines: NextPage = () => {
           service of implanting bloodlines into your body.
         </p>
       </ContentBox>
-      <ContentBox title="Database" subtitle="All known bloodlines">
-        {allBloodlines?.map((bloodline) => (
-          <ManualItem folderPrefix="/bloodlines/" item={bloodline} key={bloodline.id} />
-        ))}
+      <ContentBox
+        title="Database"
+        subtitle="All bloodlines"
+        topRightContent={
+          <>
+            <div className="grow"></div>
+            <NavTabs
+              current={rarity}
+              options={["D", "C", "B", "A", "S"]}
+              setValue={setRarity}
+            />
+          </>
+        }
+      >
+        {isFetching && <Loader explanation="Loading data" />}
+        {!isFetching &&
+          allBloodlines?.map((bloodline, i) => (
+            <div
+              key={bloodline.id}
+              ref={i === allBloodlines.length - 1 ? setLastElement : null}
+            >
+              <ManualItem
+                folderPrefix="/bloodlines/"
+                item={bloodline}
+                key={bloodline.id}
+                imageBorder={true}
+              />
+            </div>
+          ))}
       </ContentBox>
     </>
   );

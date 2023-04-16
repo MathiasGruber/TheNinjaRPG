@@ -1,30 +1,76 @@
+import { useState } from "react";
 import { type NextPage } from "next";
-import Image from "next/image";
-import Link from "next/link";
-import ContentBox from "../../layout/ContentBox";
+import { ItemType } from "@prisma/client/edge";
+import { ItemRarity } from "@prisma/client/edge";
 
-const ManualMain: NextPage = () => {
+import ManualItem from "../../layout/ManualItem";
+import ContentBox from "../../layout/ContentBox";
+import NavTabs from "../../layout/NavTabs";
+import Loader from "../../layout/Loader";
+import { useInfinitePagination } from "../../libs/pagination";
+import { api } from "../../utils/api";
+
+const ManualArmor: NextPage = () => {
+  // Settings
+  const [rarity, setRarity] = useState<ItemRarity>(ItemRarity.COMMON);
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Data
+  const {
+    data: items,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+  } = api.item.getAll.useInfiniteQuery(
+    { itemType: ItemType.ARMOR, itemRarity: rarity, limit: 20 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+    }
+  );
+  const allItems = items?.pages.map((page) => page.data).flat();
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
+
   return (
-    <ContentBox title="Game Manual" subtitle="Learn about the game & look up data">
-      <div className="grid grid-cols-4 gap-4 text-center font-bold">
-        {["combat", "travel", "bloodlines", "jutsus", "armor", "weapons"].map(
-          (page) => (
-            <Link key={page} href={`/manual/${page}`}>
-              <Image
-                className="rounded-2xl border-2 border-black hover:cursor-pointer hover:opacity-50"
-                src={`/manual/${page}.png`}
-                alt={page}
-                width={125}
-                height={125}
-                priority={true}
-              />
-              <p>{page}</p>
-            </Link>
-          )
-        )}
-      </div>
-    </ContentBox>
+    <>
+      <ContentBox title="Armor" subtitle="What you wear matters" back_href="/manual">
+        <p>
+          Wearing armor is of utmost importance as it can be the difference between life
+          and death. As a ninja, you will be engaged in high-risk missions that will
+          require you to be well-prepared to face any kind of danger. Armor can protect
+          you from physical attacks, such as swords, shurikens, and kunais, and can also
+          provide defense against certain types of jutsus. Without armor, you will be
+          left vulnerable to attacks, which can significantly reduce your chances of
+          success. Thus, it is highly recommended that you invest in the right armor to
+          ensure that you can complete your missions and emerge victorious. Armor along
+          with other items are purchased at the item shop in your village.
+        </p>
+      </ContentBox>
+      <ContentBox
+        title="Database"
+        subtitle="All armor"
+        topRightCorntentBreakpoint="sm"
+        topRightContent={
+          <>
+            <div className="grow"></div>
+            <NavTabs
+              current={rarity}
+              options={Object.values(ItemRarity)}
+              setValue={setRarity}
+            />
+          </>
+        }
+      >
+        {isFetching && <Loader explanation="Loading data" />}
+        {!isFetching &&
+          allItems?.map((item, i) => (
+            <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
+              <ManualItem folderPrefix="/items/" item={item} key={item.id} />
+            </div>
+          ))}
+      </ContentBox>
+    </>
   );
 };
 
-export default ManualMain;
+export default ManualArmor;
