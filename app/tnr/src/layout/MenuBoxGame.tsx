@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { UserStatus } from "@prisma/client";
 import {
   ShieldExclamationIcon,
   InformationCircleIcon,
@@ -51,14 +52,22 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
         </ul>
       )}
       <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {systems.map((system, i) => (
-          <Link key={i} href={system.href}>
-            <li className="flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold hover:bg-orange-200">
-              <div className="grow">{system.name}</div>
-              <div>{system.icon && system.icon}</div>
-            </li>
-          </Link>
-        ))}
+        {systems.map((system, i) => {
+          const battleDisable =
+            system.combatRedirect && userData.status === UserStatus.BATTLE;
+          return (
+            <Link key={i} href={battleDisable ? "/combat" : system.href}>
+              <li
+                className={`flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
+                  battleDisable ? "opacity-50" : "hover:bg-orange-200"
+                }`}
+              >
+                <div className="grow">{system.name}</div>
+                <div>{system.icon && system.icon}</div>
+              </li>
+            </Link>
+          );
+        })}
       </ul>
     </MenuBox>
   );

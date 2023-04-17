@@ -1,5 +1,7 @@
 import React from "react";
 import Link from "next/link";
+import { UserStatus } from "@prisma/client";
+
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
@@ -37,6 +39,7 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Health"
           color="bg-red-500"
           showText={true}
+          status={userData.status}
           current={userData.cur_health}
           total={userData.max_health}
         />
@@ -45,6 +48,7 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Chakra"
           color="bg-blue-500"
           showText={true}
+          status={userData.status}
           current={userData.cur_chakra}
           total={userData.max_chakra}
         />
@@ -53,6 +57,7 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Stamina"
           color="bg-green-500"
           showText={true}
+          status={userData.status}
           current={userData.cur_stamina}
           total={userData.max_stamina}
         />
@@ -60,7 +65,14 @@ const MenuBoxProfile: React.FC = () => {
         <div className="mt-4">
           <hr />
           <p className="mt-2">
-            <b>Status:</b> {userData.status}
+            <b>Status:</b>{" "}
+            {userData.status === UserStatus.BATTLE ? (
+              <Link className="font-bold  " href="/combat">
+                BATTLE
+              </Link>
+            ) : (
+              userData.status
+            )}
           </p>
         </div>
       </div>

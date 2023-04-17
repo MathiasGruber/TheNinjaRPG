@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type PrismaClient } from "@prisma/client/edge";
-import { UserStatus } from "@prisma/client/edge";
+import { UserStatus, BattleType } from "@prisma/client/edge";
 
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
@@ -155,9 +155,50 @@ export const travelRouter = createTRPCRouter({
     }),
   // Attack another user
   attackUser: protectedProcedure
-    .input(z.object({ userId: z.string() }))
+    .input(
+      z.object({
+        longitude: z
+          .number()
+          .int()
+          .min(0)
+          .max(SECTOR_WIDTH - 1),
+        latitude: z
+          .number()
+          .int()
+          .min(0)
+          .max(SECTOR_HEIGHT - 1),
+        sector: z.number().int(),
+        userId: z.string(),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
-      console.log("NOW ATTACK");
+      const battle = await ctx.prisma.$transaction(async (tx) => {
+        // Create combat entry
+        const battle = await tx.battle.create({
+          data: {
+            battleType: BattleType.COMBAT,
+            background: "forest.webp",
+          },
+        });
+        // Update users, but only succeed transaction if none of them already had a battle assigned
+        const result: number = await tx.$executeRaw`
+          UPDATE UserData 
+          SET 
+            status = ${UserStatus.BATTLE}, 
+            battleId = ${battle.id},
+            updatedAt = Now()
+          WHERE 
+            (userId = ${ctx.userId} OR userId = ${input.userId}) AND 
+            status = 'AWAKE' AND 
+            sector = ${input.sector} AND 
+            longitude = ${input.longitude} AND 
+            latitude = ${input.latitude}`;
+        if (result !== 2) {
+          throw new Error(`Attack failed, did the target move?`);
+        }
+        return battle;
+      });
+      return battle;
     }),
 });
 

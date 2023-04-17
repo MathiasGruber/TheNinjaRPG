@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 import { type NextPage } from "next";
 import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
 
@@ -19,6 +20,7 @@ import {
 } from "../libs/travel/controls";
 import { useRequiredUserData } from "../utils/UserContext";
 import { type GlobalTile, type SectorPoint } from "../libs/travel/types";
+import { UserStatus } from "@prisma/client";
 
 const Travel: NextPage = () => {
   // What is shown on this page
@@ -41,6 +43,12 @@ const Travel: NextPage = () => {
   const { data: villages } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
+
+  // Router for forwarding
+  const router = useRouter();
+  if (userData && userData.status === UserStatus.BATTLE) {
+    void router.push(`/combat`);
+  }
 
   // Sector tab link
   const sectorLink = currentSector

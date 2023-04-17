@@ -155,6 +155,26 @@ const Sector: React.FC<SectorProps> = (props) => {
     },
   });
 
+  const { mutate: attack } = api.travel.attackUser.useMutation({
+    onSuccess: async (data) => {
+      console.log("Called Attack Endpoint. Data: ", data);
+      // if (data) {
+      //   updateUsersList({
+      //     ...userData,
+      //     longitude: data.longitude,
+      //     latitude: data.latitude,
+      //     location: data.location,
+      //   } as UserData);
+      //   if (data.location !== userData?.location) {
+      //     await refetchUser();
+      //   }
+      // }
+    },
+    onError: (error) => {
+      show_toast("Error attacking", error.message, "error");
+    },
+  });
+
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
       const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
@@ -288,7 +308,12 @@ const Sector: React.FC<SectorProps> = (props) => {
                   target.longitude === origin.current?.col &&
                   target.latitude === origin.current?.row
                 ) {
-                  console.log("ATTACK", target);
+                  attack({
+                    userId: target.userId,
+                    longitude: target.longitude,
+                    latitude: target.latitude,
+                    sector: sector,
+                  });
                 } else {
                   setTarget({ x: target.longitude, y: target.latitude });
                 }

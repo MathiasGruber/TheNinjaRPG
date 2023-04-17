@@ -1,15 +1,25 @@
 import React from "react";
+import { UserStatus } from "@prisma/client";
 
 interface StatusBarProps {
   title: string;
   tooltip?: string;
   showText?: boolean;
-  color: string;
+  status?: UserStatus;
+  color: "bg-red-500" | "bg-blue-500" | "bg-green-500";
   current: number;
   total: number;
 }
 
 const StatusBar: React.FC<StatusBarProps> = (props) => {
+  // Colors & width
+  let color: string = props.color;
+  let width = (props.current / props.total) * 100;
+  console.log(color, width);
+  if (props.status === UserStatus.BATTLE) {
+    color = `bg-gradient-to-r from-orange-400 to-orange-100 background-animate`;
+    width = 100;
+  }
   return (
     <div className="group relative mt-2 flex-row">
       {props.showText && (
@@ -20,9 +30,9 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
 
       <div className={`h-3 w-full border-2 border-black`}>
         <div
-          className={`h-full w-3/6 ${props.color}`}
+          className={`h-full w-3/6 ${color}`}
           style={{
-            width: ((props.current / props.total) * 100).toString() + "%",
+            width: width.toString() + "%",
           }}
         ></div>
       </div>

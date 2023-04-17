@@ -36,6 +36,7 @@ const NavBar: React.FC = () => {
           title="HP"
           tooltip="Health"
           color="bg-red-500"
+          status={userData.status}
           current={userData.cur_health}
           total={userData.max_health}
         />
@@ -43,6 +44,7 @@ const NavBar: React.FC = () => {
           title="CP"
           tooltip="Chakra"
           color="bg-blue-500"
+          status={userData.status}
           current={userData.cur_chakra}
           total={userData.max_chakra}
         />
@@ -50,6 +52,7 @@ const NavBar: React.FC = () => {
           title="SP"
           tooltip="Stamina"
           color="bg-green-500"
+          status={userData.status}
           current={userData.cur_stamina}
           total={userData.max_stamina}
         />

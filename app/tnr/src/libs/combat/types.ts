@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type Battle, type UserData } from "@prisma/client";
 import { UserRank } from "@prisma/client/edge";
 import { AttackTarget } from "@prisma/client/edge";
 import { LetterRank } from "@prisma/client/edge";
@@ -12,6 +13,11 @@ const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const
 const StatType = ["Highest", "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const;
 const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
+
+/**
+ * Data model types
+ */
+export interface BattleWithUsers extends Battle, UserData {}
 
 /**
  * Convenience method for a string with a default value

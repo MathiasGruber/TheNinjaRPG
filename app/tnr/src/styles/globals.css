@@ -38,98 +38,56 @@ h3 {
 }
 
 @layer utilities {
-  /* .hexmain {
-    display: grid;
-    min-width: 320px;
-    --s: calc(10%);
-    --r: 0.85;
-    --h: 0.25;
-    --v: 0.5;
-    --hc: calc(clamp(0, var(--h), 0.5) * var(--s));
-    --vc: calc(clamp(0, var(--v), 0.5) * var(--s) * var(--r));
-    --mv: 0px;
-    --mh: calc(var(--mv) + (var(--s) - 2 * var(--hc)) / 2);
-    --f: calc(2 * var(--s) * var(--r) + 4 * var(--mv) - 2 * var(--vc) + 0px);
-    --path: var(--hc) 0, calc(100% - var(--hc)) 0, 100% var(--vc),
-      100% calc(100% - var(--vc)), calc(100% - var(--hc)) 100%, var(--hc) 100%,
-      0 calc(100% - var(--vc)), 0 var(--vc);
+  .background-animate {
+    background-size: 400% 400%;
+    -webkit-animation: AnimationName 1s ease infinite;
+    -moz-animation: AnimationName 1s ease infinite;
+    -o-animation: AnimationName 1s ease infinite;
+    animation: AnimationName 1s ease infinite;
   }
 
-  .hexcontainer {
-    font-size: 0;
-    padding-bottom: calc(var(--s) * var(--r) + var(--mv));
+  @-webkit-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
   }
-
-  .hexcontainer div {
-    width: var(--s);
-    background-color: green;
-    margin: var(--mv) var(--mh);
-    height: calc(var(--s) * var(--r));
-    display: inline-block;
-    font-size: initial;
-    clip-path: polygon(var(--path));
-    -webkit-clip-path: polygon(var(--path));
-    margin-bottom: calc(var(--mv) - var(--vc));
+  @-moz-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
   }
-
-  .hexcontainer::before {
-    content: "";
-    width: calc(var(--s) / 2 + var(--mh));
-    float: left;
-    height: 140%;
-    shape-outside: repeating-linear-gradient(
-      #0000 0 calc(var(--f) - 2px),
-      #000 0 var(--f)
-    );
-  } */
-  /****************************************/
-  .hexGrid {
-    display: flex;
-    flex-wrap: wrap;
-    width: 90%;
-    margin: 0 auto;
-    overflow: hidden;
-    font-family: "Raleway", sans-serif;
-    font-size: 15px;
-    list-style-type: none;
+  @-o-keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
   }
-
-  .hex {
-    position: relative;
-    visibility: hidden;
-    outline: 1px solid transparent; /* fix for jagged edges in FF on hover transition */
-  }
-  .hex::after {
-    content: "";
-    display: block;
-    padding-bottom: 86.602%; /* =  100 / tan(60) * 1.5 */
-  }
-  .hexIn {
-    position: absolute;
-    width: 96%;
-    padding-bottom: 110.851%; /* =  width / sin(60) */
-    margin: 0 2%;
-    overflow: hidden;
-    visibility: hidden;
-    outline: 1px solid transparent; /* fix for jagged edges in FF on hover transition */
-    -webkit-transform: rotate3d(0, 0, 1, -60deg) skewY(30deg);
-    -ms-transform: rotate3d(0, 0, 1, -60deg) skewY(30deg);
-    transform: rotate3d(0, 0, 1, -60deg) skewY(30deg);
-  }
-  .hexIn * {
-    position: absolute;
-    visibility: visible;
-    outline: 1px solid transparent; /* fix for jagged edges in FF on hover transition */
-  }
-  .hexLink {
-    display: block;
-    width: 100%;
-    height: 100%;
-    text-align: center;
-    color: #fff;
-    overflow: hidden;
-    -webkit-transform: skewY(-30deg) rotate3d(0, 0, 1, 60deg);
-    -ms-transform: skewY(-30deg) rotate3d(0, 0, 1, 60deg);
-    transform: skewY(-30deg) rotate3d(0, 0, 1, 60deg);
+  @keyframes AnimationName {
+    0% {
+      background-position: 0% 52%;
+    }
+    50% {
+      background-position: 100% 49%;
+    }
+    100% {
+      background-position: 0% 52%;
+    }
   }
 }

@@ -1,7 +1,6 @@
 import React from "react";
 import Header from "./Header";
 import Link from "next/link";
-import MenuBox from "./MenuBox";
 import MenuBoxProfile from "./MenuBoxProfile";
 import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";

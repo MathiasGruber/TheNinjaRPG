@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
+import { UserStatus } from "@prisma/client";
 
 import StatusBar from "../../layout/StatusBar";
 import AvatarImage from "../../layout/Avatar";
@@ -101,6 +102,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Health"
                     color="bg-red-500"
                     showText={true}
+                    status={profile.status}
                     current={profile.cur_health}
                     total={profile.max_health}
                   />
@@ -109,6 +111,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Chakra"
                     color="bg-blue-500"
                     showText={true}
+                    status={profile.status}
                     current={profile.cur_chakra}
                     total={profile.max_chakra}
                   />
@@ -117,6 +120,7 @@ const PublicProfile: NextPage = () => {
                     tooltip="Stamina"
                     color="bg-green-500"
                     showText={true}
+                    status={profile.status}
                     current={profile.cur_stamina}
                     total={profile.max_stamina}
                   />

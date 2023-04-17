@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ReportAction } from "@prisma/client";
-import { type PrismaClient } from "@prisma/client/edge";
+import { UserStatus, type PrismaClient } from "@prisma/client/edge";
 import { type NavBarDropdownLink } from "../../../libs/menus";
 
 import {
@@ -54,6 +54,14 @@ export const profileRouter = createTRPCRouter({
         notifications?.push({
           href: "/profile",
           name: "Being deleted",
+          color: "red",
+        });
+      }
+      // Is in combat
+      if (user.status === UserStatus.BATTLE) {
+        notifications?.push({
+          href: "/combat",
+          name: "In combat",
           color: "red",
         });
       }
