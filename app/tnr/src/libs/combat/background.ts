@@ -24,11 +24,11 @@ export const drawCombatBackground = (
   width: number,
   height: number,
   scene: Scene,
-  battle: Battle
+  background: string
 ) => {
   // Set scene background
-  const background = new TextureLoader().load(`/locations/${battle.background}`);
-  scene.background = background;
+  scene.background = new TextureLoader().load(`/locations/${background}`);
+  console.log("WIDTH: ", width, "HEIGHT: ", height);
 
   // Padding for the tiles [in % of width/height]
   const leftPadding = 0.025 * width;
@@ -41,7 +41,7 @@ export const drawCombatBackground = (
   // Create the grid first
   const Tile = defineHex({
     dimensions: hexsize,
-    origin: { x: -hexsize, y: -hexsize },
+    origin: { x: -hexsize - leftPadding, y: -hexsize - bottomPadding },
     orientation: Orientation.FLAT,
   });
   const honeycombGrid = new Grid(
@@ -73,9 +73,7 @@ export const drawCombatBackground = (
       const geometry = new BufferGeometry();
       const corners = tile.corners;
       const vertices = new Float32Array(
-        points
-          .map((p) => corners[p])
-          .flatMap((p) => (p ? [p.x + leftPadding, p.y + bottomPadding, -10] : []))
+        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
       );
       geometry.setAttribute("position", new BufferAttribute(vertices, 3));
       const mesh = new Mesh(geometry, material?.clone());

@@ -14,6 +14,7 @@ import Pusher from "pusher-js";
 
 import AvatarImage from "./Avatar";
 import Modal from "./Modal";
+import Loader from "./Loader";
 import { api } from "../utils/api";
 import {
   type GlobalTile,
@@ -21,10 +22,11 @@ import {
   type SectorPoint,
   type SectorUser,
 } from "../libs/travel/types";
+import { drawUsers } from "../libs/travel/sector";
 import { drawCombatBackground } from "../libs/combat/background";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { PathCalculator, findHex } from "../libs/travel/sector";
+import { PathCalculator } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
 
 interface CombatProps {
@@ -40,15 +42,14 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Data from the DB
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const { data: battleData } = api.combat.getBattle.useQuery(
+  const { data: battle, isFetching } = api.combat.getBattle.useQuery(
     { battleId: props.battleId },
     {
       enabled: !!userData,
       staleTime: Infinity,
     }
   );
-  const battle = battleData?.[0];
-  console.log(battleData);
+  console.log(battle);
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -60,7 +61,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   };
 
   useEffect(() => {
-    if (mountRef.current && battle && battleData && userData?.battleId) {
+    if (mountRef.current && battle && userData?.battleId) {
       console.log("DRAWING COMBAT");
       // Update the state containing sorrounding users on first load
 
@@ -70,7 +71,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Map size
       const WIDTH = mountRef.current.getBoundingClientRect().width;
       const HEIGHT = WIDTH * backgroundLengthToWidth;
-      console.log(WIDTH, HEIGHT);
 
       // Websocket connection
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
@@ -110,7 +110,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Draw the background
       const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        drawCombatBackground(WIDTH, HEIGHT, scene, battle);
+        drawCombatBackground(WIDTH, HEIGHT, scene, battle.background);
       grid.current = honeycombGrid;
 
       // Store current highlights and create a path calculator object
@@ -192,10 +192,26 @@ const Combat: React.FC<CombatProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Render the image
+      let userAngle = 0;
+      let lastTime = Date.now();
       let animationId = 0;
       function render() {
         // Use raycaster to detect mouse intersections
         raycaster.setFromCamera(mouse, camera);
+
+        // Assume we have user, users and a grid
+        if (battle?.usersState && grid.current) {
+          // Draw all users on the map + indicators for positions with multiple users
+          userAngle = drawUsers({
+            group_users: group_users,
+            users: battle?.usersState,
+            grid: grid.current,
+            showVillage: false,
+            lastTime: lastTime,
+            angle: userAngle,
+          });
+          lastTime = Date.now();
+        }
 
         // Trackball updates
         controls.update();
@@ -228,7 +244,11 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   }, [battle]);
 
-  return <div ref={mountRef}></div>;
+  return (
+    <div ref={mountRef}>
+      {isFetching && <Loader explanation="Loading Battle Data" />}
+    </div>
+  );
 };
 
 export default Combat;

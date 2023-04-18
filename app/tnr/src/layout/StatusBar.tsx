@@ -12,17 +12,18 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = (props) => {
-  // Colors & width
+  // Colors & width, depending on battle status
+  const isInBattle = props.status === UserStatus.BATTLE;
   let color: string = props.color;
   let width = (props.current / props.total) * 100;
-  console.log(color, width);
-  if (props.status === UserStatus.BATTLE) {
+
+  if (isInBattle) {
     color = `bg-gradient-to-r from-orange-400 to-orange-100 background-animate`;
     width = 100;
   }
   return (
     <div className="group relative mt-2 flex-row">
-      {props.showText && (
+      {props.showText && !isInBattle && (
         <div>
           {props.title} ({props.current} / {props.total})
         </div>

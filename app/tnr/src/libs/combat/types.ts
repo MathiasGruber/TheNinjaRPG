@@ -9,15 +9,51 @@ import { WeaponType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
 import { ItemSlot } from "@prisma/client/edge";
 
+/**
+ * Which state is public / private on users
+ */
+export const publicState = [
+  "userId",
+  "username",
+  "gender",
+  "avatar",
+  "cur_health",
+  "max_health",
+  "longitude",
+  "latitude",
+  "location",
+  "sector",
+] as const;
+export const privateState = [
+  "cur_chakra",
+  "max_chakra",
+  "cur_stamina",
+  "max_stamina",
+  "ninjutsu_offence",
+  "ninjutsu_defence",
+  "genjutsu_offence",
+  "genjutsu_defence",
+  "taijutsu_offence",
+  "taijutsu_defence",
+  "bukijutsu_offence",
+  "bukijutsu_defence",
+  "strength",
+  "intelligence",
+  "willpower",
+  "speed",
+  "bloodline",
+  "items",
+  "jutsus",
+] as const;
+export const allState = [...publicState, ...privateState] as const;
+
+/**
+ * Enum types
+ */
 const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
 const StatType = ["Highest", "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const;
 const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
-
-/**
- * Data model types
- */
-export interface BattleWithUsers extends Battle, UserData {}
 
 /**
  * Convenience method for a string with a default value

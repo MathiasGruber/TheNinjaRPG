@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client/edge";
+import { Prisma, type PrismaClient } from "@prisma/client/edge";
 import { UserStatus, BattleType } from "@prisma/client/edge";
 
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
@@ -173,13 +173,48 @@ export const travelRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       const battle = await ctx.prisma.$transaction(async (tx) => {
+        // Get user & target data, to be inserted into battle
+        const users = await tx.userData.findMany({
+          include: {
+            items: {
+              include: {
+                item: true,
+              },
+            },
+            jutsus: {
+              include: {
+                jutsu: true,
+              },
+            },
+            bloodline: true,
+            village: true,
+          },
+          where: {
+            OR: [{ userId: ctx.userId }, { userId: input.userId }],
+          },
+        });
+        // Use long/lat fields for position in combat map
+        if (users?.[0]) {
+          users[0]["longitude"] = 4;
+          users[0]["latitude"] = 2;
+        } else {
+          throw new Error(`Failed to set position of left-hand user`);
+        }
+        if (users?.[1]) {
+          users[1]["longitude"] = 8;
+          users[1]["latitude"] = 2;
+        } else {
+          throw new Error(`Failed to set position of right-hand user`);
+        }
         // Create combat entry
         const battle = await tx.battle.create({
           data: {
             battleType: BattleType.COMBAT,
             background: "forest.webp",
+            usersState: users as unknown as Prisma.JsonArray,
           },
         });
+        battle.usersState = [];
         // Update users, but only succeed transaction if none of them already had a battle assigned
         const result: number = await tx.$executeRaw`
           UPDATE UserData 

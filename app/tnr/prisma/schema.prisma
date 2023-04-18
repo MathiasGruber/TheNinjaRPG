@@ -47,96 +47,95 @@ enum UserRank {
 }
 
 model UserData {
-    userId                  String        @unique
-    username                String        @unique
-    isBanned                Boolean       @default(false)
-    isAI                    Boolean       @default(false)
-    role                    Role          @default(USER)
+    userId                  String                @unique
+    username                String                @unique
+    isBanned                Boolean               @default(false)
+    isAI                    Boolean               @default(false)
+    role                    Role                  @default(USER)
     // Statistics    
     gender                  String
     // Bars
-    cur_health              Int           @default(100)
-    max_health              Int           @default(100)
-    cur_chakra              Int           @default(100)
-    max_chakra              Int           @default(100)
-    cur_stamina             Int           @default(100)
-    max_stamina             Int           @default(100)
-    regeneration            Int           @default(100)
+    cur_health              Int                   @default(100)
+    max_health              Int                   @default(100)
+    cur_chakra              Int                   @default(100)
+    max_chakra              Int                   @default(100)
+    cur_stamina             Int                   @default(100)
+    max_stamina             Int                   @default(100)
+    regeneration            Int                   @default(100)
     // Financials
-    money                   Int           @default(100)
-    bank                    Int           @default(100)
+    money                   Int                   @default(100)
+    bank                    Int                   @default(100)
     // Experience
-    experience              Int           @default(0)
-    pvp_experience          Int           @default(0)
+    experience              Int                   @default(0)
+    pvp_experience          Int                   @default(0)
     // Rank & Village
-    rank                    UserRank      @default(STUDENT)
-    level                   Int           @default(1)
+    rank                    UserRank              @default(STUDENT)
+    level                   Int                   @default(1)
     villageId               String?
-    village                 Village?      @relation(fields: [villageId], references: [id])
+    village                 Village?              @relation(fields: [villageId], references: [id])
     bloodlineId             String?
-    bloodline               Bloodline?    @relation(fields: [bloodlineId], references: [id])
+    bloodline               Bloodline?            @relation(fields: [bloodlineId], references: [id])
     // Generals
-    status                  UserStatus    @default(AWAKE)
-    strength                Int           @default(10)
-    intelligence            Int           @default(10)
-    willpower               Int           @default(10)
-    speed                   Int           @default(10)
+    status                  UserStatus            @default(AWAKE)
+    strength                Int                   @default(10)
+    intelligence            Int                   @default(10)
+    willpower               Int                   @default(10)
+    speed                   Int                   @default(10)
     // Specialities
-    ninjutsu_offence        Int           @default(10)
-    ninjutsu_defence        Int           @default(10)
-    genjutsu_offence        Int           @default(10)
-    genjutsu_defence        Int           @default(10)
-    taijutsu_offence        Int           @default(10)
-    taijutsu_defence        Int           @default(10)
-    bukijutsu_offence       Int           @default(10)
-    bukijutsu_defence       Int           @default(10)
+    ninjutsu_offence        Int                   @default(10)
+    ninjutsu_defence        Int                   @default(10)
+    genjutsu_offence        Int                   @default(10)
+    genjutsu_defence        Int                   @default(10)
+    taijutsu_offence        Int                   @default(10)
+    taijutsu_defence        Int                   @default(10)
+    bukijutsu_offence       Int                   @default(10)
+    bukijutsu_defence       Int                   @default(10)
     // Purchase Points
-    reputation_points       Int           @default(0)
-    reputation_points_total Int           @default(0)
-    popularity_points       Int           @default(6) // Required for initial avatar creation    
-    popularity_points_total Int           @default(6) // Required for initial avatar creation
-    federalStatus           FederalStatus @default(NONE)
+    reputation_points       Int                   @default(0)
+    reputation_points_total Int                   @default(0)
+    popularity_points       Int                   @default(6) // Required for initial avatar creation    
+    popularity_points_total Int                   @default(6) // Required for initial avatar creation
+    federalStatus           FederalStatus         @default(NONE)
     // Approved ToS
-    approved_tos            Boolean       @default(false)
+    approved_tos            Boolean               @default(false)
     // Avatar link
     avatar                  String?
     // Location
-    sector                  Int           @default(0)
-    longitude               Int           @default(10)
-    latitude                Int           @default(7)
-    location                String        @default("")
+    sector                  Int                   @default(0)
+    longitude               Int                   @default(10)
+    latitude                Int                   @default(7)
+    location                String                @default("")
     // Timers
-    createdAt               DateTime      @default(now())
-    updatedAt               DateTime      @default(now()) @updatedAt
+    createdAt               DateTime              @default(now())
+    updatedAt               DateTime              @default(now()) @updatedAt
     deletionAt              DateTime?
     travelFinishAt          DateTime?
     // Jutsus & items
-
+    items                   UserItem[]
+    jutsus                  UserJutsu[]
     // Relations
-    BugReport             BugReport[]
-    BugVotes              BugVotes[]
-    filedInfractions      UserReport[]          @relation("reporter")
-    receivedInfractions   UserReport[]          @relation("reported")
-    reportComments        UserReportComment[]
-    ForumPost             ForumPost[]
-    ForumThread           ForumThread[]
-    Conversation          Conversation[]
-    ConversationComment   ConversationComment[]
-    UsersInConversation   UsersInConversation[]
-    logsAsTarget          ReportLog[]           @relation("target")
-    logsAsStaff           ReportLog[]           @relation("staff")
-    receivedTransactions  PaypalTransaction[]   @relation("receivedTransactions")
-    paidTransactions      PaypalTransaction[]   @relation("paidTransactions")
-    paidSubscriptions     PaypalSubscription[]  @relation("paidSubscriptions")
-    receivedSubscriptions PaypalSubscription[]  @relation("receivedSubscriptions")
-    UserAttribute         UserAttribute[]
-    HistoricalAvatar      HistoricalAvatar[]
-    battle                Battle?               @relation(fields: [battleId], references: [id])
-    battleId              String?
-    battleActions         BattleAction[]
-    battleEffects         BattleEffects[]
-    UserItem              UserItem[]
-    UserJutsu             UserJutsu[]
+    BugReport               BugReport[]
+    BugVotes                BugVotes[]
+    filedInfractions        UserReport[]          @relation("reporter")
+    receivedInfractions     UserReport[]          @relation("reported")
+    reportComments          UserReportComment[]
+    ForumPost               ForumPost[]
+    ForumThread             ForumThread[]
+    Conversation            Conversation[]
+    ConversationComment     ConversationComment[]
+    UsersInConversation     UsersInConversation[]
+    logsAsTarget            ReportLog[]           @relation("target")
+    logsAsStaff             ReportLog[]           @relation("staff")
+    receivedTransactions    PaypalTransaction[]   @relation("receivedTransactions")
+    paidTransactions        PaypalTransaction[]   @relation("paidTransactions")
+    paidSubscriptions       PaypalSubscription[]  @relation("paidSubscriptions")
+    receivedSubscriptions   PaypalSubscription[]  @relation("receivedSubscriptions")
+    UserAttribute           UserAttribute[]
+    HistoricalAvatar        HistoricalAvatar[]
+    battle                  Battle?               @relation(fields: [battleId], references: [id])
+    battleId                String?
+    battleActions           BattleAction[]
+    battleEffects           BattleEffects[]
 
     @@index([battleId])
     @@index([bloodlineId])
@@ -566,6 +565,7 @@ model Battle {
     background String
     battleType BattleType
     users      UserData[]
+    usersState Json
     actions    BattleAction[]
 }
 

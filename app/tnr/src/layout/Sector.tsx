@@ -157,6 +157,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { mutate: attack } = api.travel.attackUser.useMutation({
     onSuccess: async (data) => {
+      await refetchUser();
       console.log("Called Attack Endpoint. Data: ", data);
       // if (data) {
       //   updateUsersList({
