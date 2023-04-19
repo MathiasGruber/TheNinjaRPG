@@ -386,9 +386,6 @@ export const drawUsers = (info: {
 
   // Return new counters + angle
   return phi;
-  // Hide all users who are not in the sector anymore
-  // userCounters = newUserCounts;
-  // TODO: lastTime = Date.now();
 };
 
 /**

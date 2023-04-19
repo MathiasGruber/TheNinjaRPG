@@ -131,13 +131,13 @@ const Profile: NextPage = () => {
           <p>Ninjutsu offence: {userData.ninjutsu_offence}</p>
           <p>Genjutsu offence: {userData.genjutsu_offence}</p>
           <p>Taijutsu offence: {userData.taijutsu_offence}</p>
-          <p>Weapon offence: {userData.weapon_offence}</p>
+          <p>Bukijutsu offence: {userData.bukijutsu_offence}</p>
           <br />
           <b>Defences</b>
           <p>Ninjutsu defence: {userData.ninjutsu_defence}</p>
           <p>Genjutsu defence: {userData.genjutsu_defence}</p>
           <p>Taijutsu defence: {userData.taijutsu_defence}</p>
-          <p>Weapon defence: {userData.weapon_defence}</p>
+          <p>Bukijutsu defence: {userData.bukijutsu_defence}</p>
         </div>
       </div>
     </ContentBox>

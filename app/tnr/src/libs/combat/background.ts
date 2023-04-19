@@ -7,6 +7,8 @@ import {
   Group,
   BufferGeometry,
   BufferAttribute,
+  SpriteMaterial,
+  Sprite,
   MeshBasicMaterial,
   Mesh,
 } from "three";
@@ -27,8 +29,13 @@ export const drawCombatBackground = (
   background: string
 ) => {
   // Set scene background
-  scene.background = new TextureLoader().load(`/locations/${background}`);
-  console.log("WIDTH: ", width, "HEIGHT: ", height);
+  const bg_texture = new TextureLoader().load(`/locations/${background}`);
+  const bg_material = new SpriteMaterial({ map: bg_texture });
+  const bg_sprite = new Sprite(bg_material);
+  bg_sprite.scale.set(width, height, 1);
+  bg_sprite.position.set(width / 2, height / 2, -10);
+  scene.add(bg_sprite);
+  console.log("WIDTH: ", width, "HEIGHT: ", height, bg_sprite);
 
   // Padding for the tiles [in % of width/height]
   const leftPadding = 0.025 * width;

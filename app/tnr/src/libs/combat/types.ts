@@ -48,6 +48,23 @@ export const privateState = [
 export const allState = [...publicState, ...privateState] as const;
 
 /**
+ * User data for drawn users on the battle page
+ */
+export interface DrawnCombatUser {
+  userId: string;
+  username: string;
+  cur_health: number;
+  max_health: number;
+  cur_stamina?: number;
+  max_stamina?: number;
+  cur_chakra?: number;
+  max_chakra?: number;
+  avatar: string | null;
+  longitude: number;
+  latitude: number;
+}
+
+/**
  * Enum types
  */
 const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;

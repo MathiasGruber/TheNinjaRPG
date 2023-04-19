@@ -22,8 +22,8 @@ import {
   type SectorPoint,
   type SectorUser,
 } from "../libs/travel/types";
-import { drawUsers } from "../libs/travel/sector";
 import { drawCombatBackground } from "../libs/combat/background";
+import { drawCombatUsers } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { PathCalculator } from "../libs/travel/sector";
@@ -105,7 +105,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Setup camara
       const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
-      camera.zoom = 1;
+      camera.zoom = 1.5;
       camera.updateProjectionMatrix();
 
       // Draw the background
@@ -136,7 +136,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       controls.enableRotate = false;
       controls.zoomSpeed = 1.0;
       controls.minZoom = 1;
-      controls.maxZoom = 1;
+      controls.maxZoom = 1.5;
 
       // Set initial position of controls & camera
       // if (isInSector && origin.current) {
@@ -192,8 +192,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Render the image
-      let userAngle = 0;
-      let lastTime = Date.now();
       let animationId = 0;
       function render() {
         // Use raycaster to detect mouse intersections
@@ -202,15 +200,11 @@ const Combat: React.FC<CombatProps> = (props) => {
         // Assume we have user, users and a grid
         if (battle?.usersState && grid.current) {
           // Draw all users on the map + indicators for positions with multiple users
-          userAngle = drawUsers({
+          drawCombatUsers({
             group_users: group_users,
             users: battle?.usersState,
             grid: grid.current,
-            showVillage: false,
-            lastTime: lastTime,
-            angle: userAngle,
           });
-          lastTime = Date.now();
         }
 
         // Trackball updates
