@@ -39,7 +39,7 @@ const CombatPage: NextPage = () => {
     <div>
       <ContentBox
         title="Combat"
-        subtitle="Combat"
+        subtitle="Sparring"
         padding={false}
         topRightContent={battle && <ActionTimer perc={100} />}
       >
@@ -47,7 +47,7 @@ const CombatPage: NextPage = () => {
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>
-      <div className="grid grid-cols-6 text-xs sm:grid-cols-8 sm:text-base">
+      <div className="grid grid-cols-6 border-b-2 border-l-2 border-r-2 bg-slate-50 text-xs sm:grid-cols-8">
         <ActionOption
           className="bg-orange-200"
           src="/combat/basicActions/stamina.png"
@@ -105,13 +105,13 @@ const CombatPage: NextPage = () => {
           txt="Shuriken"
         />
         <ActionOption
-          className="bg-green-100"
+          className="bg-slate-300"
           src="/items/water.png"
           alt="temp3"
           txt="Normal Water"
         />
         <ActionOption
-          className="bg-green-100"
+          className="bg-slate-300"
           src="/items/chakra_water.png"
           alt="temp3"
           txt="Chakra Water"

@@ -12,12 +12,13 @@ import {
   MeshBasicMaterial,
   Mesh,
 } from "three";
-import { type Battle } from "@prisma/client";
 import { Orientation } from "honeycomb-grid";
 import { Grid, rectangle } from "honeycomb-grid";
 
+import { getMapSprites } from "../travel/biome";
 import { defineHex } from "../travel/sector";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
+import { group } from "console";
 
 /**
  * Creates heaxognal grid & draw it using js. Return groups of objects drawn
@@ -26,7 +27,8 @@ export const drawCombatBackground = (
   width: number,
   height: number,
   scene: Scene,
-  background: string
+  background: string,
+  prng: () => number
 ) => {
   // Set scene background
   const bg_texture = new TextureLoader().load(`/locations/${background}`);
@@ -44,6 +46,11 @@ export const drawCombatBackground = (
   const stackingDisplacement = 1.31;
   const hexsize = (width / COMBAT_WIDTH / 2.1) * stackingDisplacement;
 
+  // Groups for organizing objects
+  const group_tiles = new Group();
+  const group_edges = new Group();
+  const group_assets = new Group();
+
   // Create the grid first
   const Tile = defineHex({
     dimensions: hexsize,
@@ -58,11 +65,6 @@ export const drawCombatBackground = (
     return tile;
   });
 
-  // Groups for organizing objects
-  const group_tiles = new Group();
-  const group_edges = new Group();
-  const group_assets = new Group();
-
   // Hex points
   const points = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5];
 
@@ -76,6 +78,7 @@ export const drawCombatBackground = (
   // Draw the tiles
   honeycombGrid.forEach((tile) => {
     if (tile) {
+      // Draw the tile
       const geometry = new BufferGeometry();
       const corners = tile.corners;
       const vertices = new Float32Array(
@@ -91,11 +94,16 @@ export const drawCombatBackground = (
       mesh.matrixAutoUpdate = false;
       group_tiles.add(mesh);
 
+      // Draw the edges
       const edges = new EdgesGeometry(geometry);
       edges.translate(0, 0, 1);
       const edgeMesh = new Line(edges, lineMaterial);
       edgeMesh.matrixAutoUpdate = false;
       group_edges.add(edgeMesh);
+
+      // Draw any objects on the tiles based on randomness
+      const sprites = getMapSprites(prng, 1, "combat", tile, 0);
+      sprites.map((sprite) => group_assets.add(sprite));
     }
   });
 

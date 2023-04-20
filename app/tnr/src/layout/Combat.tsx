@@ -89,7 +89,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Draw the background
       const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        drawCombatBackground(WIDTH, HEIGHT, scene, battle.background);
+        drawCombatBackground(WIDTH, HEIGHT, scene, battle.background, prng);
       grid.current = honeycombGrid;
 
       // Store current highlights and create a path calculator object

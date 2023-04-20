@@ -21,7 +21,8 @@ const drawStatusBar = (
   h: number,
   color: string,
   stroke: boolean,
-  name: string
+  name: string,
+  yOffset: number
 ) => {
   const canvas = document.createElement("canvas");
   const r = 3;
@@ -45,7 +46,7 @@ const drawStatusBar = (
   texture.needsUpdate = true;
   const bar_material = new SpriteMaterial({ map: texture });
   const bar_sprite = new Sprite(bar_material);
-  bar_sprite.position.set(w / 2, h * 1.58, -5);
+  bar_sprite.position.set(w / 2, h * 1.58 - (yOffset * (canvas.height - 2)) / r, -5);
   bar_sprite.scale.set(canvas.width / r, canvas.height / r, 1);
   bar_sprite.name = name;
   bar_sprite.userData.full_width = w;
@@ -92,12 +93,27 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   sprite.position.set(w / 2, h * 1.0, -6);
   group.add(sprite);
 
-  // Health, Chakra and Stamina Bars
-  const hp_background = drawStatusBar(w, h, "gray", true, "hp_background");
-  const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current");
-
+  // Health bar is shown on all
+  const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
+  const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
   group.add(hp_background);
   group.add(hp_bar);
+
+  // Stamina Bar if available
+  if ("cur_stamina" in userData && "max_stamina" in userData) {
+    const sp_background = drawStatusBar(w, h, "gray", true, "sp_background", 1);
+    const sp_bar = drawStatusBar(w, h, "green", true, "sp_current", 1);
+    group.add(sp_background);
+    group.add(sp_bar);
+  }
+
+  // Chakra Bar if available
+  if ("cur_chakra" in userData && "max_chakra" in userData) {
+    const cp_background = drawStatusBar(w, h, "gray", true, "cp_background", 2);
+    const cp_bar = drawStatusBar(w, h, "blue", true, "cp_current", 2);
+    group.add(cp_background);
+    group.add(cp_bar);
+  }
 
   // Name
   group.name = userData.userId;

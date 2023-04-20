@@ -41,12 +41,23 @@ interface TileInfo {
 
 export const getTileInfo = (prng: () => number, hex: TerrainHex, tile: GlobalTile) => {
   const material = getMaterial(hex, tile);
-  material.sprites = getMapSprite(prng, material.density, material.asset, hex);
+  material.sprites = getMapSprites(prng, material.density, material.asset, hex, 1);
   return material;
 };
 
-const TREES_PATH = "craftpix-949054/PNG/Assets_separately/Trees_texture_shadow/";
-const STONES_PATH = "craftpix-377140/PNG/Objects_separately/";
+export const TREES_PATH = "craftpix-949054/PNG/Assets_separately/Trees_texture_shadow/";
+export const STONES_PATH = "craftpix-377140/PNG/Objects_separately/";
+
+const combatAssets = [
+  { filepath: STONES_PATH, filename: "Rock1_1.png", chance: 0.01 },
+  { filepath: STONES_PATH, filename: "Rock1_2.png", chance: 0.02 },
+  { filepath: STONES_PATH, filename: "Rock2_1.png", chance: 0.03 },
+  { filepath: STONES_PATH, filename: "Rock2_2.png", chance: 0.04 },
+  { filepath: STONES_PATH, filename: "Rock5_1.png", chance: 0.05 },
+  { filepath: STONES_PATH, filename: "Rock5_2.png", chance: 0.06 },
+  { filepath: STONES_PATH, filename: "Rock6_1.png", chance: 0.07 },
+  { filepath: STONES_PATH, filename: "Rock6_2.png", chance: 0.08 },
+];
 
 const groundAssets = [
   { filepath: TREES_PATH, filename: "Moss_tree1.png", chance: 0.05 },
@@ -98,17 +109,19 @@ const oceanAssets = [
   { filepath: TREES_PATH, filename: "Broken_tree7.png", chance: 0.001 },
 ];
 
-const getMapSprite = (
+export const getMapSprites = (
   prng: () => number,
   density: number,
   asset: string,
-  hex: TerrainHex
+  hex: TerrainHex,
+  scatterStrength: number
 ) => {
   const sprites: Sprite[] = [];
   // Fetch tile sprite
   let cost = hex.cost;
   for (let i = 0; i < density; i++) {
     const rand = prng();
+    console.log(rand);
     let sprite = null;
     let assets = null;
     if (asset === "ground") {
@@ -117,6 +130,9 @@ const getMapSprite = (
     } else if (asset === "dessert") {
       assets = dessertAssets;
       cost += 1;
+    } else if (asset === "combat") {
+      assets = combatAssets;
+      cost += 5;
     } else {
       assets = oceanAssets;
       cost += 5;
@@ -135,8 +151,8 @@ const getMapSprite = (
   sprites.map((sprite) => {
     const { height: h, width: w } = hex;
     const { x, y } = hex.center;
-    const posX = -x + w / 2 + (prng() - 0.5) * h;
-    const posY = -y + h / 2 + (prng() - 0.5) * h;
+    const posX = -x + w / 2 + (prng() - 0.5) * h * scatterStrength;
+    const posY = -y + h / 2 + (prng() - 0.5) * h * scatterStrength;
     Object.assign(sprite.scale, new Vector3(h, h, 1));
     Object.assign(sprite.position, new Vector3(posX, posY, -8));
   });
