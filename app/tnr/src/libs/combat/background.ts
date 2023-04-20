@@ -35,7 +35,6 @@ export const drawCombatBackground = (
   bg_sprite.scale.set(width, height, 1);
   bg_sprite.position.set(width / 2, height / 2, -10);
   scene.add(bg_sprite);
-  console.log("WIDTH: ", width, "HEIGHT: ", height, bg_sprite);
 
   // Padding for the tiles [in % of width/height]
   const leftPadding = 0.025 * width;

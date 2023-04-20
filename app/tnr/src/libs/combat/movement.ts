@@ -105,8 +105,6 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   group.userData.userId = userData.userId;
   group.userData.hex = hex;
 
-  updateStatusBar(group, 0.5);
-
   return group;
 };
 

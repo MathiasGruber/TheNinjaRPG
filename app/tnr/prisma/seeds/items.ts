@@ -8,6 +8,7 @@ import { ItemRarity } from "@prisma/client/edge";
 import { ItemSlot } from "@prisma/client/edge";
 
 import { DamageTag } from "../../src/libs/combat/types";
+import { HealTag } from "../../src/libs/combat/types";
 import { AdjustArmorTag } from "../../src/libs/combat/types";
 
 const items: ZodItemType[] = [
@@ -52,6 +53,41 @@ const items: ZodItemType[] = [
         calculation: "static",
         power: 10,
         adjustUp: true,
+      }),
+    ],
+  },
+  /*****************/
+  /** Consumables **/
+  /*****************/
+  {
+    name: "Water",
+    image: "water.png",
+    description: "Refreshing water to quench your thirst and restore your health",
+    target: AttackTarget.SELF,
+    type: ItemType.CONSUMABLE,
+    rarity: ItemRarity.COMMON,
+    slot: ItemSlot.BACKPACK,
+    effects: [
+      HealTag.parse({
+        poolsAffected: ["Health"],
+        calculation: "static",
+        power: 10,
+      }),
+    ],
+  },
+  {
+    name: "Chakra Water",
+    image: "chakra_water.png",
+    description: "Refreshing water infused with chakra to restore your energy",
+    target: AttackTarget.SELF,
+    type: ItemType.CONSUMABLE,
+    rarity: ItemRarity.COMMON,
+    slot: ItemSlot.BACKPACK,
+    effects: [
+      HealTag.parse({
+        poolsAffected: ["Chakra"],
+        calculation: "static",
+        power: 10,
       }),
     ],
   },

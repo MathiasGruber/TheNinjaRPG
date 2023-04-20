@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { type Battle, type UserData } from "@prisma/client";
+import type {
+  UserData,
+  UserJutsu,
+  Jutsu,
+  UserItem,
+  Item,
+  Bloodline,
+} from "@prisma/client";
 import { UserRank } from "@prisma/client/edge";
 import { AttackTarget } from "@prisma/client/edge";
 import { LetterRank } from "@prisma/client/edge";
@@ -25,6 +32,7 @@ export const publicState = [
   "sector",
 ] as const;
 export const privateState = [
+  "updatedAt",
   "cur_chakra",
   "max_chakra",
   "cur_stamina",
@@ -46,6 +54,17 @@ export const privateState = [
   "jutsus",
 ] as const;
 export const allState = [...publicState, ...privateState] as const;
+
+export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
+  Partial<UserData> & {
+    jutsus: (UserJutsu & {
+      jutsu: Jutsu;
+    })[];
+    items: (UserItem & {
+      item: Item;
+    })[];
+    bloodline?: Bloodline;
+  };
 
 /**
  * User data for drawn users on the battle page
@@ -118,7 +137,7 @@ const StatsBasedStrength = z.object({
   // percentage: power is returned as a percentage
   // formula: power is used in battle formula to calculate return value
   power: z.number().min(1).default(1),
-  powerPerLevel: z.number().min(0).default(1),
+  powerPerLevel: z.number().min(0).default(0),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),

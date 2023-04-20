@@ -59,7 +59,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
             <Link key={i} href={battleDisable ? "/combat" : system.href}>
               <li
                 className={`flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
-                  battleDisable ? "opacity-50" : "hover:bg-orange-200"
+                  battleDisable ? "opacity-30" : "hover:bg-orange-200"
                 }`}
               >
                 <div className="grow">{system.name}</div>

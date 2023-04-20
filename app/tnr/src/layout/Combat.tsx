@@ -6,7 +6,7 @@ import Image from "next/image";
 
 import { Vector2, OrthographicCamera, Group } from "three";
 import { useRouter } from "next/router";
-import { type Village, type UserData } from "@prisma/client";
+import { type Village, type UserData, BattleType } from "@prisma/client";
 import { type Grid } from "honeycomb-grid";
 import alea from "alea";
 // import Stats from "three/examples/jsm/libs/stats.module";
@@ -23,17 +23,28 @@ import {
   type SectorUser,
 } from "../libs/travel/types";
 import { drawCombatBackground } from "../libs/combat/background";
+import { drawActionTimer } from "../libs/combat/actionTimer";
 import { drawCombatUsers } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { PathCalculator } from "../libs/travel/sector";
+import { type ReturnedUserState } from "../libs/combat/types";
 import { useRequiredUserData } from "../utils/UserContext";
 
 interface CombatProps {
-  battleId: string;
+  battle: {
+    usersState: ReturnedUserState[];
+    id: string;
+    createdAt: Date;
+    updatedAt: Date;
+    background: string;
+    battleType: BattleType;
+  };
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
+  // Destructure props
+  const { battle } = props;
   // References which shouldn't update
   const pathFinder = useRef<PathCalculator | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -42,14 +53,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Data from the DB
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const { data: battle, isFetching } = api.combat.getBattle.useQuery(
-    { battleId: props.battleId },
-    {
-      enabled: !!userData,
-      staleTime: Infinity,
-    }
-  );
-  console.log(battle);
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -134,9 +137,9 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableRotate = false;
-      controls.zoomSpeed = 1.0;
+      controls.zoomSpeed = 0.3;
       controls.minZoom = 1;
-      controls.maxZoom = 1.5;
+      controls.maxZoom = 3;
 
       // Set initial position of controls & camera
       // if (isInSector && origin.current) {
@@ -202,7 +205,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           // Draw all users on the map + indicators for positions with multiple users
           drawCombatUsers({
             group_users: group_users,
-            users: battle?.usersState,
+            users: battle.usersState,
             grid: grid.current,
           });
         }
@@ -238,11 +241,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   }, [battle]);
 
-  return (
-    <div ref={mountRef}>
-      {isFetching && <Loader explanation="Loading Battle Data" />}
-    </div>
-  );
+  return <div ref={mountRef}></div>;
 };
 
 export default Combat;

@@ -15,7 +15,7 @@ interface ContentBoxProps {
 const ContentBox: React.FC<ContentBoxProps> = (props) => {
   return (
     <>
-      <div className="mb-5 sm:container">
+      <div className="sm:container">
         <div
           className={`flex ${
             props.topRightCorntentBreakpoint
