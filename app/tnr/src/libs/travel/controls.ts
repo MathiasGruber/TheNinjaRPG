@@ -46,7 +46,9 @@ export const calcIsInVillage = (position: SectorPoint) => {
     position.x <= VILLAGE_LONG + 1 &&
     position.x >= VILLAGE_LONG - 1 &&
     position.y <= VILLAGE_LAT + 1 &&
-    position.y >= VILLAGE_LAT - 1
+    position.y >= VILLAGE_LAT - 1 &&
+    !(position.x === VILLAGE_LONG - 1 && position.y === VILLAGE_LAT + 1) &&
+    !(position.x === VILLAGE_LONG + 1 && position.y === VILLAGE_LAT + 1)
   );
 };
 

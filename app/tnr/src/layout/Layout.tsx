@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
+import { type Battle } from "@prisma/client";
+
 import Header from "./Header";
 import Link from "next/link";
 import MenuBoxProfile from "./MenuBoxProfile";
@@ -12,6 +14,8 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
+  // Current user battle
+  const [battle, setBattle] = useState<undefined | Battle>(undefined);
   // Get logged in user
   const { userId, isSignedIn } = useAuth();
   // Get user data
@@ -31,6 +35,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       <UserContext.Provider
         value={{
           data: data?.userData,
+          battle: battle,
+          setBattle: setBattle,
           status: userStatus,
           refetch: refetchUser,
         }}

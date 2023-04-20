@@ -1,45 +1,22 @@
 import React from "react";
-import { TextureLoader } from "three";
-import { useRef, useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import { useRef, useEffect } from "react";
 
 import { Vector2, OrthographicCamera, Group } from "three";
-import { useRouter } from "next/router";
-import { type Village, type UserData, BattleType } from "@prisma/client";
 import { type Grid } from "honeycomb-grid";
 import alea from "alea";
-// import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
 
-import AvatarImage from "./Avatar";
-import Modal from "./Modal";
-import Loader from "./Loader";
-import { api } from "../utils/api";
-import {
-  type GlobalTile,
-  type TerrainHex,
-  type SectorPoint,
-  type SectorUser,
-} from "../libs/travel/types";
+import { type TerrainHex } from "../libs/travel/types";
 import { drawCombatBackground } from "../libs/combat/background";
-import { drawActionTimer } from "../libs/combat/actionTimer";
 import { drawCombatUsers } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { PathCalculator } from "../libs/travel/sector";
-import { type ReturnedUserState } from "../libs/combat/types";
+import { type PathCalculator } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
+import type { UserBattle } from "../utils/UserContext";
 
 interface CombatProps {
-  battle: {
-    usersState: ReturnedUserState[];
-    id: string;
-    createdAt: Date;
-    updatedAt: Date;
-    background: string;
-    battleType: BattleType;
-  };
+  battle: UserBattle;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
@@ -65,7 +42,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && battle && userData?.battleId) {
-      console.log("DRAWING COMBAT");
       // Update the state containing sorrounding users on first load
 
       // Used for map size calculations

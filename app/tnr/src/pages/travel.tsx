@@ -101,107 +101,112 @@ const Travel: NextPage = () => {
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === "Global";
+  const showGlobal = villages && globe && isGlobal;
+  const showSector = villages && currentSector && currentTile && !isGlobal;
 
   return (
-    <ContentBox
-      title="Travel"
-      subtitle={
-        currentSector && userData && activeTab === sectorLink
-          ? `Sector ${currentSector}`
-          : "The world of Seichi"
-      }
-      padding={false}
-      topRightContent={
-        <div className="flex flex-row items-center">
-          {activeTab === sectorLink && (
-            <MagnifyingGlassCircleIcon
-              className={`h-5 w-5 ${showSorrounding ? "fill-orange-500" : ""}`}
-              onClick={() => setShowSorrounding((prev) => !prev)}
-            />
-          )}
-          <NavTabs
-            current={activeTab}
-            options={[sectorLink, "Global"]}
-            setValue={setActiveTab}
-          />
-        </div>
-      }
-    >
-      {villages && globe && isGlobal && (
-        <Map
-          intersection={true}
-          highlights={villages}
-          userLocation={true}
-          onTileClick={(sector) => {
-            setTargetSector(sector);
-            setShowModal(true);
-          }}
-          hexasphere={globe}
-        />
-      )}
-      {villages && currentSector && currentTile && !isGlobal && (
-        <Sector
-          tile={currentTile}
-          sector={currentSector}
-          target={targetPosition}
-          showVillage={villages.find((village) => village.sector == currentSector)}
-          showSorrounding={showSorrounding}
-          setShowSorrounding={setShowSorrounding}
-          setTarget={setTargetPosition}
-          setPosition={setCurrentPosition}
-        />
-      )}
-      {!villages && <Loader explanation="Loading data" />}
-      {showModal && globe && userData && targetSector && (
-        <Modal
-          title="World Travel"
-          setIsOpen={setShowModal}
-          proceed_label={onEdge ? "Travel" : "Move to Edge"}
-          isValid={false}
-          onAccept={() => {
-            if (!onEdge && currentPosition) {
-              setTargetPosition(findNearestEdge(currentPosition));
-              setActiveTab(sectorLink);
-            } else {
-              startGlobalMove({ sector: targetSector });
-            }
-          }}
-        >
-          <div>
-            You are about to move from sector {userData.sector} to {targetSector}.{" "}
-            {onEdge ? (
-              <p className="py-2">
-                The travel time is estimated to be{" "}
-                {calcGlobalTravelTime(userData.sector, targetSector, globe)} seconds.
-              </p>
-            ) : (
-              <p className="py-2">
-                Your character will first have to move to the edge of his current
-                sector.
-              </p>
-            )}{" "}
-            Do you confirm?
-          </div>
-        </Modal>
-      )}
-      {userData?.travelFinishAt && (
-        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
-          <div className="m-auto text-center text-white">
-            <p className="p-5  text-3xl">Traveling to Sector {userData?.sector}</p>
-            <p className="text-5xl">
-              Time Left:{" "}
-              <Countdown
-                targetDate={userData?.travelFinishAt}
-                onFinish={() => {
-                  userData.travelFinishAt = null;
-                  finishGlobalMove();
-                }}
+    <>
+      <ContentBox
+        title="Travel"
+        subtitle={
+          currentSector && userData && activeTab === sectorLink
+            ? `Sector ${currentSector}`
+            : "The world of Seichi"
+        }
+        padding={false}
+        topRightContent={
+          <div className="flex flex-row items-center">
+            {activeTab === sectorLink && (
+              <MagnifyingGlassCircleIcon
+                className={`h-5 w-5 ${showSorrounding ? "fill-orange-500" : ""}`}
+                onClick={() => setShowSorrounding((prev) => !prev)}
               />
-            </p>
+            )}
+            <NavTabs
+              current={activeTab}
+              options={[sectorLink, "Global"]}
+              setValue={setActiveTab}
+            />
           </div>
-        </div>
-      )}
-    </ContentBox>
+        }
+      >
+        {showGlobal && (
+          <Map
+            intersection={true}
+            highlights={villages}
+            userLocation={true}
+            onTileClick={(sector) => {
+              setTargetSector(sector);
+              setShowModal(true);
+            }}
+            hexasphere={globe}
+          />
+        )}
+        {showSector && (
+          <Sector
+            tile={currentTile}
+            sector={currentSector}
+            target={targetPosition}
+            showVillage={villages.find((village) => village.sector == currentSector)}
+            showSorrounding={showSorrounding}
+            setShowSorrounding={setShowSorrounding}
+            setTarget={setTargetPosition}
+            setPosition={setCurrentPosition}
+          />
+        )}
+        {!villages && <Loader explanation="Loading data" />}
+        {showModal && globe && userData && targetSector && (
+          <Modal
+            title="World Travel"
+            setIsOpen={setShowModal}
+            proceed_label={onEdge ? "Travel" : "Move to Edge"}
+            isValid={false}
+            onAccept={() => {
+              if (!onEdge && currentPosition) {
+                setTargetPosition(findNearestEdge(currentPosition));
+                setActiveTab(sectorLink);
+              } else {
+                startGlobalMove({ sector: targetSector });
+              }
+            }}
+          >
+            <div>
+              You are about to move from sector {userData.sector} to {targetSector}.{" "}
+              {onEdge ? (
+                <p className="py-2">
+                  The travel time is estimated to be{" "}
+                  {calcGlobalTravelTime(userData.sector, targetSector, globe)} seconds.
+                </p>
+              ) : (
+                <p className="py-2">
+                  Your character will first have to move to the edge of his current
+                  sector.
+                </p>
+              )}{" "}
+              Do you confirm?
+            </div>
+          </Modal>
+        )}
+        {userData?.travelFinishAt && (
+          <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
+            <div className="m-auto text-center text-white">
+              <p className="p-5  text-3xl">Traveling to Sector {userData?.sector}</p>
+              <p className="text-5xl">
+                Time Left:{" "}
+                <Countdown
+                  targetDate={userData?.travelFinishAt}
+                  onFinish={() => {
+                    userData.travelFinishAt = null;
+                    finishGlobalMove();
+                  }}
+                />
+              </p>
+            </div>
+          </div>
+        )}
+      </ContentBox>
+      {showSector && <p>Movement Hotkeys: Q-W-E-A-S-D</p>}
+    </>
   );
 };
 

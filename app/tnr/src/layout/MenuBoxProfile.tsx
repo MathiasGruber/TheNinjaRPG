@@ -9,7 +9,8 @@ import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 
 const MenuBoxProfile: React.FC = () => {
-  const { data: userData } = useUserData();
+  const { data: userData, battle } = useUserData();
+  console.log("TODO: Show battle effects in menu box: ", battle);
   if (!userData) {
     return <div></div>;
   }

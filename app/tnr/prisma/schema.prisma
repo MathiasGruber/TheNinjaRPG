@@ -135,7 +135,6 @@ model UserData {
     battle                  Battle?               @relation(fields: [battleId], references: [id])
     battleId                String?
     battleActions           BattleAction[]
-    battleEffects           BattleEffects[]
 
     @@index([battleId])
     @@index([bloodlineId])
@@ -559,46 +558,28 @@ enum BattleType {
 }
 
 model Battle {
-    id         String         @id @default(cuid())
-    createdAt  DateTime       @default(now())
-    updatedAt  DateTime       @updatedAt
-    background String
-    battleType BattleType
-    users      UserData[]
-    usersState Json
-    actions    BattleAction[]
+    id           String         @id @default(cuid())
+    createdAt    DateTime       @default(now())
+    updatedAt    DateTime       @updatedAt
+    background   String
+    battleType   BattleType
+    users        UserData[]
+    usersState   Json
+    usersEffects Json
+    actions      BattleAction[]
 }
 
 model BattleAction {
-    id          String          @id @default(cuid())
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt
-    battle      Battle          @relation(fields: [battleId], references: [id])
+    id          String   @id @default(cuid())
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    battle      Battle   @relation(fields: [battleId], references: [id])
     battleId    String
-    user        UserData        @relation(fields: [userId], references: [userId])
+    user        UserData @relation(fields: [userId], references: [userId])
     userId      String
     description String
-    effects     BattleEffects[]
 
     @@index([battleId])
-    @@index([userId])
-}
-
-model BattleEffects {
-    id        String       @id @default(cuid())
-    createdAt DateTime     @default(now())
-    updatedAt DateTime     @updatedAt
-    effect    Json
-    endRound  Int
-    hexColumn Int
-    hexRow    Int
-    action    BattleAction @relation(fields: [actionId], references: [id])
-    actionId  String
-    // If user is specified, this is origin of effect. Otherwise use hexRow and hexColumn
-    user      UserData?    @relation(fields: [userId], references: [userId])
-    userId    String?
-
-    @@index([actionId])
     @@index([userId])
 }
 

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { type NextPage } from "next";
 import Image from "next/image";
 
@@ -14,7 +15,7 @@ const CombatPage: NextPage = () => {
   const [updatedAt, setUpdatedAt] = useState<number>(0);
 
   // Data from the DB
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, setBattle } = useRequiredUserData();
   const { data: battle, isFetching } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId ?? "1337" },
     {
@@ -23,7 +24,16 @@ const CombatPage: NextPage = () => {
     }
   );
 
-  console.log(battle);
+  // Redirect to profile if not in battle
+  const router = useRouter();
+  useEffect(() => {
+    if (userData && !userData.battleId) {
+      void router.push("/profile");
+    }
+    if (battle) {
+      setBattle(battle);
+    }
+  }, [userData, router, battle, setBattle]);
 
   return (
     <div>
@@ -37,7 +47,7 @@ const CombatPage: NextPage = () => {
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>
-      <div className="grid grid-cols-8">
+      <div className="grid grid-cols-6 text-xs sm:grid-cols-8 sm:text-base">
         <ActionOption
           className="bg-orange-200"
           src="/combat/basicActions/stamina.png"
@@ -122,7 +132,11 @@ interface ActionOptionProps {
 
 const ActionOption: React.FC<ActionOptionProps> = (props) => {
   return (
-    <div className={`p-1 text-center leading-5 ${props.className ?? ""}`}>
+    <div
+      className={`p-1  text-center leading-5 ${
+        props.className ?? ""
+      } flex flex-col items-center`}
+    >
       <Image
         className="rounded-xl border-2"
         src={props.src}

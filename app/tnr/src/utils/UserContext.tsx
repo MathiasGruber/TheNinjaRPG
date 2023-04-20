@@ -1,8 +1,10 @@
 import { createContext, useEffect } from "react";
 import { useContext } from "react";
-import { Prisma } from "@prisma/client";
+import { Prisma, type BattleType } from "@prisma/client";
 import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
+
+import { type ReturnedUserState } from "../libs/combat/types";
 
 // Create type for user with relations (usually would be done in route,
 // but exception is made for userdata as we use it in the context provider)
@@ -14,12 +16,30 @@ export type UserDataWithRelations =
   | null
   | undefined;
 
-// User context
+// Create type for battle, which contains information on user current state
+export type UserBattle = {
+  usersState: ReturnedUserState[];
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  background: string;
+  battleType: BattleType;
+};
+
+// User (& current battle) context
 export const UserContext = createContext<{
   data: UserDataWithRelations;
+  battle: UserBattle | undefined;
   status: string;
+  setBattle: React.Dispatch<React.SetStateAction<UserBattle | undefined>>;
   refetch: (options?: any) => Promise<any> | void;
-}>({ data: undefined, status: "unknown", refetch: () => undefined });
+}>({
+  data: undefined,
+  battle: undefined,
+  status: "unknown",
+  setBattle: () => undefined,
+  refetch: () => undefined,
+});
 
 // Easy hook for getting the current user data
 export const useUserData = () => {
@@ -30,11 +50,11 @@ export const useUserData = () => {
 export const useRequiredUserData = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { data, status, refetch } = useUserData();
+  const { data, status, refetch, battle, setBattle } = useUserData();
   useEffect(() => {
     if (data === null || (!isSignedIn && isLoaded)) {
       void router.push("/");
     }
   }, [router, data, isLoaded, isSignedIn]);
-  return { data, status, refetch };
+  return { data, status, refetch, battle, setBattle };
 };
