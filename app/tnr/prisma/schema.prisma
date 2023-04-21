@@ -480,6 +480,7 @@ model UserJutsu {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     level     Int      @default(1)
+    equipped  Boolean  @default(false)
 
     @@index([userId])
     @@index([jutsuId])
@@ -502,6 +503,7 @@ model Item {
     chakraCostPerc  Float        @default(0.01)
     staminaCostPerc Float        @default(0.01)
     cost            Int          @default(1)
+    range           Int
     target          AttackTarget
     type            ItemType
     weaponType      WeaponType?
@@ -520,6 +522,7 @@ model UserItem {
     item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
     itemId    String
     quantity  Int      @default(1)
+    equipped  Boolean  @default(false)
 
     @@index([userId])
     @@index([itemId])
