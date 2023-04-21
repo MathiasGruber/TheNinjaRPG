@@ -247,6 +247,17 @@ const Register: React.FC = () => {
           register={register}
           error={errors.read_privacy?.message}
         />
+        <CheckBox
+          id="read_earlyaccess"
+          label={
+            <Link href="/policy" target="_blank" rel="noopener noreferrer">
+              I accept that this is Early Access, and things (even if purchased with
+              real money) may radically change.
+            </Link>
+          }
+          register={register}
+          error={errors.read_earlyaccess?.message}
+        />
       </ContentBox>
     </form>
   );

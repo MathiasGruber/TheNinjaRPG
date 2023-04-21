@@ -503,7 +503,7 @@ model Item {
     chakraCostPerc  Float        @default(0.01)
     staminaCostPerc Float        @default(0.01)
     cost            Int          @default(1)
-    range           Int
+    range           Int          @default(0)
     target          AttackTarget
     type            ItemType
     weaponType      WeaponType?

@@ -3,12 +3,20 @@ import { FederalStatus } from "@prisma/client";
 
 // List of possible attributes
 export const attributes = [
-  "Full Beard",
-  "Stubble",
-  "Scar",
   "Soft features",
   "Hard features",
+  "Sharp features",
   "Tattoo",
+  "Scar",
+  "Piercing",
+  "Glasses",
+  "Hat",
+  "Long Hair",
+  "Short Hair",
+  "Bald",
+  "Long Beard",
+  "Full Beard",
+  "Stubble",
 ] as const;
 export const colors = ["Black", "Brown", "Blue", "Red", "White", "Gray"] as const;
 export const skin_colors = ["Light", "Dark", "Olive", "Alibino"] as const;
@@ -36,6 +44,7 @@ export const registrationSchema = z
     attribute_3: z.enum(attributes),
     read_tos: z.literal(true),
     read_privacy: z.literal(true),
+    read_earlyaccess: z.literal(true),
   })
   .strict()
   .required()

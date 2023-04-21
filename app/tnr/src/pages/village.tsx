@@ -1,4 +1,5 @@
 import { type NextPage } from "next";
+import Link from "next/link";
 
 import { type VillageStructure } from "@prisma/client";
 import Image from "next/image";
@@ -42,7 +43,9 @@ const TermsOfService: NextPage = () => {
             {data.structures.map((structure, i) => (
               <>
                 {i === 5 && villageImage}
-                <Building structure={structure} key={structure.id} />
+                <Link href={`/${structure.name.toLowerCase()}`}>
+                  <Building structure={structure} key={structure.id} />
+                </Link>
               </>
             ))}
           </>

@@ -28,6 +28,8 @@ const items: ZodItemType[] = [
     weaponType: WeaponType.SHURIKEN,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.BACKPACK,
+    cost: 10,
+    range: 3,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -47,6 +49,7 @@ const items: ZodItemType[] = [
     type: ItemType.ARMOR,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.CHEST,
+    cost: 100,
     effects: [
       AdjustArmorTag.parse({
         type: "armoradjust",
@@ -67,6 +70,8 @@ const items: ZodItemType[] = [
     type: ItemType.CONSUMABLE,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.BACKPACK,
+    cost: 100,
+    range: 0,
     effects: [
       HealTag.parse({
         poolsAffected: ["Health"],
@@ -83,6 +88,8 @@ const items: ZodItemType[] = [
     type: ItemType.CONSUMABLE,
     rarity: ItemRarity.COMMON,
     slot: ItemSlot.BACKPACK,
+    cost: 100,
+    range: 0,
     effects: [
       HealTag.parse({
         poolsAffected: ["Chakra"],
