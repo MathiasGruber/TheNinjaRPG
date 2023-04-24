@@ -18,7 +18,8 @@ const NavBar: React.FC = () => {
   const { data: userData } = useUserData();
   // Main links
   const navLinks = getMainNavbarLinks(isSignedIn);
-  const gameLinks = getMainGameLinks(userData);
+  const { systems } = getMainGameLinks(userData);
+
   // Top element of mobile navbar
   const topElement = userData && (
     <div className="flex flex-row">
@@ -112,7 +113,7 @@ const NavBar: React.FC = () => {
           </h1>
         </div>
         <div>
-          <NavBarDropdown icon={<IconGlobe />} links={gameLinks} position="right" />
+          <NavBarDropdown icon={<IconGlobe />} links={systems} position="right" />
         </div>
       </div>
     </>

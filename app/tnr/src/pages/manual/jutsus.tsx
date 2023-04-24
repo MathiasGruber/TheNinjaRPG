@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type NextPage } from "next";
 import { LetterRank } from "@prisma/client/edge";
-import ManualItem from "../../layout/ManualItem";
+import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
@@ -68,7 +68,7 @@ const ManualJutsus: NextPage = () => {
               key={jutsu.id}
               ref={i === alljutsus.length - 1 ? setLastElement : null}
             >
-              <ManualItem
+              <ItemWithEffects
                 folderPrefix="/jutsus/"
                 item={jutsu}
                 key={jutsu.id}

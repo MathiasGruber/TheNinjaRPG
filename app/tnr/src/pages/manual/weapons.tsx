@@ -3,7 +3,7 @@ import { type NextPage } from "next";
 import { ItemType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
 
-import ManualItem from "../../layout/ManualItem";
+import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
@@ -26,6 +26,7 @@ const ManualWeapons: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const allItems = items?.pages.map((page) => page.data).flat();
@@ -47,6 +48,7 @@ const ManualWeapons: NextPage = () => {
           achieving your objectives and coming out on top.
         </p>
       </ContentBox>
+      <br />
       <ContentBox
         title="Database"
         subtitle="All weapons"
@@ -66,7 +68,7 @@ const ManualWeapons: NextPage = () => {
         {!isFetching &&
           allItems?.map((item, i) => (
             <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
-              <ManualItem
+              <ItemWithEffects
                 folderPrefix="/items/"
                 item={item}
                 key={item.id}

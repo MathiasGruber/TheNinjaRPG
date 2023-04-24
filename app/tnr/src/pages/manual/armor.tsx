@@ -3,7 +3,7 @@ import { type NextPage } from "next";
 import { ItemType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
 
-import ManualItem from "../../layout/ManualItem";
+import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
@@ -26,6 +26,7 @@ const ManualArmor: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const allItems = items?.pages.map((page) => page.data).flat();
@@ -46,6 +47,7 @@ const ManualArmor: NextPage = () => {
           with other items are purchased at the item shop in your village.
         </p>
       </ContentBox>
+      <br />
       <ContentBox
         title="Database"
         subtitle="All armor"
@@ -65,7 +67,7 @@ const ManualArmor: NextPage = () => {
         {!isFetching &&
           allItems?.map((item, i) => (
             <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
-              <ManualItem folderPrefix="/items/" item={item} key={item.id} />
+              <ItemWithEffects item={item} key={item.id} />
             </div>
           ))}
       </ContentBox>

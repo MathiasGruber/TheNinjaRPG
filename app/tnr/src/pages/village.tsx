@@ -5,57 +5,46 @@ import { type VillageStructure } from "@prisma/client";
 import Image from "next/image";
 import ContentBox from "../layout/ContentBox";
 import StatusBar from "../layout/StatusBar";
+import Loader from "../layout/Loader";
 
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 
-const TermsOfService: NextPage = () => {
+const VillageOverview: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   const village_id = userData?.village?.id as string;
-  const { data } = api.village.get.useQuery(
+  const { data, isFetching } = api.village.get.useQuery(
     { id: village_id },
-    { enabled: village_id !== undefined }
+    { enabled: village_id !== undefined, staleTime: Infinity }
   );
-  console.log(data);
 
   const title = userData?.village ? `${userData.village.name} Village` : "Village";
 
-  const villageImage = data && userData && userData.village && (
-    <div className="col-span-2 row-span-2 hidden text-center xl:block">
-      <Image
-        src={`/map/${userData.village.name}.webp`}
-        alt={userData.village.name}
-        width={512}
-        height={512}
-        priority={true}
-      />
-      <span>
-        {userData.village.name} Village, Population {data.population}
-      </span>
-    </div>
-  );
-
+  const subtitle =
+    data && userData?.village
+      ? `${userData.village.name} Village, Population ${data.population}`
+      : "Your shinobi community";
   return (
-    <ContentBox title={title} subtitle="Your shinobi community">
-      <div className="grid grid-cols-2 items-center lg:grid-cols-3 xl:grid-cols-4 xl:grid-rows-4">
+    <ContentBox title={title} subtitle={subtitle}>
+      <div className="grid grid-cols-3 items-center lg:grid-cols-4">
         {data && userData && userData.village && (
           <>
             {data.structures.map((structure, i) => (
-              <>
-                {i === 5 && villageImage}
-                <Link href={`/${structure.name.toLowerCase()}`}>
+              <div key={i}>
+                <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>
                   <Building structure={structure} key={structure.id} />
                 </Link>
-              </>
+              </div>
             ))}
           </>
         )}
       </div>
+      {isFetching && <Loader explanation="Loading Village Information" />}
     </ContentBox>
   );
 };
 
-export default TermsOfService;
+export default VillageOverview;
 
 interface BuildingProps {
   structure: VillageStructure;
@@ -64,7 +53,7 @@ interface BuildingProps {
 const Building: React.FC<BuildingProps> = (props) => {
   return (
     <div className="flex flex-col items-center justify-center p-5 text-center hover:opacity-80">
-      <div className="w-1/2">
+      <div className="w-2/3">
         <StatusBar
           title=""
           tooltip="Health"
@@ -77,8 +66,8 @@ const Building: React.FC<BuildingProps> = (props) => {
       <Image
         src={props.structure.image}
         alt={props.structure.name}
-        width={512}
-        height={512}
+        width={200}
+        height={200}
         priority={true}
       />
       {props.structure.name}

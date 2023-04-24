@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Image from "next/image";
 import {
   GlobeAmericasIcon,
   UserGroupIcon,
@@ -18,6 +19,7 @@ export interface NavBarDropdownLink {
   href: string;
   name: string;
   combatRedirect?: boolean;
+  className?: string;
   color?: "default" | "red" | "green" | "blue";
   icon?: ReactNode;
   onClick?: () => Promise<void>;
@@ -59,7 +61,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
  * Get main game links
  */
 export const getMainGameLinks = (userData: UserDataWithRelations) => {
-  const links: NavBarDropdownLink[] = [
+  const systems: NavBarDropdownLink[] = [
     {
       href: "/tavern",
       name: "Tavern",
@@ -105,6 +107,7 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
     },
   ];
   // Is in village
+  let location: NavBarDropdownLink | undefined = undefined;
   if (
     userData &&
     userData.sector === userData.village?.sector &&
@@ -113,12 +116,34 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
       y: userData.latitude,
     })
   ) {
-    links.push({
+    // Village link for small screens
+    systems.push({
       href: "/village",
       name: "Village",
+      combatRedirect: true,
+      className: "block md:hidden",
       icon: <BuildingStorefrontIcon key="village" className="h-6 w-6" />,
     });
+    // Location display for later screens
+    location = {
+      href: "/village",
+      name: "Village",
+      combatRedirect: true,
+      className: "lg:hidden",
+      icon: (
+        <div>
+          <Image
+            src={`/map/${userData.village.name}.webp`}
+            alt={userData.village.name}
+            width={200}
+            height={200}
+            priority={true}
+          />
+          <span className="font-bold">{userData.village.name} Village</span>
+        </div>
+      ),
+    };
   }
 
-  return links;
+  return { systems, location };
 };

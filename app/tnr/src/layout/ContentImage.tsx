@@ -1,0 +1,46 @@
+import React from "react";
+import Image from "next/image";
+import { ItemRarity, type LetterRank } from "@prisma/client/edge";
+
+interface ContentImageProps {
+  image: string;
+  alt: string;
+  rarity?: ItemRarity;
+  className: string;
+  onClick?: () => void;
+}
+
+const ContentImage: React.FC<ContentImageProps> = (props) => {
+  const drawBackground =
+    props.rarity && Object.values(ItemRarity).includes(props.rarity);
+  console.log("drawBackground", drawBackground, props.rarity);
+  return (
+    <>
+      {drawBackground && props.rarity && (
+        <Image
+          className={
+            props.className +
+            "relative bottom-0 left-0 right-0 top-0 rounded-xl border-2"
+          }
+          src={`/rarity/${props.rarity}.webp`}
+          alt={props.alt}
+          width={125}
+          height={125}
+          priority={true}
+          onClick={props.onClick}
+        />
+      )}
+      <Image
+        className={`${props.className} absolute bottom-0 left-0 right-0 top-0 rounded-xl border-2`}
+        src={props.image}
+        alt={props.alt}
+        width={125}
+        height={125}
+        priority={true}
+        onClick={props.onClick}
+      />
+    </>
+  );
+};
+
+export default ContentImage;

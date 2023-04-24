@@ -63,7 +63,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
               {columns.map((column, i) => (
                 <td
                   key={`cell-${i}`}
-                  className={`px-6 py-4`}
+                  className={`sm:px-6 sm:py-4`}
                   style={{ width: column.width ? `${column.width}rem` : "auto" }}
                 >
                   {column.type === "avatar" && (
@@ -87,7 +87,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                 </td>
               ))}
               {props.buttons && (
-                <td className="px-6 py-4">
+                <td className="flex flex-row px-6 py-4">
                   {props.buttons.map((button, i) => (
                     <Button
                       id={`button-${i}`}

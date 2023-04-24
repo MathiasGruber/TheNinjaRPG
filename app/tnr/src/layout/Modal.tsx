@@ -4,22 +4,27 @@ interface ModalProps {
   title: string;
   children: string | React.ReactNode;
   proceed_label?: string;
+  confirmClassName?: string;
   isValid?: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
 }
 
 const Modal: React.FC<ModalProps> = (props) => {
+  const confirmBtnClassName = props.confirmClassName
+    ? props.confirmClassName
+    : "bg-blue-600 text-white hover:bg-blue-700";
+
   return (
     <>
       <div
-        className="fixed top-0 left-0 right-0 bottom-0 z-20 h-full w-full bg-black opacity-80"
+        className="fixed bottom-0 left-0 right-0 top-0 z-20 h-full w-full bg-black opacity-80"
         onClick={(e) => {
           e.preventDefault();
           props.setIsOpen(false);
         }}
       ></div>
-      <div className="fixed top-1/2 left-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow">
+      <div className="fixed left-1/2 top-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow">
         <div className="flex items-start justify-between rounded-t border-b border-gray-600 p-4">
           <h3 className="text-xl font-semibold text-white">{props.title}</h3>
           <button
@@ -62,7 +67,7 @@ const Modal: React.FC<ModalProps> = (props) => {
                   props.setIsOpen(false);
                 }
               }}
-              className="rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-800"
+              className={`rounded-lg  px-5 py-2.5 text-center text-sm font-medium ${confirmBtnClassName}`}
             ></input>
           )}
           <button
@@ -71,7 +76,7 @@ const Modal: React.FC<ModalProps> = (props) => {
               e.preventDefault();
               props.setIsOpen(false);
             }}
-            className="rounded-lg border  border-gray-500 bg-gray-700 px-5 py-2.5  text-sm font-medium text-gray-300  hover:bg-gray-600 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-600"
+            className="rounded-lg border  border-gray-500 bg-gray-700 px-5 py-2.5  text-sm font-medium text-gray-300  hover:bg-gray-600 hover:text-white"
           >
             Close
           </button>

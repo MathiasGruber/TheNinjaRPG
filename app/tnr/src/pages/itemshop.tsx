@@ -1,10 +1,164 @@
+import { useState } from "react";
 import { type NextPage } from "next";
+import { type Item } from "@prisma/client/edge";
+import { ItemRarity, ItemType } from "@prisma/client/edge";
+
 import ContentBox from "../layout/ContentBox";
+import NavTabs from "../layout/NavTabs";
+import Loader from "../layout/Loader";
+import SelectField from "../layout/SelectField";
+import Modal from "../layout/Modal";
+import { ActionSelector } from "../layout/CombatActions";
+import ItemWithEffects from "../layout/ItemWithEffects";
+import { UncontrolledSliderField } from "../layout/SliderField";
+import Table, { type ColumnDefinitionType } from "../layout/Table";
+import { useInfinitePagination } from "../libs/pagination";
+import { useRequiredUserData } from "../utils/UserContext";
+import { api } from "../utils/api";
+import { type ArrayElement } from "../utils/typeutils";
+import { IdentificationIcon } from "@heroicons/react/24/solid";
+import { show_toast } from "../libs/toast";
 
 const ItemShop: NextPage = () => {
+  // Settings
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [item, setItem] = useState<Item | undefined>(undefined);
+  const [stacksize, setStacksize] = useState<number>(1);
+  const [itemtype, setItemtype] = useState<ItemType>(ItemType.WEAPON);
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Data
+  const {
+    data: items,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+    refetch: refetchItems,
+  } = api.item.getAll.useInfiniteQuery(
+    { itemType: itemtype, limit: 20 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+      staleTime: Infinity,
+    }
+  );
+  const allItems = items?.pages.map((page) => page.data).flat();
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
+
+  // Get user item counts
+  const { data: userItems, refetch: refetchUserItems } =
+    api.item.getUserItemCounts.useQuery();
+  console.log("userItems", userItems);
+
+  // Mutations
+  const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
+    onSuccess: () => {
+      void refetchUserItems();
+      void refetchUser();
+    },
+    onError: (error) => {
+      show_toast("Error purchasing", error.message, "error");
+    },
+    onSettled: () => {
+      setIsOpen(false);
+      setItem(undefined);
+    },
+  });
+
+  // Can user affort selected item
+  const canAfford = item && userData && userData.money >= item.cost;
+
   return (
-    <ContentBox title="Item Shop" subtitle="Buy items for battle" back_href="/village">
-      WIP
+    <ContentBox
+      title="Shop"
+      subtitle="Buy items"
+      back_href="/village"
+      topRightContent={
+        <>
+          <div className="flex flex-row">
+            <SelectField
+              id="itemtype"
+              onChange={(e) => {
+                setItemtype(e.target.value as ItemType);
+                setItem(undefined);
+              }}
+            >
+              {Object.values(ItemType).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+        </>
+      }
+    >
+      {isFetching && <Loader explanation="Loading data" />}
+      {!isFetching && userData && (
+        <>
+          <ActionSelector
+            items={allItems}
+            counts={userItems}
+            selectedId={item?.id}
+            onClick={(id) => {
+              if (id == item?.id) {
+                setItem(undefined);
+                setIsOpen(false);
+              } else {
+                setItem(allItems?.find((item) => item.id === id));
+                setIsOpen(true);
+              }
+            }}
+            showBgColor={false}
+            showLabels={false}
+          />
+          {isOpen && item && (
+            <Modal
+              title="Confirm Purchase"
+              proceed_label={
+                isPurchasing
+                  ? undefined
+                  : canAfford
+                  ? `Buy for ${item.cost * stacksize} ryo`
+                  : `Need ${item.cost * stacksize - userData.money} more ryo`
+              }
+              setIsOpen={setIsOpen}
+              isValid={false}
+              onAccept={() => {
+                if (canAfford) {
+                  purchase({ itemId: item.id, stack: stacksize });
+                } else {
+                  setIsOpen(false);
+                }
+              }}
+              confirmClassName={
+                canAfford
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }
+            >
+              <p className="pb-3">You have {userData.money} ryo in your pocket</p>
+              {!isPurchasing && (
+                <>
+                  <ItemWithEffects item={item} key={item.id} />
+                  {item.canStack && (
+                    <UncontrolledSliderField
+                      id="stackSize"
+                      label={`How many to buy: ${stacksize}`}
+                      value={stacksize}
+                      min={1}
+                      max={item.stackSize}
+                      setValue={setStacksize}
+                    />
+                  )}
+                </>
+              )}
+              {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
+            </Modal>
+          )}
+        </>
+      )}
     </ContentBox>
   );
 };

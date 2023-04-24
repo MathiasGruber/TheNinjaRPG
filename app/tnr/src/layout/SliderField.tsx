@@ -56,3 +56,46 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
 };
 
 export default SliderField;
+
+interface UncontrolledSliderFieldProps {
+  id: string;
+  label?: string;
+  value: number;
+  min: number;
+  max: number;
+  setValue: React.Dispatch<React.SetStateAction<number>>;
+}
+export const UncontrolledSliderField: React.FC<UncontrolledSliderFieldProps> = (
+  props
+) => {
+  return (
+    <div className="m-1">
+      <label htmlFor={props.id} className="mb-2 block font-medium">
+        {props.label ? props.label : ""}
+      </label>
+      <div className="flex flex-row items-center">
+        <MinusCircleIcon
+          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+          onClick={() =>
+            props.setValue(props.value > props.min ? props.value - 1 : props.value)
+          }
+        />
+        <input
+          id={props.id}
+          type="range"
+          value={props.value}
+          min={props.min}
+          max={props.max}
+          onChange={(e) => props.setValue(parseInt(e.target.value))}
+          className="h-5 w-full cursor-pointer appearance-none  rounded-lg bg-orange-200 accent-orange-800"
+        />
+        <PlusCircleIcon
+          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+          onClick={() =>
+            props.setValue(props.value < props.max ? props.value + 1 : props.value)
+          }
+        />
+      </div>
+    </div>
+  );
+};

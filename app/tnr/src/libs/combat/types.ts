@@ -465,7 +465,7 @@ const Bloodline = z.object({
   name: z.string(),
   image: z.string(),
   description: z.string(),
-  rarity: z.nativeEnum(LetterRank),
+  rank: z.nativeEnum(LetterRank),
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
   effects: z.array(

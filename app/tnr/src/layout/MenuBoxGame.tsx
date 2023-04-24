@@ -20,11 +20,14 @@ interface MenuBoxGameProps {
 const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   const { data: userData } = useUserData();
 
-  const systems = getMainGameLinks(userData);
+  const { systems, location } = getMainGameLinks(userData);
 
   if (!userData) {
     return <div></div>;
   }
+
+  const inBattle = userData.status === UserStatus.BATTLE;
+
   return (
     <MenuBox title="Main Menu">
       {props.notifications && props.notifications.length > 0 && (
@@ -53,14 +56,18 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
       )}
       <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
         {systems.map((system, i) => {
-          const battleDisable =
-            system.combatRedirect && userData.status === UserStatus.BATTLE;
+          const battleDisable = system.combatRedirect && inBattle;
+          const href = battleDisable ? "/combat" : system.href;
           return (
-            <Link key={i} href={battleDisable ? "/combat" : system.href}>
+            <Link
+              key={i}
+              href={href}
+              className={system.className ? system.className : ""}
+            >
               <li
                 className={`flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
                   battleDisable ? "opacity-30" : "hover:bg-orange-200"
-                }`}
+                } ${system.className ? system.className : ""}`}
               >
                 <div className="grow">{system.name}</div>
                 <div>{system.icon && system.icon}</div>
@@ -69,6 +76,16 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
           );
         })}
       </ul>
+      {location && (
+        <div className={inBattle && location.combatRedirect ? "opacity-30" : ""}>
+          <Link
+            href={inBattle && location.combatRedirect ? "/combat" : "/village"}
+            className="hidden pt-3 text-center md:block"
+          >
+            {location.icon}
+          </Link>
+        </div>
+      )}
     </MenuBox>
   );
 };

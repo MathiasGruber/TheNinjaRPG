@@ -40,7 +40,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
 
             {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
           </div>
-          <div className="sm:grow"></div>
+          <div className="grow"></div>
           <div>{props.topRightContent}</div>
         </div>
 
