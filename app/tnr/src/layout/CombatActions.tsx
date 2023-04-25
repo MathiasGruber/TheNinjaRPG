@@ -107,33 +107,41 @@ interface ActionSelectorProps {
   showBgColor: boolean;
   showLabels: boolean;
   selectedId?: string;
+  labelSingles?: boolean;
   onClick: (id: string) => void;
 }
 
 export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   return (
-    <div className={`grid grid-cols-6 gap-1 text-xs md:grid-cols-8`}>
-      {props.items?.map((item, i) => {
-        const isGreyed = props.selectedId !== undefined && props.selectedId !== item.id;
-        return (
-          <ActionOption
-            key={i}
-            className={`${props.showBgColor ? "bg-orange-200" : ""} ${
-              isGreyed ? "opacity-20" : ""
-            }`}
-            src={item.image}
-            isGreyed={isGreyed}
-            alt="sp"
-            rarity={item.rarity}
-            txt={props.showLabels ? item.name : ""}
-            count={props.counts?.find((c) => c.id === item.id)?.quantity}
-            onClick={() => {
-              props.onClick(item.id);
-            }}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div className={`grid grid-cols-6 gap-1 text-xs md:grid-cols-8`}>
+        {props.items?.map((item, i) => {
+          const isGreyed =
+            props.selectedId !== undefined && props.selectedId !== item.id;
+          return (
+            <ActionOption
+              key={i}
+              className={`${props.showBgColor ? "bg-orange-200" : ""} ${
+                isGreyed ? "opacity-20" : ""
+              }`}
+              src={item.image}
+              isGreyed={isGreyed}
+              alt="sp"
+              rarity={item.rarity}
+              txt={props.showLabels ? item.name : ""}
+              count={props.counts?.find((c) => c.id === item.id)?.quantity}
+              labelSingles={props.labelSingles}
+              onClick={() => {
+                props.onClick(item.id);
+              }}
+            />
+          );
+        })}
+      </div>
+      {props.items?.length === 0 && (
+        <span className="flex flex-row text-base">Nothing Available</span>
+      )}
+    </>
   );
 };
 
@@ -145,6 +153,7 @@ interface ActionOptionProps {
   count?: number;
   isGreyed: boolean;
   className?: string;
+  labelSingles?: boolean;
   onClick?: () => void;
 }
 
@@ -164,7 +173,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
         className=""
         onClick={props.onClick}
       />
-      {props.count && (
+      {props.count && (props.labelSingles || props.count > 1) && (
         <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
           {props.count}
         </div>

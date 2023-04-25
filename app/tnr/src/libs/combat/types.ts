@@ -14,7 +14,7 @@ import { JutsuType } from "@prisma/client/edge";
 import { ItemType } from "@prisma/client/edge";
 import { WeaponType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
-import { ItemSlot } from "@prisma/client/edge";
+import { ItemSlotType } from "@prisma/client/edge";
 
 /**
  * Which state is public / private on users
@@ -506,7 +506,7 @@ const Item = z.object({
   type: z.nativeEnum(ItemType),
   weaponType: z.nativeEnum(WeaponType).optional(),
   rarity: z.nativeEnum(ItemRarity),
-  slot: z.nativeEnum(ItemSlot),
+  slot: z.nativeEnum(ItemSlotType),
   effects: z.array(AllTags),
 });
 export type ZodItemType = z.infer<typeof Item>;

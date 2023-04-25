@@ -5,7 +5,7 @@ import { AttackTarget } from "@prisma/client/edge";
 import { ItemType } from "@prisma/client/edge";
 import { WeaponType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
-import { ItemSlot } from "@prisma/client/edge";
+import { ItemSlotType } from "@prisma/client/edge";
 
 import { DamageTag } from "../../src/libs/combat/types";
 import { HealTag } from "../../src/libs/combat/types";
@@ -27,7 +27,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.STAFF,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 250,
     range: 1,
     effects: [
@@ -49,7 +49,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.STAFF,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 400,
     range: 1,
     effects: [
@@ -72,7 +72,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.SWORD,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 1000,
     range: 1,
     effects: [
@@ -95,7 +95,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.AXE,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 2000,
     range: 1,
     effects: [
@@ -118,7 +118,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.SHURIKEN,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.BACKPACK,
+    slot: ItemSlotType.ITEM,
     cost: 25,
     range: 3,
     effects: [
@@ -141,7 +141,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.DAGGER,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 25,
     range: 3,
     effects: [
@@ -164,7 +164,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.DAGGER,
     rarity: ItemRarity.RARE,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 9000,
     range: 1,
     effects: [
@@ -187,7 +187,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.BOW,
     rarity: ItemRarity.EPIC,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 50000,
     range: 5,
     effects: [
@@ -210,7 +210,7 @@ const items: ZodItemType[] = [
     type: ItemType.WEAPON,
     weaponType: WeaponType.HAMMER,
     rarity: ItemRarity.LEGENDARY,
-    slot: ItemSlot.HANDS,
+    slot: ItemSlotType.HAND,
     cost: 100000,
     range: 1,
     effects: [
@@ -231,7 +231,7 @@ const items: ZodItemType[] = [
     target: AttackTarget.OPPONENT,
     type: ItemType.ARMOR,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.CHEST,
+    slot: ItemSlotType.CHEST,
     cost: 100,
     effects: [
       AdjustArmorTag.parse({
@@ -252,7 +252,7 @@ const items: ZodItemType[] = [
     target: AttackTarget.SELF,
     type: ItemType.CONSUMABLE,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.BACKPACK,
+    slot: ItemSlotType.ITEM,
     cost: 100,
     range: 0,
     effects: [
@@ -270,7 +270,7 @@ const items: ZodItemType[] = [
     target: AttackTarget.SELF,
     type: ItemType.CONSUMABLE,
     rarity: ItemRarity.COMMON,
-    slot: ItemSlot.BACKPACK,
+    slot: ItemSlotType.ITEM,
     cost: 100,
     range: 0,
     effects: [

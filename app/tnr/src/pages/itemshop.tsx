@@ -1,22 +1,18 @@
 import { useState } from "react";
 import { type NextPage } from "next";
 import { type Item } from "@prisma/client/edge";
-import { ItemRarity, ItemType } from "@prisma/client/edge";
+import { ItemType } from "@prisma/client/edge";
 
 import ContentBox from "../layout/ContentBox";
-import NavTabs from "../layout/NavTabs";
 import Loader from "../layout/Loader";
 import SelectField from "../layout/SelectField";
 import Modal from "../layout/Modal";
 import { ActionSelector } from "../layout/CombatActions";
 import ItemWithEffects from "../layout/ItemWithEffects";
 import { UncontrolledSliderField } from "../layout/SliderField";
-import Table, { type ColumnDefinitionType } from "../layout/Table";
 import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
-import { type ArrayElement } from "../utils/typeutils";
-import { IdentificationIcon } from "@heroicons/react/24/solid";
 import { show_toast } from "../libs/toast";
 
 const ItemShop: NextPage = () => {
@@ -34,7 +30,6 @@ const ItemShop: NextPage = () => {
     isFetching,
     fetchNextPage,
     hasNextPage,
-    refetch: refetchItems,
   } = api.item.getAll.useInfiniteQuery(
     { itemType: itemtype, limit: 20 },
     {
@@ -49,7 +44,6 @@ const ItemShop: NextPage = () => {
   // Get user item counts
   const { data: userItems, refetch: refetchUserItems } =
     api.item.getUserItemCounts.useQuery();
-  console.log("userItems", userItems);
 
   // Mutations
   const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
@@ -101,6 +95,7 @@ const ItemShop: NextPage = () => {
             items={allItems}
             counts={userItems}
             selectedId={item?.id}
+            labelSingles={true}
             onClick={(id) => {
               if (id == item?.id) {
                 setItem(undefined);

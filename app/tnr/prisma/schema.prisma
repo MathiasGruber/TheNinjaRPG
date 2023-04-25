@@ -429,17 +429,29 @@ enum ItemRarity {
     LEGENDARY
 }
 
+enum ItemSlotType {
+    HEAD
+    CHEST
+    LEGS
+    FEET
+    HAND
+    ITEM
+}
+
 enum ItemSlot {
     HEAD
     CHEST
     LEGS
     FEET
-    HANDS
-    NECK
-    RING
-    MAINHAND
-    OFFHAND
-    BACKPACK
+    HAND_1
+    HAND_2
+    ITEM_1
+    ITEM_2
+    ITEM_3
+    ITEM_4
+    ITEM_5
+    ITEM_6
+    ITEM_7
 }
 
 //*****************************//
@@ -509,21 +521,21 @@ model Item {
     type            ItemType
     weaponType      WeaponType?
     rarity          ItemRarity
-    slot            ItemSlot
+    slot            ItemSlotType
     effects         Json
     UserItem        UserItem[]
 }
 
 model UserItem {
-    id        String   @id @default(cuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    user      UserData @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    id        String    @id @default(cuid())
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    user      UserData  @relation(fields: [userId], references: [userId], onDelete: Cascade)
     userId    String
-    item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+    item      Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
     itemId    String
-    quantity  Int      @default(1)
-    equipped  Boolean  @default(false)
+    quantity  Int       @default(1)
+    equipped  ItemSlot?
 
     @@index([userId])
     @@index([itemId])

@@ -1,12 +1,18 @@
 import { z } from "zod";
-import { ItemType } from "@prisma/client/edge";
-import { ItemRarity } from "@prisma/client/edge";
+import { ItemType, ItemSlot, ItemRarity } from "@prisma/client/edge";
+import type { UserData, PrismaClient } from "@prisma/client/edge";
+import { fetchUser } from "./profile";
 import {
   createTRPCRouter,
   publicProcedure,
   protectedProcedure,
   serverError,
 } from "../trpc";
+
+const calcMaxItems = (user: UserData) => {
+  const base = 20;
+  return base;
+};
 
 export const itemRouter = createTRPCRouter({
   getAll: publicProcedure
@@ -44,6 +50,97 @@ export const itemRouter = createTRPCRouter({
     });
     return counts.map((c) => ({ id: c.itemId, quantity: c._sum.quantity ?? 0 }));
   }),
+  getUserItems: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.prisma.userItem.findMany({
+      where: { userId: ctx.userId },
+      include: { item: true },
+    });
+  }),
+  mergeStacks: protectedProcedure
+    .input(z.object({ itemId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      // Pre-fetches
+      const item = await ctx.prisma.item.findUniqueOrThrow({
+        where: { id: input.itemId },
+      });
+      const userItems = await ctx.prisma.userItem.findMany({
+        where: { userId: ctx.userId, itemId: item.id },
+      });
+      // Calculate total quantity
+      const totalQuantity = userItems.reduce((acc, i) => acc + i.quantity, 0);
+      // Update stacks
+      await ctx.prisma.$transaction(async (tx) => {
+        let currentCount = 0;
+        for (let i = 0; i < userItems.length; i++) {
+          const newQuantity = Math.min(item.stackSize, totalQuantity - currentCount);
+          if (newQuantity > 0) {
+            currentCount += newQuantity;
+            await tx.userItem.update({
+              where: { id: userItems?.[i]?.id },
+              data: { quantity: newQuantity },
+            });
+          } else {
+            await tx.userItem.delete({ where: { id: userItems?.[i]?.id } });
+          }
+        }
+      });
+    }),
+  dropUserItem: protectedProcedure
+    .input(z.object({ userItemId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const useritem = await ctx.prisma.userItem.findUniqueOrThrow({
+        where: { id: input.userItemId },
+      });
+      if (useritem.userId === ctx.userId) {
+        return await ctx.prisma.userItem.delete({
+          where: { id: input.userItemId },
+        });
+      } else {
+        throw serverError("NOT_FOUND", "User item not found");
+      }
+    }),
+  toggleEquip: protectedProcedure
+    .input(
+      z.object({
+        userItemId: z.string().cuid(),
+        slot: z.nativeEnum(ItemSlot),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Pre-fetches
+      const userItems = await ctx.prisma.userItem.findMany({
+        where: { userId: ctx.userId },
+        include: { item: true },
+      });
+      // Guards
+      const useritem = userItems.find((i) => i.id === input.userItemId);
+      if (!useritem) {
+        throw serverError("NOT_FOUND", "User item not found");
+      }
+      // Toggle
+      return await ctx.prisma.$transaction(async (tx) => {
+        if (!useritem.equipped || useritem.equipped !== input.slot) {
+          const equipped = userItems.find(
+            (i) => i.equipped === input.slot && i.id !== useritem.id
+          );
+          if (equipped) {
+            await tx.userItem.update({
+              where: { id: equipped.id },
+              data: { equipped: null },
+            });
+          }
+          return await tx.userItem.update({
+            where: { id: useritem.id },
+            data: { equipped: input.slot },
+          });
+        } else {
+          return await tx.userItem.update({
+            where: { id: useritem.id },
+            data: { equipped: null },
+          });
+        }
+      });
+    }),
   buy: protectedProcedure
     .input(
       z.object({
@@ -52,16 +149,24 @@ export const itemRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const item = await ctx.prisma.item.findUniqueOrThrow({
-        where: { id: input.itemId },
-      });
+      // Pre-fetches
+      const iid = input.itemId;
+      const uid = ctx.userId;
+      const item = await ctx.prisma.item.findUniqueOrThrow({ where: { id: iid } });
+      const user = await fetchUser(ctx.prisma, uid);
+      const counts = await ctx.prisma.userItem.count({ where: { userId: uid } });
+      // Guards
       if (input.stack > 1 && !item.canStack) {
         throw serverError("PRECONDITION_FAILED", "Item cannot be stacked");
       }
+      if (counts >= calcMaxItems(user)) {
+        throw serverError("PRECONDITION_FAILED", "Inventory is full");
+      }
+      // Purchase
       const result = await ctx.prisma.$transaction(async (tx) => {
         const userItem = await tx.userItem.create({
           data: {
-            userId: ctx.userId,
+            userId: uid,
             itemId: item.id,
             quantity: input.stack,
           },
@@ -71,7 +176,7 @@ export const itemRouter = createTRPCRouter({
           SET 
             money = money - ${item.cost * input.stack}
           WHERE
-            userId = ${ctx.userId} AND
+            userId = ${uid} AND
             money >= ${item.cost * input.stack}
         `;
         if (update !== 1) {

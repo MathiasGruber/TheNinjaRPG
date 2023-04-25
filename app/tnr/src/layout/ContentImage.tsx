@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { ItemRarity, type LetterRank } from "@prisma/client/edge";
+import { ItemRarity } from "@prisma/client/edge";
 
 interface ContentImageProps {
   image: string;
@@ -13,7 +13,7 @@ interface ContentImageProps {
 const ContentImage: React.FC<ContentImageProps> = (props) => {
   const drawBackground =
     props.rarity && Object.values(ItemRarity).includes(props.rarity);
-  console.log("drawBackground", drawBackground, props.rarity);
+
   return (
     <>
       {drawBackground && props.rarity && (
