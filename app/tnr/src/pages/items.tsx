@@ -37,7 +37,6 @@ const MyItems: NextPage = () => {
   const allItems = userItems?.map((useritem) => {
     return { ...useritem.item, ...useritem };
   });
-  console.log(userItems);
 
   return (
     <ContentBox

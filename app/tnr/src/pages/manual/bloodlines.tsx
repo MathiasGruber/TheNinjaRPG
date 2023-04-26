@@ -10,7 +10,7 @@ import { api } from "../../utils/api";
 
 const ManualBloodlines: NextPage = () => {
   // Settings
-  const [rarity, setRarity] = useState<LetterRank>(LetterRank.D);
+  const [rank, setRank] = useState<LetterRank>(LetterRank.D);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Data
@@ -20,7 +20,7 @@ const ManualBloodlines: NextPage = () => {
     fetchNextPage,
     hasNextPage,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 20 },
+    { rank: rank, limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -55,9 +55,9 @@ const ManualBloodlines: NextPage = () => {
           <>
             <div className="grow"></div>
             <NavTabs
-              current={rarity}
+              current={rank}
               options={["D", "C", "B", "A", "S"]}
-              setValue={setRarity}
+              setValue={setRank}
             />
           </>
         }
@@ -69,12 +69,7 @@ const ManualBloodlines: NextPage = () => {
               key={bloodline.id}
               ref={i === allBloodlines.length - 1 ? setLastElement : null}
             >
-              <ItemWithEffects
-                folderPrefix="/bloodlines/"
-                item={bloodline}
-                key={bloodline.id}
-                imageBorder={true}
-              />
+              <ItemWithEffects item={bloodline} key={bloodline.id} imageBorder={true} />
             </div>
           ))}
       </ContentBox>

@@ -15,7 +15,7 @@ const jutsus: ZodJutsuType[] = [
   /******************** */
   {
     name: "Clone Technique",
-    image: "clone_technique.png",
+    image: "/jutsus/clone_technique.png",
     description:
       "This jutsu creates a clone, which is then used as a distraction to attack from behind",
     battleDescription:
@@ -39,7 +39,7 @@ const jutsus: ZodJutsuType[] = [
   /******************** */
   {
     name: "Soul Shackles",
-    image: "soul_shackles.png",
+    image: "/jutsus/soul_shackles.png",
     description: "This illusion catches your opponent in chains.",
     battleDescription:
       "%user stares at %opponent. Without a warning %opponent`s arms and legs are shackled in steel bindings. The shackles drag %opponent down onto the ground with insane power.",
@@ -66,7 +66,7 @@ const jutsus: ZodJutsuType[] = [
   /******************** */
   {
     name: "Sonic Slash",
-    image: "sonic_slash.png",
+    image: "/jutsus/sonic_slash.png",
     description:
       "This body straining technique sends out multiple shockwaves as the tip of your weapon breaks the sound barrier.",
     battleDescription:
@@ -95,7 +95,7 @@ const jutsus: ZodJutsuType[] = [
   /******************** */
   {
     name: "Searing Intimidation",
-    image: "searing_intimidation.png",
+    image: "/jutsus/searing_intimidation.png",
     description: "An intimidation technique reliant on fire.",
     battleDescription:
       "%user forces fire chakra into %jutsuWeapon face, causing %user's eyes to erupt in flames and %jutsuWeapon to glow an eerie red. %user stares down %opponent, flames escape from %jutsuWeapon as %user1 moves towards %opponentgender. Getting in close with %opponentgender before delivering a swift, strong jab to the abdomen. %user exhales, releasing a stream of fire from %jutsuWeapon as the strike hits.",

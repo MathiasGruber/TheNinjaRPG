@@ -17,6 +17,7 @@ export const villageRouter = createTRPCRouter({
       });
       const structures = await ctx.prisma.villageStructure.findMany({
         where: { villageId: input.id },
+        orderBy: { level: "desc" },
       });
       const population = await ctx.prisma.userData.count({
         where: { villageId: input.id },

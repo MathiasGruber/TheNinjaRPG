@@ -52,7 +52,11 @@ interface BuildingProps {
 
 const Building: React.FC<BuildingProps> = (props) => {
   return (
-    <div className="flex flex-col items-center justify-center p-5 text-center hover:opacity-80">
+    <div
+      className={`flex flex-col items-center justify-center p-5 text-center  ${
+        props.structure.level > 0 ? "hover:opacity-80" : "opacity-30"
+      }`}
+    >
       <div className="w-2/3">
         <StatusBar
           title=""

@@ -1,6 +1,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { getDaysHoursMinutesSeconds } from "../utils/time";
+import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
 
 interface CountdownProps {
   targetDate: Date;
@@ -21,15 +21,7 @@ const Countdown: React.FC<CountdownProps> = (props) => {
       if (days + hours + minutes + seconds <= 0) {
         setCountString("Done");
       } else {
-        if (days > 0) {
-          setCountString(`${days} days, ${hours} hours`);
-        } else if (hours > 0) {
-          setCountString(`${hours} hours, ${minutes} minutes`);
-        } else if (minutes > 0) {
-          setCountString(`${minutes} minutes, ${seconds} seconds`);
-        } else if (seconds > 0) {
-          setCountString(`${seconds} seconds`);
-        }
+        setCountString(getTimeLeftStr(days, hours, minutes, seconds));
       }
     };
     if (!countString) {

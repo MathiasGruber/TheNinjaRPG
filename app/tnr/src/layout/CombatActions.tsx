@@ -166,18 +166,20 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
         props.isGreyed ? "hover:opacity-80" : "hover:opacity-90"
       }`}
     >
-      <ContentImage
-        image={props.src}
-        alt={props.alt}
-        rarity={props.rarity}
-        className=""
-        onClick={props.onClick}
-      />
-      {props.count && (props.labelSingles || props.count > 1) && (
-        <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
-          {props.count}
-        </div>
-      )}
+      <div className="relative">
+        <ContentImage
+          image={props.src}
+          alt={props.alt}
+          rarity={props.rarity}
+          className=""
+          onClick={props.onClick}
+        />
+        {props.count && (props.labelSingles || props.count > 1) && (
+          <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
+            {props.count}
+          </div>
+        )}
+      </div>
       {props.txt}
     </div>
   );

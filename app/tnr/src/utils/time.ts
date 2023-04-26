@@ -23,6 +23,25 @@ export const getDaysHoursMinutesSeconds = (countDown: number) => {
   return [days, hours, minutes, seconds] as const;
 };
 
+/** Return a string of how much time left */
+export const getTimeLeftStr = (
+  days: number,
+  hours: number,
+  minutes: number,
+  seconds: number
+) => {
+  if (days > 0) {
+    return `${days} days, ${hours} hours`;
+  } else if (hours > 0) {
+    return `${hours} hours, ${minutes} minutes`;
+  } else if (minutes > 0) {
+    return `${minutes} minutes, ${seconds} seconds`;
+  } else if (seconds > 0) {
+    return `${seconds} seconds`;
+  }
+  return "0 seconds";
+};
+
 /**
  * Sleep for x number of milliseconds
  */

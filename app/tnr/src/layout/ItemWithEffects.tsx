@@ -106,7 +106,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             <div className="block md:hidden">{baseProperties}</div>
           </div>
           {effects.map((effect, i) => {
-            console.log(effect);
             return (
               <div
                 key={effect.type + i.toString()}

@@ -26,18 +26,18 @@ export const seedVillages = async (prisma: PrismaClient) => {
   ];
   // Buildings
   const buildings = [
-    { name: "Home", image: "/buildings/Home.webp" },
-    { name: "Training Grounds", image: "/buildings/Training.webp" },
-    { name: "Clan Hall", image: "/buildings/Clan.webp" },
-    { name: "Alliance Hall", image: "/buildings/Alliance.webp" },
-    { name: "Battle Arena", image: "/buildings/Arena.webp" },
-    { name: "Mission Hall", image: "/buildings/Missions.webp" },
-    { name: "Bank", image: "/buildings/Bank.webp" },
-    { name: "Item shop", image: "/buildings/Shop.webp" },
-    { name: "Hospital", image: "/buildings/Hospital.webp" },
-    { name: "ANBU", image: "/buildings/ANBU.webp" },
-    { name: "Casino", image: "/buildings/Casino.webp" },
-    { name: "Black Market", image: "/buildings/BlackMarket.webp" },
+    { name: "Home", image: "/buildings/Home.webp", level: 0 },
+    { name: "Training Grounds", image: "/buildings/Training.webp", level: 1 },
+    { name: "Clan Hall", image: "/buildings/Clan.webp", level: 0 },
+    { name: "Alliance Hall", image: "/buildings/Alliance.webp", level: 0 },
+    { name: "Battle Arena", image: "/buildings/Arena.webp", level: 0 },
+    { name: "Mission Hall", image: "/buildings/Missions.webp", level: 0 },
+    { name: "Bank", image: "/buildings/Bank.webp", level: 0 },
+    { name: "Item shop", image: "/buildings/Shop.webp", level: 1 },
+    { name: "Hospital", image: "/buildings/Hospital.webp", level: 1 },
+    { name: "ANBU", image: "/buildings/ANBU.webp", level: 0 },
+    { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
+    { name: "Black Market", image: "/buildings/BlackMarket.webp", level: 0 },
   ];
   villages.map(async (village, i) => {
     // Create Village

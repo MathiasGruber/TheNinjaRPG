@@ -8,7 +8,7 @@ export const bloodlineRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        rarity: z.nativeEnum(LetterRank),
+        rank: z.nativeEnum(LetterRank),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -19,7 +19,7 @@ export const bloodlineRouter = createTRPCRouter({
         skip: skip,
         take: input.limit,
         where: {
-          rarity: input.rarity,
+          rank: input.rank,
         },
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;

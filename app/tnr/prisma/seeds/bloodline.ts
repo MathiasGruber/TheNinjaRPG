@@ -12,7 +12,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Shroud of the Heavens",
-    image: "shroud_of_the_heavens.png",
+    image: "/bloodlines/shroud_of_the_heavens.png",
     description:
       "This  bloodline is a more common and less potent form of the wind-affinity lineage bloodlines, but it is still a powerful force to be reckoned with. Those born with this bloodline possess a limited but innate ability to control and manipulate the wind, allowing them to enhance their physical abilities and perform wind-based techniques.",
     rank: LetterRank.D,
@@ -33,7 +33,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Tatsumaki",
-    image: "tatsumaki.png",
+    image: "/bloodlines/tatsumaki.png",
     description:
       "This is a lineage that imbues its bearers with a mastery over the power of the wind. Those born with this bloodline possess an innate connection to the elements, allowing them to control and manipulate the very air itself to enhance their abilities.",
     rank: LetterRank.C,
@@ -46,7 +46,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Darkwind",
-    image: "darkwind.png",
+    image: "/bloodlines/darkwind.png",
     description:
       "The bloodline is a rare and feared lineage that grants its wielder an unparalleled mastery over the power of wind, twisted and corrupted by darkness. Those born with this bloodline possess an innate connection to the elements, allowing them to control and manipulate the very air itself with malevolent intent.",
     rank: LetterRank.B,
@@ -59,7 +59,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Tornado Demon",
-    image: "tornado_demon.png",
+    image: "/bloodlines/tornado_demon.png",
     description:
       "The bloodline is a legendary lineage that imbues its bearers with an otherworldly mastery over the power of the wind. Those born with this bloodline possess an inherent connection to the elements, enabling them to manipulate the very air itself to devastating effect. The bloodline is a true testament to the power of the elements and the terrifying potential of those who can wield them.",
     rank: LetterRank.A,
@@ -72,7 +72,7 @@ const bloodlines: ZodBloodlineType[] = [
   /*********************** */
   {
     name: "Blue Blade Eyes",
-    image: "blue_blade_eyes.png",
+    image: "/bloodlines/blue_blade_eyes.png",
     description:
       "This bloodline is a rare and coveted genetic trait that grants its bearer unparalleled mastery over the art of combat. With eyes that shimmer like blades of sapphire, those born with this bloodline possess a natural affinity for chakra manipulation and supreme physical prowess.The bloodline is a fearsome and formidable force to be reckoned with, and those who possess it are destined for greatness on the battlefield.",
     rank: LetterRank.S,

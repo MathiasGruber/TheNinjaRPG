@@ -178,6 +178,7 @@ model Village {
     sector            Int                @unique @default(1)
     UserData          UserData[]
     VillageStructures VillageStructure[]
+    Jutsu             Jutsu[]
 }
 
 model VillageStructure {
@@ -478,23 +479,28 @@ model Jutsu {
     staminaCostPerc   Float        @default(0)
     bloodline         Bloodline?   @relation(fields: [bloodlineId], references: [id])
     bloodlineId       String?
+    village           Village?     @relation(fields: [villageId], references: [id])
+    villageId         String?
     effects           Json
     UserJutsu         UserJutsu[]
 
+    @@index([villageId])
     @@index([bloodlineId])
 }
 
 model UserJutsu {
-    id        String   @id @default(cuid())
-    user      UserData @relation(fields: [userId], references: [userId], onDelete: Cascade)
-    userId    String
-    jutsu     Jutsu    @relation(fields: [jutsuId], references: [id], onDelete: Cascade)
-    jutsuId   String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    level     Int      @default(1)
-    equipped  Boolean  @default(false)
+    id             String    @id @default(cuid())
+    user           UserData  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId         String
+    jutsu          Jutsu     @relation(fields: [jutsuId], references: [id], onDelete: Cascade)
+    jutsuId        String
+    createdAt      DateTime  @default(now())
+    updatedAt      DateTime  @updatedAt
+    level          Int       @default(1)
+    equipped       Boolean   @default(false)
+    finishTraining DateTime?
 
+    @@unique([userId, jutsuId])
     @@index([userId])
     @@index([jutsuId])
 }
