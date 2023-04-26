@@ -1,5 +1,5 @@
 import type { UserData, Jutsu } from "@prisma/client/edge";
-import { UserRank, LetterRank } from "@prisma/client/edge";
+import { UserRank, FederalStatus, LetterRank } from "@prisma/client/edge";
 
 const hasRank = (rank: LetterRank, userrank: UserRank) => {
   switch (userrank) {
@@ -49,4 +49,32 @@ export const calcTrainCost = (jutsu: Jutsu, level: number) => {
     base = 28;
   }
   return Math.floor(Math.pow(base, 1 + level / 10) * 10);
+};
+
+export const calcJutsuEquipLimit = (userdata: UserData) => {
+  const rankContrib = (rank: UserRank) => {
+    switch (rank) {
+      case UserRank.GENIN:
+        return 1;
+      case UserRank.CHUNIN:
+        return 2;
+      case UserRank.JONIN:
+        return 3;
+      case UserRank.COMMANDER:
+        return 4;
+    }
+    return 0;
+  };
+  const fedContrib = (status: FederalStatus) => {
+    switch (status) {
+      case FederalStatus.NORMAL:
+        return 1;
+      case FederalStatus.SILVER:
+        return 2;
+      case FederalStatus.GOLD:
+        return 3;
+    }
+    return 0;
+  };
+  return 1 + rankContrib(userdata.rank) + fedContrib(userdata.federalStatus);
 };

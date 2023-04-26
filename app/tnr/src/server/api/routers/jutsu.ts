@@ -1,11 +1,8 @@
 import { z } from "zod";
 import { LetterRank } from "@prisma/client/edge";
 import { fetchUser } from "./profile";
-import {
-  canTrainJutsu,
-  calcTrainTime,
-  calcTrainCost,
-} from "../../../../src/libs/training/jutsu";
+import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu/jutsu";
+import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";
 import {
   createTRPCRouter,
   protectedProcedure,
@@ -40,6 +37,7 @@ export const jutsuRouter = createTRPCRouter({
     }),
   getUserJutsus: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.prisma.userJutsu.findMany({
+      include: { jutsu: true },
       where: { userId: ctx.userId },
     });
   }),
@@ -90,6 +88,31 @@ export const jutsuRouter = createTRPCRouter({
             },
           });
         }
+      });
+    }),
+  toggleEquip: protectedProcedure
+    .input(z.object({ userJutsuId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      // Pre-fetch
+      const userjutsus = await ctx.prisma.userJutsu.findMany({
+        where: { userId: ctx.userId },
+      });
+      const userData = await fetchUser(ctx.prisma, ctx.userId);
+      const userjutsu = userjutsus.find((j) => j.id === input.userJutsuId);
+      const isEquipped = userjutsu?.equipped || false;
+      const curEquip = userjutsus?.filter((j) => j.equipped).length || 0;
+      const maxEquip = userData && calcJutsuEquipLimit(userData);
+      // Guard
+      if (!userjutsu) {
+        throw serverError("NOT_FOUND", "Jutsu not found");
+      }
+      if (!isEquipped && curEquip >= maxEquip) {
+        throw serverError("PRECONDITION_FAILED", "You cannot equip more jutsu");
+      }
+      // Equip
+      return await ctx.prisma.userJutsu.update({
+        where: { id: input.userJutsuId },
+        data: { equipped: !userjutsu.equipped },
       });
     }),
 });

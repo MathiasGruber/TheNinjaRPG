@@ -34,6 +34,25 @@ const jutsus: ZodJutsuType[] = [
       }),
     ],
   },
+  {
+    name: "Replacement Technique",
+    image: "/jutsus/replacement_technique.png",
+    description: "Basic Replacement used to escape or distract enemies.",
+    battleDescription: "%user replaces %gender body with a random, nearby object.",
+    jutsuType: JutsuType.NORMAL,
+    jutsuRank: LetterRank.D,
+    requiredRank: UserRank.STUDENT,
+    target: AttackTarget.OPPONENT,
+    range: 1,
+    cooldown: 30,
+    effects: [
+      DamageTag.parse({
+        power: 1,
+        statTypes: ["Ninjutsu"],
+        generalTypes: ["Willpower", "Strength"],
+      }),
+    ],
+  },
   /******************** */
   /**  C-Ranked Jutsus  */
   /******************** */

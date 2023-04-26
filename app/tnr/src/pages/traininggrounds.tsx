@@ -11,7 +11,7 @@ import Loader from "../layout/Loader";
 import Countdown from "../layout/Countdown";
 
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
-import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../libs/training/jutsu";
+import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../libs/jutsu/jutsu";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
 import { api } from "../utils/api";

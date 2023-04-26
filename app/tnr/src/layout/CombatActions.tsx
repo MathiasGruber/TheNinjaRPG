@@ -99,6 +99,7 @@ interface ActionSelectorProps {
     name: string;
     image: string;
     rarity?: ItemRarity;
+    highlight?: boolean;
   }[];
   counts?: {
     id: string;
@@ -114,14 +115,17 @@ interface ActionSelectorProps {
 export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   return (
     <>
-      <div className={`grid grid-cols-6 gap-1 text-xs md:grid-cols-8`}>
+      <div className={`grid grid-cols-6  text-xs md:grid-cols-8`}>
         {props.items?.map((item, i) => {
           const isGreyed =
             props.selectedId !== undefined && props.selectedId !== item.id;
+          const isHighlight = item.highlight ?? false;
           return (
             <ActionOption
               key={i}
-              className={`${props.showBgColor ? "bg-orange-200" : ""} ${
+              className={`pr-1 ${
+                isHighlight ? "rounded-xl border-4 border-amber-500 bg-amber-300" : ""
+              } ${props.showBgColor ? "bg-orange-200" : ""} ${
                 isGreyed ? "opacity-20" : ""
               }`}
               src={item.image}
