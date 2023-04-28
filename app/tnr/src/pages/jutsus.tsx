@@ -67,7 +67,7 @@ const MyJutsu: NextPage = () => {
     curEquip && maxEquip
       ? `Equipped ${curEquip}/${maxEquip}`
       : "Jutsus you want to use in combat";
-  console.log(canEquip, curEquip, maxEquip);
+
   return (
     <ContentBox title="Jutsu Management" subtitle={subtitle}>
       <ActionSelector

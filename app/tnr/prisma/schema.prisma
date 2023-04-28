@@ -135,6 +135,7 @@ model UserData {
     battle                  Battle?               @relation(fields: [battleId], references: [id])
     battleId                String?
     battleActions           BattleAction[]
+    BloodlineRolls          BloodlineRolls[]
 
     @@index([battleId])
     @@index([bloodlineId])
@@ -552,21 +553,36 @@ model UserItem {
 //*****************************//
 
 model Bloodline {
-    id            String     @id @default(cuid())
-    name          String     @unique
-    image         String     @unique
-    description   String     @db.Text
-    createdAt     DateTime   @default(now())
-    updatedAt     DateTime   @default(now()) @updatedAt
-    rank          LetterRank
-    regenIncrease Int        @default(0)
-    village       String
-    effects       Json
-    users         UserData[]
-    jutsus        Jutsu[]
+    id             String           @id @default(cuid())
+    name           String           @unique
+    image          String           @unique
+    description    String           @db.Text
+    createdAt      DateTime         @default(now())
+    updatedAt      DateTime         @default(now()) @updatedAt
+    rank           LetterRank
+    regenIncrease  Int              @default(0)
+    village        String
+    effects        Json
+    users          UserData[]
+    jutsus         Jutsu[]
+    BloodlineRolls BloodlineRolls[]
 
     @@index([village])
     @@index([rank])
+}
+
+model BloodlineRolls {
+    id          String     @id @default(cuid())
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+    user        UserData   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId      String     @unique
+    bloodline   Bloodline? @relation(fields: [bloodlineId], references: [id], onDelete: Cascade)
+    bloodlineId String?
+    used        Boolean    @default(false)
+
+    @@index([bloodlineId])
+    @@index([userId])
 }
 
 //*****************************//
