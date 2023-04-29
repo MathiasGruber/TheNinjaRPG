@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Prisma, type PrismaClient } from "@prisma/client/edge";
 import { UserStatus, BattleType } from "@prisma/client/edge";
 
+import { BarrierTag } from "../../../libs/combat/types";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
@@ -206,12 +207,23 @@ export const travelRouter = createTRPCRouter({
         } else {
           throw new Error(`Failed to set position of right-hand user`);
         }
+        // Starting user effects
+        const userEffects: { [key: string]: any } = {};
+        for (const user of users) {
+          if (user.bloodline?.effects) {
+            userEffects[user.userId] = user.bloodline.effects;
+          }
+        }
+        // Starting ground effects
+        // TODO: Add objects with ground effects
         // Create combat entry
         const battle = await tx.battle.create({
           data: {
             battleType: BattleType.COMBAT,
             background: "forest.webp",
             usersState: users as unknown as Prisma.JsonArray,
+            usersEffects: userEffects as Prisma.JsonArray,
+            groundEffects: [] as Prisma.JsonArray,
           },
         });
         battle.usersState = [];

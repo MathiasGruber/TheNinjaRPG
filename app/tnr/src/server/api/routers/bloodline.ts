@@ -36,6 +36,13 @@ export const bloodlineRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  getBloodline: publicProcedure
+    .input(z.object({ bloodlineId: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.prisma.bloodline.findUniqueOrThrow({
+        where: { id: input.bloodlineId },
+      });
+    }),
   getRolls: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.prisma.bloodlineRolls.findUnique({
       include: { bloodline: true },
@@ -132,7 +139,7 @@ export const bloodlineRouter = createTRPCRouter({
       if (!roll) {
         throw serverError("PRECONDITION_FAILED", "You have not rolled a bloodline");
       }
-      if (BLOODLINE_COST[bloodline.rank] < user.reputation_points) {
+      if (BLOODLINE_COST[bloodline.rank] > user.reputation_points) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
       // Update bloodline

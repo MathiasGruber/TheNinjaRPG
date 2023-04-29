@@ -238,6 +238,16 @@ export const AdjustStatTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
+export const BarrierTag = z
+  .object({
+    type: type("barrier"),
+    description: msg("Creates a barrier which offers cover"),
+    battleEffect: msg("A barrier is created which offers cover"),
+  })
+  .merge(BaseAttributes)
+  .merge(MultipleRounds)
+  .merge(StatsBasedStrength);
+
 export const ClearTag = z
   .object({
     type: type("clear"),
@@ -503,7 +513,7 @@ const Item = z.object({
   cost: z.number().int().min(1),
   range: z.number().int().min(0).max(10).optional(),
   target: z.nativeEnum(AttackTarget),
-  type: z.nativeEnum(ItemType),
+  itemType: z.nativeEnum(ItemType),
   weaponType: z.nativeEnum(WeaponType).optional(),
   rarity: z.nativeEnum(ItemRarity),
   slot: z.nativeEnum(ItemSlotType),

@@ -32,7 +32,7 @@ export const itemRouter = createTRPCRouter({
         take: input.limit,
         where: {
           ...(input.itemRarity && { rarity: input.itemRarity }),
-          ...(input.itemType && { type: input.itemType }),
+          ...(input.itemType && { itemType: input.itemType }),
         },
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;

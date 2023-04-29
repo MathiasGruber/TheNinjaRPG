@@ -25,7 +25,9 @@
 	"bradlc.vscode-tailwindcss",
 	"wix.vscode-import-cost",
 	"oderwat.indent-rainbow",
-	"ms-python.python"
+	"ms-python.python",
+	"Gruntfuggly.todo-tree",
+	"yoavbls.pretty-ts-errors"
 ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],

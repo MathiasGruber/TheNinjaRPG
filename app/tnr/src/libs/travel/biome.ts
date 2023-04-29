@@ -121,7 +121,6 @@ export const getMapSprites = (
   let cost = hex.cost;
   for (let i = 0; i < density; i++) {
     const rand = prng();
-    console.log(rand);
     let sprite = null;
     let assets = null;
     if (asset === "ground") {

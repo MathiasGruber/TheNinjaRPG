@@ -525,7 +525,7 @@ model Item {
     cost            Int          @default(1)
     range           Int          @default(0)
     target          AttackTarget
-    type            ItemType
+    itemType        ItemType
     weaponType      WeaponType?
     rarity          ItemRarity
     slot            ItemSlotType
@@ -596,15 +596,16 @@ enum BattleType {
 }
 
 model Battle {
-    id           String         @id @default(cuid())
-    createdAt    DateTime       @default(now())
-    updatedAt    DateTime       @updatedAt
-    background   String
-    battleType   BattleType
-    users        UserData[]
-    usersState   Json
-    usersEffects Json
-    actions      BattleAction[]
+    id            String         @id @default(cuid())
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    background    String
+    battleType    BattleType
+    users         UserData[]
+    usersState    Json
+    usersEffects  Json
+    groundEffects Json
+    actions       BattleAction[]
 }
 
 model BattleAction {

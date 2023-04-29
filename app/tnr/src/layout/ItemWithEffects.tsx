@@ -1,6 +1,6 @@
 import React from "react";
 import ContentImage from "./ContentImage";
-import type { Bloodline, Item, Jutsu, ItemType } from "@prisma/client/edge";
+import type { Bloodline, Item, Jutsu } from "@prisma/client/edge";
 import { AttackTarget } from "@prisma/client/edge";
 import { type ZodAllTags } from "../libs/combat/types";
 
