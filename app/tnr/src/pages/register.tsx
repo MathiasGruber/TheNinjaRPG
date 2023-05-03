@@ -46,16 +46,17 @@ const Register: React.FC = () => {
   const createAvatar = api.avatar.createAvatar.useMutation();
 
   // Create character mutation
-  const createCharacter = api.register.createCharacter.useMutation({
-    onSuccess: async () => {
-      await refetchUserData();
-      createAvatar.mutate();
-      void router.push("/profile");
-    },
-    onError: (error) => {
-      show_toast("Error on character creation", error.message, "error");
-    },
-  });
+  const { mutate: createCharacter, isLoading } =
+    api.register.createCharacter.useMutation({
+      onSuccess: async () => {
+        await refetchUserData();
+        createAvatar.mutate();
+        void router.push("/profile");
+      },
+      onError: (error) => {
+        show_toast("Error on character creation", error.message, "error");
+      },
+    });
 
   // Form handling
   const {
@@ -99,9 +100,7 @@ const Register: React.FC = () => {
 
   // Handle form submit
   const handleCreateCharacter = handleSubmit(
-    (data) => {
-      createCharacter.mutate(data);
-    },
+    (data) => createCharacter(data),
     (errors) => console.error(errors)
   );
 
@@ -126,138 +125,143 @@ const Register: React.FC = () => {
     <form>
       <ContentBox
         title="Create Character"
-        subtitle="Set up your character. An AI will generate an avatar for you based on your choices."
+        subtitle="Set up your character. An AI will attempt to generate an avatar for you based on your choices."
       >
-        <div className="grid grid-cols-1 md:grid-cols-2">
-          <div>
-            <InputField
-              id="username"
-              label="Enter Username"
-              register={register}
-              error={errors.username?.message}
-            />
-            <SelectField
-              id="village"
-              label="Select Village"
-              register={register}
-              error={errors.village?.message}
-              placeholder="Pick a village"
-            >
-              {villages?.map((village) => (
-                <option key={village.id} value={village.id}>
-                  {village.name}
-                </option>
-              ))}
-            </SelectField>
-            {villages && map && (
-              <Map intersection={false} highlights={villages} hexasphere={map} />
-            )}
-          </div>
-          <div>
-            <SelectField
-              id="gender"
-              label="Gender"
-              register={register}
-              error={errors.gender?.message}
-              placeholder="Select gender"
-            >
-              {genders.map((gender, index) => (
-                <option value={gender} key={index}>
-                  {gender}
-                </option>
-              ))}
-            </SelectField>
+        {isLoading && <Loader explanation="Creating character..." />}
+        {!isLoading && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              <div>
+                <InputField
+                  id="username"
+                  label="Enter Username"
+                  register={register}
+                  error={errors.username?.message}
+                />
+                <SelectField
+                  id="village"
+                  label="Select Village"
+                  register={register}
+                  error={errors.village?.message}
+                  placeholder="Pick a village"
+                >
+                  {villages?.map((village) => (
+                    <option key={village.id} value={village.id}>
+                      {village.name}
+                    </option>
+                  ))}
+                </SelectField>
+                {villages && map && (
+                  <Map intersection={false} highlights={villages} hexasphere={map} />
+                )}
+              </div>
+              <div>
+                <SelectField
+                  id="gender"
+                  label="Gender"
+                  register={register}
+                  error={errors.gender?.message}
+                  placeholder="Select gender"
+                >
+                  {genders.map((gender, index) => (
+                    <option value={gender} key={index}>
+                      {gender}
+                    </option>
+                  ))}
+                </SelectField>
 
-            <SelectField
-              id="hair_color"
-              label="Hair Color"
-              register={register}
-              error={errors.hair_color?.message}
-            >
-              {option_colors}
-            </SelectField>
-            <SelectField
-              id="eye_color"
-              label="Eye Color"
-              register={register}
-              error={errors.eye_color?.message}
-            >
-              {option_colors}
-            </SelectField>
-            <SelectField
-              id="skin_color"
-              label="Skin Color"
-              register={register}
-              error={errors.skin_color?.message}
-            >
-              {option_skins}
-            </SelectField>
-            <SelectField
-              id="attribute_1"
-              label="Attribute #1"
-              register={register}
-              placeholder="Select Attribute"
-              error={errors.attribute_1?.message}
-            >
-              {option_attributes}
-            </SelectField>
-            <SelectField
-              id="attribute_2"
-              label="Attribute #2"
-              register={register}
-              placeholder="Select Attribute"
-              error={errors.attribute_2?.message}
-            >
-              {option_attributes}
-            </SelectField>
-            <SelectField
-              id="attribute_3"
-              label="Attribute #3"
-              register={register}
-              placeholder="Select Attribute"
-              error={errors.attribute_3?.message}
-            >
-              {option_attributes}
-            </SelectField>
-            <Button
-              id="create"
-              label="Create Character"
-              onClick={handleCreateCharacter}
-            />
-          </div>
-        </div>
+                <SelectField
+                  id="hair_color"
+                  label="Hair Color"
+                  register={register}
+                  error={errors.hair_color?.message}
+                >
+                  {option_colors}
+                </SelectField>
+                <SelectField
+                  id="eye_color"
+                  label="Eye Color"
+                  register={register}
+                  error={errors.eye_color?.message}
+                >
+                  {option_colors}
+                </SelectField>
+                <SelectField
+                  id="skin_color"
+                  label="Skin Color"
+                  register={register}
+                  error={errors.skin_color?.message}
+                >
+                  {option_skins}
+                </SelectField>
+                <SelectField
+                  id="attribute_1"
+                  label="Attribute #1"
+                  register={register}
+                  placeholder="Select Attribute"
+                  error={errors.attribute_1?.message}
+                >
+                  {option_attributes}
+                </SelectField>
+                <SelectField
+                  id="attribute_2"
+                  label="Attribute #2"
+                  register={register}
+                  placeholder="Select Attribute"
+                  error={errors.attribute_2?.message}
+                >
+                  {option_attributes}
+                </SelectField>
+                <SelectField
+                  id="attribute_3"
+                  label="Attribute #3"
+                  register={register}
+                  placeholder="Select Attribute"
+                  error={errors.attribute_3?.message}
+                >
+                  {option_attributes}
+                </SelectField>
+                <Button
+                  id="create"
+                  label="Create Character"
+                  onClick={handleCreateCharacter}
+                />
+              </div>
+            </div>
 
-        <CheckBox
-          id="read_tos"
-          label={
-            <Link href="/terms" target="_blank" rel="noopener noreferrer">
-              I have read & agree to the Terms of Service
-            </Link>
-          }
-          register={register}
-          error={errors.read_tos?.message}
-        />
-        <CheckBox
-          id="read_privacy"
-          label={
-            <Link href="/policy" target="_blank" rel="noopener noreferrer">
-              I have read & agree to the Privacy Policy
-            </Link>
-          }
-          register={register}
-          error={errors.read_privacy?.message}
-        />
-        <CheckBox
-          id="read_earlyaccess"
-          label={
-            <Link href="/policy" target="_blank" rel="noopener noreferrer">
-              I accept that this is Early Access, and things (even if purchased with
-              real money) may radically change.
-            </Link>
-          }
-          register={register}
-          error={errors.read_earlyaccess?.message}
-        />
+            <CheckBox
+              id="read_tos"
+              label={
+                <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                  I have read & agree to the Terms of Service
+                </Link>
+              }
+              register={register}
+              error={errors.read_tos?.message}
+            />
+            <CheckBox
+              id="read_privacy"
+              label={
+                <Link href="/policy" target="_blank" rel="noopener noreferrer">
+                  I have read & agree to the Privacy Policy
+                </Link>
+              }
+              register={register}
+              error={errors.read_privacy?.message}
+            />
+            <CheckBox
+              id="read_earlyaccess"
+              label={
+                <Link href="/policy" target="_blank" rel="noopener noreferrer">
+                  I accept that this is Early Access, and things (even if purchased with
+                  real money) may radically change.
+                </Link>
+              }
+              register={register}
+              error={errors.read_earlyaccess?.message}
+            />
+          </>
+        )}
       </ContentBox>
     </form>
   );

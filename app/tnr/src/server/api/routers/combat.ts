@@ -1,7 +1,32 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import type { Prisma, Battle } from "@prisma/client";
+import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+
+import { Grid, rectangle, Orientation } from "honeycomb-grid";
+import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
+import { defineHex } from "../../../libs/travel/sector";
+
 import { publicState, allState } from "../../../libs/combat/types";
-import { type ReturnedUserState } from "../../../libs/combat/types";
+import type { ReturnedUserState } from "../../../libs/combat/types";
+import { availableUserActions, performAction } from "../../../libs/combat/actions";
+import { applyEffects } from "../../../libs/combat/tags";
+
+const maskBattle = (battle: Battle, userId: string) => {
+  return {
+    ...battle,
+    usersState: (battle.usersState as unknown as ReturnedUserState[]).map((user) => {
+      if (user.userId !== userId) {
+        return Object.fromEntries(
+          publicState.map((key) => [key, user[key]])
+        ) as unknown as ReturnedUserState;
+      } else {
+        return Object.fromEntries(
+          allState.map((key) => [key, user[key]])
+        ) as unknown as ReturnedUserState;
+      }
+    }),
+  };
+};
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -13,23 +38,76 @@ export const combatRouter = createTRPCRouter({
         where: { id: input.battleId },
       });
       // Hide private state of non-session user
-      const parsedBattle = {
-        ...battle,
-        usersState: (battle.usersState as unknown as ReturnedUserState[]).map(
-          (user) => {
-            if (user.userId !== ctx.userId) {
-              return Object.fromEntries(
-                publicState.map((key) => [key, user[key]])
-              ) as unknown as ReturnedUserState;
-            } else {
-              return Object.fromEntries(
-                allState.map((key) => [key, user[key]])
-              ) as unknown as ReturnedUserState;
-            }
-          }
-        ),
-      };
+      return maskBattle(battle, ctx.userId);
+    }),
+  // Battle action
+  performAction: protectedProcedure
+    .input(
+      z.object({
+        battleId: z.string().cuid(),
+        actionId: z.string(),
+        longitude: z.number(),
+        latitude: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Fetch battle
+      const battle = await ctx.prisma.battle.findUniqueOrThrow({
+        where: { id: input.battleId },
+      });
 
-      return parsedBattle;
+      // Get valid actions
+      const usersState = battle.usersState as unknown as ReturnedUserState[];
+      const actions = availableUserActions(usersState, ctx.userId);
+      const action = actions.find((a) => a.id === input.actionId);
+      if (!action) throw serverError("PRECONDITION_FAILED", "Invalid action");
+
+      // Create the grid for the battle
+      const Tile = defineHex({ dimensions: 1, orientation: Orientation.FLAT });
+      const grid = new Grid(
+        Tile,
+        rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT })
+      ).map((tile) => {
+        tile.cost = 1;
+        return tile;
+      });
+
+      // Perform action, get latest status effects
+      const { usersEffects, groundEffects } = performAction({
+        battle,
+        grid,
+        action,
+        userId: ctx.userId,
+        longitude: input.longitude,
+        latitude: input.latitude,
+      });
+
+      // Apply relevant effects, and get back new state + active effects
+      const { newUsersState, newUsersEffects, newGroundEffects } = applyEffects(
+        usersState,
+        usersEffects,
+        groundEffects
+      );
+
+      // Update the battle
+      let newBattle: Battle | undefined = undefined;
+      try {
+        newBattle = await ctx.prisma.battle.update({
+          where: { id_version: { id: input.battleId, version: battle.version } },
+          data: {
+            version: { increment: 1 },
+            usersState: newUsersState as unknown as Prisma.JsonArray,
+            usersEffects: newUsersEffects as Prisma.JsonArray,
+            groundEffects: newGroundEffects as Prisma.JsonArray,
+          },
+        });
+      } catch (e) {
+        newBattle = await ctx.prisma.battle.findUniqueOrThrow({
+          where: { id: input.battleId },
+        });
+      }
+
+      // Return the new battle
+      return maskBattle(newBattle, ctx.userId);
     }),
 });

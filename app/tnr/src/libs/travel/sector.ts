@@ -135,6 +135,8 @@ export const drawSectorBasics = (
       mesh.userData.tile = tile;
       mesh.userData.hex = material?.color.getHex();
       mesh.userData.highlight = false;
+      mesh.userData.selected = false;
+      mesh.userData.canClick = false;
       mesh.matrixAutoUpdate = false;
       group_tiles.add(mesh);
 

@@ -23,7 +23,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
-    target: AttackTarget.OPPONENT,
+    target: AttackTarget.CHARACTER,
     range: 1,
     cooldown: 30,
     effects: [
@@ -42,7 +42,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
-    target: AttackTarget.OPPONENT,
+    target: AttackTarget.CHARACTER,
     range: 1,
     cooldown: 30,
     effects: [
@@ -65,7 +65,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.C,
     requiredRank: UserRank.GENIN,
-    target: AttackTarget.OPPONENT,
+    target: AttackTarget.CHARACTER,
     range: 2,
     cooldown: 30,
     effects: [
@@ -94,7 +94,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.B,
     requiredRank: UserRank.GENIN,
-    target: AttackTarget.OPPONENT,
+    target: AttackTarget.CHARACTER,
     range: 2,
     cooldown: 30,
     effects: [
@@ -122,7 +122,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.A,
     requiredRank: UserRank.GENIN,
-    target: AttackTarget.OPPONENT,
+    target: AttackTarget.CHARACTER,
     range: 2,
     cooldown: 30,
     effects: [

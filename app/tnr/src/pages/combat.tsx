@@ -1,19 +1,22 @@
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { AttackTarget, AttackMethod } from "@prisma/client";
 import { type NextPage } from "next";
-import Image from "next/image";
 
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
 import Combat from "../layout/Combat";
 import ActionTimer from "../layout/ActionTimer";
-import CombatActions, { ActionSelector } from "../layout/CombatActions";
+import { availableUserActions } from "../libs/combat/actions";
+import { ActionSelector } from "../layout/CombatActions";
 import { api } from "../utils/api";
 
 import { useRequiredUserData } from "../utils/UserContext";
 
 const CombatPage: NextPage = () => {
   // State
+  const [actionId, setActionId] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
 
   // Data from the DB
@@ -37,47 +40,8 @@ const CombatPage: NextPage = () => {
     }
   }, [userData, router, battle, setBattle]);
 
-  // User options
-  const user = battle?.usersState.find((u) => u.userId === userData?.userId);
-
   // Collect all possible actions for action selector
-  const actions = [
-    {
-      id: "sp",
-      name: "Stamina Attack",
-      image: "/combat/basicActions/stamina.png",
-      type: "basic" as const,
-    },
-    {
-      id: "cp",
-      name: "Chakra Attack",
-      image: "/combat/basicActions/chakra.png",
-      type: "basic" as const,
-    },
-    {
-      id: "move",
-      name: "Move",
-      image: "/combat/basicActions/move.png",
-      type: "basic" as const,
-    },
-    {
-      id: "flee",
-      name: "Flee",
-      image: "/combat/basicActions/flee.png",
-      type: "basic" as const,
-    },
-    ...(user?.jutsus
-      ? user.jutsus.map((userjutsu) => {
-          return { ...userjutsu, ...userjutsu.jutsu, type: "jutsu" as const };
-        })
-      : []),
-    ...(user?.items
-      ? user.items.map((useritem) => {
-          return { ...useritem, ...useritem.item, type: "item" as const };
-        })
-      : []),
-  ];
-  console.log(actions);
+  const actions = availableUserActions(battle?.usersState, userData?.userId);
 
   return (
     <div>
@@ -85,9 +49,15 @@ const CombatPage: NextPage = () => {
         title="Combat"
         subtitle="Sparring"
         padding={false}
-        topRightContent={battle && <ActionTimer perc={100} />}
+        topRightContent={battle && !isLoading ? <ActionTimer perc={100} /> : <Loader />}
       >
-        {battle && <Combat battle={battle} />}
+        {battle && (
+          <Combat
+            battle={battle}
+            action={actions.find((a) => a.id === actionId)}
+            setIsLoading={setIsLoading}
+          />
+        )}
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>
@@ -96,10 +66,21 @@ const CombatPage: NextPage = () => {
           items={actions}
           showBgColor={true}
           showLabels={true}
+          selectedId={actionId}
           onClick={(id) => {
-            console.log(id);
+            if (id === actionId) {
+              setActionId(undefined);
+            } else {
+              setActionId(id);
+            }
           }}
         />
+      )}
+      {actionId && (
+        <div className="pt-2 text-xs">
+          <p className="text-red-500">Red: tile not affected</p>
+          <p className="text-green-700">Green: tile affected by attack</p>
+        </div>
       )}
     </div>
   );

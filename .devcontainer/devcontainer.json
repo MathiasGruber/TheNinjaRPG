@@ -27,7 +27,8 @@
 	"oderwat.indent-rainbow",
 	"ms-python.python",
 	"Gruntfuggly.todo-tree",
-	"yoavbls.pretty-ts-errors"
+	"yoavbls.pretty-ts-errors",
+	"ms-vscode.makefile-tools"
 ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],

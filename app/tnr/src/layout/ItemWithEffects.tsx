@@ -73,7 +73,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Stackable</b>: {item.stackSize}
               </p>
             )}
-            {"range" in item && item.target !== AttackTarget.SELF && (
+            {"range" in item && item.target !== AttackTarget.CHARACTER && (
               <p>
                 <b>Range</b>: {item.range}
               </p>
@@ -125,10 +125,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {effect.adjustUp ? "Positive" : "Negative"}
                     </span>
                   )}
-                  {"minRounds" in effect && "maxRounds" in effect && (
+                  {"rounds" in effect && (
                     <span>
-                      <b>Rounds: </b>
-                      {effect.minRounds} - {effect.maxRounds}
+                      <b>Rounds: </b> {effect.rounds}
                     </span>
                   )}
                   {"calculation" in effect && (

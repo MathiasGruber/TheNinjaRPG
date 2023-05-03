@@ -8,6 +8,7 @@ import Conversation from "../layout/Conversation";
 import Button from "../layout/Button";
 import RichInput from "../layout/RichInput";
 import Confirm from "../layout/Confirm";
+import Loader from "../layout/Loader";
 import InputField from "../layout/InputField";
 import AvatarImage from "../layout/Avatar";
 import UserSearchSelect from "../layout/UserSearchSelect";
@@ -72,6 +73,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     fetchNextPage,
     hasNextPage,
     refetch,
+    isLoading,
   } = api.comments.getUserConversations.useInfiniteQuery(
     {
       limit: 10,
@@ -106,6 +108,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
   });
   return (
     <div>
+      {isLoading && <Loader explanation="Looking for conversations" />}
       {allConversations && (
         <div className="relative overflow-y-auto">
           <ul className="space-y-2">

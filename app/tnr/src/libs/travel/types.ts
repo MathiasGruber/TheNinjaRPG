@@ -27,6 +27,8 @@ export interface HexagonalFaceMesh extends THREE.Mesh {
     hex: number;
     tile: TerrainHex;
     highlight: boolean;
+    selected: boolean;
+    canClick: boolean;
   };
 }
 

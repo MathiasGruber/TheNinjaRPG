@@ -6,27 +6,48 @@ import { type Grid } from "honeycomb-grid";
 import alea from "alea";
 import Pusher from "pusher-js";
 
+import { type CombatAction } from "../libs/combat/types";
 import { type TerrainHex } from "../libs/travel/types";
 import { drawCombatBackground } from "../libs/combat/background";
-import { drawCombatUsers } from "../libs/combat/movement";
+import { drawCombatUsers, highlightTiles } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { type PathCalculator } from "../libs/travel/sector";
+import { PathCalculator } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
 import type { UserBattle } from "../utils/UserContext";
+import { api } from "../utils/api";
+import { show_toast } from "../libs/toast";
 
 interface CombatProps {
   battle: UserBattle;
+  action: CombatAction | null;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
-  const { battle } = props;
+  const { setIsLoading } = props;
+
   // References which shouldn't update
-  const pathFinder = useRef<PathCalculator | null>(null);
+  const battle = useRef<UserBattle | null>(props.battle);
+  const action = useRef<CombatAction | null>(props.action);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new Vector2();
+
+  // Mutations
+  const { mutate: performAction } = api.combat.performAction.useMutation({
+    onSuccess: (data) => {
+      battle.current = data;
+    },
+    onError: (error) => {
+      show_toast("Error acting", error.message, "error");
+    },
+    onSettled: () => {
+      document.body.style.cursor = "default";
+      setIsLoading(false);
+    },
+  });
 
   // Data from the DB
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
@@ -39,9 +60,19 @@ const Combat: React.FC<CombatProps> = (props) => {
       mouse.y = -((event.offsetY / bounding_box.height) * 2 - 1);
     }
   };
+  const onDocumentMouseLeave = () => {
+    if (mountRef.current) {
+      mouse.x = Infinity;
+      mouse.y = Infinity;
+    }
+  };
 
   useEffect(() => {
-    if (mountRef.current && battle && userData?.battleId) {
+    action.current = props.action;
+  }, [props]);
+
+  useEffect(() => {
+    if (mountRef.current && battle.current && userData?.battleId) {
       // Update the state containing sorrounding users on first load
 
       // Used for map size calculations
@@ -60,12 +91,9 @@ const Combat: React.FC<CombatProps> = (props) => {
         console.log("DATA", data);
       });
 
-      // Performance monitor
-      // const stats = new Stats();
-      // document.body.appendChild(stats.dom);
-
       // Listeners
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
+      mountRef.current.addEventListener("mouseleave", onDocumentMouseLeave, false);
 
       // Seeded noise generator for map gen
       const prng = alea(userData.battleId);
@@ -89,26 +117,15 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Draw the background
       const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        drawCombatBackground(WIDTH, HEIGHT, scene, battle.background, prng);
+        drawCombatBackground(WIDTH, HEIGHT, scene, battle.current.background, prng);
       grid.current = honeycombGrid;
 
-      // Store current highlights and create a path calculator object
-      // pathFinder.current = new PathCalculator(grid.current);
-
       // Intersections & highlights from interactions
-      // let highlights = new Set<string>();
+      let highlights = new Set<string>();
       // let currentTooltips = new Set<string>();
 
       // js groups for organization
       const group_users = new Group();
-
-      // Set the origin
-      // if (!origin.current) {
-      //   origin.current = grid?.current?.getHex({
-      //     col: userData.longitude,
-      //     row: userData.latitude,
-      //   });
-      // }
 
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -116,13 +133,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       controls.zoomSpeed = 0.3;
       controls.minZoom = 1;
       controls.maxZoom = 3;
-
-      // Set initial position of controls & camera
-      // if (isInSector && origin.current) {
-      //   const { x, y } = origin.current.center;
-      //   controls.target.set(-WIDTH / 2 - x, -HEIGHT / 2 - y, 0);
-      //   camera.position.copy(controls.target);
-      // }
 
       // Add the group to the scene
       scene.add(group_tiles);
@@ -132,41 +142,31 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Capture clicks to update move direction
       const onClick = () => {
-        const intersects = raycaster.intersectObjects(scene.children);
-        intersects
-          .filter((i) => i.object.visible)
-          .every((i) => {
-            // if (i.object.userData.type === "tile") {
-            //   const target = i.object.userData.tile as TerrainHex;
-            //   setTarget({ x: target.col, y: target.row });
-            //   return false;
-            // } else if (i.object.userData.type === "attack") {
-            //   const target = users.find((u) => u.userId === i.object.userData.userId);
-            //   if (target) {
-            //     if (
-            //       target.longitude === origin.current?.col &&
-            //       target.latitude === origin.current?.row
-            //     ) {
-            //       attack({
-            //         userId: target.userId,
-            //         longitude: target.longitude,
-            //         latitude: target.latitude,
-            //         sector: sector,
-            //       });
-            //     } else {
-            //       setTarget({ x: target.longitude, y: target.latitude });
-            //     }
-            //   }
-            //   return false;
-            // } else if (i.object.userData.type === "info") {
-            //   const userId = i.object.userData.userId as string;
-            //   void router.push(`/users/${userId}`);
-            //   return false;
-            // } else if (i.object.userData.type === "marker") {
-            //   return false;
-            // }
-            // return true;
-          });
+        if (battle.current.id) {
+          const intersects = raycaster.intersectObjects(scene.children);
+          intersects
+            .filter((i) => i.object.visible)
+            .every((i) => {
+              if (
+                i.object.userData.type === "tile" &&
+                document.body.style.cursor !== "wait"
+              ) {
+                if (i.object.userData.canClick === true && action.current) {
+                  const target = i.object.userData.tile as TerrainHex;
+                  document.body.style.cursor = "wait";
+                  setIsLoading(true);
+                  performAction({
+                    battleId: battle.current.id,
+                    actionId: action.current.id,
+                    longitude: target.col,
+                    latitude: target.row,
+                  });
+                  return false;
+                }
+              }
+              return true;
+            });
+        }
       };
       renderer.domElement.addEventListener("click", onClick, true);
 
@@ -177,13 +177,26 @@ const Combat: React.FC<CombatProps> = (props) => {
         raycaster.setFromCamera(mouse, camera);
 
         // Assume we have user, users and a grid
-        if (battle?.usersState && grid.current) {
+        if (battle.current?.usersState && grid.current) {
           // Draw all users on the map + indicators for positions with multiple users
           drawCombatUsers({
             group_users: group_users,
-            users: battle.usersState,
+            users: battle.current.usersState,
             grid: grid.current,
           });
+
+          // Detect intersections with tiles for movement
+          if (userData) {
+            highlights = highlightTiles({
+              group_tiles,
+              raycaster,
+              action: action.current,
+              userId: userData.userId,
+              users: battle.current.usersState,
+              grid: grid.current,
+              currentHighlights: highlights,
+            });
+          }
         }
 
         // Trackball updates
@@ -206,6 +219,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         console.log("CLEARING COMBAT");
         window.removeEventListener("resize", handleResize);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
+        mountRef.current?.removeEventListener("mouseleave", onDocumentMouseLeave);
         mountRef.current = null;
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
@@ -215,7 +229,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         void refetchUser();
       };
     }
-  }, [battle]);
+  }, []);
 
   return <div ref={mountRef}></div>;
 };

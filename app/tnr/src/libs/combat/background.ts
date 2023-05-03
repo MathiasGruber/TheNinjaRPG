@@ -72,7 +72,7 @@ export const drawCombatBackground = (
   const lineMaterial = new LineBasicMaterial({ color: 0x000000 });
   const material = new MeshBasicMaterial({
     color: 0x000000,
-    opacity: 0,
+    opacity: 0.1,
     transparent: true,
   });
   // Draw the tiles
@@ -91,6 +91,8 @@ export const drawCombatBackground = (
       mesh.userData.tile = tile;
       mesh.userData.hex = material?.color.getHex();
       mesh.userData.highlight = false;
+      mesh.userData.selected = false;
+      mesh.userData.canClick = false;
       mesh.matrixAutoUpdate = false;
       group_tiles.add(mesh);
 

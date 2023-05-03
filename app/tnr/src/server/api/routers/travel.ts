@@ -207,7 +207,10 @@ export const travelRouter = createTRPCRouter({
         } else {
           throw new Error(`Failed to set position of right-hand user`);
         }
-        // Starting user effects
+        // Starting user effects from bloodlines & items
+        // TODO: Add effects from items, i.e. equipped armor & accessory
+        // TODO: Remove armor & assesory items from inventory before adding to battle
+        // TODO: Convert to list
         const userEffects: { [key: string]: any } = {};
         for (const user of users) {
           if (user.bloodline?.effects) {

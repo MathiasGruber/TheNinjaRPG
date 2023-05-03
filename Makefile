@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=docs,prototype_migrations,makemigrations,yarn
+ARGS_TARGETS=docs,prototype_migrations,makemigrations,createmigrations,yarn
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -60,15 +60,22 @@ prototype_migrations: # Prototype migrations locally
 	@echo "${YELLOW}Run prisma db push ${RESET}"
 	docker exec -it tnr_app yarn prisma db push
 
-.PHONY: makemigrations
+.PHONY: createmigrations
 makemigrations: # Create local migrations
+	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
+	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS} --create-only
+	docker restart tnr_app
+	cd app/tnr && yarn install
+
+.PHONY: makemigrations
+makemigrations: # Create & apply local migrations
 	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
 	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS}
 	docker restart tnr_app
 	cd app/tnr && yarn install
 
 .PHONY: yarn
-yarn: # Create local migrations
+yarn: # Run yarn command in app container
 	@echo "${YELLOW}Run yarn ${RESET}"
 	docker exec -it tnr_app yarn ${ARGS}
 	docker restart tnr_app

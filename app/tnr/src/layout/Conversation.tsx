@@ -10,6 +10,7 @@ import { CommentOnConversation } from "../layout/Comment";
 import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
 import Button from "../layout/Button";
+import Loader from "../layout/Loader";
 
 import { useUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
@@ -38,6 +39,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     fetchNextPage,
     hasNextPage,
     refetch,
+    isLoading,
   } = api.comments.getConversationComments.useInfiniteQuery(
     {
       convo_id: props.convo_id,
@@ -49,6 +51,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       enabled: props.convo_id !== undefined || props.convo_title !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const allComments = coments?.pages.map((page) => page.data).flat();
@@ -72,16 +75,16 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     }
   }, [conversation, setValue]);
 
-  const createComment = api.comments.createConversationComment.useMutation({
-    onSuccess: async () => {
-      reset();
-      setEditorKey((prev) => prev + 1);
-      await refetch();
-    },
-    onError: (error) => {
-      show_toast("Error on creating new thread", error.message, "error");
-    },
-  });
+  const { mutate: createComment, isLoading: isCommenting } =
+    api.comments.createConversationComment.useMutation({
+      onSuccess: async () => {
+        reset();
+        setEditorKey((prev) => prev + 1);
+      },
+      onError: (error) => {
+        show_toast("Error on creating new thread", error.message, "error");
+      },
+    });
 
   useEffect(() => {
     if (conversation) {
@@ -99,14 +102,13 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   }, [conversation, refetch]);
 
   const handleSubmitComment = handleSubmit(
-    (data) => {
-      createComment.mutate(data);
-    },
+    (data) => createComment(data),
     (errors) => console.error(errors)
   );
 
   return (
     <div key={props.refreshKey}>
+      {isLoading && <Loader explanation="Loading data" />}
       {conversation && !conversation.isLocked && userData && !userData.isBanned && (
         <ContentBox
           title={props.title}
@@ -124,19 +126,22 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                 error={errors.comment?.message}
               />
               <div className="flex flex-row-reverse">
-                <Button
-                  id="submit_comment"
-                  label="Send Message"
-                  image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                  onClick={handleSubmitComment}
-                />
+                {isCommenting && <Loader />}
+                {!isCommenting && (
+                  <Button
+                    id="submit_comment"
+                    label="Send Message"
+                    image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                    onClick={handleSubmitComment}
+                  />
+                )}
                 {props.chatbox_options}
               </div>
             </div>
           </form>
         </ContentBox>
       )}
-      {allComments && allComments.length > 0 && (
+      {!isLoading && allComments && allComments.length > 0 && (
         <ContentBox title="Messages">
           {allComments.map((comment, i) => {
             return (

@@ -26,7 +26,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
     <>
       <div
         className={`grid grid-cols-6 text-xs md:grid-cols-8 ${
-          props.showBgColor ? "bg-slate-50" : ""
+          props.showBgColor ? "border-b-2 border-l-2 border-r-2 bg-slate-50" : ""
         }`}
       >
         {props.items?.map((item, i) => {
@@ -34,17 +34,13 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           if (item.type === "jutsu") {
             bgColor = "bg-blue-100";
           } else if (item.type === "item") {
-            console.log("item", item);
             if ("itemType" in item) {
-              console.log(item);
-              if (item.itemType === "weapon") {
-                bgColor = "bg-red-100";
-              } else if (item.itemType === "armor") {
-                bgColor = "bg-green-100";
-              } else if (item.itemType === "consumable") {
-                bgColor = "bg-yellow-100";
+              if (item.itemType === "WEAPON") {
+                bgColor = "bg-red-200";
+              } else if (item.itemType === "CONSUMABLE") {
+                bgColor = "bg-green-200";
               } else {
-                bgColor = "bg-purple-100";
+                bgColor = "bg-purple-200";
               }
             } else {
               bgColor = "bg-purple-100";
