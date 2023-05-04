@@ -489,6 +489,7 @@ model Jutsu {
     healthCostPerc    Float        @default(0)
     chakraCostPerc    Float        @default(0.05)
     staminaCostPerc   Float        @default(0)
+    actionCostPerc    Float        @default(80)
     bloodline         Bloodline?   @relation(fields: [bloodlineId], references: [id])
     bloodlineId       String?
     village           Village?     @relation(fields: [villageId], references: [id])
@@ -531,8 +532,10 @@ model Item {
     canStack        Boolean      @default(false)
     stackSize       Int          @default(1)
     destroyOnUse    Boolean      @default(false)
+    healthCostPerc  Float        @default(0)
     chakraCostPerc  Float        @default(0)
     staminaCostPerc Float        @default(0)
+    actionCostPerc  Float        @default(60)
     cost            Int          @default(1)
     range           Int          @default(0)
     target          AttackTarget

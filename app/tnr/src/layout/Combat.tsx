@@ -6,13 +6,13 @@ import { type Grid } from "honeycomb-grid";
 import alea from "alea";
 import Pusher from "pusher-js";
 
-import { type CombatAction } from "../libs/combat/types";
+import { ReturnedUserState, type CombatAction } from "../libs/combat/types";
 import { type TerrainHex } from "../libs/travel/types";
 import { drawCombatBackground } from "../libs/combat/background";
 import { drawCombatUsers, highlightTiles } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { PathCalculator } from "../libs/travel/sector";
+import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { useRequiredUserData } from "../utils/UserContext";
 import type { UserBattle } from "../utils/UserContext";
 import { api } from "../utils/api";
@@ -22,11 +22,13 @@ interface CombatProps {
   battle: UserBattle;
   action: CombatAction | null;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
+  console.log("COMBAT LAYOUT COMPONENT");
   // Destructure props
-  const { setIsLoading } = props;
+  const { setIsLoading, setActionPerc } = props;
 
   // References which shouldn't update
   const battle = useRef<UserBattle | null>(props.battle);
@@ -66,6 +68,25 @@ const Combat: React.FC<CombatProps> = (props) => {
       mouse.y = Infinity;
     }
   };
+  const getActionPerc = (user: ReturnedUserState) => {
+    const timePassed = (Date.now() - new Date(user.updatedAt).getTime()) / 1000;
+    return Math.min((timePassed / COMBAT_SECONDS) * 100, 100);
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (battle.current) {
+        const user = battle.current.usersState.find(
+          (u) => u.userId === userData?.userId
+        );
+        if (user?.updatedAt) {
+          setActionPerc(getActionPerc(user));
+        }
+        //setActionPerc(50);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [setActionPerc, userData]);
 
   useEffect(() => {
     action.current = props.action;
@@ -142,7 +163,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Capture clicks to update move direction
       const onClick = () => {
-        if (battle.current.id) {
+        if (battle.current) {
           const intersects = raycaster.intersectObjects(scene.children);
           intersects
             .filter((i) => i.object.visible)

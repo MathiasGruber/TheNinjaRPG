@@ -6,6 +6,7 @@ import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { defineHex } from "../../../libs/travel/sector";
 
+import type { GroundEffect, UserEffect } from "../../../libs/combat/types";
 import { publicState, allState } from "../../../libs/combat/types";
 import type { ReturnedUserState } from "../../../libs/combat/types";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
@@ -58,6 +59,8 @@ export const combatRouter = createTRPCRouter({
 
       // Get valid actions
       const usersState = battle.usersState as unknown as ReturnedUserState[];
+      const usersEffects = battle.usersEffects as unknown as UserEffect[];
+      const groundEffects = battle.groundEffects as unknown as GroundEffect[];
       const actions = availableUserActions(usersState, ctx.userId);
       const action = actions.find((a) => a.id === input.actionId);
       if (!action) throw serverError("PRECONDITION_FAILED", "Invalid action");
@@ -73,14 +76,22 @@ export const combatRouter = createTRPCRouter({
       });
 
       // Perform action, get latest status effects
-      const { usersEffects, groundEffects } = performAction({
-        battle,
+      const check = performAction({
+        usersState,
+        usersEffects,
+        groundEffects,
         grid,
         action,
         userId: ctx.userId,
         longitude: input.longitude,
         latitude: input.latitude,
       });
+      if (!check) {
+        throw serverError(
+          "PRECONDITION_FAILED",
+          "Action not possible, did your opponent already move?"
+        );
+      }
 
       // Apply relevant effects, and get back new state + active effects
       const { newUsersState, newUsersEffects, newGroundEffects } = applyEffects(

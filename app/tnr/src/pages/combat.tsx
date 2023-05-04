@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
-import { AttackTarget, AttackMethod } from "@prisma/client";
 import { type NextPage } from "next";
 
 import ContentBox from "../layout/ContentBox";
@@ -17,7 +16,7 @@ const CombatPage: NextPage = () => {
   // State
   const [actionId, setActionId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [updatedAt, setUpdatedAt] = useState<number>(0);
+  const [actionPerc, setActionPerc] = useState<number | undefined>(undefined);
 
   // Data from the DB
   const { data: userData, setBattle } = useRequiredUserData();
@@ -42,6 +41,21 @@ const CombatPage: NextPage = () => {
 
   // Collect all possible actions for action selector
   const actions = availableUserActions(battle?.usersState, userData?.userId);
+  const action = actions.find((a) => a.id === actionId);
+
+  // Three.js scene
+  const combat = useMemo(() => {
+    return (
+      battle && (
+        <Combat
+          battle={battle}
+          action={actions.find((a) => a.id === actionId)}
+          setActionPerc={setActionPerc}
+          setIsLoading={setIsLoading}
+        />
+      )
+    );
+  }, [battle, actionId]);
 
   return (
     <div>
@@ -49,15 +63,17 @@ const CombatPage: NextPage = () => {
         title="Combat"
         subtitle="Sparring"
         padding={false}
-        topRightContent={battle && !isLoading ? <ActionTimer perc={100} /> : <Loader />}
+        topRightContent={
+          battle && (
+            <ActionTimer
+              actionPerc={actionPerc}
+              isLoading={isLoading}
+              action={action}
+            />
+          )
+        }
       >
-        {battle && (
-          <Combat
-            battle={battle}
-            action={actions.find((a) => a.id === actionId)}
-            setIsLoading={setIsLoading}
-          />
-        )}
+        {!isFetching && combat}
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>

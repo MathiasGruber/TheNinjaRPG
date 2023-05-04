@@ -32,6 +32,7 @@ export const publicState = [
   "latitude",
   "location",
   "sector",
+  "updatedAt",
 ] as const;
 
 export const privateState = [
@@ -79,6 +80,10 @@ export type CombatAction = {
   target: AttackTarget;
   method: AttackMethod;
   range: number;
+  healthCostPerc: number;
+  chakraCostPerc: number;
+  staminaCostPerc: number;
+  actionCostPerc: number;
   effects: ZodAllTags[];
   data?: Jutsu | Item;
   level?: number;
@@ -91,6 +96,7 @@ export type CombatAction = {
 export interface DrawnCombatUser {
   userId: string;
   username: string;
+  updatedAt: string;
   cur_health: number;
   max_health: number;
   cur_stamina?: number;
@@ -502,6 +508,7 @@ const Jutsu = z.object({
   healthCostPerc: z.number().min(0).max(100).optional(),
   chakraCostPerc: z.number().min(0).max(100).optional(),
   staminaCostPerc: z.number().min(0).max(100).optional(),
+  actionCostPerc: z.number().int().min(1).max(100).optional(),
   cooldown: z.number().int().min(1).max(300),
   effects: z.array(AllTags),
 });
@@ -549,6 +556,7 @@ const Item = z.object({
   destroyOnUse: z.boolean().optional(),
   chakraCostPerc: z.number().int().min(1).max(100).optional(),
   staminaCostPerc: z.number().int().min(1).max(100).optional(),
+  actionCostPerc: z.number().int().min(1).max(100).optional(),
   cost: z.number().int().min(1),
   range: z.number().int().min(0).max(10).optional(),
   target: z.nativeEnum(AttackTarget),

@@ -11,10 +11,12 @@ import {
 import { AttackMethod, AttackTarget } from "@prisma/client";
 import { Grid, spiral, line, ring, fromCoordinates } from "honeycomb-grid";
 import type { TerrainHex } from "../travel/types";
+import { COMBAT_SECONDS, COMBAT_PREMOVE_SECONDS } from "./constants";
 
 import { findHex } from "../travel/sector";
 import type { HexagonalFaceMesh } from "../travel/types";
-import type { DrawnCombatUser, CombatAction } from "./types";
+import type { DrawnCombatUser, CombatAction, ReturnedUserState } from "./types";
+import { secondsPassed } from "../../utils/time";
 
 /**
  * Draw a status bar on user
@@ -201,6 +203,15 @@ export const isValidMove = (info: {
   return false;
 };
 
+export const actionSecondsAfterAction = (
+  user: { updatedAt: string | Date },
+  action: CombatAction
+) => {
+  const passed = Math.min(secondsPassed(new Date(user.updatedAt)), COMBAT_SECONDS);
+  const timeCost = action.actionCostPerc * COMBAT_SECONDS;
+  return passed - timeCost;
+};
+
 export const getAffectedTiles = (info: {
   a: TerrainHex;
   b: TerrainHex;
@@ -301,10 +312,15 @@ export const highlightTiles = (info: {
     }
   }
 
+  // Check if we have enough action points to perform action
+  const canAct =
+    user && action && actionSecondsAfterAction(user, action) >= -COMBAT_PREMOVE_SECONDS;
+  const hit = intersects.length > 0 && intersects[0];
+
   // Highlight intersected tile
   const newSelection = new Set<string>();
-  if (action && origin && highlights && intersects.length > 0 && intersects[0]) {
-    const intersected = intersects[0].object as HexagonalFaceMesh;
+  if (action && origin && highlights && hit && canAct) {
+    const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
 
     // Based on the intersected tile, highlight the tiles which are affected.
@@ -333,7 +349,11 @@ export const highlightTiles = (info: {
       mesh.material.color = new Color("rgb(255, 0, 0)");
       newSelection.add(name);
     });
-    if (document.body.style.cursor === "default" && green.size > 0) {
+
+    if (
+      (document.body.style.cursor === "default" || document.body.style.cursor === "") &&
+      green.size > 0
+    ) {
       document.body.style.cursor = "pointer";
     } else if (document.body.style.cursor === "pointer" && green.size === 0) {
       document.body.style.cursor = "default";
