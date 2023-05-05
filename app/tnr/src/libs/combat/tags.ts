@@ -45,7 +45,10 @@ export const applyEffects = (
   active.forEach((e) => {
     if (e.type === "damage") {
       const target = usersState.find((u) => u.userId === e.targetId);
-      if (target) target.cur_health -= 10;
+      if (target) {
+        target.cur_health -= 10;
+        target.cur_health = Math.max(0, target.cur_health);
+      }
     } else if (e.type === "flee") {
       // TODO: Flee from battle
     }

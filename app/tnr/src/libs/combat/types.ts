@@ -7,6 +7,7 @@ import type {
   Item,
   Bloodline,
   AttackMethod,
+  UserStatus,
 } from "@prisma/client";
 import { UserRank } from "@prisma/client/edge";
 import { AttackTarget } from "@prisma/client/edge";
@@ -33,6 +34,8 @@ export const publicState = [
   "location",
   "sector",
   "updatedAt",
+  "elo_pvp",
+  "elo_pve",
 ] as const;
 
 export const privateState = [
@@ -71,6 +74,29 @@ export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
     bloodline?: Bloodline;
     hex?: TerrainHex;
   };
+
+export type CombatResult = {
+  experience: number;
+  elo_pvp: number;
+  elo_pve: number;
+  cur_health: number;
+  cur_stamina: number;
+  cur_chakra: number;
+  strength: number;
+  intelligence: number;
+  willpower: number;
+  speed: number;
+  ninjutsu_offence: number;
+  ninjutsu_defence: number;
+  genjutsu_offence: number;
+  genjutsu_defence: number;
+  taijutsu_offence: number;
+  taijutsu_defence: number;
+  bukijutsu_offence: number;
+  bukijutsu_defence: number;
+  friendsLeft: number;
+  opponentsLeft: number;
+};
 
 export type CombatAction = {
   id: string;

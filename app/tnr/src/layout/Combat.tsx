@@ -1,26 +1,33 @@
 import React from "react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 import { Vector2, OrthographicCamera, Group } from "three";
-import { type Grid } from "honeycomb-grid";
 import alea from "alea";
 import Pusher from "pusher-js";
+import type { Grid } from "honeycomb-grid";
 
-import { ReturnedUserState, type CombatAction } from "../libs/combat/types";
-import { type TerrainHex } from "../libs/travel/types";
+import Button from "../layout/Button";
 import { drawCombatBackground } from "../libs/combat/background";
 import { drawCombatUsers, highlightTiles } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { useRequiredUserData } from "../utils/UserContext";
-import type { UserBattle } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import type { UserBattle } from "../utils/UserContext";
+import type {
+  ReturnedUserState,
+  CombatAction,
+  CombatResult,
+} from "../libs/combat/types";
+import type { TerrainHex } from "../libs/travel/types";
 
 interface CombatProps {
   battle: UserBattle;
   action: CombatAction | null;
+  result: CombatResult | null;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
 }
@@ -29,6 +36,14 @@ const Combat: React.FC<CombatProps> = (props) => {
   console.log("COMBAT LAYOUT COMPONENT");
   // Destructure props
   const { setIsLoading, setActionPerc } = props;
+
+  // Conclusino of battle
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [results, setResults] = useState<CombatResult | null>(props.result);
+  console.log(results);
+
+  // Router for forwarding
+  const router = useRouter();
 
   // References which shouldn't update
   const battle = useRef<UserBattle | null>(props.battle);
@@ -40,7 +55,8 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Mutations
   const { mutate: performAction } = api.combat.performAction.useMutation({
     onSuccess: (data) => {
-      battle.current = data;
+      battle.current = data.battle;
+      if (data.results) setResults(data.results);
     },
     onError: (error) => {
       show_toast("Error acting", error.message, "error");
@@ -252,7 +268,25 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   }, []);
 
-  return <div ref={mountRef}></div>;
+  return (
+    <>
+      <div ref={mountRef}></div>
+      {results && (
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-80">
+          <div className="text-center text-white">
+            <p className="p-5  text-3xl">Battle Over</p>
+            <div className="p-5">
+              <Button
+                id="return"
+                onClick={() => router.push("/profile")}
+                label="Return to Dashboard"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 export default Combat;

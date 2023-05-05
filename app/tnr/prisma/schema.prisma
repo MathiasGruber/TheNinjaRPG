@@ -3,7 +3,7 @@
 
 generator client {
     provider        = "prisma-client-js"
-    previewFeatures = ["filteredRelationCount"]
+    previewFeatures = ["filteredRelationCount", "fieldReference"]
 }
 
 datasource db {
@@ -33,6 +33,7 @@ enum FederalStatus {
 
 enum UserStatus {
     AWAKE
+    HOSPITALIZED
     TRAVEL
     BATTLE
 }
@@ -65,9 +66,11 @@ model UserData {
     // Financials
     money                   Int                   @default(100)
     bank                    Int                   @default(100)
+    // ELO ratings
+    elo_pvp                 Int                   @default(1)
+    elo_pve                 Int                   @default(1)
     // Experience
     experience              Int                   @default(0)
-    pvp_experience          Int                   @default(0)
     // Rank & Village
     rank                    UserRank              @default(STUDENT)
     level                   Int                   @default(1)

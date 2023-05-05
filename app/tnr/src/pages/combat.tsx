@@ -20,7 +20,7 @@ const CombatPage: NextPage = () => {
 
   // Data from the DB
   const { data: userData, setBattle } = useRequiredUserData();
-  const { data: battle, isFetching } = api.combat.getBattle.useQuery(
+  const { data, isFetching } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId ?? "1337" },
     {
       enabled: !!userData,
@@ -34,28 +34,29 @@ const CombatPage: NextPage = () => {
     if (userData && !userData.battleId) {
       void router.push("/profile");
     }
-    if (battle) {
-      setBattle(battle);
+    if (data) {
+      setBattle(data.battle);
     }
-  }, [userData, router, battle, setBattle]);
+  }, [userData, router, data, setBattle]);
 
   // Collect all possible actions for action selector
-  const actions = availableUserActions(battle?.usersState, userData?.userId);
+  const actions = availableUserActions(data?.battle.usersState, userData?.userId);
   const action = actions.find((a) => a.id === actionId);
 
   // Three.js scene
   const combat = useMemo(() => {
     return (
-      battle && (
+      data && (
         <Combat
-          battle={battle}
+          battle={data.battle}
+          result={data.results}
           action={actions.find((a) => a.id === actionId)}
           setActionPerc={setActionPerc}
           setIsLoading={setIsLoading}
         />
       )
     );
-  }, [battle, actionId]);
+  }, [data, actionId]);
 
   return (
     <div>
@@ -64,7 +65,8 @@ const CombatPage: NextPage = () => {
         subtitle="Sparring"
         padding={false}
         topRightContent={
-          battle && (
+          data &&
+          !data.results && (
             <ActionTimer
               actionPerc={actionPerc}
               isLoading={isLoading}
@@ -77,7 +79,7 @@ const CombatPage: NextPage = () => {
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>
-      {battle && (
+      {data && !data.results && (
         <ActionSelector
           items={actions}
           showBgColor={true}

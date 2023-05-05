@@ -1,33 +1,18 @@
 import { z } from "zod";
 import type { Prisma, Battle } from "@prisma/client";
+import { UserStatus } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
+import { VILLAGE_LONG, VILLAGE_LAT } from "../../../libs/travel/constants";
 import { defineHex } from "../../../libs/travel/sector";
 
 import type { GroundEffect, UserEffect } from "../../../libs/combat/types";
-import { publicState, allState } from "../../../libs/combat/types";
 import type { ReturnedUserState } from "../../../libs/combat/types";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
 import { applyEffects } from "../../../libs/combat/tags";
-
-const maskBattle = (battle: Battle, userId: string) => {
-  return {
-    ...battle,
-    usersState: (battle.usersState as unknown as ReturnedUserState[]).map((user) => {
-      if (user.userId !== userId) {
-        return Object.fromEntries(
-          publicState.map((key) => [key, user[key]])
-        ) as unknown as ReturnedUserState;
-      } else {
-        return Object.fromEntries(
-          allState.map((key) => [key, user[key]])
-        ) as unknown as ReturnedUserState;
-      }
-    }),
-  };
-};
+import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -39,7 +24,21 @@ export const combatRouter = createTRPCRouter({
         where: { id: input.battleId },
       });
       // Hide private state of non-session user
-      return maskBattle(battle, ctx.userId);
+      const newMaskedBattle = maskBattle(battle, ctx.userId);
+
+      // Calculate if the battle is over for this user, and if so update user DB
+      const results = calcBattleResult(newMaskedBattle.usersState, ctx.userId);
+
+      // Delete the battle if it's done
+      const battleOver = results?.friendsLeft === 1 && results?.targetsLeft === 0;
+      if (battleOver) {
+        void (await ctx.prisma.battle.delete({
+          where: { id: input.battleId },
+        }));
+      }
+
+      // Return the new battle + result state if applicable
+      return { battle: newMaskedBattle, results: results };
     }),
   // Battle action
   performAction: protectedProcedure
@@ -100,6 +99,44 @@ export const combatRouter = createTRPCRouter({
         groundEffects
       );
 
+      // Calculate if the battle is over for this user, and if so update user DB
+      const results = calcBattleResult(newUsersState, ctx.userId);
+
+      // Apply battle result to user
+      if (results) {
+        void (await ctx.prisma.userData.update({
+          where: { userId: ctx.userId },
+          data: {
+            experience: { increment: results.experience },
+            //elo_pve: { increment: results.elo_pve },
+            //elo_pvp: { increment: results.elo_pvp },
+            cur_health: results.cur_health,
+            cur_stamina: results.cur_stamina,
+            cur_chakra: results.cur_chakra,
+            strength: { increment: results.strength },
+            intelligence: { increment: results.intelligence },
+            willpower: { increment: results.willpower },
+            speed: { increment: results.speed },
+            ninjutsu_offence: { increment: results.ninjutsu_offence },
+            genjutsu_offence: { increment: results.genjutsu_offence },
+            taijutsu_offence: { increment: results.taijutsu_offence },
+            bukijutsu_offence: { increment: results.bukijutsu_offence },
+            ninjutsu_defence: { increment: results.ninjutsu_defence },
+            genjutsu_defence: { increment: results.genjutsu_defence },
+            taijutsu_defence: { increment: results.taijutsu_defence },
+            bukijutsu_defence: { increment: results.bukijutsu_defence },
+            // Conditional on win/loss
+            ...(results.cur_health < 0
+              ? {
+                  status: UserStatus.HOSPITALIZED,
+                  longitude: VILLAGE_LONG,
+                  latitude: VILLAGE_LAT,
+                }
+              : { status: UserStatus.AWAKE }),
+          },
+        }));
+      }
+
       // Update the battle
       let newBattle: Battle | undefined = undefined;
       try {
@@ -118,7 +155,16 @@ export const combatRouter = createTRPCRouter({
         });
       }
 
-      // Return the new battle
-      return maskBattle(newBattle, ctx.userId);
+      // Delete the battle if it's done
+      const battleOver = results?.friendsLeft === 1 && results?.targetsLeft === 0;
+      if (battleOver) {
+        void (await ctx.prisma.battle.delete({
+          where: { id: input.battleId },
+        }));
+      }
+
+      // Return the new battle + results state if applicable
+      const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+      return { battle: newMaskedBattle, results: results };
     }),
 });

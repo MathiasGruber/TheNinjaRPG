@@ -202,12 +202,15 @@ export const performAction = (info: {
     if (affectedTiles.size > 0) {
       if (user.cur_chakra && user.max_chakra) {
         user.cur_chakra -= action.chakraCostPerc * user.max_chakra;
+        user.cur_chakra = Math.max(0, user.cur_chakra);
       }
       if (user.cur_stamina && user.max_stamina) {
         user.cur_stamina -= action.staminaCostPerc * user.max_stamina;
+        user.cur_stamina = Math.max(0, user.cur_stamina);
       }
       if (user.cur_health && user.max_health) {
         user.cur_health -= action.healthCostPerc * user.max_health;
+        user.cur_health = Math.max(0, user.cur_health);
       }
       user.updatedAt = secondsFromNow(-newSeconds);
       return true;

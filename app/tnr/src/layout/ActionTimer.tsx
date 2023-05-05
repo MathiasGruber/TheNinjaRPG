@@ -11,8 +11,8 @@ interface ActionTimerProps {
 
 const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   const { action, actionPerc, isLoading } = props;
-  let label = "";
-  let color = "";
+  let label = "Select Action";
+  let color = "/combat/actionTimer/green.webp";
   if (actionPerc && action) {
     const preMovePerc = COMBAT_PREMOVE_SECONDS / COMBAT_SECONDS;
     const cost = action.actionCostPerc * 100;
