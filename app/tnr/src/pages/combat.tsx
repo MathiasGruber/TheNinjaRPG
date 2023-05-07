@@ -49,7 +49,7 @@ const CombatPage: NextPage = () => {
       data && (
         <Combat
           battle={data.battle}
-          result={data.results}
+          result={data.result}
           action={actions.find((a) => a.id === actionId)}
           setActionPerc={setActionPerc}
           setIsLoading={setIsLoading}
@@ -66,7 +66,7 @@ const CombatPage: NextPage = () => {
         padding={false}
         topRightContent={
           data &&
-          !data.results && (
+          !data.result && (
             <ActionTimer
               actionPerc={actionPerc}
               isLoading={isLoading}
@@ -79,7 +79,7 @@ const CombatPage: NextPage = () => {
         {!userData?.battleId && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
       </ContentBox>
-      {data && !data.results && (
+      {data && !data.result && (
         <ActionSelector
           items={actions}
           showBgColor={true}

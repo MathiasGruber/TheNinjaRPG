@@ -153,9 +153,12 @@ const Sector: React.FC<SectorProps> = (props) => {
     onError: (error) => {
       show_toast("Error moving", error.message, "error");
     },
+    onSettled: () => {
+      document.body.style.cursor = "default";
+    },
   });
 
-  const { mutate: attack } = api.travel.attackUser.useMutation({
+  const { mutate: attack, isLoading: isAttacking } = api.travel.attackUser.useMutation({
     onSuccess: async (data) => {
       await refetchUser();
       console.log("Called Attack Endpoint. Data: ", data);
@@ -174,6 +177,9 @@ const Sector: React.FC<SectorProps> = (props) => {
     onError: (error) => {
       show_toast("Error attacking", error.message, "error");
     },
+    onSettled: () => {
+      document.body.style.cursor = "default";
+    },
   });
 
   useEffect(() => {
@@ -183,6 +189,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       const path = pathFinder.current.getShortestPath(origin.current, targetHex);
       const next = path?.[1];
       if (next) {
+        document.body.style.cursor = "wait";
         move({
           longitude: next.col,
           latitude: next.row,
@@ -309,6 +316,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                   target.longitude === origin.current?.col &&
                   target.latitude === origin.current?.row
                 ) {
+                  document.body.style.cursor = "wait";
                   attack({
                     userId: target.userId,
                     longitude: target.longitude,

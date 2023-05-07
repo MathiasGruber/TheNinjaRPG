@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Prisma, type PrismaClient } from "@prisma/client/edge";
 import { UserStatus, BattleType } from "@prisma/client/edge";
 
-import { BarrierTag } from "../../../libs/combat/types";
+import { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
@@ -210,13 +210,13 @@ export const travelRouter = createTRPCRouter({
         // Starting user effects from bloodlines & items
         // TODO: Add effects from items, i.e. equipped armor & accessory
         // TODO: Remove armor & assesory items from inventory before adding to battle
-        // TODO: Convert to list
-        const userEffects: { [key: string]: any } = {};
+        const userEffects: UserEffect[] = [];
         for (const user of users) {
           if (user.bloodline?.effects) {
-            userEffects[user.userId] = user.bloodline.effects;
+            userEffects.push(...(user.bloodline.effects as UserEffect[]));
           }
         }
+        console.log(userEffects);
         // Starting ground effects
         // TODO: Add objects with ground effects
         // Create combat entry

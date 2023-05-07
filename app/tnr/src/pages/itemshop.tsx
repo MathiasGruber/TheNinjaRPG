@@ -13,6 +13,7 @@ import { UncontrolledSliderField } from "../layout/SliderField";
 import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUserData } from "../utils/UserContext";
 
+import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 
@@ -24,6 +25,7 @@ const ItemShop: NextPage = () => {
   const [stacksize, setStacksize] = useState<number>(1);
   const [itemtype, setItemtype] = useState<ItemType>(ItemType.WEAPON);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const isAwake = useAwake(userData);
 
   // Data
   const {
@@ -65,97 +67,102 @@ const ItemShop: NextPage = () => {
   const canAfford = item && userData && userData.money >= item.cost;
 
   return (
-    <ContentBox
-      title="Shop"
-      subtitle="Buy items"
-      back_href="/village"
-      topRightContent={
-        <>
-          <div className="flex flex-row">
-            <SelectField
-              id="itemtype"
-              onChange={(e) => {
-                setItemtype(e.target.value as ItemType);
-                setItem(undefined);
-              }}
-            >
-              {Object.values(ItemType).map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-        </>
-      }
-    >
-      {isFetching && <Loader explanation="Loading data" />}
-      {!isFetching && userData && (
-        <>
-          <ActionSelector
-            items={allItems}
-            counts={userItems}
-            selectedId={item?.id}
-            labelSingles={true}
-            onClick={(id) => {
-              if (id == item?.id) {
-                setItem(undefined);
-                setIsOpen(false);
-              } else {
-                setItem(allItems?.find((item) => item.id === id));
-                setIsOpen(true);
-              }
-            }}
-            showBgColor={false}
-            showLabels={false}
-          />
-          {isOpen && item && (
-            <Modal
-              title="Confirm Purchase"
-              proceed_label={
-                isPurchasing
-                  ? undefined
-                  : canAfford
-                  ? `Buy for ${item.cost * stacksize} ryo`
-                  : `Need ${item.cost * stacksize - userData.money} more ryo`
-              }
-              setIsOpen={setIsOpen}
-              isValid={false}
-              onAccept={() => {
-                if (canAfford) {
-                  purchase({ itemId: item.id, stack: stacksize });
-                } else {
-                  setIsOpen(false);
-                }
-              }}
-              confirmClassName={
-                canAfford
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-red-600 text-white hover:bg-red-700"
-              }
-            >
-              <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-              {!isPurchasing && (
-                <>
-                  <ItemWithEffects item={item} key={item.id} />
-                  {item.canStack && (
-                    <UncontrolledSliderField
-                      id="stackSize"
-                      label={`How many to buy: ${stacksize}`}
-                      value={stacksize}
-                      min={1}
-                      max={item.stackSize}
-                      setValue={setStacksize}
-                    />
+    <>
+      {isAwake && (
+        <ContentBox
+          title="Shop"
+          subtitle="Buy items"
+          back_href="/village"
+          topRightContent={
+            <>
+              <div className="flex flex-row">
+                <SelectField
+                  id="itemtype"
+                  onChange={(e) => {
+                    setItemtype(e.target.value as ItemType);
+                    setItem(undefined);
+                  }}
+                >
+                  {Object.values(ItemType).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </SelectField>
+              </div>
+            </>
+          }
+        >
+          {isFetching && <Loader explanation="Loading data" />}
+          {!isFetching && userData && (
+            <>
+              <ActionSelector
+                items={allItems}
+                counts={userItems}
+                selectedId={item?.id}
+                labelSingles={true}
+                onClick={(id) => {
+                  if (id == item?.id) {
+                    setItem(undefined);
+                    setIsOpen(false);
+                  } else {
+                    setItem(allItems?.find((item) => item.id === id));
+                    setIsOpen(true);
+                  }
+                }}
+                showBgColor={false}
+                showLabels={false}
+              />
+              {isOpen && item && (
+                <Modal
+                  title="Confirm Purchase"
+                  proceed_label={
+                    isPurchasing
+                      ? undefined
+                      : canAfford
+                      ? `Buy for ${item.cost * stacksize} ryo`
+                      : `Need ${item.cost * stacksize - userData.money} more ryo`
+                  }
+                  setIsOpen={setIsOpen}
+                  isValid={false}
+                  onAccept={() => {
+                    if (canAfford) {
+                      purchase({ itemId: item.id, stack: stacksize });
+                    } else {
+                      setIsOpen(false);
+                    }
+                  }}
+                  confirmClassName={
+                    canAfford
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  }
+                >
+                  <p className="pb-3">You have {userData.money} ryo in your pocket</p>
+                  {!isPurchasing && (
+                    <>
+                      <ItemWithEffects item={item} key={item.id} />
+                      {item.canStack && (
+                        <UncontrolledSliderField
+                          id="stackSize"
+                          label={`How many to buy: ${stacksize}`}
+                          value={stacksize}
+                          min={1}
+                          max={item.stackSize}
+                          setValue={setStacksize}
+                        />
+                      )}
+                    </>
                   )}
-                </>
+                  {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
+                </Modal>
               )}
-              {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
-            </Modal>
+            </>
           )}
-        </>
+        </ContentBox>
       )}
-    </ContentBox>
+      {!isAwake && <Loader explanation="Loading userdata" />}
+    </>
   );
 };
 

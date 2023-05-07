@@ -1,10 +1,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LetterRank, type Bloodline } from "@prisma/client/edge";
+import { LetterRank, UserStatus, type Bloodline } from "@prisma/client/edge";
 import { type NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
+import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";
 
+import Countdown from "../layout/Countdown";
 import Confirm from "../layout/Confirm";
 import Button from "../layout/Button";
 import Loader from "../layout/Loader";
@@ -19,10 +21,16 @@ import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "../libs/bloodline";
 import { api } from "../utils/api";
 import { useInfinitePagination } from "../libs/pagination";
 import { show_toast } from "../libs/toast";
+import { calcHealFinish } from "../libs/hospital/hospital";
+import { calcHealCost } from "../libs/hospital/hospital";
 
 const Hospital: NextPage = () => {
   // Settings
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const isHospitalized = userData?.status === UserStatus.HOSPITALIZED;
+  const hospitalName = userData?.village?.name
+    ? userData.village.name + " Hospital"
+    : "Hospital";
 
   // Get data from DB
   const {
@@ -31,9 +39,24 @@ const Hospital: NextPage = () => {
     refetch,
   } = api.bloodline.getRolls.useQuery(undefined, { staleTime: Infinity });
 
+  // Mutations
+  const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
+    onSuccess: async () => {
+      await refetchUser();
+      show_toast("Hospital", "You have been healed", "success");
+    },
+    onError: (error) => {
+      show_toast("Error healing", error.message, "error");
+    },
+  });
+
   // Derived calculations
   const hasRolled = !!prevRoll;
   const bloodlineId = userData?.bloodlineId;
+
+  // Heal finish time
+  const healFinishAt = userData && calcHealFinish(userData);
+  const healCost = userData && calcHealCost(userData);
 
   return (
     <>
@@ -42,7 +65,34 @@ const Hospital: NextPage = () => {
         subtitle="All your medical needs"
         back_href="/village"
       >
-        WIP
+        <div>
+          Welcome to the {hospitalName}. Experience expert care, advanced technology,
+          and ancient remedies in our serene facility. Pay according to your injury and
+          duration of stay, ensuring fair access for all. Restore your strength, spirit,
+          and honor.
+        </div>
+        {!isLoading && isHospitalized && userData && healFinishAt && (
+          <div className="grid grid-cols-2 py-3">
+            <Button
+              id="check"
+              disabled={healFinishAt && healFinishAt > new Date()}
+              label={<div>Wait ({<Countdown targetDate={userData.regenAt} />})</div>}
+              image={<ClockIcon className="mr-3 h-6 w-6" />}
+              onClick={() => heal()}
+            />
+            <Button
+              id="check"
+              disabled={healFinishAt && healFinishAt < new Date()}
+              label={<div>Get out now {healCost && <span>({healCost} ryo)</span>}</div>}
+              image={<ForwardIcon className="mr-3 h-6 w-6" />}
+              onClick={() => heal()}
+            />
+          </div>
+        )}
+        {!isLoading && !isHospitalized && userData && (
+          <p className="py-3">You are not at the hospital.</p>
+        )}
+        {isLoading && <Loader explanation="Healing User" />}
       </ContentBox>
       <br />
 
@@ -307,13 +357,9 @@ const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
               At the hospital, skilled doctors and geneticists use advanced technology
               to analyze the DNA of each patient. They search for specific genetic
               markers that indicate the presence of a rare and powerful bloodline, known
-              only to a select few ninja clans. If the patient&apos;s DNA contains these
-              markers, they are deemed to possess the unique bloodline and granted
-              special abilities that can be honed through training and practice.
-              However, the process is not without risks, and some patients may
-              experience side effects or complications as a result of their newfound
-              powers - the hospital therefore offers removal of native bloodlines free
-              of charge.
+              only to a select few ninja clans. Some patients may experience side
+              effects or complications as a result of their newfound powers - the
+              hospital therefore offers removal of native bloodlines free of charge.
             </p>
           )}
 

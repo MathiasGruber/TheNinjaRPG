@@ -135,7 +135,6 @@ export const profileRouter = createTRPCRouter({
           max_chakra: true,
           level: true,
           village: true,
-          pvp_experience: true,
           reputation_points: true,
           popularity_points: true,
           experience: true,

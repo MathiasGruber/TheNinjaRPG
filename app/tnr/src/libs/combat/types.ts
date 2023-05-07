@@ -73,6 +73,7 @@ export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
     })[];
     bloodline?: Bloodline;
     hex?: TerrainHex;
+    leftBattle?: boolean;
   };
 
 export type CombatResult = {
@@ -95,7 +96,7 @@ export type CombatResult = {
   bukijutsu_offence: number;
   bukijutsu_defence: number;
   friendsLeft: number;
-  opponentsLeft: number;
+  targetsLeft: number;
 };
 
 export type CombatAction = {

@@ -9,13 +9,13 @@ import NavBar from "./NavBar";
 import Footer from "./Footer";
 
 import { ToastContainer } from "react-toastify";
-import { UserContext } from "../utils/UserContext";
+import { UserContext, UserBattle } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Current user battle
-  const [battle, setBattle] = useState<undefined | Battle>(undefined);
+  const [battle, setBattle] = useState<undefined | UserBattle>(undefined);
   // Get logged in user
   const { userId, isSignedIn } = useAuth();
   // Get user data

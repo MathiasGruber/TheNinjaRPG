@@ -111,6 +111,7 @@ model UserData {
     // Timers
     createdAt               DateTime              @default(now())
     updatedAt               DateTime              @default(now()) @updatedAt
+    regenAt                 DateTime              @default(now())
     deletionAt              DateTime?
     travelFinishAt          DateTime?
     // Jutsus & items

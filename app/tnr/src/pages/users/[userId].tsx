@@ -61,7 +61,6 @@ const PublicProfile: NextPage = () => {
                 <b>Experience</b>
                 <p>Experience: {profile.experience}</p>
                 <p>Experience for lvl: ---</p>
-                <p>PVP Experience: {profile.pvp_experience}</p>
                 <br />
                 <b>Special</b>
                 <p>Reputation points: {profile.reputation_points}</p>

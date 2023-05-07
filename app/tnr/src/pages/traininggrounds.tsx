@@ -14,6 +14,8 @@ import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
 import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../libs/jutsu/jutsu";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
+
+import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 
@@ -25,6 +27,7 @@ const Training: NextPage = () => {
   const [jutsu, setJutsu] = useState<JutsuWithRelation | undefined>(undefined);
   const [rarity, setRarity] = useState<LetterRank>(LetterRank.D);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const isAwake = useAwake(userData);
   const now = new Date();
 
   // Jutsus
@@ -89,92 +92,97 @@ const Training: NextPage = () => {
   const canAfford = userData && trainCost && userData.money >= trainCost;
 
   return (
-    <ContentBox
-      title="Training"
-      subtitle="Jutsu Techniques"
-      back_href="/village"
-      topRightContent={
-        <>
-          <div className="grow"></div>
-          <NavTabs
-            current={rarity}
-            options={["D", "C", "B", "A", "S"]}
-            setValue={setRarity}
-          />
-        </>
-      }
-    >
-      {!isFetching && userData && (
-        <>
-          <ActionSelector
-            items={alljutsus}
-            counts={userJutsuCounts}
-            selectedId={jutsu?.id}
-            labelSingles={true}
-            onClick={(id) => {
-              if (id == jutsu?.id) {
-                setJutsu(undefined);
-                setIsOpen(false);
-              } else {
-                setJutsu(alljutsus?.find((jutsu) => jutsu.id === id));
-                setIsOpen(true);
-              }
-            }}
-            showBgColor={false}
-            showLabels={true}
-          />
-          {isOpen && jutsu && (
-            <Modal
-              title="Confirm Purchase"
-              proceed_label={
-                !isStartingTrain
-                  ? canTrain && canAfford && trainSeconds && trainCost
-                    ? `Train [${trainSeconds}, ${trainCost} ryo]`
-                    : canAfford
-                    ? "Not Available"
-                    : `Need ${trainCost - userData.money} more ryo`
-                  : undefined
-              }
-              setIsOpen={setIsOpen}
-              isValid={false}
-              onAccept={() => {
-                if (canTrain && canAfford && !isStartingTrain) {
-                  train({ jutsuId: jutsu.id });
-                } else {
-                  setIsOpen(false);
-                }
-              }}
-              confirmClassName={
-                canTrain && canAfford
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-red-600 text-white hover:bg-red-700"
-              }
-            >
-              <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-              {!isStartingTrain && <ItemWithEffects item={jutsu} key={jutsu.id} />}
-              {isStartingTrain && <Loader explanation={`Training ${jutsu.name}`} />}
-            </Modal>
-          )}
-        </>
-      )}
-      {isFetching && <Loader explanation="Loading jutsu" />}
-      {finishTrainingAt?.finishTraining && (
-        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
-          <div className="m-auto text-center text-white">
-            <p className="p-5  text-3xl">Training</p>
-            <p className="text-2xl">
-              Time Left:{" "}
-              <Countdown
-                targetDate={finishTrainingAt.finishTraining}
-                onFinish={async () => {
-                  await refetchUserJutsu();
-                }}
+    <>
+      {isAwake && (
+        <ContentBox
+          title="Training"
+          subtitle="Jutsu Techniques"
+          back_href="/village"
+          topRightContent={
+            <>
+              <div className="grow"></div>
+              <NavTabs
+                current={rarity}
+                options={["D", "C", "B", "A", "S"]}
+                setValue={setRarity}
               />
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        >
+          {!isFetching && userData && (
+            <>
+              <ActionSelector
+                items={alljutsus}
+                counts={userJutsuCounts}
+                selectedId={jutsu?.id}
+                labelSingles={true}
+                onClick={(id) => {
+                  if (id == jutsu?.id) {
+                    setJutsu(undefined);
+                    setIsOpen(false);
+                  } else {
+                    setJutsu(alljutsus?.find((jutsu) => jutsu.id === id));
+                    setIsOpen(true);
+                  }
+                }}
+                showBgColor={false}
+                showLabels={true}
+              />
+              {isOpen && jutsu && (
+                <Modal
+                  title="Confirm Purchase"
+                  proceed_label={
+                    !isStartingTrain
+                      ? canTrain && canAfford && trainSeconds && trainCost
+                        ? `Train [${trainSeconds}, ${trainCost} ryo]`
+                        : canAfford
+                        ? "Not Available"
+                        : `Need ${trainCost - userData.money} more ryo`
+                      : undefined
+                  }
+                  setIsOpen={setIsOpen}
+                  isValid={false}
+                  onAccept={() => {
+                    if (canTrain && canAfford && !isStartingTrain) {
+                      train({ jutsuId: jutsu.id });
+                    } else {
+                      setIsOpen(false);
+                    }
+                  }}
+                  confirmClassName={
+                    canTrain && canAfford
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  }
+                >
+                  <p className="pb-3">You have {userData.money} ryo in your pocket</p>
+                  {!isStartingTrain && <ItemWithEffects item={jutsu} key={jutsu.id} />}
+                  {isStartingTrain && <Loader explanation={`Training ${jutsu.name}`} />}
+                </Modal>
+              )}
+            </>
+          )}
+          {isFetching && <Loader explanation="Loading jutsu" />}
+          {finishTrainingAt?.finishTraining && (
+            <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
+              <div className="m-auto text-center text-white">
+                <p className="p-5  text-3xl">Training</p>
+                <p className="text-2xl">
+                  Time Left:{" "}
+                  <Countdown
+                    targetDate={finishTrainingAt.finishTraining}
+                    onFinish={async () => {
+                      await refetchUserJutsu();
+                    }}
+                  />
+                </p>
+              </div>
+            </div>
+          )}
+        </ContentBox>
       )}
-    </ContentBox>
+      {!isAwake && <Loader explanation="Loading userdata" />}
+    </>
   );
 };
 

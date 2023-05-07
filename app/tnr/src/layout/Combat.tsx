@@ -38,7 +38,6 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { setIsLoading, setActionPerc } = props;
 
   // Conclusino of battle
-  const [showModal, setShowModal] = useState<boolean>(false);
   const [results, setResults] = useState<CombatResult | null>(props.result);
   console.log(results);
 
@@ -56,7 +55,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { mutate: performAction } = api.combat.performAction.useMutation({
     onSuccess: (data) => {
       battle.current = data.battle;
-      if (data.results) setResults(data.results);
+      if (data.result) setResults(data.result);
     },
     onError: (error) => {
       show_toast("Error acting", error.message, "error");
@@ -274,11 +273,16 @@ const Combat: React.FC<CombatProps> = (props) => {
       {results && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-80">
           <div className="text-center text-white">
-            <p className="p-5  text-3xl">Battle Over</p>
+            <p className="p-5 pb-2 text-3xl">Battle Over</p>
+            {results.elo_pvp && <p>Your PVP rating: {results.elo_pvp}</p>}
+            {results.experience > 0 && <p>Experience Points: {results.experience}</p>}
             <div className="p-5">
               <Button
                 id="return"
-                onClick={() => router.push("/profile")}
+                onClick={async () => {
+                  void router.push("/profile");
+                  await refetchUser();
+                }}
                 label="Return to Dashboard"
               />
             </div>

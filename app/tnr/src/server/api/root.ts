@@ -13,6 +13,7 @@ import { bloodlineRouter } from "./routers/bloodline";
 import { jutsuRouter } from "./routers/jutsu";
 import { itemRouter } from "./routers/item";
 import { combatRouter } from "./routers/combat";
+import { hospitalRouter } from "./routers/hospital";
 
 /**
  * This is the primary router for your server.
@@ -34,6 +35,7 @@ export const appRouter = createTRPCRouter({
   jutsu: jutsuRouter,
   item: itemRouter,
   combat: combatRouter,
+  hospital: hospitalRouter,
 });
 
 // export type definition of API
