@@ -246,6 +246,10 @@ export const travelRouter = createTRPCRouter({
         if (result !== 2) {
           throw new Error(`Attack failed, did the target move?`);
         }
+        // Push websockets message to target
+        const pusher = getServerPusher();
+        void pusher.trigger(input.userId, "event", { type: "battle" });
+        // Return the battle
         return battle;
       });
       return battle;

@@ -8,7 +8,6 @@ import { useRouter } from "next/router";
 import { type Village, type UserData } from "@prisma/client";
 import { type Grid } from "honeycomb-grid";
 import alea from "alea";
-// import Stats from "three/examples/jsm/libs/stats.module";
 import Pusher from "pusher-js";
 
 import AvatarImage from "./Avatar";
@@ -24,7 +23,8 @@ import { OrbitControls } from "../libs/travel/OrbitControls";
 import { getBackgroundColor } from "../libs/travel/biome";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { drawSectorBasics, drawVillage, drawUsers } from "../libs/travel/sector";
-import { intersectUsers, intersectTiles } from "../libs/travel/sector";
+import { intersectUsers } from "../libs/travel/sector";
+import { intersectTiles } from "../libs/travel/sector";
 import { PathCalculator, findHex } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
@@ -45,6 +45,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { sector, target, setTarget, setPosition } = props;
 
   // State pertaining to the sector
+  const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
 
@@ -159,20 +160,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   const { mutate: attack, isLoading: isAttacking } = api.travel.attackUser.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       await refetchUser();
-      console.log("Called Attack Endpoint. Data: ", data);
-      // if (data) {
-      //   updateUsersList({
-      //     ...userData,
-      //     longitude: data.longitude,
-      //     latitude: data.latitude,
-      //     location: data.location,
-      //   } as UserData);
-      //   if (data.location !== userData?.location) {
-      //     await refetchUser();
-      //   }
-      // }
+      await router.push("/combat");
     },
     onError: (error) => {
       show_toast("Error attacking", error.message, "error");
@@ -317,6 +307,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                   target.latitude === origin.current?.row
                 ) {
                   document.body.style.cursor = "wait";
+                  setTargetUser(target);
                   attack({
                     userId: target.userId,
                     longitude: target.longitude,
@@ -339,13 +330,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           });
       };
       renderer.domElement.addEventListener("click", onClick, true);
-
-      // Add some more users for testing
-      // if (users[0]) {
-      //   for (let i = 0; i < 16; i++) {
-      //     users.push({ ...users[0], userId: i.toString() });
-      //   }
-      // }
 
       // Render the image
       let lastTime = Date.now();
@@ -429,6 +413,22 @@ const Sector: React.FC<SectorProps> = (props) => {
           userId={userData.userId}
           hex={origin.current}
         />
+      )}
+      {targetUser && isAttacking && (
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black">
+          <div className="m-auto text-center text-white">
+            <p className="p-5  text-3xl">
+              <AvatarImage
+                href={targetUser.avatar}
+                userId={targetUser.userId}
+                alt={targetUser.username}
+                size={256}
+                priority
+              />
+            </p>
+            <p className="text-5xl">Attacking {targetUser.username}</p>
+          </div>
+        </div>
       )}
     </>
   );

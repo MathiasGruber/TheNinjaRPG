@@ -65,6 +65,14 @@ export const profileRouter = createTRPCRouter({
           color: "red",
         });
       }
+      // Is in hospital
+      if (user.status === UserStatus.HOSPITALIZED) {
+        notifications?.push({
+          href: "/hospital",
+          name: "In hospital",
+          color: "red",
+        });
+      }
     }
     return { userData: user, notifications: notifications };
   }),

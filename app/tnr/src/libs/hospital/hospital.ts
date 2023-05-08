@@ -5,14 +5,14 @@ export const calcHealCost = (user: UserData) => {
   return user.max_health - user.cur_health;
 };
 
-export const healTimeLeft = (user: UserData) => {
+export const healSecondsLeft = (user: UserData) => {
   const seconds = secondsPassed(new Date(user.regenAt));
-  const healedIn = Math.min(15 * 60 - seconds, 0);
+  const healedIn = Math.max(15 * 60 - seconds, 0);
   return healedIn;
 };
 
 export const calcHealFinish = (user: UserData) => {
-  const timeLeft = healTimeLeft(user);
+  const timeLeft = healSecondsLeft(user);
   const healedAt = secondsFromNow(timeLeft);
   return healedAt;
 };

@@ -11,6 +11,7 @@ import type { ReturnedUserState } from "../../../libs/combat/types";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
 import { applyEffects } from "../../../libs/combat/tags";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
+import { getServerPusher } from "../../../libs/pusher";
 import { applyBattleResult } from "../../../libs/combat/util";
 
 export const combatRouter = createTRPCRouter({
@@ -130,6 +131,13 @@ export const combatRouter = createTRPCRouter({
 
       // Return the new battle + results state if applicable
       const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+
+      // Update over websockets
+      const pusher = getServerPusher();
+      const privateBattle = maskBattle(newBattle, "no_id");
+      void pusher.trigger(battle.id, "event", privateBattle);
+
+      // Return masked battle
       return { battle: newMaskedBattle, result: result };
     }),
 });

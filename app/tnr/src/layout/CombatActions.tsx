@@ -9,6 +9,7 @@ interface ActionSelectorProps {
     rarity?: ItemRarity;
     type?: "jutsu" | "item" | "basic";
     highlight?: boolean;
+    hidden?: boolean;
   }[];
   counts?: {
     id: string;
@@ -30,6 +31,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
         }`}
       >
         {props.items?.map((item, i) => {
+          if (item.hidden) return <></>;
           let bgColor = "";
           if (item.type === "jutsu") {
             bgColor = "bg-blue-100";

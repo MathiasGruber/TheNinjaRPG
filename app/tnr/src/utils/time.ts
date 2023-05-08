@@ -33,11 +33,11 @@ export const getTimeLeftStr = (
   if (days > 0) {
     return `${days} days, ${hours} hours`;
   } else if (hours > 0) {
-    return `${hours} hours, ${minutes} minutes`;
+    return `${hours} hours, ${minutes} mins`;
   } else if (minutes > 0) {
-    return `${minutes} minutes, ${seconds} seconds`;
+    return `${minutes} mins, ${seconds} secs`;
   } else if (seconds > 0) {
-    return `${seconds} seconds`;
+    return `${seconds} secs`;
   }
   return "0 seconds";
 };

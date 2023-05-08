@@ -1,13 +1,12 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../travel/types";
-import { COMBAT_SECONDS } from "./constants";
 import type { ReturnedUserState, CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 import { MoveTag, DamageTag, FleeTag } from "./types";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeUserTag, realizeGroundTag } from "./tags";
-import { secondsFromNow, secondsPassed } from "../../utils/time";
+import { secondsFromNow } from "../../utils/time";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -18,6 +17,21 @@ export const availableUserActions = (
 ): CombatAction[] => {
   const user = usersState?.find((u) => u.userId === userId);
   return [
+    {
+      id: "wait",
+      name: "Wait",
+      image: "/combat/basicActions/stamina.png",
+      type: "basic" as const,
+      target: AttackTarget.SELF,
+      method: AttackMethod.SINGLE,
+      healthCostPerc: 0,
+      chakraCostPerc: 0,
+      staminaCostPerc: 0,
+      actionCostPerc: 0,
+      range: 0,
+      effects: [],
+      hidden: true,
+    },
     {
       id: "sp",
       name: "Stamina Attack",

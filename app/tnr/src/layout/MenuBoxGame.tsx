@@ -27,6 +27,8 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   }
 
   const inBattle = userData.status === UserStatus.BATTLE;
+  const inHospital = userData.status === UserStatus.HOSPITALIZED;
+  const notAwake = inBattle || inHospital;
 
   return (
     <MenuBox title="Main Menu">
@@ -56,8 +58,12 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
       )}
       <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
         {systems.map((system, i) => {
-          const battleDisable = system.combatRedirect && inBattle;
-          const href = battleDisable ? "/combat" : system.href;
+          const disabled = system.requireAwake && notAwake;
+          let href = system.href;
+          if (disabled) {
+            if (inBattle) href = "/combat";
+            if (inHospital) href = "/hospital";
+          }
           return (
             <Link
               key={i}
@@ -66,7 +72,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
             >
               <li
                 className={`flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
-                  battleDisable ? "opacity-30" : "hover:bg-orange-200"
+                  disabled ? "opacity-30" : "hover:bg-orange-200"
                 } ${system.className ? system.className : ""}`}
               >
                 <div className="grow">{system.name}</div>
@@ -77,9 +83,9 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
         })}
       </ul>
       {location && (
-        <div className={inBattle && location.combatRedirect ? "opacity-30" : ""}>
+        <div className={inBattle && location.requireAwake ? "opacity-30" : ""}>
           <Link
-            href={inBattle && location.combatRedirect ? "/combat" : "/village"}
+            href={inBattle && location.requireAwake ? "/combat" : "/village"}
             className="hidden pt-3 text-center md:block"
           >
             {location.icon}

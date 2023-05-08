@@ -41,7 +41,7 @@ const Countdown: React.FC<CountdownProps> = (props) => {
     }
   }, [countDown, countString, targetTime, props]);
 
-  return <span className={props.className}> {countString}</span>;
+  return <span className={props.className}>{countString}</span>;
 };
 
 export default Countdown;

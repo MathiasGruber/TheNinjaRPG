@@ -26,6 +26,11 @@ export type UserBattle = {
   battleType: BattleType;
 };
 
+// Events sent to the user from websockets
+export type UserEvent = {
+  type: "battle";
+};
+
 // User (& current battle) context
 export const UserContext = createContext<{
   data: UserDataWithRelations;

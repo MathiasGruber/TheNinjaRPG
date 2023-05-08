@@ -97,7 +97,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         if (user?.updatedAt) {
           setActionPerc(getActionPerc(user));
         }
-        //setActionPerc(50);
       }
     }, 50);
     return () => clearInterval(interval);
@@ -109,8 +108,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
-      // Update the state containing sorrounding users on first load
-
       // Used for map size calculations
       const backgroundLengthToWidth = 576 / 1024;
 
@@ -123,8 +120,32 @@ const Combat: React.FC<CombatProps> = (props) => {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
       });
       const channel = pusher.subscribe(userData.battleId.toString());
-      channel.bind("event", (data: any) => {
-        console.log("DATA", data);
+      channel.bind("event", (data: UserBattle) => {
+        battle.current = {
+          ...data,
+          usersState: data.usersState.map((user) => {
+            const existingUser = battle.current?.usersState.find(
+              (u) => u.userId === user.userId
+            );
+            if (existingUser) {
+              return { ...existingUser, ...user };
+            } else {
+              return user;
+            }
+          }),
+        };
+        // If user hits 0 health, submit a wait action, which will fetch result & update
+        const user = battle.current.usersState?.find(
+          (u) => u.userId === userData.userId
+        );
+        if (user && user.cur_health <= 0) {
+          performAction({
+            battleId: battle.current.id,
+            actionId: "wait",
+            longitude: user.longitude,
+            latitude: user.latitude,
+          });
+        }
       });
 
       // Listeners
@@ -241,9 +262,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         // Render the scene
         animationId = requestAnimationFrame(render);
         renderer.render(scene, camera);
-
-        // Performance monitor
-        // stats.update(); // TODO: Remove this
       }
       render();
 
@@ -271,7 +289,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     <>
       <div ref={mountRef}></div>
       {results && (
-        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-80">
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
             <p className="p-5 pb-2 text-3xl">Battle Over</p>
             {results.elo_pvp && <p>Your PVP rating: {results.elo_pvp}</p>}
@@ -280,10 +298,16 @@ const Combat: React.FC<CombatProps> = (props) => {
               <Button
                 id="return"
                 onClick={async () => {
-                  void router.push("/profile");
+                  if (results.cur_health <= 0) {
+                    console.log("Direct to hospital");
+                    await router.push("/hospital");
+                  } else {
+                    console.log("Direct to profile");
+                    await router.push("/profile");
+                  }
                   await refetchUser();
                 }}
-                label="Return to Dashboard"
+                label={`Return to ${results.cur_health <= 0 ? "Hospital" : "Profile"}`}
               />
             </div>
           </div>

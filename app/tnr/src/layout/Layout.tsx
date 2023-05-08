@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { type Battle } from "@prisma/client";
+import React, { useState, useEffect } from "react";
+import Pusher from "pusher-js";
 
 import Header from "./Header";
 import Link from "next/link";
@@ -9,7 +9,8 @@ import NavBar from "./NavBar";
 import Footer from "./Footer";
 
 import { ToastContainer } from "react-toastify";
-import { UserContext, UserBattle } from "../utils/UserContext";
+import { UserContext } from "../utils/UserContext";
+import type { UserBattle, UserEvent } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 
@@ -27,6 +28,24 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
     enabled: !!userId,
     staleTime: Infinity,
   });
+
+  // Listen on user channel for live updates on things
+  useEffect(() => {
+    if (userId) {
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+      });
+      const channel = pusher.subscribe(userId);
+      channel.bind("event", async (data: UserEvent) => {
+        if (data.type === "battle") {
+          await refetchUser();
+        }
+      });
+      return () => {
+        pusher.unsubscribe(userId);
+      };
+    }
+  }, [userId, refetchUser]);
 
   return (
     <>

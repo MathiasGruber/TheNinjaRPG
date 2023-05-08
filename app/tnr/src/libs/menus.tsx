@@ -18,7 +18,7 @@ import { calcIsInVillage } from "./travel/controls";
 export interface NavBarDropdownLink {
   href: string;
   name: string;
-  combatRedirect?: boolean;
+  requireAwake?: boolean;
   className?: string;
   color?: "default" | "red" | "green" | "blue";
   icon?: ReactNode;
@@ -85,19 +85,19 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
     {
       href: "/travel",
       name: "Travel",
-      combatRedirect: true,
+      requireAwake: true,
       icon: <GlobeAmericasIcon key="travel" className="h-6 w-6" />,
     },
     {
       href: "/jutsus",
       name: "Jutsus",
-      combatRedirect: true,
+      requireAwake: true,
       icon: <FireIcon key="jutsus" className="h-6 w-6" />,
     },
     {
       href: "/items",
       name: "Items",
-      combatRedirect: true,
+      requireAwake: true,
       icon: <UserIcon key="items" className="h-6 w-6" />,
     },
     {
@@ -120,7 +120,7 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
     systems.push({
       href: "/village",
       name: "Village",
-      combatRedirect: true,
+      requireAwake: true,
       className: "block md:hidden",
       icon: <BuildingStorefrontIcon key="village" className="h-6 w-6" />,
     });
@@ -128,7 +128,7 @@ export const getMainGameLinks = (userData: UserDataWithRelations) => {
     location = {
       href: "/village",
       name: "Village",
-      combatRedirect: true,
+      requireAwake: true,
       className: "lg:hidden",
       icon: (
         <div>

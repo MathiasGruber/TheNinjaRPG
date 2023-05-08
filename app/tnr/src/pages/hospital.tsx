@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { LetterRank, UserStatus, type Bloodline } from "@prisma/client/edge";
 import { type NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
@@ -32,6 +33,9 @@ const Hospital: NextPage = () => {
     ? userData.village.name + " Hospital"
     : "Hospital";
 
+  // Router for forwarding
+  const router = useRouter();
+
   // Get data from DB
   const {
     data: prevRoll,
@@ -43,6 +47,7 @@ const Hospital: NextPage = () => {
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
     onSuccess: async () => {
       await refetchUser();
+      await router.push("/profile");
       show_toast("Hospital", "You have been healed", "success");
     },
     onError: (error) => {
@@ -57,6 +62,7 @@ const Hospital: NextPage = () => {
   // Heal finish time
   const healFinishAt = userData && calcHealFinish(userData);
   const healCost = userData && calcHealCost(userData);
+  const canAfford = userData && healCost && userData.money >= healCost;
 
   return (
     <>
@@ -67,23 +73,25 @@ const Hospital: NextPage = () => {
       >
         <div>
           Welcome to the {hospitalName}. Experience expert care, advanced technology,
-          and ancient remedies in our serene facility. Pay according to your injury and
-          duration of stay, ensuring fair access for all. Restore your strength, spirit,
-          and honor.
+          and ancient remedies in our serene facility. You may pay according to your
+          injury to expedite your treatment, or wait until the doctors have time to
+          patch you up, ensuring fair access for all. Our aim is to help restore your
+          strength, spirit, and honor.
         </div>
         {!isLoading && isHospitalized && userData && healFinishAt && (
           <div className="grid grid-cols-2 py-3">
             <Button
               id="check"
               disabled={healFinishAt && healFinishAt > new Date()}
-              label={<div>Wait ({<Countdown targetDate={userData.regenAt} />})</div>}
+              label={<div>Wait ({<Countdown targetDate={healFinishAt} />})</div>}
               image={<ClockIcon className="mr-3 h-6 w-6" />}
               onClick={() => heal()}
             />
             <Button
               id="check"
+              color={canAfford ? "default" : "red"}
               disabled={healFinishAt && healFinishAt < new Date()}
-              label={<div>Get out now {healCost && <span>({healCost} ryo)</span>}</div>}
+              label={<div>Pay {healCost && <span>({healCost} ryo)</span>}</div>}
               image={<ForwardIcon className="mr-3 h-6 w-6" />}
               onClick={() => heal()}
             />

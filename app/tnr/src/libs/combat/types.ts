@@ -1,14 +1,6 @@
 import { z } from "zod";
-import type {
-  UserData,
-  UserJutsu,
-  Jutsu,
-  UserItem,
-  Item,
-  Bloodline,
-  AttackMethod,
-  UserStatus,
-} from "@prisma/client";
+import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
+import { Jutsu, Item, Bloodline } from "@prisma/client";
 import { UserRank } from "@prisma/client/edge";
 import { AttackTarget } from "@prisma/client/edge";
 import { LetterRank } from "@prisma/client/edge";
@@ -17,7 +9,7 @@ import { ItemType } from "@prisma/client/edge";
 import { WeaponType } from "@prisma/client/edge";
 import { ItemRarity } from "@prisma/client/edge";
 import { ItemSlotType } from "@prisma/client/edge";
-import { TerrainHex } from "../travel/types";
+import type { TerrainHex } from "../travel/types";
 
 /**
  * Which state is public / private on users
@@ -115,6 +107,7 @@ export type CombatAction = {
   data?: Jutsu | Item;
   level?: number;
   quantity?: number;
+  hidden?: boolean;
 };
 
 /**

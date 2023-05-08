@@ -423,9 +423,11 @@ export const intersectUsers = (info: {
       const info = userMesh?.children[3] as Sprite;
       if (attack && userData.userId !== userId) attack.visible = true;
       if (info) info.visible = true;
+      document.body.style.cursor = "pointer";
       newUserTooltips.add(userMesh.name);
     }
   }
+
   currentTooltips.forEach((userId) => {
     if (!newUserTooltips.has(userId)) {
       const user = group_users.getObjectByName(userId);
@@ -435,6 +437,8 @@ export const intersectUsers = (info: {
       }
     }
   });
+
+  if (currentTooltips.size === 0) document.body.style.cursor = "default";
   return newUserTooltips;
 };
 
