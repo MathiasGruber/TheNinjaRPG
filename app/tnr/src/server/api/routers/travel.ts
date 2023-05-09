@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma, type PrismaClient } from "@prisma/client";
+// import { Redis } from "@upstash/redis";
 import { UserStatus, BattleType } from "@prisma/client";
 
 import { UserEffect, GroundEffect } from "../../../libs/combat/types";
@@ -12,6 +13,8 @@ import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow, secondsPassed } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";
 import * as map from "../../../../public/map/hexasphere.json";
+
+// const redis = Redis.fromEnv();
 
 export const travelRouter = createTRPCRouter({
   // Get users within a given sector
@@ -230,6 +233,7 @@ export const travelRouter = createTRPCRouter({
         // Starting ground effects
         // TODO: Add objects with ground effects
         // Create combat entry
+        // console.time("set prisma");
         const battle = await tx.battle.create({
           data: {
             battleType: BattleType.COMBAT,
@@ -239,19 +243,41 @@ export const travelRouter = createTRPCRouter({
             groundEffects: [] as Prisma.JsonArray,
           },
         });
+        // console.log("--------------");
+        // console.timeEnd("set prisma");
+        // console.log("--------------");
+
+        // console.time("set upstash");
+        // const data = await redis.set("battle-" + battle.id, battle);
+        // console.log("--------------");
+        // console.timeEnd("set upstash");
+        // console.log("--------------");
+
+        // console.time("get prisma");
+        // const battle2 = await tx.battle.findUnique({ where: { id: battle.id } });
+        // console.log("--------------");
+        // console.timeEnd("get prisma");
+        // console.log("--------------");
+
+        // console.time("get upstash");
+        // const battle3 = await redis.get("battle-" + battle.id);
+        // console.log("--------------");
+        // console.timeEnd("get upstash");
+        // console.log("--------------");
+
         battle.usersState = [];
         // Update users, but only succeed transaction if none of them already had a battle assigned
         const result: number = await tx.$executeRaw`
-          UPDATE UserData 
-          SET 
-            status = ${UserStatus.BATTLE}, 
+          UPDATE UserData
+          SET
+            status = ${UserStatus.BATTLE},
             battleId = ${battle.id},
             updatedAt = Now()
-          WHERE 
-            (userId = ${ctx.userId} OR userId = ${input.userId}) AND 
-            status = 'AWAKE' AND 
-            sector = ${input.sector} AND 
-            longitude = ${input.longitude} AND 
+          WHERE
+            (userId = ${ctx.userId} OR userId = ${input.userId}) AND
+            status = 'AWAKE' AND
+            sector = ${input.sector} AND
+            longitude = ${input.longitude} AND
             latitude = ${input.latitude}`;
         if (result !== 2) {
           throw new Error(`Attack failed, did the target move?`);

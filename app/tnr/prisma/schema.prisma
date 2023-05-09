@@ -9,7 +9,7 @@ generator client {
 datasource db {
     provider          = "mysql"
     url               = env("DATABASE_URL")
-    directUrl         = env("DIRECT_URL")
+    // directUrl         = env("DIRECT_URL")
     shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
     relationMode      = "prisma"
 }
@@ -138,7 +138,6 @@ model UserData {
     HistoricalAvatar        HistoricalAvatar[]
     battle                  Battle?               @relation(fields: [battleId], references: [id])
     battleId                String?
-    battleActions           BattleAction[]
     BloodlineRolls          BloodlineRolls[]
 
     @@index([battleId])
@@ -631,17 +630,15 @@ model Battle {
 }
 
 model BattleAction {
-    id          String   @id @default(cuid())
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    battle      Battle   @relation(fields: [battleId], references: [id])
-    battleId    String
-    user        UserData @relation(fields: [userId], references: [userId])
-    userId      String
-    description String
+    id            String   @id @default(cuid())
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+    battle        Battle   @relation(fields: [battleId], references: [id])
+    battleId      String
+    battleVersion Int
+    description   String
 
     @@index([battleId])
-    @@index([userId])
 }
 
 //*****************************//

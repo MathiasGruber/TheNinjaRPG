@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { Prisma, Battle } from "@prisma/client";
+import type { Battle } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
@@ -112,15 +113,27 @@ export const combatRouter = createTRPCRouter({
         // Update the battle
         let newBattle: Battle | undefined = undefined;
         try {
-          newBattle = await tx.battle.update({
-            where: { id_version: { id: input.battleId, version: battle.version } },
-            data: {
-              version: { increment: 1 },
+          // Raw query to ensure we only talk with the DB once for speed
+          const result = await tx.$executeRaw`
+            UPDATE Battle 
+            SET 
+              version = version + 1,
+              usersState = ${JSON.stringify(finalUsersState)},
+              usersEffects = ${JSON.stringify(newUsersEffects)},
+              groundEffects = ${JSON.stringify(newGroundEffects)}
+            WHERE id = ${input.battleId} AND version = ${battle.version}
+          `;
+          if (result === 0) {
+            throw new Error("Battle version mismatch");
+          } else {
+            newBattle = {
+              ...battle,
+              version: battle.version + 1,
               usersState: finalUsersState as unknown as Prisma.JsonArray,
-              usersEffects: newUsersEffects as Prisma.JsonArray,
-              groundEffects: newGroundEffects as Prisma.JsonArray,
-            },
-          });
+              usersEffects: newUsersEffects,
+              groundEffects: newGroundEffects,
+            };
+          }
         } catch (e) {
           // TODO: Recalculate result here, or what to do? Rethink once we try KV speedup
           newBattle = await ctx.prisma.battle.findUniqueOrThrow({
