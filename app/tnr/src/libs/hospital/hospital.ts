@@ -1,4 +1,4 @@
-import type { UserData } from "@prisma/client/edge";
+import type { UserData } from "@prisma/client";
 import { secondsPassed, secondsFromNow } from "../../utils/time";
 
 export const calcHealCost = (user: UserData) => {

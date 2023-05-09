@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client/edge";
+import { type PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";

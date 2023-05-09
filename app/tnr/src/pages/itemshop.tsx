@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import { type Item } from "@prisma/client/edge";
-import { ItemType } from "@prisma/client/edge";
+import { type Item } from "@prisma/client";
+import { ItemType } from "@prisma/client";
 
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";

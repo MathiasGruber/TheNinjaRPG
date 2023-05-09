@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import type { Jutsu, UserJutsu } from "@prisma/client/edge";
+import type { Jutsu, UserJutsu } from "@prisma/client";
 
 import ItemWithEffects from "../layout/ItemWithEffects";
 import ContentBox from "../layout/ContentBox";

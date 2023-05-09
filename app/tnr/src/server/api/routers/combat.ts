@@ -122,6 +122,7 @@ export const combatRouter = createTRPCRouter({
             },
           });
         } catch (e) {
+          // TODO: Recalculate result here, or what to do? Rethink once we try KV speedup
           newBattle = await ctx.prisma.battle.findUniqueOrThrow({
             where: { id: input.battleId },
           });

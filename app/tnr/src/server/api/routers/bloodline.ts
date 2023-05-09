@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LetterRank, type Bloodline } from "@prisma/client/edge";
+import { LetterRank, type Bloodline } from "@prisma/client";
 import {
   createTRPCRouter,
   protectedProcedure,

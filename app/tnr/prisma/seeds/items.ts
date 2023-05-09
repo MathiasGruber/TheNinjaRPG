@@ -1,11 +1,11 @@
 import { type ZodItemType } from "../../src/libs/combat/types";
-import { type Prisma } from "@prisma/client/edge";
-import { type PrismaClient } from "@prisma/client/edge";
-import { AttackTarget } from "@prisma/client/edge";
-import { ItemType } from "@prisma/client/edge";
-import { WeaponType } from "@prisma/client/edge";
-import { ItemRarity } from "@prisma/client/edge";
-import { ItemSlotType } from "@prisma/client/edge";
+import { type Prisma } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
+import { AttackTarget } from "@prisma/client";
+import { ItemType } from "@prisma/client";
+import { WeaponType } from "@prisma/client";
+import { ItemRarity } from "@prisma/client";
+import { ItemSlotType } from "@prisma/client";
 
 import { DamageTag } from "../../src/libs/combat/types";
 import { HealTag } from "../../src/libs/combat/types";

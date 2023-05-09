@@ -1,6 +1,6 @@
-import { type PrismaClient } from "@prisma/client/edge";
-import { UserStatus } from "@prisma/client/edge";
-import { UserRank } from "@prisma/client/edge";
+import { type PrismaClient } from "@prisma/client";
+import { UserStatus } from "@prisma/client";
+import { UserRank } from "@prisma/client";
 import { createId } from "@paralleldrive/cuid2";
 
 export const seedVillages = async (prisma: PrismaClient) => {

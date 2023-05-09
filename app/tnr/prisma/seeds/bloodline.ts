@@ -1,7 +1,7 @@
 import { type ZodBloodlineType } from "../../src/libs/combat/types";
-import { type Prisma } from "@prisma/client/edge";
-import { type PrismaClient } from "@prisma/client/edge";
-import { LetterRank } from "@prisma/client/edge";
+import { type Prisma } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
+import { LetterRank } from "@prisma/client";
 import { DamageTag } from "../../src/libs/combat/types";
 import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
 import { AdjustDamageTakenTag } from "../../src/libs/combat/types";

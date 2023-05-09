@@ -2,7 +2,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { LetterRank, UserStatus, type Bloodline } from "@prisma/client/edge";
+import { LetterRank, UserStatus, type Bloodline } from "@prisma/client";
 import { type NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
 import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";

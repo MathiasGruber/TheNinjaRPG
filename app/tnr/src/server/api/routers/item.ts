@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ItemType, ItemSlot, ItemRarity } from "@prisma/client/edge";
-import type { UserData, PrismaClient } from "@prisma/client/edge";
+import { ItemType, ItemSlot, ItemRarity } from "@prisma/client";
+import type { UserData, PrismaClient } from "@prisma/client";
 import { fetchUser } from "./profile";
 import {
   createTRPCRouter,

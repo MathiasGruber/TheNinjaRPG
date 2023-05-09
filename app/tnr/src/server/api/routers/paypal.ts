@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { type Prisma } from "@prisma/client/edge";
-import { type PrismaClient } from "@prisma/client/edge";
+import { type Prisma } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { dollars2reps } from "../../../utils/paypal";
 import { serverError } from "../trpc";
-import { FederalStatus } from "@prisma/client/edge";
+import { FederalStatus } from "@prisma/client";
 
 type PaypalAmount = {
   currency_code?: string;

@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { ItemRarity } from "@prisma/client/edge";
+import { ItemRarity } from "@prisma/client";
 
 interface ContentImageProps {
   image: string;

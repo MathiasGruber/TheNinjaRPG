@@ -1,4 +1,4 @@
-import { type PrismaClient } from "@prisma/client/edge";
+import { type PrismaClient } from "@prisma/client";
 
 export const seedForum = async (prisma: PrismaClient) => {
   const boards = [

@@ -1,10 +1,10 @@
 import { type ZodJutsuType } from "../../src/libs/combat/types";
-import { type Prisma, UserRank } from "@prisma/client/edge";
-import { type PrismaClient } from "@prisma/client/edge";
-import { AttackTarget } from "@prisma/client/edge";
-import { LetterRank } from "@prisma/client/edge";
-import { JutsuType } from "@prisma/client/edge";
-import { WeaponType } from "@prisma/client/edge";
+import { type Prisma, UserRank } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
+import { AttackTarget } from "@prisma/client";
+import { LetterRank } from "@prisma/client";
+import { JutsuType } from "@prisma/client";
+import { WeaponType } from "@prisma/client";
 
 import { DamageTag } from "../../src/libs/combat/types";
 import { StunTag } from "../../src/libs/combat/types";

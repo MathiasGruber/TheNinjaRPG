@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client/edge";
+import { PrismaClient } from "@prisma/client";
 import { seedVillages } from "./seeds/village";
 import { seedForum } from "./seeds/forum";
 import { seedJutsus } from "./seeds/jutsu";

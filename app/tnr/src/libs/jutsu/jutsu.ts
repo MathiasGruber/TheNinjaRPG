@@ -1,5 +1,5 @@
-import type { UserData, Jutsu } from "@prisma/client/edge";
-import { UserRank, FederalStatus, LetterRank } from "@prisma/client/edge";
+import type { UserData, Jutsu } from "@prisma/client";
+import { UserRank, FederalStatus, LetterRank } from "@prisma/client";
 
 const hasRank = (rank: LetterRank, userrank: UserRank) => {
   switch (userrank) {

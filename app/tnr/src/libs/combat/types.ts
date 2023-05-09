@@ -1,14 +1,14 @@
 import { z } from "zod";
 import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
 import { Jutsu, Item, Bloodline } from "@prisma/client";
-import { UserRank } from "@prisma/client/edge";
-import { AttackTarget } from "@prisma/client/edge";
-import { LetterRank } from "@prisma/client/edge";
-import { JutsuType } from "@prisma/client/edge";
-import { ItemType } from "@prisma/client/edge";
-import { WeaponType } from "@prisma/client/edge";
-import { ItemRarity } from "@prisma/client/edge";
-import { ItemSlotType } from "@prisma/client/edge";
+import { UserRank } from "@prisma/client";
+import { AttackTarget } from "@prisma/client";
+import { LetterRank } from "@prisma/client";
+import { JutsuType } from "@prisma/client";
+import { ItemType } from "@prisma/client";
+import { WeaponType } from "@prisma/client";
+import { ItemRarity } from "@prisma/client";
+import { ItemSlotType } from "@prisma/client";
 import type { TerrainHex } from "../travel/types";
 
 /**

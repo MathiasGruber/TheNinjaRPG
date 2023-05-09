@@ -1,4 +1,4 @@
-import { LetterRank } from "@prisma/client/edge";
+import { LetterRank } from "@prisma/client";
 
 export const ROLL_CHANCE = {
   [LetterRank.S]: 0.005,

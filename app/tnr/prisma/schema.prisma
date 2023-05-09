@@ -3,7 +3,7 @@
 
 generator client {
     provider        = "prisma-client-js"
-    previewFeatures = ["filteredRelationCount", "fieldReference"]
+    previewFeatures = ["filteredRelationCount", "fieldReference", "jsonProtocol"]
 }
 
 datasource db {

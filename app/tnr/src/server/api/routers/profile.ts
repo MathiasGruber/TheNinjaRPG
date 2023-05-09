@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ReportAction } from "@prisma/client";
-import { UserStatus, type PrismaClient } from "@prisma/client/edge";
+import { UserStatus, type PrismaClient } from "@prisma/client";
 import { type NavBarDropdownLink } from "../../../libs/menus";
 import { secondsPassed } from "../../../utils/time";
 import {

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { Prisma, type PrismaClient } from "@prisma/client/edge";
-import { UserStatus, BattleType } from "@prisma/client/edge";
+import { Prisma, type PrismaClient } from "@prisma/client";
+import { UserStatus, BattleType } from "@prisma/client";
 
 import { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";

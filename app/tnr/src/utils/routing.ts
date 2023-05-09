@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { UserStatus } from "@prisma/client/edge";
+import { UserStatus } from "@prisma/client";
 import { type UserDataWithRelations } from "./UserContext";
 
 export const useAwake = (userData: UserDataWithRelations) => {

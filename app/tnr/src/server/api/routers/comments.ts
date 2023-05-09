@@ -1,5 +1,7 @@
+import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
+import { Redis } from "@upstash/redis";
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client/edge";
+import { type PrismaClient } from "@prisma/client";
 
 import sanitize from "../../../utils/sanitize";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -15,6 +17,13 @@ import { getServerPusher } from "../../../libs/pusher";
 import { fetchUserReport } from "./reports";
 import { fetchThread } from "./forum";
 import { fetchUser } from "./profile";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  analytics: true,
+  prefix: "chat-ratelimit",
+});
 
 export const commentsRouter = createTRPCRouter({
   /**
@@ -71,6 +80,10 @@ export const commentsRouter = createTRPCRouter({
       }
       if (!canSeeReport(user, report)) {
         throw serverError("UNAUTHORIZED", "No access to the report");
+      }
+      const { success } = await ratelimit.limit(ctx.userId);
+      if (!success) {
+        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       // Create comment
       return ctx.prisma.userReportComment.create({
@@ -137,6 +150,10 @@ export const commentsRouter = createTRPCRouter({
       const thread = await fetchThread(ctx.prisma, input.object_id);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      const { success } = await ratelimit.limit(ctx.userId);
+      if (!success) {
+        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return ctx.prisma.forumPost.create({
         data: {
@@ -241,6 +258,10 @@ export const commentsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.prisma, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      const { success } = await ratelimit.limit(ctx.userId);
+      if (!success) {
+        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return await ctx.prisma.$transaction(async (tx) => {
         const convo = await tx.conversation.create({
@@ -362,6 +383,10 @@ export const commentsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.prisma, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      const { success } = await ratelimit.limit(ctx.userId);
+      if (!success) {
+        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       const comment = ctx.prisma.conversationComment.create({
         data: {

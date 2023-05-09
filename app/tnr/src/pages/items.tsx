@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import type { Item, UserItem } from "@prisma/client/edge";
-import { ItemSlot } from "@prisma/client/edge";
+import type { Item, UserItem } from "@prisma/client";
+import { ItemSlot } from "@prisma/client";
 import { ArrowsPointingInIcon, TrashIcon } from "@heroicons/react/24/solid";
 
 import Image from "next/image";

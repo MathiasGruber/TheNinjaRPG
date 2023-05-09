@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import { LetterRank, type Jutsu } from "@prisma/client/edge";
+import { LetterRank, type Jutsu } from "@prisma/client";
 
 import ItemWithEffects from "../layout/ItemWithEffects";
 import Modal from "../layout/Modal";

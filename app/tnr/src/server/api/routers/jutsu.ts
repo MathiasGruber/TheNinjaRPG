@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LetterRank } from "@prisma/client/edge";
+import { LetterRank } from "@prisma/client";
 import { fetchUser } from "./profile";
 import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu/jutsu";
 import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";
