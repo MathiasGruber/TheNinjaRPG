@@ -40,6 +40,8 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Health"
           color="bg-red-500"
           showText={true}
+          lastRegenAt={userData.regenAt}
+          regen={userData.regeneration}
           status={userData.status}
           current={userData.cur_health}
           total={userData.max_health}
@@ -49,6 +51,8 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Chakra"
           color="bg-blue-500"
           showText={true}
+          lastRegenAt={userData.regenAt}
+          regen={userData.regeneration}
           status={userData.status}
           current={userData.cur_chakra}
           total={userData.max_chakra}
@@ -58,6 +62,8 @@ const MenuBoxProfile: React.FC = () => {
           tooltip="Stamina"
           color="bg-green-500"
           showText={true}
+          lastRegenAt={userData.regenAt}
+          regen={userData.regeneration}
           status={userData.status}
           current={userData.cur_stamina}
           total={userData.max_stamina}

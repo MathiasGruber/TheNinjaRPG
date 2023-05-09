@@ -21,9 +21,9 @@ const CombatPage: NextPage = () => {
   // Data from the DB
   const { data: userData, setBattle } = useRequiredUserData();
   const { data, isFetching } = api.combat.getBattle.useQuery(
-    { battleId: userData?.battleId ?? "1337" },
+    { battleId: userData?.battleId },
     {
-      enabled: !!userData,
+      enabled: !!userData?.battleId,
       staleTime: Infinity,
     }
   );
@@ -31,22 +31,17 @@ const CombatPage: NextPage = () => {
   // Redirect to profile if not in battle
   const router = useRouter();
   useEffect(() => {
-    if (userData && !userData.battleId) {
-      void router.push("/profile");
-    }
-    if (data) {
-      setBattle(data.battle);
-    }
+    if (data?.battle) setBattle(data.battle);
   }, [userData, router, data, setBattle]);
 
   // Collect all possible actions for action selector
-  const actions = availableUserActions(data?.battle.usersState, userData?.userId);
+  const actions = availableUserActions(data?.battle?.usersState, userData?.userId);
   const action = actions.find((a) => a.id === actionId);
 
   // Three.js scene
   const combat = useMemo(() => {
     return (
-      data && (
+      data?.battle && (
         <Combat
           battle={data.battle}
           result={data.result}
@@ -76,8 +71,11 @@ const CombatPage: NextPage = () => {
         }
       >
         {!isFetching && combat}
-        {!userData?.battleId && <Loader explanation="Loading User Data" />}
+        {!userData && <Loader explanation="Loading User Data" />}
         {isFetching && <Loader explanation="Loading Battle Data" />}
+        {userData && !userData.battleId && (
+          <p className="p-3">You are not in any battle</p>
+        )}
       </ContentBox>
       {data && !data.result && (
         <ActionSelector

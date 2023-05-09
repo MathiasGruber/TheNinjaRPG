@@ -27,6 +27,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   } = api.profile.getUser.useQuery(undefined, {
     enabled: !!userId,
     staleTime: Infinity,
+    refetchInterval: 300000,
   });
 
   // Listen on user channel for live updates on things

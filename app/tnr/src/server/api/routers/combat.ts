@@ -17,8 +17,13 @@ import { applyBattleResult } from "../../../libs/combat/util";
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
   getBattle: protectedProcedure
-    .input(z.object({ battleId: z.string().cuid() }))
+    .input(z.object({ battleId: z.string().cuid().optional().nullable() }))
     .query(async ({ ctx, input }) => {
+      // No battle ID
+      if (!input.battleId) {
+        return { battle: null, result: null };
+      }
+
       // Distinguish between public and non-public user state
       const battle = await ctx.prisma.battle.findUniqueOrThrow({
         where: { id: input.battleId },

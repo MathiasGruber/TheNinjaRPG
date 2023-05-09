@@ -9,7 +9,7 @@ import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
 import { type GlobalMapData } from "../../../libs/travel/types";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
-import { secondsFromNow } from "../../../utils/time";
+import { secondsFromNow, secondsPassed } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";
 import * as map from "../../../../public/map/hexasphere.json";
 
@@ -207,6 +207,17 @@ export const travelRouter = createTRPCRouter({
         } else {
           throw new Error(`Failed to set position of right-hand user`);
         }
+        // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
+        // Therefore we need to calculate the current pools here, before inserting the user into battle
+        users.forEach((user) => {
+          const regen =
+            (user.bloodline?.regenIncrease
+              ? user.regeneration + user.bloodline.regenIncrease
+              : user.regeneration) * secondsPassed(user.regenAt);
+          user.cur_health = Math.min(user.cur_health + regen, user.max_health);
+          user.cur_chakra = Math.min(user.cur_chakra + regen, user.max_chakra);
+          user.cur_stamina = Math.min(user.cur_stamina + regen, user.max_stamina);
+        });
         // Starting user effects from bloodlines & items
         // TODO: Add effects from items, i.e. equipped armor & accessory
         // TODO: Remove armor & assesory items from inventory before adding to battle
@@ -216,7 +227,6 @@ export const travelRouter = createTRPCRouter({
             userEffects.push(...(user.bloodline.effects as UserEffect[]));
           }
         }
-        console.log(userEffects);
         // Starting ground effects
         // TODO: Add objects with ground effects
         // Create combat entry

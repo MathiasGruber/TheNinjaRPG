@@ -1,6 +1,7 @@
 import React from "react";
 import { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 
 import { Vector2, OrthographicCamera, Group } from "three";
 import alea from "alea";
@@ -108,6 +109,9 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
+      // Is user done in battle?
+      let isDone = false;
+
       // Used for map size calculations
       const backgroundLengthToWidth = 576 / 1024;
 
@@ -138,7 +142,8 @@ const Combat: React.FC<CombatProps> = (props) => {
         const user = battle.current.usersState?.find(
           (u) => u.userId === userData.userId
         );
-        if (user && user.cur_health <= 0) {
+        if (user && user.cur_health <= 0 && !isDone) {
+          isDone = true;
           performAction({
             battleId: battle.current.id,
             actionId: "wait",
@@ -291,24 +296,20 @@ const Combat: React.FC<CombatProps> = (props) => {
       {results && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
-            <p className="p-5 pb-2 text-3xl">Battle Over</p>
+            <p className="p-5 pb-2 text-3xl">
+              You {results.cur_health <= 0 ? "Lost" : "Won"}
+            </p>
             {results.elo_pvp && <p>Your PVP rating: {results.elo_pvp}</p>}
             {results.experience > 0 && <p>Experience Points: {results.experience}</p>}
             <div className="p-5">
-              <Button
-                id="return"
-                onClick={async () => {
-                  if (results.cur_health <= 0) {
-                    console.log("Direct to hospital");
-                    await router.push("/hospital");
-                  } else {
-                    console.log("Direct to profile");
-                    await router.push("/profile");
-                  }
-                  await refetchUser();
-                }}
-                label={`Return to ${results.cur_health <= 0 ? "Hospital" : "Profile"}`}
-              />
+              <Link href={results.cur_health <= 0 ? "/hospital" : "/profile"}>
+                <Button
+                  id="return"
+                  label={`Return to ${
+                    results.cur_health <= 0 ? "Hospital" : "Profile"
+                  }`}
+                />
+              </Link>
             </div>
           </div>
         </div>

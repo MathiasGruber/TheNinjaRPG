@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ReportAction } from "@prisma/client";
 import { UserStatus, type PrismaClient } from "@prisma/client/edge";
 import { type NavBarDropdownLink } from "../../../libs/menus";
-
+import { secondsPassed } from "../../../utils/time";
 import {
   createTRPCRouter,
   protectedProcedure,
@@ -21,10 +21,34 @@ export const profileRouter = createTRPCRouter({
         bloodline: true,
       },
     });
+    // Add bloodline regen to regeneration
+    // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
+    //       and we can avoid running an database UPDATE on each load
+    if (user?.bloodline?.regenIncrease) {
+      user.regeneration = user.regeneration + user.bloodline.regenIncrease;
+    }
+    // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
+    // and it is mostly done to keep user updated on the overview pages
+    if (user?.updatedAt && user?.regenAt) {
+      const sinceUpdate = secondsPassed(user.updatedAt);
+      if (sinceUpdate > 300) {
+        const regen = user.regeneration * secondsPassed(user.regenAt);
+        await ctx.prisma.userData.update({
+          where: { userId: ctx.userId },
+          data: {
+            cur_health: Math.min(user.cur_health + regen, user.max_health),
+            cur_stamina: Math.min(user.cur_stamina + regen, user.max_stamina),
+            cur_chakra: Math.min(user.cur_chakra + regen, user.max_chakra),
+          },
+        });
+      }
+    }
+
     // Notifications
     const notifications: NavBarDropdownLink[] = [];
     if (user) {
       // Get number of un-resolved user reports
+      // TODO: Get number of records from KV store to speed up
       if (user.role === "MODERATOR" || user.role === "ADMIN") {
         const userReports = await ctx.prisma.userReport.count({
           where: {

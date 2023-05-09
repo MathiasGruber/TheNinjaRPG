@@ -63,7 +63,7 @@ const Hospital: NextPage = () => {
   const healFinishAt = userData && calcHealFinish(userData);
   const healCost = userData && calcHealCost(userData);
   const canAfford = userData && healCost && userData.money >= healCost;
-
+  console.log(healFinishAt);
   return (
     <>
       <ContentBox
@@ -90,7 +90,7 @@ const Hospital: NextPage = () => {
             <Button
               id="check"
               color={canAfford ? "default" : "red"}
-              disabled={healFinishAt && healFinishAt < new Date()}
+              disabled={healFinishAt && healFinishAt <= new Date()}
               label={<div>Pay {healCost && <span>({healCost} ryo)</span>}</div>}
               image={<ForwardIcon className="mr-3 h-6 w-6" />}
               onClick={() => heal()}

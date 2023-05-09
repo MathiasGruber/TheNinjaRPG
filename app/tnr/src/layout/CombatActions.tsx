@@ -30,48 +30,49 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           props.showBgColor ? "border-b-2 border-l-2 border-r-2 bg-slate-50" : ""
         }`}
       >
-        {props.items?.map((item, i) => {
-          if (item.hidden) return <></>;
-          let bgColor = "";
-          if (item.type === "jutsu") {
-            bgColor = "bg-blue-100";
-          } else if (item.type === "item") {
-            if ("itemType" in item) {
-              if (item.itemType === "WEAPON") {
-                bgColor = "bg-red-200";
-              } else if (item.itemType === "CONSUMABLE") {
-                bgColor = "bg-green-200";
+        {props.items
+          ?.filter((i) => !i.hidden)
+          .map((item, i) => {
+            let bgColor = "";
+            if (item.type === "jutsu") {
+              bgColor = "bg-blue-100";
+            } else if (item.type === "item") {
+              if ("itemType" in item) {
+                if (item.itemType === "WEAPON") {
+                  bgColor = "bg-red-200";
+                } else if (item.itemType === "CONSUMABLE") {
+                  bgColor = "bg-green-200";
+                } else {
+                  bgColor = "bg-purple-200";
+                }
               } else {
-                bgColor = "bg-purple-200";
+                bgColor = "bg-purple-100";
               }
-            } else {
-              bgColor = "bg-purple-100";
+            } else if (item.type === "basic") {
+              bgColor = "bg-orange-200";
             }
-          } else if (item.type === "basic") {
-            bgColor = "bg-orange-200";
-          }
-          const isGreyed =
-            props.selectedId !== undefined && props.selectedId !== item.id;
-          const isHighlight = item.highlight ?? false;
-          return (
-            <ActionOption
-              key={i}
-              className={`pr-1 ${
-                isHighlight ? "rounded-xl border-4 border-amber-500 bg-amber-300" : ""
-              } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
-              src={item.image}
-              isGreyed={isGreyed}
-              alt="sp"
-              rarity={item.rarity}
-              txt={props.showLabels ? item.name : ""}
-              count={props.counts?.find((c) => c.id === item.id)?.quantity}
-              labelSingles={props.labelSingles}
-              onClick={() => {
-                props.onClick(item.id);
-              }}
-            />
-          );
-        })}
+            const isGreyed =
+              props.selectedId !== undefined && props.selectedId !== item.id;
+            const isHighlight = item.highlight ?? false;
+            return (
+              <ActionOption
+                key={i}
+                className={`pr-1 ${
+                  isHighlight ? "rounded-xl border-4 border-amber-500 bg-amber-300" : ""
+                } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
+                src={item.image}
+                isGreyed={isGreyed}
+                alt="sp"
+                rarity={item.rarity}
+                txt={props.showLabels ? item.name : ""}
+                count={props.counts?.find((c) => c.id === item.id)?.quantity}
+                labelSingles={props.labelSingles}
+                onClick={() => {
+                  props.onClick(item.id);
+                }}
+              />
+            );
+          })}
       </div>
       {props.items?.length === 0 && (
         <span className="flex flex-row text-base">Nothing Available</span>

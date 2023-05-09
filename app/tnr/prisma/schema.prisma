@@ -62,7 +62,7 @@ model UserData {
     max_chakra              Int                   @default(100)
     cur_stamina             Int                   @default(100)
     max_stamina             Int                   @default(100)
-    regeneration            Int                   @default(100)
+    regeneration            Int                   @default(1)
     // Financials
     money                   Int                   @default(100)
     bank                    Int                   @default(100)

@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { UserStatus } from "@prisma/client";
+import { secondsPassed } from "../utils/time";
 
 interface StatusBarProps {
   title: string;
+  regen?: number;
+  lastRegenAt?: Date;
   tooltip?: string;
   showText?: boolean;
   status?: UserStatus;
@@ -11,21 +14,62 @@ interface StatusBarProps {
   total: number;
 }
 
-const StatusBar: React.FC<StatusBarProps> = (props) => {
-  // Colors & width, depending on battle status
-  const isInBattle = props.status === UserStatus.BATTLE;
-  let color: string = props.color;
-  let width = (props.current / props.total) * 100;
-
-  if (isInBattle) {
-    color = `bg-gradient-to-r from-orange-400 to-orange-100 background-animate`;
-    width = 100;
+/**
+ * Calculate current state of the bar based on regen
+ */
+const calcCurrent = (
+  start: number,
+  total: number,
+  status?: UserStatus,
+  regen?: number,
+  regenAt?: Date
+) => {
+  let current = start;
+  if (status === UserStatus.BATTLE) {
+    current = total;
+  } else if (regen && regenAt && status === UserStatus.AWAKE) {
+    const seconds = secondsPassed(regenAt);
+    current = Math.min(total, start + regen * seconds);
   }
+  const width = (current / total) * 100;
+  return { current, width };
+};
+
+const StatusBar: React.FC<StatusBarProps> = (props) => {
+  // Destructure props
+  const { regen, lastRegenAt, showText, title, current, total, status } = props;
+
+  // Is the user in battle?
+  const isInBattle = props.status === UserStatus.BATTLE;
+  const isAwake = props.status === UserStatus.AWAKE;
+
+  // Calculate initial state
+  const [state, setState] = useState(
+    calcCurrent(current, total, status, regen, lastRegenAt)
+  );
+
+  // Color for the bars
+  const color = isInBattle
+    ? `bg-gradient-to-r from-orange-400 to-orange-100 background-animate`
+    : props.color;
+
+  // Updating the bars based on regen
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (state.current < total || current < total) {
+        setState(calcCurrent(current, total, status, regen, lastRegenAt));
+      }
+    }, 1000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isAwake, regen, lastRegenAt, current, total, status, state]);
+
   return (
     <div className="group relative mt-2 flex-row">
-      {props.showText && !isInBattle && (
+      {showText && !isInBattle && (
         <div>
-          {props.title} ({props.current} / {props.total})
+          {title} ({state.current} / {total})
         </div>
       )}
 
@@ -33,7 +77,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
         <div
           className={`h-full w-3/6 ${color}`}
           style={{
-            width: width.toString() + "%",
+            width: state.width.toString() + "%",
           }}
         ></div>
       </div>
