@@ -1,7 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import type { Battle } from "@prisma/client";
-import type { ReturnedUserState, ZodAllTags } from "./types";
-import type { GroundEffect, UserEffect } from "./types";
+import type { ReturnedUserState } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { formulaPower, damangeCalc } from "./calcs";
 
 export const realizeUserTag = (tag: UserEffect, user: ReturnedUserState) => {
@@ -42,7 +40,9 @@ export const applyEffects = (
 
   // Apply all user effects to their target users
   const newUsersEffects: UserEffect[] = [];
+  const actionEffects: ActionEffect[] = [];
   active.forEach((e) => {
+    console.log(e);
     if (e.type === "damage" && e.realizedPower) {
       const target = usersState.find((u) => u.userId === e.targetId);
       if (target) {
@@ -50,6 +50,7 @@ export const applyEffects = (
         const damage = damangeCalc(e.realizedPower, defensivePower);
         target.cur_health -= damage;
         target.cur_health = Math.max(0, target.cur_health);
+        actionEffects.push({ txt: e.battleEffect });
       }
     } else if (e.type === "flee") {
       // TODO: Flee from battle
@@ -63,5 +64,6 @@ export const applyEffects = (
     newUsersState: usersState,
     newUsersEffects,
     newGroundEffects,
+    actionEffects,
   };
 };

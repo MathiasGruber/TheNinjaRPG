@@ -27,6 +27,15 @@ const CombatPage: NextPage = () => {
       staleTime: Infinity,
     }
   );
+  const {
+    data: history,
+    isFetching: isFetchingHistory,
+    refetch: refetchHistory,
+  } = api.combat.getBattleAction.useQuery(
+    { battleId: data?.battle?.id, version: data?.battle?.version },
+    { enabled: !!data?.battle, staleTime: Infinity }
+  );
+  console.log(history);
 
   // Redirect to profile if not in battle
   const router = useRouter();

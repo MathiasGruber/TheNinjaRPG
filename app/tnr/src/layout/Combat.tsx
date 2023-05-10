@@ -40,10 +40,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Conclusino of battle
   const [results, setResults] = useState<CombatResult | null>(props.result);
-  console.log(results);
-
-  // Router for forwarding
-  const router = useRouter();
 
   // References which shouldn't update
   const battle = useRef<UserBattle | null>(props.battle);
@@ -149,6 +145,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             actionId: "wait",
             longitude: user.longitude,
             latitude: user.latitude,
+            version: battle.current.version,
           });
         }
       });
@@ -204,31 +201,34 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Capture clicks to update move direction
       const onClick = () => {
-        if (battle.current) {
-          const intersects = raycaster.intersectObjects(scene.children);
-          intersects
-            .filter((i) => i.object.visible)
-            .every((i) => {
+        const intersects = raycaster.intersectObjects(scene.children);
+        intersects
+          .filter((i) => i.object.visible)
+          .every((i) => {
+            if (
+              i.object.userData.type === "tile" &&
+              document.body.style.cursor !== "wait"
+            ) {
               if (
-                i.object.userData.type === "tile" &&
-                document.body.style.cursor !== "wait"
+                i.object.userData.canClick === true &&
+                action.current &&
+                battle.current
               ) {
-                if (i.object.userData.canClick === true && action.current) {
-                  const target = i.object.userData.tile as TerrainHex;
-                  document.body.style.cursor = "wait";
-                  setIsLoading(true);
-                  performAction({
-                    battleId: battle.current.id,
-                    actionId: action.current.id,
-                    longitude: target.col,
-                    latitude: target.row,
-                  });
-                  return false;
-                }
+                const target = i.object.userData.tile as TerrainHex;
+                document.body.style.cursor = "wait";
+                setIsLoading(true);
+                performAction({
+                  battleId: battle.current.id,
+                  actionId: action.current.id,
+                  longitude: target.col,
+                  latitude: target.row,
+                  version: battle.current.version,
+                });
+                return false;
               }
-              return true;
-            });
-        }
+            }
+            return true;
+          });
       };
       renderer.domElement.addEventListener("click", onClick, true);
 

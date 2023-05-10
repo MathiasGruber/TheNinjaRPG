@@ -95,6 +95,7 @@ export type CombatAction = {
   id: string;
   name: string;
   image: string;
+  battleDescription: string;
   type: "basic" | "jutsu" | "item";
   target: AttackTarget;
   method: AttackMethod;
@@ -509,6 +510,10 @@ export type GroundEffect = BattleEffect & {
 
 export type UserEffect = BattleEffect & {
   targetId: string;
+};
+
+export type ActionEffect = {
+  txt: string;
 };
 
 /**

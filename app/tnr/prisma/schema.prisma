@@ -526,29 +526,30 @@ model UserJutsu {
 //*****************************//
 
 model Item {
-    id              String       @id @default(cuid())
-    name            String       @unique
-    image           String       @unique
-    description     String       @db.Text
-    createdAt       DateTime     @default(now())
-    updatedAt       DateTime     @updatedAt
-    canStack        Boolean      @default(false)
-    stackSize       Int          @default(1)
-    destroyOnUse    Boolean      @default(false)
-    healthCostPerc  Float        @default(0)
-    chakraCostPerc  Float        @default(0)
-    staminaCostPerc Float        @default(0)
-    actionCostPerc  Float        @default(60)
-    cost            Int          @default(1)
-    range           Int          @default(0)
-    target          AttackTarget
-    method          AttackMethod @default(SINGLE)
-    itemType        ItemType
-    weaponType      WeaponType?
-    rarity          ItemRarity
-    slot            ItemSlotType
-    effects         Json
-    UserItem        UserItem[]
+    id                String       @id @default(cuid())
+    name              String       @unique
+    image             String       @unique
+    description       String       @db.Text
+    battleDescription String       @default("") @db.Text
+    createdAt         DateTime     @default(now())
+    updatedAt         DateTime     @updatedAt
+    canStack          Boolean      @default(false)
+    stackSize         Int          @default(1)
+    destroyOnUse      Boolean      @default(false)
+    healthCostPerc    Float        @default(0)
+    chakraCostPerc    Float        @default(0)
+    staminaCostPerc   Float        @default(0)
+    actionCostPerc    Float        @default(60)
+    cost              Int          @default(1)
+    range             Int          @default(0)
+    target            AttackTarget
+    method            AttackMethod @default(SINGLE)
+    itemType          ItemType
+    weaponType        WeaponType?
+    rarity            ItemRarity
+    slot              ItemSlotType
+    effects           Json
+    UserItem          UserItem[]
 }
 
 model UserItem {
@@ -630,13 +631,14 @@ model Battle {
 }
 
 model BattleAction {
-    id            String   @id @default(cuid())
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
-    battle        Battle   @relation(fields: [battleId], references: [id])
-    battleId      String
-    battleVersion Int
-    description   String
+    id             Int      @id @default(autoincrement())
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @default(now()) @updatedAt
+    battle         Battle   @relation(fields: [battleId], references: [id])
+    battleId       String
+    battleVersion  Int
+    description    String
+    appliedEffects Json
 
     @@index([battleId])
 }

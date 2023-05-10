@@ -24,6 +24,7 @@ export type UserBattle = {
   updatedAt: Date;
   background: string;
   battleType: BattleType;
+  version: number;
 };
 
 // Events sent to the user from websockets

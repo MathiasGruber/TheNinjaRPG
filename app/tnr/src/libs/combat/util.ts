@@ -1,9 +1,6 @@
-import type { Battle, PrismaClient, Prisma } from "@prisma/client";
-import { UserStatus } from "@prisma/client";
+import type { Battle } from "@prisma/client";
 import type { ReturnedUserState, CombatResult } from "./types";
 import { publicState, allState } from "./types";
-import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";
-import { PrismaTransactionClient } from "../../utils/typeutils";
 
 /**
  * Masks information from a battle prior to returning it to the frontend,
@@ -88,58 +85,6 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
     }
   }
   return { finalUsersState: users, result: null };
-};
-
-/**
- * Apply changes to user based on battle result
- */
-export const applyBattleResult = async (
-  result: CombatResult,
-  battle: Battle,
-  userId: string,
-  prisma: PrismaClient | PrismaTransactionClient
-) => {
-  await prisma.userData.update({
-    where: { userId: userId },
-    data: {
-      experience: { increment: result.experience },
-      //elo_pve: { increment: result.elo_pve },
-      //elo_pvp: { increment: result.elo_pvp },
-      cur_health: result.cur_health,
-      cur_stamina: result.cur_stamina,
-      cur_chakra: result.cur_chakra,
-      strength: { increment: result.strength },
-      intelligence: { increment: result.intelligence },
-      willpower: { increment: result.willpower },
-      speed: { increment: result.speed },
-      ninjutsu_offence: { increment: result.ninjutsu_offence },
-      genjutsu_offence: { increment: result.genjutsu_offence },
-      taijutsu_offence: { increment: result.taijutsu_offence },
-      bukijutsu_offence: { increment: result.bukijutsu_offence },
-      ninjutsu_defence: { increment: result.ninjutsu_defence },
-      genjutsu_defence: { increment: result.genjutsu_defence },
-      taijutsu_defence: { increment: result.taijutsu_defence },
-      bukijutsu_defence: { increment: result.bukijutsu_defence },
-      battleId: null,
-      regenAt: new Date(),
-      // Conditional on win/loss
-      ...(result.cur_health <= 0
-        ? {
-            status: UserStatus.HOSPITALIZED,
-            longitude: VILLAGE_LONG,
-            latitude: VILLAGE_LAT,
-          }
-        : { status: UserStatus.AWAKE }),
-    },
-  });
-
-  // Delete the battle if it's done
-  const battleOver = result?.friendsLeft + result?.targetsLeft === 0;
-  if (battleOver) {
-    await prisma.battle.delete({
-      where: { id: battle.id },
-    });
-  }
 };
 
 /**

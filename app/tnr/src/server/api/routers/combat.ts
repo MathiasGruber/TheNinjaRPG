@@ -13,7 +13,7 @@ import { availableUserActions, performAction } from "../../../libs/combat/action
 import { applyEffects } from "../../../libs/combat/tags";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
-import { applyBattleResult } from "../../../libs/combat/util";
+import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -38,11 +38,26 @@ export const combatRouter = createTRPCRouter({
 
       // Delete the battle if it's done
       if (result) {
-        await applyBattleResult(result, battle, ctx.userId, ctx.prisma);
+        await updateUser(result, ctx.userId, ctx.prisma);
       }
 
       // Return the new battle + result state if applicable
       return { battle: newMaskedBattle, result: result };
+    }),
+  // Get history
+  getBattleAction: protectedProcedure
+    .input(
+      z.object({
+        battleId: z.string().cuid().optional(),
+        version: z.number().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return await ctx.prisma.$queryRaw`
+          SELECT * FROM BattleAction 
+          WHERE battleId = ${input.battleId} and battleVersion = ${input.version}
+          LIMIT 1
+        `;
     }),
   // Battle action
   performAction: protectedProcedure
@@ -52,6 +67,7 @@ export const combatRouter = createTRPCRouter({
         actionId: z.string(),
         longitude: z.number(),
         latitude: z.number(),
+        version: z.number(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -97,11 +113,8 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Apply relevant effects, and get back new state + active effects
-      const { newUsersState, newUsersEffects, newGroundEffects } = applyEffects(
-        usersState,
-        usersEffects,
-        groundEffects
-      );
+      const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+        applyEffects(usersState, usersEffects, groundEffects);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { finalUsersState, result } = calcBattleResult(newUsersState, ctx.userId);
@@ -109,43 +122,22 @@ export const combatRouter = createTRPCRouter({
       /**
        * DATABASE UPDATES
        */
-      const newBattle = await ctx.prisma.$transaction(async (tx) => {
-        // Update the battle
-        let newBattle: Battle | undefined = undefined;
-        try {
-          // Raw query to ensure we only talk with the DB once for speed
-          const result = await tx.$executeRaw`
-            UPDATE Battle 
-            SET 
-              version = version + 1,
-              usersState = ${JSON.stringify(finalUsersState)},
-              usersEffects = ${JSON.stringify(newUsersEffects)},
-              groundEffects = ${JSON.stringify(newGroundEffects)}
-            WHERE id = ${input.battleId} AND version = ${battle.version}
-          `;
-          if (result === 0) {
-            throw new Error("Battle version mismatch");
-          } else {
-            newBattle = {
-              ...battle,
-              version: battle.version + 1,
-              usersState: finalUsersState as unknown as Prisma.JsonArray,
-              usersEffects: newUsersEffects,
-              groundEffects: newGroundEffects,
-            };
-          }
-        } catch (e) {
-          // TODO: Recalculate result here, or what to do? Rethink once we try KV speedup
-          newBattle = await ctx.prisma.battle.findUniqueOrThrow({
-            where: { id: input.battleId },
-          });
-        }
-
-        // Apply battle result to user
-        if (result) {
-          await applyBattleResult(result, newBattle, ctx.userId, tx);
-        }
-        return newBattle;
+      const { newBattle, newAction } = await ctx.prisma.$transaction(async (tx) => {
+        // Run all updates concurrently
+        const [newBattle, newAction] = await Promise.all([
+          updateBattle(
+            result,
+            battle,
+            finalUsersState,
+            newUsersEffects,
+            newGroundEffects,
+            tx
+          ),
+          createAction(action, battle, actionEffects, tx),
+          updateUser(result, ctx.userId, tx),
+        ]);
+        // Return both
+        return { newBattle, newAction };
       });
 
       // Return the new battle + results state if applicable
