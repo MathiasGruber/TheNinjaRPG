@@ -10,6 +10,7 @@ import { WeaponType } from "@prisma/client";
 import { ItemRarity } from "@prisma/client";
 import { ItemSlotType } from "@prisma/client";
 import type { TerrainHex } from "../travel/types";
+import { UserBattle } from "../../utils/UserContext";
 
 /**
  * Which state is public / private on users
@@ -68,6 +69,24 @@ export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
     leftBattle?: boolean;
   };
 
+/**
+ * User data for drawn users on the battle page
+ */
+export interface DrawnCombatUser {
+  userId: string;
+  username: string;
+  updatedAt: Date;
+  cur_health: number;
+  max_health: number;
+  cur_stamina?: number;
+  max_stamina?: number;
+  cur_chakra?: number;
+  max_chakra?: number;
+  avatar: string | null;
+  longitude: number;
+  latitude: number;
+}
+
 export type CombatResult = {
   experience: number;
   elo_pvp: number;
@@ -111,22 +130,10 @@ export type CombatAction = {
   hidden?: boolean;
 };
 
-/**
- * User data for drawn users on the battle page
- */
-export interface DrawnCombatUser {
-  userId: string;
-  username: string;
-  updatedAt: string;
-  cur_health: number;
-  max_health: number;
-  cur_stamina?: number;
-  max_stamina?: number;
-  cur_chakra?: number;
-  max_chakra?: number;
-  avatar: string | null;
-  longitude: number;
-  latitude: number;
+export interface BattleState {
+  battle?: UserBattle | null;
+  result: CombatResult | null;
+  isLoading: boolean;
 }
 
 /**
@@ -202,6 +209,7 @@ export const AbsorbTag = z
   .object({
     type: type("absorb"),
     description: msg("Absorb damage taken"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target absorbs %amount of the damage"),
     elementalOnly: z.boolean().default(false).optional(),
   })
@@ -213,6 +221,7 @@ export const AdjustArmorTag = z
   .object({
     type: type("armoradjust"),
     description: msg("Adjust armor rating of target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target armor rating is %changetype by %amount"),
     adjustUp: z.boolean().default(true),
   })
@@ -224,6 +233,7 @@ export const AdjustDamageGivenTag = z
   .object({
     type: type("damagegivenadjust"),
     description: msg("Adjust damage given by target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("Damage given by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
   })
@@ -235,6 +245,7 @@ export const AdjustDamageTakenTag = z
   .object({
     type: type("damagetakenadjust"),
     description: msg("Adjust damage taken of target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("Damage sustained by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
   })
@@ -246,6 +257,7 @@ export const AdjustHealTag = z
   .object({
     type: type("healadjust"),
     description: msg("Adjust healing ability of target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target healing ability is %changetype by %amount"),
     adjustUp: z.boolean().default(true),
   })
@@ -257,6 +269,7 @@ export const AdjustPoolCostTag = z
   .object({
     type: type("poolcostadjust"),
     description: msg("Adjust cost of using jutsu"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg(
       "The %affected cost for %target using jutsu is %changetype by %amount"
     ),
@@ -270,6 +283,7 @@ export const AdjustStatTag = z
   .object({
     type: type("statadjust"),
     description: msg("Adjust stats of target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target's %affected are %changetype by %amount"),
     affectedStats: z.array(z.enum(StatType)).optional(),
     affectedGenerals: z.array(z.enum(GeneralType)).optional(),
@@ -283,6 +297,7 @@ export const BarrierTag = z
   .object({
     type: type("barrier"),
     description: msg("Creates a barrier which offers cover"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("A barrier is created which offers cover"),
   })
   .merge(BaseAttributes)
@@ -293,6 +308,7 @@ export const ClearTag = z
   .object({
     type: type("clear"),
     description: msg("Clears all effects from the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target is now clear of all effects"),
   })
   .merge(BaseAttributes)
@@ -303,6 +319,7 @@ export const DamageTag = z
   .object({
     type: type("damage"),
     description: msg("Deals damage to target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target takes %amount damage"),
   })
   .merge(BaseAttributes)
@@ -314,6 +331,7 @@ export const FleeTag = z
   .object({
     type: type("flee"),
     description: msg("Flee the battle"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target flees the battle"),
   })
   .merge(BaseAttributes)
@@ -323,6 +341,7 @@ export const FleePreventTag = z
   .object({
     type: type("fleeprevent"),
     description: msg("Prevents fleeing"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target is cannot be stunned for %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -333,6 +352,7 @@ export const HealTag = z
   .object({
     type: type("heal"),
     description: msg("Heals the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target heals $amount %affected"),
   })
   .merge(BaseAttributes)
@@ -344,6 +364,7 @@ export const MoveTag = z
   .object({
     type: type("move"),
     description: msg("Move on the battlefield"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target moves to %location"),
   })
   .merge(BaseAttributes)
@@ -354,6 +375,7 @@ export const OneHitKillTag = z
   .object({
     type: type("onehitkill"),
     description: msg("Instantly kills the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target is killed"),
   })
   .merge(BaseAttributes)
@@ -363,6 +385,7 @@ export const OneHitKillPreventTag = z
   .object({
     type: type("onehitkillprevent"),
     description: msg("Prevents instant kill effects"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg(
       "%target is now immune to instant kill effects for %rounds rounds"
     ),
@@ -375,6 +398,7 @@ export const ReflectTag = z
   .object({
     type: type("reflect"),
     description: msg("Reflect damage taken"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target reflects %amount of the damage to %attacker"),
     elementalOnly: z.boolean().default(false).optional(),
   })
@@ -386,6 +410,7 @@ export const RobPreventTag = z
   .object({
     type: type("robprevent"),
     description: msg("Prevents robbing of the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target can not be robbed for %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -396,6 +421,7 @@ export const RobTag = z
   .object({
     type: type("rob"),
     description: msg("Robs money from the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%user steals %amount ryo from %target"),
   })
   .merge(BaseAttributes)
@@ -405,6 +431,7 @@ export const SealPreventTag = z
   .object({
     type: type("sealprevent"),
     description: msg("Prevents bloodline from being sealed"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target's bloodline cannot be sealed for %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -415,6 +442,7 @@ export const SealTag = z
   .object({
     type: type("seal"),
     description: msg("Seals the target's bloodline effects"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target's bloodline is sealed for the following %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -425,6 +453,7 @@ export const StunPreventTag = z
   .object({
     type: type("stunprevent"),
     description: msg("Prevents being stunned"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target cannot be stunned for %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -435,6 +464,7 @@ export const StunTag = z
   .object({
     type: type("stun"),
     description: msg("Stuns the target"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target is stunned for the following %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -445,6 +475,7 @@ export const SummonPreventTag = z
   .object({
     type: type("summonprevent"),
     description: msg("Prevents summoning"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%target is now prevented from summoning for %rounds rounds"),
   })
   .merge(BaseAttributes)
@@ -455,6 +486,7 @@ export const SummonTag = z
   .object({
     type: type("summon"),
     description: msg("Summon an ally"),
+    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
     battleEffect: msg("%user summons %target to the battlefield"),
   })
   .merge(BaseAttributes)
@@ -514,6 +546,7 @@ export type UserEffect = BattleEffect & {
 
 export type ActionEffect = {
   txt: string;
+  color: "red" | "green" | "blue";
 };
 
 /**

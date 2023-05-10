@@ -186,6 +186,9 @@ export const performAction = (info: {
       users: usersState,
       userId,
     });
+    // Bookkeeping
+    const targetUsernames: string[] = [];
+    const targetGenders: string[] = [];
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
       if (action.target === AttackTarget.GROUND) {
@@ -207,6 +210,10 @@ export const performAction = (info: {
           target = usersState.find((u) => u.userId !== userId && u.hex === tile);
         } else if (action.target === AttackTarget.CHARACTER) {
           target = usersState.find((u) => u.hex === tile);
+        }
+        if (target) {
+          targetUsernames.push(target.username);
+          targetGenders.push(target.gender);
         }
         action.effects.forEach((tag) => {
           if (target) {
@@ -234,6 +241,32 @@ export const performAction = (info: {
         user.cur_health = Math.max(0, user.cur_health);
       }
       user.updatedAt = secondsFromNow(-newSeconds);
+      // Update battle description
+      action.battleDescription = action.battleDescription.replace(
+        "%user",
+        user.username
+      );
+      action.battleDescription = action.battleDescription.replace(
+        "%usergender",
+        user.gender === "Male" ? "he" : "she"
+      );
+      action.battleDescription = action.battleDescription.replace(
+        "%location",
+        `[${targetTile.row}, ${targetTile.col}]`
+      );
+      if (targetUsernames.length > 0) {
+        action.battleDescription = action.battleDescription.replace(
+          "%target",
+          targetUsernames.join(", ")
+        );
+      }
+      if (targetGenders.length > 0) {
+        action.battleDescription = action.battleDescription.replace(
+          "%targetgender",
+          targetGenders.length === 1 && targetGenders[0] ? targetGenders[0] : "their"
+        );
+      }
+      // Successful action
       return true;
     }
   }

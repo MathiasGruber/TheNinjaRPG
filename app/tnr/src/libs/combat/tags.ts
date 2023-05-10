@@ -50,7 +50,10 @@ export const applyEffects = (
         const damage = damangeCalc(e.realizedPower, defensivePower);
         target.cur_health -= damage;
         target.cur_health = Math.max(0, target.cur_health);
-        actionEffects.push({ txt: e.battleEffect });
+        actionEffects.push({
+          txt: `${target.username} takes ${damage} damage`,
+          color: "red",
+        });
       }
     } else if (e.type === "flee") {
       // TODO: Flee from battle

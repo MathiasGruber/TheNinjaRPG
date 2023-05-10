@@ -265,7 +265,7 @@ export const highlightTiles = (info: {
   group_tiles: Group;
   raycaster: Raycaster;
   grid: Grid<TerrainHex>;
-  action: CombatAction | null;
+  action: CombatAction | undefined;
   userId: string;
   users: DrawnCombatUser[];
   currentHighlights: Set<string>;

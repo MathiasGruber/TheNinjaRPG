@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Battle } from "@prisma/client";
+import type { Battle, BattleAction } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 
@@ -45,7 +45,7 @@ export const combatRouter = createTRPCRouter({
       return { battle: newMaskedBattle, result: result };
     }),
   // Get history
-  getBattleAction: protectedProcedure
+  getBattleEntry: protectedProcedure
     .input(
       z.object({
         battleId: z.string().cuid().optional(),
@@ -53,11 +53,15 @@ export const combatRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      return await ctx.prisma.$queryRaw`
-          SELECT * FROM BattleAction 
-          WHERE battleId = ${input.battleId} and battleVersion = ${input.version}
-          LIMIT 1
-        `;
+      const entries = await ctx.prisma.battleAction.findMany({
+        where: {
+          battleId: input.battleId,
+          battleVersion: input.version,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      });
+      return entries?.[0] ? entries[0] : null;
     }),
   // Battle action
   performAction: protectedProcedure
@@ -95,6 +99,7 @@ export const combatRouter = createTRPCRouter({
       });
 
       // Perform action, get latest status effects
+      // Note: this mutates usersEffects, groundEffects
       const check = performAction({
         usersState,
         usersEffects,
@@ -122,9 +127,8 @@ export const combatRouter = createTRPCRouter({
       /**
        * DATABASE UPDATES
        */
-      const { newBattle, newAction } = await ctx.prisma.$transaction(async (tx) => {
-        // Run all updates concurrently
-        const [newBattle, newAction] = await Promise.all([
+      const newBattle = await ctx.prisma.$transaction(async (tx) => {
+        const [newBattle] = await Promise.all([
           updateBattle(
             result,
             battle,
@@ -136,8 +140,7 @@ export const combatRouter = createTRPCRouter({
           createAction(action, battle, actionEffects, tx),
           updateUser(result, ctx.userId, tx),
         ]);
-        // Return both
-        return { newBattle, newAction };
+        return newBattle;
       });
 
       // Return the new battle + results state if applicable

@@ -56,21 +56,16 @@ export const createAction = async (
   effects: ActionEffect[],
   prisma: PrismaClient | PrismaTransactionClient
 ) => {
-  await prisma.$executeRaw`
-    INSERT INTO BattleAction (battleId, battleVersion, description, appliedEffects) 
+  return await prisma.$executeRaw`
+    INSERT INTO BattleAction 
+      (battleId, battleVersion, description, appliedEffects) 
     VALUES (
       ${battle.id}, 
-      ${battle.version}, 
+      ${battle.version + 1}, 
       ${action.battleDescription}, 
       ${JSON.stringify(effects)}
     )
   `;
-  return {
-    battleId: battle.id,
-    battleVersion: battle.version,
-    description: action.battleDescription,
-    appliedEffects: effects as Prisma.JsonArray,
-  };
 };
 
 /**

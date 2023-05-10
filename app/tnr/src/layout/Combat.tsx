@@ -1,14 +1,12 @@
 import React from "react";
-import { useRef, useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useRef, useEffect } from "react";
 import Link from "next/link";
-
 import { Vector2, OrthographicCamera, Group } from "three";
 import alea from "alea";
 import Pusher from "pusher-js";
 import type { Grid } from "honeycomb-grid";
 
-import Button from "../layout/Button";
+import Button from "./Button";
 import { drawCombatBackground } from "../libs/combat/background";
 import { drawCombatUsers, highlightTiles } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
@@ -21,45 +19,47 @@ import type { UserBattle } from "../utils/UserContext";
 import type {
   ReturnedUserState,
   CombatAction,
-  CombatResult,
+  BattleState,
 } from "../libs/combat/types";
 import type { TerrainHex } from "../libs/travel/types";
 
 interface CombatProps {
-  battle: UserBattle;
-  action: CombatAction | null;
-  result: CombatResult | null;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  action: CombatAction | undefined;
+  battleState: BattleState;
   setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
+  setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
+  console.log(props);
   console.log("COMBAT LAYOUT COMPONENT");
   // Destructure props
-  const { setIsLoading, setActionPerc } = props;
-
-  // Conclusino of battle
-  const [results, setResults] = useState<CombatResult | null>(props.result);
+  const { setBattleState, setActionPerc, battleState } = props;
+  const result = battleState.result;
 
   // References which shouldn't update
-  const battle = useRef<UserBattle | null>(props.battle);
-  const action = useRef<CombatAction | null>(props.action);
+  const battle = useRef<UserBattle | null | undefined>(battleState.battle);
+  const action = useRef<CombatAction | undefined>(props.action);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new Vector2();
 
   // Mutations
   const { mutate: performAction } = api.combat.performAction.useMutation({
+    onMutate: () => {
+      console.log("onMutate");
+      setBattleState({ battle: battle.current, result: null, isLoading: true });
+    },
     onSuccess: (data) => {
+      console.log("onSuccess");
       battle.current = data.battle;
-      if (data.result) setResults(data.result);
+      setBattleState({ battle: data.battle, result: data.result, isLoading: false });
     },
     onError: (error) => {
       show_toast("Error acting", error.message, "error");
     },
     onSettled: () => {
       document.body.style.cursor = "default";
-      setIsLoading(false);
     },
   });
 
@@ -121,6 +121,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       });
       const channel = pusher.subscribe(userData.battleId.toString());
       channel.bind("event", (data: UserBattle) => {
+        console.log("PUSHER EVENT");
         battle.current = {
           ...data,
           usersState: data.usersState.map((user) => {
@@ -216,7 +217,6 @@ const Combat: React.FC<CombatProps> = (props) => {
               ) {
                 const target = i.object.userData.tile as TerrainHex;
                 document.body.style.cursor = "wait";
-                setIsLoading(true);
                 performAction({
                   battleId: battle.current.id,
                   actionId: action.current.id,
@@ -293,21 +293,19 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
-      {results && (
+      {result && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
             <p className="p-5 pb-2 text-3xl">
-              You {results.cur_health <= 0 ? "Lost" : "Won"}
+              You {result.cur_health <= 0 ? "Lost" : "Won"}
             </p>
-            {results.elo_pvp && <p>Your PVP rating: {results.elo_pvp}</p>}
-            {results.experience > 0 && <p>Experience Points: {results.experience}</p>}
+            {result.elo_pvp && <p>Your PVP rating: {result.elo_pvp}</p>}
+            {result.experience > 0 && <p>Experience Points: {result.experience}</p>}
             <div className="p-5">
-              <Link href={results.cur_health <= 0 ? "/hospital" : "/profile"}>
+              <Link href={result.cur_health <= 0 ? "/hospital" : "/profile"}>
                 <Button
                   id="return"
-                  label={`Return to ${
-                    results.cur_health <= 0 ? "Hospital" : "Profile"
-                  }`}
+                  label={`Return to ${result.cur_health <= 0 ? "Hospital" : "Profile"}`}
                 />
               </Link>
             </div>

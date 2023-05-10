@@ -6,61 +6,67 @@ import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
 import Combat from "../layout/Combat";
 import ActionTimer from "../layout/ActionTimer";
+import CombatHistory from "../layout/CombatHistory";
+
 import { availableUserActions } from "../libs/combat/actions";
 import { ActionSelector } from "../layout/CombatActions";
 import { api } from "../utils/api";
-
 import { useRequiredUserData } from "../utils/UserContext";
+import type { BattleState } from "../libs/combat/types";
 
 const CombatPage: NextPage = () => {
   // State
   const [actionId, setActionId] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [actionPerc, setActionPerc] = useState<number | undefined>(undefined);
+  const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
 
   // Data from the DB
   const { data: userData, setBattle } = useRequiredUserData();
   const { data, isFetching } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
-    {
-      enabled: !!userData?.battleId,
-      staleTime: Infinity,
-    }
+    { enabled: !!userData?.battleId, staleTime: Infinity }
   );
-  const {
-    data: history,
-    isFetching: isFetchingHistory,
-    refetch: refetchHistory,
-  } = api.combat.getBattleAction.useQuery(
-    { battleId: data?.battle?.id, version: data?.battle?.version },
-    { enabled: !!data?.battle, staleTime: Infinity }
-  );
-  console.log(history);
 
   // Redirect to profile if not in battle
   const router = useRouter();
   useEffect(() => {
-    if (data?.battle) setBattle(data.battle);
+    if (data?.battle) {
+      setBattle(data.battle);
+      setBattleState({ battle: data.battle, result: null, isLoading: false });
+    }
   }, [userData, router, data, setBattle]);
 
   // Collect all possible actions for action selector
   const actions = availableUserActions(data?.battle?.usersState, userData?.userId);
   const action = actions.find((a) => a.id === actionId);
 
-  // Three.js scene
+  // Derived variables
+  const results = battleState?.result;
+  const battle = battleState?.battle;
+  const battleId = battle?.id;
+  const versionId = battle?.version;
+
+  // Battle scene
   const combat = useMemo(() => {
     return (
-      data?.battle && (
+      battleState && (
         <Combat
-          battle={data.battle}
-          result={data.result}
+          battleState={battleState}
           action={actions.find((a) => a.id === actionId)}
           setActionPerc={setActionPerc}
-          setIsLoading={setIsLoading}
+          setBattleState={setBattleState}
         />
       )
     );
-  }, [data, actionId]);
+  }, [versionId, actionId]);
+
+  // History Component
+  const history = useMemo(() => {
+    return (
+      battleId &&
+      versionId && <CombatHistory battleId={battleId} battleVersion={versionId} />
+    );
+  }, [battleId, versionId]);
 
   return (
     <div>
@@ -69,11 +75,11 @@ const CombatPage: NextPage = () => {
         subtitle="Sparring"
         padding={false}
         topRightContent={
-          data &&
-          !data.result && (
+          battle &&
+          !results && (
             <ActionTimer
               actionPerc={actionPerc}
-              isLoading={isLoading}
+              isLoading={battleState.isLoading}
               action={action}
             />
           )
@@ -86,7 +92,7 @@ const CombatPage: NextPage = () => {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {data && !data.result && (
+      {battle && !results && (
         <ActionSelector
           items={actions}
           showBgColor={true}
@@ -101,7 +107,8 @@ const CombatPage: NextPage = () => {
           }}
         />
       )}
-      {actionId && (
+      {history}
+      {battle && !results && actionId && (
         <div className="pt-2 text-xs">
           <p className="text-red-500">Red: tile not affected</p>
           <p className="text-green-700">Green: tile affected by attack</p>
