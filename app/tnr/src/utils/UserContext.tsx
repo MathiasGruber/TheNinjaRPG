@@ -3,6 +3,7 @@ import { useContext } from "react";
 import { Prisma, type BattleType } from "@prisma/client";
 import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
+import type { UserEffect, GroundEffect } from "../libs/combat/types";
 
 import { type ReturnedUserState } from "../libs/combat/types";
 
@@ -19,6 +20,8 @@ export type UserDataWithRelations =
 // Create type for battle, which contains information on user current state
 export type UserBattle = {
   usersState: ReturnedUserState[];
+  usersEffects: UserEffect[];
+  groundEffects: GroundEffect[];
   id: string;
   createdAt: Date;
   updatedAt: Date;

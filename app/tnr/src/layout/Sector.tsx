@@ -58,10 +58,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Data from db
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const { data: users } = api.travel.getSectorData.useQuery(
-    { sector: props.sector },
-    { staleTime: Infinity }
-  );
+  const { data: users } = api.travel.getSectorData.useQuery({ sector: props.sector });
 
   // Router for forwarding
   const router = useRouter();

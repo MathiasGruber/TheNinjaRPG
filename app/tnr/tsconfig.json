@@ -22,7 +22,8 @@
     "**/*.tsx",
     "**/*.cjs",
     "**/*.mjs",
-    "src/libs/drawThreeJson.js"
+    "src/libs/drawThreeJson.js",
+    "src/libs/travel/SpriteMixer.js"
   ],
   "exclude": ["node_modules", ".next"]
 }

@@ -1,14 +1,18 @@
 import React from "react";
 import { useRef, useEffect } from "react";
 import Link from "next/link";
-import { Vector2, OrthographicCamera, Group } from "three";
+import { Vector2, OrthographicCamera, Group, TextureLoader, Clock } from "three";
 import alea from "alea";
 import Pusher from "pusher-js";
 import type { Grid } from "honeycomb-grid";
 
 import Button from "./Button";
-import { drawCombatBackground } from "../libs/combat/background";
-import { drawCombatUsers, highlightTiles } from "../libs/combat/movement";
+import { drawCombatBackground, drawCombatEffects } from "../libs/combat/background";
+import {
+  drawCombatUsers,
+  highlightTiles,
+  highlightTooltips,
+} from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
@@ -22,6 +26,7 @@ import type {
   BattleState,
 } from "../libs/combat/types";
 import type { TerrainHex } from "../libs/travel/types";
+import { SpriteMixer } from "../libs/travel/SpriteMixer";
 
 interface CombatProps {
   action: CombatAction | undefined;
@@ -31,7 +36,6 @@ interface CombatProps {
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
-  console.log(props);
   console.log("COMBAT LAYOUT COMPONENT");
   // Destructure props
   const { setBattleState, setActionPerc, battleState } = props;
@@ -64,7 +68,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   });
 
   // Data from the DB
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser, setBattle } = useRequiredUserData();
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -76,8 +80,8 @@ const Combat: React.FC<CombatProps> = (props) => {
   };
   const onDocumentMouseLeave = () => {
     if (mountRef.current) {
-      mouse.x = Infinity;
-      mouse.y = Infinity;
+      mouse.x = 9999999;
+      mouse.y = 9999999;
     }
   };
   const getActionPerc = (user: ReturnedUserState) => {
@@ -176,16 +180,22 @@ const Combat: React.FC<CombatProps> = (props) => {
       camera.updateProjectionMatrix();
 
       // Draw the background
-      const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        drawCombatBackground(WIDTH, HEIGHT, scene, battle.current.background, prng);
+      const { group_tiles, group_edges, honeycombGrid } = drawCombatBackground(
+        WIDTH,
+        HEIGHT,
+        scene,
+        battle.current.background
+      );
       grid.current = honeycombGrid;
 
       // Intersections & highlights from interactions
       let highlights = new Set<string>();
+      let tooltips = new Set<string>();
       // let currentTooltips = new Set<string>();
 
       // js groups for organization
       const group_users = new Group();
+      const group_ground = new Group();
 
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -197,7 +207,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Add the group to the scene
       scene.add(group_tiles);
       scene.add(group_edges);
-      scene.add(group_assets);
+      scene.add(group_ground);
       scene.add(group_users);
 
       // Capture clicks to update move direction
@@ -232,14 +242,31 @@ const Combat: React.FC<CombatProps> = (props) => {
       };
       renderer.domElement.addEventListener("click", onClick, true);
 
+      // Prototype smoke effect
+      const spriteMixer = SpriteMixer();
+      // spriteMixer.addEventListener("finished", function (event) {});
+
       // Render the image
       let animationId = 0;
+      const clock = new Clock();
+      clock.start();
       function render() {
+        // Use clock for animating sprites
+        spriteMixer.update(clock.getDelta());
+
         // Use raycaster to detect mouse intersections
         raycaster.setFromCamera(mouse, camera);
 
-        // Assume we have user, users and a grid
-        if (battle.current?.usersState && grid.current) {
+        // Assume we have battle and a grid
+        if (battle.current && grid.current) {
+          // Draw all effects on the map
+          drawCombatEffects({
+            group_ground: group_ground,
+            effects: battle.current.groundEffects,
+            grid: grid.current,
+            spriteMixer,
+          });
+
           // Draw all users on the map + indicators for positions with multiple users
           drawCombatUsers({
             group_users: group_users,
@@ -254,11 +281,20 @@ const Combat: React.FC<CombatProps> = (props) => {
               raycaster,
               action: action.current,
               userId: userData.userId,
-              users: battle.current.usersState,
+              battle: battle.current,
               grid: grid.current,
               currentHighlights: highlights,
             });
           }
+
+          // Highlight tooltips when hovering on battlefield
+          tooltips = highlightTooltips({
+            group_ground,
+            raycaster,
+            battle: battle.current,
+            grid: grid.current,
+            currentTooltips: tooltips,
+          });
         }
 
         // Trackball updates
@@ -276,6 +312,8 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Remove the mouseover listener
       return () => {
         console.log("CLEARING COMBAT");
+        void refetchUser();
+        void setBattle(undefined);
         window.removeEventListener("resize", handleResize);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current?.removeEventListener("mouseleave", onDocumentMouseLeave);
@@ -285,7 +323,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         if (userData.battleId) {
           pusher.unsubscribe(userData.battleId.toString());
         }
-        void refetchUser();
       };
     }
   }, []);

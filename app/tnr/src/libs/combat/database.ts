@@ -1,5 +1,5 @@
-import { Battle, PrismaClient, Prisma } from "@prisma/client";
-import { UserStatus } from "@prisma/client";
+import type { Battle, PrismaClient } from "@prisma/client";
+import { UserStatus, Prisma } from "@prisma/client";
 import type { CombatResult, ReturnedUserState } from "./types";
 import type { UserEffect, GroundEffect, CombatAction, ActionEffect } from "./types";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";

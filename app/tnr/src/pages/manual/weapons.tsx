@@ -68,12 +68,7 @@ const ManualWeapons: NextPage = () => {
         {!isFetching &&
           allItems?.map((item, i) => (
             <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
-              <ItemWithEffects
-                folderPrefix="/items/"
-                item={item}
-                key={item.id}
-                imageBorder={false}
-              />
+              <ItemWithEffects item={item} key={item.id} imageBorder={false} />
             </div>
           ))}
       </ContentBox>

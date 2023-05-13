@@ -20,6 +20,7 @@ interface ActionSelectorProps {
   selectedId?: string;
   labelSingles?: boolean;
   onClick: (id: string) => void;
+  emptyText?: string;
 }
 
 export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
@@ -75,7 +76,9 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           })}
       </div>
       {props.items?.length === 0 && (
-        <span className="flex flex-row text-base">Nothing Available</span>
+        <span className="flex flex-row text-base">
+          {props.emptyText ? props.emptyText : "Nothing Available"}
+        </span>
       )}
     </>
   );

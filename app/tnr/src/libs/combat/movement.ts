@@ -9,19 +9,22 @@ import {
   type Raycaster,
 } from "three";
 import { AttackMethod, AttackTarget } from "@prisma/client";
-import { Grid, spiral, line, ring, fromCoordinates } from "honeycomb-grid";
+import { spiral, line, ring, fromCoordinates } from "honeycomb-grid";
+import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../travel/types";
 import { COMBAT_SECONDS, COMBAT_PREMOVE_SECONDS } from "./constants";
 
 import { findHex } from "../travel/sector";
 import type { HexagonalFaceMesh } from "../travel/types";
-import type { DrawnCombatUser, CombatAction, ReturnedUserState } from "./types";
+import type { DrawnCombatUser, CombatAction, GroundEffect } from "./types";
+import type { BarrierTagType } from "./types";
 import { secondsPassed } from "../../utils/time";
+import type { UserBattle } from "../../utils/UserContext";
 
 /**
  * Draw a status bar on user
  */
-const drawStatusBar = (
+export const drawStatusBar = (
   w: number,
   h: number,
   color: string,
@@ -156,7 +159,36 @@ export const drawCombatUsers = (info: {
         userMesh.visible = true;
         userMesh.userData.tile = hex;
         const { x, y } = hex.center;
-        userMesh.position.set(-x, -y, 0);
+        const { width } = hex;
+        const { x: curX, y: curY } = userMesh.position;
+        const speed = width / 50;
+        let targetX = -Math.floor(x);
+        let targetY = -Math.floor(y);
+        const curXFloor = Math.floor(curX);
+        const curYFloor = Math.floor(curY);
+        if (curXFloor !== 0 || curYFloor !== 0) {
+          const xDiff = targetX - curXFloor;
+          const yDiff = targetY - curYFloor;
+          if (xDiff) {
+            const xToYratio = yDiff ? Math.abs(xDiff / yDiff) : 1;
+            const deltaX = (xDiff > 0 ? 1 : -1) * speed * xToYratio;
+            if (xDiff > 0) {
+              targetX = curXFloor + deltaX >= targetX ? targetX : curXFloor + deltaX;
+            } else {
+              targetX = curXFloor + deltaX <= targetX ? targetX : curXFloor + deltaX;
+            }
+          }
+          if (yDiff) {
+            const deltaY = (targetY - curYFloor > 0 ? 1 : -1) * speed;
+            if (yDiff > 0) {
+              targetY = curYFloor + deltaY >= targetY ? targetY : curYFloor + deltaY;
+            } else {
+              targetY = curYFloor + deltaY <= targetY ? targetY : curYFloor + deltaY;
+            }
+          }
+        }
+        userMesh.position.set(targetX, targetY, 0);
+        // userMesh.material.color.offsetHSL(0, 0, 0.1);
         updateStatusBar("hp_current", userMesh, user.cur_health / user.max_health);
         if (user.cur_stamina && user.max_stamina) {
           updateStatusBar("sp_current", userMesh, user.cur_stamina / user.max_stamina);
@@ -182,24 +214,40 @@ export const drawCombatUsers = (info: {
 export const isValidMove = (info: {
   action: CombatAction;
   target: TerrainHex;
-  userId: string;
+  user: DrawnCombatUser;
   users: DrawnCombatUser[];
+  barriers: GroundEffect[];
 }) => {
-  const { action, userId, users, target } = info;
-  const opponent = users.find(
-    (u) => u.longitude === target.col && u.latitude === target.row
+  const { action, user, users, target, barriers } = info;
+  const { villageId, userId } = user;
+  const barrier = barriers.find(
+    (b) => b.longitude === target.col && b.latitude === target.row
   );
-  if (action.target === AttackTarget.CHARACTER) {
-    if (opponent) return true;
-  } else if (action.target === AttackTarget.OPPONENT) {
-    if (opponent && opponent?.userId !== userId) return true;
-  } else if (action.target === AttackTarget.SELF) {
-    if (opponent && opponent?.userId === userId) return true;
-  } else if (action.target === AttackTarget.GROUND) {
-    if (!(action.id === "move" && opponent)) {
+  if (!barrier) {
+    const opponent = users.find(
+      (u) => u.longitude === target.col && u.latitude === target.row
+    );
+    if (action.target === AttackTarget.CHARACTER) {
+      if (opponent) return true;
+    } else if (action.target === AttackTarget.OPPONENT) {
+      if (opponent && opponent?.villageId !== villageId) return true;
+    } else if (action.target === AttackTarget.OTHER_USER) {
+      if (opponent && opponent?.userId !== userId) return true;
+    } else if (action.target === AttackTarget.ALLY) {
+      if (opponent && opponent?.villageId === villageId) return true;
+    } else if (action.target === AttackTarget.SELF) {
+      if (opponent && opponent?.userId === userId) return true;
+    } else if (action.target === AttackTarget.GROUND) {
+      if (!(action.id === "move" && opponent)) {
+        return true;
+      }
+    }
+  } else {
+    if (action.effects.find((e) => e.type === "damage")) {
       return true;
     }
   }
+
   return false;
 };
 
@@ -208,7 +256,7 @@ export const actionSecondsAfterAction = (
   action: CombatAction
 ) => {
   const passed = Math.min(secondsPassed(new Date(user.updatedAt)), COMBAT_SECONDS);
-  const timeCost = action.actionCostPerc * COMBAT_SECONDS;
+  const timeCost = (action.actionCostPerc / 100) * COMBAT_SECONDS;
   return passed - timeCost;
 };
 
@@ -218,6 +266,7 @@ export const getAffectedTiles = (info: {
   action: CombatAction;
   grid: Grid<TerrainHex>;
   users: DrawnCombatUser[];
+  ground: GroundEffect[];
   userId: string;
 }) => {
   // Destruct & variables
@@ -225,7 +274,14 @@ export const getAffectedTiles = (info: {
   const radius = action.range;
   const green = new Set<TerrainHex>();
   const red = new Set<TerrainHex>();
+  const user = users.find((u) => u.userId === userId);
   let tiles: Grid<TerrainHex> | undefined = undefined;
+
+  // Get all ground effects which are barriers
+  const barriers = info.ground.filter((g) => g.type === "barrier");
+
+  // Guard if no user
+  if (!user) return { green, red };
 
   // Handle different methods separately
   if (action.method === AttackMethod.SINGLE) {
@@ -241,7 +297,7 @@ export const getAffectedTiles = (info: {
     if (tiles) tiles = tiles.filter((t) => t !== a);
   } else if (action.method === AttackMethod.ALL) {
     grid.forEach((target) => {
-      if (isValidMove({ action, target, userId, users })) {
+      if (isValidMove({ action, target, user, users, barriers })) {
         green.add(target);
       }
     });
@@ -249,7 +305,7 @@ export const getAffectedTiles = (info: {
 
   // Return green for valid moves and red for unvalid moves
   tiles?.forEach((target) => {
-    if (isValidMove({ action, target, userId, users })) {
+    if (isValidMove({ action, target, user, users, barriers })) {
       green.add(target);
     } else {
       red.add(target);
@@ -267,12 +323,13 @@ export const highlightTiles = (info: {
   grid: Grid<TerrainHex>;
   action: CombatAction | undefined;
   userId: string;
-  users: DrawnCombatUser[];
+  battle: UserBattle;
   currentHighlights: Set<string>;
 }) => {
   // Definitions
-  const { group_tiles, userId, users, currentHighlights, action, grid } = info;
+  const { group_tiles, userId, battle, currentHighlights, action, grid } = info;
   const intersects = info.raycaster.intersectObjects(group_tiles.children);
+  const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   const origin = user && grid.getHex({ col: user.longitude, row: user.latitude });
 
@@ -322,13 +379,13 @@ export const highlightTiles = (info: {
   if (action && origin && highlights && hit && canAct) {
     const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
-
     // Based on the intersected tile, highlight the tiles which are affected.
     const { green, red } = getAffectedTiles({
       a: origin,
       b: targetTile,
       action,
       grid: highlights,
+      ground: battle.groundEffects,
       users,
       userId,
     });
@@ -375,4 +432,55 @@ export const highlightTiles = (info: {
     }
   });
   return new Set([...newHighlights, ...newSelection]);
+};
+
+/**
+ * Highlight different things in the environment based on raycaster
+ */
+export const highlightTooltips = (info: {
+  group_ground: Group;
+  raycaster: Raycaster;
+  battle: UserBattle;
+  grid: Grid<TerrainHex>;
+  currentTooltips: Set<string>;
+}) => {
+  // Definitions
+  const { group_ground, battle, currentTooltips, grid } = info;
+  const intersects = info.raycaster.intersectObjects(group_ground.children);
+  const newTooltips = new Set<string>();
+
+  // Barriers
+  const barrier = intersects.find((i) => i.object.parent?.userData.type === "barrier")
+    ?.object.parent;
+  if (barrier) {
+    // Get the sprites
+    const background = barrier.getObjectByName("hp_background") as Sprite;
+    const bar = barrier.getObjectByName("hp_current") as Sprite;
+    background.visible = true;
+    bar.visible = true;
+    // Update HP of barrier
+    const effect = battle.groundEffects.find((e) => e.id === barrier.name);
+    if (effect) {
+      const typedEffect = effect as unknown as BarrierTagType;
+      updateStatusBar(
+        "hp_current",
+        barrier as Group,
+        typedEffect.power / typedEffect.originalPower
+      );
+    }
+    // Remember that we drew this
+    newTooltips.add(barrier.name);
+  }
+
+  // Remove highlights from tiles that are no longer in the path
+  currentTooltips.forEach((name) => {
+    if (!newTooltips.has(name)) {
+      const mesh = group_ground.getObjectByName(name) as Group;
+      const background = mesh.getObjectByName("hp_background") as Sprite;
+      const bar = mesh.getObjectByName("hp_current") as Sprite;
+      background.visible = false;
+      bar.visible = false;
+    }
+  });
+  return newTooltips;
 };

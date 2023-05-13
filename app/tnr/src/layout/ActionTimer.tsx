@@ -15,7 +15,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   let color = "/combat/actionTimer/green.webp";
   if (actionPerc && action) {
     const preMovePerc = COMBAT_PREMOVE_SECONDS / COMBAT_SECONDS;
-    const cost = action.actionCostPerc * 100;
+    const cost = action.actionCostPerc;
     if (actionPerc > cost) {
       label = "Action Enabled";
       color = "/combat/actionTimer/blue.webp";

@@ -69,7 +69,7 @@ const CombatPage: NextPage = () => {
   }, [battleId, versionId]);
 
   return (
-    <div>
+    <div className="sm:container">
       <ContentBox
         title="Combat"
         subtitle="Sparring"

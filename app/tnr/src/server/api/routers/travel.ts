@@ -1,18 +1,22 @@
 import { z } from "zod";
-import { Prisma, type PrismaClient } from "@prisma/client";
-// import { Redis } from "@upstash/redis";
-import { UserStatus, BattleType } from "@prisma/client";
-
-import { UserEffect, GroundEffect } from "../../../libs/combat/types";
+import { UserStatus, BattleType, ItemType } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Item, UserItem } from "@prisma/client";
+import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
+import { BarrierTag } from "../../../libs/combat/types";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
 import { type GlobalMapData } from "../../../libs/travel/types";
+import type { BattleUserState } from "../../../libs/combat/types";
+import { combatAssets } from "../../../libs/travel/biome";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
+import { COMBAT_WIDTH, COMBAT_HEIGHT } from "../../../libs/combat/constants";
 import { secondsFromNow, secondsPassed } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";
 import * as map from "../../../../public/map/hexasphere.json";
+import { realizeTag } from "../../../libs/combat/tags";
 
 // const redis = Redis.fromEnv();
 
@@ -178,16 +182,27 @@ export const travelRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const battle = await ctx.prisma.$transaction(async (tx) => {
         // Get user & target data, to be inserted into battle
-        const users = await tx.userData.findMany({
+        const users: BattleUserState[] = await tx.userData.findMany({
           include: {
             items: {
               include: {
                 item: true,
               },
+              where: {
+                quantity: {
+                  gt: 0,
+                },
+                equipped: {
+                  not: null,
+                },
+              },
             },
             jutsus: {
               include: {
                 jutsu: true,
+              },
+              where: {
+                equipped: true,
               },
             },
             bloodline: true,
@@ -210,6 +225,7 @@ export const travelRouter = createTRPCRouter({
         } else {
           throw new Error(`Failed to set position of right-hand user`);
         }
+
         // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
         // Therefore we need to calculate the current pools here, before inserting the user into battle
         users.forEach((user) => {
@@ -221,51 +237,94 @@ export const travelRouter = createTRPCRouter({
           user.cur_chakra = Math.min(user.cur_chakra + regen, user.max_chakra);
           user.cur_stamina = Math.min(user.cur_stamina + regen, user.max_stamina);
         });
+
+        // Add highest stats to user
+        users.forEach((user) => {
+          user.highest_offence = Math.max(
+            user.ninjutsu_offence,
+            user.genjutsu_offence,
+            user.taijutsu_offence,
+            user.bukijutsu_offence
+          );
+          user.highest_defence = Math.max(
+            user.ninjutsu_offence,
+            user.genjutsu_offence,
+            user.taijutsu_offence,
+            user.bukijutsu_offence
+          );
+        });
+
         // Starting user effects from bloodlines & items
-        // TODO: Add effects from items, i.e. equipped armor & accessory
-        // TODO: Remove armor & assesory items from inventory before adding to battle
         const userEffects: UserEffect[] = [];
         for (const user of users) {
+          // Add bloodline efects
           if (user.bloodline?.effects) {
-            userEffects.push(...(user.bloodline.effects as UserEffect[]));
+            const effects = user.bloodline.effects as UserEffect[];
+            effects.forEach((effect) => {
+              const realized = realizeTag(effect, user);
+              realized.targetId = user.userId;
+              userEffects.push(realized);
+            });
+          }
+          // Add item effects
+          const items: (UserItem & { item: Item })[] = [];
+          user.items.forEach((useritem) => {
+            const itemType = useritem.item.itemType;
+            if (itemType === ItemType.ARMOR || itemType === ItemType.ACCESSORY) {
+              if (useritem.item.effects) {
+                const effects = useritem.item.effects as UserEffect[];
+                effects.forEach((effect) => {
+                  const realized = realizeTag(effect, user);
+                  realized.targetId = user.userId;
+                  userEffects.push(realized);
+                });
+              }
+            } else {
+              items.push(useritem);
+            }
+          });
+          user.items = items;
+        }
+
+        // Starting ground effects
+        const groundEffects: GroundEffect[] = [];
+        for (let col = 0; col < COMBAT_WIDTH; col++) {
+          for (let row = 0; row < COMBAT_HEIGHT; row++) {
+            const rand = Math.random();
+            combatAssets.every((asset) => {
+              if (rand < asset.chance) {
+                const tag: GroundEffect = {
+                  ...BarrierTag.parse({
+                    power: 2,
+                    originalPower: 2,
+                    calculation: "static",
+                  }),
+                  id: `initial-${col}-${row}`,
+                  creatorId: "ground",
+                  longitude: col,
+                  latitude: row,
+                  staticAssetPath: asset.filepath + asset.filename,
+                };
+                groundEffects.push(tag);
+                return false;
+              }
+              return true;
+            });
           }
         }
-        // Starting ground effects
-        // TODO: Add objects with ground effects
+
         // Create combat entry
-        // console.time("set prisma");
         const battle = await tx.battle.create({
           data: {
             battleType: BattleType.COMBAT,
             background: "forest.webp",
             usersState: users as unknown as Prisma.JsonArray,
             usersEffects: userEffects as Prisma.JsonArray,
-            groundEffects: [] as Prisma.JsonArray,
+            groundEffects: groundEffects as Prisma.JsonArray,
           },
         });
-        // console.log("--------------");
-        // console.timeEnd("set prisma");
-        // console.log("--------------");
-
-        // console.time("set upstash");
-        // const data = await redis.set("battle-" + battle.id, battle);
-        // console.log("--------------");
-        // console.timeEnd("set upstash");
-        // console.log("--------------");
-
-        // console.time("get prisma");
-        // const battle2 = await tx.battle.findUnique({ where: { id: battle.id } });
-        // console.log("--------------");
-        // console.timeEnd("get prisma");
-        // console.log("--------------");
-
-        // console.time("get upstash");
-        // const battle3 = await redis.get("battle-" + battle.id);
-        // console.log("--------------");
-        // console.timeEnd("get upstash");
-        // console.log("--------------");
-
         battle.usersState = [];
+
         // Update users, but only succeed transaction if none of them already had a battle assigned
         const result: number = await tx.$executeRaw`
           UPDATE UserData

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `Item` MODIFY `target` ENUM('SELF', 'OPPONENT', 'ALLY', 'CHARACTER', 'GROUND') NOT NULL,
+    MODIFY `battleDescription` TEXT NOT NULL DEFAULT '';
+
+-- AlterTable
+ALTER TABLE `Jutsu` MODIFY `target` ENUM('SELF', 'OPPONENT', 'ALLY', 'CHARACTER', 'GROUND') NOT NULL;

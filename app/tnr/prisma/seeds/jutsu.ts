@@ -7,6 +7,7 @@ import { JutsuType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
 
 import { DamageTag } from "../../src/libs/combat/types";
+import { BarrierTag } from "../../src/libs/combat/types";
 import { StunTag } from "../../src/libs/combat/types";
 
 const jutsus: ZodJutsuType[] = [
@@ -28,6 +29,7 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
+        rounds: 1,
         power: 1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Strength"],
@@ -47,9 +49,33 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
+        rounds: 1,
         power: 1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Strength"],
+      }),
+    ],
+  },
+  {
+    name: "Rock Barrier",
+    image: "/jutsus/rock_barrier.png",
+    description: "Form a battlefield barrier in the form of a pile of rocks.",
+    battleDescription: "%user summons a rock barrier.",
+    jutsuType: JutsuType.NORMAL,
+    jutsuRank: LetterRank.D,
+    requiredRank: UserRank.STUDENT,
+    target: AttackTarget.GROUND,
+    range: 1,
+    cooldown: 30,
+    effects: [
+      BarrierTag.parse({
+        rounds: 10,
+        power: 2,
+        originalPower: 2,
+        calculation: "static",
+        staticAssetPath: "craftpix-377140/PNG/Objects_separately/Rock6_2.png",
+        appearAnimation: "smoke",
+        disappearAnimation: "smoke",
       }),
     ],
   },
@@ -70,11 +96,13 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
+        rounds: 1,
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
+        rounds: 1,
         timing: "next round",
         chance: 1,
       }),
@@ -99,11 +127,13 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
+        rounds: 1,
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
+        rounds: 1,
         timing: "next round",
         chance: 1,
       }),
@@ -127,6 +157,7 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
+        rounds: 1,
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Speed", "Strength"],

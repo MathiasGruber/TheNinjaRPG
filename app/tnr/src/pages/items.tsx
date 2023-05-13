@@ -29,9 +29,7 @@ const MyItems: NextPage = () => {
     data: userItems,
     refetch,
     isFetching,
-  } = api.item.getUserItems.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  } = api.item.getUserItems.useQuery(undefined, {});
 
   // Collapse UserItem and Item
   const allItems = userItems?.map((useritem) => {

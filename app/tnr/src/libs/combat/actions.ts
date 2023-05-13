@@ -5,7 +5,7 @@ import type { ReturnedUserState, CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 import { MoveTag, DamageTag, FleeTag } from "./types";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
-import { realizeUserTag, realizeGroundTag } from "./tags";
+import { realizeTag } from "./tags";
 import { secondsFromNow } from "../../utils/time";
 
 /**
@@ -39,18 +39,20 @@ export const availableUserActions = (
       image: "/combat/basicActions/stamina.png",
       battleDescription: "%user perform a basic physical strike against %target",
       type: "basic" as const,
-      target: AttackTarget.OPPONENT,
+      target: AttackTarget.OTHER_USER,
       method: AttackMethod.SINGLE,
       healthCostPerc: 0,
       chakraCostPerc: 0,
-      staminaCostPerc: 0.01,
-      actionCostPerc: 0.9,
+      staminaCostPerc: 1,
+      actionCostPerc: 50,
       range: 1,
       effects: [
         DamageTag.parse({
           power: 1,
           statTypes: ["Taijutsu", "Bukijutsu"],
           generalTypes: ["Strength", "Speed"],
+          rounds: 1,
+          appearAnimation: "hit",
         }),
       ],
     },
@@ -60,18 +62,20 @@ export const availableUserActions = (
       image: "/combat/basicActions/chakra.png",
       battleDescription: "%user perform a basic chakra strike against %target",
       type: "basic" as const,
-      target: AttackTarget.OPPONENT,
+      target: AttackTarget.OTHER_USER,
       method: AttackMethod.SINGLE,
       range: 1,
       healthCostPerc: 0,
-      chakraCostPerc: 0.01,
+      chakraCostPerc: 1,
       staminaCostPerc: 0,
-      actionCostPerc: 0.5,
+      actionCostPerc: 50,
       effects: [
         DamageTag.parse({
           power: 1,
           statTypes: ["Ninjutsu", "Genjutsu"],
           generalTypes: ["Willpower", "Intelligence"],
+          rounds: 1,
+          appearAnimation: "hit",
         }),
       ],
     },
@@ -87,7 +91,7 @@ export const availableUserActions = (
       healthCostPerc: 0,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
-      actionCostPerc: 0.5,
+      actionCostPerc: 50,
       effects: [MoveTag.parse({ chance: 100 })],
     },
     {
@@ -102,7 +106,7 @@ export const availableUserActions = (
       healthCostPerc: 0.1,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
-      actionCostPerc: 0.5,
+      actionCostPerc: 100,
       effects: [FleeTag.parse({ chance: 20 })],
     },
     ...(user?.jutsus
@@ -172,6 +176,8 @@ export const performAction = (info: {
   // TODO: Check if user is stunned + other prevent action conditions
   // Check if the user can perform the action
   if (user?.hex && targetTile) {
+    // Village ID
+    const villageId = user.villageId;
     // How much time passed since last action
     const newSeconds = actionSecondsAfterAction(user, action);
     if (newSeconds < 0) {
@@ -184,6 +190,7 @@ export const performAction = (info: {
       action,
       grid: grid,
       users: usersState,
+      ground: groundEffects,
       userId,
     });
     // Bookkeeping
@@ -194,50 +201,81 @@ export const performAction = (info: {
       if (action.target === AttackTarget.GROUND) {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
-          const effect = realizeGroundTag(tag as GroundEffect, user);
-          effect.creatorId = user.userId;
-          effect.longitude = longitude;
-          effect.latitude = latitude;
-          effect.lastUpdate = Date.now();
-          if (effect) groundEffects.push(effect);
+          const effect = realizeTag(tag as GroundEffect, user);
+          if (effect) {
+            effect.longitude = longitude;
+            effect.latitude = latitude;
+            groundEffects.push(effect);
+          }
         });
       } else {
         // ADD USER EFFECTS
-        let target: ReturnedUserState | undefined = undefined;
+        type TargetType = { userId: string; username: string; gender: string };
+        let target: TargetType | undefined = undefined;
         if (action.target === AttackTarget.SELF) {
-          target = usersState.find((u) => u.userId === userId && u.hex === tile);
+          target = usersState.find((u) => u.userId === user.userId && u.hex === tile);
         } else if (action.target === AttackTarget.OPPONENT) {
+          target = usersState.find((u) => u.villageId !== villageId && u.hex === tile);
+        } else if (action.target === AttackTarget.ALLY) {
+          target = usersState.find((u) => u.villageId === villageId && u.hex === tile);
+        } else if (action.target === AttackTarget.OTHER_USER) {
           target = usersState.find((u) => u.userId !== userId && u.hex === tile);
         } else if (action.target === AttackTarget.CHARACTER) {
           target = usersState.find((u) => u.hex === tile);
         }
+        // Apply effects
         if (target) {
           targetUsernames.push(target.username);
           targetGenders.push(target.gender);
+          action.effects.forEach((tag) => {
+            if (target) {
+              const effect = realizeTag(tag as UserEffect, user);
+              if (effect) {
+                effect.targetId = target.userId;
+                usersEffects.push(effect);
+              }
+            }
+          });
         }
-        action.effects.forEach((tag) => {
-          if (target) {
-            const effect = realizeUserTag(tag as UserEffect, user);
-            effect.creatorId = user.userId;
-            effect.targetId = target.userId;
-            effect.lastUpdate = Date.now();
-            if (effect) usersEffects.push(effect);
+        // Special case; attacking barrier, add damage tag as ground effect,
+        // which will resolve against the barrier when applied
+        if (!target) {
+          const barrier = groundEffects.find(
+            (e) =>
+              e.longitude === tile.col &&
+              e.latitude === tile.row &&
+              e.type === "barrier"
+          );
+          if (barrier) {
+            action.effects.forEach((tag) => {
+              if (tag.type === "damage") {
+                const effect = realizeTag(tag as UserEffect, user);
+                if (effect) {
+                  targetUsernames.push("barrier");
+                  targetGenders.push("it");
+                  effect.targetType = "barrier";
+                  effect.targetId = barrier.id;
+                  usersEffects.push(effect);
+                }
+              }
+            });
+            target = { userId: barrier.id, username: "barrier", gender: "it" };
           }
-        });
+        }
       }
     });
     // Update pools & action timer based on action
     if (affectedTiles.size > 0) {
       if (user.cur_chakra && user.max_chakra) {
-        user.cur_chakra -= action.chakraCostPerc * user.max_chakra;
+        user.cur_chakra -= (action.chakraCostPerc * user.max_chakra) / 100;
         user.cur_chakra = Math.max(0, user.cur_chakra);
       }
       if (user.cur_stamina && user.max_stamina) {
-        user.cur_stamina -= action.staminaCostPerc * user.max_stamina;
+        user.cur_stamina -= (action.staminaCostPerc * user.max_stamina) / 100;
         user.cur_stamina = Math.max(0, user.cur_stamina);
       }
       if (user.cur_health && user.max_health) {
-        user.cur_health -= action.healthCostPerc * user.max_health;
+        user.cur_health -= (action.healthCostPerc * user.max_health) / 100;
         user.cur_health = Math.max(0, user.cur_health);
       }
       user.updatedAt = secondsFromNow(-newSeconds);

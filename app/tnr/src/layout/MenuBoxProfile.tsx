@@ -10,7 +10,7 @@ import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
-  console.log("TODO: Show battle effects in menu box: ", battle);
+
   if (!userData) {
     return <div></div>;
   }
@@ -82,9 +82,34 @@ const MenuBoxProfile: React.FC = () => {
             )}
           </p>
         </div>
+        {battle && (
+          <>
+            <hr className="my-2" />
+            <ul className="italic">
+              {battle.usersEffects
+                .filter((u) => u.targetId === userData.userId)
+                .map((effect, i) => {
+                  const positive = effect.power && effect.power > 0;
+                  const arrow = positive ? "↑" : "↓";
+                  const direction = positive ? "increased" : "decreased";
+                  const color = positive ? "text-green-500" : "text-red-500";
+                  if (effect.type === "armoradjust") {
+                    return (
+                      <li key={i} className={color}>
+                        {arrow} Armor {direction}
+                      </li>
+                    );
+                  }
+                  return <div key={i}></div>;
+                })}
+            </ul>
+          </>
+        )}
       </div>
     </MenuBox>
   );
 };
+
+// TODO: Add ground effects explanations
 
 export default MenuBoxProfile;

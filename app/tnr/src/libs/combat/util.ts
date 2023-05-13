@@ -1,5 +1,6 @@
 import type { Battle } from "@prisma/client";
-import type { ReturnedUserState, CombatResult } from "./types";
+import type { CombatResult } from "./types";
+import type { ReturnedUserState, GroundEffect, UserEffect } from "./types";
 import { publicState, allState } from "./types";
 
 /**
@@ -20,6 +21,8 @@ export const maskBattle = (battle: Battle, userId: string) => {
         ) as unknown as ReturnedUserState;
       }
     }),
+    usersEffects: battle.usersEffects as unknown as UserEffect[],
+    groundEffects: battle.groundEffects as unknown as GroundEffect[],
   };
 };
 
@@ -56,8 +59,8 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
 
       // Result object
       const result: CombatResult = {
-        experience: didWin ? Math.round(eloDiff) : 0,
-        elo_pvp: Math.round(eloDiff),
+        experience: 0,
+        elo_pvp: 0,
         elo_pve: 0,
         cur_health: user.cur_health,
         cur_stamina: user.cur_stamina,

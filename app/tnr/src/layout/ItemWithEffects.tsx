@@ -166,12 +166,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {effect.chance}
                     </span>
                   )}
-                  {"aoe" in effect && "aoeRange" in effect && (
-                    <span>
-                      <b>AOE: </b>
-                      {effect.aoeRange} squares
-                    </span>
-                  )}
                 </div>
               </div>
             );

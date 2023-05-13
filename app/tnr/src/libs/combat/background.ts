@@ -15,10 +15,14 @@ import {
 import { Orientation } from "honeycomb-grid";
 import { Grid, rectangle } from "honeycomb-grid";
 
-import { getMapSprites } from "../travel/biome";
+import type { TerrainHex } from "../travel/types";
+import type { GroundEffect } from "./types";
+import { findHex } from "../travel/sector";
 import { defineHex } from "../travel/sector";
+import { Animations } from "./types";
+import { drawStatusBar } from "./movement";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
-import { group } from "console";
+import type { SpriteMixer } from "../travel/SpriteMixer";
 
 /**
  * Creates heaxognal grid & draw it using js. Return groups of objects drawn
@@ -27,8 +31,7 @@ export const drawCombatBackground = (
   width: number,
   height: number,
   scene: Scene,
-  background: string,
-  prng: () => number
+  background: string
 ) => {
   // Set scene background
   const bg_texture = new TextureLoader().load(`/locations/${background}`);
@@ -49,7 +52,6 @@ export const drawCombatBackground = (
   // Groups for organizing objects
   const group_tiles = new Group();
   const group_edges = new Group();
-  const group_assets = new Group();
 
   // Create the grid first
   const Tile = defineHex({
@@ -104,13 +106,113 @@ export const drawCombatBackground = (
       group_edges.add(edgeMesh);
 
       // Draw any objects on the tiles based on randomness
-      const sprites = getMapSprites(prng, 1, "combat", tile, 0);
-      sprites.map((sprite) => group_assets.add(sprite));
+      // const sprites = getMapSprites(prng, 1, "combat", tile, 0);
+      // sprites.map((sprite) => group_assets.add(sprite));
     }
   });
 
   // Reverse the order of objects in the group_assets
-  group_assets.children.sort((a, b) => b.position.y - a.position.y);
+  // group_assets.children.sort((a, b) => b.position.y - a.position.y);
 
-  return { group_tiles, group_edges, group_assets, honeycombGrid };
+  return { group_tiles, group_edges, honeycombGrid };
+};
+
+/**
+ * Draw/update the users on the map. Should be called on every render
+ */
+export const drawCombatEffects = (info: {
+  group_ground: Group;
+  effects: GroundEffect[];
+  grid: Grid<TerrainHex>;
+  spriteMixer: ReturnType<typeof SpriteMixer>;
+}) => {
+  // Destructure
+  const { spriteMixer } = info;
+  // Draw the users
+  const drawnIds = new Set<string>();
+  info.effects.forEach((effect) => {
+    const hex = findHex(info.grid, {
+      x: effect.longitude,
+      y: effect.latitude,
+    });
+    if (hex && (effect.staticAssetPath || effect.appearAnimation)) {
+      const { height: h, width: w } = hex;
+      let asset = info.group_ground.getObjectByName(effect.id) as Group;
+      if (!asset && hex) {
+        // Group for the asset
+        asset = new Group();
+        asset.name = effect.id;
+        asset.userData.type = effect.type; // e.g. "barrier"
+        // Sprite to show
+        if (effect.staticAssetPath) {
+          const texture = new TextureLoader().load(effect.staticAssetPath);
+          const material = new SpriteMaterial({ map: texture });
+          const sprite = new Sprite(material);
+          sprite.scale.set(w, h, 1);
+          sprite.position.set(w / 2, h / 2, 0);
+          asset.add(sprite);
+        }
+        // If there is an appear animation, show it. Mark it for hiding,
+        // which we catch and use to remove it
+        if (effect.appearAnimation) {
+          const info = Animations.get(effect.appearAnimation);
+          if (info) {
+            new TextureLoader().load(
+              `/animations/${effect.appearAnimation}.png`,
+              (texture) => {
+                const actionSprite = spriteMixer.ActionSprite(texture, 1, info.frames);
+                const action = spriteMixer.Action(
+                  actionSprite,
+                  0,
+                  info.frames,
+                  info.speed
+                );
+                if (action) {
+                  action.hideWhenFinished = true;
+                  action.playOnce();
+                }
+                actionSprite.scale.set(50, 50, 1);
+                actionSprite.position.set(w / 2, h / 2, 0);
+                asset.add(actionSprite);
+              }
+            );
+          } else {
+            console.error("No such animation: ", effect.appearAnimation);
+          }
+        }
+        // Status bar
+        if (effect.type === "barrier") {
+          const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
+          const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
+          asset.add(hp_background);
+          asset.add(hp_bar);
+          hp_bar.position.set(w / 2, h, 0);
+          hp_background.position.set(w / 2, h, 0);
+          hp_bar.visible = false;
+          hp_background.visible = false;
+        }
+        // Add to group
+        info.group_ground.add(asset);
+      }
+      // Get location
+      if (asset) {
+        // Set visibility
+        if (effect.power !== undefined && effect.power <= 0) {
+          asset.visible = false;
+        } else {
+          asset.visible = true;
+          asset.userData.tile = hex;
+          const { x, y } = hex.center;
+          asset.position.set(-x, -y, -8);
+          drawnIds.add(asset.name);
+        }
+      }
+    }
+  });
+  // Hide all which are not used anymore
+  info.group_ground.children.forEach((object) => {
+    if (!drawnIds.has(object.name)) {
+      object.visible = false;
+    }
+  });
 };

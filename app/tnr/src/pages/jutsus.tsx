@@ -80,6 +80,7 @@ const MyJutsu: NextPage = () => {
         }}
         showBgColor={false}
         showLabels={true}
+        emptyText="You have not learned any jutsu. Go to the training grounds in your village to learn some."
       />
       {isOpen && userData && userjutsu && (
         <Modal

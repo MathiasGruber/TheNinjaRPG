@@ -386,10 +386,12 @@ enum LetterRank {
 }
 
 enum AttackTarget {
-    SELF
-    OPPONENT
-    CHARACTER
-    GROUND
+    SELF // Only self
+    OTHER_USER // Allow friendly fire
+    OPPONENT // No friendly fire
+    ALLY // Only allies
+    CHARACTER // Any character
+    GROUND // The ground
 }
 
 enum AttackMethod {

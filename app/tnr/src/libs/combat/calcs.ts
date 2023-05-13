@@ -1,60 +1,80 @@
-import type { GroundEffect, UserEffect } from "./types";
+import type { UserEffect } from "./types";
 import type { ReturnedUserState } from "./types";
-/**
- * Based on a tag, calculate the offensive power
- */
-export const formulaPower = (
-  tag: GroundEffect | UserEffect,
-  user: ReturnedUserState,
-  type: "offence" | "defence" = "offence"
-) => {
+
+export const damangeCalc = (tag: UserEffect, target: ReturnedUserState) => {
+  // Get ratios between all stats & generals
+  let ratio = 1;
   if ("calculation" in tag && tag.calculation === "formula") {
-    let power = tag.power;
-    if (type === "offence") {
+    if (tag.direction === "offensive") {
       tag.statTypes?.forEach((statType) => {
-        if (statType === "Taijutsu" && user.taijutsu_offence) {
-          power += user.taijutsu_offence;
-        } else if (statType === "Bukijutsu" && user.bukijutsu_offence) {
-          power += user.bukijutsu_offence;
-        } else if (statType === "Ninjutsu" && user.ninjutsu_offence) {
-          power += user.ninjutsu_offence;
-        } else if (statType === "Genjutsu" && user.genjutsu_offence) {
-          power += user.genjutsu_offence;
+        if (
+          statType === "Taijutsu" &&
+          tag.taijutsu_offence &&
+          target.taijutsu_defence
+        ) {
+          ratio *= tag.taijutsu_offence / target.taijutsu_defence;
+        } else if (
+          statType === "Bukijutsu" &&
+          tag.bukijutsu_offence &&
+          target.bukijutsu_defence
+        ) {
+          ratio *= tag.bukijutsu_offence / target.bukijutsu_defence;
+        } else if (
+          statType === "Ninjutsu" &&
+          tag.ninjutsu_offence &&
+          target.ninjutsu_defence
+        ) {
+          ratio *= tag.ninjutsu_offence / target.ninjutsu_defence;
+        } else if (
+          statType === "Genjutsu" &&
+          tag.genjutsu_offence &&
+          target.genjutsu_defence
+        ) {
+          ratio *= tag.genjutsu_offence / target.genjutsu_defence;
+        } else if (
+          statType === "Highest" &&
+          tag.highest_offence &&
+          target.highest_defence
+        ) {
+          ratio *= tag.highest_offence / target.highest_defence;
         }
       });
     } else {
       tag.statTypes?.forEach((statType) => {
-        if (statType === "Taijutsu" && user.taijutsu_defence) {
-          power += user.taijutsu_defence;
-        } else if (statType === "Bukijutsu" && user.bukijutsu_defence) {
-          power += user.bukijutsu_defence;
-        } else if (statType === "Ninjutsu" && user.ninjutsu_defence) {
-          power += user.ninjutsu_defence;
-        } else if (statType === "Genjutsu" && user.genjutsu_defence) {
-          power += user.genjutsu_defence;
+        if (
+          statType === "Taijutsu" &&
+          tag.taijutsu_defence &&
+          target.taijutsu_offence
+        ) {
+          ratio *= tag.taijutsu_defence / target.taijutsu_offence;
+        } else if (
+          statType === "Bukijutsu" &&
+          tag.bukijutsu_defence &&
+          target.bukijutsu_offence
+        ) {
+          ratio *= tag.bukijutsu_defence / target.bukijutsu_offence;
+        } else if (
+          statType === "Ninjutsu" &&
+          tag.ninjutsu_defence &&
+          target.ninjutsu_offence
+        ) {
+          ratio *= tag.ninjutsu_defence / target.ninjutsu_offence;
+        } else if (
+          statType === "Genjutsu" &&
+          tag.genjutsu_defence &&
+          target.genjutsu_offence
+        ) {
+          ratio *= tag.genjutsu_defence / target.genjutsu_offence;
+        } else if (
+          statType === "Highest" &&
+          tag.highest_defence &&
+          target.highest_offence
+        ) {
+          ratio *= tag.highest_defence / target.highest_offence;
         }
       });
     }
-    tag.generalTypes?.forEach((generalType) => {
-      if (generalType === "Strength" && user.strength) {
-        power += user.strength;
-      } else if (generalType === "Speed" && user.speed) {
-        power += user.speed;
-      } else if (generalType === "Willpower" && user.willpower) {
-        power += user.willpower;
-      } else if (generalType === "Intelligence" && user.intelligence) {
-        power += user.intelligence;
-      }
-    });
-    return power;
-  } else if ("power" in tag) {
-    return tag.power;
   }
-  return 0;
-};
-
-export const damangeCalc = (offencePower: number, defencePower: number) => {
-  const ratio = offencePower / defencePower;
   const damage = Math.floor(20 * ratio);
   return damage;
 };

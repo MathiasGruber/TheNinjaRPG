@@ -1,14 +1,63 @@
 import type { ReturnedUserState } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import { formulaPower, damangeCalc } from "./calcs";
+import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
+import { VisualTag } from "./types";
+import { damangeCalc } from "./calcs";
+import { createId } from "@paralleldrive/cuid2";
 
-export const realizeUserTag = (tag: UserEffect, user: ReturnedUserState) => {
-  tag.realizedPower = formulaPower(tag, user);
-  return tag;
-};
-
-export const realizeGroundTag = (tag: GroundEffect, user: ReturnedUserState) => {
-  tag.realizedPower = formulaPower(tag, user);
+/**
+ * Realize tag with information about how powerful tag is
+ */
+export const realizeTag = <T extends BattleEffect>(
+  tag: T,
+  user: ReturnedUserState
+): T => {
+  if ("statTypes" in tag && tag.statTypes) {
+    if (tag.direction === "offensive") {
+      if (tag.statTypes.includes("Ninjutsu")) {
+        tag.ninjutsu_offence = user.ninjutsu_offence;
+      }
+      if (tag.statTypes.includes("Genjutsu")) {
+        tag.genjutsu_offence = user.genjutsu_offence;
+      }
+      if (tag.statTypes.includes("Taijutsu")) {
+        tag.taijutsu_offence = user.taijutsu_offence;
+      }
+      if (tag.statTypes.includes("Bukijutsu")) {
+        tag.bukijutsu_offence = user.bukijutsu_offence;
+      }
+      if (tag.statTypes.includes("Highest")) {
+        tag.highest_offence = user.highest_offence;
+      }
+    } else {
+      if (tag.statTypes.includes("Ninjutsu")) {
+        tag.ninjutsu_defence = user.ninjutsu_defence;
+      }
+      if (tag.statTypes.includes("Genjutsu")) {
+        tag.genjutsu_defence = user.genjutsu_defence;
+      }
+      if (tag.statTypes.includes("Taijutsu")) {
+        tag.taijutsu_defence = user.taijutsu_defence;
+      }
+      if (tag.statTypes.includes("Bukijutsu")) {
+        tag.bukijutsu_defence = user.bukijutsu_defence;
+      }
+      if (tag.statTypes.includes("Highest")) {
+        tag.highest_defence = user.highest_defence;
+      }
+    }
+  }
+  if ("generalTypes" in tag) {
+    tag.strength = user.strength;
+    tag.intelligence = user.intelligence;
+    tag.willpower = user.willpower;
+    tag.speed = user.speed;
+  }
+  if ("power" in tag) {
+    tag.power = tag.power;
+  }
+  tag.id = createId();
+  tag.creatorId = user.userId;
+  tag.targetType = "user";
   return tag;
 };
 
@@ -28,12 +77,20 @@ export const applyEffects = (
       if (user) user.longitude = e.longitude;
       if (user) user.latitude = e.latitude;
     } else {
+      // Apply ground effect to user
       const user = usersState.find(
         (u) => u.longitude === e.longitude && u.latitude === e.latitude
       );
-      if (user) active.push({ ...e, targetId: user.userId } as UserEffect);
-      if ("rounds" in e && e.rounds && e.rounds > 1) {
-        newGroundEffects.push({ ...e, rounds: e.rounds - 1 });
+      if (user) {
+        active.push({ ...e, targetId: user.userId } as UserEffect);
+      }
+      // Let ground effect continue, or is it done?
+      if ("rounds" in e && e.rounds) {
+        if (e.rounds > 1) {
+          newGroundEffects.push({ ...e, rounds: e.rounds - 1 });
+        }
+      } else {
+        newGroundEffects.push(e);
       }
     }
   });
@@ -41,25 +98,60 @@ export const applyEffects = (
   // Apply all user effects to their target users
   const newUsersEffects: UserEffect[] = [];
   const actionEffects: ActionEffect[] = [];
+  const visualEffects: GroundEffect[] = [];
   active.forEach((e) => {
-    console.log(e);
-    if (e.type === "damage" && e.realizedPower) {
-      const target = usersState.find((u) => u.userId === e.targetId);
-      if (target) {
-        const defensivePower = formulaPower(e, target, "defence");
-        const damage = damangeCalc(e.realizedPower, defensivePower);
-        target.cur_health -= damage;
-        target.cur_health = Math.max(0, target.cur_health);
-        actionEffects.push({
-          txt: `${target.username} takes ${damage} damage`,
-          color: "red",
-        });
+    // Get the user
+    const target = usersState.find((u) => u.userId === e.targetId);
+    let longitude = target?.longitude;
+    let latitude = target?.latitude;
+    // Process the different tags
+    if (e.type === "damage") {
+      if (e.targetType === "barrier") {
+        // Deal damage to a barrier
+        const idx = newGroundEffects.findIndex((g) => g.id === e.targetId);
+        const barrier = newGroundEffects[idx];
+        if (barrier && barrier.power && e.power) {
+          longitude = barrier.longitude;
+          latitude = barrier.latitude;
+          barrier.power -= e.power;
+          actionEffects.push({
+            txt: `Barrier takes ${e.power} damage ${
+              barrier.power <= 0
+                ? "and is destroyed."
+                : `and has ${barrier.power} power left.`
+            }`,
+            color: "red",
+          });
+          if (barrier.power <= 0) {
+            newGroundEffects.splice(idx, 1);
+          }
+        }
+      } else {
+        // Deal damage to a user
+        if (target) {
+          const damage = damangeCalc(e, target);
+          target.cur_health -= damage / 10;
+          target.cur_health = Math.max(0, target.cur_health);
+          actionEffects.push({
+            txt: `${target.username} takes ${damage} damage`,
+            color: "red",
+          });
+        }
       }
     } else if (e.type === "flee") {
       // TODO: Flee from battle
     }
-    if ("rounds" in e && e.rounds && e.rounds > 1) {
-      newUsersEffects.push({ ...e, rounds: e.rounds - 1 });
+    // Process forwarding visual effects
+    if (e.appearAnimation && longitude && latitude) {
+      visualEffects.push({ ...e, longitude, latitude, type: "visual" });
+    }
+    // Process round reduction & tag removal
+    if ("rounds" in e && e.rounds) {
+      if (e.rounds > 1) {
+        newUsersEffects.push({ ...e, rounds: e.rounds - 1 });
+      }
+    } else {
+      newUsersEffects.push(e);
     }
   });
 
@@ -68,5 +160,6 @@ export const applyEffects = (
     newUsersEffects,
     newGroundEffects,
     actionEffects,
+    visualEffects,
   };
 };

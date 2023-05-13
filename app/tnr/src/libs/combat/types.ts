@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
 import { Jutsu, Item, Bloodline } from "@prisma/client";
 import { UserRank } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
@@ -9,14 +8,16 @@ import { ItemType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
 import { ItemRarity } from "@prisma/client";
 import { ItemSlotType } from "@prisma/client";
+import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
 import type { TerrainHex } from "../travel/types";
-import { UserBattle } from "../../utils/UserContext";
+import type { UserBattle } from "../../utils/UserContext";
 
 /**
  * Which state is public / private on users
  */
 export const publicState = [
   "userId",
+  "villageId",
   "username",
   "gender",
   "avatar",
@@ -29,6 +30,7 @@ export const publicState = [
   "updatedAt",
   "elo_pvp",
   "elo_pve",
+  "regeneration",
 ] as const;
 
 export const privateState = [
@@ -56,15 +58,20 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
-export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
-  Partial<UserData> & {
-    jutsus: (UserJutsu & {
-      jutsu: Jutsu;
-    })[];
-    items: (UserItem & {
-      item: Item;
-    })[];
-    bloodline?: Bloodline;
+export type BattleUserState = UserData & {
+  jutsus: (UserJutsu & {
+    jutsu: Jutsu;
+  })[];
+  items: (UserItem & {
+    item: Item;
+  })[];
+  bloodline?: Bloodline | null;
+  highest_offence?: number;
+  highest_defence?: number;
+};
+
+export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[number]> &
+  Partial<BattleUserState> & {
     hex?: TerrainHex;
     leftBattle?: boolean;
   };
@@ -74,6 +81,7 @@ export type ReturnedUserState = Pick<UserData, (typeof publicState)[number]> &
  */
 export interface DrawnCombatUser {
   userId: string;
+  villageId?: string | null;
   username: string;
   updatedAt: Date;
   cur_health: number;
@@ -145,6 +153,14 @@ const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
 
 /**
+ * Animations
+ */
+export const Animations = new Map<string, { frames: number; speed: number }>();
+Animations.set("hit", { frames: 4, speed: 50 });
+Animations.set("smoke", { frames: 9, speed: 50 });
+export const AnimationNames = ["hit", "smoke"] as const;
+
+/**
  * Convenience method for a string with a default value
  */
 const msg = (defaultString: string) => {
@@ -172,12 +188,17 @@ const type = (defaultString: string) => {
 /******************** */
 /**  BASE ATTRIBUTES  */
 /******************** */
+
 const BaseAttributes = z.object({
   timing: z.enum(["immidiately", "next round"]).default("immidiately"),
+  staticAssetPath: z.string().optional(),
+  staticAnimation: z.enum(AnimationNames).optional(),
+  appearAnimation: z.enum(AnimationNames).optional(),
+  disappearAnimation: z.enum(AnimationNames).optional(),
 });
 
 const MultipleRounds = z.object({
-  rounds: z.number().int().min(1).max(5).default(1).optional(),
+  rounds: z.number().int().min(1).max(20).optional(),
 });
 
 const PoolAttributes = z.object({
@@ -191,6 +212,7 @@ const StatsBasedStrength = z.object({
   // formula: power is used in battle formula to calculate return value
   power: z.number().min(1).default(1),
   powerPerLevel: z.number().min(0).default(0),
+  direction: z.enum(["offensive", "defensive"]).default("offensive"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
@@ -209,20 +231,18 @@ export const AbsorbTag = z
   .object({
     type: type("absorb"),
     description: msg("Absorb damage taken"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target absorbs %amount of the damage"),
     elementalOnly: z.boolean().default(false).optional(),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
+// TODO: Let tags like this be static/percentage only, and not formula
+//       i.e. prevent some obvious weird combinations from happening
 export const AdjustArmorTag = z
   .object({
     type: type("armoradjust"),
     description: msg("Adjust armor rating of target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target armor rating is %changetype by %amount"),
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
@@ -233,8 +253,6 @@ export const AdjustDamageGivenTag = z
   .object({
     type: type("damagegivenadjust"),
     description: msg("Adjust damage given by target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("Damage given by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
@@ -245,8 +263,6 @@ export const AdjustDamageTakenTag = z
   .object({
     type: type("damagetakenadjust"),
     description: msg("Adjust damage taken of target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("Damage sustained by %target is %changetype for %rounds rounds"),
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
@@ -257,8 +273,6 @@ export const AdjustHealTag = z
   .object({
     type: type("healadjust"),
     description: msg("Adjust healing ability of target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target healing ability is %changetype by %amount"),
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
@@ -269,10 +283,6 @@ export const AdjustPoolCostTag = z
   .object({
     type: type("poolcostadjust"),
     description: msg("Adjust cost of using jutsu"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg(
-      "The %affected cost for %target using jutsu is %changetype by %amount"
-    ),
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
@@ -283,8 +293,6 @@ export const AdjustStatTag = z
   .object({
     type: type("statadjust"),
     description: msg("Adjust stats of target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target's %affected are %changetype by %amount"),
     affectedStats: z.array(z.enum(StatType)).optional(),
     affectedGenerals: z.array(z.enum(GeneralType)).optional(),
     adjustUp: z.boolean().default(true),
@@ -293,23 +301,22 @@ export const AdjustStatTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
+// TODO: Restrict to only work with GROUND target? How to do this?
 export const BarrierTag = z
   .object({
     type: type("barrier"),
     description: msg("Creates a barrier which offers cover"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("A barrier is created which offers cover"),
+    originalPower: z.number().int().min(1).default(1),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
+export type BarrierTagType = z.infer<typeof BarrierTag>;
 
 export const ClearTag = z
   .object({
     type: type("clear"),
     description: msg("Clears all effects from the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target is now clear of all effects"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -319,8 +326,6 @@ export const DamageTag = z
   .object({
     type: type("damage"),
     description: msg("Deals damage to target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target takes %amount damage"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -331,8 +336,6 @@ export const FleeTag = z
   .object({
     type: type("flee"),
     description: msg("Flee the battle"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target flees the battle"),
   })
   .merge(BaseAttributes)
   .merge(ChanceBased);
@@ -341,8 +344,6 @@ export const FleePreventTag = z
   .object({
     type: type("fleeprevent"),
     description: msg("Prevents fleeing"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target is cannot be stunned for %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -352,8 +353,6 @@ export const HealTag = z
   .object({
     type: type("heal"),
     description: msg("Heals the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target heals $amount %affected"),
   })
   .merge(BaseAttributes)
   .merge(PoolAttributes)
@@ -364,8 +363,6 @@ export const MoveTag = z
   .object({
     type: type("move"),
     description: msg("Move on the battlefield"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target moves to %location"),
   })
   .merge(BaseAttributes)
   .merge(ChanceBased);
@@ -375,8 +372,6 @@ export const OneHitKillTag = z
   .object({
     type: type("onehitkill"),
     description: msg("Instantly kills the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target is killed"),
   })
   .merge(BaseAttributes)
   .merge(ChanceBased);
@@ -385,10 +380,6 @@ export const OneHitKillPreventTag = z
   .object({
     type: type("onehitkillprevent"),
     description: msg("Prevents instant kill effects"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg(
-      "%target is now immune to instant kill effects for %rounds rounds"
-    ),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -398,8 +389,6 @@ export const ReflectTag = z
   .object({
     type: type("reflect"),
     description: msg("Reflect damage taken"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target reflects %amount of the damage to %attacker"),
     elementalOnly: z.boolean().default(false).optional(),
   })
   .merge(BaseAttributes)
@@ -410,8 +399,6 @@ export const RobPreventTag = z
   .object({
     type: type("robprevent"),
     description: msg("Prevents robbing of the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target can not be robbed for %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -421,8 +408,6 @@ export const RobTag = z
   .object({
     type: type("rob"),
     description: msg("Robs money from the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%user steals %amount ryo from %target"),
   })
   .merge(BaseAttributes)
   .merge(StatsBasedStrength);
@@ -431,8 +416,6 @@ export const SealPreventTag = z
   .object({
     type: type("sealprevent"),
     description: msg("Prevents bloodline from being sealed"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target's bloodline cannot be sealed for %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -442,8 +425,6 @@ export const SealTag = z
   .object({
     type: type("seal"),
     description: msg("Seals the target's bloodline effects"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target's bloodline is sealed for the following %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -453,8 +434,6 @@ export const StunPreventTag = z
   .object({
     type: type("stunprevent"),
     description: msg("Prevents being stunned"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target cannot be stunned for %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -464,8 +443,6 @@ export const StunTag = z
   .object({
     type: type("stun"),
     description: msg("Stuns the target"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target is stunned for the following %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -475,8 +452,6 @@ export const SummonPreventTag = z
   .object({
     type: type("summonprevent"),
     description: msg("Prevents summoning"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%target is now prevented from summoning for %rounds rounds"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
@@ -486,12 +461,18 @@ export const SummonTag = z
   .object({
     type: type("summon"),
     description: msg("Summon an ally"),
-    // TODO: Remove Battle Effect from Tag - have it standardized in tag application
-    battleEffect: msg("%user summons %target to the battlefield"),
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(ChanceBased);
+
+export const VisualTag = z
+  .object({
+    type: type("visual"),
+    description: msg("A battlefield visual effect"),
+  })
+  .merge(BaseAttributes)
+  .merge(MultipleRounds);
 
 /******************** */
 /** UNIONS OF TAGS   **/
@@ -521,18 +502,33 @@ const AllTags = z.union([
   StunTag.default({}),
   SummonPreventTag.default({}),
   SummonTag.default({}),
+  VisualTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with
- * calculations added onto the tag
+ * reference information added to the tag (i.e. how powerful was the effect)
  */
-
 export type BattleEffect = ZodAllTags & {
+  id: string;
   creatorId: string;
-  realizedPower?: number;
-  lastUpdate: number;
+  targetType?: "user" | "barrier";
+  highest_offence?: number;
+  highest_defence?: number;
+  ninjutsu_offence?: number;
+  ninjutsu_defence?: number;
+  genjutsu_offence?: number;
+  genjutsu_defence?: number;
+  taijutsu_offence?: number;
+  taijutsu_defence?: number;
+  bukijutsu_offence?: number;
+  bukijutsu_defence?: number;
+  strength?: number;
+  intelligence?: number;
+  willpower?: number;
+  speed?: number;
+  power?: number;
 };
 
 export type GroundEffect = BattleEffect & {

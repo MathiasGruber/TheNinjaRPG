@@ -48,7 +48,7 @@ export const getTileInfo = (prng: () => number, hex: TerrainHex, tile: GlobalTil
 export const TREES_PATH = "craftpix-949054/PNG/Assets_separately/Trees_texture_shadow/";
 export const STONES_PATH = "craftpix-377140/PNG/Objects_separately/";
 
-const combatAssets = [
+export const combatAssets = [
   { filepath: STONES_PATH, filename: "Rock1_1.png", chance: 0.01 },
   { filepath: STONES_PATH, filename: "Rock1_2.png", chance: 0.02 },
   { filepath: STONES_PATH, filename: "Rock2_1.png", chance: 0.03 },
@@ -59,7 +59,7 @@ const combatAssets = [
   { filepath: STONES_PATH, filename: "Rock6_2.png", chance: 0.08 },
 ];
 
-const groundAssets = [
+export const groundAssets = [
   { filepath: TREES_PATH, filename: "Moss_tree1.png", chance: 0.05 },
   { filepath: TREES_PATH, filename: "Moss_tree2.png", chance: 0.1 },
   { filepath: TREES_PATH, filename: "Moss_tree3.png", chance: 0.15 },
@@ -79,7 +79,7 @@ const groundAssets = [
   { filepath: STONES_PATH, filename: "Rock4_4.png", chance: 0.64 },
 ];
 
-const dessertAssets = [
+export const dessertAssets = [
   { filepath: STONES_PATH, filename: "Rock1_1.png", chance: 0.005 },
   { filepath: STONES_PATH, filename: "Rock1_2.png", chance: 0.01 },
   { filepath: STONES_PATH, filename: "Rock1_3.png", chance: 0.015 },
@@ -105,7 +105,7 @@ const dessertAssets = [
   { filepath: TREES_PATH, filename: "Burned_tree2.png", chance: 0.175 },
 ];
 
-const oceanAssets = [
+export const oceanAssets = [
   { filepath: TREES_PATH, filename: "Broken_tree7.png", chance: 0.001 },
 ];
 

@@ -77,7 +77,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   const { mutate: createComment, isLoading: isCommenting } =
     api.comments.createConversationComment.useMutation({
-      onSuccess: async () => {
+      onSuccess: () => {
         reset();
         setEditorKey((prev) => prev + 1);
       },

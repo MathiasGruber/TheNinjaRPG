@@ -31,8 +31,6 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     setVersion(battleVersion);
   }, [battleVersion]);
 
-  console.log(battleVersion);
-
   // Show component
   return (
     <div className="flex flex-col items-center justify-center border-b-2 border-l-2 border-r-2 bg-slate-100">
