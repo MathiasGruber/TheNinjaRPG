@@ -42,6 +42,7 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
       targets = users.filter((u) => u.villageId !== user.villageId);
       friends = users.filter((u) => u.villageId === user.villageId);
     }
+    console.log(users);
     const survivingTargets = targets.filter((t) => t.cur_health > 0);
     if (user.cur_health <= 0 || survivingTargets.length === 0) {
       // Update the user left
@@ -82,9 +83,9 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
       };
 
       // TODO: distribute elo_points among stats used during battle
-
+      console.log(result);
       // Return results
-      return { finalUsersState: users, result };
+      return { finalUsersState: users, result: result };
     }
   }
   return { finalUsersState: users, result: null };

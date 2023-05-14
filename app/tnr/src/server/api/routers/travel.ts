@@ -252,6 +252,7 @@ export const travelRouter = createTRPCRouter({
             user.taijutsu_offence,
             user.bukijutsu_offence
           );
+          user.controllerId = user.userId;
         });
 
         // Starting user effects from bloodlines & items

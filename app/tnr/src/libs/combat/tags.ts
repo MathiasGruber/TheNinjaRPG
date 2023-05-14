@@ -76,6 +76,21 @@ export const applyEffects = (
       const user = usersState.find((u) => u.userId === e.creatorId);
       if (user) user.longitude = e.longitude;
       if (user) user.latitude = e.latitude;
+    } else if (e.type === "clone") {
+      const user = usersState.find((u) => u.userId === e.creatorId);
+      if (user) {
+        usersState.push({
+          ...user,
+          userId: createId(),
+          longitude: e.longitude,
+          latitude: e.latitude,
+        });
+      }
+
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+      console.log("CLONE");
+      console.log(usersState.length);
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     } else {
       // Apply ground effect to user
       const user = usersState.find(
@@ -130,7 +145,7 @@ export const applyEffects = (
         // Deal damage to a user
         if (target) {
           const damage = damangeCalc(e, target);
-          target.cur_health -= damage / 10;
+          target.cur_health -= damage * 10;
           target.cur_health = Math.max(0, target.cur_health);
           actionEffects.push({
             txt: `${target.username} takes ${damage} damage`,

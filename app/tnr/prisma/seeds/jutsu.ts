@@ -6,6 +6,7 @@ import { LetterRank } from "@prisma/client";
 import { JutsuType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
 
+import { CloneTag } from "../../src/libs/combat/types";
 import { DamageTag } from "../../src/libs/combat/types";
 import { BarrierTag } from "../../src/libs/combat/types";
 import { StunTag } from "../../src/libs/combat/types";
@@ -20,19 +21,22 @@ const jutsus: ZodJutsuType[] = [
     description:
       "This jutsu creates a clone, which is then used as a distraction to attack from behind",
     battleDescription:
-      "%user creates a clone and uses it as a distraction to attack %opponent from behind, while %user launch a surprise attack.",
+      "%user creates a clone of %genderself. The clone is a perfect copy of %user, but %gender strength is split between the two.",
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
-    target: AttackTarget.CHARACTER,
+    target: AttackTarget.EMPTY_GROUND,
     range: 1,
     cooldown: 30,
+    chakraCostPerc: 20,
     effects: [
-      DamageTag.parse({
+      CloneTag.parse({
         rounds: 1,
-        power: 1,
-        statTypes: ["Ninjutsu"],
-        generalTypes: ["Willpower", "Strength"],
+        power: 50,
+        powerPerLevel: 1,
+        statTypes: ["Ninjutsu", "Genjutsu"],
+        generalTypes: ["Willpower", "Intelligence"],
+        calculation: "percentage",
       }),
     ],
   },

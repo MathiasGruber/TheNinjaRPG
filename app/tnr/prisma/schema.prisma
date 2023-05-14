@@ -392,6 +392,7 @@ enum AttackTarget {
     ALLY // Only allies
     CHARACTER // Any character
     GROUND // The ground
+    EMPTY_GROUND // A free spot
 }
 
 enum AttackMethod {

@@ -68,6 +68,7 @@ export type BattleUserState = UserData & {
   bloodline?: Bloodline | null;
   highest_offence?: number;
   highest_defence?: number;
+  controllerId: string;
 };
 
 export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[number]> &
@@ -93,6 +94,7 @@ export interface DrawnCombatUser {
   avatar: string | null;
   longitude: number;
   latitude: number;
+  hidden?: boolean;
 }
 
 export type CombatResult = {
@@ -321,6 +323,21 @@ export const ClearTag = z
   .merge(BaseAttributes)
   .merge(MultipleRounds)
   .merge(ChanceBased);
+
+export const CloneTag = z
+  .object({
+    type: type("clone"),
+    description: msg("Create a temporary clone to fight alongside you"),
+  })
+  .merge(BaseAttributes)
+  .merge(MultipleRounds)
+  .merge(StatsBasedStrength)
+  .refine((data) => data.calculation === "percentage", {
+    message: "CloneTag requires calculation to be percentage",
+  })
+  .refine((data) => data.rounds === 1, {
+    message: "CloneTag can only be set to 1 round, creating 1 clone",
+  });
 
 export const DamageTag = z
   .object({

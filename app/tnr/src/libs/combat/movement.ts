@@ -6,6 +6,8 @@ import {
   Texture,
   LinearFilter,
   Color,
+  type Event,
+  type Object3D,
   type Raycaster,
 } from "three";
 import { AttackMethod, AttackTarget } from "@prisma/client";
@@ -71,6 +73,9 @@ export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: numb
   const newPosition = width / 2 - (width * (1 - perc)) / 2;
   bar.scale.set(newWidth, bar.scale.y, 1);
   bar.position.set(newPosition, bar.position.y, bar.position.z);
+  if (perc === 0) {
+    bar.visible = false;
+  }
 };
 
 /**
@@ -123,6 +128,16 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
     group.add(cp_bar);
   }
 
+  // Create tombstone but hide it for now
+  const tomb_texture = new TextureLoader().load("combat/tombstone.webp");
+  const tomb_material = new SpriteMaterial({ map: tomb_texture });
+  const tomb_sprite = new Sprite(tomb_material);
+  tomb_sprite.name = "tombstone";
+  tomb_sprite.scale.set(h * 0.5, h * 0.5, 1);
+  tomb_sprite.position.set(w / 2, h * 0.6, -7);
+  tomb_sprite.visible = false;
+  group.add(tomb_sprite);
+
   // Name
   group.name = userData.userId;
   group.userData.type = "user";
@@ -130,6 +145,30 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   group.userData.hex = hex;
 
   return group;
+};
+
+/**
+ * Sets the opacity of all children of an object
+ */
+export const setOpacity = (obj: Object3D<Event> | Group | Sprite, opacity: number) => {
+  obj?.children.forEach((child) => {
+    setOpacity(child, opacity);
+  });
+  if (obj && "material" in obj && obj?.material) {
+    obj.material.opacity = opacity;
+  }
+};
+
+/**
+ * Sets the opacity of all children of an object
+ */
+export const setVisible = (obj: Object3D<Event> | Group | Sprite, visible: boolean) => {
+  obj?.children.forEach((child) => {
+    setVisible(child, visible);
+  });
+  if ("visible" in obj) {
+    obj.visible = visible;
+  }
 };
 
 /**
@@ -162,32 +201,38 @@ export const drawCombatUsers = (info: {
         const { width } = hex;
         const { x: curX, y: curY } = userMesh.position;
         const speed = width / 50;
-        let targetX = -Math.floor(x);
-        let targetY = -Math.floor(y);
-        const curXFloor = Math.floor(curX);
-        const curYFloor = Math.floor(curY);
-        if (curXFloor !== 0 || curYFloor !== 0) {
-          const xDiff = targetX - curXFloor;
-          const yDiff = targetY - curYFloor;
+        let targetX = -x;
+        let targetY = -y;
+        if (curX !== 0 || curY !== 0) {
+          const xDiff = targetX - curX;
+          const yDiff = targetY - curY;
           if (xDiff) {
             const xToYratio = yDiff ? Math.abs(xDiff / yDiff) : 1;
             const deltaX = (xDiff > 0 ? 1 : -1) * speed * xToYratio;
             if (xDiff > 0) {
-              targetX = curXFloor + deltaX >= targetX ? targetX : curXFloor + deltaX;
+              targetX = curX + deltaX >= targetX ? targetX : curX + deltaX;
             } else {
-              targetX = curXFloor + deltaX <= targetX ? targetX : curXFloor + deltaX;
+              targetX = curX + deltaX <= targetX ? targetX : curX + deltaX;
             }
           }
           if (yDiff) {
-            const deltaY = (targetY - curYFloor > 0 ? 1 : -1) * speed;
+            const deltaY = (targetY - curY > 0 ? 1 : -1) * speed;
             if (yDiff > 0) {
-              targetY = curYFloor + deltaY >= targetY ? targetY : curYFloor + deltaY;
+              targetY = curY + deltaY >= targetY ? targetY : curY + deltaY;
             } else {
-              targetY = curYFloor + deltaY <= targetY ? targetY : curYFloor + deltaY;
+              targetY = curY + deltaY <= targetY ? targetY : curY + deltaY;
             }
           }
         }
         userMesh.position.set(targetX, targetY, 0);
+        // TODO: If dead, do not show status bar & put opacity on user
+        if (user.cur_health <= 0 && !user.hidden) {
+          console.log("Hiding user", user.userId, "creating tombstone");
+          setVisible(userMesh, false);
+          const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
+          tombstone.visible = true;
+          user.hidden = true;
+        }
         // userMesh.material.color.offsetHSL(0, 0, 0.1);
         updateStatusBar("hp_current", userMesh, user.cur_health / user.max_health);
         if (user.cur_stamina && user.max_stamina) {
@@ -225,7 +270,7 @@ export const isValidMove = (info: {
   );
   if (!barrier) {
     const opponent = users.find(
-      (u) => u.longitude === target.col && u.latitude === target.row
+      (u) => u.longitude === target.col && u.latitude === target.row && u.cur_health > 0
     );
     if (action.target === AttackTarget.CHARACTER) {
       if (opponent) return true;
@@ -237,6 +282,8 @@ export const isValidMove = (info: {
       if (opponent && opponent?.villageId === villageId) return true;
     } else if (action.target === AttackTarget.SELF) {
       if (opponent && opponent?.userId === userId) return true;
+    } else if (action.target === AttackTarget.EMPTY_GROUND) {
+      if (!opponent) return true;
     } else if (action.target === AttackTarget.GROUND) {
       if (!(action.id === "move" && opponent)) {
         return true;

@@ -198,7 +198,10 @@ export const performAction = (info: {
     const targetGenders: string[] = [];
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
-      if (action.target === AttackTarget.GROUND) {
+      if (
+        action.target === AttackTarget.GROUND ||
+        action.target === AttackTarget.EMPTY_GROUND
+      ) {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
           const effect = realizeTag(tag as GroundEffect, user);
