@@ -12,6 +12,7 @@ import {
   drawCombatUsers,
   highlightTiles,
   highlightTooltips,
+  highlightUsers,
 } from "../libs/combat/movement";
 import { OrbitControls } from "../libs/travel/OrbitControls";
 import { cleanUp, setupScene } from "../libs/travel/util";
@@ -31,6 +32,8 @@ import { SpriteMixer } from "../libs/travel/SpriteMixer";
 interface CombatProps {
   action: CombatAction | undefined;
   battleState: BattleState;
+  userId: string;
+  setUserId: React.Dispatch<React.SetStateAction<string | undefined>>;
   setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;
 }
@@ -38,12 +41,13 @@ interface CombatProps {
 const Combat: React.FC<CombatProps> = (props) => {
   console.log("COMBAT LAYOUT COMPONENT");
   // Destructure props
-  const { setBattleState, setActionPerc, battleState } = props;
+  const { setBattleState, setActionPerc, setUserId, battleState } = props;
   const result = battleState.result;
 
   // References which shouldn't update
   const battle = useRef<UserBattle | null | undefined>(battleState.battle);
   const action = useRef<CombatAction | undefined>(props.action);
+  const userId = useRef<string>(props.userId);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new Vector2();
@@ -105,6 +109,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     action.current = props.action;
+    userId.current = props.userId;
   }, [props]);
 
   useEffect(() => {
@@ -141,7 +146,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         };
         // If user hits 0 health, submit a wait action, which will fetch result & update
         const user = battle.current.usersState?.find(
-          (u) => u.userId === userData.userId
+          (u) => u.userId === userId.current
         );
         if (user && user.cur_health <= 0 && !isDone) {
           isDone = true;
@@ -191,6 +196,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Intersections & highlights from interactions
       let highlights = new Set<string>();
       let tooltips = new Set<string>();
+      let userHighlights = new Set<string>();
       // let currentTooltips = new Set<string>();
 
       // js groups for organization
@@ -274,13 +280,23 @@ const Combat: React.FC<CombatProps> = (props) => {
             grid: grid.current,
           });
 
+          // Highlight information on user hover
+          userHighlights = highlightUsers({
+            group_tiles,
+            group_users,
+            raycaster,
+            userId: userId.current,
+            users: battle.current.usersState,
+            currentHighlights: userHighlights,
+          });
+
           // Detect intersections with tiles for movement
           if (userData) {
             highlights = highlightTiles({
               group_tiles,
               raycaster,
               action: action.current,
-              userId: userData.userId,
+              userId: userId.current,
               battle: battle.current,
               grid: grid.current,
               currentHighlights: highlights,
@@ -292,7 +308,6 @@ const Combat: React.FC<CombatProps> = (props) => {
             group_ground,
             raycaster,
             battle: battle.current,
-            grid: grid.current,
             currentTooltips: tooltips,
           });
         }

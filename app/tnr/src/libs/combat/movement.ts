@@ -60,6 +60,7 @@ export const drawStatusBar = (
   bar_sprite.scale.set(canvas.width / r, canvas.height / r, 1);
   bar_sprite.name = name;
   bar_sprite.userData.full_width = w;
+  bar_sprite.visible = false;
   return bar_sprite;
 };
 
@@ -93,6 +94,7 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   markerSprite.userData.type = "marker";
   markerSprite.scale.set(h, h * 1.2, 1);
   markerSprite.position.set(w / 2, h * 0.9, -6);
+  markerSprite.material.color.setRGB(1, 1, 0);
   group.add(markerSprite);
 
   // Avatar Sprite
@@ -227,7 +229,6 @@ export const drawCombatUsers = (info: {
         userMesh.position.set(targetX, targetY, 0);
         // TODO: If dead, do not show status bar & put opacity on user
         if (user.cur_health <= 0 && !user.hidden) {
-          console.log("Hiding user", user.userId, "creating tombstone");
           setVisible(userMesh, false);
           const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
           tombstone.visible = true;
@@ -422,6 +423,7 @@ export const highlightTiles = (info: {
   const hit = intersects.length > 0 && intersects[0];
 
   // Highlight intersected tile
+  /* ************************** */
   const newSelection = new Set<string>();
   if (action && origin && highlights && hit && canAct) {
     const intersected = hit.object as HexagonalFaceMesh;
@@ -436,7 +438,6 @@ export const highlightTiles = (info: {
       users,
       userId,
     });
-
     // Highlight the tiles in different colors
     green.forEach((tile) => {
       const name = `${tile.row},${tile.col}`;
@@ -454,6 +455,7 @@ export const highlightTiles = (info: {
       newSelection.add(name);
     });
 
+    // Set cursor type on highlight
     if (
       (document.body.style.cursor === "default" || document.body.style.cursor === "") &&
       green.size > 0
@@ -482,17 +484,92 @@ export const highlightTiles = (info: {
 };
 
 /**
+ * Highlight possible squares based on action
+ */
+export const highlightUsers = (info: {
+  group_tiles: Group;
+  group_users: Group;
+  raycaster: Raycaster;
+  userId: string;
+  users: DrawnCombatUser[];
+  currentHighlights: Set<string>;
+}) => {
+  // Definitions
+  const { group_tiles, group_users, users, userId, currentHighlights } = info;
+  const intersects = info.raycaster.intersectObjects(group_tiles.children);
+  const hit = intersects.length > 0 && intersects[0];
+  const newSelection = new Set<string>();
+  if (hit) {
+    const intersected = hit.object as HexagonalFaceMesh;
+    const targetTile = intersected.userData.tile;
+    const target = users.find(
+      (u) =>
+        u.longitude === targetTile.col &&
+        u.latitude === targetTile.row &&
+        u.cur_health > 0
+    );
+    if (target) {
+      const userMesh = group_users.getObjectByName(target.userId) as Group;
+      if (userMesh) {
+        setStatusBarVisibility(userMesh, true);
+        newSelection.add(target.userId);
+      }
+    }
+  }
+  // The active userId we always show status bars
+  const userMesh = group_users.getObjectByName(userId) as Group;
+  if (userMesh) {
+    setStatusBarVisibility(userMesh, true);
+    newSelection.add(userId);
+  }
+  // Remove highlights from tiles that are no longer in the path
+  currentHighlights.forEach((name) => {
+    if (!newSelection.has(name)) {
+      const userMesh = group_users.getObjectByName(name) as Group;
+      if (userMesh) setStatusBarVisibility(userMesh, false);
+    }
+  });
+  return newSelection;
+};
+
+export const setStatusBarVisibility = (userMesh: Group, visible: boolean) => {
+  const hp_background = userMesh.getObjectByName("hp_background") as Sprite;
+  if (hp_background) {
+    hp_background.visible = visible;
+  }
+  const hp_current = userMesh.getObjectByName("hp_current") as Sprite;
+  if (hp_current) {
+    hp_current.visible = visible;
+  }
+  const sp_background = userMesh.getObjectByName("sp_background") as Sprite;
+  if (sp_background) {
+    sp_background.visible = visible;
+  }
+  const sp_current = userMesh.getObjectByName("sp_current") as Sprite;
+  if (sp_current) {
+    sp_current.visible = visible;
+  }
+  const cp_background = userMesh.getObjectByName("cp_background") as Sprite;
+  if (cp_background) {
+    cp_background.visible = visible;
+  }
+  const cp_current = userMesh.getObjectByName("cp_current") as Sprite;
+  if (cp_current) {
+    cp_current.visible = visible;
+  }
+};
+
+/**
  * Highlight different things in the environment based on raycaster
  */
 export const highlightTooltips = (info: {
   group_ground: Group;
   raycaster: Raycaster;
   battle: UserBattle;
-  grid: Grid<TerrainHex>;
   currentTooltips: Set<string>;
 }) => {
   // Definitions
-  const { group_ground, battle, currentTooltips, grid } = info;
+  const { group_ground, battle, currentTooltips } = info;
   const intersects = info.raycaster.intersectObjects(group_ground.children);
   const newTooltips = new Set<string>();
 

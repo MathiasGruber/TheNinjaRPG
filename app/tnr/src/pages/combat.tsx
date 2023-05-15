@@ -17,6 +17,7 @@ import type { BattleState } from "../libs/combat/types";
 const CombatPage: NextPage = () => {
   // State
   const [actionId, setActionId] = useState<string | undefined>(undefined);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const [actionPerc, setActionPerc] = useState<number | undefined>(undefined);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
 
@@ -30,9 +31,10 @@ const CombatPage: NextPage = () => {
   // Redirect to profile if not in battle
   const router = useRouter();
   useEffect(() => {
-    if (data?.battle) {
+    if (data?.battle && userData) {
       setBattle(data.battle);
-      setBattleState({ battle: data.battle, result: null, isLoading: false });
+      setUserId(userData.userId);
+      setBattleState({ ...data, isLoading: false });
     }
   }, [userData, router, data, setBattle]);
 
@@ -49,16 +51,19 @@ const CombatPage: NextPage = () => {
   // Battle scene
   const combat = useMemo(() => {
     return (
-      battleState && (
+      battleState &&
+      userId && (
         <Combat
           battleState={battleState}
           action={actions.find((a) => a.id === actionId)}
+          userId={userId}
+          setUserId={setUserId}
           setActionPerc={setActionPerc}
           setBattleState={setBattleState}
         />
       )
     );
-  }, [versionId, actionId]);
+  }, [versionId, actionId, userId]);
 
   // History Component
   const history = useMemo(() => {

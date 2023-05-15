@@ -180,6 +180,7 @@ model Village {
     id                String             @id @default(cuid())
     name              String             @unique
     sector            Int                @unique @default(1)
+    hexColor          String             @default("#000000")
     UserData          UserData[]
     VillageStructures VillageStructure[]
     Jutsu             Jutsu[]
