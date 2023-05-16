@@ -66,6 +66,7 @@ export const combatRouter = createTRPCRouter({
     .input(
       z.object({
         battleId: z.string().cuid(),
+        userId: z.string(),
         actionId: z.string(),
         longitude: z.number(),
         latitude: z.number(),
@@ -96,6 +97,12 @@ export const combatRouter = createTRPCRouter({
         return tile;
       });
 
+      // Ensure that the userId we're trying to move is valid
+      const user = usersState.find(
+        (u) => u.controllerId === ctx.userId && u.userId === input.userId
+      );
+      if (!user) throw serverError("PRECONDITION_FAILED", "This is not your user");
+
       // Perform action, get latest status effects
       // Note: this mutates usersEffects, groundEffects
       const check = performAction({
@@ -104,7 +111,7 @@ export const combatRouter = createTRPCRouter({
         groundEffects,
         grid,
         action,
-        userId: ctx.userId,
+        userId: input.userId,
         longitude: input.longitude,
         latitude: input.latitude,
       });

@@ -69,8 +69,13 @@ export const applyEffects = (
   // Active effects to be applied to users state
   const active = [...usersEffects];
 
-  // Convert all ground effects to user effects on the users standing on the tile
+  // Things we wish to return
   const newGroundEffects: GroundEffect[] = [];
+  const newUsersEffects: UserEffect[] = [];
+  const actionEffects: ActionEffect[] = [];
+  const visualEffects: GroundEffect[] = [];
+
+  // Convert all ground effects to user effects on the users standing on the tile
   groundEffects.forEach((e) => {
     if (e.type === "move") {
       const user = usersState.find((u) => u.userId === e.creatorId);
@@ -84,13 +89,19 @@ export const applyEffects = (
           userId: createId(),
           longitude: e.longitude,
           latitude: e.latitude,
+          is_original: false,
+          disappearAnimation: e.disappearAnimation,
         });
       }
-
-      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-      console.log("CLONE");
-      console.log(usersState.length);
-      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+      if (e.appearAnimation) {
+        visualEffects.push({
+          ...e,
+          longitude: e.longitude,
+          latitude: e.latitude,
+          type: "visual",
+        });
+      }
+      // TODO: set stats to percentage of original
     } else {
       // Apply ground effect to user
       const user = usersState.find(
@@ -111,9 +122,6 @@ export const applyEffects = (
   });
 
   // Apply all user effects to their target users
-  const newUsersEffects: UserEffect[] = [];
-  const actionEffects: ActionEffect[] = [];
-  const visualEffects: GroundEffect[] = [];
   active.forEach((e) => {
     // Get the user
     const target = usersState.find((u) => u.userId === e.targetId);

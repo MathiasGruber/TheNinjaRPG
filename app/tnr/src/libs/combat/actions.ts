@@ -170,7 +170,8 @@ export const performAction = (info: {
 
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
-  const user = usersState.find((u) => u.userId === userId);
+  const alive = usersState.filter((u) => u.cur_health > 0);
+  const user = alive.find((u) => u.userId === userId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
   // TODO: Check if user is stunned + other prevent action conditions
@@ -189,7 +190,7 @@ export const performAction = (info: {
       b: targetTile,
       action,
       grid: grid,
-      users: usersState,
+      users: alive,
       ground: groundEffects,
       userId,
     });
@@ -216,15 +217,15 @@ export const performAction = (info: {
         type TargetType = { userId: string; username: string; gender: string };
         let target: TargetType | undefined = undefined;
         if (action.target === AttackTarget.SELF) {
-          target = usersState.find((u) => u.userId === user.userId && u.hex === tile);
+          target = alive.find((u) => u.userId === user.userId && u.hex === tile);
         } else if (action.target === AttackTarget.OPPONENT) {
-          target = usersState.find((u) => u.villageId !== villageId && u.hex === tile);
+          target = alive.find((u) => u.villageId !== villageId && u.hex === tile);
         } else if (action.target === AttackTarget.ALLY) {
-          target = usersState.find((u) => u.villageId === villageId && u.hex === tile);
+          target = alive.find((u) => u.villageId === villageId && u.hex === tile);
         } else if (action.target === AttackTarget.OTHER_USER) {
-          target = usersState.find((u) => u.userId !== userId && u.hex === tile);
+          target = alive.find((u) => u.userId !== userId && u.hex === tile);
         } else if (action.target === AttackTarget.CHARACTER) {
-          target = usersState.find((u) => u.hex === tile);
+          target = alive.find((u) => u.hex === tile);
         }
         // Apply effects
         if (target) {

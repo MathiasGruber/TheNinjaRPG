@@ -1,6 +1,6 @@
 import { type ZodItemType } from "../../src/libs/combat/types";
 import { type Prisma } from "@prisma/client";
-import { type PrismaClient } from "@prisma/client";
+import { type PrismaClient, type Item } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
 import { ItemType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
@@ -294,21 +294,39 @@ const items: ZodItemType[] = [
   },
 ];
 
+// Bookkeeping
+let counter = 0;
+const total = items.length;
+
+const upsertIten = async (prisma: PrismaClient, item: ZodItemType) => {
+  // Database call
+  const obj = await prisma.item.upsert({
+    where: {
+      name: item.name,
+    },
+    update: {
+      ...item,
+      effects: item.effects as unknown as Prisma.JsonArray,
+    },
+    create: {
+      ...item,
+      effects: item.effects as unknown as Prisma.JsonArray,
+    },
+  });
+  // Progress
+  counter++;
+  process.stdout.moveCursor(0, -1);
+  process.stdout.clearLine(1);
+  console.log(`Syncing item ${counter}/${total}`);
+  return obj;
+};
+
 // Delete anything not in above list, and insert those missing
 export const seedItems = async (prisma: PrismaClient) => {
+  console.log("\nSyncing items...\n");
+  const promises: Promise<Item>[] = [];
   for (const item of items) {
-    await prisma.item.upsert({
-      where: {
-        name: item.name,
-      },
-      update: {
-        ...item,
-        effects: item.effects as unknown as Prisma.JsonArray,
-      },
-      create: {
-        ...item,
-        effects: item.effects as unknown as Prisma.JsonArray,
-      },
-    });
+    promises.push(upsertIten(prisma, item));
   }
+  await Promise.all(promises);
 };

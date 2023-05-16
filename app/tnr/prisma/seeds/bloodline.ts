@@ -1,5 +1,5 @@
 import { type ZodBloodlineType } from "../../src/libs/combat/types";
-import { type Prisma } from "@prisma/client";
+import { type Prisma, type Bloodline } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
 import { DamageTag } from "../../src/libs/combat/types";
@@ -103,21 +103,39 @@ const bloodlines: ZodBloodlineType[] = [
   },
 ];
 
+// Bookkeeping
+let counter = 0;
+const total = bloodlines.length;
+
+const upsertBloodline = async (prisma: PrismaClient, bloodline: ZodBloodlineType) => {
+  // Database call
+  const obj = await prisma.bloodline.upsert({
+    where: {
+      name: bloodline.name,
+    },
+    update: {
+      ...bloodline,
+      effects: bloodline.effects as unknown as Prisma.JsonArray,
+    },
+    create: {
+      ...bloodline,
+      effects: bloodline.effects as unknown as Prisma.JsonArray,
+    },
+  });
+  // Progress
+  counter++;
+  process.stdout.moveCursor(0, -1);
+  process.stdout.clearLine(1);
+  console.log(`Syncing jutsu ${counter}/${total}`);
+  return obj;
+};
+
 // Delete anything not in above list, and insert those missing
 export const seedBloodlines = async (prisma: PrismaClient) => {
+  console.log("\nSyncing bloodlines...\n");
+  const promises: Promise<Bloodline>[] = [];
   for (const bloodline of bloodlines) {
-    await prisma.bloodline.upsert({
-      where: {
-        name: bloodline.name,
-      },
-      update: {
-        ...bloodline,
-        effects: bloodline.effects as unknown as Prisma.JsonArray,
-      },
-      create: {
-        ...bloodline,
-        effects: bloodline.effects as unknown as Prisma.JsonArray,
-      },
-    });
+    promises.push(upsertBloodline(prisma, bloodline));
   }
+  await Promise.all(promises);
 };

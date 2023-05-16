@@ -16,12 +16,20 @@ import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../travel/types";
 import { COMBAT_SECONDS, COMBAT_PREMOVE_SECONDS } from "./constants";
 
+import { type UserDataWithRelations } from "../../utils/UserContext";
+import { showAnimation } from "./background";
 import { findHex } from "../travel/sector";
 import type { HexagonalFaceMesh } from "../travel/types";
-import type { DrawnCombatUser, CombatAction, GroundEffect } from "./types";
+import type {
+  DrawnCombatUser,
+  CombatAction,
+  GroundEffect,
+  ReturnedUserState,
+} from "./types";
 import type { BarrierTagType } from "./types";
 import { secondsPassed } from "../../utils/time";
 import type { UserBattle } from "../../utils/UserContext";
+import type { SpriteMixer } from "../travel/SpriteMixer";
 
 /**
  * Draw a status bar on user
@@ -87,14 +95,32 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   const group = new Group();
   const { height: h, width: w } = hex;
 
+  // Highlight background in village color
+  const highlightTexture = new TextureLoader().load("map/userMarker.webp");
+  const highlightMaterial = new SpriteMaterial({
+    map: highlightTexture,
+    alphaMap: highlightTexture,
+  });
+  const highlightSprite = new Sprite(highlightMaterial);
+  highlightSprite.userData.type = "marker";
+  highlightSprite.scale.set(h, h * 1.2, 1);
+  highlightSprite.position.set(w / 2, h * 0.9, -6);
+  highlightSprite.userData.type = "userMarker";
+  highlightSprite.userData.userId = userData.userId;
+  highlightSprite.material.color.setHex(
+    userData.village
+      ? parseInt(userData.village.hexColor.replace("#", ""), 16)
+      : 0x000000
+  );
+  group.add(highlightSprite);
+
   // Marker background in white
   const marker = new TextureLoader().load("map/userMarker.webp");
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
-  markerSprite.scale.set(h, h * 1.2, 1);
+  markerSprite.scale.set(0.9 * h, h * 1.1, 1);
   markerSprite.position.set(w / 2, h * 0.9, -6);
-  markerSprite.material.color.setRGB(1, 1, 0);
   group.add(markerSprite);
 
   // Avatar Sprite
@@ -107,6 +133,16 @@ export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => 
   sprite.scale.set(h * 0.8, h * 0.8, 1);
   sprite.position.set(w / 2, h * 1.0, -6);
   group.add(sprite);
+
+  // If this is the original and our user (we have SP/CP), then show a star
+  if ("cur_stamina" in userData && userData.is_original) {
+    const marker = new TextureLoader().load("combat/star.webp");
+    const markerMat = new SpriteMaterial({ map: marker });
+    const markerSprite = new Sprite(markerMat);
+    markerSprite.scale.set(h / 2.5, h / 2.5, 1);
+    markerSprite.position.set(w / 2, h * 0.4, -6);
+    group.add(markerSprite);
+  }
 
   // Health bar is shown on all
   const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
@@ -180,6 +216,7 @@ export const drawCombatUsers = (info: {
   group_users: Group;
   users: DrawnCombatUser[];
   grid: Grid<TerrainHex>;
+  spriteMixer: ReturnType<typeof SpriteMixer>;
 }) => {
   // Draw the users
   const drawnIds = new Set<string>();
@@ -227,11 +264,21 @@ export const drawCombatUsers = (info: {
           }
         }
         userMesh.position.set(targetX, targetY, 0);
-        // TODO: If dead, do not show status bar & put opacity on user
+        // Handle remove users from combat.
+        // TODO: Remove this to separate function, or make more clear this is where it happens
         if (user.cur_health <= 0 && !user.hidden) {
+          // Hide user
           setVisible(userMesh, false);
-          const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
-          tombstone.visible = true;
+          // Effect on death
+          if (user.is_original) {
+            const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
+            tombstone.visible = true;
+          } else if (user.disappearAnimation) {
+            console.log("POOF");
+            console.log(user.disappearAnimation);
+            showAnimation(user.disappearAnimation, hex, info.spriteMixer);
+          }
+          // Mark as hidden
           user.hidden = true;
         }
         // userMesh.material.color.offsetHSL(0, 0, 0.1);
@@ -368,17 +415,16 @@ export const getAffectedTiles = (info: {
 export const highlightTiles = (info: {
   group_tiles: Group;
   raycaster: Raycaster;
-  grid: Grid<TerrainHex>;
+  user: ReturnedUserState;
   action: CombatAction | undefined;
-  userId: string;
   battle: UserBattle;
+  grid: Grid<TerrainHex>;
   currentHighlights: Set<string>;
 }) => {
   // Definitions
-  const { group_tiles, userId, battle, currentHighlights, action, grid } = info;
+  const { group_tiles, user, battle, currentHighlights, action, grid } = info;
   const intersects = info.raycaster.intersectObjects(group_tiles.children);
   const users = battle.usersState;
-  const user = users.find((u) => u.userId === userId);
   const origin = user && grid.getHex({ col: user.longitude, row: user.latitude });
 
   // Highlight fields on the map where action can be applied
@@ -435,8 +481,8 @@ export const highlightTiles = (info: {
       action,
       grid: highlights,
       ground: battle.groundEffects,
+      userId: user.userId,
       users,
-      userId,
     });
     // Highlight the tiles in different colors
     green.forEach((tile) => {

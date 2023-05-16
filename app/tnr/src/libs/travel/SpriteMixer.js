@@ -203,6 +203,7 @@ export function SpriteMixer() {
     let spriteMaterial = new SpriteMaterial({
       map: texture,
       color: 0xffffff,
+      depthTest: false,
     });
 
     let actionSprite = new Sprite(spriteMaterial);

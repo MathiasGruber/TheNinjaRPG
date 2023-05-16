@@ -1,11 +1,12 @@
 import { type ZodJutsuType } from "../../src/libs/combat/types";
-import { type Prisma, UserRank } from "@prisma/client";
+import { type Prisma, UserRank, Jutsu } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
 import { JutsuType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
 
+import { JutsuValidator } from "../../src/libs/combat/types";
 import { CloneTag } from "../../src/libs/combat/types";
 import { DamageTag } from "../../src/libs/combat/types";
 import { BarrierTag } from "../../src/libs/combat/types";
@@ -37,6 +38,8 @@ const jutsus: ZodJutsuType[] = [
         statTypes: ["Ninjutsu", "Genjutsu"],
         generalTypes: ["Willpower", "Intelligence"],
         calculation: "percentage",
+        appearAnimation: "smoke",
+        disappearAnimation: "smoke",
       }),
     ],
   },
@@ -68,7 +71,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
-    target: AttackTarget.GROUND,
+    target: AttackTarget.EMPTY_GROUND,
     range: 1,
     cooldown: 30,
     effects: [
@@ -171,15 +174,35 @@ const jutsus: ZodJutsuType[] = [
   },
 ];
 
+// Bookkeeping
+let counter = 0;
+const total = jutsus.length;
+
+const upsertJutsu = async (prisma: PrismaClient, jutsu: ZodJutsuType) => {
+  // Validate jutsu
+  const parsed = JutsuValidator.parse(jutsu);
+  // Database call
+  const obj = await prisma.jutsu.upsert({
+    where: {
+      name: parsed.name,
+    },
+    update: { ...parsed, effects: parsed.effects as unknown as Prisma.JsonArray },
+    create: { ...parsed, effects: parsed.effects as unknown as Prisma.JsonArray },
+  });
+  // Progress
+  counter++;
+  process.stdout.moveCursor(0, -1);
+  process.stdout.clearLine(1);
+  console.log(`Syncing jutsu ${counter}/${total}`);
+  return obj;
+};
+
 // Delete anything not in above list, and insert those missing
 export const seedJutsus = async (prisma: PrismaClient) => {
+  console.log("\nSyncing jutsus...\n");
+  const promises: Promise<Jutsu>[] = [];
   for (const jutsu of jutsus) {
-    await prisma.jutsu.upsert({
-      where: {
-        name: jutsu.name,
-      },
-      update: { ...jutsu, effects: jutsu.effects as unknown as Prisma.JsonArray },
-      create: { ...jutsu, effects: jutsu.effects as unknown as Prisma.JsonArray },
-    });
+    promises.push(upsertJutsu(prisma, jutsu));
   }
+  await Promise.all(promises);
 };

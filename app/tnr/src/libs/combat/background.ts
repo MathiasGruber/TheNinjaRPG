@@ -24,6 +24,29 @@ import { drawStatusBar } from "./movement";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import type { SpriteMixer } from "../travel/SpriteMixer";
 
+export const showAnimation = (
+  appearAnimation: string,
+  hex: TerrainHex,
+  spriteMixer: ReturnType<typeof SpriteMixer>
+) => {
+  const info = Animations.get(appearAnimation);
+  if (info) {
+    const { height: h, width: w } = hex;
+    const texture = new TextureLoader().load(`/animations/${appearAnimation}.png`);
+    const actionSprite = spriteMixer.ActionSprite(texture, 1, info.frames);
+    const action = spriteMixer.Action(actionSprite, 0, info.frames, info.speed);
+    if (action) {
+      action.hideWhenFinished = true;
+      action.playOnce();
+    }
+    actionSprite.scale.set(50, 50, 1);
+    actionSprite.position.set(w / 2, h / 2, 5);
+    return actionSprite;
+  } else {
+    console.error("No such animation: ", appearAnimation);
+  }
+};
+
 /**
  * Creates heaxognal grid & draw it using js. Return groups of objects drawn
  */
@@ -155,30 +178,8 @@ export const drawCombatEffects = (info: {
         // If there is an appear animation, show it. Mark it for hiding,
         // which we catch and use to remove it
         if (effect.appearAnimation) {
-          const info = Animations.get(effect.appearAnimation);
-          if (info) {
-            new TextureLoader().load(
-              `/animations/${effect.appearAnimation}.png`,
-              (texture) => {
-                const actionSprite = spriteMixer.ActionSprite(texture, 1, info.frames);
-                const action = spriteMixer.Action(
-                  actionSprite,
-                  0,
-                  info.frames,
-                  info.speed
-                );
-                if (action) {
-                  action.hideWhenFinished = true;
-                  action.playOnce();
-                }
-                actionSprite.scale.set(50, 50, 1);
-                actionSprite.position.set(w / 2, h / 2, 0);
-                asset.add(actionSprite);
-              }
-            );
-          } else {
-            console.error("No such animation: ", effect.appearAnimation);
-          }
+          const actionSprite = showAnimation(effect.appearAnimation, hex, spriteMixer);
+          if (actionSprite) asset.add(actionSprite);
         }
         // Status bar
         if (effect.type === "barrier") {

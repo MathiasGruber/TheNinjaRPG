@@ -39,6 +39,10 @@ export const seedVillages = async (prisma: PrismaClient) => {
     { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
     { name: "Black Market", image: "/buildings/BlackMarket.webp", level: 0 },
   ];
+
+  const promises: Promise<any>[] = [];
+  console.log("\nSyncing villages...");
+
   villages.map(async (village, i) => {
     // Create Village
     const villageData = await prisma.village.upsert({
@@ -49,70 +53,84 @@ export const seedVillages = async (prisma: PrismaClient) => {
       create: village,
     });
     // Buildings
-    buildings.map(async (building) => {
-      await prisma.villageStructure.upsert({
-        where: {
-          name_villageId: {
-            name: building.name,
-            villageId: villageData.id,
+    buildings.map((building) => {
+      promises.push(
+        prisma.villageStructure.upsert({
+          where: {
+            name_villageId: {
+              name: building.name,
+              villageId: villageData.id,
+            },
           },
-        },
-        update: building,
-        create: { ...building, villageId: villageData.id },
-      });
+          update: building,
+          create: { ...building, villageId: villageData.id },
+        })
+      );
     });
     // Village elders
     const elderId = createId();
-    await prisma.userData.upsert({
-      where: {
-        username: elders[i]?.name as string,
-      },
-      update: {},
-      create: {
-        userId: elderId,
-        gender: elders[i]?.gender as string,
-        username: elders[i]?.name as string,
-        villageId: villageData.id,
-        rank: UserRank.ELDER,
-        isAI: true,
-        status: UserStatus.AWAKE,
-      },
-    });
-    elders[i]?.attributes.map(async (attribute) => {
-      await prisma.userAttribute.upsert({
+    promises.push(
+      prisma.userData.upsert({
         where: {
-          attribute_userId: {
-            userId: elderId,
-            attribute: attribute,
-          },
+          username: elders[i]?.name as string,
         },
         update: {},
         create: {
           userId: elderId,
-          attribute,
+          gender: elders[i]?.gender as string,
+          username: elders[i]?.name as string,
+          villageId: villageData.id,
+          rank: UserRank.ELDER,
+          isAI: true,
+          status: UserStatus.AWAKE,
         },
-      });
+      })
+    );
+    elders[i]?.attributes.map((attribute) => {
+      promises.push(
+        prisma.userAttribute.upsert({
+          where: {
+            attribute_userId: {
+              userId: elderId,
+              attribute: attribute,
+            },
+          },
+          update: {},
+          create: {
+            userId: elderId,
+            attribute,
+          },
+        })
+      );
     });
     // Village conversation
-    await prisma.conversation.upsert({
+    promises.push(
+      prisma.conversation.upsert({
+        where: {
+          title: village.name,
+        },
+        update: {},
+        create: {
+          title: village.name,
+          createdById: elderId,
+        },
+      })
+    );
+  });
+  // Global conversation
+  promises.push(
+    prisma.conversation.upsert({
       where: {
-        title: village.name,
+        title: "Global",
       },
       update: {},
       create: {
-        title: village.name,
-        createdById: elderId,
+        title: "Global",
       },
-    });
-  });
-  // Global conversation
-  await prisma.conversation.upsert({
-    where: {
-      title: "Global",
-    },
-    update: {},
-    create: {
-      title: "Global",
-    },
+    })
+  );
+  // Process all the stuff
+  await Promise.all(promises).then(() => {
+    console.log("Done syncing villages!");
   });
 };

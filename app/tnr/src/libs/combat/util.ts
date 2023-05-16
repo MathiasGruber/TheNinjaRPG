@@ -11,7 +11,7 @@ export const maskBattle = (battle: Battle, userId: string) => {
   return {
     ...battle,
     usersState: (battle.usersState as unknown as ReturnedUserState[]).map((user) => {
-      if (user.userId !== userId) {
+      if (user.controllerId !== userId) {
         return Object.fromEntries(
           publicState.map((key) => [key, user[key]])
         ) as unknown as ReturnedUserState;
@@ -31,18 +31,18 @@ export const maskBattle = (battle: Battle, userId: string) => {
  */
 export const calcBattleResult = (users: ReturnedUserState[], userId: string) => {
   const user = users.find((u) => u.userId === userId);
+  const originals = users.filter((u) => u.is_original);
   if (user && user.cur_stamina && user.cur_chakra) {
     // If 1v1, then friends/targets are the opposing team. If MPvP, separate by village
     let targets: ReturnedUserState[] = [];
     let friends: ReturnedUserState[] = [];
-    if (users.length === 2) {
-      targets = users.filter((u) => u.userId !== userId);
-      friends = users.filter((u) => u.userId === userId);
+    if (originals.length === 2) {
+      targets = originals.filter((u) => u.userId !== userId);
+      friends = originals.filter((u) => u.userId === userId);
     } else {
-      targets = users.filter((u) => u.villageId !== user.villageId);
-      friends = users.filter((u) => u.villageId === user.villageId);
+      targets = originals.filter((u) => u.villageId !== user.villageId);
+      friends = originals.filter((u) => u.villageId === user.villageId);
     }
-    console.log(users);
     const survivingTargets = targets.filter((t) => t.cur_health > 0);
     if (user.cur_health <= 0 || survivingTargets.length === 0) {
       // Update the user left
@@ -83,7 +83,7 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
       };
 
       // TODO: distribute elo_points among stats used during battle
-      console.log(result);
+
       // Return results
       return { finalUsersState: users, result: result };
     }

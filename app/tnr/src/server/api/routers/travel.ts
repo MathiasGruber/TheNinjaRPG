@@ -252,7 +252,8 @@ export const travelRouter = createTRPCRouter({
             user.taijutsu_offence,
             user.bukijutsu_offence
           );
-          user.controllerId = user.userId;
+          user.is_original = true; // alternative is e.g. a clone, a summon, etc.
+          user.controllerId = user.userId; // the session userID that can control this user
         });
 
         // Starting user effects from bloodlines & items

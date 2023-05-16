@@ -95,10 +95,8 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (battle.current) {
-        const user = battle.current.usersState.find(
-          (u) => u.userId === userData?.userId
-        );
+      if (battle.current && userId.current) {
+        const user = battle.current.usersState.find((u) => u.userId === userId.current);
         if (user?.updatedAt) {
           setActionPerc(getActionPerc(user));
         }
@@ -152,6 +150,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           isDone = true;
           performAction({
             battleId: battle.current.id,
+            userId: userId.current,
             actionId: "wait",
             longitude: user.longitude,
             latitude: user.latitude,
@@ -219,6 +218,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Capture clicks to update move direction
       const onClick = () => {
         const intersects = raycaster.intersectObjects(scene.children);
+        console.log("CLick");
         intersects
           .filter((i) => i.object.visible)
           .every((i) => {
@@ -235,6 +235,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                 document.body.style.cursor = "wait";
                 performAction({
                   battleId: battle.current.id,
+                  userId: userId.current,
                   actionId: action.current.id,
                   longitude: target.col,
                   latitude: target.row,
@@ -242,14 +243,24 @@ const Combat: React.FC<CombatProps> = (props) => {
                 });
                 return false;
               }
+            } else if (i.object.userData.type === "userMarker" && battle.current) {
+              const target = battle.current.usersState.find(
+                (u) =>
+                  u.userId === i.object.userData.userId &&
+                  u.cur_health > 0 &&
+                  u.controllerId === userData.userId
+              );
+              if (target) setUserId(target.userId);
             }
             return true;
           });
       };
       renderer.domElement.addEventListener("click", onClick, true);
 
-      // Prototype smoke effect
+      // Sprite mixer for sprite animations
       const spriteMixer = SpriteMixer();
+
+      // Callback on sprite animations
       // spriteMixer.addEventListener("finished", function (event) {});
 
       // Render the image
@@ -265,19 +276,33 @@ const Combat: React.FC<CombatProps> = (props) => {
 
         // Assume we have battle and a grid
         if (battle.current && grid.current) {
-          // Draw all effects on the map
-          drawCombatEffects({
-            group_ground: group_ground,
-            effects: battle.current.groundEffects,
-            grid: grid.current,
-            spriteMixer,
-          });
+          // Get the selected user
+          const user = battle.current.usersState.find(
+            (u) => u.userId === userId.current
+          );
+
+          // If selected user is dead, select another user controlled by the same player
+          if (user && user.cur_health <= 0) {
+            const another = battle.current.usersState.find(
+              (u) => u.controllerId === userData?.userId && u.cur_health > 0
+            );
+            if (another) setUserId(another.userId);
+          }
 
           // Draw all users on the map + indicators for positions with multiple users
           drawCombatUsers({
             group_users: group_users,
             users: battle.current.usersState,
             grid: grid.current,
+            spriteMixer,
+          });
+
+          // Draw all effects on the map
+          drawCombatEffects({
+            group_ground: group_ground,
+            effects: battle.current.groundEffects,
+            grid: grid.current,
+            spriteMixer,
           });
 
           // Highlight information on user hover
@@ -291,12 +316,12 @@ const Combat: React.FC<CombatProps> = (props) => {
           });
 
           // Detect intersections with tiles for movement
-          if (userData) {
+          if (user) {
             highlights = highlightTiles({
               group_tiles,
               raycaster,
+              user,
               action: action.current,
-              userId: userId.current,
               battle: battle.current,
               grid: grid.current,
               currentHighlights: highlights,

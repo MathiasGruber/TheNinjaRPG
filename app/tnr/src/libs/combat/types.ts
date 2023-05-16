@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Jutsu, Item, Bloodline } from "@prisma/client";
+import type { Jutsu, Item, Bloodline } from "@prisma/client";
 import { UserRank } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
@@ -8,6 +8,7 @@ import { ItemType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
 import { ItemRarity } from "@prisma/client";
 import { ItemSlotType } from "@prisma/client";
+import type { Village } from "@prisma/client";
 import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
 import type { TerrainHex } from "../travel/types";
 import type { UserBattle } from "../../utils/UserContext";
@@ -31,6 +32,10 @@ export const publicState = [
   "elo_pvp",
   "elo_pve",
   "regeneration",
+  "village",
+  "is_original",
+  "controllerId",
+  "disappearAnimation",
 ] as const;
 
 export const privateState = [
@@ -47,6 +52,8 @@ export const privateState = [
   "taijutsu_defence",
   "bukijutsu_offence",
   "bukijutsu_defence",
+  "highest_offence",
+  "highest_defence",
   "strength",
   "intelligence",
   "willpower",
@@ -66,8 +73,11 @@ export type BattleUserState = UserData & {
     item: Item;
   })[];
   bloodline?: Bloodline | null;
+  village?: Village | null;
   highest_offence?: number;
   highest_defence?: number;
+  is_original: boolean;
+  disappearAnimation?: (typeof AnimationNames)[number];
   controllerId: string;
 };
 
@@ -79,10 +89,12 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 
 /**
  * User data for drawn users on the battle page
+ * TODO: Do we need this type? isn't it just a subset of the other one?
  */
 export interface DrawnCombatUser {
   userId: string;
   villageId?: string | null;
+  village?: Village | null;
   username: string;
   updatedAt: Date;
   cur_health: number;
@@ -95,6 +107,9 @@ export interface DrawnCombatUser {
   longitude: number;
   latitude: number;
   hidden?: boolean;
+  is_original: boolean;
+  disappearAnimation?: (typeof AnimationNames)[number];
+  controllerId: string;
 }
 
 export type CombatResult = {
@@ -221,6 +236,14 @@ const StatsBasedStrength = z.object({
   elements: z.array(z.enum(Element)).optional(),
 });
 
+const StaticBasedOnly = z.object({
+  calculation: z.enum(["static"]).default("static"),
+});
+
+const DisableFormula = z.object({
+  calculation: z.enum(["static", "percentage"]).default("static"),
+});
+
 const ChanceBased = z.object({
   chance: z.number().int().min(1).max(100).default(0).optional(),
   chancePerLevel: z.number().int().min(0).max(100).default(0).optional(),
@@ -239,8 +262,6 @@ export const AbsorbTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-// TODO: Let tags like this be static/percentage only, and not formula
-//       i.e. prevent some obvious weird combinations from happening
 export const AdjustArmorTag = z
   .object({
     type: type("armoradjust"),
@@ -249,7 +270,8 @@ export const AdjustArmorTag = z
   })
   .merge(BaseAttributes)
   .merge(MultipleRounds)
-  .merge(StatsBasedStrength);
+  .merge(StatsBasedStrength)
+  .merge(StaticBasedOnly);
 
 export const AdjustDamageGivenTag = z
   .object({
@@ -303,7 +325,6 @@ export const AdjustStatTag = z
   .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
-// TODO: Restrict to only work with GROUND target? How to do this?
 export const BarrierTag = z
   .object({
     type: type("barrier"),
@@ -502,7 +523,9 @@ const AllTags = z.union([
   AdjustHealTag.default({}),
   AdjustPoolCostTag.default({}),
   AdjustStatTag.default({}),
+  BarrierTag.default({}),
   ClearTag.default({}),
+  CloneTag.default({}),
   DamageTag.default({}),
   FleeTag.default({}),
   FleePreventTag.default({}),
@@ -565,30 +588,49 @@ export type ActionEffect = {
 /**
  * Jutsu Type. Used for validating a jutsu object is set up properly
  */
-const Jutsu = z.object({
-  name: z.string(),
-  image: z.string(),
-  description: z.string(),
-  battleDescription: z.string(),
-  jutsuWeapon: z.nativeEnum(WeaponType).optional(),
-  jutsuType: z.nativeEnum(JutsuType),
-  jutsuRank: z.nativeEnum(LetterRank),
-  requiredRank: z.nativeEnum(UserRank),
-  target: z.nativeEnum(AttackTarget),
-  range: z.number().int().min(0).max(5),
-  healthCostPerc: z.number().min(0).max(100).optional(),
-  chakraCostPerc: z.number().min(0).max(100).optional(),
-  staminaCostPerc: z.number().min(0).max(100).optional(),
-  actionCostPerc: z.number().int().min(1).max(100).optional(),
-  cooldown: z.number().int().min(1).max(300),
-  effects: z.array(AllTags),
-});
-export type ZodJutsuType = z.infer<typeof Jutsu>;
+export const JutsuValidator = z
+  .object({
+    name: z.string(),
+    image: z.string(),
+    description: z.string(),
+    battleDescription: z.string(),
+    jutsuWeapon: z.nativeEnum(WeaponType).optional(),
+    jutsuType: z.nativeEnum(JutsuType),
+    jutsuRank: z.nativeEnum(LetterRank),
+    requiredRank: z.nativeEnum(UserRank),
+    target: z.nativeEnum(AttackTarget),
+    range: z.number().int().min(0).max(5),
+    healthCostPerc: z.number().min(0).max(100).optional(),
+    chakraCostPerc: z.number().min(0).max(100).optional(),
+    staminaCostPerc: z.number().min(0).max(100).optional(),
+    actionCostPerc: z.number().int().min(1).max(100).optional(),
+    cooldown: z.number().int().min(1).max(300),
+    effects: z.array(AllTags),
+  })
+  .refine(
+    (data) => {
+      return (
+        !data.effects.find((e) => e.type === "barrier") ||
+        data.target === AttackTarget.EMPTY_GROUND
+      );
+    },
+    { message: "Barriers can only be used on empty ground" }
+  )
+  .refine(
+    (data) => {
+      return (
+        !data.effects.find((e) => e.type === "clone") ||
+        data.target === AttackTarget.EMPTY_GROUND
+      );
+    },
+    { message: "Clones can only be used on empty ground" }
+  );
+export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 
 /**
  * Bloodline Type. Used for validating a bloodline object is set up properly
  */
-const Bloodline = z.object({
+const BloodlineValidator = z.object({
   name: z.string(),
   image: z.string(),
   description: z.string(),
@@ -613,12 +655,12 @@ const Bloodline = z.object({
     ])
   ),
 });
-export type ZodBloodlineType = z.infer<typeof Bloodline>;
+export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 
 /**
  * Item Type. Used for validating a item object is set up properly
  */
-const Item = z.object({
+const ItemValidator = z.object({
   name: z.string(),
   image: z.string(),
   description: z.string(),
@@ -637,4 +679,4 @@ const Item = z.object({
   slot: z.nativeEnum(ItemSlotType),
   effects: z.array(AllTags),
 });
-export type ZodItemType = z.infer<typeof Item>;
+export type ZodItemType = z.infer<typeof ItemValidator>;
