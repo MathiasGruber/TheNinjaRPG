@@ -91,6 +91,9 @@ export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: numb
  * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
 export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => {
+  // If no health, no need
+  if (userData.cur_health <= 0) return undefined;
+
   // Group is used to group components of the user Marker
   const group = new Group();
   const { height: h, width: w } = hex;
@@ -218,22 +221,24 @@ export const drawCombatUsers = (info: {
   grid: Grid<TerrainHex>;
   spriteMixer: ReturnType<typeof SpriteMixer>;
 }) => {
+  // Destruct
+  const { users, group_users, grid, spriteMixer } = info;
   // Draw the users
   const drawnIds = new Set<string>();
-  info.users.forEach((user) => {
-    const hex = findHex(info.grid, {
+  users.forEach((user) => {
+    const hex = findHex(grid, {
       x: user.longitude,
       y: user.latitude,
     });
     if (hex) {
       // Fetch / create the user mesh
-      let userMesh = info.group_users.getObjectByName(user.userId) as Group;
+      let userMesh = group_users.getObjectByName(user.userId) as Group | undefined;
       if (!userMesh && hex) {
         userMesh = createUserSprite(user, hex);
-        info.group_users.add(userMesh);
+        if (userMesh) group_users.add(userMesh);
       }
       // Get location
-      if (userMesh && info.grid) {
+      if (userMesh && grid) {
         userMesh.visible = true;
         userMesh.userData.tile = hex;
         const { x, y } = hex.center;
@@ -276,7 +281,8 @@ export const drawCombatUsers = (info: {
           } else if (user.disappearAnimation) {
             console.log("POOF");
             console.log(user.disappearAnimation);
-            showAnimation(user.disappearAnimation, hex, info.spriteMixer);
+            const sprite = showAnimation(user.disappearAnimation, hex, spriteMixer);
+            if (sprite) userMesh.add(sprite);
           }
           // Mark as hidden
           user.hidden = true;
@@ -294,10 +300,10 @@ export const drawCombatUsers = (info: {
       }
     }
   });
-  info.group_users.children.sort((a, b) => b.position.y - a.position.y);
+  group_users.children.sort((a, b) => b.position.y - a.position.y);
 
   // Hide all user counters which are not used anymore
-  info.group_users.children.forEach((object) => {
+  group_users.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
     }
