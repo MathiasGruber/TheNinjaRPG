@@ -35,7 +35,6 @@ export const publicState = [
   "village",
   "is_original",
   "controllerId",
-  "disappearAnimation",
 ] as const;
 
 export const privateState = [
@@ -77,7 +76,6 @@ export type BattleUserState = UserData & {
   highest_offence?: number;
   highest_defence?: number;
   is_original: boolean;
-  disappearAnimation?: (typeof AnimationNames)[number];
   controllerId: string;
 };
 
@@ -108,7 +106,6 @@ export interface DrawnCombatUser {
   latitude: number;
   hidden?: boolean;
   is_original: boolean;
-  disappearAnimation?: (typeof AnimationNames)[number];
   controllerId: string;
 }
 
@@ -170,12 +167,20 @@ const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
 
 /**
- * Animations
+ * Animation Visuals
  */
 export const Animations = new Map<string, { frames: number; speed: number }>();
 Animations.set("hit", { frames: 4, speed: 50 });
 Animations.set("smoke", { frames: 9, speed: 50 });
 export const AnimationNames = ["hit", "smoke"] as const;
+
+/**
+ * Static Visuals
+ */
+export const Statics = new Map<string, { frames: number; speed: number }>();
+Statics.set("hit", { frames: 4, speed: 50 });
+Statics.set("smoke", { frames: 9, speed: 50 });
+export const StaticNames = ["hit", "smoke"] as const;
 
 /**
  * Convenience method for a string with a default value
@@ -192,8 +197,14 @@ const type = (defaultString: string) => {
  * Battle Descriptions use the following variables:
  * %user - the name of the one who is affected by the effect
  * %target - the name of the one who is affected by the effect
- * %usergender - he/she
- * %targetgender - he/she
+ * %user_subject - he/she
+ * %target_subject - he/she
+ * %user_object - him/her
+ * %target_object - him/her
+ * %user_posessive - his/hers
+ * %target_posessive - his/hers
+ * %user_reflexive - himself/herself
+ * %target_reflexive - himself/herself
  * %attacker - a character attacking the target
  * %rounds - the number of rounds the effect will last
  * %amount - the amount of the effect

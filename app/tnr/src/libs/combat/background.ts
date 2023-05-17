@@ -147,71 +147,83 @@ export const drawCombatEffects = (info: {
   group_ground: Group;
   effects: GroundEffect[];
   grid: Grid<TerrainHex>;
+  animationId: number;
   spriteMixer: ReturnType<typeof SpriteMixer>;
 }) => {
   // Destructure
-  const { spriteMixer } = info;
+  const { effects, group_ground, spriteMixer, animationId } = info;
   // Draw the users
   const drawnIds = new Set<string>();
-  info.effects.forEach((effect) => {
+  effects.forEach((effect) => {
     const hex = findHex(info.grid, {
       x: effect.longitude,
       y: effect.latitude,
     });
-    if (hex && (effect.staticAssetPath || effect.appearAnimation)) {
-      const { height: h, width: w } = hex;
-      let asset = info.group_ground.getObjectByName(effect.id) as Group;
-      if (!asset && hex) {
-        // Group for the asset
-        asset = new Group();
-        asset.name = effect.id;
-        asset.userData.type = effect.type; // e.g. "barrier"
-        // Sprite to show
-        if (effect.staticAssetPath) {
-          const texture = new TextureLoader().load(effect.staticAssetPath);
-          const material = new SpriteMaterial({ map: texture });
-          const sprite = new Sprite(material);
-          sprite.scale.set(w, h, 1);
-          sprite.position.set(w / 2, h / 2, 0);
-          asset.add(sprite);
+    if (hex) {
+      if (
+        effect.staticAssetPath ||
+        effect.appearAnimation ||
+        effect.disappearAnimation
+      ) {
+        const { height: h, width: w } = hex;
+        let asset = group_ground.getObjectByName(effect.id) as Group;
+        if (!asset) {
+          // Group for the asset
+          asset = new Group();
+          asset.name = effect.id;
+          asset.userData.type = effect.type; // e.g. "barrier"
+          // Sprite to show
+          if (effect.staticAssetPath) {
+            const texture = new TextureLoader().load(effect.staticAssetPath);
+            const material = new SpriteMaterial({ map: texture });
+            const sprite = new Sprite(material);
+            sprite.scale.set(w, h, 1);
+            sprite.position.set(w / 2, h / 2, 0);
+            asset.add(sprite);
+          }
+          // If there is an appear animation, show it. Mark it for hiding,
+          // which we catch and use to remove it
+          if (effect.appearAnimation && animationId !== 0) {
+            const actionSprite = showAnimation(
+              effect.appearAnimation,
+              hex,
+              spriteMixer
+            );
+            if (actionSprite) asset.add(actionSprite);
+          }
+          // TODO: static animation with LoopInfinite
+          // Status bar
+          if (effect.type === "barrier") {
+            const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
+            const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
+            asset.add(hp_background);
+            asset.add(hp_bar);
+            hp_bar.position.set(w / 2, h, 0);
+            hp_background.position.set(w / 2, h, 0);
+            hp_bar.visible = false;
+            hp_background.visible = false;
+          }
+          // Add to group
+          group_ground.add(asset);
         }
-        // If there is an appear animation, show it. Mark it for hiding,
-        // which we catch and use to remove it
-        if (effect.appearAnimation) {
-          const actionSprite = showAnimation(effect.appearAnimation, hex, spriteMixer);
-          if (actionSprite) asset.add(actionSprite);
-        }
-        // Status bar
-        if (effect.type === "barrier") {
-          const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
-          const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
-          asset.add(hp_background);
-          asset.add(hp_bar);
-          hp_bar.position.set(w / 2, h, 0);
-          hp_background.position.set(w / 2, h, 0);
-          hp_bar.visible = false;
-          hp_background.visible = false;
-        }
-        // Add to group
-        info.group_ground.add(asset);
-      }
-      // Get location
-      if (asset) {
+
         // Set visibility
-        if (effect.power !== undefined && effect.power <= 0) {
-          asset.visible = false;
-        } else {
-          asset.visible = true;
-          asset.userData.tile = hex;
-          const { x, y } = hex.center;
-          asset.position.set(-x, -y, -8);
-          drawnIds.add(asset.name);
+        if (asset) {
+          if (effect.power !== undefined && effect.power <= 0) {
+            asset.visible = false;
+          } else {
+            asset.visible = true;
+            asset.userData.tile = hex;
+            const { x, y } = hex.center;
+            asset.position.set(-x, -y, -8);
+            drawnIds.add(asset.name);
+          }
         }
       }
     }
   });
   // Hide all which are not used anymore
-  info.group_ground.children.forEach((object) => {
+  group_ground.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
     }

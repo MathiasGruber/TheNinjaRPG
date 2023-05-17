@@ -283,29 +283,43 @@ export const performAction = (info: {
         user.cur_health = Math.max(0, user.cur_health);
       }
       user.updatedAt = secondsFromNow(-newSeconds);
-      // Update battle description
-      action.battleDescription = action.battleDescription.replace(
-        "%user",
-        user.username
+      // Update user descriptions
+      action.battleDescription = action.battleDescription.replaceAll(
+        "%userself",
+        user.gender === "Male" ? "himself" : "herself"
       );
-      action.battleDescription = action.battleDescription.replace(
+      action.battleDescription = action.battleDescription.replaceAll(
         "%usergender",
         user.gender === "Male" ? "he" : "she"
       );
-      action.battleDescription = action.battleDescription.replace(
+      action.battleDescription = action.battleDescription.replaceAll(
+        "%user",
+        user.username
+      );
+      // Update generic descriptions
+      action.battleDescription = action.battleDescription.replaceAll(
         "%location",
         `[${targetTile.row}, ${targetTile.col}]`
       );
-      if (targetUsernames.length > 0) {
-        action.battleDescription = action.battleDescription.replace(
-          "%target",
-          targetUsernames.join(", ")
-        );
-      }
+      // Update target descriptions
       if (targetGenders.length > 0) {
-        action.battleDescription = action.battleDescription.replace(
+        action.battleDescription = action.battleDescription.replaceAll(
           "%targetgender",
           targetGenders.length === 1 && targetGenders[0] ? targetGenders[0] : "their"
+        );
+        action.battleDescription = action.battleDescription.replaceAll(
+          "%targetself",
+          targetGenders.length === 1 && targetGenders[0]
+            ? targetGenders[0] == "Male"
+              ? "himself"
+              : "herself"
+            : "their"
+        );
+      }
+      if (targetUsernames.length > 0) {
+        action.battleDescription = action.battleDescription.replaceAll(
+          "%target",
+          targetUsernames.join(", ")
         );
       }
       // Successful action

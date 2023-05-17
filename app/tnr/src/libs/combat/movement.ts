@@ -270,21 +270,12 @@ export const drawCombatUsers = (info: {
         }
         userMesh.position.set(targetX, targetY, 0);
         // Handle remove users from combat.
-        // TODO: Remove this to separate function, or make more clear this is where it happens
-        if (user.cur_health <= 0 && !user.hidden) {
-          // Hide user
+        if (user.cur_health <= 0 && user.hidden === undefined) {
           setVisible(userMesh, false);
-          // Effect on death
           if (user.is_original) {
             const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
             tombstone.visible = true;
-          } else if (user.disappearAnimation) {
-            console.log("POOF");
-            console.log(user.disappearAnimation);
-            const sprite = showAnimation(user.disappearAnimation, hex, spriteMixer);
-            if (sprite) userMesh.add(sprite);
           }
-          // Mark as hidden
           user.hidden = true;
         }
         // userMesh.material.color.offsetHSL(0, 0, 0.1);

@@ -13,6 +13,8 @@ import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
 
+import deepDiff from "deep-diff";
+
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
   getBattle: protectedProcedure
@@ -123,13 +125,8 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Apply relevant effects, and get back new state + active effects
-      const {
-        newUsersState,
-        newUsersEffects,
-        newGroundEffects,
-        actionEffects,
-        visualEffects,
-      } = applyEffects(usersState, usersEffects, groundEffects);
+      const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+        applyEffects(usersState, usersEffects, groundEffects);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { finalUsersState, result } = calcBattleResult(newUsersState, ctx.userId);
@@ -155,9 +152,6 @@ export const combatRouter = createTRPCRouter({
 
       // Return the new battle + results state if applicable
       const newMaskedBattle = maskBattle(newBattle, ctx.userId);
-
-      // Add potential visual effects to the return of perform action
-      newMaskedBattle.groundEffects.push(...visualEffects);
 
       // Update over websockets
       const pusher = getServerPusher();

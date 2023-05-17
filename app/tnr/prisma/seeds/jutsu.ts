@@ -22,7 +22,7 @@ const jutsus: ZodJutsuType[] = [
     description:
       "This jutsu creates a clone, which is then used as a distraction to attack from behind",
     battleDescription:
-      "%user creates a clone of %genderself. The clone is a perfect copy of %user, but %gender strength is split between the two.",
+      "%user creates a clone of %user_reflexive. The clone is a perfect copy of %user, but %target_object strength is split between the two.",
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
@@ -94,7 +94,7 @@ const jutsus: ZodJutsuType[] = [
     image: "/jutsus/soul_shackles.png",
     description: "This illusion catches your opponent in chains.",
     battleDescription:
-      "%user stares at %opponent. Without a warning %opponent`s arms and legs are shackled in steel bindings. The shackles drag %opponent down onto the ground with insane power.",
+      "%user stares at %target. Without a warning %target`s arms and legs are shackled in steel bindings. The shackles drag %target down onto the ground with insane power.",
     jutsuType: JutsuType.NORMAL,
     jutsuRank: LetterRank.C,
     requiredRank: UserRank.GENIN,

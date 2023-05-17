@@ -55,11 +55,10 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Mutations
   const { mutate: performAction } = api.combat.performAction.useMutation({
     onMutate: () => {
-      console.log("onMutate");
       setBattleState({ battle: battle.current, result: null, isLoading: true });
     },
     onSuccess: (data) => {
-      console.log("onSuccess");
+      console.log(data);
       battle.current = data.battle;
       setBattleState({ battle: data.battle, result: data.result, isLoading: false });
     },
@@ -302,6 +301,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             group_ground: group_ground,
             effects: battle.current.groundEffects,
             grid: grid.current,
+            animationId,
             spriteMixer,
           });
 
