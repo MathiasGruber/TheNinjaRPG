@@ -33,15 +33,17 @@ interface CombatProps {
   action: CombatAction | undefined;
   battleState: BattleState;
   userId: string;
+  refetchBattle: () => void;
   setUserId: React.Dispatch<React.SetStateAction<string | undefined>>;
   setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
-  console.log("COMBAT LAYOUT COMPONENT");
+  console.log("COMBAT LAYOUT COMPONENT", props.battleState.battle?.version);
   // Destructure props
-  const { setBattleState, setActionPerc, setUserId, battleState } = props;
+  const { setBattleState, setActionPerc, setUserId, refetchBattle } = props;
+  const { battleState } = props;
   const result = battleState.result;
 
   // References which shouldn't update
@@ -107,6 +109,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   useEffect(() => {
     action.current = props.action;
     userId.current = props.userId;
+    battle.current = props.battleState.battle;
   }, [props]);
 
   useEffect(() => {
@@ -126,36 +129,41 @@ const Combat: React.FC<CombatProps> = (props) => {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
       });
       const channel = pusher.subscribe(userData.battleId.toString());
-      channel.bind("event", (data: UserBattle) => {
+      channel.bind("event", (data: { version: number }) => {
         console.log("PUSHER EVENT");
-        battle.current = {
-          ...data,
-          usersState: data.usersState.map((user) => {
-            const existingUser = battle.current?.usersState.find(
-              (u) => u.userId === user.userId
-            );
-            if (existingUser) {
-              return { ...existingUser, ...user };
-            } else {
-              return user;
-            }
-          }),
-        };
-        // If user hits 0 health, submit a wait action, which will fetch result & update
-        const user = battle.current.usersState?.find(
-          (u) => u.userId === userId.current
-        );
-        if (user && user.cur_health <= 0 && !isDone) {
-          isDone = true;
-          performAction({
-            battleId: battle.current.id,
-            userId: userId.current,
-            actionId: "wait",
-            longitude: user.longitude,
-            latitude: user.latitude,
-            version: battle.current.version,
-          });
+        if (battle.current?.version !== data.version) {
+          console.log(data);
+          refetchBattle();
         }
+
+        // battle.current = {
+        //   ...data,
+        //   usersState: data.usersState.map((user) => {
+        //     const existingUser = battle.current?.usersState.find(
+        //       (u) => u.userId === user.userId
+        //     );
+        //     if (existingUser) {
+        //       return { ...existingUser, ...user };
+        //     } else {
+        //       return user;
+        //     }
+        //   }),
+        // };
+        // If user hits 0 health, submit a wait action, which will fetch result & update
+        // const user = battle.current.usersState?.find(
+        //   (u) => u.userId === userId.current
+        // );
+        // if (user && user.cur_health <= 0 && !isDone) {
+        //   isDone = true;
+        //   performAction({
+        //     battleId: battle.current.id,
+        //     userId: userId.current,
+        //     actionId: "wait",
+        //     longitude: user.longitude,
+        //     latitude: user.latitude,
+        //     version: battle.current.version,
+        //   });
+        // }
       });
 
       // Listeners

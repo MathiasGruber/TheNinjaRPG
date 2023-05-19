@@ -81,6 +81,10 @@ export const combatRouter = createTRPCRouter({
         where: { id: input.battleId },
       });
 
+      // Optimistic update for all other users before we process request
+      const pusher = getServerPusher();
+      void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+
       // Get valid actions
       const usersState = battle.usersState as unknown as ReturnedUserState[];
       const usersEffects = battle.usersEffects as unknown as UserEffect[];
@@ -152,11 +156,6 @@ export const combatRouter = createTRPCRouter({
 
       // Return the new battle + results state if applicable
       const newMaskedBattle = maskBattle(newBattle, ctx.userId);
-
-      // Update over websockets
-      const pusher = getServerPusher();
-      const privateBattle = maskBattle(newBattle, "no_id");
-      void pusher.trigger(battle.id, "event", privateBattle);
 
       // Return masked battle
       return { battle: newMaskedBattle, result: result };
