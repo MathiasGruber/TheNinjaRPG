@@ -41,8 +41,8 @@ export const updateBattle = async (
     ...battle,
     version: battle.version + 1,
     usersState: finalUsersState as unknown as Prisma.JsonArray,
-    usersEffects: newUsersEffects,
-    groundEffects: newGroundEffects,
+    usersEffects: newUsersEffects as unknown as Prisma.JsonArray,
+    groundEffects: newGroundEffects as unknown as Prisma.JsonArray,
   };
   return newBattle;
 };

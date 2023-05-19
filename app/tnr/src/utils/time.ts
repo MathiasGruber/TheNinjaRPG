@@ -8,8 +8,15 @@ export const secondsPassed = (date: Date) => {
 /**
  * Current date plus the given number of seconds
  */
+export const secondsFromDate = (seconds: number, date: Date) => {
+  return new Date(date.getTime() + seconds * 1000);
+};
+
+/**
+ * Current date plus the given number of seconds
+ */
 export const secondsFromNow = (seconds: number) => {
-  return new Date(new Date().getTime() + seconds * 1000);
+  return secondsFromDate(seconds, new Date());
 };
 
 /**

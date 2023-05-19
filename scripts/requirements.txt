@@ -1,4 +1,5 @@
 Pillow==9.4.0
 numpy==1.24.1
 pandas==2.0.0
+pyarrow==12.0.0
 ipykernel

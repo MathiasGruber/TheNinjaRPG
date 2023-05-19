@@ -124,7 +124,7 @@ export const availableUserActions = (
             chakraCostPerc: userjutsu.jutsu.chakraCostPerc,
             staminaCostPerc: userjutsu.jutsu.staminaCostPerc,
             actionCostPerc: userjutsu.jutsu.actionCostPerc,
-            effects: userjutsu.jutsu.effects as ZodAllTags[],
+            effects: userjutsu.jutsu.effects as unknown as ZodAllTags[],
             level: userjutsu.level,
             data: userjutsu.jutsu,
           };
@@ -145,7 +145,7 @@ export const availableUserActions = (
             chakraCostPerc: useritem.item.chakraCostPerc,
             staminaCostPerc: useritem.item.staminaCostPerc,
             actionCostPerc: useritem.item.actionCostPerc,
-            effects: useritem.item.effects as ZodAllTags[],
+            effects: useritem.item.effects as unknown as ZodAllTags[],
             quantity: useritem.quantity,
             data: useritem.item,
           };
@@ -168,6 +168,10 @@ export const performAction = (info: {
   const { grid, action, userId, longitude, latitude } = info;
   const { usersState, usersEffects, groundEffects } = info;
 
+  // New state variables
+  const postActionUsersEffects = [...usersEffects];
+  const postActionGroundEffects = [...groundEffects];
+
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
   const alive = usersState.filter((u) => u.cur_health > 0);
@@ -182,7 +186,7 @@ export const performAction = (info: {
     // How much time passed since last action
     const newSeconds = actionSecondsAfterAction(user, action);
     if (newSeconds < 0) {
-      return false;
+      return { check: false, postActionUsersEffects, postActionGroundEffects };
     }
     // Given this action, get the affected tiles
     const { green: affectedTiles } = getAffectedTiles({
@@ -207,9 +211,9 @@ export const performAction = (info: {
         action.effects.forEach((tag) => {
           const effect = realizeTag(tag as GroundEffect, user);
           if (effect) {
-            effect.longitude = longitude;
-            effect.latitude = latitude;
-            groundEffects.push(effect);
+            effect.longitude = tile.col;
+            effect.latitude = tile.row;
+            postActionGroundEffects.push({ ...effect });
           }
         });
       } else {
@@ -236,7 +240,7 @@ export const performAction = (info: {
               const effect = realizeTag(tag as UserEffect, user);
               if (effect) {
                 effect.targetId = target.userId;
-                usersEffects.push(effect);
+                postActionUsersEffects.push(effect);
               }
             }
           });
@@ -244,7 +248,7 @@ export const performAction = (info: {
         // Special case; attacking barrier, add damage tag as ground effect,
         // which will resolve against the barrier when applied
         if (!target) {
-          const barrier = groundEffects.find(
+          const barrier = postActionGroundEffects.find(
             (e) =>
               e.longitude === tile.col &&
               e.latitude === tile.row &&
@@ -259,7 +263,7 @@ export const performAction = (info: {
                   targetGenders.push("it");
                   effect.targetType = "barrier";
                   effect.targetId = barrier.id;
-                  usersEffects.push(effect);
+                  postActionUsersEffects.push(effect);
                 }
               }
             });
@@ -285,12 +289,20 @@ export const performAction = (info: {
       user.updatedAt = secondsFromNow(-newSeconds);
       // Update user descriptions
       action.battleDescription = action.battleDescription.replaceAll(
-        "%userself",
-        user.gender === "Male" ? "himself" : "herself"
+        "%user_subject",
+        user.gender === "Male" ? "he" : "she"
       );
       action.battleDescription = action.battleDescription.replaceAll(
-        "%usergender",
-        user.gender === "Male" ? "he" : "she"
+        "%user_object",
+        user.gender === "Male" ? "him" : "her"
+      );
+      action.battleDescription = action.battleDescription.replaceAll(
+        "%user_posessive",
+        user.gender === "Male" ? "his" : "hers"
+      );
+      action.battleDescription = action.battleDescription.replaceAll(
+        "%user_reflexive",
+        user.gender === "Male" ? "himself" : "herself"
       );
       action.battleDescription = action.battleDescription.replaceAll(
         "%user",
@@ -304,16 +316,36 @@ export const performAction = (info: {
       // Update target descriptions
       if (targetGenders.length > 0) {
         action.battleDescription = action.battleDescription.replaceAll(
-          "%targetgender",
-          targetGenders.length === 1 && targetGenders[0] ? targetGenders[0] : "their"
-        );
-        action.battleDescription = action.battleDescription.replaceAll(
-          "%targetself",
+          "%target_subject",
           targetGenders.length === 1 && targetGenders[0]
             ? targetGenders[0] == "Male"
               ? "himself"
               : "herself"
-            : "their"
+            : "they"
+        );
+        action.battleDescription = action.battleDescription.replaceAll(
+          "%target_object",
+          targetGenders.length === 1 && targetGenders[0]
+            ? targetGenders[0] == "Male"
+              ? "him"
+              : "her"
+            : "them"
+        );
+        action.battleDescription = action.battleDescription.replaceAll(
+          "%target_posessive",
+          targetGenders.length === 1 && targetGenders[0]
+            ? targetGenders[0] == "Male"
+              ? "his"
+              : "hers"
+            : "theirs"
+        );
+        action.battleDescription = action.battleDescription.replaceAll(
+          "%target_reflexive",
+          targetGenders.length === 1 && targetGenders[0]
+            ? targetGenders[0] == "Male"
+              ? "himself"
+              : "herself"
+            : "themselves"
         );
       }
       if (targetUsernames.length > 0) {
@@ -323,8 +355,8 @@ export const performAction = (info: {
         );
       }
       // Successful action
-      return true;
+      return { check: true, postActionUsersEffects, postActionGroundEffects };
     }
   }
-  return false;
+  return { check: false, postActionUsersEffects, postActionGroundEffects };
 };

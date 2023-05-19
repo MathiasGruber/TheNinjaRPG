@@ -6,10 +6,11 @@ import { LetterRank } from "@prisma/client";
 import { JutsuType } from "@prisma/client";
 import { ItemType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
+import { AttackMethod } from "@prisma/client";
 import { ItemRarity } from "@prisma/client";
 import { ItemSlotType } from "@prisma/client";
 import type { Village } from "@prisma/client";
-import type { UserData, UserJutsu, UserItem, AttackMethod } from "@prisma/client";
+import type { UserData, UserJutsu, UserItem } from "@prisma/client";
 import type { TerrainHex } from "../travel/types";
 import type { UserBattle } from "../../utils/UserContext";
 
@@ -172,7 +173,16 @@ const PoolType = ["Health", "Chakra", "Stamina"] as const;
 export const Animations = new Map<string, { frames: number; speed: number }>();
 Animations.set("hit", { frames: 4, speed: 50 });
 Animations.set("smoke", { frames: 9, speed: 50 });
-export const AnimationNames = ["hit", "smoke"] as const;
+Animations.set("fire", { frames: 6, speed: 50 });
+Animations.set("explosion", { frames: 10, speed: 50 });
+Animations.set("rising_smoke", { frames: 14, speed: 50 });
+export const AnimationNames = [
+  "hit",
+  "smoke",
+  "fire",
+  "explosion",
+  "rising_smoke",
+] as const;
 
 /**
  * Static Visuals
@@ -195,6 +205,8 @@ const type = (defaultString: string) => {
 
 /**
  * Battle Descriptions use the following variables:
+ * https://www.scribbr.com/nouns-and-pronouns/pronouns/
+ *
  * %user - the name of the one who is affected by the effect
  * %target - the name of the one who is affected by the effect
  * %user_subject - he/she
@@ -218,15 +230,13 @@ const type = (defaultString: string) => {
 /******************** */
 
 const BaseAttributes = z.object({
-  timing: z.enum(["immidiately", "next round"]).default("immidiately"),
   staticAssetPath: z.string().optional(),
   staticAnimation: z.enum(AnimationNames).optional(),
   appearAnimation: z.enum(AnimationNames).optional(),
   disappearAnimation: z.enum(AnimationNames).optional(),
-});
-
-const MultipleRounds = z.object({
   rounds: z.number().int().min(1).max(20).optional(),
+  createdAt: z.number().optional(),
+  timeTracker: z.record(z.string(), z.number()).optional(),
 });
 
 const PoolAttributes = z.object({
@@ -270,7 +280,6 @@ export const AbsorbTag = z
     elementalOnly: z.boolean().default(false).optional(),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const AdjustArmorTag = z
@@ -280,7 +289,6 @@ export const AdjustArmorTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength)
   .merge(StaticBasedOnly);
 
@@ -291,7 +299,6 @@ export const AdjustDamageGivenTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const AdjustDamageTakenTag = z
@@ -301,7 +308,6 @@ export const AdjustDamageTakenTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const AdjustHealTag = z
@@ -311,7 +317,6 @@ export const AdjustHealTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const AdjustPoolCostTag = z
@@ -321,7 +326,6 @@ export const AdjustPoolCostTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const AdjustStatTag = z
@@ -333,7 +337,6 @@ export const AdjustStatTag = z
     adjustUp: z.boolean().default(true),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const BarrierTag = z
@@ -343,7 +346,6 @@ export const BarrierTag = z
     originalPower: z.number().int().min(1).default(1),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 export type BarrierTagType = z.infer<typeof BarrierTag>;
 
@@ -353,7 +355,6 @@ export const ClearTag = z
     description: msg("Clears all effects from the target"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const CloneTag = z
@@ -362,7 +363,6 @@ export const CloneTag = z
     description: msg("Create a temporary clone to fight alongside you"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength)
   .refine((data) => data.calculation === "percentage", {
     message: "CloneTag requires calculation to be percentage",
@@ -377,7 +377,6 @@ export const DamageTag = z
     description: msg("Deals damage to target"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 export type DamageTagType = z.infer<typeof DamageTag>;
 
@@ -395,7 +394,6 @@ export const FleePreventTag = z
     description: msg("Prevents fleeing"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const HealTag = z
@@ -405,7 +403,6 @@ export const HealTag = z
   })
   .merge(BaseAttributes)
   .merge(PoolAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const MoveTag = z
@@ -431,7 +428,6 @@ export const OneHitKillPreventTag = z
     description: msg("Prevents instant kill effects"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const ReflectTag = z
@@ -441,7 +437,6 @@ export const ReflectTag = z
     elementalOnly: z.boolean().default(false).optional(),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(StatsBasedStrength);
 
 export const RobPreventTag = z
@@ -450,7 +445,6 @@ export const RobPreventTag = z
     description: msg("Prevents robbing of the target"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const RobTag = z
@@ -467,7 +461,6 @@ export const SealPreventTag = z
     description: msg("Prevents bloodline from being sealed"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const SealTag = z
@@ -476,7 +469,6 @@ export const SealTag = z
     description: msg("Seals the target's bloodline effects"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const StunPreventTag = z
@@ -485,7 +477,6 @@ export const StunPreventTag = z
     description: msg("Prevents being stunned"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const StunTag = z
@@ -494,7 +485,6 @@ export const StunTag = z
     description: msg("Stuns the target"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const SummonPreventTag = z
@@ -503,7 +493,6 @@ export const SummonPreventTag = z
     description: msg("Prevents summoning"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const SummonTag = z
@@ -512,7 +501,6 @@ export const SummonTag = z
     description: msg("Summon an ally"),
   })
   .merge(BaseAttributes)
-  .merge(MultipleRounds)
   .merge(ChanceBased);
 
 export const VisualTag = z
@@ -520,8 +508,7 @@ export const VisualTag = z
     type: type("visual"),
     description: msg("A battlefield visual effect"),
   })
-  .merge(BaseAttributes)
-  .merge(MultipleRounds);
+  .merge(BaseAttributes);
 
 /******************** */
 /** UNIONS OF TAGS   **/
@@ -589,6 +576,7 @@ export type GroundEffect = BattleEffect & {
 
 export type UserEffect = BattleEffect & {
   targetId: string;
+  fromGround?: boolean;
 };
 
 export type ActionEffect = {
@@ -609,6 +597,7 @@ export const JutsuValidator = z
     jutsuType: z.nativeEnum(JutsuType),
     jutsuRank: z.nativeEnum(LetterRank),
     requiredRank: z.nativeEnum(UserRank),
+    method: z.nativeEnum(AttackMethod),
     target: z.nativeEnum(AttackTarget),
     range: z.number().int().min(0).max(5),
     healthCostPerc: z.number().min(0).max(100).optional(),

@@ -182,7 +182,7 @@ export const travelRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const battle = await ctx.prisma.$transaction(async (tx) => {
         // Get user & target data, to be inserted into battle
-        const users: BattleUserState[] = await tx.userData.findMany({
+        const users = await tx.userData.findMany({
           include: {
             items: {
               include: {
@@ -212,6 +212,7 @@ export const travelRouter = createTRPCRouter({
             OR: [{ userId: ctx.userId }, { userId: input.userId }],
           },
         });
+
         // Use long/lat fields for position in combat map
         if (users?.[0]) {
           users[0]["longitude"] = 4;
@@ -226,9 +227,16 @@ export const travelRouter = createTRPCRouter({
           throw new Error(`Failed to set position of right-hand user`);
         }
 
-        // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
-        // Therefore we need to calculate the current pools here, before inserting the user into battle
-        users.forEach((user) => {
+        // Create the users array to be inserted into the battle
+        const userEffects: UserEffect[] = [];
+        const usersState = users.map((raw) => {
+          // Add basics
+          const user = raw as BattleUserState;
+          user.controllerId = user.userId;
+          user.is_original = true;
+
+          // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
+          // Therefore we need to calculate the current pools here, before inserting the user into battle
           const regen =
             (user.bloodline?.regenIncrease
               ? user.regeneration + user.bloodline.regenIncrease
@@ -236,10 +244,8 @@ export const travelRouter = createTRPCRouter({
           user.cur_health = Math.min(user.cur_health + regen, user.max_health);
           user.cur_chakra = Math.min(user.cur_chakra + regen, user.max_chakra);
           user.cur_stamina = Math.min(user.cur_stamina + regen, user.max_stamina);
-        });
 
-        // Add highest stats to user
-        users.forEach((user) => {
+          // Add highest stats to user
           user.highest_offence = Math.max(
             user.ninjutsu_offence,
             user.genjutsu_offence,
@@ -252,16 +258,10 @@ export const travelRouter = createTRPCRouter({
             user.taijutsu_offence,
             user.bukijutsu_offence
           );
-          user.is_original = true; // alternative is e.g. a clone, a summon, etc.
-          user.controllerId = user.userId; // the session userID that can control this user
-        });
 
-        // Starting user effects from bloodlines & items
-        const userEffects: UserEffect[] = [];
-        for (const user of users) {
           // Add bloodline efects
           if (user.bloodline?.effects) {
-            const effects = user.bloodline.effects as UserEffect[];
+            const effects = user.bloodline.effects as unknown as UserEffect[];
             effects.forEach((effect) => {
               const realized = realizeTag(effect, user);
               realized.targetId = user.userId;
@@ -274,7 +274,7 @@ export const travelRouter = createTRPCRouter({
             const itemType = useritem.item.itemType;
             if (itemType === ItemType.ARMOR || itemType === ItemType.ACCESSORY) {
               if (useritem.item.effects) {
-                const effects = useritem.item.effects as UserEffect[];
+                const effects = useritem.item.effects as unknown as UserEffect[];
                 effects.forEach((effect) => {
                   const realized = realizeTag(effect, user);
                   realized.targetId = user.userId;
@@ -286,7 +286,8 @@ export const travelRouter = createTRPCRouter({
             }
           });
           user.items = items;
-        }
+          return user;
+        });
 
         // Starting ground effects
         const groundEffects: GroundEffect[] = [];
@@ -320,12 +321,11 @@ export const travelRouter = createTRPCRouter({
           data: {
             battleType: BattleType.COMBAT,
             background: "forest.webp",
-            usersState: users as unknown as Prisma.JsonArray,
-            usersEffects: userEffects as Prisma.JsonArray,
-            groundEffects: groundEffects as Prisma.JsonArray,
+            usersState: usersState as unknown as Prisma.JsonArray,
+            usersEffects: userEffects as unknown as Prisma.JsonArray,
+            groundEffects: groundEffects as unknown as Prisma.JsonArray,
           },
         });
-        battle.usersState = [];
 
         // Update users, but only succeed transaction if none of them already had a battle assigned
         const result: number = await tx.$executeRaw`

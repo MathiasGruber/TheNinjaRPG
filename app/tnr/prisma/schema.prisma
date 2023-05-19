@@ -641,7 +641,7 @@ model BattleAction {
     battle         Battle   @relation(fields: [battleId], references: [id])
     battleId       String
     battleVersion  Int
-    description    String
+    description    String   @db.Text
     appliedEffects Json
 
     @@index([battleId])

@@ -27,7 +27,8 @@ import type { SpriteMixer } from "../travel/SpriteMixer";
 export const showAnimation = (
   appearAnimation: string,
   hex: TerrainHex,
-  spriteMixer: ReturnType<typeof SpriteMixer>
+  spriteMixer: ReturnType<typeof SpriteMixer>,
+  playInfinite = false
 ) => {
   const info = Animations.get(appearAnimation);
   if (info) {
@@ -37,7 +38,11 @@ export const showAnimation = (
     const action = spriteMixer.Action(actionSprite, 0, info.frames, info.speed);
     if (action) {
       action.hideWhenFinished = true;
-      action.playOnce();
+      if (playInfinite) {
+        action.playLoop();
+      } else {
+        action.playOnce();
+      }
     }
     actionSprite.scale.set(50, 50, 1);
     actionSprite.position.set(w / 2, h / 2, 5);
@@ -188,6 +193,16 @@ export const drawCombatEffects = (info: {
               effect.appearAnimation,
               hex,
               spriteMixer
+            );
+            if (actionSprite) asset.add(actionSprite);
+          }
+          // If there is a static animation, show it.
+          if (effect.staticAnimation) {
+            const actionSprite = showAnimation(
+              effect.staticAnimation,
+              hex,
+              spriteMixer,
+              true
             );
             if (actionSprite) asset.add(actionSprite);
           }

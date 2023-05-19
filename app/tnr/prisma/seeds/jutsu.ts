@@ -2,6 +2,7 @@ import { type ZodJutsuType } from "../../src/libs/combat/types";
 import { type Prisma, UserRank, Jutsu } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
+import { AttackMethod } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
 import { JutsuType } from "@prisma/client";
 import { WeaponType } from "@prisma/client";
@@ -27,6 +28,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
     target: AttackTarget.EMPTY_GROUND,
+    method: AttackMethod.SINGLE,
     range: 1,
     cooldown: 30,
     chakraCostPerc: 20,
@@ -52,6 +54,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
     target: AttackTarget.CHARACTER,
+    method: AttackMethod.SINGLE,
     range: 1,
     cooldown: 30,
     effects: [
@@ -72,6 +75,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.D,
     requiredRank: UserRank.STUDENT,
     target: AttackTarget.EMPTY_GROUND,
+    method: AttackMethod.SINGLE,
     range: 1,
     cooldown: 30,
     effects: [
@@ -99,6 +103,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.C,
     requiredRank: UserRank.GENIN,
     target: AttackTarget.CHARACTER,
+    method: AttackMethod.SINGLE,
     range: 2,
     cooldown: 30,
     effects: [
@@ -112,6 +117,31 @@ const jutsus: ZodJutsuType[] = [
         rounds: 1,
         timing: "next round",
         chance: 1,
+      }),
+    ],
+  },
+  {
+    name: "Fireball",
+    image: "/jutsus/fireball.png",
+    description: "A basic fire jutsu capable of dealing damage to multiple users",
+    battleDescription:
+      "%user concentrates fire chakra just above the palm of %user_object hand, creating a blazing ball of fire. %user thrusts %user_object hand forward, throwing the explosive ball of flames towards %location.",
+    jutsuType: JutsuType.NORMAL,
+    jutsuRank: LetterRank.C,
+    requiredRank: UserRank.GENIN,
+    target: AttackTarget.GROUND,
+    method: AttackMethod.AOE_CIRCLE_SPAWN,
+    range: 3,
+    cooldown: 30,
+    effects: [
+      DamageTag.parse({
+        rounds: 3,
+        power: 1,
+        statTypes: ["Ninjutsu"],
+        generalTypes: ["Intelligence", "Willpower"],
+        appearAnimation: "explosion",
+        staticAnimation: "fire",
+        disappearAnimation: "rising_smoke",
       }),
     ],
   },
@@ -130,6 +160,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.B,
     requiredRank: UserRank.GENIN,
     target: AttackTarget.CHARACTER,
+    method: AttackMethod.SINGLE,
     range: 2,
     cooldown: 30,
     effects: [
@@ -160,6 +191,7 @@ const jutsus: ZodJutsuType[] = [
     jutsuRank: LetterRank.A,
     requiredRank: UserRank.GENIN,
     target: AttackTarget.CHARACTER,
+    method: AttackMethod.SINGLE,
     range: 2,
     cooldown: 30,
     effects: [

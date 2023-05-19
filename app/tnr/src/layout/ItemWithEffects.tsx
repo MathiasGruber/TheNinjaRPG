@@ -11,7 +11,7 @@ export interface ItemWithEffectsProps {
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item } = props;
-  const effects = props.item.effects as ZodAllTags[];
+  const effects = props.item.effects as unknown as ZodAllTags[];
 
   // Elements, which we show a bit differently on different screens
   const baseProperties = (
@@ -113,12 +113,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               >
                 <b>Effect {i + 1}: </b> {effect.description}
                 <div className="grid grid-cols-2">
-                  {"timing" in effect && (
-                    <span>
-                      <b>Timing: </b>
-                      {effect.timing}
-                    </span>
-                  )}
                   {"adjustUp" in effect && (
                     <span>
                       <b>Adjustment: </b>

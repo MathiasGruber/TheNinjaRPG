@@ -2,6 +2,104 @@ import type { Battle } from "@prisma/client";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, GroundEffect, UserEffect } from "./types";
 import { publicState, allState } from "./types";
+import { secondsPassed, secondsFromDate } from "../../utils/time";
+import { COMBAT_SECONDS } from "./constants";
+
+/**
+ * Finds a user in the battle state based on location
+ */
+export const findUser = (
+  users: ReturnedUserState[],
+  longitude: number,
+  latitude: number
+) => {
+  return users.find(
+    (u) => u.longitude === longitude && u.latitude === latitude && u.cur_health > 0
+  );
+};
+
+/**
+ * Finds a ground effect in the battle state based on location
+ */
+export const findBarrier = (
+  groundEffects: GroundEffect[],
+  longitude: number,
+  latitude: number
+) => {
+  return groundEffects.find(
+    (b) => b.longitude === longitude && b.latitude === latitude && b.type === "barrier"
+  );
+};
+
+/**
+ * Given a UserEffect, check if it is time to apply it. The effect is applied if:
+ * 1. The effect is not already applied to the user
+ * 2. A round has passed
+ */
+export const shouldApplyEffectTimes = (
+  effect: UserEffect | GroundEffect,
+  targetId: string
+) => {
+  // By default apply once
+  let applyTimes = 1;
+  // Get latest application of effect to the given target
+  if (effect.timeTracker) {
+    const prevApply = effect.timeTracker[targetId];
+    if (prevApply) {
+      applyTimes = secondsPassed(new Date(prevApply)) / COMBAT_SECONDS;
+      if (applyTimes > 0) {
+        effect.timeTracker[targetId] = Date.now();
+      }
+    }
+    // Update the time tracker
+    if (applyTimes > 0) {
+      effect.timeTracker[targetId] = Date.now();
+    }
+  }
+  // Return number of times to apply effect
+  return applyTimes;
+};
+
+/**
+ * Filter effects based on their duration
+ */
+export const isEffectStillActive = (effect: UserEffect | GroundEffect) => {
+  if (effect.rounds && effect.createdAt) {
+    const total = effect.rounds * COMBAT_SECONDS;
+    const isActive = secondsFromDate(total, new Date(effect.createdAt)) > new Date();
+    if (!isActive) console.log("Effect expired: ", effect.type);
+    return isActive;
+  }
+  return true;
+};
+
+/**
+ * Sort order in which effects are applied
+ */
+export const sortEffects = (
+  a: UserEffect | GroundEffect,
+  b: UserEffect | GroundEffect
+) => {
+  const buffDebuff = [
+    "armoradjust",
+    "damagegivenadjust",
+    "damagetakenadjust",
+    "healadjust",
+    "poolcostadjust",
+    "statadjust",
+  ];
+  if (a.type === "move") {
+    return 1;
+  } else if (b.type === "move") {
+    return -1;
+  } else if (buffDebuff.includes(a.type)) {
+    return -1;
+  } else if (buffDebuff.includes(b.type)) {
+    return 1;
+  } else {
+    return 0;
+  }
+};
 
 /**
  * Masks information from a battle prior to returning it to the frontend,

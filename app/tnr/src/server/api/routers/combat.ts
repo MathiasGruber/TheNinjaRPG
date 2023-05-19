@@ -13,7 +13,7 @@ import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
 
-import deepDiff from "deep-diff";
+// import deepDiff from "deep-diff";
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -107,7 +107,7 @@ export const combatRouter = createTRPCRouter({
 
       // Perform action, get latest status effects
       // Note: this mutates usersEffects, groundEffects
-      const check = performAction({
+      const { check, postActionUsersEffects, postActionGroundEffects } = performAction({
         usersState,
         usersEffects,
         groundEffects,
@@ -126,7 +126,7 @@ export const combatRouter = createTRPCRouter({
 
       // Apply relevant effects, and get back new state + active effects
       const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-        applyEffects(usersState, usersEffects, groundEffects);
+        applyEffects(usersState, postActionUsersEffects, postActionGroundEffects);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { finalUsersState, result } = calcBattleResult(newUsersState, ctx.userId);
