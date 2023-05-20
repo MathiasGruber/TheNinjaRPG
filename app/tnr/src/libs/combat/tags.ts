@@ -1,19 +1,17 @@
-import type { ReturnedUserState } from "./types";
+import type { BattleUserState, AnimationNames } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import { AnimationNames, VisualTag } from "./types";
+import { VisualTag } from "./types";
 import { damangeCalc } from "./calcs";
 import { findUser, findBarrier } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive, sortEffects } from "./util";
-import { secondsFromNow } from "../../utils/time";
 import { createId } from "@paralleldrive/cuid2";
-import { COMBAT_SECONDS } from "./constants";
 
 /**
  * Realize tag with information about how powerful tag is
  */
 export const realizeTag = <T extends BattleEffect>(
   tag: T,
-  user: ReturnedUserState
+  user: BattleUserState
 ): T => {
   if ("statTypes" in tag && tag.statTypes) {
     if (tag.direction === "offensive") {
@@ -70,7 +68,7 @@ export const realizeTag = <T extends BattleEffect>(
 };
 
 export const applyEffects = (
-  usersState: ReturnedUserState[],
+  usersState: BattleUserState[],
   usersEffects: UserEffect[],
   groundEffects: GroundEffect[]
 ) => {
@@ -78,6 +76,7 @@ export const applyEffects = (
   const active = [...usersEffects];
 
   // Things we wish to return
+  const newUsersState: BattleUserState[] = [...usersState];
   const newGroundEffects: GroundEffect[] = [];
   const newUsersEffects: UserEffect[] = [];
   const actionEffects: ActionEffect[] = [];
@@ -115,7 +114,7 @@ export const applyEffects = (
       // 1. Remove user from current ground effect
       // 2. Add user to any new ground effect
       // 3. Move user
-      const user = usersState.find((u) => u.userId === e.creatorId);
+      const user = newUsersState.find((u) => u.userId === e.creatorId);
       if (user) {
         groundEffects.forEach((g) => {
           if (g.timeTracker && user.userId in g.timeTracker) {
@@ -135,10 +134,30 @@ export const applyEffects = (
         user.latitude = e.latitude;
       }
     } else if (e.type === "clone") {
-      // TODO: set stats to percentage of original
-      const user = usersState.find((u) => u.userId === e.creatorId);
-      if (user) {
-        usersState.push({
+      const user = newUsersState.find((u) => u.userId === e.creatorId);
+      if (user && e.power) {
+        const perc = e.power / 100;
+        user.max_health = user.max_health * perc;
+        user.max_chakra = user.max_chakra * perc;
+        user.max_stamina = user.max_stamina * perc;
+        user.cur_health = user.cur_health * perc;
+        user.cur_chakra = user.cur_chakra * perc;
+        user.cur_stamina = user.cur_stamina * perc;
+        user.ninjutsu_offence = user.ninjutsu_offence * perc;
+        user.ninjutsu_defence = user.ninjutsu_defence * perc;
+        user.genjutsu_offence = user.genjutsu_offence * perc;
+        user.genjutsu_defence = user.genjutsu_defence * perc;
+        user.taijutsu_offence = user.taijutsu_offence * perc;
+        user.taijutsu_defence = user.taijutsu_defence * perc;
+        user.bukijutsu_offence = user.bukijutsu_offence * perc;
+        user.bukijutsu_defence = user.bukijutsu_defence * perc;
+        user.highest_offence = user.highest_offence * perc;
+        user.highest_defence = user.highest_defence * perc;
+        user.strength = user.strength * perc;
+        user.intelligence = user.intelligence * perc;
+        user.willpower = user.willpower * perc;
+        user.speed = user.speed * perc;
+        newUsersState.push({
           ...user,
           userId: createId(),
           longitude: e.longitude,
@@ -151,7 +170,7 @@ export const applyEffects = (
       }
     } else {
       // Apply ground effect to user
-      const user = findUser(usersState, e.longitude, e.latitude);
+      const user = findUser(newUsersState, e.longitude, e.latitude);
       if (user) {
         active.push({ ...e, targetId: user.userId, fromGround: true } as UserEffect);
       }
@@ -272,7 +291,7 @@ export const applyEffects = (
   });
 
   return {
-    newUsersState: usersState,
+    newUsersState,
     newUsersEffects,
     newGroundEffects,
     actionEffects,

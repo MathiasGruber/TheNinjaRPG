@@ -1,12 +1,13 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
-import type { Grid } from "honeycomb-grid";
-import type { TerrainHex } from "../travel/types";
-import type { ReturnedUserState, CombatAction, ZodAllTags } from "./types";
-import type { GroundEffect, UserEffect } from "./types";
 import { MoveTag, DamageTag, FleeTag } from "./types";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./tags";
 import { secondsFromNow } from "../../utils/time";
+import type { Grid } from "honeycomb-grid";
+import type { TerrainHex } from "../hexgrid";
+import type { BattleUserState, ReturnedUserState } from "./types";
+import type { CombatAction, ZodAllTags } from "./types";
+import type { GroundEffect, UserEffect } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -155,7 +156,7 @@ export const availableUserActions = (
 };
 
 export const performAction = (info: {
-  usersState: ReturnedUserState[];
+  usersState: BattleUserState[];
   usersEffects: UserEffect[];
   groundEffects: GroundEffect[];
   grid: Grid<TerrainHex>;

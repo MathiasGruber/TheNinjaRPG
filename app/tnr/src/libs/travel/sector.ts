@@ -15,61 +15,17 @@ import {
   Mesh,
   type Raycaster,
 } from "three";
-import { type UserData } from "@prisma/client";
+import type { UserData } from "@prisma/client";
 import { createNoise2D } from "simplex-noise";
-import { Grid, ring, rectangle } from "honeycomb-grid";
-import { type BoundingBox, type Ellipse } from "honeycomb-grid";
-import { Orientation, type Point } from "honeycomb-grid";
-import { type HexOffset, type HexOptions } from "honeycomb-grid";
-import { defaultHexSettings } from "honeycomb-grid";
-import { createHexDimensions } from "honeycomb-grid";
-import { createHexOrigin } from "honeycomb-grid";
-import { aStar } from "abstract-astar";
-
+import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
-import { TerrainHex, type GlobalTile } from "./types";
-import { type SectorPoint, type HexagonalFaceMesh } from "./types";
-import { type SectorUser } from "./types";
 import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
 import { groupBy } from "../../utils/grouping";
-
-/**
- * Hexagonal tile used by honeycomb.js
- */
-export function defineHex(hexOptions?: Partial<HexOptions>): typeof TerrainHex {
-  const { dimensions, orientation, origin, offset } = {
-    ...defaultHexSettings,
-    ...hexOptions,
-  };
-
-  return class extends TerrainHex {
-    get dimensions(): Ellipse {
-      return createHexDimensions(dimensions as BoundingBox, orientation);
-    }
-
-    get orientation(): Orientation {
-      return orientation;
-    }
-
-    get origin(): Point {
-      return createHexOrigin(origin as "topLeft", this);
-    }
-
-    get offset(): HexOffset {
-      return offset;
-    }
-  };
-}
-
-/** Find a given hex in a grid */
-export const findHex = (grid: Grid<TerrainHex> | null, point: SectorPoint) => {
-  return grid?.getHex({
-    col: point.x,
-    row: point.y,
-  });
-};
+import { defineHex, findHex } from "../hexgrid";
+import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
+import type { SectorUser, GlobalTile } from "./types";
 
 /**
  * Creates heaxognal grid & draw it using js. Return groups of objects drawn
@@ -484,33 +440,3 @@ export const intersectTiles = (info: {
   });
   return newHighlights;
 };
-
-/**
- * Uses A* algorithm to calculate the shortest path between two hexes.
- */
-export class PathCalculator {
-  cache: Map<string, TerrainHex[] | undefined>;
-  grid: Grid<TerrainHex>;
-
-  constructor(grid: Grid<TerrainHex>) {
-    this.cache = new Map<string, TerrainHex[] | undefined>();
-    this.grid = grid;
-  }
-
-  getShortestPath = (origin: TerrainHex, target: TerrainHex) => {
-    const key = `${origin.col},${origin.row},${target.col},${target.row}`;
-    if (this.cache.has(key)) {
-      return this.cache.get(key);
-    }
-    const shortestPath = aStar<TerrainHex>({
-      start: origin,
-      goal: target,
-      estimateFromNodeToGoal: (tile) => this.grid.distance(tile, origin),
-      neighborsAdjacentToNode: (center) =>
-        this.grid.traverse(ring({ radius: 1, center })).toArray(),
-      actualCostToMove: (_, __, tile) => tile.cost,
-    });
-    this.cache.set(key, shortestPath);
-    return shortestPath;
-  };
-}

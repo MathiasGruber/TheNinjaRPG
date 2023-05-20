@@ -5,8 +5,8 @@ import {
   TextureLoader,
   SpriteMaterial,
 } from "three";
-
-import { type TerrainHex, type GlobalTile } from "./types";
+import type { TerrainHex } from "../hexgrid";
+import type { GlobalTile } from "./types";
 
 /**
  * Map materials & colors

@@ -1,5 +1,3 @@
-import { Hex } from "honeycomb-grid";
-
 type NonEmptyArray<T> = T[] & { 0: T };
 
 export interface GlobalPoint {
@@ -19,27 +17,9 @@ export interface SectorPoint {
   y: number;
 }
 
-export interface HexagonalFaceMesh extends THREE.Mesh {
-  currentHex: number;
-  material: THREE.MeshBasicMaterial;
-  userData: {
-    id: number;
-    hex: number;
-    tile: TerrainHex;
-    highlight: boolean;
-    selected: boolean;
-    canClick: boolean;
-  };
-}
-
 export interface GlobalMapData {
   radius: number;
   tiles: NonEmptyArray<GlobalTile>;
-}
-
-export class TerrainHex extends Hex {
-  level!: number;
-  cost!: number;
 }
 
 export interface SectorUser {

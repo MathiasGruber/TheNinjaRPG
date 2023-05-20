@@ -15,19 +15,15 @@ import {
 } from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
-// import Stats from "three/examples/jsm/libs/stats.module";
-
-import { type Village } from "@prisma/client";
-import {
-  type GlobalTile,
-  type GlobalMapData,
-  type GlobalPoint,
-  type HexagonalFaceMesh,
-} from "../libs/travel/types";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
-import { TrackballControls } from "../libs/travel/TrackBallControls";
+import { TrackballControls } from "../libs/threejs/TrackBallControls";
 import { useUserData } from "../utils/UserContext";
+import type { Village } from "@prisma/client";
+import type { GlobalTile } from "../libs/travel/types";
+import type { GlobalMapData } from "../libs/travel/types";
+import type { GlobalPoint } from "../libs/travel/types";
+import type { HexagonalFaceMesh } from "../libs/hexgrid";
 
 interface MapProps {
   highlights?: Village[];

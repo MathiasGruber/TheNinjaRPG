@@ -1,33 +1,28 @@
-import React from "react";
-import { useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import Link from "next/link";
-import { Vector2, OrthographicCamera, Group, TextureLoader, Clock } from "three";
+import { Vector2, OrthographicCamera, Group, Clock } from "three";
 import alea from "alea";
 import Pusher from "pusher-js";
 import type { Grid } from "honeycomb-grid";
 
 import Button from "./Button";
-import { drawCombatBackground, drawCombatEffects } from "../libs/combat/background";
-import {
-  drawCombatUsers,
-  highlightTiles,
-  highlightTooltips,
-  highlightUsers,
-} from "../libs/combat/movement";
-import { OrbitControls } from "../libs/travel/OrbitControls";
+import { drawCombatBackground, drawCombatEffects } from "../libs/combat/drawing";
+import { OrbitControls } from "../libs/threejs/OrbitControls";
+import { SpriteMixer } from "../libs/threejs/SpriteMixer";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
+import { highlightTiles } from "../libs/combat/drawing";
+import { highlightTooltips } from "../libs/combat/drawing";
+import { highlightUsers } from "../libs/combat/drawing";
+import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import type { UserBattle } from "../utils/UserContext";
-import type {
-  ReturnedUserState,
-  CombatAction,
-  BattleState,
-} from "../libs/combat/types";
-import type { TerrainHex } from "../libs/travel/types";
-import { SpriteMixer } from "../libs/travel/SpriteMixer";
+import type { ReturnedUserState } from "../libs/combat/types";
+import type { CombatAction } from "../libs/combat/types";
+import type { BattleState } from "../libs/combat/types";
+import type { TerrainHex } from "../libs/hexgrid";
 
 interface CombatProps {
   action: CombatAction | undefined;
@@ -321,9 +316,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         renderer.render(scene, camera);
       }
       render();
-
-      // Every time we refresh this component, fire off a move counter to make sure other useEffects are updated
-      // setMoves((prev) => prev + 1);
 
       // Remove the mouseover listener
       return () => {

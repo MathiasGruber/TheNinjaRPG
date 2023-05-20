@@ -11,7 +11,7 @@ import { ItemRarity } from "@prisma/client";
 import { ItemSlotType } from "@prisma/client";
 import type { Village } from "@prisma/client";
 import type { UserData, UserJutsu, UserItem } from "@prisma/client";
-import type { TerrainHex } from "../travel/types";
+import type { TerrainHex } from "../hexgrid";
 import type { UserBattle } from "../../utils/UserContext";
 
 /**
@@ -65,6 +65,9 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
+/**
+ * BattleUserState is the data stored in the battle entry about a given user
+ */
 export type BattleUserState = UserData & {
   jutsus: (UserJutsu & {
     jutsu: Jutsu;
@@ -74,17 +77,19 @@ export type BattleUserState = UserData & {
   })[];
   bloodline?: Bloodline | null;
   village?: Village | null;
-  highest_offence?: number;
-  highest_defence?: number;
+  highest_offence: number;
+  highest_defence: number;
   is_original: boolean;
   controllerId: string;
+  hex?: TerrainHex;
+  leftBattle?: boolean;
 };
 
+/**
+ * User state returned is masked to hide confidential information about other players
+ */
 export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[number]> &
-  Partial<BattleUserState> & {
-    hex?: TerrainHex;
-    leftBattle?: boolean;
-  };
+  Partial<BattleUserState>;
 
 /**
  * User data for drawn users on the battle page

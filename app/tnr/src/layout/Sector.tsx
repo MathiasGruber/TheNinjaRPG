@@ -13,21 +13,17 @@ import Pusher from "pusher-js";
 import AvatarImage from "./Avatar";
 import Modal from "./Modal";
 import { api } from "../utils/api";
-import {
-  type GlobalTile,
-  type TerrainHex,
-  type SectorPoint,
-  type SectorUser,
-} from "../libs/travel/types";
-import { OrbitControls } from "../libs/travel/OrbitControls";
+import { PathCalculator, findHex } from "../libs/hexgrid";
+import { OrbitControls } from "../libs/threejs/OrbitControls";
 import { getBackgroundColor } from "../libs/travel/biome";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { drawSectorBasics, drawVillage, drawUsers } from "../libs/travel/sector";
 import { intersectUsers } from "../libs/travel/sector";
 import { intersectTiles } from "../libs/travel/sector";
-import { PathCalculator, findHex } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
+import type { GlobalTile, SectorPoint, SectorUser } from "../libs/travel/types";
+import type { TerrainHex } from "../libs/hexgrid";
 
 interface SectorProps {
   sector: number;

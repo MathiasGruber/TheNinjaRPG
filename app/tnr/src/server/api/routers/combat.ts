@@ -3,17 +3,14 @@ import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
-import { defineHex } from "../../../libs/travel/sector";
-
-import type { GroundEffect, UserEffect } from "../../../libs/combat/types";
-import type { ReturnedUserState } from "../../../libs/combat/types";
+import { defineHex } from "../../../libs/hexgrid";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
 import { applyEffects } from "../../../libs/combat/tags";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
-
-// import deepDiff from "deep-diff";
+import type { GroundEffect, UserEffect } from "../../../libs/combat/types";
+import type { BattleUserState } from "../../../libs/combat/types";
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -86,7 +83,7 @@ export const combatRouter = createTRPCRouter({
       void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
 
       // Get valid actions
-      const usersState = battle.usersState as unknown as ReturnedUserState[];
+      const usersState = battle.usersState as unknown as BattleUserState[];
       const usersEffects = battle.usersEffects as unknown as UserEffect[];
       const groundEffects = battle.groundEffects as unknown as GroundEffect[];
       const actions = availableUserActions(usersState, ctx.userId);
