@@ -299,7 +299,7 @@ const Map: React.FC<MapProps> = (props) => {
           document.removeEventListener("mousemove", onDocumentMouseMove);
         }
         window.removeEventListener("resize", handleResize);
-        mountRef.current = null;
+        mountRef.current?.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
       };

@@ -52,9 +52,7 @@ const Modal: React.FC<ModalProps> = (props) => {
           </button>
         </div>
         <div className="space-y-6 p-6">
-          <div className="text-base leading-relaxed text-gray-400">
-            {props.children}
-          </div>
+          <div className="text-lg leading-relaxed text-gray-400">{props.children}</div>
         </div>
         <div className="flex items-center space-x-2 rounded-b border-t border-gray-600 p-6">
           {props.proceed_label && (

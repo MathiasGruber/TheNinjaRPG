@@ -114,9 +114,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
-      // Is user done in battle?
-      let isDone = false;
-
       // Used for map size calculations
       const backgroundLengthToWidth = 576 / 1024;
 
@@ -135,35 +132,6 @@ const Combat: React.FC<CombatProps> = (props) => {
           console.log(data);
           refetchBattle();
         }
-
-        // battle.current = {
-        //   ...data,
-        //   usersState: data.usersState.map((user) => {
-        //     const existingUser = battle.current?.usersState.find(
-        //       (u) => u.userId === user.userId
-        //     );
-        //     if (existingUser) {
-        //       return { ...existingUser, ...user };
-        //     } else {
-        //       return user;
-        //     }
-        //   }),
-        // };
-        // If user hits 0 health, submit a wait action, which will fetch result & update
-        // const user = battle.current.usersState?.find(
-        //   (u) => u.userId === userId.current
-        // );
-        // if (user && user.cur_health <= 0 && !isDone) {
-        //   isDone = true;
-        //   performAction({
-        //     battleId: battle.current.id,
-        //     userId: userId.current,
-        //     actionId: "wait",
-        //     longitude: user.longitude,
-        //     latitude: user.latitude,
-        //     version: battle.current.version,
-        //   });
-        // }
       });
 
       // Listeners
@@ -365,7 +333,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         window.removeEventListener("resize", handleResize);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current?.removeEventListener("mouseleave", onDocumentMouseLeave);
-        mountRef.current = null;
+        mountRef.current?.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
         if (userData.battleId) {

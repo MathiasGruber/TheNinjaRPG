@@ -73,30 +73,32 @@ const Travel: NextPage = () => {
     setActiveTab(sectorLink);
   }, [sectorLink]);
 
-  const { mutate: startGlobalMove } = api.travel.startGlobalMove.useMutation({
-    onSuccess: async (data) => {
-      await refetchUser();
-      setShowModal(false);
-      setActiveTab("Global");
-      setCurrentSector(data.sector);
-      if (globe) {
-        setCurrentTile(globe.tiles[data.sector] as GlobalTile);
-      }
-    },
-    onError: (error) => {
-      console.error("Error travelling", error);
-    },
-  });
+  const { mutate: startGlobalMove, isLoading: isStartingTravel } =
+    api.travel.startGlobalMove.useMutation({
+      onSuccess: async (data) => {
+        await refetchUser();
+        setShowModal(false);
+        setActiveTab("Global");
+        setCurrentSector(data.sector);
+        if (globe) {
+          setCurrentTile(globe.tiles[data.sector] as GlobalTile);
+        }
+      },
+      onError: (error) => {
+        console.error("Error travelling", error);
+      },
+    });
 
-  const { mutate: finishGlobalMove } = api.travel.finishGlobalMove.useMutation({
-    onSuccess: async () => {
-      await refetchUser();
-      setActiveTab(sectorLink);
-    },
-    onError: (error) => {
-      console.error("Error travelling", error);
-    },
-  });
+  const { mutate: finishGlobalMove, isLoading: isFinishingTravel } =
+    api.travel.finishGlobalMove.useMutation({
+      onSuccess: async () => {
+        await refetchUser();
+        setActiveTab(sectorLink);
+      },
+      onError: (error) => {
+        console.error("Error travelling", error);
+      },
+    });
 
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
@@ -159,7 +161,9 @@ const Travel: NextPage = () => {
           <Modal
             title="World Travel"
             setIsOpen={setShowModal}
-            proceed_label={onEdge ? "Travel" : "Move to Edge"}
+            proceed_label={
+              !isStartingTravel ? (onEdge ? "Travel" : "Move to Edge") : undefined
+            }
             isValid={false}
             onAccept={() => {
               if (!onEdge && currentPosition) {
@@ -170,21 +174,30 @@ const Travel: NextPage = () => {
               }
             }}
           >
-            <div>
-              You are about to move from sector {userData.sector} to {targetSector}.{" "}
-              {onEdge ? (
-                <p className="py-2">
-                  The travel time is estimated to be{" "}
-                  {calcGlobalTravelTime(userData.sector, targetSector, globe)} seconds.
-                </p>
-              ) : (
-                <p className="py-2">
-                  Your character will first have to move to the edge of his current
-                  sector.
-                </p>
-              )}{" "}
-              Do you confirm?
-            </div>
+            {isStartingTravel && <Loader explanation="Preparing to Travel" />}
+            {!isStartingTravel && (
+              <div>
+                You are about to move from sector {userData.sector} to {targetSector}.{" "}
+                {onEdge ? (
+                  <p className="py-2">
+                    The travel time is estimated to be{" "}
+                    {calcGlobalTravelTime(userData.sector, targetSector, globe)}{" "}
+                    seconds.
+                  </p>
+                ) : (
+                  <>
+                    <p className="py-2">
+                      Your character will first have to move to the edge of his current
+                      sector.
+                    </p>
+                    <p className="pb-2">
+                      Current location: {currentPosition?.x}, {currentPosition?.y}
+                    </p>
+                  </>
+                )}{" "}
+                Do you confirm?
+              </div>
+            )}
           </Modal>
         )}
         {userData?.travelFinishAt && (
@@ -196,8 +209,7 @@ const Travel: NextPage = () => {
                 <Countdown
                   targetDate={userData?.travelFinishAt}
                   onFinish={() => {
-                    userData.travelFinishAt = null;
-                    finishGlobalMove();
+                    if (!isFinishingTravel) finishGlobalMove();
                   }}
                 />
               </p>

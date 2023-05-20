@@ -171,8 +171,12 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
+      // Get target hex
       const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
+      // Guards
       if (!targetHex) return;
+      if (target.x === origin.current.col && target.y === origin.current.row) return;
+      // Get shortest path
       const path = pathFinder.current.getShortestPath(origin.current, targetHex);
       const next = path?.[1];
       if (next) {
@@ -189,7 +193,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && users) {
-      console.log("DRAWING SECTOR");
       // Update the state containing sorrounding users on first load
       setSorrounding(users || []);
 
@@ -387,11 +390,10 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Remove the mouseover listener
       return () => {
-        console.log("CLEARING SECTOR");
         window.removeEventListener("resize", handleResize);
         document.removeEventListener("keydown", onDocumentKeyDown, false);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
-        mountRef.current = null;
+        mountRef.current?.removeChild(renderer.domElement);
         pusher.unsubscribe(props.sector.toString());
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);

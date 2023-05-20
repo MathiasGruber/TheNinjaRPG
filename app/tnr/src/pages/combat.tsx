@@ -23,7 +23,7 @@ const CombatPage: NextPage = () => {
 
   // Data from the DB
   const { data: userData, setBattle } = useRequiredUserData();
-  const { data, isLoading, refetch } = api.combat.getBattle.useQuery(
+  const { data, isInitialLoading, refetch } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
     { enabled: !!userData?.battleId, staleTime: Infinity }
   );
@@ -91,9 +91,9 @@ const CombatPage: NextPage = () => {
           )
         }
       >
-        {!isLoading && combat}
+        {!isInitialLoading && combat}
         {!userData && <Loader explanation="Loading User Data" />}
-        {isLoading && <Loader explanation="Loading Battle Data" />}
+        {isInitialLoading && <Loader explanation="Loading Battle Data" />}
         {userData && !userData.battleId && (
           <p className="p-3">You are not in any battle</p>
         )}
