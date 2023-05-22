@@ -286,6 +286,8 @@ export const travelRouter = createTRPCRouter({
             }
           });
           user.items = items;
+          // Base armor is 0
+          user.armor = 0;
           return user;
         });
 

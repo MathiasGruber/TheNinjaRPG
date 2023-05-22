@@ -79,6 +79,7 @@ export type BattleUserState = UserData & {
   village?: Village | null;
   highest_offence: number;
   highest_defence: number;
+  armor: number;
   is_original: boolean;
   controllerId: string;
   hex?: TerrainHex;
@@ -93,8 +94,8 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 
 /**
  * User data for drawn users on the battle page
- * TODO: Do we need this type? isn't it just a subset of the other one?
  */
+// TODO: Do we need this type? isn't it just a subset of the other one?
 export interface DrawnCombatUser {
   userId: string;
   villageId?: string | null;
@@ -235,44 +236,32 @@ const type = (defaultString: string) => {
 /******************** */
 
 const BaseAttributes = z.object({
+  // Visual controls
   staticAssetPath: z.string().optional(),
   staticAnimation: z.enum(AnimationNames).optional(),
   appearAnimation: z.enum(AnimationNames).optional(),
   disappearAnimation: z.enum(AnimationNames).optional(),
-  rounds: z.number().int().min(1).max(20).optional(),
+  // Timing controls
+  rounds: z.number().int().min(0).max(20).optional(),
   createdAt: z.number().optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),
+  // Power controls. Has different meanings depending on calculation
+  power: z.number().min(1).default(1),
+  powerPerLevel: z.number().min(0).default(0),
 });
 
 const PoolAttributes = z.object({
   poolsAffected: z.array(z.enum(PoolType)).default(["Health"]).optional(),
 });
 
-const StatsBasedStrength = z.object({
+const IncludeStats = z.object({
   // Power has the following meaning depending on calculation
   // static: directly equates to the amount returned
   // percentage: power is returned as a percentage
-  // formula: power is used in battle formula to calculate return value
-  power: z.number().min(1).default(1),
-  powerPerLevel: z.number().min(0).default(0),
-  direction: z.enum(["offensive", "defensive"]).default("offensive"),
-  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  // formula: power is used in stats-based formula to calculate return value
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
   elements: z.array(z.enum(Element)).optional(),
-});
-
-const StaticBasedOnly = z.object({
-  calculation: z.enum(["static"]).default("static"),
-});
-
-const DisableFormula = z.object({
-  calculation: z.enum(["static", "percentage"]).default("static"),
-});
-
-const ChanceBased = z.object({
-  chance: z.number().int().min(1).max(100).default(0).optional(),
-  chancePerLevel: z.number().int().min(0).max(100).default(0).optional(),
 });
 
 /******************** */
@@ -283,235 +272,238 @@ export const AbsorbTag = z
     type: type("absorb"),
     description: msg("Absorb damage taken"),
     elementalOnly: z.boolean().default(false).optional(),
+    calculation: z.enum(["percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const AdjustArmorTag = z
   .object({
     type: type("armoradjust"),
     description: msg("Adjust armor rating of target"),
-    adjustUp: z.boolean().default(true),
+    calculation: z.enum(["static"]).default("static"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength)
-  .merge(StaticBasedOnly);
+  .merge(IncludeStats);
 
 export const AdjustDamageGivenTag = z
   .object({
     type: type("damagegivenadjust"),
     description: msg("Adjust damage given by target"),
-    adjustUp: z.boolean().default(true),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const AdjustDamageTakenTag = z
   .object({
     type: type("damagetakenadjust"),
     description: msg("Adjust damage taken of target"),
-    adjustUp: z.boolean().default(true),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const AdjustHealTag = z
   .object({
     type: type("healadjust"),
     description: msg("Adjust healing ability of target"),
-    adjustUp: z.boolean().default(true),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const AdjustPoolCostTag = z
   .object({
     type: type("poolcostadjust"),
-    description: msg("Adjust cost of using jutsu"),
-    adjustUp: z.boolean().default(true),
+    description: msg("Adjust cost of taking actions"),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const AdjustStatTag = z
   .object({
     type: type("statadjust"),
     description: msg("Adjust stats of target"),
-    affectedStats: z.array(z.enum(StatType)).optional(),
-    affectedGenerals: z.array(z.enum(GeneralType)).optional(),
-    adjustUp: z.boolean().default(true),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const BarrierTag = z
   .object({
     type: type("barrier"),
     description: msg("Creates a barrier which offers cover"),
     originalPower: z.number().int().min(1).default(1),
+    calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 export type BarrierTagType = z.infer<typeof BarrierTag>;
 
 export const ClearTag = z
   .object({
     type: type("clear"),
     description: msg("Clears all effects from the target"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const CloneTag = z
   .object({
     type: type("clone"),
     description: msg("Create a temporary clone to fight alongside you"),
+    calculation: z.enum(["percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength)
-  .refine((data) => data.calculation === "percentage", {
-    message: "CloneTag requires calculation to be percentage",
-  })
-  .refine((data) => data.rounds === 1, {
-    message: "CloneTag can only be set to 1 round, creating 1 clone",
+  .merge(IncludeStats)
+  .refine((data) => data.rounds === 0, {
+    message: "CloneTag can only be set to 0 rounds, indicating a single clone creation",
   });
 
 export const DamageTag = z
   .object({
     type: type("damage"),
     description: msg("Deals damage to target"),
+    calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+    direction: z.enum(["offensive", "defensive"]).default("offensive"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 export type DamageTagType = z.infer<typeof DamageTag>;
 
 export const FleeTag = z
   .object({
     type: type("flee"),
     description: msg("Flee the battle"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const FleePreventTag = z
   .object({
     type: type("fleeprevent"),
     description: msg("Prevents fleeing"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const HealTag = z
   .object({
     type: type("heal"),
     description: msg("Heals the target"),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
   .merge(PoolAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const MoveTag = z
   .object({
     type: type("move"),
     description: msg("Move on the battlefield"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 export type MoveTagType = z.infer<typeof MoveTag>;
 
 export const OneHitKillTag = z
   .object({
     type: type("onehitkill"),
     description: msg("Instantly kills the target"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const OneHitKillPreventTag = z
   .object({
     type: type("onehitkillprevent"),
     description: msg("Prevents instant kill effects"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const ReflectTag = z
   .object({
     type: type("reflect"),
     description: msg("Reflect damage taken"),
     elementalOnly: z.boolean().default(false).optional(),
+    calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const RobPreventTag = z
   .object({
     type: type("robprevent"),
     description: msg("Prevents robbing of the target"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const RobTag = z
   .object({
     type: type("rob"),
     description: msg("Robs money from the target"),
+    calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   })
   .merge(BaseAttributes)
-  .merge(StatsBasedStrength);
+  .merge(IncludeStats);
 
 export const SealPreventTag = z
   .object({
     type: type("sealprevent"),
     description: msg("Prevents bloodline from being sealed"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const SealTag = z
   .object({
     type: type("seal"),
     description: msg("Seals the target's bloodline effects"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const StunPreventTag = z
   .object({
     type: type("stunprevent"),
     description: msg("Prevents being stunned"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const StunTag = z
   .object({
     type: type("stun"),
     description: msg("Stuns the target"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const SummonPreventTag = z
   .object({
     type: type("summonprevent"),
     description: msg("Prevents summoning"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const SummonTag = z
   .object({
     type: type("summon"),
     description: msg("Summon an ally"),
+    calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .merge(ChanceBased);
+  .merge(BaseAttributes);
 
 export const VisualTag = z
   .object({
     type: type("visual"),
     description: msg("A battlefield visual effect"),
+    calculation: z.enum(["static"]).default("static"),
   })
   .merge(BaseAttributes);
 

@@ -12,29 +12,8 @@ export interface ItemWithEffectsProps {
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item } = props;
   const effects = props.item.effects as unknown as ZodAllTags[];
-
-  // Elements, which we show a bit differently on different screens
-  const baseProperties = (
-    <div>
-      {"rarity" in item && (
-        <p>
-          <b>Rarity</b>: {item.rarity}
-        </p>
-      )}
-      {"regenIncrease" in item && item.regenIncrease > 0 && (
-        <p>
-          <b>Regen</b>: +{item.regenIncrease}
-        </p>
-      )}
-      {"village" in item && (
-        <p>
-          <b>Village</b>: {item.village}
-        </p>
-      )}
-    </div>
-  );
   const image = (
-    <div className="relative flex flex-row">
+    <div className="relative flex flex-row items-center justify-center">
       <ContentImage
         image={item.image}
         alt={item.name}
@@ -46,20 +25,17 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-orange-50 p-2 align-middle shadow ">
-      <div className="basis-1/ mx-3 hidden md:block">
-        {image}
-        <div className="ml-3 text-left text-sm">{baseProperties}</div>
-      </div>
+      <div className="mx-3 hidden basis-1/3  md:block">{image}</div>
       <div className="basis-full text-sm md:basis-2/3">
         <div className="flex flex-row">
           <div className="relative block md:hidden md:basis-1/3">{image}</div>
-          <div className="flex basis-full flex-col pl-5 md:basis-2/3 md:pl-0">
+          <div className="flex basis-full flex-col pl-5 md:pl-0">
             <h3 className="text-xl font-bold tracking-tight text-gray-900">
               {item.name}
             </h3>
             <p>
               <b>Created: </b>
-              {item.createdAt.toLocaleDateString()}, <b>Updated: </b>
+              {item.createdAt.toLocaleDateString()},<b>Updated: </b>
               {item.updatedAt.toLocaleDateString()}
             </p>
             <hr className="py-1" />
@@ -68,6 +44,21 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
         </div>
         <div>
           <div className="my-2 grid grid-cols-2 rounded-lg bg-orange-100 p-2">
+            {"rarity" in item && (
+              <p>
+                <b>Rarity</b>: {item.rarity}
+              </p>
+            )}
+            {"regenIncrease" in item && item.regenIncrease > 0 && (
+              <p>
+                <b>Regen</b>: +{item.regenIncrease}
+              </p>
+            )}
+            {"village" in item && (
+              <p>
+                <b>Village</b>: {item.village}
+              </p>
+            )}
             {"canStack" in item && "stackSize" in item && item.canStack && (
               <p>
                 <b>Stackable</b>: {item.stackSize}
@@ -103,7 +94,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Equip</b>: {item.slot.toLowerCase()}
               </p>
             )}
-            <div className="block md:hidden">{baseProperties}</div>
           </div>
           {effects.map((effect, i) => {
             return (
@@ -113,27 +103,27 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               >
                 <b>Effect {i + 1}: </b> {effect.description}
                 <div className="grid grid-cols-2">
-                  {"adjustUp" in effect && (
-                    <span>
-                      <b>Adjustment: </b>
-                      {effect.adjustUp ? "Positive" : "Negative"}
-                    </span>
-                  )}
-                  {"rounds" in effect && (
+                  {effect.rounds && (
                     <span>
                       <b>Rounds: </b> {effect.rounds}
                     </span>
                   )}
-                  {"calculation" in effect && (
+                  {effect.calculation && (
                     <span>
                       <b>Calculation: </b>
                       {effect.calculation}
                     </span>
                   )}
-                  {"power" in effect && (
+                  {effect.power && (
                     <span>
                       <b>Effect Power: </b>
                       {effect.power}
+                    </span>
+                  )}
+                  {effect.powerPerLevel && (
+                    <span>
+                      <b>Effect Power / Lvl: </b>
+                      {effect.powerPerLevel}
                     </span>
                   )}
                   {"generalTypes" in effect && effect.generalTypes && (
@@ -152,12 +142,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     <span>
                       <b>Elements: </b>
                       {effect.elements.join(", ")}
-                    </span>
-                  )}
-                  {"chance" in effect && (
-                    <span>
-                      <b>Chance: </b>
-                      {effect.chance}
                     </span>
                   )}
                 </div>

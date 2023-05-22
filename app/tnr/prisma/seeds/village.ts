@@ -7,12 +7,12 @@ export const seedVillages = async (prisma: PrismaClient) => {
   // Default villages
   const villages = [
     { name: "Konoki", sector: 105, hexColor: "#206625" },
-    { name: "Shroud", sector: 74, hexColor: "#606160" },
+    //{ name: "Shroud", sector: 74, hexColor: "#606160" },
     { name: "Silence", sector: 297, hexColor: "#0a0a0a" },
-    { name: "Current", sector: 4, hexColor: "#3232a8" },
-    { name: "Horizon", sector: 66, hexColor: "#9e4819" },
-    { name: "Samui", sector: 116, hexColor: "#6b199e" },
-    { name: "Shine", sector: 90, hexColor: "#adab10" },
+    //{ name: "Current", sector: 4, hexColor: "#3232a8" },
+    //{ name: "Horizon", sector: 66, hexColor: "#9e4819" },
+    //{ name: "Samui", sector: 116, hexColor: "#6b199e" },
+    //{ name: "Shine", sector: 90, hexColor: "#adab10" },
   ];
   // Elders
   const elders = [

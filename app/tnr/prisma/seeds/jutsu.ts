@@ -1,6 +1,6 @@
-import { type ZodJutsuType } from "../../src/libs/combat/types";
-import { type Prisma, UserRank, Jutsu } from "@prisma/client";
-import { type PrismaClient } from "@prisma/client";
+import type { ZodJutsuType } from "../../src/libs/combat/types";
+import type { Prisma, PrismaClient, Jutsu } from "@prisma/client";
+import { UserRank } from "@prisma/client";
 import { AttackTarget } from "@prisma/client";
 import { AttackMethod } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
@@ -34,7 +34,7 @@ const jutsus: ZodJutsuType[] = [
     chakraCostPerc: 20,
     effects: [
       CloneTag.parse({
-        rounds: 1,
+        rounds: 0,
         power: 50,
         powerPerLevel: 1,
         statTypes: ["Ninjutsu", "Genjutsu"],
@@ -59,7 +59,7 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        rounds: 1,
+        rounds: 0,
         power: 1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Strength"],
@@ -108,14 +108,13 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        rounds: 1,
+        rounds: 0,
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
         rounds: 1,
-        timing: "next round",
         chance: 1,
       }),
     ],
@@ -165,14 +164,13 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        rounds: 1,
+        rounds: 0,
         power: 1,
         statTypes: ["Genjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       StunTag.parse({
         rounds: 1,
-        timing: "next round",
         chance: 1,
       }),
     ],
@@ -196,7 +194,7 @@ const jutsus: ZodJutsuType[] = [
     cooldown: 30,
     effects: [
       DamageTag.parse({
-        rounds: 1,
+        rounds: 0,
         power: 1,
         statTypes: ["Taijutsu"],
         generalTypes: ["Speed", "Strength"],

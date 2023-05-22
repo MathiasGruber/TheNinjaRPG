@@ -52,7 +52,7 @@ export const availableUserActions = (
           power: 1,
           statTypes: ["Taijutsu", "Bukijutsu"],
           generalTypes: ["Strength", "Speed"],
-          rounds: 1,
+          rounds: 0,
           appearAnimation: "hit",
         }),
       ],
@@ -75,7 +75,7 @@ export const availableUserActions = (
           power: 1,
           statTypes: ["Ninjutsu", "Genjutsu"],
           generalTypes: ["Willpower", "Intelligence"],
-          rounds: 1,
+          rounds: 0,
           appearAnimation: "hit",
         }),
       ],
@@ -210,7 +210,7 @@ export const performAction = (info: {
       ) {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
-          const effect = realizeTag(tag as GroundEffect, user);
+          const effect = realizeTag(tag as GroundEffect, user, true);
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;

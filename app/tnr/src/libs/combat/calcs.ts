@@ -1,79 +1,52 @@
 import type { UserEffect } from "./types";
-import type { ReturnedUserState } from "./types";
+import type { BattleUserState } from "./types";
 
-export const damangeCalc = (tag: UserEffect, target: ReturnedUserState) => {
-  // Get ratios between all stats & generals
+export const damangeCalc = (
+  tag: UserEffect,
+  origin: BattleUserState | undefined,
+  target: BattleUserState
+) => {
   let ratio = 1;
   if ("calculation" in tag && tag.calculation === "formula") {
-    if (tag.direction === "offensive") {
-      tag.statTypes?.forEach((statType) => {
-        if (
-          statType === "Taijutsu" &&
-          tag.taijutsu_offence &&
-          target.taijutsu_defence
-        ) {
-          ratio *= tag.taijutsu_offence / target.taijutsu_defence;
-        } else if (
-          statType === "Bukijutsu" &&
-          tag.bukijutsu_offence &&
-          target.bukijutsu_defence
-        ) {
-          ratio *= tag.bukijutsu_offence / target.bukijutsu_defence;
-        } else if (
-          statType === "Ninjutsu" &&
-          tag.ninjutsu_offence &&
-          target.ninjutsu_defence
-        ) {
-          ratio *= tag.ninjutsu_offence / target.ninjutsu_defence;
-        } else if (
-          statType === "Genjutsu" &&
-          tag.genjutsu_offence &&
-          target.genjutsu_defence
-        ) {
-          ratio *= tag.genjutsu_offence / target.genjutsu_defence;
-        } else if (
-          statType === "Highest" &&
-          tag.highest_offence &&
-          target.highest_defence
-        ) {
-          ratio *= tag.highest_offence / target.highest_defence;
-        }
-      });
-    } else {
-      tag.statTypes?.forEach((statType) => {
-        if (
-          statType === "Taijutsu" &&
-          tag.taijutsu_defence &&
-          target.taijutsu_offence
-        ) {
-          ratio *= tag.taijutsu_defence / target.taijutsu_offence;
-        } else if (
-          statType === "Bukijutsu" &&
-          tag.bukijutsu_defence &&
-          target.bukijutsu_offence
-        ) {
-          ratio *= tag.bukijutsu_defence / target.bukijutsu_offence;
-        } else if (
-          statType === "Ninjutsu" &&
-          tag.ninjutsu_defence &&
-          target.ninjutsu_offence
-        ) {
-          ratio *= tag.ninjutsu_defence / target.ninjutsu_offence;
-        } else if (
-          statType === "Genjutsu" &&
-          tag.genjutsu_defence &&
-          target.genjutsu_offence
-        ) {
-          ratio *= tag.genjutsu_defence / target.genjutsu_offence;
-        } else if (
-          statType === "Highest" &&
-          tag.highest_defence &&
-          target.highest_offence
-        ) {
-          ratio *= tag.highest_defence / target.highest_offence;
-        }
-      });
-    }
+    const dir = tag.direction === "offensive";
+    tag.statTypes?.forEach((statType) => {
+      const lower = statType.toLowerCase();
+      const a = `${lower}_${dir ? "offence" : "defence"}`;
+      const b = `${lower}_${dir ? "defence" : "offence"}`;
+      if (tag.fromGround && a in tag && b in target) {
+        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        console.log(`Damage [${statType}] from ground`);
+        const left = tag[a as keyof typeof tag] as number;
+        const right = target[b as keyof typeof target] as number;
+        ratio *= left / right;
+        console.log(ratio);
+      } else if (origin && a in origin && b in target) {
+        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        console.log(`Damage [${statType}] from user`);
+        const left = origin[a as keyof typeof origin] as number;
+        const right = target[b as keyof typeof target] as number;
+        ratio *= left / right;
+        console.log(ratio);
+      }
+    });
+    tag.generalTypes?.forEach((generalType) => {
+      const lower = generalType.toLowerCase();
+      if (tag.fromGround && lower in tag && lower in target) {
+        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        console.log(`Damage [${generalType}] from ground`);
+        const left = tag[lower as keyof typeof tag] as number;
+        const right = target[lower as keyof typeof target] as number;
+        ratio *= left / right;
+        console.log(ratio);
+      } else if (origin && lower in origin && lower in target) {
+        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        console.log(`Damage [${generalType}] from user`);
+        const left = origin[lower as keyof typeof origin] as number;
+        const right = target[lower as keyof typeof target] as number;
+        ratio *= left / right;
+        console.log(ratio);
+      }
+    });
   }
   const damage = Math.floor(20 * ratio);
   return damage;

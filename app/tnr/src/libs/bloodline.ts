@@ -5,7 +5,7 @@ export const ROLL_CHANCE = {
   [LetterRank.A]: 0.01,
   [LetterRank.B]: 0.02,
   [LetterRank.C]: 0.04,
-  [LetterRank.D]: 0.08,
+  [LetterRank.D]: 0.98,
 } as const;
 
 export const BLOODLINE_COST = {

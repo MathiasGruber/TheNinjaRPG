@@ -64,7 +64,7 @@ export const shouldApplyEffectTimes = (
  * Filter effects based on their duration
  */
 export const isEffectStillActive = (effect: UserEffect | GroundEffect) => {
-  if (effect.rounds && effect.createdAt) {
+  if (effect.rounds !== undefined && effect.createdAt) {
     const total = effect.rounds * COMBAT_SECONDS;
     const isActive = secondsFromDate(total, new Date(effect.createdAt)) > new Date();
     if (!isActive) console.log("Effect expired: ", effect.type);

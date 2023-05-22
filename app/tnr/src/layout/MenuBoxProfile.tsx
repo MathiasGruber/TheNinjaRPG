@@ -99,8 +99,35 @@ const MenuBoxProfile: React.FC = () => {
                         {arrow} Armor {direction}
                       </li>
                     );
+                  } else if (effect.type === "statadjust" && "statTypes" in effect) {
+                    return (
+                      <div key={i}>
+                        {effect.statTypes?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} {direction}
+                            </li>
+                          );
+                        })}
+                        {effect.generalTypes?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} {direction}
+                            </li>
+                          );
+                        })}
+                        {effect.elements?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} affinity
+                            </li>
+                          );
+                        })}
+                      </div>
+                    );
+                  } else {
+                    return <div key={i}>Unparsed: {effect.type}</div>;
                   }
-                  return <div key={i}></div>;
                 })}
             </ul>
           </>

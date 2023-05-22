@@ -33,7 +33,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -56,7 +56,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -80,7 +80,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -104,7 +104,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -128,7 +128,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -152,7 +152,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -176,7 +176,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -200,7 +200,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -224,7 +224,7 @@ const items: ZodItemType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        rounds: 1,
+        rounds: 0,
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
@@ -247,7 +247,6 @@ const items: ZodItemType[] = [
         type: "armoradjust",
         calculation: "static",
         power: 1,
-        adjustUp: true,
       }),
     ],
   },
@@ -266,7 +265,7 @@ const items: ZodItemType[] = [
     range: 0,
     effects: [
       HealTag.parse({
-        rounds: 1,
+        rounds: 0,
         poolsAffected: ["Health"],
         calculation: "static",
         power: 10,
@@ -285,7 +284,7 @@ const items: ZodItemType[] = [
     range: 0,
     effects: [
       HealTag.parse({
-        rounds: 1,
+        rounds: 0,
         poolsAffected: ["Chakra"],
         calculation: "static",
         power: 10,

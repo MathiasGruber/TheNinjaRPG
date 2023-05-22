@@ -2,7 +2,7 @@ import { type ZodBloodlineType } from "../../src/libs/combat/types";
 import { type Prisma, type Bloodline } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
-import { DamageTag } from "../../src/libs/combat/types";
+import { DamageTag, AdjustStatTag } from "../../src/libs/combat/types";
 import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
 import { AdjustDamageTakenTag } from "../../src/libs/combat/types";
 
@@ -19,11 +19,12 @@ const bloodlines: ZodBloodlineType[] = [
     regenIncrease: 0,
     village: "All",
     effects: [
-      DamageTag.parse({
-        calculation: "static",
-        power: 1,
-        statTypes: ["Genjutsu"],
-        generalTypes: ["Intelligence", "Willpower"],
+      AdjustStatTag.parse({
+        calculation: "percentage",
+        power: 5,
+        powerPerLevel: 0.5,
+        statTypes: ["Ninjutsu"],
+        generalTypes: ["Willpower"],
         elements: ["Wind"],
       }),
     ],
@@ -39,7 +40,16 @@ const bloodlines: ZodBloodlineType[] = [
     rank: LetterRank.C,
     regenIncrease: 0,
     village: "All",
-    effects: [],
+    effects: [
+      AdjustStatTag.parse({
+        calculation: "percentage",
+        power: 10,
+        powerPerLevel: 0.5,
+        statTypes: ["Ninjutsu"],
+        generalTypes: ["Willpower"],
+        elements: ["Wind"],
+      }),
+    ],
   },
   /*********************** */
   /**  B-Ranked Bloodline  */
@@ -52,7 +62,16 @@ const bloodlines: ZodBloodlineType[] = [
     rank: LetterRank.B,
     regenIncrease: 0,
     village: "All",
-    effects: [],
+    effects: [
+      AdjustStatTag.parse({
+        calculation: "percentage",
+        power: 15,
+        powerPerLevel: 0.5,
+        statTypes: ["Ninjutsu"],
+        generalTypes: ["Willpower", "Intelligence"],
+        elements: ["Wind"],
+      }),
+    ],
   },
   /*********************** */
   /**  A-Ranked Bloodline  */
@@ -65,7 +84,16 @@ const bloodlines: ZodBloodlineType[] = [
     rank: LetterRank.A,
     regenIncrease: 0,
     village: "All",
-    effects: [],
+    effects: [
+      AdjustStatTag.parse({
+        calculation: "percentage",
+        power: 20,
+        powerPerLevel: 0.5,
+        statTypes: ["Ninjutsu", "Genjutsu"],
+        generalTypes: ["Willpower", "Intelligence"],
+        elements: ["Wind"],
+      }),
+    ],
   },
   /*********************** */
   /**  S-Ranked Bloodline  */

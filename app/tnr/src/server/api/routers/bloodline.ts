@@ -43,12 +43,14 @@ export const bloodlineRouter = createTRPCRouter({
         where: { id: input.bloodlineId },
       });
     }),
-  getRolls: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.prisma.bloodlineRolls.findUnique({
-      include: { bloodline: true },
-      where: { userId: ctx.userId },
-    });
-  }),
+  getRolls: protectedProcedure
+    .input(z.object({ currentBloodlineId: z.string().cuid().optional().nullable() }))
+    .query(async ({ ctx }) => {
+      return await ctx.prisma.bloodlineRolls.findUnique({
+        include: { bloodline: true },
+        where: { userId: ctx.userId },
+      });
+    }),
   roll: protectedProcedure.mutation(async ({ ctx }) => {
     // Guard
     const prevRoll = await ctx.prisma.bloodlineRolls.findUnique({
