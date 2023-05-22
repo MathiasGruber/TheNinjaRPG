@@ -1,6 +1,10 @@
 FROM nanomathias/vscode-devcontainer:release-1.2.3
 
-RUN echo 'export PS1="\[\e[36m\]DevContainer>\[\e[m\] "' >> /root/.bashrc
+# Install gitmoji
+RUN npm i -g gitmoji-cli
+
+# Show we're in devcontainer
+RUN echo 'export PS1="\[\e[36m\]DevContainer>\[\e[m\] "' >> /home/vscode/.bashrc
 
 # Change to non-root
 USER vscode
