@@ -1,5 +1,5 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
-import { MoveTag, DamageTag, FleeTag } from "./types";
+import { MoveTag, DamageTag, HealTag, FleeTag } from "./types";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./tags";
 import { secondsFromNow } from "../../utils/time";
@@ -36,7 +36,7 @@ export const availableUserActions = (
     },
     {
       id: "sp",
-      name: "Stamina Attack",
+      name: "Basic Attack",
       image: "/combat/basicActions/stamina.png",
       battleDescription: "%user perform a basic physical strike against %target",
       type: "basic" as const,
@@ -50,6 +50,7 @@ export const availableUserActions = (
       effects: [
         DamageTag.parse({
           power: 1,
+          powerPerLevel: 0.1,
           statTypes: ["Taijutsu", "Bukijutsu"],
           generalTypes: ["Strength", "Speed"],
           rounds: 0,
@@ -59,9 +60,9 @@ export const availableUserActions = (
     },
     {
       id: "cp",
-      name: "Chakra Attack",
-      image: "/combat/basicActions/chakra.png",
-      battleDescription: "%user perform a basic chakra strike against %target",
+      name: "Basic Heal",
+      image: "/combat/basicActions/heal.png",
+      battleDescription: "%user perform basic healing of %target",
       type: "basic" as const,
       target: AttackTarget.OTHER_USER,
       method: AttackMethod.SINGLE,
@@ -71,12 +72,14 @@ export const availableUserActions = (
       staminaCostPerc: 0,
       actionCostPerc: 50,
       effects: [
-        DamageTag.parse({
-          power: 1,
+        HealTag.parse({
+          power: 5,
+          powerPerLevel: 1,
+          calculation: "static",
           statTypes: ["Ninjutsu", "Genjutsu"],
           generalTypes: ["Willpower", "Intelligence"],
           rounds: 0,
-          appearAnimation: "hit",
+          appearAnimation: "heal",
         }),
       ],
     },

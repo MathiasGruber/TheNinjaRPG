@@ -180,12 +180,14 @@ export const Animations = new Map<string, { frames: number; speed: number }>();
 Animations.set("hit", { frames: 4, speed: 50 });
 Animations.set("smoke", { frames: 9, speed: 50 });
 Animations.set("fire", { frames: 6, speed: 50 });
+Animations.set("heal", { frames: 20, speed: 50 });
 Animations.set("explosion", { frames: 10, speed: 50 });
 Animations.set("rising_smoke", { frames: 14, speed: 50 });
 export const AnimationNames = [
   "hit",
   "smoke",
   "fire",
+  "heal",
   "explosion",
   "rising_smoke",
 ] as const;
@@ -320,6 +322,7 @@ export const AdjustPoolCostTag = z
     calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
+  .merge(PoolAttributes)
   .merge(IncludeStats);
 
 export const AdjustStatTag = z
@@ -367,7 +370,6 @@ export const DamageTag = z
     type: type("damage"),
     description: msg("Deals damage to target"),
     calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
-    direction: z.enum(["offensive", "defensive"]).default("offensive"),
   })
   .merge(BaseAttributes)
   .merge(IncludeStats);

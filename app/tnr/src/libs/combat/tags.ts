@@ -5,7 +5,6 @@ import { damangeCalc } from "./calcs";
 import { findUser, findBarrier } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive, sortEffects } from "./util";
 import { createId } from "@paralleldrive/cuid2";
-import { off } from "process";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -16,38 +15,20 @@ export const realizeTag = <T extends BattleEffect>(
   isGround = false
 ): T => {
   if (isGround && "statTypes" in tag && tag.statTypes) {
-    if (tag.direction === "offensive") {
-      if (tag.statTypes.includes("Ninjutsu")) {
-        tag.ninjutsu_offence = user.ninjutsu_offence;
-      }
-      if (tag.statTypes.includes("Genjutsu")) {
-        tag.genjutsu_offence = user.genjutsu_offence;
-      }
-      if (tag.statTypes.includes("Taijutsu")) {
-        tag.taijutsu_offence = user.taijutsu_offence;
-      }
-      if (tag.statTypes.includes("Bukijutsu")) {
-        tag.bukijutsu_offence = user.bukijutsu_offence;
-      }
-      if (tag.statTypes.includes("Highest")) {
-        tag.highest_offence = user.highest_offence;
-      }
-    } else {
-      if (tag.statTypes.includes("Ninjutsu")) {
-        tag.ninjutsu_defence = user.ninjutsu_defence;
-      }
-      if (tag.statTypes.includes("Genjutsu")) {
-        tag.genjutsu_defence = user.genjutsu_defence;
-      }
-      if (tag.statTypes.includes("Taijutsu")) {
-        tag.taijutsu_defence = user.taijutsu_defence;
-      }
-      if (tag.statTypes.includes("Bukijutsu")) {
-        tag.bukijutsu_defence = user.bukijutsu_defence;
-      }
-      if (tag.statTypes.includes("Highest")) {
-        tag.highest_defence = user.highest_defence;
-      }
+    if (tag.statTypes.includes("Ninjutsu")) {
+      tag.ninjutsu_offence = user.ninjutsu_offence;
+    }
+    if (tag.statTypes.includes("Genjutsu")) {
+      tag.genjutsu_offence = user.genjutsu_offence;
+    }
+    if (tag.statTypes.includes("Taijutsu")) {
+      tag.taijutsu_offence = user.taijutsu_offence;
+    }
+    if (tag.statTypes.includes("Bukijutsu")) {
+      tag.bukijutsu_offence = user.bukijutsu_offence;
+    }
+    if (tag.statTypes.includes("Highest")) {
+      tag.highest_offence = user.highest_offence;
     }
   }
   if (isGround && "generalTypes" in tag) {
@@ -251,6 +232,19 @@ export const applyEffects = (
           actionEffects.push({
             txt: `${targetCur.username} takes ${damage} damage`,
             color: "red",
+          });
+        } else if (e.type === "heal") {
+          // TODO: Account for level power effect
+          const power = e.power;
+          const amount =
+            e.calculation === "percentage"
+              ? targetNew.max_health * (power / 100)
+              : power;
+          targetNew.cur_health += amount;
+          targetNew.cur_health = Math.min(targetNew.max_health, targetNew.cur_health);
+          actionEffects.push({
+            txt: `${targetCur.username} heals ${amount} HP`,
+            color: "green",
           });
         } else if (e.type === "armoradjust") {
           if (e.power) {

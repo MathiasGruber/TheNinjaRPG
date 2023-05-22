@@ -12,6 +12,7 @@ parser.add_argument("-sprite_size", help="Size of each sprite in pixels", defaul
 # python spritePacker.py -image_directory ../app/tnr/public/animations/hit
 # python spritePacker.py -image_directory ../app/tnr/public/animations/explosion
 # python spritePacker.py -image_directory ../app/tnr/public/animations/fire
+# python spritePacker.py -image_directory ../app/tnr/public/animations/heal
 
 if __name__ == '__main__':
 
