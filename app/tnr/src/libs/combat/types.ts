@@ -563,6 +563,7 @@ export type ZodAllTags = z.infer<typeof AllTags>;
 export type BattleEffect = ZodAllTags & {
   id: string;
   creatorId: string;
+  level: number;
   targetType?: "user" | "barrier";
   highest_offence?: number;
   highest_defence?: number;

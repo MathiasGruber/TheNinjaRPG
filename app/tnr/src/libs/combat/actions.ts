@@ -47,6 +47,7 @@ export const availableUserActions = (
       staminaCostPerc: 1,
       actionCostPerc: 50,
       range: 1,
+      level: user?.level,
       effects: [
         DamageTag.parse({
           power: 1,
@@ -66,11 +67,12 @@ export const availableUserActions = (
       type: "basic" as const,
       target: AttackTarget.OTHER_USER,
       method: AttackMethod.SINGLE,
-      range: 1,
       healthCostPerc: 0,
       chakraCostPerc: 1,
       staminaCostPerc: 0,
       actionCostPerc: 50,
+      range: 1,
+      level: user?.level,
       effects: [
         HealTag.parse({
           power: 5,
@@ -145,6 +147,7 @@ export const availableUserActions = (
             target: useritem.item.target,
             method: useritem.item.method,
             range: useritem.item.range,
+            level: user?.level,
             healthCostPerc: useritem.item.healthCostPerc,
             chakraCostPerc: useritem.item.chakraCostPerc,
             staminaCostPerc: useritem.item.staminaCostPerc,
@@ -213,7 +216,7 @@ export const performAction = (info: {
       ) {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
-          const effect = realizeTag(tag as GroundEffect, user, true);
+          const effect = realizeTag(tag as GroundEffect, user, action.level, true);
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;
@@ -241,7 +244,7 @@ export const performAction = (info: {
           targetGenders.push(target.gender);
           action.effects.forEach((tag) => {
             if (target) {
-              const effect = realizeTag(tag as UserEffect, user);
+              const effect = realizeTag(tag as UserEffect, user, action.level);
               if (effect) {
                 effect.targetId = target.userId;
                 postActionUsersEffects.push(effect);
@@ -261,7 +264,7 @@ export const performAction = (info: {
           if (barrier) {
             action.effects.forEach((tag) => {
               if (tag.type === "damage") {
-                const effect = realizeTag(tag as UserEffect, user);
+                const effect = realizeTag(tag as UserEffect, user, action.level);
                 if (effect) {
                   targetUsernames.push("barrier");
                   targetGenders.push("it");

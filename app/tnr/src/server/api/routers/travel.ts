@@ -263,7 +263,7 @@ export const travelRouter = createTRPCRouter({
           if (user.bloodline?.effects) {
             const effects = user.bloodline.effects as unknown as UserEffect[];
             effects.forEach((effect) => {
-              const realized = realizeTag(effect, user);
+              const realized = realizeTag(effect, user, user.level);
               realized.targetId = user.userId;
               userEffects.push(realized);
             });
@@ -276,7 +276,7 @@ export const travelRouter = createTRPCRouter({
               if (useritem.item.effects) {
                 const effects = useritem.item.effects as unknown as UserEffect[];
                 effects.forEach((effect) => {
-                  const realized = realizeTag(effect, user);
+                  const realized = realizeTag(effect, user, user.level);
                   realized.targetId = user.userId;
                   userEffects.push(realized);
                 });
@@ -306,6 +306,7 @@ export const travelRouter = createTRPCRouter({
                   }),
                   id: `initial-${col}-${row}`,
                   creatorId: "ground",
+                  level: 0,
                   longitude: col,
                   latitude: row,
                   staticAssetPath: asset.filepath + asset.filename,

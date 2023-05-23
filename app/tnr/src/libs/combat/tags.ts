@@ -12,6 +12,7 @@ import { createId } from "@paralleldrive/cuid2";
 export const realizeTag = <T extends BattleEffect>(
   tag: T,
   user: BattleUserState,
+  level: number | undefined,
   isGround = false
 ): T => {
   if (isGround && "statTypes" in tag && tag.statTypes) {
@@ -47,6 +48,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.id = createId();
   tag.creatorId = user.userId;
   tag.targetType = "user";
+  tag.level = level ?? 0;
   return tag;
 };
 
@@ -89,6 +91,7 @@ export const applyEffects = (
         createdAt: Date.now(),
       }),
       id: info.id ?? createId(),
+      level: 0,
     };
     newGroundEffects.push(effect);
   };
@@ -230,15 +233,13 @@ export const applyEffects = (
           const damage = damangeCalc(e, origin, target) * applyTimes;
           consequences.set(e.id, { userId: e.creatorId, targetId: e.targetId, damage });
         } else if (e.type === "heal") {
-          // TODO: Account for level power effect
-          const power = e.power;
+          const power = e.power + e.level * e.powerPerLevel;
           const heal =
             e.calculation === "percentage" ? target.max_health * (power / 100) : power;
           consequences.set(e.id, { userId: e.creatorId, targetId: e.targetId, heal });
         } else if (e.type === "armoradjust") {
           if (e.power) {
-            // TODO: Account for level power effect
-            const power = e.power;
+            const power = e.power + e.level * e.powerPerLevel;
             target.armor += power;
           }
         } else if (e.type === "statadjust") {
@@ -319,8 +320,7 @@ export const applyEffects = (
         } else if (e.type === "flee") {
           // TODO: Flee from battle
         } else if (e.type === "damagegivenadjust") {
-          // TODO: Account for level power effect
-          const power = e.power;
+          const power = e.power + e.level * e.powerPerLevel;
           consequences.forEach((consequence, effectId) => {
             if (consequence.userId === e.targetId && consequence.damage) {
               const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -362,8 +362,7 @@ export const applyEffects = (
             }
           });
         } else if (e.type === "damagetakenadjust") {
-          // TODO: Account for level power effect
-          const power = e.power;
+          const power = e.power + e.level * e.powerPerLevel;
           consequences.forEach((consequence, effectId) => {
             if (consequence.targetId === e.targetId && consequence.damage) {
               const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -405,8 +404,7 @@ export const applyEffects = (
             }
           });
         } else if (e.type === "healadjust") {
-          // TODO: Account for level power effect
-          const power = e.power;
+          const power = e.power + e.level * e.powerPerLevel;
           consequences.forEach((consequence, effectId) => {
             if (consequence.userId === e.targetId && consequence.heal) {
               const healEffect = usersEffects.find((e) => e.id === effectId);
