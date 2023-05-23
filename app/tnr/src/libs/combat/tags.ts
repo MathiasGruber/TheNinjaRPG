@@ -362,7 +362,7 @@ export const applyEffects = (
             }
           });
         } else if (e.type === "damagetakenadjust") {
-          // TODO: damagetakenadjust
+          // TODO: Account for level power effect
           const power = e.power;
           consequences.forEach((consequence, effectId) => {
             if (consequence.targetId === e.targetId && consequence.damage) {
@@ -401,6 +401,49 @@ export const applyEffects = (
                     ? (power / 100) * consequence.damage
                     : power;
                 consequence.damage = consequence.damage - change * ratio;
+              }
+            }
+          });
+        } else if (e.type === "healadjust") {
+          // TODO: Account for level power effect
+          const power = e.power;
+          consequences.forEach((consequence, effectId) => {
+            if (consequence.userId === e.targetId && consequence.heal) {
+              const healEffect = usersEffects.find((e) => e.id === effectId);
+              if (healEffect) {
+                let healAttrs = 0;
+                let adjustAttrs = 0;
+                // Calculate how much damage to adjust based on stats.
+                if ("statTypes" in healEffect) {
+                  healEffect.statTypes?.forEach((stat) => {
+                    healAttrs += 1;
+                    if ("statTypes" in e && e.statTypes?.includes(stat)) {
+                      adjustAttrs += 1;
+                    }
+                  });
+                }
+                if ("generalTypes" in healEffect) {
+                  healEffect.generalTypes?.forEach((stat) => {
+                    healAttrs += 1;
+                    if ("generalTypes" in e && e.generalTypes?.includes(stat)) {
+                      adjustAttrs += 1;
+                    }
+                  });
+                }
+                if ("elements" in healEffect) {
+                  healEffect.elements?.forEach((stat) => {
+                    healAttrs += 1;
+                    if ("elements" in e && e.elements?.includes(stat)) {
+                      adjustAttrs += 1;
+                    }
+                  });
+                }
+                const ratio = adjustAttrs / healAttrs;
+                const change =
+                  e.calculation === "percentage"
+                    ? (power / 100) * consequence.heal
+                    : power;
+                consequence.heal = consequence.heal + change * ratio;
               }
             }
           });

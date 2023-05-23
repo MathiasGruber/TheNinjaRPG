@@ -5,6 +5,7 @@ import { LetterRank } from "@prisma/client";
 import { DamageTag, AdjustStatTag } from "../../src/libs/combat/types";
 import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
 import { AdjustDamageTakenTag } from "../../src/libs/combat/types";
+import { AdjustHealGivenTag } from "../../src/libs/combat/types";
 
 const bloodlines: ZodBloodlineType[] = [
   /*********************** */
@@ -88,6 +89,14 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustStatTag.parse({
         calculation: "percentage",
         power: 20,
+        powerPerLevel: 0.5,
+        statTypes: ["Ninjutsu", "Genjutsu"],
+        generalTypes: ["Willpower", "Intelligence"],
+        elements: ["Wind"],
+      }),
+      AdjustHealGivenTag.parse({
+        calculation: "percentage",
+        power: 10,
         powerPerLevel: 0.5,
         statTypes: ["Ninjutsu", "Genjutsu"],
         generalTypes: ["Willpower", "Intelligence"],

@@ -319,10 +319,11 @@ export const AdjustDamageTakenTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Adjust healing given by a certain user to others by a static amount or percentage */
 export const AdjustHealGivenTag = z
   .object({
     type: type("healadjust"),
-    description: msg("Adjust healing ability of target"),
+    description: msg("Adjust how much target can heal others"),
     calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
@@ -411,7 +412,6 @@ export const HealTag = z
     calculation: z.enum(["static", "percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(PoolAttributes)
   .merge(IncludeStats);
 
 export const MoveTag = z

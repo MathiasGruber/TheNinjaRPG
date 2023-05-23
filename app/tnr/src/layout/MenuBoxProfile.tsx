@@ -183,6 +183,32 @@ const MenuBoxProfile: React.FC = () => {
                         })}
                       </div>
                     );
+                  } else if (effect.type === "healadjust" && "statTypes" in effect) {
+                    return (
+                      <div key={i}>
+                        {effect.statTypes?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} healing
+                            </li>
+                          );
+                        })}
+                        {effect.generalTypes?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} healing
+                            </li>
+                          );
+                        })}
+                        {effect.elements?.map((e) => {
+                          return (
+                            <li key={`${e}-${i}`} className={color}>
+                              {arrow} {e} healing
+                            </li>
+                          );
+                        })}
+                      </div>
+                    );
                   } else {
                     return <div key={i}>Unparsed: {effect.type}</div>;
                   }
