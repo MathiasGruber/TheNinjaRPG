@@ -109,21 +109,25 @@ const bloodlines: ZodBloodlineType[] = [
     effects: [
       AdjustDamageGivenTag.parse({
         power: 10,
+        powerPerLevel: 0.5,
         statTypes: ["Genjutsu", "Ninjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       AdjustDamageGivenTag.parse({
         power: 20,
+        powerPerLevel: 0.5,
         statTypes: ["Bukijutsu", "Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
       AdjustDamageTakenTag.parse({
         power: 10,
+        powerPerLevel: 0.5,
         statTypes: ["Genjutsu", "Ninjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       AdjustDamageTakenTag.parse({
         power: 20,
+        powerPerLevel: 0.5,
         statTypes: ["Bukijutsu", "Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),

@@ -8,7 +8,7 @@ export const damangeCalc = (
 ) => {
   let ratio = 1;
   if ("calculation" in tag && tag.calculation === "formula") {
-    const dir = tag.direction === "offensive";
+    const dir = "offensive";
     tag.statTypes?.forEach((statType) => {
       const lower = statType.toLowerCase();
       const a = `${lower}_${dir ? "offence" : "defence"}`;

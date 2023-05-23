@@ -114,13 +114,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {effect.calculation}
                     </span>
                   )}
-                  {effect.power && (
+                  {"power" in effect && (
                     <span>
                       <b>Effect Power: </b>
                       {effect.power}
                     </span>
                   )}
-                  {effect.powerPerLevel && (
+                  {"powerPerLevel" in effect && (
                     <span>
                       <b>Effect Power / Lvl: </b>
                       {effect.powerPerLevel}

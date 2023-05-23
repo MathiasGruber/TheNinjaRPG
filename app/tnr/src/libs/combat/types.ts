@@ -166,6 +166,16 @@ export interface BattleState {
 }
 
 /**
+ * Battle Consequence, i.e. the permanent things that happen to a user as a result of an action
+ */
+export type Consequence = {
+  userId: string;
+  targetId: string;
+  heal?: number;
+  damage?: number;
+};
+
+/**
  * Enum types
  */
 const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
@@ -279,6 +289,7 @@ export const AbsorbTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Adjust armor rating by a static amount */
 export const AdjustArmorTag = z
   .object({
     type: type("armoradjust"),
@@ -288,6 +299,7 @@ export const AdjustArmorTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Adjust damage given by a static amount or by a percentage */
 export const AdjustDamageGivenTag = z
   .object({
     type: type("damagegivenadjust"),
@@ -297,6 +309,7 @@ export const AdjustDamageGivenTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Adjust damage taken by a static amount or by a percentage */
 export const AdjustDamageTakenTag = z
   .object({
     type: type("damagetakenadjust"),
@@ -306,7 +319,7 @@ export const AdjustDamageTakenTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
-export const AdjustHealTag = z
+export const AdjustHealGivenTag = z
   .object({
     type: type("healadjust"),
     description: msg("Adjust healing ability of target"),
@@ -517,7 +530,7 @@ const AllTags = z.union([
   AdjustArmorTag.default({}),
   AdjustDamageGivenTag.default({}),
   AdjustDamageTakenTag.default({}),
-  AdjustHealTag.default({}),
+  AdjustHealGivenTag.default({}),
   AdjustPoolCostTag.default({}),
   AdjustStatTag.default({}),
   BarrierTag.default({}),
@@ -642,7 +655,7 @@ const BloodlineValidator = z.object({
       AdjustArmorTag.omit({ rounds: true }).default({}),
       AdjustDamageGivenTag.omit({ rounds: true }).default({}),
       AdjustDamageTakenTag.omit({ rounds: true }).default({}),
-      AdjustHealTag.omit({ rounds: true }).default({}),
+      AdjustHealGivenTag.omit({ rounds: true }).default({}),
       AdjustPoolCostTag.omit({ rounds: true }).default({}),
       AdjustStatTag.omit({ rounds: true }).default({}),
       DamageTag.omit({ rounds: true }).default({}),

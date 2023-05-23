@@ -37,9 +37,11 @@ const Hospital: NextPage = () => {
   const router = useRouter();
 
   // Get data from DB
-  const { data: prevRoll, isFetching } = api.bloodline.getRolls.useQuery({
-    currentBloodlineId: userData?.bloodlineId,
-  });
+  const { data: prevRoll, isLoading: isLoadingBlood } = api.bloodline.getRolls.useQuery(
+    {
+      currentBloodlineId: userData?.bloodlineId,
+    }
+  );
 
   // Mutations
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
@@ -102,10 +104,10 @@ const Hospital: NextPage = () => {
       </ContentBox>
       <br />
 
-      {isFetching && <Loader explanation="Loading bloodlines" />}
-      {!isFetching && !hasRolled && <RollBloodline />}
-      {!isFetching && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
-      {!isFetching && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
+      {isLoadingBlood && <Loader explanation="Loading bloodlines" />}
+      {!isLoadingBlood && !hasRolled && <RollBloodline />}
+      {!isLoadingBlood && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
+      {!isLoadingBlood && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
     </>
   );
 };
@@ -119,7 +121,7 @@ const PurchaseBloodline: React.FC = () => {
   // State
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
-  const [rank, setRank] = useState<LetterRank>(LetterRank.D);
+  const [rank, setRank] = useState<LetterRank>(LetterRank.S);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
@@ -181,13 +183,14 @@ const PurchaseBloodline: React.FC = () => {
               {userData.reputation_points} points.{" "}
             </span>
             {!canAfford ? (
-              <p className="py-2 text-xl">
+              <p className="text-base">
                 <Link
                   className="font-bold text-red-800 hover:text-orange-500"
                   href="/points"
                 >
-                  - Purchase Reputation Points -
+                  Purchase Reputation Points
                 </Link>
+                <hr className="py-2" />
               </p>
             ) : (
               ""

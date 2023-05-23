@@ -80,25 +80,44 @@ export const sortEffects = (
   a: UserEffect | GroundEffect,
   b: UserEffect | GroundEffect
 ) => {
-  const buffDebuff = [
+  const ordered = [
+    // Pre-modifiers
     "armoradjust",
+    "poolcostadjust",
+    "statadjust",
+    "poolcostadjust",
+    // Mid-modifiers
+    "barrier",
+    "clear",
+    "clone",
+    "damage",
+    "flee",
+    "fleeprevent",
+    "heal",
+    "onehitkill",
+    "onehitkillprevent",
+    "robprevent",
+    "rob",
+    "sealprevent",
+    "seal",
+    "stunprevent",
+    "stun",
+    "summonprevent",
+    "summon",
+    // Post-moodifiers
+    "absorb",
     "damagegivenadjust",
     "damagetakenadjust",
     "healadjust",
-    "poolcostadjust",
-    "statadjust",
+    "reflect",
+    // End-modifiers
+    "move",
+    "visual",
   ];
-  if (a.type === "move") {
-    return 1;
-  } else if (b.type === "move") {
-    return -1;
-  } else if (buffDebuff.includes(a.type)) {
-    return -1;
-  } else if (buffDebuff.includes(b.type)) {
-    return 1;
-  } else {
-    return 0;
+  if (ordered.includes(a.type) && ordered.includes(b.type)) {
+    return ordered.indexOf(a.type) > ordered.indexOf(b.type) ? 1 : -1;
   }
+  return 0;
 };
 
 /**

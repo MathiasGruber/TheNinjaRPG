@@ -1,6 +1,6 @@
 import type { BattleUserState, AnimationNames } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import { VisualTag } from "./types";
+import { VisualTag, Consequence } from "./types";
 import { damangeCalc } from "./calcs";
 import { findUser, findBarrier } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive, sortEffects } from "./util";
@@ -187,15 +187,16 @@ export const applyEffects = (
     }
   });
 
+  // Book-keeping for damage and heal effects
+  const consequences = new Map<string, Consequence>();
+
   // Apply all user effects to their target users
   active.sort(sortEffects).forEach((e) => {
     // Get the user && effect details
     const origin = usersState.find((u) => u.userId === e.creatorId);
-    const targetCur = usersState.find((u) => u.userId === e.targetId);
-    const targetNew = newUsersState.find((u) => u.userId === e.targetId);
-    const priorHealth = targetNew?.cur_health;
-    let longitude = targetNew?.longitude;
-    let latitude = targetNew?.latitude;
+    const target = usersState.find((u) => u.userId === e.targetId);
+    let longitude = target?.longitude;
+    let latitude = target?.latitude;
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier") {
       const idx = newGroundEffects.findIndex((g) => g.id === e.targetId);
@@ -221,113 +222,188 @@ export const applyEffects = (
       }
     }
     // Process the different tags
-    if (targetCur && targetNew) {
-      const applyTimes = shouldApplyEffectTimes(e, targetCur.userId);
+    if (target) {
+      const applyTimes = shouldApplyEffectTimes(e, target.userId);
       if (applyTimes > 0) {
         if (e.type === "damage") {
           // TODO: Account for level power effect
-          const damage = damangeCalc(e, origin, targetCur) * applyTimes;
-          targetNew.cur_health -= damage;
-          targetNew.cur_health = Math.max(0, targetNew.cur_health);
-          actionEffects.push({
-            txt: `${targetCur.username} takes ${damage} damage`,
-            color: "red",
-          });
+          const damage = damangeCalc(e, origin, target) * applyTimes;
+          consequences.set(e.id, { userId: e.creatorId, targetId: e.targetId, damage });
         } else if (e.type === "heal") {
           // TODO: Account for level power effect
           const power = e.power;
-          const amount =
-            e.calculation === "percentage"
-              ? targetNew.max_health * (power / 100)
-              : power;
-          targetNew.cur_health += amount;
-          targetNew.cur_health = Math.min(targetNew.max_health, targetNew.cur_health);
-          actionEffects.push({
-            txt: `${targetCur.username} heals ${amount} HP`,
-            color: "green",
-          });
+          const heal =
+            e.calculation === "percentage" ? target.max_health * (power / 100) : power;
+          consequences.set(e.id, { userId: e.creatorId, targetId: e.targetId, heal });
         } else if (e.type === "armoradjust") {
           if (e.power) {
             // TODO: Account for level power effect
             const power = e.power;
-            targetCur.armor += power;
+            target.armor += power;
           }
         } else if (e.type === "statadjust") {
+          // TODO: Show message about stat changes on first apply?
           if (e.power && "calculation" in e && "statTypes" in e) {
             const power = e.power;
             e.statTypes?.forEach((stat) => {
               if (stat === "Highest") {
                 if (e.calculation === "static") {
-                  targetCur.highest_offence += power;
-                  targetCur.highest_defence += power;
+                  target.highest_offence += power;
+                  target.highest_defence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.highest_offence *= (100 + power) / 100;
-                  targetCur.highest_defence *= (100 + power) / 100;
+                  target.highest_offence *= (100 + power) / 100;
+                  target.highest_defence *= (100 + power) / 100;
                 }
               } else if (stat === "Ninjutsu") {
                 if (e.calculation === "static") {
-                  targetCur.ninjutsu_offence += power;
-                  targetCur.ninjutsu_defence += power;
+                  target.ninjutsu_offence += power;
+                  target.ninjutsu_defence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.ninjutsu_offence *= (100 + power) / 100;
-                  targetCur.ninjutsu_defence *= (100 + power) / 100;
+                  target.ninjutsu_offence *= (100 + power) / 100;
+                  target.ninjutsu_defence *= (100 + power) / 100;
                 }
               } else if (stat === "Genjutsu") {
                 if (e.calculation === "static") {
-                  targetCur.genjutsu_offence += power;
-                  targetCur.genjutsu_defence += power;
+                  target.genjutsu_offence += power;
+                  target.genjutsu_defence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.genjutsu_offence *= (100 + power) / 100;
-                  targetCur.genjutsu_defence *= (100 + power) / 100;
+                  target.genjutsu_offence *= (100 + power) / 100;
+                  target.genjutsu_defence *= (100 + power) / 100;
                 }
               } else if (stat === "Taijutsu") {
                 if (e.calculation === "static") {
-                  targetCur.taijutsu_offence += power;
-                  targetCur.taijutsu_defence += power;
+                  target.taijutsu_offence += power;
+                  target.taijutsu_defence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.taijutsu_offence *= (100 + power) / 100;
-                  targetCur.taijutsu_defence *= (100 + power) / 100;
+                  target.taijutsu_offence *= (100 + power) / 100;
+                  target.taijutsu_defence *= (100 + power) / 100;
                 }
               } else if (stat === "Bukijutsu") {
                 if (e.calculation === "static") {
-                  targetCur.bukijutsu_offence += power;
-                  targetCur.bukijutsu_defence += power;
+                  target.bukijutsu_offence += power;
+                  target.bukijutsu_defence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.bukijutsu_offence *= (100 + power) / 100;
-                  targetCur.bukijutsu_defence *= (100 + power) / 100;
+                  target.bukijutsu_offence *= (100 + power) / 100;
+                  target.bukijutsu_defence *= (100 + power) / 100;
                 }
               }
             });
             e.generalTypes?.forEach((general) => {
               if (general === "Strength") {
                 if (e.calculation === "static") {
-                  targetCur.strength += power;
+                  target.strength += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.strength *= (100 + power) / 100;
+                  target.strength *= (100 + power) / 100;
                 }
               } else if (general === "Intelligence") {
                 if (e.calculation === "static") {
-                  targetCur.intelligence += power;
+                  target.intelligence += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.intelligence *= (100 + power) / 100;
+                  target.intelligence *= (100 + power) / 100;
                 }
               } else if (general === "Willpower") {
                 if (e.calculation === "static") {
-                  targetCur.willpower += power;
+                  target.willpower += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.willpower *= (100 + power) / 100;
+                  target.willpower *= (100 + power) / 100;
                 }
               } else if (general === "Speed") {
                 if (e.calculation === "static") {
-                  targetCur.speed += power;
+                  target.speed += power;
                 } else if (e.calculation === "percentage") {
-                  targetCur.speed *= (100 + power) / 100;
+                  target.speed *= (100 + power) / 100;
                 }
               }
             });
           }
         } else if (e.type === "flee") {
           // TODO: Flee from battle
+        } else if (e.type === "damagegivenadjust") {
+          // TODO: Account for level power effect
+          const power = e.power;
+          consequences.forEach((consequence, effectId) => {
+            if (consequence.userId === e.targetId && consequence.damage) {
+              const damageEffect = usersEffects.find((e) => e.id === effectId);
+              if (damageEffect) {
+                let attacks = 0;
+                let defended = 0;
+                // Calculate how much damage to adjust based on stats.
+                if ("statTypes" in damageEffect) {
+                  damageEffect.statTypes?.forEach((stat) => {
+                    attacks += 1;
+                    if ("statTypes" in e && e.statTypes?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                if ("generalTypes" in damageEffect) {
+                  damageEffect.generalTypes?.forEach((stat) => {
+                    attacks += 1;
+                    if ("generalTypes" in e && e.generalTypes?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                if ("elements" in damageEffect) {
+                  damageEffect.elements?.forEach((stat) => {
+                    attacks += 1;
+                    if ("elements" in e && e.elements?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                const ratio = defended / attacks;
+                const change =
+                  e.calculation === "percentage"
+                    ? (power / 100) * consequence.damage
+                    : power;
+                consequence.damage = consequence.damage + change * ratio;
+              }
+            }
+          });
+        } else if (e.type === "damagetakenadjust") {
+          // TODO: damagetakenadjust
+          const power = e.power;
+          consequences.forEach((consequence, effectId) => {
+            if (consequence.targetId === e.targetId && consequence.damage) {
+              const damageEffect = usersEffects.find((e) => e.id === effectId);
+              if (damageEffect) {
+                let attacks = 0;
+                let defended = 0;
+                // Calculate how much damage to adjust based on stats.
+                if ("statTypes" in damageEffect) {
+                  damageEffect.statTypes?.forEach((stat) => {
+                    attacks += 1;
+                    if ("statTypes" in e && e.statTypes?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                if ("generalTypes" in damageEffect) {
+                  damageEffect.generalTypes?.forEach((stat) => {
+                    attacks += 1;
+                    if ("generalTypes" in e && e.generalTypes?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                if ("elements" in damageEffect) {
+                  damageEffect.elements?.forEach((stat) => {
+                    attacks += 1;
+                    if ("elements" in e && e.elements?.includes(stat)) {
+                      defended += 1;
+                    }
+                  });
+                }
+                const ratio = defended / attacks;
+                const change =
+                  e.calculation === "percentage"
+                    ? (power / 100) * consequence.damage
+                    : power;
+                consequence.damage = consequence.damage - change * ratio;
+              }
+            }
+          });
         }
       }
     }
@@ -336,22 +412,6 @@ export const applyEffects = (
       addVisualEffect({
         creatorId: e.creatorId,
         appearAnimation: e.appearAnimation,
-        longitude,
-        latitude,
-      });
-    }
-    // Process disappear animation of characters
-    if (
-      targetNew &&
-      targetNew.cur_health <= 0 &&
-      targetNew.cur_health !== priorHealth &&
-      !targetNew.is_original &&
-      longitude &&
-      latitude
-    ) {
-      addVisualEffect({
-        creatorId: e.creatorId,
-        appearAnimation: "smoke",
         longitude,
         latitude,
       });
@@ -370,6 +430,53 @@ export const applyEffects = (
       }
     }
   });
+
+  // Collapse damage/heal effects & then apply
+  Array.from(consequences.values())
+    .reduce((acc, val) => {
+      const current = acc.find((c) => c.targetId === val.targetId);
+      if (current) {
+        if (val.damage) {
+          current.damage = current.damage ? current.damage + val.damage : val.damage;
+        }
+        if (val.heal) {
+          current.heal = current.heal ? current.heal + val.heal : val.heal;
+        }
+      } else {
+        acc.push(val);
+      }
+      return acc;
+    }, [] as Consequence[])
+    .forEach((c) => {
+      const target = newUsersState.find((u) => u.userId === c.targetId);
+      if (target) {
+        if (c.damage && c.damage > 0) {
+          target.cur_health -= c.damage;
+          target.cur_health = Math.max(0, target.cur_health);
+          actionEffects.push({
+            txt: `${target.username} takes ${c.damage} damage`,
+            color: "red",
+          });
+        }
+        if (c.heal && c.heal > 0) {
+          target.cur_health += c.heal;
+          target.cur_health = Math.min(target.max_health, target.cur_health);
+          actionEffects.push({
+            txt: `${target.username} heals ${c.heal} HP`,
+            color: "green",
+          });
+        }
+        // Process disappear animation of characters
+        if (target.cur_health <= 0 && !target.is_original) {
+          addVisualEffect({
+            creatorId: c.userId,
+            appearAnimation: "smoke",
+            longitude: target.longitude,
+            latitude: target.latitude,
+          });
+        }
+      }
+    });
 
   return {
     newUsersState,
