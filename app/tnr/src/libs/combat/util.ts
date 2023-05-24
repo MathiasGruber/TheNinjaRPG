@@ -1,6 +1,6 @@
 import type { Battle } from "@prisma/client";
 import type { CombatResult } from "./types";
-import type { ReturnedUserState, GroundEffect, UserEffect } from "./types";
+import type { ReturnedUserState, GroundEffect, UserEffect, Consequence } from "./types";
 import { publicState, allState } from "./types";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS } from "./constants";
@@ -118,6 +118,24 @@ export const sortEffects = (
     return ordered.indexOf(a.type) > ordered.indexOf(b.type) ? 1 : -1;
   }
   return 0;
+};
+
+/**
+ * A reducer for collapsing a Map<string, Consequence> into a Consequence[]
+ */
+export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
+  const current = acc.find((c) => c.targetId === val.targetId);
+  if (current) {
+    if (val.damage) {
+      current.damage = current.damage ? current.damage + val.damage : val.damage;
+    }
+    if (val.heal) {
+      current.heal = current.heal ? current.heal + val.heal : val.heal;
+    }
+  } else {
+    acc.push(val);
+  }
+  return acc;
 };
 
 /**

@@ -16,7 +16,7 @@ import { COMBAT_WIDTH, COMBAT_HEIGHT } from "../../../libs/combat/constants";
 import { secondsFromNow, secondsPassed } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";
 import * as map from "../../../../public/map/hexasphere.json";
-import { realizeTag } from "../../../libs/combat/tags";
+import { realizeTag } from "../../../libs/combat/process";
 
 // const redis = Redis.fromEnv();
 

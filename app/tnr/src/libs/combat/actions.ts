@@ -1,7 +1,7 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
 import { MoveTag, DamageTag, HealTag, FleeTag } from "./types";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
-import { realizeTag } from "./tags";
+import { realizeTag } from "./process";
 import { secondsFromNow } from "../../utils/time";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";

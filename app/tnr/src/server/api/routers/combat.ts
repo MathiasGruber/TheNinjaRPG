@@ -5,7 +5,7 @@ import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { defineHex } from "../../../libs/hexgrid";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
-import { applyEffects } from "../../../libs/combat/tags";
+import { applyEffects } from "../../../libs/combat/process";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
