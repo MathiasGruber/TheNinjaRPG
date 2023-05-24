@@ -162,6 +162,63 @@ export const heal = (
   });
 };
 
+/** Absorb damage & convert it to healing */
+export const absorb = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>
+) => {
+  console.log(effect);
+  console.log(consequences);
+  const power = effect.power + effect.level * effect.powerPerLevel;
+  consequences.forEach((consequence, effectId) => {
+    if (consequence.targetId === effect.targetId && consequence.damage) {
+      const damageEffect = usersEffects.find((e) => e.id === effectId);
+      console.log(damageEffect);
+      if (damageEffect) {
+        const ratio = getEfficiencyRatio(damageEffect, effect);
+        const convert =
+          Math.ceil(
+            effect.calculation === "percentage"
+              ? consequence.damage * (power / 100)
+              : power > consequence.damage
+              ? consequence.damage
+              : power
+          ) * ratio;
+        consequence.damage -= convert;
+        consequence.absorb = convert;
+      }
+    }
+  });
+};
+
+/** Reflect damage back to the opponent */
+export const reflect = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>
+) => {
+  const power = effect.power + effect.level * effect.powerPerLevel;
+  consequences.forEach((consequence, effectId) => {
+    if (consequence.targetId === effect.targetId && consequence.damage) {
+      const damageEffect = usersEffects.find((e) => e.id === effectId);
+      if (damageEffect) {
+        const ratio = getEfficiencyRatio(damageEffect, effect);
+        const convert =
+          Math.ceil(
+            effect.calculation === "percentage"
+              ? consequence.damage * (power / 100)
+              : power > consequence.damage
+              ? consequence.damage
+              : power
+          ) * ratio;
+        consequence.damage -= convert;
+        consequence.reflect = convert;
+      }
+    }
+  });
+};
+
 /** Adjust armor by a static amount */
 export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
   const power = effect.power + effect.level * effect.powerPerLevel;
@@ -256,34 +313,7 @@ export const adjustDamageGiven = (
     if (consequence.userId === effect.targetId && consequence.damage) {
       const damageEffect = usersEffects.find((e) => e.id === effectId);
       if (damageEffect) {
-        let attacks = 0;
-        let defended = 0;
-        // Calculate how much damage to adjust based on stats.
-        if ("statTypes" in damageEffect) {
-          damageEffect.statTypes?.forEach((stat) => {
-            attacks += 1;
-            if ("statTypes" in effect && effect.statTypes?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        if ("generalTypes" in damageEffect) {
-          damageEffect.generalTypes?.forEach((stat) => {
-            attacks += 1;
-            if ("generalTypes" in effect && effect.generalTypes?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        if ("elements" in damageEffect) {
-          damageEffect.elements?.forEach((stat) => {
-            attacks += 1;
-            if ("elements" in effect && effect.elements?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        const ratio = defended / attacks;
+        const ratio = getEfficiencyRatio(damageEffect, effect);
         const change =
           effect.calculation === "percentage"
             ? (power / 100) * consequence.damage
@@ -305,34 +335,7 @@ export const adjustDamageTaken = (
     if (consequence.targetId === effect.targetId && consequence.damage) {
       const damageEffect = usersEffects.find((e) => e.id === effectId);
       if (damageEffect) {
-        let attacks = 0;
-        let defended = 0;
-        // Calculate how much damage to adjust based on stats.
-        if ("statTypes" in damageEffect) {
-          damageEffect.statTypes?.forEach((stat) => {
-            attacks += 1;
-            if ("statTypes" in effect && effect.statTypes?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        if ("generalTypes" in damageEffect) {
-          damageEffect.generalTypes?.forEach((stat) => {
-            attacks += 1;
-            if ("generalTypes" in effect && effect.generalTypes?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        if ("elements" in damageEffect) {
-          damageEffect.elements?.forEach((stat) => {
-            attacks += 1;
-            if ("elements" in effect && effect.elements?.includes(stat)) {
-              defended += 1;
-            }
-          });
-        }
-        const ratio = defended / attacks;
+        const ratio = getEfficiencyRatio(damageEffect, effect);
         const change =
           effect.calculation === "percentage"
             ? (power / 100) * consequence.damage
@@ -354,47 +357,49 @@ export const adjustHealGiven = (
     if (consequence.userId === effect.targetId && consequence.heal) {
       const healEffect = usersEffects.find((e) => e.id === effectId);
       if (healEffect) {
-        let healAttrs = 0;
-        let adjustAttrs = 0;
-        // Calculate how much damage to adjust based on stats.
-        if ("statTypes" in healEffect) {
-          healEffect.statTypes?.forEach((stat) => {
-            healAttrs += 1;
-            if ("statTypes" in effect && effect.statTypes?.includes(stat)) {
-              adjustAttrs += 1;
-            }
-          });
-        }
-        if ("generalTypes" in healEffect) {
-          healEffect.generalTypes?.forEach((stat) => {
-            healAttrs += 1;
-            if ("generalTypes" in effect && effect.generalTypes?.includes(stat)) {
-              adjustAttrs += 1;
-            }
-          });
-        }
-        if ("elements" in healEffect) {
-          healEffect.elements?.forEach((stat) => {
-            healAttrs += 1;
-            if ("elements" in effect && effect.elements?.includes(stat)) {
-              adjustAttrs += 1;
-            }
-          });
-        }
-        const ratio = adjustAttrs / healAttrs;
+        const ratio = getEfficiencyRatio(healEffect, effect);
         const change =
           effect.calculation === "percentage"
             ? (power / 100) * consequence.heal
             : power;
-
-        console.log(effect);
-        console.log("Before", consequence.heal);
         consequence.heal = consequence.heal + change * ratio;
-        console.log("change", change);
-        console.log("power", power);
-        console.log("ratio", ratio);
-        console.log("After", consequence.heal);
       }
     }
   });
+};
+
+/**
+ * Calculate ratio of user stats & elements between one user effect to another
+ * Returns a ratio between 0 to 1, 0 indicating e.g. that none of the stats in LHS are
+ * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
+ */
+const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
+  let attacks = 0;
+  let defended = 0;
+  // Calculate how much damage to adjust based on stats.
+  if ("statTypes" in lhs) {
+    lhs.statTypes?.forEach((stat) => {
+      attacks += 1;
+      if ("statTypes" in rhs && rhs.statTypes?.includes(stat)) {
+        defended += 1;
+      }
+    });
+  }
+  if ("generalTypes" in lhs) {
+    lhs.generalTypes?.forEach((stat) => {
+      attacks += 1;
+      if ("generalTypes" in rhs && rhs.generalTypes?.includes(stat)) {
+        defended += 1;
+      }
+    });
+  }
+  if ("elements" in lhs) {
+    lhs.elements?.forEach((stat) => {
+      attacks += 1;
+      if ("elements" in rhs && rhs.elements?.includes(stat)) {
+        defended += 1;
+      }
+    });
+  }
+  return defended / attacks;
 };

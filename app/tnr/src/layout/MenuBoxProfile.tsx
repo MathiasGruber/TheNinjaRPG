@@ -7,9 +7,48 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
+import { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
+
+  /** Convenience method for showing effects based on stats */
+  const showStatAffects = (
+    effect: UserEffect,
+    qualifier: string,
+    key: number,
+    color: string,
+    arrow: string
+  ) => {
+    if ("statTypes" in effect) {
+      return (
+        <div key={key}>
+          {effect.statTypes?.map((e) => {
+            return (
+              <li key={`${e}-${key}`} className={color}>
+                {arrow} {e} {qualifier}
+              </li>
+            );
+          })}
+          {effect.generalTypes?.map((e) => {
+            return (
+              <li key={`${e}-${key}`} className={color}>
+                {arrow} {e} {qualifier}
+              </li>
+            );
+          })}
+          {effect.elements?.map((e) => {
+            return (
+              <li key={`${e}-${key}`} className={color}>
+                {arrow} {e} {qualifier}
+              </li>
+            );
+          })}
+        </div>
+      );
+    }
+    return <div key={key}></div>;
+  };
 
   if (!userData) {
     return <div></div>;
@@ -99,116 +138,18 @@ const MenuBoxProfile: React.FC = () => {
                         {arrow} Armor {direction}
                       </li>
                     );
-                  } else if (effect.type === "statadjust" && "statTypes" in effect) {
-                    return (
-                      <div key={i}>
-                        {effect.statTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} {direction}
-                            </li>
-                          );
-                        })}
-                        {effect.generalTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} {direction}
-                            </li>
-                          );
-                        })}
-                        {effect.elements?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} affinity
-                            </li>
-                          );
-                        })}
-                      </div>
-                    );
-                  } else if (
-                    effect.type === "damagegivenadjust" &&
-                    "statTypes" in effect
-                  ) {
-                    return (
-                      <div key={i}>
-                        {effect.statTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} damage
-                            </li>
-                          );
-                        })}
-                        {effect.generalTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} damage
-                            </li>
-                          );
-                        })}
-                        {effect.elements?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} damage
-                            </li>
-                          );
-                        })}
-                      </div>
-                    );
-                  } else if (
-                    effect.type === "damagetakenadjust" &&
-                    "statTypes" in effect
-                  ) {
-                    return (
-                      <div key={i}>
-                        {effect.statTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} protection
-                            </li>
-                          );
-                        })}
-                        {effect.generalTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} protection
-                            </li>
-                          );
-                        })}
-                        {effect.elements?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} protection
-                            </li>
-                          );
-                        })}
-                      </div>
-                    );
-                  } else if (effect.type === "healadjust" && "statTypes" in effect) {
-                    return (
-                      <div key={i}>
-                        {effect.statTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} healing
-                            </li>
-                          );
-                        })}
-                        {effect.generalTypes?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} healing
-                            </li>
-                          );
-                        })}
-                        {effect.elements?.map((e) => {
-                          return (
-                            <li key={`${e}-${i}`} className={color}>
-                              {arrow} {e} healing
-                            </li>
-                          );
-                        })}
-                      </div>
-                    );
+                  } else if (effect.type === "statadjust") {
+                    return showStatAffects(effect, direction, i, color, arrow);
+                  } else if (effect.type === "damagegivenadjust") {
+                    return showStatAffects(effect, "damage", i, color, arrow);
+                  } else if (effect.type === "damagetakenadjust") {
+                    return showStatAffects(effect, "protection", i, color, arrow);
+                  } else if (effect.type === "healadjust") {
+                    return showStatAffects(effect, "healing", i, color, arrow);
+                  } else if (effect.type === "absorb") {
+                    return showStatAffects(effect, "absorb", i, color, arrow);
+                  } else if (effect.type === "reflect") {
+                    return showStatAffects(effect, "reflect", i, color, arrow);
                   } else {
                     return <div key={i}>Unparsed: {effect.type}</div>;
                   }

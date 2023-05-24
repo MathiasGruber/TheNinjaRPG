@@ -173,6 +173,8 @@ export type Consequence = {
   targetId: string;
   heal?: number;
   damage?: number;
+  reflect?: number;
+  absorb?: number;
 };
 
 /**
@@ -339,6 +341,7 @@ export const AdjustPoolCostTag = z
   .merge(PoolAttributes)
   .merge(IncludeStats);
 
+/** Adjust stats of target by static amount or percentage */
 export const AdjustStatTag = z
   .object({
     type: type("statadjust"),
@@ -348,6 +351,7 @@ export const AdjustStatTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Create a barrier on the battle field */
 export const BarrierTag = z
   .object({
     type: type("barrier"),
@@ -367,6 +371,7 @@ export const ClearTag = z
   })
   .merge(BaseAttributes);
 
+/** Clone user with a percentage of original stats for original & clone */
 export const CloneTag = z
   .object({
     type: type("clone"),
@@ -379,6 +384,7 @@ export const CloneTag = z
     message: "CloneTag can only be set to 0 rounds, indicating a single clone creation",
   });
 
+/** Damage target with either battle calculation formula, static damage, or percentage */
 export const DamageTag = z
   .object({
     type: type("damage"),
@@ -389,6 +395,7 @@ export const DamageTag = z
   .merge(IncludeStats);
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+/** Flee from the battle scene with a given static change */
 export const FleeTag = z
   .object({
     type: type("flee"),
@@ -397,6 +404,7 @@ export const FleeTag = z
   })
   .merge(BaseAttributes);
 
+/** Prevent fleeing */
 export const FleePreventTag = z
   .object({
     type: type("fleeprevent"),
@@ -405,6 +413,7 @@ export const FleePreventTag = z
   })
   .merge(BaseAttributes);
 
+/** Heal the target */
 export const HealTag = z
   .object({
     type: type("heal"),
@@ -414,6 +423,7 @@ export const HealTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Move user on the battlefield */
 export const MoveTag = z
   .object({
     type: type("move"),
@@ -423,6 +433,7 @@ export const MoveTag = z
   .merge(BaseAttributes);
 export type MoveTagType = z.infer<typeof MoveTag>;
 
+/** Kill the target in one move with a given static chance */
 export const OneHitKillTag = z
   .object({
     type: type("onehitkill"),
@@ -431,6 +442,7 @@ export const OneHitKillTag = z
   })
   .merge(BaseAttributes);
 
+/** Prevent being one hit killed */
 export const OneHitKillPreventTag = z
   .object({
     type: type("onehitkillprevent"),
@@ -439,6 +451,7 @@ export const OneHitKillPreventTag = z
   })
   .merge(BaseAttributes);
 
+/** Reflect any damage applied to user back by static or percentage amount */
 export const ReflectTag = z
   .object({
     type: type("reflect"),
@@ -449,6 +462,7 @@ export const ReflectTag = z
   .merge(BaseAttributes)
   .merge(IncludeStats);
 
+/** Prevent robbing money by a static percentage chance */
 export const RobPreventTag = z
   .object({
     type: type("robprevent"),
@@ -457,6 +471,7 @@ export const RobPreventTag = z
   })
   .merge(BaseAttributes);
 
+/** Rob user of money */
 export const RobTag = z
   .object({
     type: type("rob"),

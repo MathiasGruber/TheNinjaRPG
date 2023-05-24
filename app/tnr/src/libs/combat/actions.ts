@@ -8,6 +8,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
+import { AbsorbTag, ReflectTag } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -74,13 +75,22 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        HealTag.parse({
+        // HealTag.parse({
+        //   power: 5,
+        //   powerPerLevel: 1,
+        //   calculation: "static",
+        //   statTypes: ["Ninjutsu", "Genjutsu"],
+        //   generalTypes: ["Willpower", "Intelligence"],
+        //   rounds: 0,
+        //   appearAnimation: "heal",
+        // }),A
+        ReflectTag.parse({
           power: 5,
           powerPerLevel: 1,
-          calculation: "static",
-          statTypes: ["Ninjutsu", "Genjutsu"],
-          generalTypes: ["Willpower", "Intelligence"],
-          rounds: 0,
+          calculation: "percentage",
+          statTypes: ["Taijutsu", "Bukijutsu"],
+          generalTypes: ["Strength", "Speed"],
+          rounds: 10,
           appearAnimation: "heal",
         }),
       ],

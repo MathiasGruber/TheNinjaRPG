@@ -5,7 +5,7 @@ import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive } from "./util";
 import { createId } from "@paralleldrive/cuid2";
-import { clone, move, heal, damageBarrier, damage } from "./tags";
+import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor } from "./tags";
 
@@ -167,8 +167,40 @@ export const applyEffects = (
           adjustDamageTaken(e, usersEffects, consequences);
         } else if (e.type === "healadjust") {
           adjustHealGiven(e, usersEffects, consequences);
+        } else if (e.type === "absorb") {
+          absorb(e, usersEffects, consequences);
+        } else if (e.type === "reflect") {
+          reflect(e, usersEffects, consequences);
+        } else if (e.type === "poolcostadjust") {
+          // TODO:
+        } else if (e.type === "clear") {
+          // TODO:
+        } else if (e.type === "fleeprevent") {
+          // TODO:
+        } else if (e.type === "onehitkill") {
+          // TODO:
+        } else if (e.type === "onehitkillprevent") {
+          // TODO:
+        } else if (e.type === "robprevent") {
+          // TODO:
+        } else if (e.type === "rob") {
+          // TODO:
+        } else if (e.type === "sealprevent") {
+          // TODO:
+        } else if (e.type === "seal") {
+          // TODO:
+        } else if (e.type === "stunprevent") {
+          // TODO:
+        } else if (e.type === "stun") {
+          // TODO:
+        } else if (e.type === "summonprevent") {
+          // TODO:
+        } else if (e.type === "summon") {
+          // TODO:
+        } else if (e.type === "fleeprevent") {
+          // TODO:
         } else if (e.type === "flee") {
-          // TODO: Flee from battle
+          // TODO:
         }
       }
     }
@@ -189,8 +221,9 @@ export const applyEffects = (
   Array.from(consequences.values())
     .reduce(collapseConsequences, [] as Consequence[])
     .forEach((c) => {
+      const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
-      if (target) {
+      if (target && user) {
         if (c.damage && c.damage > 0) {
           target.cur_health -= c.damage;
           target.cur_health = Math.max(0, target.cur_health);
@@ -207,9 +240,28 @@ export const applyEffects = (
             color: "green",
           });
         }
+        if (c.reflect && c.reflect > 0) {
+          user.cur_health -= c.reflect;
+          user.cur_health = Math.max(0, user.cur_health);
+          actionEffects.push({
+            txt: `${user.username} takes ${c.reflect} reflect damage`,
+            color: "red",
+          });
+        }
+        if (c.absorb && c.absorb > 0) {
+          user.cur_health += c.absorb;
+          user.cur_health = Math.min(user.max_health, user.cur_health);
+          actionEffects.push({
+            txt: `${user.username} absorbs ${c.absorb} damage and restores HP`,
+            color: "green",
+          });
+        }
         // Process disappear animation of characters
         if (target.cur_health <= 0 && !target.is_original) {
           newGroundEffects.push(getVisual(target.longitude, target.latitude, "smoke"));
+        }
+        if (user.cur_health <= 0 && !user.is_original) {
+          newGroundEffects.push(getVisual(user.longitude, user.latitude, "smoke"));
         }
       }
     });
