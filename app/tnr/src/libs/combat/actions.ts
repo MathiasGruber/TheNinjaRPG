@@ -9,7 +9,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { StunPreventTag, StunTag } from "./types";
+import { OneHitKillPreventTag, OneHitKillTag } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -59,7 +59,7 @@ export const availableUserActions = (
         //   rounds: 0,
         //   appearAnimation: "hit",
         // }),
-        StunTag.parse({ power: 100, rounds: 10 }),
+        OneHitKillTag.parse({ power: 100, rounds: 0 }),
       ],
     },
     {
@@ -77,9 +77,9 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        StunPreventTag.parse({
+        OneHitKillPreventTag.parse({
           power: 100,
-          rounds: 10,
+          rounds: 3,
         }),
         // HealTag.parse({
         //   power: 5,

@@ -413,6 +413,40 @@ export const move = (
   }
 };
 
+/** One-hit-kill target with a given static chance */
+export const onehitkill = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  const secondaryCheck = preventCheck(usersEffects, "onehitkillprevent", target);
+
+  let info: ActionEffect | undefined = undefined;
+  if (primaryCheck && secondaryCheck) {
+    target.cur_health = 0;
+    info = { txt: `${target.username} was killed`, color: "red" };
+  } else if (primaryCheck) {
+    effect.rounds = 0;
+    info = { txt: `${target.username} resisted being killed`, color: "blue" };
+  } else {
+    info = { txt: `${target.username} was lucky not to get killed!`, color: "blue" };
+  }
+  return info;
+};
+
+/** Status effect to prevent OHKO */
+export const onehitkillPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot be one-hit-killed");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /** Stun target based on static chance */
 export const stun = (
   effect: UserEffect,

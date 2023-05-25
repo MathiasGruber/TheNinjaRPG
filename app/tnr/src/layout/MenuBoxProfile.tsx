@@ -155,7 +155,7 @@ const MenuBoxProfile: React.FC = () => {
                   } else if (effect.type === "fleeprevent") {
                     return (
                       <li key={i} className="text-blue-500">
-                        - Cannot flee
+                        - Cannot flee <Cooldown effect={effect} />
                       </li>
                     );
                   } else if (effect.type === "stunprevent") {
@@ -168,6 +168,12 @@ const MenuBoxProfile: React.FC = () => {
                     return (
                       <li key={i} className="text-blue-500">
                         - Stunned <Cooldown effect={effect} />
+                      </li>
+                    );
+                  } else if (effect.type === "onehitkillprevent" && effect.rounds) {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - OHKO immunity <Cooldown effect={effect} />
                       </li>
                     );
                   } else {

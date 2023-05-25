@@ -8,7 +8,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
-import { stun, stunPrevent } from "./tags";
+import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -74,6 +74,7 @@ const getVisual = (
       createdAt: Date.now(),
     }),
     id: createId(),
+    createdAt: Date.now(),
     creatorId: createId(),
     level: 0,
     isNew: true,
@@ -186,12 +187,10 @@ export const applyEffects = (
           // TODO:
         } else if (e.type === "clear") {
           // TODO:
-        } else if (e.type === "fleeprevent") {
-          // TODO:
         } else if (e.type === "onehitkill") {
-          // TODO:
+          info = onehitkill(e, newUsersEffects, newTarget);
         } else if (e.type === "onehitkillprevent") {
-          // TODO:
+          info = onehitkillPrevent(e, curTarget);
         } else if (e.type === "robprevent") {
           // TODO:
         } else if (e.type === "rob") {
