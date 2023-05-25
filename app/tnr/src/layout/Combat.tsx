@@ -264,7 +264,6 @@ const Combat: React.FC<CombatProps> = (props) => {
             group_users: group_users,
             users: battle.current.usersState,
             grid: grid.current,
-            spriteMixer,
           });
 
           // Draw all effects on the map
@@ -342,7 +341,8 @@ const Combat: React.FC<CombatProps> = (props) => {
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
             <p className="p-5 pb-2 text-3xl">
-              You {result.cur_health <= 0 ? "Lost" : "Won"}
+              You{" "}
+              {result.cur_health <= 0 ? "Lost" : result.experience > 0 ? "Won" : "Fled"}
             </p>
             {result.elo_pvp && <p>Your PVP rating: {result.elo_pvp}</p>}
             {result.experience > 0 && <p>Experience Points: {result.experience}</p>}

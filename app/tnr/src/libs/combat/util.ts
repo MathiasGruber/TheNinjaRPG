@@ -14,7 +14,11 @@ export const findUser = (
   latitude: number
 ) => {
   return users.find(
-    (u) => u.longitude === longitude && u.latitude === latitude && u.cur_health > 0
+    (u) =>
+      u.longitude === longitude &&
+      u.latitude === latitude &&
+      u.cur_health > 0 &&
+      !u.fledBattle
   );
 };
 
@@ -91,11 +95,11 @@ export const sortEffects = (
     "clear",
     "clone",
     "damage",
-    "flee",
     "fleeprevent",
+    "flee",
     "heal",
-    "onehitkill",
     "onehitkillprevent",
+    "onehitkill",
     "robprevent",
     "rob",
     "sealprevent",
@@ -178,8 +182,8 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
       targets = originals.filter((u) => u.villageId !== user.villageId);
       friends = originals.filter((u) => u.villageId === user.villageId);
     }
-    const survivingTargets = targets.filter((t) => t.cur_health > 0);
-    if (user.cur_health <= 0 || survivingTargets.length === 0) {
+    const survivingTargets = targets.filter((t) => t.cur_health > 0 && !t.fledBattle);
+    if (user.cur_health <= 0 || user.fledBattle || survivingTargets.length === 0) {
       // Update the user left
       user.leftBattle = true;
 
@@ -194,6 +198,7 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
       const targetsLeft = targets.filter((u) => !u.leftBattle);
 
       // Result object
+      // TODO: distribute elo_points among stats used during battle
       const result: CombatResult = {
         experience: 0,
         elo_pvp: 0,
@@ -216,8 +221,6 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
       };
-
-      // TODO: distribute elo_points among stats used during battle
 
       // Return results
       return { finalUsersState: users, result: result };

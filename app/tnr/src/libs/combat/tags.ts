@@ -1,180 +1,19 @@
-import type { BattleUserState, AnimationNames } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect, Consequence } from "./types";
+import type { BattleUserState, Consequence } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { shouldApplyEffectTimes } from "./util";
 import { createId } from "@paralleldrive/cuid2";
-
-/**
- * Move user on the battlefield
- * 1. Remove user from current ground effect
- * 2. Add user to any new ground effect
- * 3. Move user
- */
-export const move = (
-  usersState: BattleUserState[],
-  groundEffects: GroundEffect[],
-  effect: GroundEffect
-) => {
-  const user = usersState.find((u) => u.userId === effect.creatorId);
-  if (user) {
-    groundEffects.forEach((g) => {
-      if (g.timeTracker && user.userId in g.timeTracker) {
-        delete g.timeTracker[user.userId];
-      }
-    });
-    groundEffects.forEach((g) => {
-      if (
-        g.timeTracker &&
-        g.longitude === effect.longitude &&
-        g.latitude === effect.latitude
-      ) {
-        g.timeTracker[user.userId] = Date.now();
-      }
-    });
-    user.longitude = effect.longitude;
-    user.latitude = effect.latitude;
-  }
-};
-
-/** Clone user on the battlefield */
-export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
-  const user = usersState.find((u) => u.userId === effect.creatorId);
-  if (user && effect.power) {
-    const perc = effect.power / 100;
-    user.max_health = user.max_health * perc;
-    user.max_chakra = user.max_chakra * perc;
-    user.max_stamina = user.max_stamina * perc;
-    user.cur_health = user.cur_health * perc;
-    user.cur_chakra = user.cur_chakra * perc;
-    user.cur_stamina = user.cur_stamina * perc;
-    user.ninjutsu_offence = user.ninjutsu_offence * perc;
-    user.ninjutsu_defence = user.ninjutsu_defence * perc;
-    user.genjutsu_offence = user.genjutsu_offence * perc;
-    user.genjutsu_defence = user.genjutsu_defence * perc;
-    user.taijutsu_offence = user.taijutsu_offence * perc;
-    user.taijutsu_defence = user.taijutsu_defence * perc;
-    user.bukijutsu_offence = user.bukijutsu_offence * perc;
-    user.bukijutsu_defence = user.bukijutsu_defence * perc;
-    user.highest_offence = user.highest_offence * perc;
-    user.highest_defence = user.highest_defence * perc;
-    user.strength = user.strength * perc;
-    user.intelligence = user.intelligence * perc;
-    user.willpower = user.willpower * perc;
-    user.speed = user.speed * perc;
-    usersState.push({
-      ...user,
-      userId: createId(),
-      longitude: effect.longitude,
-      latitude: effect.latitude,
-      is_original: false,
-    });
-    return true;
-  }
-  return false;
-};
-
-/** Apply damage effect to barrier */
-export const damageBarrier = (groundEffects: GroundEffect[], effect: UserEffect) => {
-  const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
-  const barrier = groundEffects[idx];
-  if (barrier && barrier.power && effect.power) {
-    const applyTimes = shouldApplyEffectTimes(effect, barrier.id);
-    if (applyTimes > 0) {
-      barrier.power -= effect.power * applyTimes;
-      if (barrier.power <= 0) {
-        groundEffects.splice(idx, 1);
-      }
-      const info: ActionEffect = {
-        txt: `Barrier takes ${effect.power} damage ${
-          barrier.power <= 0
-            ? "and is destroyed."
-            : `and has ${barrier.power} power left.`
-        }`,
-        color: "red",
-      };
-      return { info, barrier };
-    }
-  }
-};
-
-/** Calculate damage effect on target */
-export const damage = (
-  effect: UserEffect,
-  origin: BattleUserState | undefined,
-  target: BattleUserState,
-  consequences: Map<string, Consequence>,
-  applyTimes: number
-) => {
-  let ratio = effect.power + effect.level * effect.powerPerLevel;
-  if ("calculation" in effect && effect.calculation === "formula") {
-    const dir = "offensive";
-    effect.statTypes?.forEach((statType) => {
-      const lower = statType.toLowerCase();
-      const a = `${lower}_${dir ? "offence" : "defence"}`;
-      const b = `${lower}_${dir ? "defence" : "offence"}`;
-      if (effect.fromGround && a in effect && b in target) {
-        const left = effect[a as keyof typeof effect] as number;
-        const right = target[b as keyof typeof target] as number;
-        ratio *= left / right;
-      } else if (origin && a in origin && b in target) {
-        const left = origin[a as keyof typeof origin] as number;
-        const right = target[b as keyof typeof target] as number;
-        ratio *= left / right;
-      }
-    });
-    effect.generalTypes?.forEach((generalType) => {
-      const lower = generalType.toLowerCase();
-      if (effect.fromGround && lower in effect && lower in target) {
-        const left = effect[lower as keyof typeof effect] as number;
-        const right = target[lower as keyof typeof target] as number;
-        ratio *= left / right;
-      } else if (origin && lower in origin && lower in target) {
-        const left = origin[lower as keyof typeof origin] as number;
-        const right = target[lower as keyof typeof target] as number;
-        ratio *= left / right;
-      }
-    });
-  }
-  const damage = Math.floor(20 * ratio) * applyTimes;
-  consequences.set(effect.id, {
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    damage,
-  });
-  return damage;
-};
-
-/** Calculate healing effect on target */
-export const heal = (
-  effect: UserEffect,
-  target: BattleUserState,
-  consequences: Map<string, Consequence>,
-  applyTimes: number
-) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
-  const heal =
-    effect.calculation === "percentage"
-      ? target.max_health * (power / 100) * applyTimes
-      : power * applyTimes;
-  consequences.set(effect.id, {
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    heal,
-  });
-};
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
 ) => {
-  console.log(effect);
-  console.log(consequences);
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, qualifier } = getPower(effect);
   consequences.forEach((consequence, effectId) => {
     if (consequence.targetId === effect.targetId && consequence.damage) {
       const damageEffect = usersEffects.find((e) => e.id === effectId);
-      console.log(damageEffect);
       if (damageEffect) {
         const ratio = getEfficiencyRatio(damageEffect, effect);
         const convert =
@@ -190,44 +29,20 @@ export const absorb = (
       }
     }
   });
-};
-
-/** Reflect damage back to the opponent */
-export const reflect = (
-  effect: UserEffect,
-  usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>
-) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.targetId === effect.targetId && consequence.damage) {
-      const damageEffect = usersEffects.find((e) => e.id === effectId);
-      if (damageEffect) {
-        const ratio = getEfficiencyRatio(damageEffect, effect);
-        const convert =
-          Math.ceil(
-            effect.calculation === "percentage"
-              ? consequence.damage * (power / 100)
-              : power > consequence.damage
-              ? consequence.damage
-              : power
-          ) * ratio;
-        consequence.damage -= convert;
-        consequence.reflect = convert;
-      }
-    }
-  });
+  return getInfo(target, effect, `will absorb ${qualifier} damage`);
 };
 
 /** Adjust armor by a static amount */
 export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, adverb, qualifier } = getPower(effect);
   target.armor += power;
+  return getInfo(target, effect, `armor is ${adverb} by ${qualifier}`);
 };
 
 /** Adjust stats of target based on effect */
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, adverb, qualifier } = getPower(effect);
+  const affected: string[] = [];
   if ("calculation" in effect && "statTypes" in effect) {
     effect.statTypes?.forEach((stat) => {
       if (stat === "Highest") {
@@ -299,16 +114,20 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
         }
       }
     });
+    if (effect.statTypes) affected.push(...effect.statTypes);
+    if (effect.generalTypes) affected.push(...effect.generalTypes);
   }
+  return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
 };
 
 /** Adjust damage given by target */
 export const adjustDamageGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
 ) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, adverb, qualifier } = getPower(effect);
   consequences.forEach((consequence, effectId) => {
     if (consequence.userId === effect.targetId && consequence.damage) {
       const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -322,15 +141,17 @@ export const adjustDamageGiven = (
       }
     }
   });
+  return getInfo(target, effect, `damage given is ${adverb} by ${qualifier}`);
 };
 
 /** Adjust damage taken by user */
 export const adjustDamageTaken = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
 ) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, adverb, qualifier } = getPower(effect);
   consequences.forEach((consequence, effectId) => {
     if (consequence.targetId === effect.targetId && consequence.damage) {
       const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -344,15 +165,17 @@ export const adjustDamageTaken = (
       }
     }
   });
+  return getInfo(target, effect, `damage taken is ${adverb} by ${qualifier}`);
 };
 
 /** Adjust ability to heal other of target */
 export const adjustHealGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
 ) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  const { power, adverb, qualifier } = getPower(effect);
   consequences.forEach((consequence, effectId) => {
     if (consequence.userId === effect.targetId && consequence.heal) {
       const healEffect = usersEffects.find((e) => e.id === effectId);
@@ -366,6 +189,262 @@ export const adjustHealGiven = (
       }
     }
   });
+  return getInfo(target, effect, `healing capacity is ${adverb} by ${qualifier}`);
+};
+
+/** Clone user on the battlefield */
+export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
+  const user = usersState.find((u) => u.userId === effect.creatorId);
+  if (user && effect.power) {
+    const perc = effect.power / 100;
+    user.max_health = user.max_health * perc;
+    user.max_chakra = user.max_chakra * perc;
+    user.max_stamina = user.max_stamina * perc;
+    user.cur_health = user.cur_health * perc;
+    user.cur_chakra = user.cur_chakra * perc;
+    user.cur_stamina = user.cur_stamina * perc;
+    user.ninjutsu_offence = user.ninjutsu_offence * perc;
+    user.ninjutsu_defence = user.ninjutsu_defence * perc;
+    user.genjutsu_offence = user.genjutsu_offence * perc;
+    user.genjutsu_defence = user.genjutsu_defence * perc;
+    user.taijutsu_offence = user.taijutsu_offence * perc;
+    user.taijutsu_defence = user.taijutsu_defence * perc;
+    user.bukijutsu_offence = user.bukijutsu_offence * perc;
+    user.bukijutsu_defence = user.bukijutsu_defence * perc;
+    user.highest_offence = user.highest_offence * perc;
+    user.highest_defence = user.highest_defence * perc;
+    user.strength = user.strength * perc;
+    user.intelligence = user.intelligence * perc;
+    user.willpower = user.willpower * perc;
+    user.speed = user.speed * perc;
+    usersState.push({
+      ...user,
+      userId: createId(),
+      longitude: effect.longitude,
+      latitude: effect.latitude,
+      is_original: false,
+    });
+    return true;
+  }
+  return false;
+};
+
+/** Calculate damage effect on target */
+export const damage = (
+  effect: UserEffect,
+  origin: BattleUserState | undefined,
+  target: BattleUserState,
+  consequences: Map<string, Consequence>,
+  applyTimes: number
+) => {
+  let { power } = getPower(effect);
+  if ("calculation" in effect && effect.calculation === "formula") {
+    const dir = "offensive";
+    effect.statTypes?.forEach((statType) => {
+      const lower = statType.toLowerCase();
+      const a = `${lower}_${dir ? "offence" : "defence"}`;
+      const b = `${lower}_${dir ? "defence" : "offence"}`;
+      if (effect.fromGround && a in effect && b in target) {
+        const left = effect[a as keyof typeof effect] as number;
+        const right = target[b as keyof typeof target] as number;
+        power *= left / right;
+      } else if (origin && a in origin && b in target) {
+        const left = origin[a as keyof typeof origin] as number;
+        const right = target[b as keyof typeof target] as number;
+        power *= left / right;
+      }
+    });
+    effect.generalTypes?.forEach((generalType) => {
+      const lower = generalType.toLowerCase();
+      if (effect.fromGround && lower in effect && lower in target) {
+        const left = effect[lower as keyof typeof effect] as number;
+        const right = target[lower as keyof typeof target] as number;
+        power *= left / right;
+      } else if (origin && lower in origin && lower in target) {
+        const left = origin[lower as keyof typeof origin] as number;
+        const right = target[lower as keyof typeof target] as number;
+        power *= left / right;
+      }
+    });
+  }
+  consequences.set(effect.id, {
+    userId: effect.creatorId,
+    targetId: effect.targetId,
+    damage: Math.floor(20 * power) * applyTimes,
+  });
+  return getInfo(target, effect, "will take damage");
+};
+
+/** Apply damage effect to barrier */
+export const damageBarrier = (groundEffects: GroundEffect[], effect: UserEffect) => {
+  const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
+  const barrier = groundEffects[idx];
+  if (barrier && barrier.power && effect.power) {
+    const applyTimes = shouldApplyEffectTimes(effect, barrier.id);
+    if (applyTimes > 0) {
+      barrier.power -= effect.power * applyTimes;
+      if (barrier.power <= 0) {
+        groundEffects.splice(idx, 1);
+      }
+      const info: ActionEffect = {
+        txt: `Barrier takes ${effect.power} damage ${
+          barrier.power <= 0
+            ? "and is destroyed."
+            : `and has ${barrier.power} power left.`
+        }`,
+        color: "red",
+      };
+      return { info, barrier };
+    }
+  }
+};
+
+/** Flee from the battlefield with a given chance */
+export const flee = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+
+  const prevent = usersEffects.find(
+    (e) => e.type == "fleeprevent" && e.targetId === target.userId
+  );
+  let preventCheck = true;
+  if (prevent) {
+    const power = prevent.power + prevent.level * prevent.powerPerLevel;
+    preventCheck = Math.random() > power / 100;
+  }
+
+  let info: ActionEffect | undefined = undefined;
+  if (mainCheck && preventCheck) {
+    target.fledBattle = true;
+    console.log(target);
+    info = { txt: `${target.username} manages to flee the battle!`, color: "blue" };
+  } else if (mainCheck) {
+    info = { txt: `${target.username} is prevented from fleeing`, color: "blue" };
+  } else {
+    info = { txt: `${target.username} fails to flee the battle!`, color: "blue" };
+  }
+  return info;
+};
+
+/** Check if flee prevent is successful depending on static chance calculation */
+export const fleePrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot flee");
+  } else {
+    effect.rounds = 0;
+  }
+};
+
+/** Calculate healing effect on target */
+export const heal = (
+  effect: UserEffect,
+  target: BattleUserState,
+  consequences: Map<string, Consequence>,
+  applyTimes: number
+) => {
+  const { power } = getPower(effect);
+  const heal =
+    effect.calculation === "percentage"
+      ? target.max_health * (power / 100) * applyTimes
+      : power * applyTimes;
+  consequences.set(effect.id, {
+    userId: effect.creatorId,
+    targetId: effect.targetId,
+    heal,
+  });
+  return getInfo(target, effect, "will heal");
+};
+
+/** Reflect damage back to the opponent */
+export const reflect = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  consequences.forEach((consequence, effectId) => {
+    if (consequence.targetId === effect.targetId && consequence.damage) {
+      const damageEffect = usersEffects.find((e) => e.id === effectId);
+      if (damageEffect) {
+        const ratio = getEfficiencyRatio(damageEffect, effect);
+        const convert =
+          Math.ceil(
+            effect.calculation === "percentage"
+              ? consequence.damage * (power / 100)
+              : power > consequence.damage
+              ? consequence.damage
+              : power
+          ) * ratio;
+        consequence.damage -= convert;
+        consequence.reflect = convert;
+      }
+    }
+  });
+  return getInfo(target, effect, "will reflect damage");
+};
+
+/**
+ * Move user on the battlefield
+ * 1. Remove user from current ground effect
+ * 2. Add user to any new ground effect
+ * 3. Move user
+ */
+export const move = (
+  usersState: BattleUserState[],
+  groundEffects: GroundEffect[],
+  effect: GroundEffect
+) => {
+  const user = usersState.find((u) => u.userId === effect.creatorId);
+  if (user) {
+    groundEffects.forEach((g) => {
+      if (g.timeTracker && user.userId in g.timeTracker) {
+        delete g.timeTracker[user.userId];
+      }
+    });
+    groundEffects.forEach((g) => {
+      if (
+        g.timeTracker &&
+        g.longitude === effect.longitude &&
+        g.latitude === effect.latitude
+      ) {
+        g.timeTracker[user.userId] = Date.now();
+      }
+    });
+    user.longitude = effect.longitude;
+    user.latitude = effect.latitude;
+  }
+};
+
+/**
+ * ***********************************************
+ *              UTILITY METHODS
+ * ***********************************************
+ */
+
+const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
+  if (effect.isNew && effect.rounds) {
+    const info: ActionEffect = {
+      txt: `${target.username} ${msg} for the next ${effect.rounds} rounds`,
+      color: "blue",
+    };
+    return info;
+  }
+  return undefined;
+};
+
+/** Convenience method used by a lot of tags */
+const getPower = (effect: UserEffect) => {
+  const power = effect.power + effect.level * effect.powerPerLevel;
+  const adverb = power > 0 ? "increased" : "decreased";
+  const qualifier = effect.calculation === "percentage" ? `${power}%` : power;
+  return { power, adverb, qualifier };
 };
 
 /**

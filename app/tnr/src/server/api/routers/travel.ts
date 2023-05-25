@@ -264,6 +264,7 @@ export const travelRouter = createTRPCRouter({
             const effects = user.bloodline.effects as unknown as UserEffect[];
             effects.forEach((effect) => {
               const realized = realizeTag(effect, user, user.level);
+              realized.isNew = false;
               realized.targetId = user.userId;
               userEffects.push(realized);
             });
@@ -277,6 +278,7 @@ export const travelRouter = createTRPCRouter({
                 const effects = useritem.item.effects as unknown as UserEffect[];
                 effects.forEach((effect) => {
                   const realized = realizeTag(effect, user, user.level);
+                  realized.isNew = false;
                   realized.targetId = user.userId;
                   userEffects.push(realized);
                 });
@@ -286,8 +288,10 @@ export const travelRouter = createTRPCRouter({
             }
           });
           user.items = items;
-          // Base armor is 0
+          // Base values
           user.armor = 0;
+          user.fledBattle = false;
+          user.leftBattle = false;
           return user;
         });
 
@@ -309,6 +313,7 @@ export const travelRouter = createTRPCRouter({
                   level: 0,
                   longitude: col,
                   latitude: row,
+                  isNew: false,
                   staticAssetPath: asset.filepath + asset.filename,
                 };
                 groundEffects.push(tag);

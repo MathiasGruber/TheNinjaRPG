@@ -8,7 +8,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { AbsorbTag, ReflectTag } from "./types";
+import { FleePreventTag } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -75,6 +75,10 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
+        FleePreventTag.parse({
+          power: 100,
+          rounds: 10,
+        }),
         // HealTag.parse({
         //   power: 5,
         //   powerPerLevel: 1,
@@ -83,16 +87,7 @@ export const availableUserActions = (
         //   generalTypes: ["Willpower", "Intelligence"],
         //   rounds: 0,
         //   appearAnimation: "heal",
-        // }),A
-        ReflectTag.parse({
-          power: 5,
-          powerPerLevel: 1,
-          calculation: "percentage",
-          statTypes: ["Taijutsu", "Bukijutsu"],
-          generalTypes: ["Strength", "Speed"],
-          rounds: 10,
-          appearAnimation: "heal",
-        }),
+        // }),
       ],
     },
     {
@@ -108,7 +103,7 @@ export const availableUserActions = (
       chakraCostPerc: 0,
       staminaCostPerc: 0,
       actionCostPerc: 50,
-      effects: [MoveTag.parse({ chance: 100 })],
+      effects: [MoveTag.parse({ power: 100 })],
     },
     {
       id: "flee",
@@ -123,7 +118,7 @@ export const availableUserActions = (
       chakraCostPerc: 0,
       staminaCostPerc: 0,
       actionCostPerc: 100,
-      effects: [FleeTag.parse({ chance: 20 })],
+      effects: [FleeTag.parse({ power: 100, rounds: 0 })],
     },
     ...(user?.jutsus
       ? user.jutsus.map((userjutsu) => {

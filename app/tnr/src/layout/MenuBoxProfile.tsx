@@ -150,6 +150,12 @@ const MenuBoxProfile: React.FC = () => {
                     return showStatAffects(effect, "absorb", i, color, arrow);
                   } else if (effect.type === "reflect") {
                     return showStatAffects(effect, "reflect", i, color, arrow);
+                  } else if (effect.type === "fleeprevent") {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Cannot flee
+                      </li>
+                    );
                   } else {
                     return <div key={i}>Unparsed: {effect.type}</div>;
                   }

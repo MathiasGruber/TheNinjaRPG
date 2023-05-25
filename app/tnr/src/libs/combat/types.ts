@@ -34,6 +34,8 @@ export const publicState = [
   "elo_pve",
   "regeneration",
   "village",
+  "fledBattle",
+  "leftBattle",
   "is_original",
   "controllerId",
 ] as const;
@@ -80,10 +82,12 @@ export type BattleUserState = UserData & {
   highest_offence: number;
   highest_defence: number;
   armor: number;
+  hidden?: boolean;
   is_original: boolean;
   controllerId: string;
+  leftBattle: boolean;
+  fledBattle: boolean;
   hex?: TerrainHex;
-  leftBattle?: boolean;
 };
 
 /**
@@ -93,29 +97,8 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
   Partial<BattleUserState>;
 
 /**
- * User data for drawn users on the battle page
+ * Result type for users when battle is ended
  */
-// TODO: Do we need this type? isn't it just a subset of the other one?
-export interface DrawnCombatUser {
-  userId: string;
-  villageId?: string | null;
-  village?: Village | null;
-  username: string;
-  updatedAt: Date;
-  cur_health: number;
-  max_health: number;
-  cur_stamina?: number;
-  max_stamina?: number;
-  cur_chakra?: number;
-  max_chakra?: number;
-  avatar: string | null;
-  longitude: number;
-  latitude: number;
-  hidden?: boolean;
-  is_original: boolean;
-  controllerId: string;
-}
-
 export type CombatResult = {
   experience: number;
   elo_pvp: number;
@@ -579,6 +562,7 @@ export type BattleEffect = ZodAllTags & {
   id: string;
   creatorId: string;
   level: number;
+  isNew: boolean;
   targetType?: "user" | "barrier";
   highest_offence?: number;
   highest_defence?: number;

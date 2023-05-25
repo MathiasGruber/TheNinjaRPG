@@ -23,7 +23,7 @@ import { Animations } from "./types";
 import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_PREMOVE_SECONDS } from "./constants";
 import { actionSecondsAfterAction, getAffectedTiles } from "./movement";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
-import type { GroundEffect, DrawnCombatUser, BarrierTagType } from "./types";
+import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
 import type { UserBattle } from "../../utils/UserContext";
 import type { SpriteMixer } from "../threejs/SpriteMixer";
@@ -311,9 +311,9 @@ export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: numb
 /**
  * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
-export const createUserSprite = (userData: DrawnCombatUser, hex: TerrainHex) => {
-  // If no health, no need
-  if (userData.cur_health <= 0) return undefined;
+export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) => {
+  // If not there, nope
+  if (userData.cur_health <= 0 || userData.fledBattle) return undefined;
 
   // Group is used to group components of the user Marker
   const group = new Group();
@@ -438,12 +438,11 @@ export const setVisible = (obj: Object3D<Event> | Group | Sprite, visible: boole
  */
 export const drawCombatUsers = (info: {
   group_users: Group;
-  users: DrawnCombatUser[];
+  users: ReturnedUserState[];
   grid: Grid<TerrainHex>;
-  spriteMixer: ReturnType<typeof SpriteMixer>;
 }) => {
   // Destruct
-  const { users, group_users, grid, spriteMixer } = info;
+  const { users, group_users, grid } = info;
   // Draw the users
   const drawnIds = new Set<string>();
   users.forEach((user) => {
@@ -491,7 +490,10 @@ export const drawCombatUsers = (info: {
         }
         userMesh.position.set(targetX, targetY, 0);
         // Handle remove users from combat.
-        if (user.cur_health <= 0 && user.hidden === undefined) {
+        if (
+          (user.cur_health <= 0 || user.fledBattle === true) &&
+          user.hidden === undefined
+        ) {
           setVisible(userMesh, false);
           if (user.is_original) {
             const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
@@ -650,7 +652,7 @@ export const highlightUsers = (info: {
   group_users: Group;
   raycaster: Raycaster;
   userId: string;
-  users: DrawnCombatUser[];
+  users: ReturnedUserState[];
   currentHighlights: Set<string>;
 }) => {
   // Definitions
@@ -665,7 +667,8 @@ export const highlightUsers = (info: {
       (u) =>
         u.longitude === targetTile.col &&
         u.latitude === targetTile.row &&
-        u.cur_health > 0
+        u.cur_health > 0 &&
+        u.fledBattle === false
     );
     if (target) {
       const userMesh = group_users.getObjectByName(target.userId) as Group;

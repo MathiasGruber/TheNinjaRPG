@@ -4,13 +4,13 @@ import { COMBAT_SECONDS } from "./constants";
 import { secondsPassed } from "../../utils/time";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
-import type { DrawnCombatUser, CombatAction, GroundEffect } from "./types";
+import type { CombatAction, GroundEffect, ReturnedUserState } from "./types";
 
 export const isValidMove = (info: {
   action: CombatAction;
   target: TerrainHex;
-  user: DrawnCombatUser;
-  users: DrawnCombatUser[];
+  user: ReturnedUserState;
+  users: ReturnedUserState[];
   barriers: GroundEffect[];
 }) => {
   const { action, user, users, target, barriers } = info;
@@ -20,7 +20,11 @@ export const isValidMove = (info: {
   );
   if (!barrier) {
     const opponent = users.find(
-      (u) => u.longitude === target.col && u.latitude === target.row && u.cur_health > 0
+      (u) =>
+        u.longitude === target.col &&
+        u.latitude === target.row &&
+        u.cur_health > 0 &&
+        !u.fledBattle
     );
     if (action.target === AttackTarget.CHARACTER) {
       if (opponent) return true;
@@ -62,7 +66,7 @@ export const getAffectedTiles = (info: {
   b: TerrainHex;
   action: CombatAction;
   grid: Grid<TerrainHex>;
-  users: DrawnCombatUser[];
+  users: ReturnedUserState[];
   ground: GroundEffect[];
   userId: string;
 }) => {

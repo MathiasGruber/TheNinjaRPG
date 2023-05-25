@@ -1,13 +1,13 @@
 import type { BattleUserState, AnimationNames } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import { VisualTag, Consequence } from "./types";
+import { VisualTag, type Consequence } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive } from "./util";
 import { createId } from "@paralleldrive/cuid2";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
-import { adjustHealGiven, adjustArmor } from "./tags";
+import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -52,6 +52,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.creatorId = user.userId;
   tag.targetType = "user";
   tag.level = level ?? 0;
+  tag.isNew = true;
   return tag;
 };
 
@@ -74,6 +75,7 @@ const getVisual = (
     id: createId(),
     creatorId: createId(),
     level: 0,
+    isNew: true,
     longitude,
     latitude,
   };
@@ -123,6 +125,7 @@ export const applyEffects = (
       }
       // Let ground effect continue, or is it done?
       if (isEffectStillActive(e)) {
+        e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
         newGroundEffects.push(getVisual(e.longitude, e.latitude, e.disappearAnimation));
@@ -139,6 +142,7 @@ export const applyEffects = (
     const origin = usersState.find((u) => u.userId === e.creatorId);
     let longitude: number | undefined = undefined;
     let latitude: number | undefined = undefined;
+    let info: ActionEffect | undefined = undefined;
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier") {
       const result = damageBarrier(newGroundEffects, e);
@@ -148,29 +152,35 @@ export const applyEffects = (
         actionEffects.push(result.info);
       }
     } else if (e.targetType === "user") {
-      const target = usersState.find((u) => u.userId === e.targetId);
+      const curTarget = usersState.find((u) => u.userId === e.targetId);
+      const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, e.targetId);
-      if (target && applyTimes > 0) {
-        longitude = target?.longitude;
-        latitude = target?.latitude;
-        if (e.type === "damage") {
-          damage(e, origin, target, consequences, applyTimes);
-        } else if (e.type === "heal") {
-          heal(e, target, consequences, applyTimes);
+
+      if (curTarget && newTarget && applyTimes > 0) {
+        longitude = curTarget?.longitude;
+        latitude = curTarget?.latitude;
+        if (e.type === "absorb") {
+          info = absorb(e, usersEffects, consequences, curTarget);
         } else if (e.type === "armoradjust") {
-          adjustArmor(e, target);
+          info = adjustArmor(e, curTarget);
         } else if (e.type === "statadjust") {
-          adjustStats(e, target);
+          info = adjustStats(e, curTarget);
         } else if (e.type === "damagegivenadjust") {
-          adjustDamageGiven(e, usersEffects, consequences);
+          info = adjustDamageGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damagetakenadjust") {
-          adjustDamageTaken(e, usersEffects, consequences);
+          info = adjustDamageTaken(e, usersEffects, consequences, curTarget);
         } else if (e.type === "healadjust") {
-          adjustHealGiven(e, usersEffects, consequences);
-        } else if (e.type === "absorb") {
-          absorb(e, usersEffects, consequences);
+          info = adjustHealGiven(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "damage") {
+          info = damage(e, origin, curTarget, consequences, applyTimes);
+        } else if (e.type === "heal") {
+          info = heal(e, curTarget, consequences, applyTimes);
         } else if (e.type === "reflect") {
-          reflect(e, usersEffects, consequences);
+          info = reflect(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "fleeprevent") {
+          info = fleePrevent(e, curTarget);
+        } else if (e.type === "flee") {
+          info = flee(e, newUsersEffects, newTarget);
         } else if (e.type === "poolcostadjust") {
           // TODO:
         } else if (e.type === "clear") {
@@ -197,13 +207,15 @@ export const applyEffects = (
           // TODO:
         } else if (e.type === "summon") {
           // TODO:
-        } else if (e.type === "fleeprevent") {
-          // TODO:
-        } else if (e.type === "flee") {
-          // TODO:
         }
       }
     }
+
+    // Show text results of actions
+    if (info) {
+      actionEffects.push(info);
+    }
+
     // Show once appearing animation
     if (e.appearAnimation && longitude && latitude) {
       newGroundEffects.push(getVisual(longitude, latitude, e.appearAnimation));
@@ -211,6 +223,7 @@ export const applyEffects = (
 
     // Process round reduction & tag removal
     if (isEffectStillActive(e) && !e.fromGround) {
+      e.isNew = false;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
       newGroundEffects.push(getVisual(longitude, latitude, e.disappearAnimation));
