@@ -8,6 +8,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
+import { stun, stunPrevent } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -200,9 +201,9 @@ export const applyEffects = (
         } else if (e.type === "seal") {
           // TODO:
         } else if (e.type === "stunprevent") {
-          // TODO:
+          info = stunPrevent(e, curTarget);
         } else if (e.type === "stun") {
-          // TODO:
+          info = stun(e, newUsersEffects, curTarget);
         } else if (e.type === "summonprevent") {
           // TODO:
         } else if (e.type === "summon") {

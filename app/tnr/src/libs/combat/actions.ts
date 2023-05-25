@@ -1,5 +1,6 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
-import { MoveTag, DamageTag, HealTag, FleeTag } from "./types";
+import { MoveTag, DamageTag, FleeTag } from "./types";
+import { isEffectStillActive } from "./util";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./process";
 import { secondsFromNow } from "../../utils/time";
@@ -8,7 +9,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { FleePreventTag } from "./types";
+import { StunPreventTag, StunTag } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -50,14 +51,15 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        DamageTag.parse({
-          power: 1,
-          powerPerLevel: 0.1,
-          statTypes: ["Taijutsu", "Bukijutsu"],
-          generalTypes: ["Strength", "Speed"],
-          rounds: 0,
-          appearAnimation: "hit",
-        }),
+        // DamageTag.parse({
+        //   power: 1,
+        //   powerPerLevel: 0.1,
+        //   statTypes: ["Taijutsu", "Bukijutsu"],
+        //   generalTypes: ["Strength", "Speed"],
+        //   rounds: 0,
+        //   appearAnimation: "hit",
+        // }),
+        StunTag.parse({ power: 100, rounds: 10 }),
       ],
     },
     {
@@ -75,7 +77,7 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        FleePreventTag.parse({
+        StunPreventTag.parse({
           power: 100,
           rounds: 10,
         }),
@@ -190,7 +192,12 @@ export const performAction = (info: {
   const user = alive.find((u) => u.userId === userId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
-  // TODO: Check if user is stunned + other prevent action conditions
+  // Check for stun effects
+  const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === userId);
+  if (stunned && isEffectStillActive(stunned)) {
+    throw new Error("User is stunned");
+  }
+
   // Check if the user can perform the action
   if (user?.hex && targetTile) {
     // Village ID

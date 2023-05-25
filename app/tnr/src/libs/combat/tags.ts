@@ -306,23 +306,14 @@ export const flee = (
   target: BattleUserState
 ) => {
   const { power } = getPower(effect);
-  const mainCheck = Math.random() < power / 100;
-
-  const prevent = usersEffects.find(
-    (e) => e.type == "fleeprevent" && e.targetId === target.userId
-  );
-  let preventCheck = true;
-  if (prevent) {
-    const power = prevent.power + prevent.level * prevent.powerPerLevel;
-    preventCheck = Math.random() > power / 100;
-  }
+  const primaryCheck = Math.random() < power / 100;
+  const secondaryCheck = preventCheck(usersEffects, "fleeprevent", target);
 
   let info: ActionEffect | undefined = undefined;
-  if (mainCheck && preventCheck) {
+  if (primaryCheck && secondaryCheck) {
     target.fledBattle = true;
-    console.log(target);
     info = { txt: `${target.username} manages to flee the battle!`, color: "blue" };
-  } else if (mainCheck) {
+  } else if (primaryCheck) {
     info = { txt: `${target.username} is prevented from fleeing`, color: "blue" };
   } else {
     info = { txt: `${target.username} fails to flee the battle!`, color: "blue" };
@@ -336,7 +327,7 @@ export const fleePrevent = (effect: UserEffect, target: BattleUserState) => {
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     return getInfo(target, effect, "cannot flee");
-  } else {
+  } else if (effect.isNew) {
     effect.rounds = 0;
   }
 };
@@ -422,6 +413,39 @@ export const move = (
   }
 };
 
+/** Stun target based on static chance */
+export const stun = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  const secondaryCheck = preventCheck(usersEffects, "stunprevent", target);
+
+  let info: ActionEffect | undefined = undefined;
+  if (primaryCheck && secondaryCheck) {
+    info = getInfo(target, effect, "is stunned");
+  } else if (primaryCheck) {
+    effect.rounds = 0;
+    info = { txt: `${target.username} resisted being stunned`, color: "blue" };
+  } else {
+    info = { txt: `${target.username} manages not to be stunned!`, color: "blue" };
+  }
+  return info;
+};
+
+/** Prevent target from being stunned */
+export const stunPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot be stunned");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /**
  * ***********************************************
  *              UTILITY METHODS
@@ -481,4 +505,22 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
     });
   }
   return defended / attacks;
+};
+
+/**
+ * Checks for a given prevent action, e.g. stunprevent, fleeprevent, etc.
+ */
+const preventCheck = (
+  usersEffects: UserEffect[],
+  type: string,
+  target: BattleUserState
+) => {
+  const prevent = usersEffects.find(
+    (e) => e.type == type && e.targetId === target.userId
+  );
+  if (prevent) {
+    const power = prevent.power + prevent.level * prevent.powerPerLevel;
+    return Math.random() > power / 100;
+  }
+  return true;
 };

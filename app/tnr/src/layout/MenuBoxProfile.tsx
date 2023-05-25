@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { UserStatus } from "@prisma/client";
 
@@ -8,6 +8,8 @@ import AvatarImage from "./Avatar";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { UserEffect } from "../libs/combat/types";
+import { getDaysHoursMinutesSeconds } from "../utils/time";
+import { COMBAT_SECONDS } from "../libs/combat/constants";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
@@ -156,6 +158,18 @@ const MenuBoxProfile: React.FC = () => {
                         - Cannot flee
                       </li>
                     );
+                  } else if (effect.type === "stunprevent") {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Stun Resistance <Cooldown effect={effect} />
+                      </li>
+                    );
+                  } else if (effect.type === "stun" && effect.rounds) {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Stunned <Cooldown effect={effect} />
+                      </li>
+                    );
                   } else {
                     return <div key={i}>Unparsed: {effect.type}</div>;
                   }
@@ -171,3 +185,32 @@ const MenuBoxProfile: React.FC = () => {
 // TODO: Add ground effects explanations
 
 export default MenuBoxProfile;
+
+interface CooldownProps {
+  effect: UserEffect;
+}
+
+const Cooldown: React.FC<CooldownProps> = (props) => {
+  const { createdAt, rounds } = props.effect;
+  const [counter, setCounter] = useState<string>("");
+
+  useEffect(() => {
+    if (rounds) {
+      const secondsLeft = createdAt + rounds * COMBAT_SECONDS * 1000 - Date.now();
+      if (secondsLeft > 0) {
+        const interval = setInterval(() => {
+          const [days, hours, minutes, seconds] =
+            getDaysHoursMinutesSeconds(secondsLeft);
+          const minutesStr = minutes.toString().padStart(2, "0");
+          const secondsStr = seconds.toString().padStart(2, "0");
+          setCounter(`${minutesStr}:${secondsStr}`);
+        }, 1000);
+        return () => clearInterval(interval);
+      } else {
+        setCounter(`Done`);
+      }
+    }
+  });
+  if (!rounds) return <></>;
+  return counter ? <>[{counter}]</> : <></>;
+};

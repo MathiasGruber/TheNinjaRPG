@@ -240,7 +240,6 @@ const BaseAttributes = z.object({
   disappearAnimation: z.enum(AnimationNames).optional(),
   // Timing controls
   rounds: z.number().int().min(0).max(20).optional(),
-  createdAt: z.number().optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),
   // Power controls. Has different meanings depending on calculation
   power: z.number().min(1).default(1),
@@ -563,6 +562,7 @@ export type BattleEffect = ZodAllTags & {
   creatorId: string;
   level: number;
   isNew: boolean;
+  createdAt: number;
   targetType?: "user" | "barrier";
   highest_offence?: number;
   highest_defence?: number;
