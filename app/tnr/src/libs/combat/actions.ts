@@ -9,7 +9,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { OneHitKillPreventTag, OneHitKillTag } from "./types";
+import { SealPreventTag, SealTag } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -59,7 +59,7 @@ export const availableUserActions = (
         //   rounds: 0,
         //   appearAnimation: "hit",
         // }),
-        OneHitKillTag.parse({ power: 100, rounds: 0 }),
+        SealTag.parse({ power: 100, rounds: 1 }),
       ],
     },
     {
@@ -77,7 +77,7 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        OneHitKillPreventTag.parse({
+        SealPreventTag.parse({
           power: 100,
           rounds: 3,
         }),

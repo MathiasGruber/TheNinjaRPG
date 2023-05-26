@@ -7,19 +7,22 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
-import { UserEffect } from "../libs/combat/types";
+import { checkSealed } from "../libs/combat/tags";
+import { isEffectStillActive } from "../libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
+import type { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
+  const [state, setState] = useState<number>(0);
 
   /** Convenience method for showing effects based on stats */
   const showStatAffects = (
     effect: UserEffect,
     qualifier: string,
     key: number,
-    color: string,
+    className: string,
     arrow: string
   ) => {
     if ("statTypes" in effect) {
@@ -27,21 +30,21 @@ const MenuBoxProfile: React.FC = () => {
         <div key={key}>
           {effect.statTypes?.map((e) => {
             return (
-              <li key={`${e}-${key}`} className={color}>
+              <li key={`${e}-${key}`} className={className}>
                 {arrow} {e} {qualifier}
               </li>
             );
           })}
           {effect.generalTypes?.map((e) => {
             return (
-              <li key={`${e}-${key}`} className={color}>
+              <li key={`${e}-${key}`} className={className}>
                 {arrow} {e} {qualifier}
               </li>
             );
           })}
           {effect.elements?.map((e) => {
             return (
-              <li key={`${e}-${key}`} className={color}>
+              <li key={`${e}-${key}`} className={className}>
                 {arrow} {e} {qualifier}
               </li>
             );
@@ -55,6 +58,13 @@ const MenuBoxProfile: React.FC = () => {
   if (!userData) {
     return <div></div>;
   }
+
+  // Derived data
+  const active = battle?.usersEffects.filter((e) => isEffectStillActive(e));
+  const sealEffects = active?.filter(
+    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e)
+  );
+
   return (
     <MenuBox
       title={"Hi " + userData.username}
@@ -123,57 +133,85 @@ const MenuBoxProfile: React.FC = () => {
             )}
           </p>
         </div>
-        {battle && (
+        {active && (
           <>
             <hr className="my-2" />
             <ul className="italic">
-              {battle.usersEffects
+              {active
                 .filter((u) => u.targetId === userData.userId)
                 .map((effect, i) => {
+                  let cooldown = <></>;
+                  if (effect.rounds) {
+                    cooldown = (
+                      <Cooldown
+                        effect={effect}
+                        setState={setState}
+                        start={
+                          effect.createdAt +
+                          effect.rounds * COMBAT_SECONDS * 1000 -
+                          Date.now()
+                        }
+                      />
+                    );
+                  }
+                  const isSealed = sealEffects && checkSealed(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;
                   const arrow = positive ? "↑" : "↓";
                   const direction = positive ? "increased" : "decreased";
-                  const color = positive ? "text-green-500" : "text-red-500";
-                  if (effect.type === "armoradjust") {
+                  let className = positive ? "text-green-500" : "text-red-500";
+                  if (isSealed) className += " line-through";
+                  if (effect.type === "statadjust") {
+                    return showStatAffects(effect, direction, i, className, arrow);
+                  } else if (effect.type === "damagegivenadjust") {
+                    return showStatAffects(effect, "damage", i, className, arrow);
+                  } else if (effect.type === "damagetakenadjust") {
+                    return showStatAffects(effect, "protection", i, className, arrow);
+                  } else if (effect.type === "healadjust") {
+                    return showStatAffects(effect, "healing", i, className, arrow);
+                  } else if (effect.type === "absorb") {
+                    return showStatAffects(effect, "absorb", i, className, arrow);
+                  } else if (effect.type === "reflect") {
+                    return showStatAffects(effect, "reflect", i, className, arrow);
+                  } else if (effect.type === "armoradjust") {
                     return (
-                      <li key={i} className={color}>
-                        {arrow} Armor {direction}
+                      <li key={i} className={className}>
+                        {arrow} Armor {cooldown}
                       </li>
                     );
-                  } else if (effect.type === "statadjust") {
-                    return showStatAffects(effect, direction, i, color, arrow);
-                  } else if (effect.type === "damagegivenadjust") {
-                    return showStatAffects(effect, "damage", i, color, arrow);
-                  } else if (effect.type === "damagetakenadjust") {
-                    return showStatAffects(effect, "protection", i, color, arrow);
-                  } else if (effect.type === "healadjust") {
-                    return showStatAffects(effect, "healing", i, color, arrow);
-                  } else if (effect.type === "absorb") {
-                    return showStatAffects(effect, "absorb", i, color, arrow);
-                  } else if (effect.type === "reflect") {
-                    return showStatAffects(effect, "reflect", i, color, arrow);
                   } else if (effect.type === "fleeprevent") {
                     return (
                       <li key={i} className="text-blue-500">
-                        - Cannot flee <Cooldown effect={effect} />
+                        - Cannot flee {cooldown}
                       </li>
                     );
                   } else if (effect.type === "stunprevent") {
                     return (
                       <li key={i} className="text-blue-500">
-                        - Stun Resistance <Cooldown effect={effect} />
+                        - Stun Resistance {cooldown}
                       </li>
                     );
                   } else if (effect.type === "stun" && effect.rounds) {
                     return (
                       <li key={i} className="text-blue-500">
-                        - Stunned <Cooldown effect={effect} />
+                        - Stunned {cooldown}
                       </li>
                     );
                   } else if (effect.type === "onehitkillprevent" && effect.rounds) {
                     return (
                       <li key={i} className="text-blue-500">
-                        - OHKO immunity <Cooldown effect={effect} />
+                        - OHKO immunity {cooldown}
+                      </li>
+                    );
+                  } else if (effect.type === "sealprevent" && effect.rounds) {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Sealing immunity {cooldown}
+                      </li>
+                    );
+                  } else if (effect.type === "seal" && effect.rounds) {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Bloodline Sealed {cooldown}
                       </li>
                     );
                   } else {
@@ -194,6 +232,8 @@ export default MenuBoxProfile;
 
 interface CooldownProps {
   effect: UserEffect;
+  start: number;
+  setState: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const Cooldown: React.FC<CooldownProps> = (props) => {
@@ -213,10 +253,14 @@ const Cooldown: React.FC<CooldownProps> = (props) => {
         }, 1000);
         return () => clearInterval(interval);
       } else {
+        if (props.start > 0) {
+          props.setState((prev) => prev + 1);
+        }
         setCounter(`Done`);
       }
     }
   });
+
   if (!rounds) return <></>;
   return counter ? <>[{counter}]</> : <></>;
 };

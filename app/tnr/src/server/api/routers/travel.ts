@@ -266,6 +266,7 @@ export const travelRouter = createTRPCRouter({
               const realized = realizeTag(effect, user, user.level);
               realized.isNew = false;
               realized.targetId = user.userId;
+              realized.fromBloodline = true;
               userEffects.push(realized);
             });
           }
@@ -310,6 +311,7 @@ export const travelRouter = createTRPCRouter({
                   }),
                   id: `initial-${col}-${row}`,
                   creatorId: "ground",
+                  createdAt: Date.now(),
                   level: 0,
                   longitude: col,
                   latitude: row,

@@ -9,6 +9,7 @@ import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tag
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
+import { seal, sealPrevent, checkSealed } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -138,6 +139,11 @@ export const applyEffects = (
   // Book-keeping for damage and heal effects
   const consequences = new Map<string, Consequence>();
 
+  // Fetch any active sealing effects
+  const sealEffects = active.filter(
+    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e)
+  );
+
   // Apply all user effects to their target users
   active.sort(sortEffects).forEach((e) => {
     // Get the user && effect details
@@ -157,8 +163,8 @@ export const applyEffects = (
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, e.targetId);
-
-      if (curTarget && newTarget && applyTimes > 0) {
+      const isSealed = checkSealed(e, sealEffects);
+      if (curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
         if (e.type === "absorb") {
@@ -196,9 +202,9 @@ export const applyEffects = (
         } else if (e.type === "rob") {
           // TODO:
         } else if (e.type === "sealprevent") {
-          // TODO:
+          info = sealPrevent(e, curTarget);
         } else if (e.type === "seal") {
-          // TODO:
+          info = seal(e, newUsersEffects, curTarget);
         } else if (e.type === "stunprevent") {
           info = stunPrevent(e, curTarget);
         } else if (e.type === "stun") {

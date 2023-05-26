@@ -447,6 +447,50 @@ export const onehitkillPrevent = (effect: UserEffect, target: BattleUserState) =
   }
 };
 
+/** Seal the bloodline effects of the target with static chance */
+export const seal = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  const secondaryCheck = preventCheck(usersEffects, "sealprevent", target);
+
+  let info: ActionEffect | undefined = undefined;
+  if (primaryCheck && secondaryCheck) {
+    info = getInfo(target, effect, "bloodline is sealed");
+  } else if (primaryCheck) {
+    effect.rounds = 0;
+    info = { txt: `${target.username} resisted bloodline sealing`, color: "blue" };
+  } else {
+    info = { txt: `${target.username} bloodline was not sealed`, color: "blue" };
+  }
+  return info;
+};
+
+/** Check if a given effect is sealed based on a list of pre-filtered user effects */
+export const checkSealed = (effect: UserEffect, sealEffects: UserEffect[]) => {
+  if (sealEffects.length > 0 && effect.fromBloodline) {
+    const sealEffect = sealEffects.find((e) => e.targetId === effect.targetId);
+    if (sealEffect) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/** Prevent sealing of bloodline effects with a static chance */
+export const sealPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "bloodline cannot be sealed");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /** Stun target based on static chance */
 export const stun = (
   effect: UserEffect,
