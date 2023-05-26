@@ -1,7 +1,9 @@
 import type { Battle } from "@prisma/client";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, GroundEffect, UserEffect, Consequence } from "./types";
+import type { CombatAction, BattleUserState } from "./types";
 import { publicState, allState } from "./types";
+import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS } from "./constants";
 
@@ -122,6 +124,45 @@ export const sortEffects = (
     return ordered.indexOf(a.type) > ordered.indexOf(b.type) ? 1 : -1;
   }
   return 0;
+};
+
+/**
+ * Given an action, list of user effects, and a target, calculate pool cost for the action
+ */
+export const calcPoolCost = (
+  action: CombatAction,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  let hpCost = (action.healthCostPerc * target.max_health) / 100;
+  let cpCost = (action.chakraCostPerc * target.max_chakra) / 100;
+  let spCost = (action.staminaCostPerc * target.max_stamina) / 100;
+  usersEffects
+    .filter((e) => e.type === "poolcostadjust" && e.targetId === target.userId)
+    .forEach((e) => {
+      const { power } = getPower(e);
+      if ("poolsAffected" in e) {
+        e.poolsAffected?.forEach((pool) => {
+          if (pool === "Health") {
+            hpCost =
+              e.calculation === "static"
+                ? hpCost + power
+                : (hpCost * (100 + power)) / 100;
+          } else if (pool === "Chakra") {
+            cpCost =
+              e.calculation === "static"
+                ? cpCost + power
+                : (cpCost * (100 + power)) / 100;
+          } else if (pool === "Stamina") {
+            spCost =
+              e.calculation === "static"
+                ? spCost + power
+                : (spCost * (100 + power)) / 100;
+          }
+        });
+      }
+    });
+  return { hpCost, cpCost, spCost };
 };
 
 /**

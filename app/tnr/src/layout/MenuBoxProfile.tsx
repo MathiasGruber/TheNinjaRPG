@@ -7,7 +7,7 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
-import { checkSealed } from "../libs/combat/tags";
+import { sealCheck } from "../libs/combat/tags";
 import { isEffectStillActive } from "../libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
@@ -154,12 +154,16 @@ const MenuBoxProfile: React.FC = () => {
                       />
                     );
                   }
-                  const isSealed = sealEffects && checkSealed(effect, sealEffects);
+                  const isSealed = sealEffects && sealCheck(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;
                   const arrow = positive ? "↑" : "↓";
                   const direction = positive ? "increased" : "decreased";
-                  let className = positive ? "text-green-500" : "text-red-500";
-                  if (isSealed) className += " line-through";
+                  let className = isSealed ? "line-through" : "";
+                  if (["poolcostadjust"].includes(effect.type)) {
+                    className = positive ? "text-red-500" : "text-green-500";
+                  } else {
+                    className = positive ? "text-green-500" : "text-red-500";
+                  }
                   if (effect.type === "statadjust") {
                     return showStatAffects(effect, direction, i, className, arrow);
                   } else if (effect.type === "damagegivenadjust") {
@@ -176,6 +180,12 @@ const MenuBoxProfile: React.FC = () => {
                     return (
                       <li key={i} className={className}>
                         {arrow} Armor {cooldown}
+                      </li>
+                    );
+                  } else if (effect.type === "poolcostadjust") {
+                    return (
+                      <li key={i} className={className}>
+                        {arrow} Action cost {cooldown}
                       </li>
                     );
                   } else if (effect.type === "fleeprevent") {

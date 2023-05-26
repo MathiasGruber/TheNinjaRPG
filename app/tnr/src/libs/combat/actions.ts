@@ -9,7 +9,8 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { SealPreventTag, SealTag } from "./types";
+import { AdjustPoolCostTag } from "./types";
+import { calcPoolCost } from "./util";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -46,20 +47,19 @@ export const availableUserActions = (
       method: AttackMethod.SINGLE,
       healthCostPerc: 0,
       chakraCostPerc: 0,
-      staminaCostPerc: 1,
+      staminaCostPerc: 10,
       actionCostPerc: 50,
       range: 1,
       level: user?.level,
       effects: [
-        // DamageTag.parse({
-        //   power: 1,
-        //   powerPerLevel: 0.1,
-        //   statTypes: ["Taijutsu", "Bukijutsu"],
-        //   generalTypes: ["Strength", "Speed"],
-        //   rounds: 0,
-        //   appearAnimation: "hit",
-        // }),
-        SealTag.parse({ power: 100, rounds: 1 }),
+        DamageTag.parse({
+          power: 1,
+          powerPerLevel: 0.1,
+          statTypes: ["Taijutsu", "Bukijutsu"],
+          generalTypes: ["Strength", "Speed"],
+          rounds: 0,
+          appearAnimation: "hit",
+        }),
       ],
     },
     {
@@ -68,7 +68,7 @@ export const availableUserActions = (
       image: "/combat/basicActions/heal.png",
       battleDescription: "%user perform basic healing of %target",
       type: "basic" as const,
-      target: AttackTarget.OTHER_USER,
+      target: AttackTarget.SELF,
       method: AttackMethod.SINGLE,
       healthCostPerc: 0,
       chakraCostPerc: 1,
@@ -77,9 +77,11 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        SealPreventTag.parse({
-          power: 100,
-          rounds: 3,
+        AdjustPoolCostTag.parse({
+          power: 500,
+          calculation: "percentage",
+          poolsAffected: ["Stamina", "Health"],
+          rounds: 10,
         }),
         // HealTag.parse({
         //   power: 5,
@@ -200,6 +202,12 @@ export const performAction = (info: {
 
   // Check if the user can perform the action
   if (user?.hex && targetTile) {
+    // Check pools cost
+    const { hpCost, cpCost, spCost } = calcPoolCost(action, usersEffects, user);
+    if (user.cur_health < hpCost) throw new Error("Not enough health");
+    if (user.cur_chakra < cpCost) throw new Error("Not enough chakra");
+    if (user.cur_stamina < spCost) throw new Error("Not enough stamina");
+
     // Village ID
     const villageId = user.villageId;
     // How much time passed since last action
@@ -293,18 +301,12 @@ export const performAction = (info: {
     });
     // Update pools & action timer based on action
     if (affectedTiles.size > 0) {
-      if (user.cur_chakra && user.max_chakra) {
-        user.cur_chakra -= (action.chakraCostPerc * user.max_chakra) / 100;
-        user.cur_chakra = Math.max(0, user.cur_chakra);
-      }
-      if (user.cur_stamina && user.max_stamina) {
-        user.cur_stamina -= (action.staminaCostPerc * user.max_stamina) / 100;
-        user.cur_stamina = Math.max(0, user.cur_stamina);
-      }
-      if (user.cur_health && user.max_health) {
-        user.cur_health -= (action.healthCostPerc * user.max_health) / 100;
-        user.cur_health = Math.max(0, user.cur_health);
-      }
+      user.cur_chakra -= cpCost;
+      user.cur_chakra = Math.max(0, user.cur_chakra);
+      user.cur_stamina -= spCost;
+      user.cur_stamina = Math.max(0, user.cur_stamina);
+      user.cur_health -= hpCost;
+      user.cur_health = Math.max(0, user.cur_health);
       user.updatedAt = secondsFromNow(-newSeconds);
       // Update user descriptions
       action.battleDescription = action.battleDescription.replaceAll(

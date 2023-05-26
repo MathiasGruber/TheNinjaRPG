@@ -1,5 +1,5 @@
 import type { BattleUserState, Consequence } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect, CombatAction } from "./types";
 import { shouldApplyEffectTimes } from "./util";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -118,6 +118,21 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
     if (effect.generalTypes) affected.push(...effect.generalTypes);
   }
   return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
+};
+
+export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
+  const { adverb, qualifier } = getPower(effect);
+  if ("poolsAffected" in effect) {
+    const affected: string[] = [];
+    effect.poolsAffected?.forEach((pool) => {
+      affected.push(pool);
+    });
+    return getInfo(
+      target,
+      effect,
+      `${affected.join(", ")} cost is ${adverb} by ${qualifier}`
+    );
+  }
 };
 
 /** Adjust damage given by target */
@@ -470,7 +485,7 @@ export const seal = (
 };
 
 /** Check if a given effect is sealed based on a list of pre-filtered user effects */
-export const checkSealed = (effect: UserEffect, sealEffects: UserEffect[]) => {
+export const sealCheck = (effect: UserEffect, sealEffects: UserEffect[]) => {
   if (sealEffects.length > 0 && effect.fromBloodline) {
     const sealEffect = sealEffects.find((e) => e.targetId === effect.targetId);
     if (sealEffect) {
@@ -542,7 +557,7 @@ const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
 };
 
 /** Convenience method used by a lot of tags */
-const getPower = (effect: UserEffect) => {
+export const getPower = (effect: UserEffect) => {
   const power = effect.power + effect.level * effect.powerPerLevel;
   const adverb = power > 0 ? "increased" : "decreased";
   const qualifier = effect.calculation === "percentage" ? `${power}%` : power;

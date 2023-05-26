@@ -9,7 +9,7 @@ import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tag
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
-import { seal, sealPrevent, checkSealed } from "./tags";
+import { seal, sealPrevent, sealCheck, pooladjust } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -163,7 +163,7 @@ export const applyEffects = (
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, e.targetId);
-      const isSealed = checkSealed(e, sealEffects);
+      const isSealed = sealCheck(e, sealEffects);
       if (curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
@@ -190,7 +190,7 @@ export const applyEffects = (
         } else if (e.type === "flee") {
           info = flee(e, newUsersEffects, newTarget);
         } else if (e.type === "poolcostadjust") {
-          // TODO:
+          info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
           // TODO:
         } else if (e.type === "onehitkill") {
