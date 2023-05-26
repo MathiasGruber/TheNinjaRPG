@@ -120,21 +120,6 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
 };
 
-export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
-  const { adverb, qualifier } = getPower(effect);
-  if ("poolsAffected" in effect) {
-    const affected: string[] = [];
-    effect.poolsAffected?.forEach((pool) => {
-      affected.push(pool);
-    });
-    return getInfo(
-      target,
-      effect,
-      `${affected.join(", ")} cost is ${adverb} by ${qualifier}`
-    );
-  }
-};
-
 /** Adjust damage given by target */
 export const adjustDamageGiven = (
   effect: UserEffect,
@@ -205,6 +190,30 @@ export const adjustHealGiven = (
     }
   });
   return getInfo(target, effect, `healing capacity is ${adverb} by ${qualifier}`);
+};
+
+export const clear = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState
+) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  let info: ActionEffect | undefined = undefined;
+  if (mainCheck) {
+    usersEffects
+      .filter((e) => e.targetId === effect.targetId)
+      .forEach((e) => {
+        e.rounds = 0;
+      });
+    info = {
+      txt: `${target.username} was cleared of all status effects`,
+      color: "blue",
+    };
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+  return info;
 };
 
 /** Clone user on the battlefield */
@@ -365,6 +374,21 @@ export const heal = (
     heal,
   });
   return getInfo(target, effect, "will heal");
+};
+
+export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
+  const { adverb, qualifier } = getPower(effect);
+  if ("poolsAffected" in effect) {
+    const affected: string[] = [];
+    effect.poolsAffected?.forEach((pool) => {
+      affected.push(pool);
+    });
+    return getInfo(
+      target,
+      effect,
+      `${affected.join(", ")} cost is ${adverb} by ${qualifier}`
+    );
+  }
 };
 
 /** Reflect damage back to the opponent */

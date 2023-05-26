@@ -88,13 +88,13 @@ export const sortEffects = (
 ) => {
   const ordered = [
     // Pre-modifiers
+    "clear",
     "armoradjust",
     "poolcostadjust",
     "statadjust",
     "poolcostadjust",
     // Mid-modifiers
     "barrier",
-    "clear",
     "clone",
     "damage",
     "fleeprevent",

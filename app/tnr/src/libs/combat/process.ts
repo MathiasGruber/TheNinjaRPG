@@ -10,6 +10,8 @@ import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
+import { clear } from "./tags";
+// TODO: Import all tags at once
 
 /**
  * Realize tag with information about how powerful tag is
@@ -44,13 +46,13 @@ export const realizeTag = <T extends BattleEffect>(
     tag.speed = user.speed;
   }
   if ("rounds" in tag) {
-    tag.createdAt = Date.now();
     tag.timeTracker = {};
   }
   if ("power" in tag) {
     tag.power = tag.power;
   }
   tag.id = createId();
+  tag.createdAt = Date.now();
   tag.creatorId = user.userId;
   tag.targetType = "user";
   tag.level = level ?? 0;
@@ -192,7 +194,7 @@ export const applyEffects = (
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
-          // TODO:
+          info = clear(e, active, curTarget);
         } else if (e.type === "onehitkill") {
           info = onehitkill(e, newUsersEffects, newTarget);
         } else if (e.type === "onehitkillprevent") {

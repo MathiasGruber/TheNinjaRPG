@@ -9,7 +9,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { RobPreventTag, RobTag } from "./types";
+import { ClearTag } from "./types";
 import { calcPoolCost } from "./util";
 
 /**
@@ -60,7 +60,7 @@ export const availableUserActions = (
           rounds: 0,
           appearAnimation: "hit",
         }),
-        // RobTag.parse({
+        // ClearTag.parse({
         //   power: 1,
         //   powerPerLevel: 0.1,
         //   statTypes: ["Taijutsu", "Bukijutsu"],
@@ -85,10 +85,10 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        RobPreventTag.parse({
+        ClearTag.parse({
           power: 100,
           calculation: "static",
-          rounds: 10,
+          rounds: 0,
         }),
         // HealTag.parse({
         //   power: 5,

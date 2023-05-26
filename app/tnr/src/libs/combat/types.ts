@@ -346,7 +346,10 @@ export const ClearTag = z
     description: msg("Clears all effects from the target"),
     calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes);
+  .merge(BaseAttributes)
+  .refine((data) => data.rounds === 0, {
+    message: "ClearTag can only be set to 0 rounds, indicating permanent removal",
+  });
 
 export const CloneTag = z
   .object({
