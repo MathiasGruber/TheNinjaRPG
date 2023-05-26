@@ -194,6 +194,12 @@ const MenuBoxProfile: React.FC = () => {
                         - Cannot flee {cooldown}
                       </li>
                     );
+                  } else if (effect.type === "robprevent") {
+                    return (
+                      <li key={i} className="text-blue-500">
+                        - Rob Immunity {cooldown}
+                      </li>
+                    );
                   } else if (effect.type === "stunprevent") {
                     return (
                       <li key={i} className="text-blue-500">

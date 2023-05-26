@@ -1,5 +1,5 @@
 import type { BattleUserState, Consequence } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect, CombatAction } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { shouldApplyEffectTimes } from "./util";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -457,6 +457,76 @@ export const onehitkillPrevent = (effect: UserEffect, target: BattleUserState) =
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     return getInfo(target, effect, "cannot be one-hit-killed");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
+/** Rob a given user for a given amount of ryo */
+export const rob = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  origin: BattleUserState | undefined,
+  target: BattleUserState
+) => {
+  let stolen = 0;
+  let info: ActionEffect | undefined = undefined;
+  const check = preventCheck(usersEffects, "robprevent", target);
+  if (!check) {
+    info = { txt: `${target.username} resists being robbed`, color: "blue" };
+  } else if (origin) {
+    const { power } = getPower(effect);
+    if ("calculation" in effect && effect.calculation === "formula") {
+      let ratio = power;
+      effect.statTypes?.forEach((statType) => {
+        const lower = statType.toLowerCase();
+        const a = `${lower}_offence`;
+        const b = `${lower}_defence`;
+        if (effect.fromGround && a in effect && b in target) {
+          const left = effect[a as keyof typeof effect] as number;
+          const right = target[b as keyof typeof target] as number;
+          ratio *= left / right;
+        } else if (origin && a in origin && b in target) {
+          const left = origin[a as keyof typeof origin] as number;
+          const right = target[b as keyof typeof target] as number;
+          ratio *= left / right;
+        }
+      });
+      effect.generalTypes?.forEach((generalType) => {
+        const lower = generalType.toLowerCase();
+        if (effect.fromGround && lower in effect && lower in target) {
+          const left = effect[lower as keyof typeof effect] as number;
+          const right = target[lower as keyof typeof target] as number;
+          ratio *= left / right;
+        } else if (origin && lower in origin && lower in target) {
+          const left = origin[lower as keyof typeof origin] as number;
+          const right = target[lower as keyof typeof target] as number;
+          ratio *= left / right;
+        }
+      });
+      stolen = target.money * (ratio / 100);
+    } else if (effect.calculation === "static") {
+      stolen = power;
+    } else if (effect.calculation === "percentage") {
+      stolen = target.money * (power / 100);
+    }
+    stolen = stolen > target.money ? target.money : stolen;
+    origin.money += stolen;
+    target.money -= stolen;
+    info = {
+      txt: `${origin.username} stole ${stolen} ryo from ${target.username}`,
+      color: "blue",
+    };
+  }
+  return info;
+};
+
+/** Prevent robbing */
+export const robPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot be robbed");
   } else if (effect.isNew) {
     effect.rounds = 0;
   }

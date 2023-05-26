@@ -9,7 +9,7 @@ import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tag
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
-import { seal, sealPrevent, sealCheck, pooladjust } from "./tags";
+import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -147,7 +147,7 @@ export const applyEffects = (
   // Apply all user effects to their target users
   active.sort(sortEffects).forEach((e) => {
     // Get the user && effect details
-    const origin = usersState.find((u) => u.userId === e.creatorId);
+    const newOrigin = newUsersState.find((u) => u.userId === e.creatorId);
     let longitude: number | undefined = undefined;
     let latitude: number | undefined = undefined;
     let info: ActionEffect | undefined = undefined;
@@ -180,7 +180,7 @@ export const applyEffects = (
         } else if (e.type === "healadjust") {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damage") {
-          info = damage(e, origin, curTarget, consequences, applyTimes);
+          info = damage(e, newOrigin, curTarget, consequences, applyTimes);
         } else if (e.type === "heal") {
           info = heal(e, curTarget, consequences, applyTimes);
         } else if (e.type === "reflect") {
@@ -198,9 +198,9 @@ export const applyEffects = (
         } else if (e.type === "onehitkillprevent") {
           info = onehitkillPrevent(e, curTarget);
         } else if (e.type === "robprevent") {
-          // TODO:
+          info = robPrevent(e, curTarget);
         } else if (e.type === "rob") {
-          // TODO:
+          info = rob(e, newUsersEffects, newOrigin, newTarget);
         } else if (e.type === "sealprevent") {
           info = sealPrevent(e, curTarget);
         } else if (e.type === "seal") {

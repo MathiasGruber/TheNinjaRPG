@@ -9,7 +9,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { AdjustPoolCostTag } from "./types";
+import { RobPreventTag, RobTag } from "./types";
 import { calcPoolCost } from "./util";
 
 /**
@@ -60,6 +60,14 @@ export const availableUserActions = (
           rounds: 0,
           appearAnimation: "hit",
         }),
+        // RobTag.parse({
+        //   power: 1,
+        //   powerPerLevel: 0.1,
+        //   statTypes: ["Taijutsu", "Bukijutsu"],
+        //   generalTypes: ["Strength", "Speed"],
+        //   rounds: 0,
+        //   appearAnimation: "hit",
+        // }),
       ],
     },
     {
@@ -68,7 +76,7 @@ export const availableUserActions = (
       image: "/combat/basicActions/heal.png",
       battleDescription: "%user perform basic healing of %target",
       type: "basic" as const,
-      target: AttackTarget.SELF,
+      target: AttackTarget.OTHER_USER,
       method: AttackMethod.SINGLE,
       healthCostPerc: 0,
       chakraCostPerc: 1,
@@ -77,10 +85,9 @@ export const availableUserActions = (
       range: 1,
       level: user?.level,
       effects: [
-        AdjustPoolCostTag.parse({
-          power: 500,
-          calculation: "percentage",
-          poolsAffected: ["Stamina", "Health"],
+        RobPreventTag.parse({
+          power: 100,
+          calculation: "static",
           rounds: 10,
         }),
         // HealTag.parse({

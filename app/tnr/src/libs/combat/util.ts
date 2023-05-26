@@ -209,13 +209,13 @@ export const maskBattle = (battle: Battle, userId: string) => {
 /**
  * Figure out if user is still in battle, and if not whether the user won or lost
  */
-export const calcBattleResult = (users: ReturnedUserState[], userId: string) => {
+export const calcBattleResult = (users: BattleUserState[], userId: string) => {
   const user = users.find((u) => u.userId === userId);
   const originals = users.filter((u) => u.is_original);
   if (user && user.cur_stamina && user.cur_chakra) {
     // If 1v1, then friends/targets are the opposing team. If MPvP, separate by village
-    let targets: ReturnedUserState[] = [];
-    let friends: ReturnedUserState[] = [];
+    let targets: BattleUserState[] = [];
+    let friends: BattleUserState[] = [];
     if (originals.length === 2) {
       targets = originals.filter((u) => u.userId !== userId);
       friends = originals.filter((u) => u.userId === userId);
@@ -251,6 +251,7 @@ export const calcBattleResult = (users: ReturnedUserState[], userId: string) => 
         intelligence: 0,
         willpower: 0,
         speed: 0,
+        money: user.money,
         ninjutsu_offence: 0,
         genjutsu_offence: 0,
         taijutsu_offence: 0,

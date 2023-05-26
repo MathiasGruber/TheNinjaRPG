@@ -110,6 +110,7 @@ export type CombatResult = {
   intelligence: number;
   willpower: number;
   speed: number;
+  money: number;
   ninjutsu_offence: number;
   ninjutsu_defence: number;
   genjutsu_offence: number;
