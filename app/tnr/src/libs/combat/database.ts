@@ -18,7 +18,7 @@ export const updateBattle = async (
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-  // Update the battle
+  // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
     await prisma.$executeRaw`DELETE FROM Battle WHERE id = ${battle.id} LIMIT 1`;
     await prisma.$executeRaw`DELETE FROM BattleAction WHERE battleId = ${battle.id}`;
@@ -33,9 +33,7 @@ export const updateBattle = async (
       WHERE id = ${battle.id} AND version = ${battle.version}
       LIMIT 1
     `;
-    if (updatedRows === 0) {
-      throw new Error("Battle version mismatch - need to handle this");
-    }
+    if (updatedRows === 0) return undefined;
   }
   const newBattle = {
     ...battle,

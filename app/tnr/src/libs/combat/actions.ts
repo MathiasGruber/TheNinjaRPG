@@ -177,7 +177,7 @@ export const availableUserActions = (
   ];
 };
 
-export const performAction = (info: {
+export const insertAction = (info: {
   usersState: BattleUserState[];
   usersEffects: UserEffect[];
   groundEffects: GroundEffect[];

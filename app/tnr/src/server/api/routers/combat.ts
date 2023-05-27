@@ -3,14 +3,25 @@ import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
-import { defineHex } from "../../../libs/hexgrid";
-import { availableUserActions, performAction } from "../../../libs/combat/actions";
+import { TerrainHex, defineHex } from "../../../libs/hexgrid";
+import { availableUserActions, insertAction } from "../../../libs/combat/actions";
 import { applyEffects } from "../../../libs/combat/process";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
 import type { GroundEffect, UserEffect } from "../../../libs/combat/types";
 import type { BattleUserState } from "../../../libs/combat/types";
+import { Battle } from "@prisma/client";
+
+const performActionSchema = z.object({
+  battleId: z.string().cuid(),
+  userId: z.string(),
+  actionId: z.string(),
+  longitude: z.number(),
+  latitude: z.number(),
+  version: z.number(),
+});
+type PerformActionType = z.infer<typeof performActionSchema>;
 
 export const combatRouter = createTRPCRouter({
   // Get battle and any users in the battle
@@ -62,34 +73,8 @@ export const combatRouter = createTRPCRouter({
     }),
   // Battle action
   performAction: protectedProcedure
-    .input(
-      z.object({
-        battleId: z.string().cuid(),
-        userId: z.string(),
-        actionId: z.string(),
-        longitude: z.number(),
-        latitude: z.number(),
-        version: z.number(),
-      })
-    )
+    .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
-      // Fetch battle
-      const battle = await ctx.prisma.battle.findUniqueOrThrow({
-        where: { id: input.battleId },
-      });
-
-      // Optimistic update for all other users before we process request
-      const pusher = getServerPusher();
-      void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
-
-      // Get valid actions
-      const usersState = battle.usersState as unknown as BattleUserState[];
-      const usersEffects = battle.usersEffects as unknown as UserEffect[];
-      const groundEffects = battle.groundEffects as unknown as GroundEffect[];
-      const actions = availableUserActions(usersState, ctx.userId);
-      const action = actions.find((a) => a.id === input.actionId);
-      if (!action) throw serverError("PRECONDITION_FAILED", "Invalid action");
-
       // Create the grid for the battle
       const Tile = defineHex({ dimensions: 1, orientation: Orientation.FLAT });
       const grid = new Grid(
@@ -100,61 +85,104 @@ export const combatRouter = createTRPCRouter({
         return tile;
       });
 
-      // Ensure that the userId we're trying to move is valid
-      const user = usersState.find(
-        (u) => u.controllerId === ctx.userId && u.userId === input.userId
-      );
-      if (!user) throw serverError("PRECONDITION_FAILED", "This is not your user");
+      // Attempt to perform action untill success || error thrown
+      while (true) {
+        // Fetch battle
+        const battle = await ctx.prisma.battle.findUniqueOrThrow({
+          where: { id: input.battleId },
+        });
 
-      // Perform action, get latest status effects
-      // Note: this mutates usersEffects, groundEffects
-      const { check, postActionUsersEffects, postActionGroundEffects } = performAction({
-        usersState,
-        usersEffects,
-        groundEffects,
-        grid,
-        action,
-        userId: input.userId,
-        longitude: input.longitude,
-        latitude: input.latitude,
-      });
-      if (!check) {
-        throw serverError(
-          "PRECONDITION_FAILED",
-          "Action not possible, did your opponent already move?"
-        );
+        // Optimistic update for all other users before we process request
+        const pusher = getServerPusher();
+        void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+
+        // Attempt to perform action
+        const {
+          action,
+          finalUsersState,
+          newUsersEffects,
+          newGroundEffects,
+          actionEffects,
+          result,
+        } = performAction(battle, ctx.userId, grid, input);
+
+        /**
+         * DATABASE UPDATES in parallel transaction
+         */
+        const newBattle = await ctx.prisma.$transaction(async (tx) => {
+          const [newBattle] = await Promise.all([
+            updateBattle(
+              result,
+              battle,
+              finalUsersState,
+              newUsersEffects,
+              newGroundEffects,
+              tx
+            ),
+            createAction(action, battle, actionEffects, tx),
+            updateUser(result, ctx.userId, tx),
+          ]);
+          return newBattle;
+        });
+
+        // Return the new battle + results state if applicable
+        if (newBattle) {
+          const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+          return { battle: newMaskedBattle, result: result };
+        }
       }
-
-      // Apply relevant effects, and get back new state + active effects
-      const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-        applyEffects(usersState, postActionUsersEffects, postActionGroundEffects);
-
-      // Calculate if the battle is over for this user, and if so update user DB
-      const { finalUsersState, result } = calcBattleResult(newUsersState, ctx.userId);
-
-      /**
-       * DATABASE UPDATES
-       */
-      const newBattle = await ctx.prisma.$transaction(async (tx) => {
-        const [newBattle] = await Promise.all([
-          updateBattle(
-            result,
-            battle,
-            finalUsersState,
-            newUsersEffects,
-            newGroundEffects,
-            tx
-          ),
-          createAction(action, battle, actionEffects, tx),
-          updateUser(result, ctx.userId, tx),
-        ]);
-        return newBattle;
-      });
-
-      // Return the new battle + results state if applicable
-      const newMaskedBattle = maskBattle(newBattle, ctx.userId);
-
-      // Return masked battle
-      return { battle: newMaskedBattle, result: result };
     }),
 });
+
+const performAction = (
+  battle: Battle,
+  contextUserId: string,
+  grid: Grid<TerrainHex>,
+  input: PerformActionType
+) => {
+  // Get valid actions
+  const usersState = battle.usersState as unknown as BattleUserState[];
+  const usersEffects = battle.usersEffects as unknown as UserEffect[];
+  const groundEffects = battle.groundEffects as unknown as GroundEffect[];
+  const actions = availableUserActions(usersState, contextUserId);
+  const action = actions.find((a) => a.id === input.actionId);
+  if (!action) throw serverError("PRECONDITION_FAILED", "Invalid action");
+
+  // Ensure that the userId we're trying to move is valid
+  const user = usersState.find(
+    (u) => u.controllerId === contextUserId && u.userId === input.userId
+  );
+  if (!user) throw serverError("PRECONDITION_FAILED", "This is not your user");
+
+  // Perform action, get latest status effects
+  // Note: this mutates usersEffects, groundEffects
+  const { check, postActionUsersEffects, postActionGroundEffects } = insertAction({
+    usersState,
+    usersEffects,
+    groundEffects,
+    grid,
+    action,
+    userId: input.userId,
+    longitude: input.longitude,
+    latitude: input.latitude,
+  });
+  if (!check) {
+    throw serverError("PRECONDITION_FAILED", "Requested action not possible anymore");
+  }
+
+  // Apply relevant effects, and get back new state + active effects
+  const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+    applyEffects(usersState, postActionUsersEffects, postActionGroundEffects);
+
+  // Calculate if the battle is over for this user, and if so update user DB
+  const { finalUsersState, result } = calcBattleResult(newUsersState, contextUserId);
+
+  return {
+    action,
+    finalUsersState,
+    newUsersEffects,
+    newGroundEffects,
+    actionEffects,
+    result,
+  };
+};

@@ -122,7 +122,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       });
       const channel = pusher.subscribe(userData.battleId.toString());
       channel.bind("event", (data: { version: number }) => {
-        console.log("PUSHER EVENT");
+        console.log("PUSHER EVENT", data, battle.current);
         if (battle.current?.version !== data.version) {
           console.log(data);
           refetchBattle();
