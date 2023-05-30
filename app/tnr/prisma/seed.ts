@@ -4,6 +4,7 @@ import { seedForum } from "./seeds/forum";
 import { seedJutsus } from "./seeds/jutsu";
 import { seedBloodlines } from "./seeds/bloodline";
 import { seedItems } from "./seeds/items";
+import { seedAI } from "./seeds/ai";
 
 // Create a new Prisma client
 const prisma = new PrismaClient();
@@ -15,6 +16,7 @@ async function main() {
   await seedItems(prisma);
   await seedVillages(prisma);
   await seedForum(prisma);
+  await seedAI(prisma);
 }
 
 // Run the seeding & close databse connection

@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE `Item` MODIFY `battleDescription` TEXT NOT NULL DEFAULT '';
+
+-- AlterTable
+ALTER TABLE `Jutsu` MODIFY `requiredRank` ENUM('STUDENT', 'GENIN', 'CHUNIN', 'JONIN', 'COMMANDER', 'ELDER', 'NONE') NOT NULL;
+
+-- AlterTable
+ALTER TABLE `UserData` MODIFY `rank` ENUM('STUDENT', 'GENIN', 'CHUNIN', 'JONIN', 'COMMANDER', 'ELDER', 'NONE') NOT NULL DEFAULT 'STUDENT';

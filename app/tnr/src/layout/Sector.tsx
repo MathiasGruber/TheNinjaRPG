@@ -152,7 +152,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     },
   });
 
-  const { mutate: attack, isLoading: isAttacking } = api.travel.attackUser.useMutation({
+  const { mutate: attack, isLoading: isAttacking } = api.combat.attackUser.useMutation({
     onSuccess: async () => {
       await refetchUser();
       await router.push("/combat");

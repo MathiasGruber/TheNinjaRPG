@@ -45,6 +45,7 @@ enum UserRank {
     JONIN
     COMMANDER
     ELDER
+    NONE
 }
 
 model UserData {

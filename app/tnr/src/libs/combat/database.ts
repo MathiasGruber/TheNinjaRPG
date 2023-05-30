@@ -88,7 +88,9 @@ export const updateUser = async (
         intelligence = intelligence + ${result.intelligence},
         willpower = willpower + ${result.willpower},
         speed = speed + ${result.speed},
-        money = ${result.money},
+        money = ${
+          result.money ? Prisma.sql`money + ${result.money}` : Prisma.sql`money`
+        },
         ninjutsu_offence = ninjutsu_offence + ${result.ninjutsu_offence},
         genjutsu_offence = genjutsu_offence + ${result.genjutsu_offence},
         taijutsu_offence = taijutsu_offence + ${result.taijutsu_offence},

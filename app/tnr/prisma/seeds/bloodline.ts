@@ -2,7 +2,7 @@ import { type ZodBloodlineType } from "../../src/libs/combat/types";
 import { type Prisma, type Bloodline } from "@prisma/client";
 import { type PrismaClient } from "@prisma/client";
 import { LetterRank } from "@prisma/client";
-import { DamageTag, AdjustStatTag } from "../../src/libs/combat/types";
+import { AdjustStatTag } from "../../src/libs/combat/types";
 import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
 import { AdjustDamageTakenTag } from "../../src/libs/combat/types";
 import { AdjustHealGivenTag } from "../../src/libs/combat/types";
@@ -167,7 +167,7 @@ const upsertBloodline = async (prisma: PrismaClient, bloodline: ZodBloodlineType
   counter++;
   process.stdout.moveCursor(0, -1);
   process.stdout.clearLine(1);
-  console.log(`Syncing jutsu ${counter}/${total}`);
+  console.log(`Syncing blodline ${counter}/${total}`);
   return obj;
 };
 
