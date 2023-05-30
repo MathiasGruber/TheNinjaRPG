@@ -319,44 +319,79 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   const group = new Group();
   const { height: h, width: w } = hex;
 
-  // Highlight background in village color
-  const highlightTexture = new TextureLoader().load("map/userMarker.webp");
-  const highlightMaterial = new SpriteMaterial({
-    map: highlightTexture,
-    alphaMap: highlightTexture,
-  });
-  const highlightSprite = new Sprite(highlightMaterial);
-  highlightSprite.userData.type = "marker";
-  highlightSprite.scale.set(h, h * 1.2, 1);
-  highlightSprite.position.set(w / 2, h * 0.9, -6);
-  highlightSprite.userData.type = "userMarker";
-  highlightSprite.userData.userId = userData.userId;
-  highlightSprite.material.color.setHex(
-    userData.village
-      ? parseInt(userData.village.hexColor.replace("#", ""), 16)
-      : 0x000000
-  );
-  group.add(highlightSprite);
+  // Shadow
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.globalAlpha = 0.3;
+    context.fillStyle = "black";
+    context.beginPath();
+    context.arc(w / 2, h / 2, h / 2, 0, 2 * Math.PI);
+    context.fill();
+  }
+  const texture = new Texture(canvas);
+  texture.generateMipmaps = false;
+  texture.minFilter = LinearFilter;
+  texture.needsUpdate = true;
+  const shadow_material = new SpriteMaterial({ map: texture });
+  const shadow_sprite = new Sprite(shadow_material);
+  shadow_sprite.scale.set(w * 0.7, h * 0.4, 1);
+  shadow_sprite.position.set(w / 2, h * 0.3, -6);
+  group.add(shadow_sprite);
 
-  // Marker background in white
-  const marker = new TextureLoader().load("map/userMarker.webp");
-  const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
-  const markerSprite = new Sprite(markerMat);
-  markerSprite.userData.type = "marker";
-  markerSprite.scale.set(0.9 * h, h * 1.1, 1);
-  markerSprite.position.set(w / 2, h * 0.9, -6);
-  group.add(markerSprite);
+  // User marker background or raw image
+  const noMarker = userData.isAI && userData.is_original;
+  if (noMarker) {
+    const map = new TextureLoader().load(userData.avatar || "");
+    map.generateMipmaps = false;
+    map.minFilter = LinearFilter;
+    const material = new SpriteMaterial({ map: map });
+    const sprite = new Sprite(material);
+    sprite.scale.set(h * 0.8, h * 0.8, 1);
+    sprite.position.set(w / 2, h * 0.6, -6);
+    group.add(sprite);
+  } else {
+    // Highlight background in village color
+    const highlightTexture = new TextureLoader().load("map/userMarker.webp");
+    const highlightMaterial = new SpriteMaterial({
+      map: highlightTexture,
+      alphaMap: highlightTexture,
+    });
+    const highlightSprite = new Sprite(highlightMaterial);
+    highlightSprite.userData.type = "marker";
+    highlightSprite.scale.set(h, h * 1.2, 1);
+    highlightSprite.position.set(w / 2, h * 0.9, -6);
+    highlightSprite.userData.type = "userMarker";
+    highlightSprite.userData.userId = userData.userId;
+    highlightSprite.material.color.setHex(
+      userData.village
+        ? parseInt(userData.village.hexColor.replace("#", ""), 16)
+        : 0x000000
+    );
+    group.add(highlightSprite);
 
-  // Avatar Sprite
-  const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
-  const map = new TextureLoader().load(userData.avatar || "");
-  map.generateMipmaps = false;
-  map.minFilter = LinearFilter;
-  const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
-  const sprite = new Sprite(material);
-  sprite.scale.set(h * 0.8, h * 0.8, 1);
-  sprite.position.set(w / 2, h * 1.0, -6);
-  group.add(sprite);
+    // Marker background in white
+    const marker = new TextureLoader().load("map/userMarker.webp");
+    const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
+    const markerSprite = new Sprite(markerMat);
+    markerSprite.userData.type = "marker";
+    markerSprite.scale.set(0.9 * h, h * 1.1, 1);
+    markerSprite.position.set(w / 2, h * 0.9, -6);
+    group.add(markerSprite);
+
+    // Avatar Sprite
+    const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
+    const map = new TextureLoader().load(userData.avatar || "");
+    map.generateMipmaps = false;
+    map.minFilter = LinearFilter;
+    const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
+    const sprite = new Sprite(material);
+    sprite.scale.set(h * 0.8, h * 0.8, 1);
+    sprite.position.set(w / 2, h * 1.0, -6);
+    group.add(sprite);
+  }
 
   // If this is the original and our user (we have SP/CP), then show a star
   if ("cur_stamina" in userData && userData.is_original) {
@@ -369,23 +404,24 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Health bar is shown on all
-  const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
-  const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
+  const t = noMarker ? h / 8 : 0;
+  const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", t);
+  const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", t);
   group.add(hp_background);
   group.add(hp_bar);
 
   // Stamina Bar if available
   if ("cur_stamina" in userData && "max_stamina" in userData) {
-    const sp_background = drawStatusBar(w, h, "gray", true, "sp_background", 1);
-    const sp_bar = drawStatusBar(w, h, "green", true, "sp_current", 1);
+    const sp_background = drawStatusBar(w, h, "gray", true, "sp_background", t + 1);
+    const sp_bar = drawStatusBar(w, h, "green", true, "sp_current", t + 1);
     group.add(sp_background);
     group.add(sp_bar);
   }
 
   // Chakra Bar if available
   if ("cur_chakra" in userData && "max_chakra" in userData) {
-    const cp_background = drawStatusBar(w, h, "gray", true, "cp_background", 2);
-    const cp_bar = drawStatusBar(w, h, "blue", true, "cp_current", 2);
+    const cp_background = drawStatusBar(w, h, "gray", true, "cp_background", t + 2);
+    const cp_bar = drawStatusBar(w, h, "blue", true, "cp_current", t + 2);
     group.add(cp_background);
     group.add(cp_bar);
   }

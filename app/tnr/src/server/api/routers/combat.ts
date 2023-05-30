@@ -155,7 +155,7 @@ export const combatRouter = createTRPCRouter({
           prisma: ctx.prisma,
         },
         BattleType.ARENA,
-        "coliseum.png"
+        "coliseum.webp"
       );
     }
   }),
@@ -289,6 +289,7 @@ export const initiateBattle = async (
         OR: [{ userId: userId }, { userId: targetId }],
       },
     });
+    users.sort((a, b) => (a.userId === userId ? -1 : 1));
 
     // Use long/lat fields for position in combat map
     if (users?.[0]) {
@@ -418,11 +419,10 @@ export const initiateBattle = async (
     const result: number = await tx.$executeRaw`
       UPDATE UserData
       SET
-        ${
-          battleType === BattleType.COMBAT
-            ? Prisma.sql`status = ${UserStatus.BATTLE}, battleId = ${battle.id}, `
-            : Prisma.empty
-        }
+        status = CASE WHEN isAI = false THEN 
+          ${UserStatus.BATTLE} ELSE ${UserStatus.AWAKE} END,
+        battleId = CASE WHEN isAI = false THEN 
+          ${battle.id} ELSE NULL END,
         updatedAt = Now()
       WHERE
         (userId = ${userId} OR userId = ${targetId}) AND  

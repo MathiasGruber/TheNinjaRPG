@@ -37,6 +37,7 @@ export const publicState = [
   "fledBattle",
   "leftBattle",
   "is_original",
+  "isAI",
   "controllerId",
 ] as const;
 
