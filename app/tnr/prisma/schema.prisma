@@ -414,6 +414,7 @@ enum JutsuType {
     LOYALTY
     CLAN
     EVENT
+    AI
 }
 
 enum ItemType {
