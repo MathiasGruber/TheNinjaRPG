@@ -15,6 +15,33 @@ import { StunTag } from "../../src/libs/combat/types";
 
 const jutsus: ZodJutsuType[] = [
   /******************** */
+  /**  AI-Only Jutsus   */
+  /******************** */
+  {
+    name: "Scratch",
+    image: "/jutsus/scratch.png",
+    description:
+      "Used by beasts with sharp claws to scratch their opponents. This is a basic attack.",
+    battleDescription: "%user uses its sharp claws to scratch %target",
+    jutsuType: JutsuType.AI,
+    jutsuRank: LetterRank.D,
+    requiredRank: UserRank.STUDENT,
+    target: AttackTarget.OTHER_USER,
+    method: AttackMethod.SINGLE,
+    range: 1,
+    cooldown: 30,
+    effects: [
+      DamageTag.parse({
+        power: 1,
+        powerPerLevel: 0.1,
+        statTypes: ["Taijutsu", "Bukijutsu"],
+        generalTypes: ["Strength", "Speed"],
+        rounds: 0,
+        appearAnimation: "hit",
+      }),
+    ],
+  },
+  /******************** */
   /**  D-Ranked Jutsus  */
   /******************** */
   {

@@ -15,13 +15,12 @@ import {
   Texture,
 } from "three";
 import type { Scene, Object3D, Event, Raycaster } from "three";
-import { AttackMethod } from "@prisma/client";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
-import { spiral } from "honeycomb-grid";
 import { findHex, defineHex } from "../hexgrid";
 import { Animations } from "./types";
 import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_PREMOVE_SECONDS } from "./constants";
 import { actionSecondsAfterAction, getAffectedTiles } from "./movement";
+import { getPossibleActionTiles } from "./util";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
@@ -580,38 +579,21 @@ export const highlightTiles = (info: {
 
   // Highlight fields on the map where action can be applied
   const newHighlights = new Set<string>();
-  let highlights: Grid<TerrainHex> | undefined = undefined;
-  if (action && origin) {
-    const radius = action.range;
-    if (
-      action.method === AttackMethod.SINGLE ||
-      action.method === AttackMethod.AOE_LINE_SHOOT ||
-      action.method === AttackMethod.AOE_CIRCLE_SHOOT ||
-      action.method === AttackMethod.AOE_SPIRAL_SHOOT
-    ) {
-      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
-      highlights = grid.traverse(f);
-    } else if (action.method === AttackMethod.ALL) {
-      highlights = grid.forEach((hex) => hex);
-    } else if (action.method === AttackMethod.AOE_CIRCLE_SPAWN) {
-      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius + 1 });
-      highlights = grid.traverse(f);
-    }
-    // Highlight tiles
-    if (highlights) {
-      highlights.forEach((tile) => {
-        if (tile) {
-          const mesh = group_tiles.getObjectByName(
-            `${tile.row},${tile.col}`
-          ) as HexagonalFaceMesh;
-          if (mesh.userData.highlight === false) {
-            mesh.userData.highlight = true;
-            mesh.material.opacity = 0.3;
-          }
-          newHighlights.add(mesh.name);
+  const highlights = getPossibleActionTiles(action, origin, grid);
+
+  if (highlights) {
+    highlights.forEach((tile) => {
+      if (tile) {
+        const mesh = group_tiles.getObjectByName(
+          `${tile.row},${tile.col}`
+        ) as HexagonalFaceMesh;
+        if (mesh.userData.highlight === false) {
+          mesh.userData.highlight = true;
+          mesh.material.opacity = 0.3;
         }
-      });
-    }
+        newHighlights.add(mesh.name);
+      }
+    });
   }
 
   // Check if we have enough action points to perform action

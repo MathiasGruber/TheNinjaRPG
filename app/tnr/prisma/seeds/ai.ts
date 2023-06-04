@@ -1,7 +1,12 @@
-import type { PrismaClient, UserData } from "@prisma/client";
 import { UserRank } from "@prisma/client";
+import { AttackTarget, AttackMethod } from "@prisma/client";
+import { DamageTag } from "../../src/libs/combat/types";
+import type { PrismaClient, UserData } from "@prisma/client";
 
-type AIdefinition = Partial<UserData> & Pick<UserData, "userId" | "gender" | "avatar" | "level" | "rank">;
+type AIdefinition = Partial<UserData> &
+  Pick<UserData, "userId" | "gender" | "avatar" | "level" | "rank"> & {
+    jutsus: string[];
+  };
 
 function ReadonlyMapWithStringKeys<K extends string, AIdefinition>(
   input: Iterable<[K, AIdefinition]>
@@ -18,6 +23,7 @@ export const ais = ReadonlyMapWithStringKeys([
       avatar: "/ai/angry_cat.webp",
       level: 1,
       rank: UserRank.NONE,
+      jutsus: ["Scratch"],
     },
   ],
 ]);
@@ -28,13 +34,27 @@ let counter = 0;
 const total = ais.size;
 
 const upsertAI = async (prisma: PrismaClient, name: string, ai: AIdefinition) => {
-  // Database call
   const obj = await prisma.userData.upsert({
     where: {
       username: name,
     },
-    update: { ...ai },
-    create: { ...ai, username: name, isAI: true },
+    update: { ...ai, jutsus: {} },
+    create: { ...ai, username: name, isAI: true, jutsus: {} },
+  });
+  const jutsus = await prisma.jutsu.findMany({
+    where: { name: { in: ai.jutsus } },
+  });
+
+  await prisma.userJutsu.deleteMany({
+    where: { userId: ai.userId },
+  });
+  await prisma.userJutsu.createMany({
+    data: jutsus.map((jutsu) => ({
+      userId: ai.userId,
+      jutsuId: jutsu.id,
+      level: ai.level,
+      equipped: true,
+    })),
   });
   // Progress
   counter++;

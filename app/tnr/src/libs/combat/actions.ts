@@ -1,5 +1,5 @@
 import { AttackTarget, AttackMethod } from "@prisma/client";
-import { MoveTag, DamageTag, FleeTag } from "./types";
+import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
 import { isEffectStillActive } from "./util";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./process";
@@ -9,7 +9,6 @@ import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { ClearTag } from "./types";
 import { calcPoolCost } from "./util";
 
 /**
@@ -17,10 +16,66 @@ import { calcPoolCost } from "./util";
  */
 export const availableUserActions = (
   usersState: ReturnedUserState[] | undefined,
-  userId: string | undefined
+  userId: string | undefined,
+  basicMoves = true
 ): CombatAction[] => {
   const user = usersState?.find((u) => u.userId === userId);
   return [
+    ...(basicMoves
+      ? [
+          {
+            id: "sp",
+            name: "Basic Attack",
+            image: "/combat/basicActions/stamina.png",
+            battleDescription: "%user perform a basic physical strike against %target",
+            type: "basic" as const,
+            target: AttackTarget.OTHER_USER,
+            method: AttackMethod.SINGLE,
+            healthCostPerc: 0,
+            chakraCostPerc: 0,
+            staminaCostPerc: 10,
+            actionCostPerc: 50,
+            range: 1,
+            level: user?.level,
+            effects: [
+              DamageTag.parse({
+                power: 1,
+                powerPerLevel: 0.1,
+                statTypes: ["Taijutsu", "Bukijutsu"],
+                generalTypes: ["Strength", "Speed"],
+                rounds: 0,
+                appearAnimation: "hit",
+              }),
+            ],
+          },
+          {
+            id: "cp",
+            name: "Basic Heal",
+            image: "/combat/basicActions/heal.png",
+            battleDescription: "%user perform basic healing of %target",
+            type: "basic" as const,
+            target: AttackTarget.OTHER_USER,
+            method: AttackMethod.SINGLE,
+            healthCostPerc: 0,
+            chakraCostPerc: 1,
+            staminaCostPerc: 0,
+            actionCostPerc: 50,
+            range: 1,
+            level: user?.level,
+            effects: [
+              HealTag.parse({
+                power: 5,
+                powerPerLevel: 1,
+                calculation: "static",
+                statTypes: ["Ninjutsu", "Genjutsu"],
+                generalTypes: ["Willpower", "Intelligence"],
+                rounds: 0,
+                appearAnimation: "heal",
+              }),
+            ],
+          },
+        ]
+      : []),
     {
       id: "wait",
       name: "Wait",
@@ -38,70 +93,6 @@ export const availableUserActions = (
       hidden: true,
     },
     {
-      id: "sp",
-      name: "Basic Attack",
-      image: "/combat/basicActions/stamina.png",
-      battleDescription: "%user perform a basic physical strike against %target",
-      type: "basic" as const,
-      target: AttackTarget.OTHER_USER,
-      method: AttackMethod.SINGLE,
-      healthCostPerc: 0,
-      chakraCostPerc: 0,
-      staminaCostPerc: 10,
-      actionCostPerc: 50,
-      range: 1,
-      level: user?.level,
-      effects: [
-        DamageTag.parse({
-          power: 1,
-          powerPerLevel: 0.1,
-          statTypes: ["Taijutsu", "Bukijutsu"],
-          generalTypes: ["Strength", "Speed"],
-          rounds: 0,
-          appearAnimation: "hit",
-        }),
-        // ClearTag.parse({
-        //   power: 1,
-        //   powerPerLevel: 0.1,
-        //   statTypes: ["Taijutsu", "Bukijutsu"],
-        //   generalTypes: ["Strength", "Speed"],
-        //   rounds: 0,
-        //   appearAnimation: "hit",
-        // }),
-      ],
-    },
-    {
-      id: "cp",
-      name: "Basic Heal",
-      image: "/combat/basicActions/heal.png",
-      battleDescription: "%user perform basic healing of %target",
-      type: "basic" as const,
-      target: AttackTarget.OTHER_USER,
-      method: AttackMethod.SINGLE,
-      healthCostPerc: 0,
-      chakraCostPerc: 1,
-      staminaCostPerc: 0,
-      actionCostPerc: 50,
-      range: 1,
-      level: user?.level,
-      effects: [
-        ClearTag.parse({
-          power: 100,
-          calculation: "static",
-          rounds: 0,
-        }),
-        // HealTag.parse({
-        //   power: 5,
-        //   powerPerLevel: 1,
-        //   calculation: "static",
-        //   statTypes: ["Ninjutsu", "Genjutsu"],
-        //   generalTypes: ["Willpower", "Intelligence"],
-        //   rounds: 0,
-        //   appearAnimation: "heal",
-        // }),
-      ],
-    },
-    {
       id: "move",
       name: "Move",
       image: "/combat/basicActions/move.png",
@@ -116,21 +107,25 @@ export const availableUserActions = (
       actionCostPerc: 50,
       effects: [MoveTag.parse({ power: 100 })],
     },
-    {
-      id: "flee",
-      name: "Flee",
-      image: "/combat/basicActions/flee.png",
-      battleDescription: "%user attempts to flee the battle",
-      type: "basic" as const,
-      target: AttackTarget.SELF,
-      method: AttackMethod.SINGLE,
-      range: 0,
-      healthCostPerc: 0.1,
-      chakraCostPerc: 0,
-      staminaCostPerc: 0,
-      actionCostPerc: 100,
-      effects: [FleeTag.parse({ power: 100, rounds: 0 })],
-    },
+    ...(basicMoves
+      ? [
+          {
+            id: "flee",
+            name: "Flee",
+            image: "/combat/basicActions/flee.png",
+            battleDescription: "%user attempts to flee the battle",
+            type: "basic" as const,
+            target: AttackTarget.SELF,
+            method: AttackMethod.SINGLE,
+            range: 0,
+            healthCostPerc: 0.1,
+            chakraCostPerc: 0,
+            staminaCostPerc: 0,
+            actionCostPerc: 100,
+            effects: [FleeTag.parse({ power: 100, rounds: 0 })],
+          },
+        ]
+      : []),
     ...(user?.jutsus
       ? user.jutsus.map((userjutsu) => {
           return {
@@ -191,10 +186,6 @@ export const insertAction = (info: {
   const { grid, action, userId, longitude, latitude } = info;
   const { usersState, usersEffects, groundEffects } = info;
 
-  // New state variables
-  const postActionUsersEffects = [...usersEffects];
-  const postActionGroundEffects = [...groundEffects];
-
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
   const alive = usersState.filter((u) => u.cur_health > 0);
@@ -219,8 +210,9 @@ export const insertAction = (info: {
     const villageId = user.villageId;
     // How much time passed since last action
     const newSeconds = actionSecondsAfterAction(user, action);
+    console.log(user.username, "newSeconds", newSeconds, action.actionCostPerc);
     if (newSeconds < 0) {
-      return { check: false, postActionUsersEffects, postActionGroundEffects };
+      return { check: false, usersEffects, groundEffects };
     }
     // Given this action, get the affected tiles
     const { green: affectedTiles } = getAffectedTiles({
@@ -235,6 +227,7 @@ export const insertAction = (info: {
     // Bookkeeping
     const targetUsernames: string[] = [];
     const targetGenders: string[] = [];
+
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
       if (
@@ -247,7 +240,7 @@ export const insertAction = (info: {
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;
-            postActionGroundEffects.push({ ...effect });
+            groundEffects.push({ ...effect });
           }
         });
       } else {
@@ -274,7 +267,7 @@ export const insertAction = (info: {
               const effect = realizeTag(tag as UserEffect, user, action.level);
               if (effect) {
                 effect.targetId = target.userId;
-                postActionUsersEffects.push(effect);
+                usersEffects.push(effect);
               }
             }
           });
@@ -282,7 +275,7 @@ export const insertAction = (info: {
         // Special case; attacking barrier, add damage tag as ground effect,
         // which will resolve against the barrier when applied
         if (!target) {
-          const barrier = postActionGroundEffects.find(
+          const barrier = groundEffects.find(
             (e) =>
               e.longitude === tile.col &&
               e.latitude === tile.row &&
@@ -297,7 +290,7 @@ export const insertAction = (info: {
                   targetGenders.push("it");
                   effect.targetType = "barrier";
                   effect.targetId = barrier.id;
-                  postActionUsersEffects.push(effect);
+                  usersEffects.push(effect);
                 }
               }
             });
@@ -383,8 +376,8 @@ export const insertAction = (info: {
         );
       }
       // Successful action
-      return { check: true, postActionUsersEffects, postActionGroundEffects };
+      return true;
     }
   }
-  return { check: false, postActionUsersEffects, postActionGroundEffects };
+  return false;
 };

@@ -14,6 +14,8 @@ import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { highlightTiles } from "../libs/combat/drawing";
 import { highlightTooltips } from "../libs/combat/drawing";
 import { highlightUsers } from "../libs/combat/drawing";
+import { availableUserActions } from "../libs/combat/actions";
+import { actionSecondsAfterAction } from "../libs/combat/movement";
 import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
@@ -49,21 +51,32 @@ const Combat: React.FC<CombatProps> = (props) => {
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new Vector2();
 
-  // Mutations
-  const { mutate: performAction } = api.combat.performAction.useMutation({
+  // User Action
+  const { mutate: performAction, isLoading } = api.combat.performAction.useMutation({
     onMutate: () => {
       setBattleState({ battle: battle.current, result: null, isLoading: true });
     },
     onSuccess: (data) => {
-      console.log(data);
-      battle.current = data.battle;
-      setBattleState({ battle: data.battle, result: data.result, isLoading: false });
+      if (data) {
+        battle.current = data.battle;
+        setBattleState({ battle: data.battle, result: data.result, isLoading: false });
+      }
     },
     onError: (error) => {
       show_toast("Error acting", error.message, "error");
     },
     onSettled: () => {
       document.body.style.cursor = "default";
+    },
+  });
+
+  // AI actions
+  const { mutate: performAIAction } = api.combat.performAction.useMutation({
+    onSuccess: (data) => {
+      if (data) {
+        battle.current = data.battle;
+        setBattleState({ battle: data.battle, result: data.result, isLoading: false });
+      }
     },
   });
 
@@ -102,6 +115,29 @@ const Combat: React.FC<CombatProps> = (props) => {
   }, [setActionPerc, userData]);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      if (battle.current && userId.current && !isLoading) {
+        const usersState = battle.current.usersState;
+        const user = usersState.find((u) => u.userId === userId.current);
+        const ai = usersState.find(
+          (u) => u.isAI && u.cur_health > 0 && u.controllerId === u.userId
+        );
+        if (user && ai && user.cur_health > 0 && !user.leftBattle) {
+          const actions = availableUserActions(usersState, ai.userId, false);
+          const hasAction = actions.find((a) => actionSecondsAfterAction(ai, a) > 0);
+          if (hasAction) {
+            performAIAction({
+              battleId: battle.current.id,
+              version: battle.current.version,
+            });
+          }
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [performAIAction, isLoading]);
+
+  useEffect(() => {
     action.current = props.action;
     userId.current = props.userId;
     battle.current = props.battleState.battle;
@@ -122,9 +158,8 @@ const Combat: React.FC<CombatProps> = (props) => {
       });
       const channel = pusher.subscribe(userData.battleId.toString());
       channel.bind("event", (data: { version: number }) => {
-        console.log("PUSHER EVENT", data, battle.current);
         if (battle.current?.version !== data.version) {
-          console.log(data);
+          console.log("PUSHER EVENT", data, battle.current);
           refetchBattle();
         }
       });
@@ -132,9 +167,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Listeners
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
       mountRef.current.addEventListener("mouseleave", onDocumentMouseLeave, false);
-
-      // Seeded noise generator for map gen
-      const prng = alea(userData.battleId);
 
       // Setup scene, renderer and raycaster
       const { scene, renderer, raycaster, handleResize } = setupScene({
@@ -188,7 +220,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Capture clicks to update move direction
       const onClick = () => {
         const intersects = raycaster.intersectObjects(scene.children);
-        console.log("CLick");
         intersects
           .filter((i) => i.object.visible)
           .every((i) => {

@@ -52,13 +52,19 @@ export const isValidMove = (info: {
   return false;
 };
 
+/**
+ * Returns how many seconds will be left on action timer after performing an action
+ */
 export const actionSecondsAfterAction = (
   user: { updatedAt: string | Date },
   action: CombatAction
 ) => {
-  const passed = Math.min(secondsPassed(new Date(user.updatedAt)), COMBAT_SECONDS);
-  const timeCost = (action.actionCostPerc / 100) * COMBAT_SECONDS;
-  return passed - timeCost;
+  const timeSinceLastAction = Math.min(
+    secondsPassed(new Date(user.updatedAt)),
+    COMBAT_SECONDS
+  );
+  const timeCostForAction = (action.actionCostPerc / 100) * COMBAT_SECONDS;
+  return timeSinceLastAction - timeCostForAction;
 };
 
 export const getAffectedTiles = (info: {

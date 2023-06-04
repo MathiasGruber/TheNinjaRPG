@@ -67,12 +67,30 @@ export interface Point2D {
   y: number;
 }
 
+/**
+ * A point defined by longitude and latitude
+ */
+export interface UserLocation {
+  longitude: number;
+  latitude: number;
+}
+
 /** Find a given hex in a grid */
-export const findHex = (grid: Grid<TerrainHex> | null, point: Point2D) => {
-  return grid?.getHex({
-    col: point.x,
-    row: point.y,
-  });
+export const findHex = (
+  grid: Grid<TerrainHex> | null,
+  point: Point2D | UserLocation
+) => {
+  if ("x" in point && "y" in point) {
+    return grid?.getHex({
+      col: point.x,
+      row: point.y,
+    });
+  } else if ("longitude" in point && "latitude" in point) {
+    return grid?.getHex({
+      col: point.longitude,
+      row: point.latitude,
+    });
+  }
 };
 
 /**

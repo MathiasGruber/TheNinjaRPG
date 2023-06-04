@@ -49,7 +49,7 @@ export const updateBattle = async (
  * Insert directly into the data model for speed (i.e. no SELECT subsequently)
  */
 export const createAction = async (
-  action: CombatAction,
+  battleDescription: string,
   battle: Battle,
   effects: ActionEffect[],
   prisma: PrismaClient | PrismaTransactionClient
@@ -60,7 +60,7 @@ export const createAction = async (
     VALUES (
       ${battle.id}, 
       ${battle.version + 1}, 
-      ${action.battleDescription}, 
+      ${battleDescription}, 
       ${JSON.stringify(effects)}
     )
   `;
@@ -75,6 +75,7 @@ export const updateUser = async (
   prisma: PrismaClient | PrismaTransactionClient
 ) => {
   if (result) {
+    console.log(result);
     return await prisma.$executeRaw`
       UPDATE UserData 
       SET
@@ -88,9 +89,7 @@ export const updateUser = async (
         intelligence = intelligence + ${result.intelligence},
         willpower = willpower + ${result.willpower},
         speed = speed + ${result.speed},
-        money = ${
-          result.money ? Prisma.sql`money + ${result.money}` : Prisma.sql`money`
-        },
+        ${result.money ? Prisma.sql`money = ${result.money}` : Prisma.empty},
         ninjutsu_offence = ninjutsu_offence + ${result.ninjutsu_offence},
         genjutsu_offence = genjutsu_offence + ${result.genjutsu_offence},
         taijutsu_offence = taijutsu_offence + ${result.taijutsu_offence},

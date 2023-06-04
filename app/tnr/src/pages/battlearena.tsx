@@ -4,6 +4,7 @@ import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import ContentBox from "../layout/ContentBox";
+import Loader from "../layout/Loader";
 
 const Arena: NextPage = () => {
   // Data from database
@@ -42,6 +43,7 @@ const Arena: NextPage = () => {
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
           <div className="m-auto text-center text-white">
             <p className="text-5xl">Entering the Arena</p>
+            <Loader />
           </div>
         </div>
       )}

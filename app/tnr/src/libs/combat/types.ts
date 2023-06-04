@@ -151,6 +151,19 @@ export interface BattleState {
 }
 
 /**
+ * Schema & types for performing battle actions
+ */
+export const performActionSchema = z.object({
+  battleId: z.string().cuid(),
+  userId: z.string().optional(),
+  actionId: z.string().optional(),
+  longitude: z.number().optional(),
+  latitude: z.number().optional(),
+  version: z.number(),
+});
+export type PerformActionType = z.infer<typeof performActionSchema>;
+
+/**
  * Battle Consequence, i.e. the permanent things that happen to a user as a result of an action
  */
 export type Consequence = {

@@ -91,9 +91,6 @@ export const applyEffects = (
   usersEffects: UserEffect[],
   groundEffects: GroundEffect[]
 ) => {
-  // Active effects to be applied to users state
-  const active = [...usersEffects];
-
   // Things we wish to return
   const newUsersState: BattleUserState[] = usersState.map((s) => {
     return { ...s };
@@ -114,13 +111,17 @@ export const applyEffects = (
       // Apply ground effect to user
       const user = findUser(newUsersState, e.longitude, e.latitude);
       if (user && e.type !== "visual") {
-        active.push({ ...e, targetId: user.userId, fromGround: true } as UserEffect);
+        usersEffects.push({
+          ...e,
+          targetId: user.userId,
+          fromGround: true,
+        } as UserEffect);
       }
       // Forward any datmage effects, which should be applied to barriers as well
       if (!user && e.type === "damage") {
         const barrier = findBarrier(groundEffects, e.longitude, e.latitude);
         if (barrier) {
-          active.push({
+          usersEffects.push({
             ...e,
             targetType: "barrier",
             targetId: barrier.id,
@@ -142,12 +143,12 @@ export const applyEffects = (
   const consequences = new Map<string, Consequence>();
 
   // Fetch any active sealing effects
-  const sealEffects = active.filter(
+  const sealEffects = usersEffects.filter(
     (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e)
   );
 
   // Apply all user effects to their target users
-  active.sort(sortEffects).forEach((e) => {
+  usersEffects.sort(sortEffects).forEach((e) => {
     // Get the user && effect details
     const newOrigin = newUsersState.find((u) => u.userId === e.creatorId);
     let longitude: number | undefined = undefined;
@@ -194,7 +195,7 @@ export const applyEffects = (
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
-          info = clear(e, active, curTarget);
+          info = clear(e, usersEffects, curTarget);
         } else if (e.type === "onehitkill") {
           info = onehitkill(e, newUsersEffects, newTarget);
         } else if (e.type === "onehitkillprevent") {

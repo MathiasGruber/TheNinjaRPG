@@ -1,11 +1,25 @@
-import type { Battle } from "@prisma/client";
-import type { CombatResult } from "./types";
-import type { ReturnedUserState, GroundEffect, UserEffect, Consequence } from "./types";
-import type { CombatAction, BattleUserState } from "./types";
+import { Prisma, AttackMethod } from "@prisma/client";
+import { spiral } from "honeycomb-grid";
 import { publicState, allState } from "./types";
 import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
-import { COMBAT_SECONDS } from "./constants";
+import { COMBAT_SECONDS, COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
+import { availableUserActions, insertAction } from "./actions";
+import { applyEffects } from "./process";
+import { realizeTag } from "../../libs/combat/process";
+import { BarrierTag } from "../../libs/combat/types";
+import { UserStatus, BattleType, ItemType } from "@prisma/client";
+import { combatAssets } from "../../libs/travel/biome";
+import { getServerPusher } from "../../libs/pusher";
+import type { Grid } from "honeycomb-grid";
+import type { CombatResult } from "./types";
+import type { ReturnedUserState, Consequence } from "./types";
+import type { CombatAction, BattleUserState, PerformActionType } from "./types";
+import type { Battle } from "@prisma/client";
+import type { TerrainHex } from "../../libs/hexgrid";
+import type { Item, UserItem } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import type { GroundEffect, UserEffect } from "../../libs/combat/types";
 
 /**
  * Finds a user in the battle state based on location
@@ -73,7 +87,7 @@ export const isEffectStillActive = (effect: UserEffect | GroundEffect) => {
   if (effect.rounds !== undefined && effect.createdAt) {
     const total = effect.rounds * COMBAT_SECONDS;
     const isActive = secondsFromDate(total, new Date(effect.createdAt)) > new Date();
-    if (!isActive) console.log("Effect expired: ", effect.type);
+    // if (!isActive) console.log("Effect expired: ", effect.type);
     return isActive;
   }
   return true;
@@ -229,10 +243,10 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       user.leftBattle = true;
 
       // Calculate ELO change
-      const aElo = friends.reduce((a, b) => a + b.elo_pvp, 0) / friends.length;
-      const oElo = targets.reduce((a, b) => a + b.elo_pvp, 0) / targets.length;
+      const uExp = friends.reduce((a, b) => a + b.experience, 0) / friends.length;
+      const oExp = targets.reduce((a, b) => a + b.experience, 0) / targets.length;
       const didWin = user.cur_health > 0;
-      const eloDiff = calcEloChange(aElo, oElo, 32, didWin);
+      const eloDiff = calcEloChange(uExp, oExp, 32, didWin);
 
       // Find users who did not leave battle yet
       const friendsLeft = friends.filter((u) => !u.leftBattle);
@@ -241,7 +255,7 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       // Result object
       // TODO: distribute elo_points among stats used during battle
       const result: CombatResult = {
-        experience: 0,
+        experience: eloDiff,
         elo_pvp: 0,
         elo_pve: 0,
         cur_health: user.cur_health,
@@ -278,4 +292,285 @@ const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolea
   const expectedScore = 1 / (1 + 10 ** ((opponent - user) / 400));
   const newRating = user + kFactor * ((won ? 1 : 0) - expectedScore);
   return newRating;
+};
+
+/** Given an action from a given origin, return the tiles where this action could reach */
+export const getPossibleActionTiles = (
+  action: CombatAction | undefined,
+  origin: TerrainHex | undefined,
+  grid: Grid<TerrainHex>
+) => {
+  let highlights: Grid<TerrainHex> | undefined = undefined;
+  if (action && origin) {
+    const radius = action.range;
+    if (
+      action.method === AttackMethod.SINGLE ||
+      action.method === AttackMethod.AOE_LINE_SHOOT ||
+      action.method === AttackMethod.AOE_CIRCLE_SHOOT ||
+      action.method === AttackMethod.AOE_SPIRAL_SHOOT
+    ) {
+      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
+      highlights = grid.traverse(f);
+    } else if (action.method === AttackMethod.ALL) {
+      highlights = grid.forEach((hex) => hex);
+    } else if (action.method === AttackMethod.AOE_CIRCLE_SPAWN) {
+      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius + 1 });
+      highlights = grid.traverse(f);
+    }
+  }
+  return highlights;
+};
+
+export const performAction = (props: {
+  usersState: BattleUserState[];
+  usersEffects: UserEffect[];
+  groundEffects: GroundEffect[];
+  grid: Grid<TerrainHex>;
+  action: CombatAction;
+  contextUserId: string;
+  actionUserId: string;
+  longitude: number;
+  latitude: number;
+}) => {
+  // Destructure
+  const { usersState, usersEffects, groundEffects } = props;
+  const { grid, action, contextUserId, actionUserId, longitude, latitude } = props;
+  // Ensure that the userId we're trying to move is valid
+  const user = usersState.find(
+    (u) => u.controllerId === contextUserId && u.userId === actionUserId
+  );
+  if (!user) throw new Error("This is not your user");
+
+  // Perform action, get latest status effects
+  // Note: this mutates usersEffects, groundEffects in place
+  const check = insertAction({
+    usersState,
+    usersEffects,
+    groundEffects,
+    grid,
+    action,
+    userId: actionUserId,
+    longitude: longitude,
+    latitude: latitude,
+  });
+  if (!check) {
+    throw new Error("Requested action not possible anymore");
+  }
+
+  // Apply relevant effects, and get back new state + active effects
+  const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+    applyEffects(usersState, usersEffects, groundEffects);
+
+  return {
+    newUsersState,
+    newUsersEffects,
+    newGroundEffects,
+    actionEffects,
+  };
+};
+
+export const initiateBattle = async (
+  info: {
+    longitude?: number;
+    latitude?: number;
+    sector: number;
+    userId: string;
+    targetId: string;
+    prisma: PrismaClient;
+  },
+  battleType: BattleType,
+  background = "forest.webp"
+) => {
+  const { longitude, latitude, sector, userId, targetId, prisma } = info;
+  const battle = await prisma.$transaction(async (tx) => {
+    // Get user & target data, to be inserted into battle
+    const users = await tx.userData.findMany({
+      include: {
+        items: {
+          include: {
+            item: true,
+          },
+          where: {
+            quantity: {
+              gt: 0,
+            },
+            equipped: {
+              not: null,
+            },
+          },
+        },
+        jutsus: {
+          include: {
+            jutsu: true,
+          },
+          where: {
+            equipped: true,
+          },
+        },
+        bloodline: true,
+        village: true,
+      },
+      where: {
+        OR: [{ userId: userId }, { userId: targetId }],
+      },
+    });
+    users.sort((a, b) => (a.userId === userId ? -1 : 1));
+
+    // Use long/lat fields for position in combat map
+    if (users?.[0]) {
+      users[0]["longitude"] = 4;
+      users[0]["latitude"] = 2;
+    } else {
+      throw new Error(`Failed to set position of left-hand user`);
+    }
+    if (users?.[1]) {
+      users[1]["longitude"] = 8;
+      users[1]["latitude"] = 2;
+    } else {
+      throw new Error(`Failed to set position of right-hand user`);
+    }
+
+    // Create the users array to be inserted into the battle
+    const userEffects: UserEffect[] = [];
+    const usersState = users.map((raw) => {
+      // Add basics
+      const user = raw as BattleUserState;
+      user.controllerId = user.userId;
+      user.is_original = true;
+
+      // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
+      // Therefore we need to calculate the current pools here, before inserting the user into battle
+      const regen =
+        (user.bloodline?.regenIncrease
+          ? user.regeneration + user.bloodline.regenIncrease
+          : user.regeneration) * secondsPassed(user.regenAt);
+      user.cur_health = Math.min(user.cur_health + regen, user.max_health);
+      user.cur_chakra = Math.min(user.cur_chakra + regen, user.max_chakra);
+      user.cur_stamina = Math.min(user.cur_stamina + regen, user.max_stamina);
+
+      // Add highest stats to user
+      user.highest_offence = Math.max(
+        user.ninjutsu_offence,
+        user.genjutsu_offence,
+        user.taijutsu_offence,
+        user.bukijutsu_offence
+      );
+      user.highest_defence = Math.max(
+        user.ninjutsu_offence,
+        user.genjutsu_offence,
+        user.taijutsu_offence,
+        user.bukijutsu_offence
+      );
+
+      // Add bloodline efects
+      if (user.bloodline?.effects) {
+        const effects = user.bloodline.effects as unknown as UserEffect[];
+        effects.forEach((effect) => {
+          const realized = realizeTag(effect, user, user.level);
+          realized.isNew = false;
+          realized.targetId = user.userId;
+          realized.fromBloodline = true;
+          userEffects.push(realized);
+        });
+      }
+      // Add item effects
+      const items: (UserItem & { item: Item })[] = [];
+      user.items.forEach((useritem) => {
+        const itemType = useritem.item.itemType;
+        if (itemType === ItemType.ARMOR || itemType === ItemType.ACCESSORY) {
+          if (useritem.item.effects) {
+            const effects = useritem.item.effects as unknown as UserEffect[];
+            effects.forEach((effect) => {
+              const realized = realizeTag(effect, user, user.level);
+              realized.isNew = false;
+              realized.targetId = user.userId;
+              userEffects.push(realized);
+            });
+          }
+        } else {
+          items.push(useritem);
+        }
+      });
+      user.items = items;
+      // Base values
+      user.armor = 0;
+      user.fledBattle = false;
+      user.leftBattle = false;
+      return user;
+    });
+
+    // Starting ground effects
+    const groundEffects: GroundEffect[] = [];
+    for (let col = 0; col < COMBAT_WIDTH; col++) {
+      for (let row = 0; row < COMBAT_HEIGHT; row++) {
+        // Ignore the spots where we placed users
+        const foundUser = usersState.find(
+          (u) => u.longitude === col && u.latitude === row
+        );
+        const rand = Math.random();
+        combatAssets.every((asset) => {
+          if (rand < asset.chance && !foundUser) {
+            const tag: GroundEffect = {
+              ...BarrierTag.parse({
+                power: 2,
+                originalPower: 2,
+                calculation: "static",
+              }),
+              id: `initial-${col}-${row}`,
+              creatorId: "ground",
+              createdAt: Date.now(),
+              level: 0,
+              longitude: col,
+              latitude: row,
+              isNew: false,
+              staticAssetPath: asset.filepath + asset.filename,
+            };
+            groundEffects.push(tag);
+            return false;
+          }
+          return true;
+        });
+      }
+    }
+
+    // Create combat entry
+    const battle = await tx.battle.create({
+      data: {
+        battleType,
+        background,
+        usersState: usersState as unknown as Prisma.JsonArray,
+        usersEffects: userEffects as unknown as Prisma.JsonArray,
+        groundEffects: groundEffects as unknown as Prisma.JsonArray,
+      },
+    });
+
+    // Update users, but only succeed transaction if none of them already had a battle assigned
+    const result: number = await tx.$executeRaw`
+      UPDATE UserData
+      SET
+        status = CASE WHEN isAI = false THEN 
+          ${UserStatus.BATTLE} ELSE ${UserStatus.AWAKE} END,
+        battleId = CASE WHEN isAI = false THEN 
+          ${battle.id} ELSE NULL END,
+        updatedAt = Now()
+      WHERE
+        (userId = ${userId} OR userId = ${targetId}) AND  
+        status = 'AWAKE' 
+        ${
+          battleType === BattleType.COMBAT
+            ? Prisma.sql`AND sector = ${sector} AND longitude = ${longitude} AND latitude = ${latitude}`
+            : Prisma.empty
+        }  
+        `;
+    if (result !== 2) {
+      throw new Error(`Attack failed, did the target move?`);
+    }
+    // Push websockets message to target
+    const pusher = getServerPusher();
+    void pusher.trigger(targetId, "event", { type: "battle" });
+
+    // Return the battle
+    return battle;
+  });
+  return battle;
 };
