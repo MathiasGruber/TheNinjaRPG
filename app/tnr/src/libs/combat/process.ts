@@ -10,6 +10,7 @@ import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
+import { updateStatUsage } from "./tags";
 import { clear } from "./tags";
 // TODO: Import all tags at once
 
@@ -150,7 +151,7 @@ export const applyEffects = (
   // Apply all user effects to their target users
   usersEffects.sort(sortEffects).forEach((e) => {
     // Get the user && effect details
-    const newOrigin = newUsersState.find((u) => u.userId === e.creatorId);
+    const newUser = newUsersState.find((u) => u.userId === e.creatorId);
     let longitude: number | undefined = undefined;
     let latitude: number | undefined = undefined;
     let info: ActionEffect | undefined = undefined;
@@ -183,7 +184,8 @@ export const applyEffects = (
         } else if (e.type === "healadjust") {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damage") {
-          info = damage(e, newOrigin, curTarget, consequences, applyTimes);
+          info = damage(e, newUser, curTarget, consequences, applyTimes);
+          updateStatUsage(newTarget, e, true);
         } else if (e.type === "heal") {
           info = heal(e, curTarget, consequences, applyTimes);
         } else if (e.type === "reflect") {
@@ -198,12 +200,14 @@ export const applyEffects = (
           info = clear(e, usersEffects, curTarget);
         } else if (e.type === "onehitkill") {
           info = onehitkill(e, newUsersEffects, newTarget);
+          updateStatUsage(newTarget, e, true);
         } else if (e.type === "onehitkillprevent") {
           info = onehitkillPrevent(e, curTarget);
         } else if (e.type === "robprevent") {
           info = robPrevent(e, curTarget);
         } else if (e.type === "rob") {
-          info = rob(e, newUsersEffects, newOrigin, newTarget);
+          info = rob(e, newUsersEffects, newUser, newTarget);
+          updateStatUsage(newTarget, e, true);
         } else if (e.type === "sealprevent") {
           info = sealPrevent(e, curTarget);
         } else if (e.type === "seal") {
@@ -212,6 +216,7 @@ export const applyEffects = (
           info = stunPrevent(e, curTarget);
         } else if (e.type === "stun") {
           info = stun(e, newUsersEffects, curTarget);
+          updateStatUsage(newTarget, e, true);
         } else if (e.type === "summonprevent") {
           // TODO:
         } else if (e.type === "summon") {

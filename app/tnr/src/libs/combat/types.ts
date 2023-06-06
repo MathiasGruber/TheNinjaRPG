@@ -82,6 +82,8 @@ export type BattleUserState = UserData & {
   village?: Village | null;
   highest_offence: number;
   highest_defence: number;
+  highest_offence_type: (typeof StatNames)[number];
+  highest_defence_type: (typeof StatNames)[number];
   armor: number;
   hidden?: boolean;
   is_original: boolean;
@@ -89,6 +91,9 @@ export type BattleUserState = UserData & {
   leftBattle: boolean;
   fledBattle: boolean;
   hex?: TerrainHex;
+  usedGenerals: (typeof GeneralType)[number][];
+  usedStats: (typeof StatNames)[number][];
+  usedActionIDs: string[];
 };
 
 /**
@@ -182,6 +187,16 @@ const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const
 const StatType = ["Highest", "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const;
 const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
+export const StatNames = [
+  "ninjutsu_offence",
+  "ninjutsu_defence",
+  "genjutsu_offence",
+  "genjutsu_defence",
+  "taijutsu_offence",
+  "taijutsu_defence",
+  "bukijutsu_offence",
+  "bukijutsu_defence",
+] as const;
 
 /**
  * Animation Visuals
@@ -259,6 +274,8 @@ const BaseAttributes = z.object({
   // Power controls. Has different meanings depending on calculation
   power: z.number().min(1).default(1),
   powerPerLevel: z.number().min(0).default(0),
+  // Used for indicating offensive / defensive effect
+  direction: z.enum(["offence", "defence"]).default("offence"),
 });
 
 const PoolAttributes = z.object({
@@ -281,6 +298,7 @@ const IncludeStats = z.object({
 export const AbsorbTag = z
   .object({
     type: type("absorb"),
+    direction: type("defence"),
     description: msg("Absorb damage taken"),
     elementalOnly: z.boolean().default(false).optional(),
     calculation: z.enum(["percentage"]).default("percentage"),
@@ -360,10 +378,7 @@ export const ClearTag = z
     description: msg("Clears all effects from the target"),
     calculation: z.enum(["static"]).default("static"),
   })
-  .merge(BaseAttributes)
-  .refine((data) => data.rounds === 0, {
-    message: "ClearTag can only be set to 0 rounds, indicating permanent removal",
-  });
+  .merge(BaseAttributes);
 
 export const CloneTag = z
   .object({
@@ -599,6 +614,50 @@ export type ActionEffect = {
 };
 
 /**
+ * Refiner object, which is used to refine the data in the battle object
+ */
+type ActionValidatorType = {
+  target: AttackTarget;
+  effects: ZodAllTags[];
+};
+
+const addIssue = (ctx: z.RefinementCtx, message: string) => {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+  });
+};
+
+const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
+  effects.forEach((e) => {
+    if (e.type === "clear" && e.rounds !== 0) {
+      addIssue(ctx, "ClearTag can only be set to 0 rounds");
+    } else if (e.type === "absorb" && e.direction === "offence") {
+      addIssue(ctx, "AbsorbTag should be set to defence");
+    } else if (e.type === "armoradjust") {
+      if (
+        (e.direction === "offence" && e.power > 0) ||
+        (e.direction === "defence" && e.power < 0)
+      )
+        addIssue(ctx, "ArmorTag power & direction mismatch");
+    } else if (e.type === "barrier" && e.direction === "offence") {
+      addIssue(ctx, "BarrierTag power & direction mismatch");
+    }
+  });
+};
+
+const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
+  if (data.target !== AttackTarget.EMPTY_GROUND) {
+    if (data.effects.find((e) => e.type === "barrier")) {
+      addIssue(ctx, "Barriers need empty ground");
+    }
+    if (data.effects.find((e) => e.type === "clone")) {
+      addIssue(ctx, "Clone need empty ground");
+    }
+  }
+};
+
+/**
  * Jutsu Type. Used for validating a jutsu object is set up properly
  */
 export const JutsuValidator = z
@@ -619,26 +678,9 @@ export const JutsuValidator = z
     staminaCostPerc: z.number().min(0).max(100).optional(),
     actionCostPerc: z.number().int().min(1).max(100).optional(),
     cooldown: z.number().int().min(1).max(300),
-    effects: z.array(AllTags),
+    effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
-  .refine(
-    (data) => {
-      return (
-        !data.effects.find((e) => e.type === "barrier") ||
-        data.target === AttackTarget.EMPTY_GROUND
-      );
-    },
-    { message: "Barriers can only be used on empty ground" }
-  )
-  .refine(
-    (data) => {
-      return (
-        !data.effects.find((e) => e.type === "clone") ||
-        data.target === AttackTarget.EMPTY_GROUND
-      );
-    },
-    { message: "Clones can only be used on empty ground" }
-  );
+  .superRefine(SuperRefineAction);
 export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 
 /**
@@ -651,46 +693,50 @@ const BloodlineValidator = z.object({
   rank: z.nativeEnum(LetterRank),
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
-  effects: z.array(
-    z.union([
-      AbsorbTag.omit({ rounds: true }).default({}),
-      AdjustArmorTag.omit({ rounds: true }).default({}),
-      AdjustDamageGivenTag.omit({ rounds: true }).default({}),
-      AdjustDamageTakenTag.omit({ rounds: true }).default({}),
-      AdjustHealGivenTag.omit({ rounds: true }).default({}),
-      AdjustPoolCostTag.omit({ rounds: true }).default({}),
-      AdjustStatTag.omit({ rounds: true }).default({}),
-      DamageTag.omit({ rounds: true }).default({}),
-      HealTag.omit({ rounds: true }).default({}),
-      ReflectTag.omit({ rounds: true }).default({}),
-      RobPreventTag.omit({ rounds: true }).default({}),
-      SealPreventTag.omit({ rounds: true }).default({}),
-      StunPreventTag.omit({ rounds: true }).default({}),
-    ])
-  ),
+  effects: z
+    .array(
+      z.union([
+        AbsorbTag.omit({ rounds: true }).default({}),
+        AdjustArmorTag.omit({ rounds: true }).default({}),
+        AdjustDamageGivenTag.omit({ rounds: true }).default({}),
+        AdjustDamageTakenTag.omit({ rounds: true }).default({}),
+        AdjustHealGivenTag.omit({ rounds: true }).default({}),
+        AdjustPoolCostTag.omit({ rounds: true }).default({}),
+        AdjustStatTag.omit({ rounds: true }).default({}),
+        DamageTag.omit({ rounds: true }).default({}),
+        HealTag.omit({ rounds: true }).default({}),
+        ReflectTag.omit({ rounds: true }).default({}),
+        RobPreventTag.omit({ rounds: true }).default({}),
+        SealPreventTag.omit({ rounds: true }).default({}),
+        StunPreventTag.omit({ rounds: true }).default({}),
+      ])
+    )
+    .superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 
 /**
  * Item Type. Used for validating a item object is set up properly
  */
-const ItemValidator = z.object({
-  name: z.string(),
-  image: z.string(),
-  description: z.string(),
-  canStack: z.boolean().optional(),
-  stackSize: z.number().int().min(1).max(100).optional(),
-  destroyOnUse: z.boolean().optional(),
-  chakraCostPerc: z.number().int().min(1).max(100).optional(),
-  staminaCostPerc: z.number().int().min(1).max(100).optional(),
-  actionCostPerc: z.number().int().min(1).max(100).optional(),
-  cost: z.number().int().min(1),
-  range: z.number().int().min(0).max(10).optional(),
-  target: z.nativeEnum(AttackTarget),
-  itemType: z.nativeEnum(ItemType),
-  weaponType: z.nativeEnum(WeaponType).optional(),
-  rarity: z.nativeEnum(ItemRarity),
-  slot: z.nativeEnum(ItemSlotType),
-  effects: z.array(AllTags),
-});
+const ItemValidator = z
+  .object({
+    name: z.string(),
+    image: z.string(),
+    description: z.string(),
+    canStack: z.boolean().optional(),
+    stackSize: z.number().int().min(1).max(100).optional(),
+    destroyOnUse: z.boolean().optional(),
+    chakraCostPerc: z.number().int().min(1).max(100).optional(),
+    staminaCostPerc: z.number().int().min(1).max(100).optional(),
+    actionCostPerc: z.number().int().min(1).max(100).optional(),
+    cost: z.number().int().min(1),
+    range: z.number().int().min(0).max(10).optional(),
+    target: z.nativeEnum(AttackTarget),
+    itemType: z.nativeEnum(ItemType),
+    weaponType: z.nativeEnum(WeaponType).optional(),
+    rarity: z.nativeEnum(ItemRarity),
+    slot: z.nativeEnum(ItemSlotType),
+    effects: z.array(AllTags).superRefine(SuperRefineEffects),
+  })
+  .superRefine(SuperRefineAction);
 export type ZodItemType = z.infer<typeof ItemValidator>;

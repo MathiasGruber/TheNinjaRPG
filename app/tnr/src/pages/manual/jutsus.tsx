@@ -40,7 +40,7 @@ const ManualJutsus: NextPage = () => {
           their inner chakra energy, which is released through a series of hand
           movements known as hand seals. With countless combinations of hand seals and
           chakra energies, there are endless possibilities for the types of jutsu that
-          can be created. Whether it is a technique for offense or defense, a skilled
+          can be created. Whether it is a technique for offence or defence, a skilled
           ninja must master the art of jutsu to become a true warrior.
         </p>
         <p className="pt-4">

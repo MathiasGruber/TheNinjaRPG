@@ -52,33 +52,43 @@ const Combat: React.FC<CombatProps> = (props) => {
   const mouse = new Vector2();
 
   // User Action
-  const { mutate: performAction, isLoading } = api.combat.performAction.useMutation({
-    onMutate: () => {
-      setBattleState({ battle: battle.current, result: null, isLoading: true });
-    },
-    onSuccess: (data) => {
-      if (data) {
-        battle.current = data.battle;
-        setBattleState({ battle: data.battle, result: data.result, isLoading: false });
-      }
-    },
-    onError: (error) => {
-      show_toast("Error acting", error.message, "error");
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-    },
-  });
+  const { mutate: performAction, isLoading: isLoadingUser } =
+    api.combat.performAction.useMutation({
+      onMutate: () => {
+        setBattleState({ battle: battle.current, result: null, isLoading: true });
+      },
+      onSuccess: (data) => {
+        if (data) {
+          battle.current = data.battle;
+          setBattleState({
+            battle: data.battle,
+            result: data.result,
+            isLoading: false,
+          });
+        }
+      },
+      onError: (error) => {
+        show_toast("Error acting", error.message, "error");
+      },
+      onSettled: () => {
+        document.body.style.cursor = "default";
+      },
+    });
 
   // AI actions
-  const { mutate: performAIAction } = api.combat.performAction.useMutation({
-    onSuccess: (data) => {
-      if (data) {
-        battle.current = data.battle;
-        setBattleState({ battle: data.battle, result: data.result, isLoading: false });
-      }
-    },
-  });
+  const { mutate: performAIAction, isLoading: isLoadingAI } =
+    api.combat.performAction.useMutation({
+      onSuccess: (data) => {
+        if (data) {
+          battle.current = data.battle;
+          setBattleState({
+            battle: data.battle,
+            result: data.result,
+            isLoading: false,
+          });
+        }
+      },
+    });
 
   // Data from the DB
   const { data: userData, refetch: refetchUser, setBattle } = useRequiredUserData();
@@ -116,7 +126,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (battle.current && userId.current && !isLoading) {
+      if (battle.current && userId.current && !isLoadingUser && !isLoadingAI) {
         const usersState = battle.current.usersState;
         const user = usersState.find((u) => u.userId === userId.current);
         const ai = usersState.find(
@@ -133,9 +143,9 @@ const Combat: React.FC<CombatProps> = (props) => {
           }
         }
       }
-    }, 5000);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [performAIAction, isLoading]);
+  }, [performAIAction, isLoadingUser, isLoadingAI]);
 
   useEffect(() => {
     action.current = props.action;
@@ -158,8 +168,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       });
       const channel = pusher.subscribe(userData.battleId.toString());
       channel.bind("event", (data: { version: number }) => {
-        if (battle.current?.version !== data.version) {
-          console.log("PUSHER EVENT", data, battle.current);
+        if (battle.current?.version !== data.version && !result) {
           refetchBattle();
         }
       });
@@ -375,8 +384,39 @@ const Combat: React.FC<CombatProps> = (props) => {
               You{" "}
               {result.cur_health <= 0 ? "Lost" : result.experience > 0 ? "Won" : "Fled"}
             </p>
-            {result.elo_pvp && <p>Your PVP rating: {result.elo_pvp}</p>}
-            {result.experience > 0 && <p>Experience Points: {result.experience}</p>}
+            {result.experience > 0 && (
+              <p>Experience Points: {result.experience.toFixed(2)}</p>
+            )}
+            {result.ninjutsu_offence > 0 && (
+              <p>Offensive Ninjutsu: {result.ninjutsu_offence.toFixed(2)}</p>
+            )}
+            {result.ninjutsu_defence > 0 && (
+              <p>Defensive Ninjutsu: {result.ninjutsu_defence.toFixed(2)}</p>
+            )}
+            {result.taijutsu_offence > 0 && (
+              <p>Offensive Taijutsu: {result.taijutsu_offence.toFixed(2)}</p>
+            )}
+            {result.taijutsu_defence > 0 && (
+              <p>Defensive Taijutsu: {result.taijutsu_defence.toFixed(2)}</p>
+            )}
+            {result.genjutsu_offence > 0 && (
+              <p>Offensive Genjutsu: {result.genjutsu_offence.toFixed(2)}</p>
+            )}
+            {result.genjutsu_defence > 0 && (
+              <p>Defensive Genjutsu: {result.genjutsu_defence.toFixed(2)}</p>
+            )}
+            {result.bukijutsu_offence > 0 && (
+              <p>Offensive Bukijutsu: {result.bukijutsu_offence.toFixed(2)}</p>
+            )}
+            {result.bukijutsu_defence > 0 && (
+              <p>Defensive Bukijutsu: {result.bukijutsu_defence.toFixed(2)}</p>
+            )}
+            {result.intelligence > 0 && (
+              <p>Intelligence: {result.intelligence.toFixed(2)}</p>
+            )}
+            {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
+            {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
+            {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
             <div className="p-5">
               <Link href={result.cur_health <= 0 ? "/hospital" : "/profile"}>
                 <Button

@@ -110,6 +110,7 @@ const jutsus: ZodJutsuType[] = [
         rounds: 10,
         power: 2,
         originalPower: 2,
+        direction: "defence",
         calculation: "static",
         staticAssetPath: "craftpix-377140/PNG/Objects_separately/Rock6_2.png",
         appearAnimation: "smoke",

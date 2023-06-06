@@ -253,6 +253,62 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
   return false;
 };
 
+export const updateStatUsage = (
+  user: BattleUserState,
+  effect: UserEffect | GroundEffect,
+  inverse = false
+) => {
+  if ("statTypes" in effect && "direction" in effect) {
+    effect.statTypes?.forEach((statType) => {
+      if (
+        (effect.direction === "offence" && !inverse) ||
+        (effect.direction === "defence" && inverse)
+      ) {
+        switch (statType) {
+          case "Taijutsu":
+            user.usedStats.push("taijutsu_offence");
+            break;
+          case "Bukijutsu":
+            user.usedStats.push("bukijutsu_offence");
+            break;
+          case "Ninjutsu":
+            user.usedStats.push("ninjutsu_offence");
+            break;
+          case "Genjutsu":
+            user.usedStats.push("genjutsu_offence");
+            break;
+          case "Highest":
+            user.usedStats.push(user.highest_offence_type);
+            break;
+        }
+      } else {
+        switch (statType) {
+          case "Taijutsu":
+            user.usedStats.push("taijutsu_defence");
+            break;
+          case "Bukijutsu":
+            user.usedStats.push("bukijutsu_defence");
+            break;
+          case "Ninjutsu":
+            user.usedStats.push("ninjutsu_defence");
+            break;
+          case "Genjutsu":
+            user.usedStats.push("genjutsu_defence");
+            break;
+          case "Highest":
+            user.usedStats.push(user.highest_defence_type);
+            break;
+        }
+      }
+    });
+  }
+  if ("generalTypes" in effect) {
+    effect.generalTypes?.forEach((general) => {
+      user.usedGenerals.push(general);
+    });
+  }
+};
+
 /** Calculate damage effect on target */
 export const damage = (
   effect: UserEffect,
@@ -294,8 +350,9 @@ export const damage = (
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
-    damage: Math.floor(20 * power) * applyTimes,
+    damage: Math.max(Math.floor(20 * power) * applyTimes, 1),
   });
+
   return getInfo(target, effect, "will take damage");
 };
 

@@ -10,6 +10,7 @@ import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 import { calcPoolCost } from "./util";
+import { updateStatUsage } from "./tags";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -210,7 +211,6 @@ export const insertAction = (info: {
     const villageId = user.villageId;
     // How much time passed since last action
     const newSeconds = actionSecondsAfterAction(user, action);
-    console.log(user.username, "newSeconds", newSeconds, action.actionCostPerc);
     if (newSeconds < 0) {
       return { check: false, usersEffects, groundEffects };
     }
@@ -299,6 +299,11 @@ export const insertAction = (info: {
         }
       }
     });
+    // Update local battle history in terms of usage of action, effects, etc.
+    action.effects.forEach((effect) => {
+      updateStatUsage(user, effect as UserEffect);
+    });
+    user.usedActionIDs.push(action.id);
     // Update pools & action timer based on action
     if (affectedTiles.size > 0) {
       user.cur_chakra -= cpCost;

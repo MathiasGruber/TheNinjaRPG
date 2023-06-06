@@ -7,14 +7,14 @@ import { COMBAT_SECONDS, COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { availableUserActions, insertAction } from "./actions";
 import { applyEffects } from "./process";
 import { realizeTag } from "../../libs/combat/process";
-import { BarrierTag } from "../../libs/combat/types";
+import { BarrierTag, StatNames } from "../../libs/combat/types";
 import { UserStatus, BattleType, ItemType } from "@prisma/client";
 import { combatAssets } from "../../libs/travel/biome";
 import { getServerPusher } from "../../libs/pusher";
 import type { Grid } from "honeycomb-grid";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
-import type { CombatAction, BattleUserState, PerformActionType } from "./types";
+import type { CombatAction, BattleUserState } from "./types";
 import type { Battle } from "@prisma/client";
 import type { TerrainHex } from "../../libs/hexgrid";
 import type { Item, UserItem } from "@prisma/client";
@@ -226,7 +226,7 @@ export const maskBattle = (battle: Battle, userId: string) => {
 export const calcBattleResult = (users: BattleUserState[], userId: string) => {
   const user = users.find((u) => u.userId === userId);
   const originals = users.filter((u) => u.is_original);
-  if (user && user.cur_stamina && user.cur_chakra) {
+  if (user && user.cur_stamina && user.cur_chakra && !user.leftBattle) {
     // If 1v1, then friends/targets are the opposing team. If MPvP, separate by village
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
@@ -246,7 +246,10 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       const uExp = friends.reduce((a, b) => a + b.experience, 0) / friends.length;
       const oExp = targets.reduce((a, b) => a + b.experience, 0) / targets.length;
       const didWin = user.cur_health > 0;
-      const eloDiff = calcEloChange(uExp, oExp, 32, didWin);
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~");
+      console.log(uExp, oExp, didWin);
+      const eloDiff = Math.max(calcEloChange(uExp, oExp, 32, didWin), 0);
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~");
 
       // Find users who did not leave battle yet
       const friendsLeft = friends.filter((u) => !u.leftBattle);
@@ -265,7 +268,6 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
         intelligence: 0,
         willpower: 0,
         speed: 0,
-        money: user.money,
         ninjutsu_offence: 0,
         genjutsu_offence: 0,
         taijutsu_offence: 0,
@@ -274,9 +276,35 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
         genjutsu_defence: 0,
         taijutsu_defence: 0,
         bukijutsu_defence: 0,
+        money: user.money,
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
       };
+
+      // If any stats were used, distribute exp change on stats.
+      // If not, then distribute equally among all stats & generals
+      let total = user.usedStats.length + user.usedGenerals.length;
+      if (total === 0) {
+        user.usedStats = [
+          "ninjutsu_offence",
+          "ninjutsu_defence",
+          "genjutsu_offence",
+          "genjutsu_defence",
+          "taijutsu_offence",
+          "taijutsu_defence",
+          "bukijutsu_offence",
+          "bukijutsu_defence",
+        ];
+        user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
+        total = 12;
+      }
+      const statGain = Math.floor((eloDiff / total) * 100) / 100;
+      user.usedStats.forEach((stat) => {
+        result[stat] += statGain;
+      });
+      user.usedGenerals.forEach((stat) => {
+        result[stat.toLowerCase() as keyof CombatResult] += statGain;
+      });
 
       // Return results
       return { finalUsersState: users, result: result };
@@ -290,8 +318,8 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
  */
 const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolean) => {
   const expectedScore = 1 / (1 + 10 ** ((opponent - user) / 400));
-  const newRating = user + kFactor * ((won ? 1 : 0) - expectedScore);
-  return newRating;
+  const ratingChange = kFactor * ((won ? 1 : 0) - expectedScore);
+  return Math.floor(ratingChange * 100) / 100;
 };
 
 /** Given an action from a given origin, return the tiles where this action could reach */
@@ -461,6 +489,11 @@ export const initiateBattle = async (
         user.taijutsu_offence,
         user.bukijutsu_offence
       );
+
+      // Set the history lists to record actions during battle
+      user.usedGenerals = [];
+      user.usedStats = [];
+      user.usedActionIDs = [];
 
       // Add bloodline efects
       if (user.bloodline?.effects) {

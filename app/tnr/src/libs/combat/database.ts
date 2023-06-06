@@ -75,7 +75,9 @@ export const updateUser = async (
   prisma: PrismaClient | PrismaTransactionClient
 ) => {
   if (result) {
+    console.log("---------------");
     console.log(result);
+    console.log("---------------");
     return await prisma.$executeRaw`
       UPDATE UserData 
       SET

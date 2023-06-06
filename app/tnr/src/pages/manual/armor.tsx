@@ -40,7 +40,7 @@ const ManualArmor: NextPage = () => {
           and death. As a ninja, you will be engaged in high-risk missions that will
           require you to be well-prepared to face any kind of danger. Armor can protect
           you from physical attacks, such as swords, shurikens, and kunais, and can also
-          provide defense against certain types of jutsus. Without armor, you will be
+          provide defence against certain types of jutsus. Without armor, you will be
           left vulnerable to attacks, which can significantly reduce your chances of
           success. Thus, it is highly recommended that you invest in the right armor to
           ensure that you can complete your missions and emerge victorious. Armor along

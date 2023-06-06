@@ -222,7 +222,7 @@ const GameRules: NextPage = () => {
         <p className="my-2">
           <b>Bans: </b>Using a different account to bypass an active ban is strictly
           prohibited, and may result in an extension of the original ban. Generally, the
-          duration of bans will depend on the severity of the offense, the user’s prior
+          duration of bans will depend on the severity of the offence, the user’s prior
           record, and other circumstantial factors which moderators may deem appropriate
           to consider. Repeat offenders may also be subject to appropriate penalties
           against profits from illicit activities (e.g., ryo drains for scamming,
