@@ -100,8 +100,8 @@ const Profile: NextPage = () => {
             Lvl. {userData.level} {userData.rank}
           </p>
           <p>Village: {userData.village?.name}</p>
-          <p>Money: {userData.money}</p>
-          <p>Bank: {userData.bank}</p>
+          <p>Money: {userData.money.toFixed(2)}</p>
+          <p>Bank: {userData.bank.toFixed(2)}</p>
           <p>Status: {userData.status}</p>
           <p>Gender: {userData.gender}</p>
           <br />
@@ -111,7 +111,7 @@ const Profile: NextPage = () => {
           <p>Bloodline: {userData.bloodline?.name || "None"}</p>
           <br />
           <b>Experience</b>
-          <p>Experience: {userData.experience}</p>
+          <p>Experience: {userData.experience.toFixed(2)}</p>
           <p>Experience for lvl: ---</p>
           <br />
           <b>Special</b>
@@ -121,22 +121,22 @@ const Profile: NextPage = () => {
         </div>
         <div>
           <b>Generals</b>
-          <p>Strength: {userData.strength}</p>
-          <p>Intelligence: {userData.intelligence}</p>
-          <p>Willpower: {userData.willpower}</p>
-          <p>Speed: {userData.speed}</p>
+          <p>Strength: {userData.strength.toFixed(2)}</p>
+          <p>Intelligence: {userData.intelligence.toFixed(2)}</p>
+          <p>Willpower: {userData.willpower.toFixed(2)}</p>
+          <p>Speed: {userData.speed.toFixed(2)}</p>
           <br />
           <b>Offences</b>
-          <p>Ninjutsu offence: {userData.ninjutsu_offence}</p>
-          <p>Genjutsu offence: {userData.genjutsu_offence}</p>
-          <p>Taijutsu offence: {userData.taijutsu_offence}</p>
-          <p>Bukijutsu offence: {userData.bukijutsu_offence}</p>
+          <p>Ninjutsu offence: {userData.ninjutsu_offence.toFixed(2)}</p>
+          <p>Genjutsu offence: {userData.genjutsu_offence.toFixed(2)}</p>
+          <p>Taijutsu offence: {userData.taijutsu_offence.toFixed(2)}</p>
+          <p>Bukijutsu offence: {userData.bukijutsu_offence.toFixed(2)}</p>
           <br />
           <b>Defences</b>
-          <p>Ninjutsu defence: {userData.ninjutsu_defence}</p>
-          <p>Genjutsu defence: {userData.genjutsu_defence}</p>
-          <p>Taijutsu defence: {userData.taijutsu_defence}</p>
-          <p>Bukijutsu defence: {userData.bukijutsu_defence}</p>
+          <p>Ninjutsu defence: {userData.ninjutsu_defence.toFixed(2)}</p>
+          <p>Genjutsu defence: {userData.genjutsu_defence.toFixed(2)}</p>
+          <p>Taijutsu defence: {userData.taijutsu_defence.toFixed(2)}</p>
+          <p>Bukijutsu defence: {userData.bukijutsu_defence.toFixed(2)}</p>
         </div>
       </div>
     </ContentBox>

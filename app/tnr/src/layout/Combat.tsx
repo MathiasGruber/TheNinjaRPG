@@ -37,7 +37,6 @@ interface CombatProps {
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
-  console.log("COMBAT LAYOUT COMPONENT", props.battleState.battle?.version);
   // Destructure props
   const { setBattleState, setActionPerc, setUserId, refetchBattle } = props;
   const { battleState } = props;
@@ -60,6 +59,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       onSuccess: (data) => {
         if (data) {
           battle.current = data.battle;
+          if (data.result) void refetchUser();
           setBattleState({
             battle: data.battle,
             result: data.result,
@@ -81,6 +81,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       onSuccess: (data) => {
         if (data) {
           battle.current = data.battle;
+          if (data.result) void refetchUser();
           setBattleState({
             battle: data.battle,
             result: data.result,
@@ -358,8 +359,6 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Remove the mouseover listener
       return () => {
-        console.log("CLEARING COMBAT");
-        void refetchUser();
         void setBattle(undefined);
         window.removeEventListener("resize", handleResize);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);

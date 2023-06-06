@@ -13,6 +13,7 @@ import { ActionSelector } from "../layout/CombatActions";
 import { api } from "../utils/api";
 import { useRequiredUserData } from "../utils/UserContext";
 import type { BattleState } from "../libs/combat/types";
+import { UserStatus } from "@prisma/client";
 
 const CombatPage: NextPage = () => {
   // State
@@ -74,6 +75,8 @@ const CombatPage: NextPage = () => {
     );
   }, [battleId, versionId]);
 
+  console.log("Results", results);
+
   return (
     <div className="sm:container">
       <ContentBox
@@ -82,7 +85,7 @@ const CombatPage: NextPage = () => {
         padding={false}
         topRightContent={
           battle &&
-          !results && (
+          userData?.status === UserStatus.BATTLE && (
             <ActionTimer
               actionPerc={actionPerc}
               isLoading={battleState.isLoading}
@@ -98,7 +101,7 @@ const CombatPage: NextPage = () => {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {battle && !results && (
+      {battle && userData?.status === UserStatus.BATTLE && (
         <ActionSelector
           items={actions}
           showBgColor={true}
