@@ -4,6 +4,7 @@ import Loader from "./Loader";
 
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { sleep } from "../utils/time";
 
 interface AvatarImageProps {
   href?: string | null;
@@ -12,6 +13,7 @@ interface AvatarImageProps {
   size: number;
   priority?: boolean;
   hover_effect?: boolean;
+  refetchUserData?: () => void;
 }
 
 const AvatarImage: React.FC<AvatarImageProps> = (props) => {
@@ -20,8 +22,16 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
 
   // Fetch avatar query
   const { mutate: checkAvatar } = api.avatar.checkAvatar.useMutation({
-    onSuccess: (data) => {
-      setHref(data.url);
+    onSuccess: async (data) => {
+      if (data.url) {
+        setHref(data.url);
+        if (props.refetchUserData) {
+          props.refetchUserData();
+        }
+      } else if (!href && props.userId) {
+        await sleep(5000);
+        checkAvatar({ userId: props.userId });
+      }
     },
     onError: (error) => {
       show_toast("Error fetching avatar", error.message, "error");
@@ -30,10 +40,13 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
 
   // If href is not provided, fetch avatar
   useEffect(() => {
-    if (!props.href && props.userId) {
+    if (!href && props.userId) {
       checkAvatar({ userId: props.userId });
     }
-  }, [props.href, props.userId, checkAvatar]);
+    if (href !== props.href) {
+      setHref(props.href);
+    }
+  }, [href, props.userId, props.href, checkAvatar]);
 
   // If no href, show loader, otherwise show avatar
   if (!href) {

@@ -63,7 +63,6 @@ const PublicProfile: NextPage = () => {
                 <br />
                 <b>Special</b>
                 <p>Reputation points: {profile.reputation_points}</p>
-                <p>Popularity points: {profile.popularity_points}</p>
                 <p>Federal Support: {profile.federalStatus.toLowerCase()}</p>
               </div>
               <div>

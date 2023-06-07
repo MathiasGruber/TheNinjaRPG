@@ -11,6 +11,7 @@ import { useClerk } from "@clerk/clerk-react";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { capitalizeFirstLetter } from "../utils/sanitize";
 
 const Profile: NextPage = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
@@ -97,7 +98,7 @@ const Profile: NextPage = () => {
         <div>
           <b>General</b>
           <p>
-            Lvl. {userData.level} {userData.rank}
+            Lvl. {userData.level} {capitalizeFirstLetter(userData.rank)}
           </p>
           <p>Village: {userData.village?.name}</p>
           <p>Money: {userData.money.toFixed(2)}</p>
@@ -116,7 +117,6 @@ const Profile: NextPage = () => {
           <br />
           <b>Special</b>
           <p>Reputation points: {userData.reputation_points}</p>
-          <p>Popularity points: {userData.popularity_points}</p>
           <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
         </div>
         <div>

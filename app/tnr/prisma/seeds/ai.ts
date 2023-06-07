@@ -16,12 +16,34 @@ function ReadonlyMapWithStringKeys<K extends string, AIdefinition>(
 
 export const ais = ReadonlyMapWithStringKeys([
   [
+    "Sad Puppy",
+    {
+      userId: "clik9wpb0000009l606opg0zj",
+      gender: "unknown",
+      avatar: "/ai/sad_puppy.webp",
+      level: 1,
+      rank: UserRank.NONE,
+      jutsus: ["Scratch"],
+    },
+  ],
+  [
     "Angry Cat",
     {
       userId: "cli93opw7000008lj2ut5fqlq",
       gender: "unknown",
       avatar: "/ai/angry_cat.webp",
-      level: 1,
+      level: 2,
+      rank: UserRank.NONE,
+      jutsus: ["Scratch"],
+    },
+  ],
+  [
+    "Wild Boar",
+    {
+      userId: "clik9wzuy000109l650ds0x6x",
+      gender: "unknown",
+      avatar: "/ai/wild_boar.webp",
+      level: 3,
       rank: UserRank.NONE,
       jutsus: ["Scratch"],
     },

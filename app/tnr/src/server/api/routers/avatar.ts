@@ -5,12 +5,12 @@ import { updateAvatar, checkAvatar } from "../../../libs/replicate";
 
 export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
-    // Check if user has any popularity points
+    // Check if user has any points
     const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
       where: { userId: ctx.userId },
     });
-    if (currentUser?.popularity_points <= 0) {
-      throw serverError("FORBIDDEN", "Not enough pop points");
+    if (currentUser?.reputation_points <= 0) {
+      throw serverError("FORBIDDEN", "Not enough reputation points");
     }
     // Set user avatar to undefined
     await ctx.prisma.userData.update({
@@ -19,7 +19,7 @@ export const avatarRouter = createTRPCRouter({
       },
       data: {
         avatar: undefined,
-        popularity_points: currentUser.popularity_points - 1,
+        reputation_points: currentUser.reputation_points - 1,
       },
     });
     // Update avatar

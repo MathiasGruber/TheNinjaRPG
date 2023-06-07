@@ -15,6 +15,7 @@ import type { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
+  console.log("userData", userData);
   const [state, setState] = useState<number>(0);
 
   /** Convenience method for showing effects based on stats */
@@ -75,7 +76,7 @@ const MenuBoxProfile: React.FC = () => {
       }
     >
       <div className="flex-col items-center justify-center">
-        <Link href="/avatar">
+        <Link href="/profile">
           <AvatarImage
             href={userData.avatar}
             userId={userData.userId}

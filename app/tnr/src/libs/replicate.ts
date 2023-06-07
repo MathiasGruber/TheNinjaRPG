@@ -1,5 +1,5 @@
-import { type PrismaClient } from "@prisma/client";
-import { type UserData } from "@prisma/client";
+import type { UserData, PrismaClient } from "@prisma/client";
+import { UserRank } from "@prisma/client";
 import { uploadAvatar } from "./aws";
 
 /**
@@ -10,27 +10,73 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
     where: { userId: user.userId },
     distinct: ["attribute"],
   });
-  const attributes = userAttributes.map((attribute) => attribute.attribute).join(", ");
-  const getAge = (rank: string) => {
+  const attributes = userAttributes
+    .sort((a) => (a.attribute.includes("skin") ? -1 : 1))
+    .map((attribute) => attribute.attribute)
+    .join(", ");
+
+  const getPhenotype = (rank: UserRank, gender: string) => {
     switch (rank) {
-      case "Student":
-        return "child";
-      case "Genin":
-        return "young adult";
-      case "Chunin":
-        return "adult";
-      case "Jounin":
-        return "adult";
-      case "Special Jounin":
-        return "adult";
+      case UserRank.STUDENT:
+        switch (gender) {
+          case "Male":
+            return "boy";
+          case "Female":
+            return "girl";
+          default:
+            return "child";
+        }
+      case UserRank.GENIN:
+        switch (gender) {
+          case "Male":
+            return "teenage boy";
+          case "Female":
+            return "teenage girl";
+          default:
+            return "teenager";
+        }
+      case UserRank.CHUNIN:
+        switch (gender) {
+          case "Male":
+            return "man";
+          case "Female":
+            return "woman";
+          default:
+            return "person";
+        }
+      case UserRank.JONIN:
+        switch (gender) {
+          case "Male":
+            return "man";
+          case "Female":
+            return "woman";
+          default:
+            return "person";
+        }
+      case UserRank.COMMANDER:
+        switch (gender) {
+          case "Male":
+            return "man";
+          case "Female":
+            return "woman";
+          default:
+            return "person";
+        }
       default:
-        return "old";
+        switch (gender) {
+          case "Male":
+            return "old man wrinkles";
+          case "Female":
+            return "old woman wrinkles";
+          default:
+            return "old person wrinkles";
+        }
     }
   };
-
-  return `${user.gender}, ${getAge(
-    user.rank
-  )}, ${attributes}, anime, soft lighting, detailed face, by makoto shinkai, stanley artgerm lau, wlop, rossdraws, concept art, digital painting, looking into camera`;
+  return `${getPhenotype(
+    user.rank,
+    user.gender
+  )}, ${attributes}, anime, portrait poster, soft lighting, detailed face, by stanley artgerm lau, wlop, rossdraws, concept art, looking into camera`;
 };
 
 /**
@@ -50,16 +96,15 @@ export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> =>
       Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
     },
     body: JSON.stringify({
-      version: "27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
+      version: "db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
       input: {
         prompt: prompt,
         width: 512,
         height: 512,
-        prompt_strength: 10,
         num_outputs: 1,
-        num_inference_steps: 50,
-        guidance_scale: 7.5,
-        scheduler: "K_EULER",
+        num_inference_steps: 100,
+        guidance_scale: 20,
+        scheduler: "DDIM",
       },
     }),
   }).then((response) => response.json() as Promise<ReplicateReturn>);
@@ -86,6 +131,9 @@ export const fetchAvatar = async (id: string): Promise<ReplicateReturn> => {
 export const updateAvatar = async (client: PrismaClient, user: UserData) => {
   // Get prompt
   const prompt = await getPrompt(client, user);
+  console.log("~~~~~~~~~~~~~~~~~~~");
+  console.log(prompt);
+  console.log("~~~~~~~~~~~~~~~~~~~");
   // Send request for avatar to ML server
   const result = await requestAvatar(prompt);
   // Update user avatar to null
