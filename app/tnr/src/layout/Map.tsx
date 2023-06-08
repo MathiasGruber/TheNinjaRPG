@@ -14,7 +14,7 @@ import {
   Mesh,
 } from "three";
 import alea from "alea";
-import * as TWEEN from "@tweenjs/tween.js";
+//import * as TWEEN from "@tweenjs/tween.js";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/threejs/TrackBallControls";
@@ -184,12 +184,12 @@ const Map: React.FC<MapProps> = (props) => {
         const mesh = group_tiles.getObjectByName(`${userData.sector}`);
         if (mesh) {
           (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
-          new TWEEN.Tween(userLocation)
-            .to({ h: 0.9, c: 1, l: 0.8 }, 100)
-            .yoyo(true)
-            .repeat(Infinity)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .start();
+          // new TWEEN.Tween(userLocation)
+          //   .to({ h: 0.9, c: 1, l: 0.8 }, 100)
+          //   .yoyo(true)
+          //   .repeat(Infinity)
+          //   .easing(TWEEN.Easing.Cubic.InOut)
+          //   .start();
         }
       }
 
@@ -223,7 +223,7 @@ const Map: React.FC<MapProps> = (props) => {
             userLocation.c,
             userLocation.l
           );
-          TWEEN.update();
+          // TWEEN.update();
         }
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
