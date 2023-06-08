@@ -3077,10 +3077,10 @@ hi-base32@^0.5.0:
   resolved "https://registry.yarnpkg.com/hi-base32/-/hi-base32-0.5.1.tgz#1279f2ddae2673219ea5870c2121d2a33132857e"
   integrity sha512-EmBBpvdYh/4XxsnUybsPag6VikPYnN30td+vQk+GI3qpahVEG9+gTkG0aXVxTjBqQ5T6ijbWIu77O+C5WFWsnA==
 
-honeycomb-grid@4.1.1:
-  version "4.1.1"
-  resolved "https://registry.yarnpkg.com/honeycomb-grid/-/honeycomb-grid-4.1.1.tgz#c3b2dde53d7b09e4cbdf95e4fafb21c98bd7a248"
-  integrity sha512-K7iG5OAd4+T/SILs8kaCO8On+MYGFbEWmPLroXtysfH3i3xMMtN22r2oTlwBaJJiBDs/z3nURC2nFq9ldRsHKw==
+honeycomb-grid@4.1.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/honeycomb-grid/-/honeycomb-grid-4.1.0.tgz#f431b5a9bf208d007051cc3a08d3ae373bed5489"
+  integrity sha512-HuHEWL7yyIDMWtDBrwzSX8NFM3E9cwU3Yjlws4Q+P2l1li5qdk3TuyLyTa6Xl4F2FLIIzu7683N3O1NdorZxhw==
 
 html2canvas@^1.4.1:
   version "1.4.1"
@@ -4602,10 +4602,10 @@ typed-array-length@^1.0.4:
     for-each "^0.3.3"
     is-typed-array "^1.1.9"
 
-typescript@^5.0.2:
-  version "5.1.3"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.1.3.tgz#8d84219244a6b40b6fb2b33cc1c062f715b9e826"
-  integrity sha512-XH627E9vkeqhlZFQuL+UsyAXEnibT0kWR2FWONlr4sTjvxyJYnyefgrkyECLzM5NenmKzRAy2rR/OlYLA1HkZw==
+typescript@5.2.0-dev.20230608:
+  version "5.2.0-dev.20230608"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.2.0-dev.20230608.tgz#744f533eae402370fcde28ca59d6dcdf6ba444d0"
+  integrity sha512-My8VOVNpHAZ693+NgsvD2JXgXg5eosPJcEDzPcme8tU1vs+C6G6liR15r3qd1qSSNjDghmCe014GjWspVBZ7ag==
 
 unbox-primitive@^1.0.2:
   version "1.0.2"
