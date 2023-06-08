@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { ReportAction } from "@prisma/client";
 import { UserStatus, type PrismaClient } from "@prisma/client";
+import type { inferRouterOutputs } from "@trpc/server";
 import { type NavBarDropdownLink } from "../../../libs/menus";
 import { secondsPassed } from "../../../utils/time";
 import {
@@ -9,18 +11,17 @@ import {
   publicProcedure,
   serverError,
 } from "../trpc";
+import { userData } from "../../../../drizzle/schema";
 
 export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
     // User
-    const user = await ctx.prisma.userData.findUnique({
-      where: { userId: ctx.userId },
-      include: {
-        village: true,
-        bloodline: true,
-      },
+    const user = await ctx.drizzle.query.userData.findFirst({
+      where: eq(userData.userId, ctx.userId),
+      with: { bloodline: true, village: true },
     });
+
     // Add bloodline regen to regeneration
     // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
     //       and we can avoid running an database UPDATE on each load
@@ -32,15 +33,17 @@ export const profileRouter = createTRPCRouter({
     if (user?.updatedAt && user?.regenAt) {
       const sinceUpdate = secondsPassed(user.updatedAt);
       if (sinceUpdate > 300) {
+        console.log(sinceUpdate, user.updatedAt);
         const regen = user.regeneration * secondsPassed(user.regenAt);
-        await ctx.prisma.userData.update({
-          where: { userId: ctx.userId },
-          data: {
-            cur_health: Math.min(user.cur_health + regen, user.max_health),
-            cur_stamina: Math.min(user.cur_stamina + regen, user.max_stamina),
-            cur_chakra: Math.min(user.cur_chakra + regen, user.max_chakra),
-          },
-        });
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            curHealth: Math.min(user.curHealth + regen, user.maxHealth),
+            curStamina: Math.min(user.curStamina + regen, user.maxStamina),
+            curChakra: Math.min(user.curChakra + regen, user.maxChakra),
+            updatedAt: new Date(),
+          })
+          .where(eq(userData.userId, ctx.userId));
       }
     }
 
@@ -293,3 +296,6 @@ export const fetchUser = async (client: PrismaClient, id: string) => {
     where: { userId: id },
   });
 };
+
+type RouterOutput = inferRouterOutputs<typeof profileRouter>;
+export type UserWithRelations = RouterOutput["getUser"]["userData"];

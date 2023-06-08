@@ -3,19 +3,9 @@ import { useContext } from "react";
 import { Prisma, type BattleType } from "@prisma/client";
 import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
+import type { UserWithRelations } from "../server/api/routers/profile";
 import type { UserEffect, GroundEffect } from "../libs/combat/types";
-
 import { type ReturnedUserState } from "../libs/combat/types";
-
-// Create type for user with relations (usually would be done in route,
-// but exception is made for userdata as we use it in the context provider)
-const userdataWithRelations = Prisma.validator<Prisma.UserDataArgs>()({
-  include: { village: true, bloodline: true },
-});
-export type UserDataWithRelations =
-  | Prisma.UserDataGetPayload<typeof userdataWithRelations>
-  | null
-  | undefined;
 
 // Create type for battle, which contains information on user current state
 export type UserBattle = {
@@ -37,7 +27,7 @@ export type UserEvent = {
 
 // User (& current battle) context
 export const UserContext = createContext<{
-  data: UserDataWithRelations;
+  data: UserWithRelations;
   battle: UserBattle | undefined;
   status: string;
   setBattle: React.Dispatch<React.SetStateAction<UserBattle | undefined>>;

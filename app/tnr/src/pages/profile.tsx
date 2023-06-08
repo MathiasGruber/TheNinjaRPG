@@ -57,7 +57,7 @@ const Profile: NextPage = () => {
             }
             onAccept={(e) => {
               e.preventDefault();
-              if (userData.deletionAt && userData.deletionAt < new Date()) {
+              if (userData.deletionAt && new Date(userData.deletionAt) < new Date()) {
                 confirmDeletion.mutate();
               } else {
                 toggleDeletionTimer.mutate();
@@ -127,16 +127,16 @@ const Profile: NextPage = () => {
           <p>Speed: {userData.speed.toFixed(2)}</p>
           <br />
           <b>Offences</b>
-          <p>Ninjutsu offence: {userData.ninjutsu_offence.toFixed(2)}</p>
-          <p>Genjutsu offence: {userData.genjutsu_offence.toFixed(2)}</p>
-          <p>Taijutsu offence: {userData.taijutsu_offence.toFixed(2)}</p>
-          <p>Bukijutsu offence: {userData.bukijutsu_offence.toFixed(2)}</p>
+          <p>Ninjutsu offence: {userData.ninjutsuOffence.toFixed(2)}</p>
+          <p>Genjutsu offence: {userData.genjutsuOffence.toFixed(2)}</p>
+          <p>Taijutsu offence: {userData.taijutsuOffence.toFixed(2)}</p>
+          <p>Bukijutsu offence: {userData.bukijutsuOffence.toFixed(2)}</p>
           <br />
           <b>Defences</b>
-          <p>Ninjutsu defence: {userData.ninjutsu_defence.toFixed(2)}</p>
-          <p>Genjutsu defence: {userData.genjutsu_defence.toFixed(2)}</p>
-          <p>Taijutsu defence: {userData.taijutsu_defence.toFixed(2)}</p>
-          <p>Bukijutsu defence: {userData.bukijutsu_defence.toFixed(2)}</p>
+          <p>Ninjutsu defence: {userData.ninjutsuDefence.toFixed(2)}</p>
+          <p>Genjutsu defence: {userData.genjutsuDefence.toFixed(2)}</p>
+          <p>Taijutsu defence: {userData.taijutsuDefence.toFixed(2)}</p>
+          <p>Bukijutsu defence: {userData.bukijutsuDefence.toFixed(2)}</p>
         </div>
       </div>
     </ContentBox>
