@@ -15,7 +15,6 @@ import type { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
-  console.log("userData", userData);
   const [state, setState] = useState<number>(0);
 
   /** Convenience method for showing effects based on stats */
@@ -95,8 +94,8 @@ const MenuBoxProfile: React.FC = () => {
           lastRegenAt={userData.regenAt}
           regen={userData.regeneration}
           status={userData.status}
-          current={userData.cur_health}
-          total={userData.max_health}
+          current={userData.curHealth}
+          total={userData.maxHealth}
         />
         <StatusBar
           title="CP"
@@ -106,8 +105,8 @@ const MenuBoxProfile: React.FC = () => {
           lastRegenAt={userData.regenAt}
           regen={userData.regeneration}
           status={userData.status}
-          current={userData.cur_chakra}
-          total={userData.max_chakra}
+          current={userData.curChakra}
+          total={userData.maxChakra}
         />
         <StatusBar
           title="SP"
@@ -117,8 +116,8 @@ const MenuBoxProfile: React.FC = () => {
           lastRegenAt={userData.regenAt}
           regen={userData.regeneration}
           status={userData.status}
-          current={userData.cur_stamina}
-          total={userData.max_stamina}
+          current={userData.curStamina}
+          total={userData.maxStamina}
         />
 
         <div className="mt-4">

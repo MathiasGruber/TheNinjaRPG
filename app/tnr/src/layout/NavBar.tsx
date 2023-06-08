@@ -40,8 +40,8 @@ const NavBar: React.FC = () => {
           regen={userData.regeneration}
           lastRegenAt={userData.regenAt}
           status={userData.status}
-          current={userData.cur_health}
-          total={userData.max_health}
+          current={userData.curHealth}
+          total={userData.maxHealth}
         />
         <StatusBar
           title="CP"
@@ -50,8 +50,8 @@ const NavBar: React.FC = () => {
           regen={userData.regeneration}
           lastRegenAt={userData.regenAt}
           status={userData.status}
-          current={userData.cur_chakra}
-          total={userData.max_chakra}
+          current={userData.curChakra}
+          total={userData.maxChakra}
         />
         <StatusBar
           title="SP"
@@ -60,8 +60,8 @@ const NavBar: React.FC = () => {
           regen={userData.regeneration}
           lastRegenAt={userData.regenAt}
           status={userData.status}
-          current={userData.cur_stamina}
-          total={userData.max_stamina}
+          current={userData.curStamina}
+          total={userData.maxStamina}
         />
       </div>
     </div>
