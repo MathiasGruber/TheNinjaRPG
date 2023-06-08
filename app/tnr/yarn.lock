@@ -3058,10 +3058,10 @@ hi-base32@^0.5.0:
   resolved "https://registry.yarnpkg.com/hi-base32/-/hi-base32-0.5.1.tgz#1279f2ddae2673219ea5870c2121d2a33132857e"
   integrity sha512-EmBBpvdYh/4XxsnUybsPag6VikPYnN30td+vQk+GI3qpahVEG9+gTkG0aXVxTjBqQ5T6ijbWIu77O+C5WFWsnA==
 
-honeycomb-grid@4.1.0:
-  version "4.1.0"
-  resolved "https://registry.yarnpkg.com/honeycomb-grid/-/honeycomb-grid-4.1.0.tgz#f431b5a9bf208d007051cc3a08d3ae373bed5489"
-  integrity sha512-HuHEWL7yyIDMWtDBrwzSX8NFM3E9cwU3Yjlws4Q+P2l1li5qdk3TuyLyTa6Xl4F2FLIIzu7683N3O1NdorZxhw==
+honeycomb-grid@4.0.0-beta.8:
+  version "4.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/honeycomb-grid/-/honeycomb-grid-4.0.0-beta.8.tgz#4b099ba21483738140840cf0ce5d2c3fb134bcf7"
+  integrity sha512-KsPTiDFP+3PJZVSFn+IbrshiGkXK9EWzrY7Q81skG+FJbqKVZ4d7HfrNh6MHsfCEp4RXQ0mb1A4oNP5SUzsAhQ==
 
 html2canvas@^1.4.1:
   version "1.4.1"
