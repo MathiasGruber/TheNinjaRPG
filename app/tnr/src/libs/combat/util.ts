@@ -1,5 +1,4 @@
 import { Prisma, AttackMethod } from "@prisma/client";
-import { spiral } from "honeycomb-grid";
 import { publicState, allState } from "./types";
 import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
@@ -20,6 +19,7 @@ import type { TerrainHex } from "../../libs/hexgrid";
 import type { Item, UserItem } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
+import { spiral, line, ring, fromCoordinates, Hex } from "honeycomb-grid";
 
 /**
  * Finds a user in the battle state based on location
@@ -320,81 +320,6 @@ const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolea
   const expectedScore = 1 / (1 + 10 ** ((opponent - user) / 400));
   const ratingChange = kFactor * ((won ? 1 : 0) - expectedScore);
   return Math.floor(ratingChange * 100) / 100;
-};
-
-/** Given an action from a given origin, return the tiles where this action could reach */
-export const getPossibleActionTiles = (
-  action: CombatAction | undefined,
-  origin: TerrainHex | undefined,
-  grid: Grid<TerrainHex>
-) => {
-  let highlights: Grid<TerrainHex> | undefined = undefined;
-  if (action && origin) {
-    const radius = action.range;
-    if (
-      action.method === AttackMethod.SINGLE ||
-      action.method === AttackMethod.AOE_LINE_SHOOT ||
-      action.method === AttackMethod.AOE_CIRCLE_SHOOT ||
-      action.method === AttackMethod.AOE_SPIRAL_SHOOT
-    ) {
-      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
-      highlights = grid.traverse(f);
-    } else if (action.method === AttackMethod.ALL) {
-      highlights = grid.forEach((hex) => hex);
-    } else if (action.method === AttackMethod.AOE_CIRCLE_SPAWN) {
-      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius + 1 });
-      highlights = grid.traverse(f);
-    }
-  }
-  return highlights;
-};
-
-export const performAction = (props: {
-  usersState: BattleUserState[];
-  usersEffects: UserEffect[];
-  groundEffects: GroundEffect[];
-  grid: Grid<TerrainHex>;
-  action: CombatAction;
-  contextUserId: string;
-  actionUserId: string;
-  longitude: number;
-  latitude: number;
-}) => {
-  // Destructure
-  const { usersState, usersEffects, groundEffects } = props;
-  const { grid, action, contextUserId, actionUserId, longitude, latitude } = props;
-  // Ensure that the userId we're trying to move is valid
-  const user = usersState.find(
-    (u) => u.controllerId === contextUserId && u.userId === actionUserId
-  );
-  if (!user) throw new Error("This is not your user");
-
-  // Perform action, get latest status effects
-  // Note: this mutates usersEffects, groundEffects in place
-  const check = insertAction({
-    usersState,
-    usersEffects,
-    groundEffects,
-    grid,
-    action,
-    userId: actionUserId,
-    longitude: longitude,
-    latitude: latitude,
-  });
-  if (!check) {
-    throw new Error("Requested action not possible anymore");
-  }
-
-  // Apply relevant effects, and get back new state + active effects
-  const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-    applyEffects(usersState, usersEffects, groundEffects);
-
-  return {
-    newUsersState,
-    newUsersEffects,
-    newGroundEffects,
-    actionEffects,
-  };
 };
 
 export const initiateBattle = async (

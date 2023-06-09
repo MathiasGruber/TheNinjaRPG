@@ -1,5 +1,5 @@
 import { availableUserActions } from "../../libs/combat/actions";
-import { performAction } from "../../libs/combat/util";
+import { performAction } from "../../libs/combat/actions";
 import { actionSecondsAfterAction } from "../../libs/combat/movement";
 import { getPossibleActionTiles, PathCalculator, findHex } from "../../libs/hexgrid";
 import type { BattleUserState, ActionEffect } from "../../libs/combat/types";

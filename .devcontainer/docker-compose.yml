@@ -33,6 +33,7 @@ services:
       - .env
     ports:
       - "3000:3000"
+      - "4000:4000"
     volumes:
       - ../app/tnr/:/app/
       - /app/node_modules

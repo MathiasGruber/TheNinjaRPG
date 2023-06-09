@@ -4,7 +4,8 @@ import { isEffectStillActive } from "./util";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./process";
 import { secondsFromNow } from "../../utils/time";
-import type { Grid } from "honeycomb-grid";
+import { Grid, ring } from "honeycomb-grid";
+import { applyEffects } from "./process";
 import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
@@ -385,4 +386,53 @@ export const insertAction = (info: {
     }
   }
   return false;
+};
+
+export const performAction = (props: {
+  usersState: BattleUserState[];
+  usersEffects: UserEffect[];
+  groundEffects: GroundEffect[];
+  grid: Grid<TerrainHex>;
+  action: CombatAction;
+  contextUserId: string;
+  actionUserId: string;
+  longitude: number;
+  latitude: number;
+}) => {
+  ring({ center: [1, 1], radius: 1 });
+  // Destructure
+  const { usersState, usersEffects, groundEffects } = props;
+  const { grid, action, contextUserId, actionUserId, longitude, latitude } = props;
+  // Ensure that the userId we're trying to move is valid
+  const user = usersState.find(
+    (u) => u.controllerId === contextUserId && u.userId === actionUserId
+  );
+  if (!user) throw new Error("This is not your user");
+
+  // Perform action, get latest status effects
+  // Note: this mutates usersEffects, groundEffects in place
+  const check = insertAction({
+    usersState,
+    usersEffects,
+    groundEffects,
+    grid,
+    action,
+    userId: actionUserId,
+    longitude: longitude,
+    latitude: latitude,
+  });
+  if (!check) {
+    throw new Error("Requested action not possible anymore");
+  }
+
+  // Apply relevant effects, and get back new state + active effects
+  const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+    applyEffects(usersState, usersEffects, groundEffects);
+
+  return {
+    newUsersState,
+    newUsersEffects,
+    newGroundEffects,
+    actionEffects,
+  };
 };

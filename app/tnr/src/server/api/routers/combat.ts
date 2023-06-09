@@ -10,11 +10,11 @@ import { updateUser, updateBattle, createAction } from "../../../libs/combat/dat
 import { BattleType } from "@prisma/client";
 import { ais } from "../../../../prisma/seeds/ai";
 import { fetchUser } from "./profile";
-import { performAction } from "../../../libs/combat/util";
+// import { performAction } from "../../../libs/combat/util";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { initiateBattle } from "../../../libs/combat/util";
 import { performActionSchema } from "../../../libs/combat/types";
-import { availableUserActions } from "../../../libs/combat/actions";
+import { availableUserActions, performAction } from "../../../libs/combat/actions";
 import type { BattleUserState } from "../../../libs/combat/types";
 import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import type { ActionEffect, CombatAction } from "../../../libs/combat/types";
