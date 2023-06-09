@@ -16,11 +16,10 @@ import {
 } from "three";
 import type { Scene, Object3D, Event, Raycaster } from "three";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
-import { findHex, defineHex } from "../hexgrid";
+import { getPossibleActionTiles, findHex, defineHex } from "../hexgrid";
 import { Animations } from "./types";
 import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_PREMOVE_SECONDS } from "./constants";
 import { actionSecondsAfterAction, getAffectedTiles } from "./movement";
-import { getPossibleActionTiles } from "./util";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";

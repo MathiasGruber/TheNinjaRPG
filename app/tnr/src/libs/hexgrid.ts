@@ -1,4 +1,5 @@
-import { Hex, ring } from "honeycomb-grid";
+import { spiral, line, ring, fromCoordinates, Hex } from "honeycomb-grid";
+
 import { defaultHexSettings } from "honeycomb-grid";
 import { createHexDimensions } from "honeycomb-grid";
 import { createHexOrigin } from "honeycomb-grid";
@@ -6,6 +7,8 @@ import type { BoundingBox, Grid, Ellipse } from "honeycomb-grid";
 import type { Orientation, Point } from "honeycomb-grid";
 import type { HexOffset, HexOptions } from "honeycomb-grid";
 import { aStar } from "abstract-astar";
+import type { CombatAction, GroundEffect, ReturnedUserState } from "./combat/types";
+import { AttackMethod, AttackTarget } from "@prisma/client";
 
 /**
  * Custom hex used by honeycomb.js
@@ -91,6 +94,32 @@ export const findHex = (
       row: point.latitude,
     });
   }
+};
+
+export const getPossibleActionTiles = (
+  action: CombatAction | undefined,
+  origin: TerrainHex | undefined,
+  grid: Grid<TerrainHex>
+) => {
+  let highlights: Grid<TerrainHex> | undefined = undefined;
+  if (action && origin) {
+    const radius = action.range;
+    if (
+      action.method === AttackMethod.SINGLE ||
+      action.method === AttackMethod.AOE_LINE_SHOOT ||
+      action.method === AttackMethod.AOE_CIRCLE_SHOOT ||
+      action.method === AttackMethod.AOE_SPIRAL_SHOOT
+    ) {
+      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
+      highlights = grid.traverse(f);
+    } else if (action.method === AttackMethod.ALL) {
+      highlights = grid.forEach((hex) => hex);
+    } else if (action.method === AttackMethod.AOE_CIRCLE_SPAWN) {
+      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius + 1 });
+      highlights = grid.traverse(f);
+    }
+  }
+  return highlights;
 };
 
 /**
