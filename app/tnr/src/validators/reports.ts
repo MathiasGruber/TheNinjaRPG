@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ReportAction } from "@prisma/client";
-import { type UserReport } from "@prisma/client";
-import { type UserData } from "@prisma/client";
+import type { UserData, UserReport } from "../../drizzle/schema";
 
 export const systems = [
   "bug_report",

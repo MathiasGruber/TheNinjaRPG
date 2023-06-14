@@ -82,8 +82,8 @@ export type BattleUserState = UserData & {
   village?: Village | null;
   highest_offence: number;
   highest_defence: number;
-  highest_offence_type: (typeof StatNames)[number];
-  highest_defence_type: (typeof StatNames)[number];
+  highest_offence_type: typeof StatNames[number];
+  highest_defence_type: typeof StatNames[number];
   armor: number;
   hidden?: boolean;
   is_original: boolean;
@@ -91,15 +91,15 @@ export type BattleUserState = UserData & {
   leftBattle: boolean;
   fledBattle: boolean;
   hex?: TerrainHex;
-  usedGenerals: (typeof GeneralType)[number][];
-  usedStats: (typeof StatNames)[number][];
+  usedGenerals: typeof GeneralType[number][];
+  usedStats: typeof StatNames[number][];
   usedActionIDs: string[];
 };
 
 /**
  * User state returned is masked to hide confidential information about other players
  */
-export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[number]> &
+export type ReturnedUserState = Pick<BattleUserState, typeof publicState[number]> &
   Partial<BattleUserState>;
 
 /**
@@ -107,24 +107,24 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
  */
 export type CombatResult = {
   experience: number;
-  elo_pvp: number;
-  elo_pve: number;
-  cur_health: number;
-  cur_stamina: number;
-  cur_chakra: number;
+  eloPvp: number;
+  eloPve: number;
+  curHealth: number;
+  curStamina: number;
+  curChakra: number;
   strength: number;
   intelligence: number;
   willpower: number;
   speed: number;
   money: number;
-  ninjutsu_offence: number;
-  ninjutsu_defence: number;
-  genjutsu_offence: number;
-  genjutsu_defence: number;
-  taijutsu_offence: number;
-  taijutsu_defence: number;
-  bukijutsu_offence: number;
-  bukijutsu_defence: number;
+  ninjutsuOffence: number;
+  ninjutsuDefence: number;
+  genjutsuOffence: number;
+  genjutsuDefence: number;
+  taijutsuOffence: number;
+  taijutsuDefence: number;
+  bukijutsuOffence: number;
+  bukijutsuDefence: number;
   friendsLeft: number;
   targetsLeft: number;
 };

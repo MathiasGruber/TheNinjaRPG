@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type UserData } from "@prisma/client";
+import type { UserData } from "../../drizzle/schema";
 
 export const forumBoardSchema = z
   .object({

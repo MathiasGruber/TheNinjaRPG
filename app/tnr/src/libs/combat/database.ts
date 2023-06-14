@@ -1,46 +1,49 @@
-import type { Battle, PrismaClient } from "@prisma/client";
-import { UserStatus, Prisma } from "@prisma/client";
-import type { CombatResult, ReturnedUserState } from "./types";
-import type { UserEffect, GroundEffect, CombatAction, ActionEffect } from "./types";
+import { eq, and, sql } from "drizzle-orm";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";
-import type { PrismaTransactionClient } from "../../utils/typeutils";
+import { battle, battleAction, userData } from "../../../drizzle/schema";
+import type { DrizzleClient } from "../../server/db";
+import type { Battle } from "../../../drizzle/schema";
+import type { CombatResult, ReturnedUserState } from "./types";
+import type { UserEffect, GroundEffect, ActionEffect } from "./types";
+import type { JsonData } from "../../utils/typeutils";
 
 /**
  * Update the battle state with raw queries for speed
  */
 export const updateBattle = async (
   result: CombatResult | null,
-  battle: Battle,
+  curBattle: Battle,
   finalUsersState: ReturnedUserState[],
   newUsersEffects: UserEffect[],
   newGroundEffects: GroundEffect[],
-  prisma: PrismaClient | PrismaTransactionClient
+  client: DrizzleClient
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+
   // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
-    await prisma.$executeRaw`DELETE FROM Battle WHERE id = ${battle.id} LIMIT 1`;
-    await prisma.$executeRaw`DELETE FROM BattleAction WHERE battleId = ${battle.id}`;
+    await client.delete(battle).where(eq(battle.id, curBattle.id));
+    await client.delete(battleAction).where(eq(battleAction.battleId, curBattle.id));
   } else {
-    const updatedRows = await prisma.$executeRaw`
-      UPDATE Battle 
-      SET 
-        version = version + 1,
-        usersState = ${JSON.stringify(finalUsersState)},
-        usersEffects = ${JSON.stringify(newUsersEffects)},
-        groundEffects = ${JSON.stringify(newGroundEffects)}
-      WHERE id = ${battle.id} AND version = ${battle.version}
-      LIMIT 1
-    `;
-    if (updatedRows === 0) return undefined;
+    const result = await client
+      .update(battle)
+      .set({
+        version: curBattle.version + 1,
+        usersState: JSON.stringify(finalUsersState),
+        usersEffects: JSON.stringify(newUsersEffects),
+        groundEffects: JSON.stringify(newGroundEffects),
+      })
+      .where(and(eq(battle.id, curBattle.id), eq(battle.version, curBattle.version)));
+
+    if (result.rowsAffected === 0) return undefined;
   }
   const newBattle = {
-    ...battle,
-    version: battle.version + 1,
-    usersState: finalUsersState as unknown as Prisma.JsonArray,
-    usersEffects: newUsersEffects as unknown as Prisma.JsonArray,
-    groundEffects: newGroundEffects as unknown as Prisma.JsonArray,
+    ...curBattle,
+    version: curBattle.version + 1,
+    usersState: finalUsersState,
+    usersEffects: newUsersEffects,
+    groundEffects: newGroundEffects,
   };
   return newBattle;
 };
@@ -52,18 +55,14 @@ export const createAction = async (
   battleDescription: string,
   battle: Battle,
   effects: ActionEffect[],
-  prisma: PrismaClient | PrismaTransactionClient
+  client: DrizzleClient
 ) => {
-  return await prisma.$executeRaw`
-    INSERT INTO BattleAction 
-      (battleId, battleVersion, description, appliedEffects) 
-    VALUES (
-      ${battle.id}, 
-      ${battle.version + 1}, 
-      ${battleDescription}, 
-      ${JSON.stringify(effects)}
-    )
-  `;
+  return await client.insert(battleAction).values({
+    battleId: battle.id,
+    battleVersion: battle.version + 1,
+    description: battleDescription,
+    appliedEffects: JSON.stringify(effects),
+  });
 };
 
 /**
@@ -72,43 +71,41 @@ export const createAction = async (
 export const updateUser = async (
   result: CombatResult | null,
   userId: string,
-  prisma: PrismaClient | PrismaTransactionClient
+  client: DrizzleClient
 ) => {
   if (result) {
-    console.log("---------------");
-    console.log(result);
-    console.log("---------------");
-    return await prisma.$executeRaw`
-      UPDATE UserData 
-      SET
-        experience = experience + ${result.experience},
-        elo_pve = elo_pve + ${result.elo_pve},
-        elo_pvp = elo_pvp + ${result.elo_pvp},
-        cur_health = ${result.cur_health},
-        cur_stamina = ${result.cur_stamina},
-        cur_chakra = ${result.cur_chakra},
-        strength = strength + ${result.strength},
-        intelligence = intelligence + ${result.intelligence},
-        willpower = willpower + ${result.willpower},
-        speed = speed + ${result.speed},
-        ${result.money ? Prisma.sql`money = ${result.money}` : Prisma.empty},
-        ninjutsu_offence = ninjutsu_offence + ${result.ninjutsu_offence},
-        genjutsu_offence = genjutsu_offence + ${result.genjutsu_offence},
-        taijutsu_offence = taijutsu_offence + ${result.taijutsu_offence},
-        bukijutsu_offence = bukijutsu_offence + ${result.bukijutsu_offence},
-        ninjutsu_defence = ninjutsu_defence + ${result.ninjutsu_defence},
-        genjutsu_defence = genjutsu_defence + ${result.genjutsu_defence},
-        taijutsu_defence = taijutsu_defence + ${result.taijutsu_defence},
-        bukijutsu_defence = bukijutsu_defence + ${result.bukijutsu_defence},
-        battleId = null,
-        regenAt = ${new Date()},
-        ${
-          result.cur_health <= 0
-            ? Prisma.sql`status = ${UserStatus.HOSPITALIZED}, longitude = ${VILLAGE_LONG}, latitude = ${VILLAGE_LAT}`
-            : Prisma.sql`status = ${UserStatus.AWAKE}`
-        }      
-      WHERE userId = ${userId}
-      LIMIT 1
-    `;
+    return await client
+      .update(userData)
+      .set({
+        experience: sql`experience + ${result.experience}`,
+        eloPve: sql`eloPve + ${result.eloPve}`,
+        eloPvp: sql`eloPvp + ${result.eloPvp}`,
+        curHealth: result.curHealth,
+        curStamina: result.curStamina,
+        curChakra: result.curChakra,
+        strength: sql`strength + ${result.strength}`,
+        intelligence: sql`intelligence + ${result.intelligence}`,
+        willpower: sql`willpower + ${result.willpower}`,
+        speed: sql`speed + ${result.speed}`,
+        money: result.money ? sql`money + ${result.money}` : sql`money`,
+        ninjutsuOffence: sql`ninjutsuOffence + ${result.ninjutsuOffence}`,
+        genjutsuOffence: sql`genjutsuOffence + ${result.genjutsuOffence}`,
+        taijutsuOffence: sql`taijutsuOffence + ${result.taijutsuOffence}`,
+        bukijutsuOffence: sql`bukijutsuOffence + ${result.bukijutsuOffence}`,
+        ninjutsuDefence: sql`ninjutsuDefence + ${result.ninjutsuDefence}`,
+        genjutsuDefence: sql`genjutsuDefence + ${result.genjutsuDefence}`,
+        taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
+        bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
+        battleId: null,
+        regenAt: new Date(),
+        ...(result.curHealth <= 0
+          ? {
+              status: "HOSPITALIZED",
+              longitude: VILLAGE_LONG,
+              latitude: VILLAGE_LAT,
+            }
+          : { status: "AWAKE" }),
+      })
+      .where(eq(userData.userId, userId));
   }
 };

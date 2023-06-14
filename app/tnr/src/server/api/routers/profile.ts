@@ -1,17 +1,24 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
-import { ReportAction } from "@prisma/client";
-import { UserStatus, type PrismaClient } from "@prisma/client";
-import type { inferRouterOutputs } from "@trpc/server";
-import { type NavBarDropdownLink } from "../../../libs/menus";
+import { eq, sql, inArray, and, or, ilike, desc } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import { serverError } from "../trpc";
 import {
-  createTRPCRouter,
-  protectedProcedure,
-  publicProcedure,
-  serverError,
-} from "../trpc";
-import { userData } from "../../../../drizzle/schema";
+  userData,
+  userAttribute,
+  historicalAvatar,
+  bugReport,
+  bugVotes,
+  reportLog,
+  userReportComment,
+  forumPost,
+  conversationComment,
+  usersInConversation,
+  userReport,
+} from "../../../../drizzle/schema";
+import type { DrizzleClient } from "../../db";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { NavBarDropdownLink } from "../../../libs/menus";
 
 export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
@@ -53,13 +60,11 @@ export const profileRouter = createTRPCRouter({
       // Get number of un-resolved user reports
       // TODO: Get number of records from KV store to speed up
       if (user.role === "MODERATOR" || user.role === "ADMIN") {
-        const userReports = await ctx.prisma.userReport.count({
-          where: {
-            status: {
-              in: [ReportAction.UNVIEWED, ReportAction.BAN_ESCALATED],
-            },
-          },
-        });
+        const reportCounts = await ctx.drizzle
+          .select({ count: sql<number>`count(*)` })
+          .from(userReport)
+          .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
+        const userReports = reportCounts?.[0]?.count || 0;
         if (userReports > 0) {
           notifications.push({
             href: "/reports",
@@ -85,7 +90,7 @@ export const profileRouter = createTRPCRouter({
         });
       }
       // Is in combat
-      if (user.status === UserStatus.BATTLE) {
+      if (user.status === "BATTLE") {
         notifications?.push({
           href: "/combat",
           name: "In combat",
@@ -93,7 +98,7 @@ export const profileRouter = createTRPCRouter({
         });
       }
       // Is in hospital
-      if (user.status === UserStatus.HOSPITALIZED) {
+      if (user.status === "HOSPITALIZED") {
         notifications?.push({
           href: "/hospital",
           name: "In hospital",
@@ -105,10 +110,7 @@ export const profileRouter = createTRPCRouter({
   }),
   // Get user attributes
   getUserAttributes: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.userAttribute.findMany({
-      where: { userId: ctx.userId },
-      distinct: ["attribute"],
-    });
+    return fetchAttributes(ctx.drizzle, ctx.userId);
   }),
   // Check if username exists in database already
   getUsername: publicProcedure
@@ -118,8 +120,9 @@ export const profileRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      return await ctx.prisma.userData.findUnique({
-        where: { username: input.username },
+      return ctx.drizzle.query.userData.findFirst({
+        columns: { username: true },
+        where: eq(userData.username, input.username),
       });
     }),
   // Return list of 5 most similar users in database
@@ -131,15 +134,8 @@ export const profileRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      return await ctx.prisma.userData.findMany({
-        where: {
-          username: {
-            contains: input.username,
-          },
-          approved_tos: true,
-          ...(input.showYourself ? {} : { userId: { not: ctx.userId } }),
-        },
-        select: {
+      return ctx.drizzle.query.userData.findMany({
+        columns: {
           userId: true,
           username: true,
           avatar: true,
@@ -147,35 +143,42 @@ export const profileRouter = createTRPCRouter({
           level: true,
           federalStatus: true,
         },
-        take: 5,
+        where: and(
+          ilike(userData.username, `%${input.username}%`),
+          eq(userData.approvedTos, 1),
+          input.showYourself ? sql`` : sql`${userData.userId} != ${ctx.userId}`
+        ),
+        limit: 5,
       });
     }),
   // Get public information on a user
   getPublicUser: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(({ ctx, input }) => {
-      return ctx.prisma.userData.findUnique({
-        where: { userId: input.userId },
-        select: {
+      return ctx.drizzle.query.userData.findFirst({
+        where: and(eq(userData.userId, input.userId)),
+        columns: {
           userId: true,
           username: true,
           gender: true,
           status: true,
           rank: true,
-          cur_health: true,
-          max_health: true,
-          cur_stamina: true,
-          max_stamina: true,
-          cur_chakra: true,
-          max_chakra: true,
+          curHealth: true,
+          maxHealth: true,
+          curStamina: true,
+          maxStamina: true,
+          curChakra: true,
+          maxChakra: true,
           level: true,
-          village: true,
-          reputation_points: true,
-          popularity_points: true,
+          reputationPoints: true,
+          popularityPoints: true,
           experience: true,
-          bloodline: true,
           avatar: true,
           federalStatus: true,
+        },
+        with: {
+          village: true,
+          bloodline: true,
         },
       });
     }),
@@ -197,28 +200,33 @@ export const profileRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const users = await ctx.prisma.userData.findMany({
-        skip: skip,
-        take: input.limit,
-        where: {
-          ...(input.username !== undefined
-            ? {
-                username: {
-                  contains: input.username,
-                },
-              }
-            : {}),
-        },
-        select: {
+      const getOrder = () => {
+        switch (input.orderBy) {
+          case "updatedAt":
+            return desc(userData.updatedAt);
+          case "level":
+            return desc(userData.level);
+          case "reputation_points_total":
+            return desc(userData.reputationPointsTotal);
+        }
+      };
+      const users = await ctx.drizzle.query.userData.findMany({
+        where:
+          input.username !== undefined
+            ? ilike(userData.username, `%${input.username}%`)
+            : sql``,
+        columns: {
           userId: true,
           username: true,
           avatar: true,
           rank: true,
           level: true,
           updatedAt: true,
-          reputation_points_total: true,
+          reputationPointsTotal: true,
         },
-        orderBy: { [input.orderBy]: "desc" },
+        offset: skip,
+        limit: input.limit,
+        orderBy: [getOrder()],
       });
       const nextCursor = users.length < input.limit ? null : currentCursor + 1;
       return {
@@ -228,72 +236,63 @@ export const profileRouter = createTRPCRouter({
     }),
   // Toggle deletion of user
   toggleDeletionTimer: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.userId },
-    });
-    await ctx.prisma.userData.update({
-      where: { userId: ctx.userId },
-      data: {
-        ...(currentUser.deletionAt
-          ? { deletionAt: null }
-          : { deletionAt: new Date(new Date().getTime() + 2 * 86400000) }),
-      },
-    });
+    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
+    return ctx.drizzle
+      .update(userData)
+      .set({
+        deletionAt: currentUser.deletionAt
+          ? null
+          : new Date(new Date().getTime() + 2 * 86400000),
+      })
+      .where(eq(userData.userId, ctx.userId));
   }),
   // Delete user
   cofirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.userId },
-    });
+    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
     if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
     }
-    await ctx.prisma.$transaction([
-      ctx.prisma.userData.delete({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.userAttribute.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.historicalAvatar.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.bugReport.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.bugVotes.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.reportLog.deleteMany({
-        where: {
-          OR: [{ targetUserId: ctx.userId }, { staffUserId: ctx.userId }],
-        },
-      }),
-      ctx.prisma.userReport.deleteMany({
-        where: { reportedUserId: ctx.userId },
-      }),
-      ctx.prisma.userReportComment.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.forumPost.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.conversationComment.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-      ctx.prisma.usersInConversation.deleteMany({
-        where: { userId: ctx.userId },
-      }),
-    ]);
+    await ctx.drizzle.transaction(async (tx) => {
+      await tx.delete(userData).where(eq(userData.userId, ctx.userId));
+      await tx.delete(userAttribute).where(eq(userAttribute.userId, ctx.userId));
+      await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, ctx.userId));
+      await tx.delete(bugReport).where(eq(bugReport.userId, ctx.userId));
+      await tx.delete(bugVotes).where(eq(bugVotes.userId, ctx.userId));
+      await tx
+        .delete(userReportComment)
+        .where(eq(userReportComment.userId, ctx.userId));
+      await tx.delete(forumPost).where(eq(forumPost.userId, ctx.userId));
+      await tx
+        .delete(conversationComment)
+        .where(eq(conversationComment.userId, ctx.userId));
+      await tx
+        .delete(usersInConversation)
+        .where(eq(usersInConversation.userId, ctx.userId));
+      await tx
+        .delete(reportLog)
+        .where(
+          or(
+            eq(reportLog.targetUserId, ctx.userId),
+            eq(reportLog.staffUserId, ctx.userId)
+          )
+        );
+    });
   }),
 });
 
-/**
- * Fetches user by id
- */
-export const fetchUser = async (client: PrismaClient, id: string) => {
-  return await client.userData.findUniqueOrThrow({
-    where: { userId: id },
+export const fetchUser = async (client: DrizzleClient, userId: string) => {
+  const user = await client.query.userData.findFirst({
+    where: eq(userData.userId, userId),
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  return user;
+};
+
+export const fetchAttributes = async (client: DrizzleClient, userId: string) => {
+  return await client.query.userAttribute.findMany({
+    where: eq(userAttribute.userId, userId),
   });
 };
 

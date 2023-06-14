@@ -1,25 +1,20 @@
-import { Prisma, AttackMethod } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { publicState, allState } from "./types";
 import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS, COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
-import { availableUserActions, insertAction } from "./actions";
-import { applyEffects } from "./process";
 import { realizeTag } from "../../libs/combat/process";
-import { BarrierTag, StatNames } from "../../libs/combat/types";
+import { BarrierTag } from "../../libs/combat/types";
 import { UserStatus, BattleType, ItemType } from "@prisma/client";
 import { combatAssets } from "../../libs/travel/biome";
 import { getServerPusher } from "../../libs/pusher";
-import type { Grid } from "honeycomb-grid";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
-import type { Battle } from "@prisma/client";
-import type { TerrainHex } from "../../libs/hexgrid";
 import type { Item, UserItem } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
-import { spiral, line, ring, fromCoordinates, Hex } from "honeycomb-grid";
+import type { Battle } from "../../../drizzle/schema";
 
 /**
  * Finds a user in the battle state based on location
@@ -204,7 +199,7 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
 export const maskBattle = (battle: Battle, userId: string) => {
   return {
     ...battle,
-    usersState: (battle.usersState as unknown as ReturnedUserState[]).map((user) => {
+    usersState: (battle.usersState as ReturnedUserState[]).map((user) => {
       if (user.controllerId !== userId) {
         return Object.fromEntries(
           publicState.map((key) => [key, user[key]])
@@ -215,8 +210,8 @@ export const maskBattle = (battle: Battle, userId: string) => {
         ) as unknown as ReturnedUserState;
       }
     }),
-    usersEffects: battle.usersEffects as unknown as UserEffect[],
-    groundEffects: battle.groundEffects as unknown as GroundEffect[],
+    usersEffects: battle.usersEffects as UserEffect[],
+    groundEffects: battle.groundEffects as GroundEffect[],
   };
 };
 
@@ -259,23 +254,23 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       // TODO: distribute elo_points among stats used during battle
       const result: CombatResult = {
         experience: eloDiff,
-        elo_pvp: 0,
-        elo_pve: 0,
-        cur_health: user.cur_health,
-        cur_stamina: user.cur_stamina,
-        cur_chakra: user.cur_chakra,
+        eloPvp: 0,
+        eloPve: 0,
+        curHealth: user.curHealth,
+        curStamina: user.curStamina,
+        curChakra: user.curChakra,
         strength: 0,
         intelligence: 0,
         willpower: 0,
         speed: 0,
-        ninjutsu_offence: 0,
-        genjutsu_offence: 0,
-        taijutsu_offence: 0,
-        bukijutsu_offence: 0,
-        ninjutsu_defence: 0,
-        genjutsu_defence: 0,
-        taijutsu_defence: 0,
-        bukijutsu_defence: 0,
+        ninjutsuOffence: 0,
+        genjutsuOffence: 0,
+        taijutsuOffence: 0,
+        bukijutsuOffence: 0,
+        ninjutsuDefence: 0,
+        genjutsuDefence: 0,
+        taijutsuDefence: 0,
+        bukijutsuDefence: 0,
         money: user.money,
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
@@ -286,14 +281,14 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       let total = user.usedStats.length + user.usedGenerals.length;
       if (total === 0) {
         user.usedStats = [
-          "ninjutsu_offence",
-          "ninjutsu_defence",
-          "genjutsu_offence",
-          "genjutsu_defence",
-          "taijutsu_offence",
-          "taijutsu_defence",
-          "bukijutsu_offence",
-          "bukijutsu_defence",
+          "ninjutsuOffence",
+          "ninjutsuDefence",
+          "genjutsuOffence",
+          "genjutsuDefence",
+          "taijutsuOffence",
+          "taijutsuDefence",
+          "bukijutsuOffence",
+          "bukijutsuDefence",
         ];
         user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
         total = 12;

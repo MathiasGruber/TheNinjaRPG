@@ -1,10 +1,14 @@
 import { z } from "zod";
-import { type Prisma } from "@prisma/client";
-import { type PrismaClient } from "@prisma/client";
+import { createId } from "@paralleldrive/cuid2";
+import { eq, or, and, sql, desc } from "drizzle-orm";
+import { paypalTransaction, paypalSubscription } from "../../../../drizzle/schema";
+import { userData } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { dollars2reps } from "../../../utils/paypal";
 import { serverError } from "../trpc";
-import { FederalStatus } from "@prisma/client";
+import type { FederalStatus } from "../../../../drizzle/schema";
+import type { DrizzleClient } from "../../db";
+import type { JsonData } from "../../../utils/typeutils";
 
 type PaypalAmount = {
   currency_code?: string;
@@ -91,7 +95,7 @@ export const paypalRouter = createTRPCRouter({
       }
       // Update database - will fail if orderID already exists, due to unique constraint
       await updateReps({
-        client: ctx.prisma,
+        client: ctx.drizzle,
         createdById: ctx.userId,
         transactionId: capture.id,
         transactionUpdatedDate: capture.update_time,
@@ -102,7 +106,7 @@ export const paypalRouter = createTRPCRouter({
         currency: currency_code,
         status: "COMPLETED",
         reps: dollars2reps(parseFloat(value)),
-        raw: order as Prisma.JsonArray,
+        raw: order,
       });
     }),
   resolveSubscription: protectedProcedure
@@ -127,22 +131,22 @@ export const paypalRouter = createTRPCRouter({
       const plan2FedStatus = (planId: string) => {
         switch (planId) {
           case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL:
-            return FederalStatus.NORMAL;
+            return "NORMAL";
           case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER:
-            return FederalStatus.SILVER;
+            return "SILVER";
           case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD:
-            return FederalStatus.GOLD;
+            return "GOLD";
           default:
-            return FederalStatus.NONE;
+            return "NONE";
         }
       };
       const newStatus =
         subscription.status === "ACTIVE"
           ? plan2FedStatus(subscription.plan_id)
-          : FederalStatus.NONE;
+          : "NONE";
 
       await updateSubscription({
-        client: ctx.prisma,
+        client: ctx.drizzle,
         createdById: createdByUserId,
         orderId: input.orderId,
         affectedUserId: affectedUserId,
@@ -151,6 +155,7 @@ export const paypalRouter = createTRPCRouter({
         subscriptionId: subscription.id,
       });
     }),
+  // Get all paypal transactions by this user
   getPaypalTransactions: protectedProcedure
     .input(
       z.object({
@@ -161,47 +166,36 @@ export const paypalRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const transaactions = await ctx.prisma.paypalTransaction.findMany({
-        skip: skip,
-        take: input.limit,
-        where: { createdById: ctx.userId },
-        include: {
-          affectedUser: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+      const transactions = await ctx.drizzle.query.paypalTransaction.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(paypalTransaction.createdById, ctx.userId),
+        with: { affectedUser: true },
+        orderBy: desc(paypalTransaction.createdAt),
       });
-      const nextCursor = transaactions.length < input.limit ? null : currentCursor + 1;
+      const nextCursor = transactions.length < input.limit ? null : currentCursor + 1;
       return {
-        data: transaactions,
+        data: transactions,
         nextCursor: nextCursor,
       };
     }),
+  // Get all paypal subscriptions by this user
   getPaypalSubscriptions: protectedProcedure.query(async ({ ctx }) => {
-    const subscriptions = await ctx.prisma.paypalSubscription.findMany({
-      where: {
-        OR: [{ createdById: ctx.userId }, { affectedUserId: ctx.userId }],
-        status: "ACTIVE",
-      },
-      include: {
-        affectedUser: true,
-        createdBy: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+    return await ctx.drizzle.query.paypalSubscription.findMany({
+      where: and(
+        or(
+          eq(paypalSubscription.createdById, ctx.userId),
+          eq(paypalSubscription.affectedUserId, ctx.userId)
+        ),
+        eq(paypalSubscription.status, "ACTIVE")
+      ),
+      with: { affectedUser: true, createdBy: true },
+      orderBy: desc(paypalSubscription.createdAt),
     });
-    return {
-      data: subscriptions,
-    };
   }),
+  // Cancel paypal subscription
   cancelPaypalSubscription: protectedProcedure
-    .input(
-      z.object({
-        subscriptionId: z.string(),
-      })
-    )
+    .input(z.object({ subscriptionId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
       const subscription = await getPaypalSubscription(input.subscriptionId, token);
@@ -220,10 +214,10 @@ export const paypalRouter = createTRPCRouter({
       const status = await cancelPaypalSubscription(input.subscriptionId, token);
       if (status === 204) {
         return await updateSubscription({
-          client: ctx.prisma,
+          client: ctx.drizzle,
           createdById: createdByUserId,
           affectedUserId: affectedUserId,
-          federalStatus: FederalStatus.NONE,
+          federalStatus: "NONE",
           status: "CANCELLED",
           subscriptionId: subscription.id,
         });
@@ -237,7 +231,7 @@ export const paypalRouter = createTRPCRouter({
  * Updates subscription for a user
  */
 export const updateSubscription = async (input: {
-  client: PrismaClient;
+  client: DrizzleClient;
   createdById: string;
   orderId?: string;
   affectedUserId: string;
@@ -245,36 +239,41 @@ export const updateSubscription = async (input: {
   federalStatus: FederalStatus;
   status: string;
 }) => {
-  return await input.client.$transaction([
-    input.client.userData.update({
-      where: { userId: input.affectedUserId },
-      data: {
-        federalStatus: input.federalStatus,
-      },
-    }),
-    input.client.paypalSubscription.upsert({
-      where: { subscriptionId: input.subscriptionId },
-      update: {
-        status: input.status,
-        federalStatus: input.federalStatus,
-      },
-      create: {
+  return await input.client.transaction(async (tx) => {
+    await tx
+      .update(userData)
+      .set({ federalStatus: input.federalStatus })
+      .where(eq(userData.userId, input.affectedUserId));
+    const current = await tx.query.paypalSubscription.findFirst({
+      where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
+    });
+    if (current) {
+      return await tx
+        .update(paypalSubscription)
+        .set({
+          status: input.status,
+          federalStatus: input.federalStatus,
+        })
+        .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
+    } else {
+      return await tx.insert(paypalSubscription).values({
+        id: createId(),
         createdById: input.createdById,
         subscriptionId: input.subscriptionId,
         affectedUserId: input.affectedUserId,
         orderId: input.orderId,
         status: input.status,
         federalStatus: input.federalStatus,
-      },
-    }),
-  ]);
+      });
+    }
+  });
 };
 
 /**
  * Updates reputation points for a user
  */
 export const updateReps = async (input: {
-  client: PrismaClient;
+  client: DrizzleClient;
   createdById: string;
   transactionId: string;
   transactionUpdatedDate: string;
@@ -285,32 +284,31 @@ export const updateReps = async (input: {
   currency: string;
   status: string;
   reps: number;
-  raw: Prisma.JsonArray;
+  raw: JsonData;
 }) => {
-  return await input.client.$transaction([
-    input.client.userData.update({
-      where: { userId: input.affectedUserId },
-      data: {
-        reputation_points_total: { increment: input.reps },
-        reputation_points: { increment: input.reps },
-      },
-    }),
-    input.client.paypalTransaction.create({
-      data: {
-        createdById: input.createdById,
-        transactionId: input.transactionId,
-        transactionUpdatedDate: input.transactionUpdatedDate,
-        orderId: input.orderId,
-        affectedUserId: input.affectedUserId,
-        invoiceId: input.invoiceId,
-        amount: input.value,
-        reputationPoints: input.reps,
-        currency: input.currency,
-        status: input.status,
-        rawData: input.raw,
-      },
-    }),
-  ]);
+  return await input.client.transaction(async (tx) => {
+    await tx
+      .update(userData)
+      .set({
+        reputationPointsTotal: sql`reputation_points_total + ${input.reps}`,
+        reputationPoints: sql`reputation_points + ${input.reps}`,
+      })
+      .where(eq(userData.userId, input.affectedUserId));
+    return await tx.insert(paypalTransaction).values({
+      id: createId(),
+      createdById: input.createdById,
+      transactionId: input.transactionId,
+      transactionUpdatedDate: input.transactionUpdatedDate,
+      orderId: input.orderId,
+      affectedUserId: input.affectedUserId,
+      invoiceId: input.invoiceId,
+      amount: input.value,
+      reputationPoints: input.reps,
+      currency: input.currency,
+      status: input.status,
+      rawData: input.raw,
+    });
+  });
 };
 
 /**

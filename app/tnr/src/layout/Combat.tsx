@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import Link from "next/link";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
-import alea from "alea";
 import Pusher from "pusher-js";
 import type { Grid } from "honeycomb-grid";
 

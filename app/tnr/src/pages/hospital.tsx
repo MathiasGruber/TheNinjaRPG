@@ -231,7 +231,7 @@ const PurchaseBloodline: React.FC = () => {
           isValid={false}
           onAccept={() => {
             if (canAfford) {
-              purchase({ id: bloodline.id });
+              purchase({ bloodlineId: bloodline.id });
             } else {
               setIsOpen(false);
             }

@@ -1,15 +1,15 @@
-import type { UserData, PrismaClient } from "@prisma/client";
-import { UserRank } from "@prisma/client";
 import { uploadAvatar } from "./aws";
+import { fetchAttributes } from "../server/api/routers/profile";
+import { userData, historicalAvatar } from "../../drizzle/schema";
+import { eq, and, isNotNull } from "drizzle-orm";
+import type { DrizzleClient } from "../server/db";
+import type { UserData, UserRank } from "../../drizzle/schema";
 
 /**
  * The prompt to be used for creating the avatar
  */
-export const getPrompt = async (client: PrismaClient, user: UserData) => {
-  const userAttributes = await client.userAttribute.findMany({
-    where: { userId: user.userId },
-    distinct: ["attribute"],
-  });
+export const getPrompt = async (client: DrizzleClient, user: UserData) => {
+  const userAttributes = await fetchAttributes(client, user.userId);
   const attributes = userAttributes
     .sort((a) => (a.attribute.includes("skin") ? -1 : 1))
     .map((attribute) => attribute.attribute)
@@ -17,7 +17,7 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
 
   const getPhenotype = (rank: UserRank, gender: string) => {
     switch (rank) {
-      case UserRank.STUDENT:
+      case "STUDENT":
         switch (gender) {
           case "Male":
             return "boy";
@@ -26,7 +26,7 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
           default:
             return "child";
         }
-      case UserRank.GENIN:
+      case "GENIN":
         switch (gender) {
           case "Male":
             return "teenage boy";
@@ -35,7 +35,7 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
           default:
             return "teenager";
         }
-      case UserRank.CHUNIN:
+      case "CHUNIN":
         switch (gender) {
           case "Male":
             return "man";
@@ -44,7 +44,7 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
           default:
             return "person";
         }
-      case UserRank.JONIN:
+      case "JONIN":
         switch (gender) {
           case "Male":
             return "man";
@@ -53,14 +53,14 @@ export const getPrompt = async (client: PrismaClient, user: UserData) => {
           default:
             return "person";
         }
-      case UserRank.COMMANDER:
+      case "COMMANDER":
         switch (gender) {
           case "Male":
-            return "man";
+            return "old man";
           case "Female":
-            return "woman";
+            return "old woman";
           default:
-            return "person";
+            return "old person";
         }
       default:
         switch (gender) {
@@ -111,11 +111,9 @@ export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> =>
 };
 /**
  * Fetches result from Replicate API
- * @param id - Prediction ID to get status of
- * @returns
  */
-export const fetchAvatar = async (id: string): Promise<ReplicateReturn> => {
-  return fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+export const fetchAvatar = async (replicateId: string): Promise<ReplicateReturn> => {
+  return fetch(`https://api.replicate.com/v1/predictions/${replicateId}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -128,56 +126,45 @@ export const fetchAvatar = async (id: string): Promise<ReplicateReturn> => {
 /**
  * Send a request to update the avatar for a user
  */
-export const updateAvatar = async (client: PrismaClient, user: UserData) => {
-  // Get prompt
+export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
+  console.log("Update avatar for user", user.userId);
   const prompt = await getPrompt(client, user);
-  console.log("~~~~~~~~~~~~~~~~~~~");
-  console.log(prompt);
-  console.log("~~~~~~~~~~~~~~~~~~~");
-  // Send request for avatar to ML server
   const result = await requestAvatar(prompt);
-  // Update user avatar to null
   if (user.avatar) {
-    await client.userData.update({
-      where: { userId: user.userId },
-      data: { avatar: null },
-    });
+    await client
+      .update(userData)
+      .set({ avatar: null })
+      .where(eq(userData.userId, user.userId));
   }
-  // Insert the avatar into history, even though it has not been finished processing yet
-  return await client.historicalAvatar.create({
-    data: {
-      replicateId: result.id,
-      avatar: null,
-      status: result.status,
-      userId: user.userId,
-    },
+  await client.insert(historicalAvatar).values({
+    replicateId: result.id,
+    avatar: null,
+    status: result.status,
+    userId: user.userId,
   });
+  return null;
 };
 
 /**
  * Check if any avatars are unfinished. If so, check for updates, and update the avatar if it is finished
  */
-export const checkAvatar = async (client: PrismaClient, user: UserData) => {
-  console.log("Now checking avatar creation status");
-  console.log("--------------------");
-  const avatars = await client.historicalAvatar.findMany({
-    where: {
-      userId: user.userId,
-      done: false,
-      replicateId: { not: null },
-    },
+export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
+  console.log("Check avatar for user", user.userId);
+  const avatars = await client.query.historicalAvatar.findMany({
+    where: and(
+      eq(historicalAvatar.userId, user.userId),
+      eq(historicalAvatar.done, 0),
+      isNotNull(historicalAvatar.replicateId)
+    ),
   });
   if (avatars.length === 0 && !user.avatar) {
+    console.log("No avatars found, user has no avatar, user: ", user.userId);
     return await updateAvatar(client, user);
   }
+  let url = null;
   for (const avatar of avatars) {
-    console.log(avatar);
-    let checkedAvatar = avatar;
     if (avatar.replicateId) {
-      let url = null;
       const result = await fetchAvatar(avatar.replicateId);
-      console.log("Fetch result");
-      console.log(result);
       // If failed or canceled, rerun
       let isDone = true;
       if (
@@ -185,59 +172,25 @@ export const checkAvatar = async (client: PrismaClient, user: UserData) => {
         result.status == "canceled" ||
         (result.status == "succeeded" && !result.output)
       ) {
-        checkedAvatar = await updateAvatar(client, user);
+        await updateAvatar(client, user);
       } else if (result.status == "succeeded" && result.output?.[0]) {
-        console.log("UPLOADING");
         url = await uploadAvatar(result.output[0], result.id);
-        console.log("URL: ", url);
         if (url) {
-          await client.userData.update({
-            where: { userId: user.userId },
-            data: { avatar: url },
-          });
+          await client
+            .update(userData)
+            .set({ avatar: url })
+            .where(eq(userData.userId, user.userId));
         }
       } else {
         isDone = false;
       }
       if (isDone) {
-        checkedAvatar = await client.historicalAvatar.update({
-          where: { id: avatar.id },
-          data: { avatar: url, status: result.status, done: isDone },
-        });
+        await client
+          .update(historicalAvatar)
+          .set({ done: 1, avatar: url, status: result.status })
+          .where(eq(historicalAvatar.id, avatar.id));
       }
     }
-    return checkedAvatar;
   }
-
-  // let counter = 0;
-  // while (result.status !== "succeeded") {
-  //   // If failed or canceled, rerun
-  //   if (result.status == "failed" || result.status == "canceled") {
-  //     counter += 1;
-  //     if (counter > 5) {
-  //       throw serverError("TIMEOUT", "Could not be created with 5 attempts");
-  //     }
-  //     result = await createAvatar(prompt);
-  //   }
-  //   // If starting or processing, just wait
-  //   if (result.status == "starting" || result.status == "processing") {
-  //     await sleep(2000);
-  //     result = await fetchAvatar(result.id);
-  //   }
-  //   // If succeeded, download image and upload to S3
-  //   if (result.status == "succeeded" && result.output?.[0]) {
-  //     const s3_avatar = await uploadAvatar(result.output[0], result.id);
-  //     await client.userData.update({
-  //       where: { userId: user.userId },
-  //       data: { avatar: s3_avatar },
-  //     });
-  //     await client.historicalAvatar.create({
-  //       data: {
-  //         avatar: s3_avatar,
-  //         userId: user.userId,
-  //       },
-  //     });
-  //     break;
-  //   }
-  // }
+  return url;
 };

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { eq, or, and, sql, desc } from "drizzle-orm";
+import { battle, battleAction } from "../../../../drizzle/schema";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
@@ -10,14 +12,14 @@ import { updateUser, updateBattle, createAction } from "../../../libs/combat/dat
 import { BattleType } from "@prisma/client";
 import { ais } from "../../../../prisma/seeds/ai";
 import { fetchUser } from "./profile";
-// import { performAction } from "../../../libs/combat/util";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { initiateBattle } from "../../../libs/combat/util";
 import { performActionSchema } from "../../../libs/combat/types";
 import { availableUserActions, performAction } from "../../../libs/combat/actions";
 import type { BattleUserState } from "../../../libs/combat/types";
 import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
-import type { ActionEffect, CombatAction } from "../../../libs/combat/types";
+import type { ActionEffect } from "../../../libs/combat/types";
+import type { DrizzleClient } from "../../db";
 
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
@@ -29,22 +31,20 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Distinguish between public and non-public user state
-      const battle = await ctx.prisma.battle.findUniqueOrThrow({
-        where: { id: input.battleId },
-      });
+      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { result } = calcBattleResult(
-        battle.usersState as unknown as BattleUserState[],
+        userBattle.usersState as BattleUserState[],
         ctx.userId
       );
 
       // Hide private state of non-session user
-      const newMaskedBattle = maskBattle(battle, ctx.userId);
+      const newMaskedBattle = maskBattle(userBattle, ctx.userId);
 
       // Delete the battle if it's done
       if (result) {
-        await updateUser(result, ctx.userId, ctx.prisma);
+        await updateUser(result, ctx.userId, ctx.drizzle);
       }
 
       // Return the new battle + result state if applicable
@@ -53,20 +53,18 @@ export const combatRouter = createTRPCRouter({
   getBattleEntry: protectedProcedure
     .input(
       z.object({
-        battleId: z.string().cuid().optional(),
-        version: z.number().optional(),
+        battleId: z.string().cuid(),
+        version: z.number(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const entries = await ctx.prisma.battleAction.findMany({
-        where: {
-          battleId: input.battleId,
-          battleVersion: input.version,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 1,
+      return await ctx.drizzle.query.battleAction.findFirst({
+        where: and(
+          eq(battleAction.battleId, input.battleId),
+          eq(battleAction.battleVersion, input.version)
+        ),
+        orderBy: desc(battleAction.createdAt),
       });
-      return entries?.[0] ? entries[0] : null;
     }),
   performAction: protectedProcedure
     .input(performActionSchema)
@@ -84,14 +82,12 @@ export const combatRouter = createTRPCRouter({
       // Attempt to perform action untill success || error thrown
       while (true) {
         // Fetch battle
-        const battle = await ctx.prisma.battle.findUniqueOrThrow({
-          where: { id: input.battleId },
-        });
+        const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
 
         // Cast to correct types
-        const usersState = battle.usersState as unknown as BattleUserState[];
-        const usersEffects = battle.usersEffects as unknown as UserEffect[];
-        const groundEffects = battle.groundEffects as unknown as GroundEffect[];
+        const usersState = userBattle.usersState as BattleUserState[];
+        const usersEffects = userBattle.usersEffects as UserEffect[];
+        const groundEffects = userBattle.groundEffects as GroundEffect[];
         const battleDescription: string[] = [];
         let newUsersEffects = structuredClone(usersEffects);
         let newGroundEffects = structuredClone(groundEffects);
@@ -100,7 +96,9 @@ export const combatRouter = createTRPCRouter({
 
         // Optimistic update for all other users before we process request
         const pusher = getServerPusher();
-        void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+        void pusher.trigger(userBattle.id, "event", {
+          version: userBattle.version + 1,
+        });
 
         // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
@@ -126,8 +124,6 @@ export const combatRouter = createTRPCRouter({
         }
 
         // Attempt to perform AI action
-        console.log("-----------------");
-        console.time("performAIaction");
         const {
           nextUsersState,
           nextUsersEffects,
@@ -137,8 +133,6 @@ export const combatRouter = createTRPCRouter({
         } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
         battleDescription.push(description);
         actionEffects = actionEffects.concat(nextActionEffects);
-        console.timeEnd("performAIaction");
-        console.log("-----------------");
 
         // If no description, means no actions, just return now
         if (!battleDescription) return;
@@ -176,7 +170,7 @@ export const combatRouter = createTRPCRouter({
       }
     }),
   startArenaBattle: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.prisma, ctx.userId);
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
     const closestAIs = [...ais.values()].sort((a, b) => {
       return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
     });
@@ -187,7 +181,7 @@ export const combatRouter = createTRPCRouter({
           sector: user.sector,
           userId: user.userId,
           targetId: selectedAI.userId,
-          prisma: ctx.prisma,
+          drizzle: ctx.drizzle,
         },
         BattleType.ARENA,
         "coliseum.webp"
@@ -219,9 +213,19 @@ export const combatRouter = createTRPCRouter({
           sector: input.sector,
           userId: ctx.userId,
           targetId: input.userId,
-          prisma: ctx.prisma,
+          drizzle: ctx.drizzle,
         },
         BattleType.COMBAT
       );
     }),
 });
+
+export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
+  const entry = await client.query.battle.findFirst({
+    where: eq(battle.id, battleId),
+  });
+  if (!entry) {
+    throw new Error("Battle not found");
+  }
+  return entry;
+};

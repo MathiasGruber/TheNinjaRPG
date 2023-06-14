@@ -1,5 +1,5 @@
-import type { UserData, Jutsu } from "@prisma/client";
 import { UserRank, FederalStatus, LetterRank } from "@prisma/client";
+import type { Jutsu, UserData } from "../../../drizzle/schema";
 
 const hasRank = (rank: LetterRank, userrank: UserRank) => {
   switch (userrank) {
