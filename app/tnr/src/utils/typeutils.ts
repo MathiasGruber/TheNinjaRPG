@@ -10,3 +10,10 @@ export type PrismaTransactionClient = Omit<
   >,
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$use"
 >;
+
+export type JsonData =
+  | string
+  | number
+  | boolean
+  | { [x: string]: JsonData }
+  | Array<JsonData>;

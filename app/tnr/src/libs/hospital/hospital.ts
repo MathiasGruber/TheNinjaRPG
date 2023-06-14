@@ -1,8 +1,8 @@
-import type { UserData } from "@prisma/client";
 import { secondsPassed, secondsFromNow } from "../../utils/time";
+import type { UserData } from "../../../drizzle/schema";
 
 export const calcHealCost = (user: UserData) => {
-  return user.max_health - user.cur_health;
+  return user.maxHealth - user.curHealth;
 };
 
 export const healSecondsLeft = (user: UserData) => {

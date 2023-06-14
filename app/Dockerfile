@@ -1,4 +1,4 @@
-FROM arm64v8/node:20
+FROM arm64v8/node:19
 
 RUN mkdir /app
 WORKDIR /app

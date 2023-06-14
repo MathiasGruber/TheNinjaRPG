@@ -108,7 +108,7 @@ const Avatar: NextPage = () => {
             </ul>
             <h2 className="mt-5 font-bold">Create a new avatar</h2>
 
-            {userData?.reputation_points > 0 ? (
+            {userData?.reputationPoints > 0 ? (
               <>
                 <p className="italic">- Costs 1 reputation point</p>
                 <Confirm

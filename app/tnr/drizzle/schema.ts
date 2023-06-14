@@ -12,7 +12,7 @@ import {
   double,
   primaryKey,
 } from "drizzle-orm/mysql-core";
-import { InferModel } from "drizzle-orm";
+import type { InferModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -37,6 +37,7 @@ export const battle = mysqlTable(
     };
   }
 );
+export type Battle = InferModel<typeof battle>;
 
 export const battleAction = mysqlTable(
   "BattleAction",
@@ -60,6 +61,8 @@ export const battleAction = mysqlTable(
   }
 );
 
+export const LetterRank = ["D", "C", "B", "A", "S"] as const;
+
 export const bloodline = mysqlTable(
   "Bloodline",
   {
@@ -76,7 +79,7 @@ export const bloodline = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    rank: mysqlEnum("rank", ["D", "C", "B", "A", "S"]).notNull(),
+    rank: mysqlEnum("rank", LetterRank).notNull(),
   },
   (table) => {
     return {
@@ -87,6 +90,8 @@ export const bloodline = mysqlTable(
     };
   }
 );
+export type Bloodline = InferModel<typeof bloodline>;
+export type BloodlineRank = Bloodline["rank"];
 
 export const bloodlineRelations = relations(bloodline, ({ many }) => ({
   users: many(userData),
@@ -99,7 +104,9 @@ export const bloodlineRolls = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     used: tinyint("used").default(0).notNull(),
@@ -112,6 +119,13 @@ export const bloodlineRolls = mysqlTable(
     };
   }
 );
+
+export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
+  bloodline: one(bloodline, {
+    fields: [bloodlineRolls.bloodlineId],
+    references: [bloodline.id],
+  }),
+}));
 
 export const bugReport = mysqlTable(
   "BugReport",
@@ -141,6 +155,14 @@ export const bugReport = mysqlTable(
   }
 );
 
+export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
+  user: one(userData, {
+    fields: [bugReport.userId],
+    references: [userData.userId],
+  }),
+  votes: many(bugVotes),
+}));
+
 export const bugVotes = mysqlTable(
   "BugVotes",
   {
@@ -163,6 +185,13 @@ export const bugVotes = mysqlTable(
   }
 );
 
+export const bugVotesRelations = relations(bugVotes, ({ one }) => ({
+  bug: one(bugReport, {
+    fields: [bugVotes.bugId],
+    references: [bugReport.id],
+  }),
+}));
+
 export const conversation = mysqlTable(
   "Conversation",
   {
@@ -172,7 +201,9 @@ export const conversation = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     isLocked: tinyint("isLocked").default(0).notNull(),
     isPublic: tinyint("isPublic").default(1).notNull(),
   },
@@ -183,6 +214,10 @@ export const conversation = mysqlTable(
     };
   }
 );
+
+export const conversationRelations = relations(conversation, ({ many }) => ({
+  users: many(userData),
+}));
 
 export const conversationComment = mysqlTable(
   "ConversationComment",
@@ -204,6 +239,16 @@ export const conversationComment = mysqlTable(
       ),
     };
   }
+);
+
+export const conversationCommentRelations = relations(
+  conversationComment,
+  ({ one }) => ({
+    user: one(userData, {
+      fields: [conversationComment.userId],
+      references: [userData.userId],
+    }),
+  })
 );
 
 export const forumBoard = mysqlTable(
@@ -246,6 +291,13 @@ export const forumPost = mysqlTable(
   }
 );
 
+export const forumPostRelations = relations(forumPost, ({ one }) => ({
+  user: one(userData, {
+    fields: [forumPost.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const forumThread = mysqlTable(
   "ForumThread",
   {
@@ -254,7 +306,9 @@ export const forumThread = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     boardId: varchar("boardId", { length: 191 }).notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     nPosts: int("nPosts").default(0).notNull(),
@@ -268,6 +322,13 @@ export const forumThread = mysqlTable(
     };
   }
 );
+
+export const forumThreadRelations = relations(forumThread, ({ one }) => ({
+  user: one(userData, {
+    fields: [forumThread.userId],
+    references: [userData.userId],
+  }),
+}));
 
 export const historicalAvatar = mysqlTable(
   "HistoricalAvatar",
@@ -298,6 +359,50 @@ export const historicalAvatar = mysqlTable(
   }
 );
 
+export const ItemTypes = [
+  "WEAPON",
+  "CONSUMABLE",
+  "ARMOR",
+  "ACCESSORY",
+  "MATERIAL",
+  "EVENT",
+  "OTHER",
+] as const;
+export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
+export const ItemSlots = ["HEAD", "CHEST", "LEGS", "FEET", "HAND", "ITEM"] as const;
+export const WeaponTypes = [
+  "STAFF",
+  "AXE",
+  "FIST_WEAPON",
+  "SHURIKEN",
+  "SICKLE",
+  "DAGGER",
+  "SWORD",
+  "POLEARM",
+  "FLAIL",
+  "CHAIN",
+  "FAN",
+  "BOW",
+  "HAMMER",
+] as const;
+export const AttackTargets = [
+  "SELF",
+  "OTHER_USER",
+  "OPPONENT",
+  "ALLY",
+  "CHARACTER",
+  "GROUND",
+  "EMPTY_GROUND",
+] as const;
+export const AttackMethods = [
+  "SINGLE",
+  "ALL",
+  "AOE_CIRCLE_SPAWN",
+  "AOE_LINE_SHOOT",
+  "AOE_CIRCLE_SHOOT",
+  "AOE_SPIRAL_SHOOT",
+] as const;
+
 export const item = mysqlTable(
   "Item",
   {
@@ -309,66 +414,20 @@ export const item = mysqlTable(
       .notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
     effects: json("effects").notNull(),
-    itemType: mysqlEnum("itemType", [
-      "WEAPON",
-      "CONSUMABLE",
-      "ARMOR",
-      "ACCESSORY",
-      "MATERIAL",
-      "EVENT",
-      "OTHER",
-    ]).notNull(),
-    rarity: mysqlEnum("rarity", ["COMMON", "RARE", "EPIC", "LEGENDARY"]).notNull(),
-    slot: mysqlEnum("slot", [
-      "HEAD",
-      "CHEST",
-      "LEGS",
-      "FEET",
-      "HAND",
-      "ITEM",
-    ]).notNull(),
+    itemType: mysqlEnum("itemType", ItemTypes).notNull(),
+    rarity: mysqlEnum("rarity", ItemRarities).notNull(),
+    slot: mysqlEnum("slot", ItemSlots).notNull(),
     cost: int("cost").default(1).notNull(),
-    weaponType: mysqlEnum("weaponType", [
-      "STAFF",
-      "AXE",
-      "FIST_WEAPON",
-      "SHURIKEN",
-      "SICKLE",
-      "DAGGER",
-      "SWORD",
-      "POLEARM",
-      "FLAIL",
-      "CHAIN",
-      "FAN",
-      "BOW",
-      "HAMMER",
-    ]),
+    weaponType: mysqlEnum("weaponType", WeaponTypes),
     canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
-    target: mysqlEnum("target", [
-      "SELF",
-      "OTHER_USER",
-      "OPPONENT",
-      "ALLY",
-      "CHARACTER",
-      "GROUND",
-      "EMPTY_GROUND",
-    ]).notNull(),
+    target: mysqlEnum("target", AttackTargets).notNull(),
     chakraCostPerc: double("chakraCostPerc").notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     staminaCostPerc: double("staminaCostPerc").notNull(),
     destroyOnUse: tinyint("destroyOnUse").default(0).notNull(),
     range: int("range").default(0).notNull(),
-    method: mysqlEnum("method", [
-      "SINGLE",
-      "ALL",
-      "AOE_CIRCLE_SPAWN",
-      "AOE_LINE_SHOOT",
-      "AOE_CIRCLE_SHOOT",
-      "AOE_SPIRAL_SHOOT",
-    ])
-      .default("SINGLE")
-      .notNull(),
+    method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
     actionCostPerc: double("actionCostPerc").default(60).notNull(),
     healthCostPerc: double("healthCostPerc").notNull(),
     battleDescription: text("battleDescription")
@@ -382,6 +441,7 @@ export const item = mysqlTable(
     };
   }
 );
+export type Item = InferModel<typeof item>;
 
 export const jutsu = mysqlTable(
   "Jutsu",
@@ -444,7 +504,7 @@ export const jutsu = mysqlTable(
     battleDescription: text("battleDescription").notNull(),
     chakraCostPerc: double("chakraCostPerc").default(0.05).notNull(),
     healthCostPerc: double("healthCostPerc").notNull(),
-    jutsuRank: mysqlEnum("jutsuRank", ["D", "C", "B", "A", "S"]).default("D").notNull(),
+    jutsuRank: mysqlEnum("jutsuRank", LetterRank).default("D").notNull(),
     staminaCostPerc: double("staminaCostPerc").notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", [
@@ -469,6 +529,8 @@ export const jutsu = mysqlTable(
   }
 );
 
+export type Jutsu = InferModel<typeof jutsu>;
+
 export const paypalSubscription = mysqlTable(
   "PaypalSubscription",
   {
@@ -487,7 +549,9 @@ export const paypalSubscription = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
   },
   (table) => {
     return {
@@ -502,6 +566,17 @@ export const paypalSubscription = mysqlTable(
     };
   }
 );
+
+export const paypalSubscriptionRelations = relations(paypalSubscription, ({ one }) => ({
+  affectedUser: one(userData, {
+    fields: [paypalSubscription.affectedUserId],
+    references: [userData.userId],
+  }),
+  createdBy: one(userData, {
+    fields: [paypalSubscription.createdById],
+    references: [userData.userId],
+  }),
+}));
 
 export const paypalTransaction = mysqlTable(
   "PaypalTransaction",
@@ -518,7 +593,9 @@ export const paypalTransaction = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     amount: double("amount").notNull(),
     reputationPoints: int("reputationPoints").default(0).notNull(),
     currency: varchar("currency", { length: 191 }).default("USD").notNull(),
@@ -535,6 +612,17 @@ export const paypalTransaction = mysqlTable(
     };
   }
 );
+
+export const paypalTransactionRelations = relations(paypalTransaction, ({ one }) => ({
+  affectedUser: one(userData, {
+    fields: [paypalTransaction.affectedUserId],
+    references: [userData.userId],
+  }),
+  createdBy: one(userData, {
+    fields: [paypalTransaction.createdById],
+    references: [userData.userId],
+  }),
+}));
 
 export const paypalWebhookMessage = mysqlTable("PaypalWebhookMessage", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
@@ -672,8 +760,10 @@ export const userData = mysqlTable(
   }
 );
 export type UserData = InferModel<typeof userData>;
+export type UserRank = UserData["rank"];
+export type FederalStatus = UserData["federalStatus"];
 
-export const userDataRelations = relations(userData, ({ one }) => ({
+export const userDataRelations = relations(userData, ({ one, many }) => ({
   bloodline: one(bloodline, {
     fields: [userData.bloodlineId],
     references: [bloodline.id],
@@ -682,6 +772,7 @@ export const userDataRelations = relations(userData, ({ one }) => ({
     fields: [userData.villageId],
     references: [village.id],
   }),
+  conversations: many(conversation),
 }));
 
 export const userItem = mysqlTable(
@@ -691,7 +782,9 @@ export const userItem = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     itemId: varchar("itemId", { length: 191 }).notNull(),
     quantity: int("quantity").default(1).notNull(),
@@ -719,6 +812,13 @@ export const userItem = mysqlTable(
   }
 );
 
+export const userItemRelations = relations(userItem, ({ one }) => ({
+  item: one(item, {
+    fields: [userItem.itemId],
+    references: [item.id],
+  }),
+}));
+
 export const userJutsu = mysqlTable(
   "UserJutsu",
   {
@@ -728,7 +828,9 @@ export const userJutsu = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     level: int("level").default(1).notNull(),
     equipped: tinyint("equipped").default(0).notNull(),
     finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
@@ -744,6 +846,13 @@ export const userJutsu = mysqlTable(
     };
   }
 );
+
+export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
+  jutsu: one(jutsu, {
+    fields: [userJutsu.jutsuId],
+    references: [jutsu.id],
+  }),
+}));
 
 export const userReport = mysqlTable(
   "UserReport",
@@ -779,6 +888,18 @@ export const userReport = mysqlTable(
     };
   }
 );
+export type UserReport = InferModel<typeof userReport>;
+
+export const userReportRelations = relations(userReport, ({ one }) => ({
+  reportedUser: one(userData, {
+    fields: [userReport.reportedUserId],
+    references: [userData.userId],
+  }),
+  reporterUser: one(userData, {
+    fields: [userReport.reporterUserId],
+    references: [userData.userId],
+  }),
+}));
 
 export const userReportComment = mysqlTable(
   "UserReportComment",
@@ -805,6 +926,13 @@ export const userReportComment = mysqlTable(
   }
 );
 
+export const userReportCommentRelations = relations(userReportComment, ({ one }) => ({
+  user: one(userData, {
+    fields: [userReportComment.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const usersInConversation = mysqlTable(
   "UsersInConversation",
   {
@@ -828,6 +956,17 @@ export const usersInConversation = mysqlTable(
   }
 );
 
+export const usersToGroupsRelations = relations(usersInConversation, ({ one }) => ({
+  userData: one(userData, {
+    fields: [usersInConversation.userId],
+    references: [userData.userId],
+  }),
+  conversation: one(conversation, {
+    fields: [usersInConversation.conversationId],
+    references: [conversation.id],
+  }),
+}));
+
 export const village = mysqlTable(
   "Village",
   {
@@ -843,6 +982,10 @@ export const village = mysqlTable(
     };
   }
 );
+
+export const villageRelations = relations(village, ({ many }) => ({
+  structures: many(villageStructure),
+}));
 
 export const villageStructure = mysqlTable(
   "VillageStructure",

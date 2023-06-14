@@ -1,15 +1,16 @@
 import { z } from "zod";
-import { UserStatus } from "@prisma/client";
-import type { PrismaClient } from "@prisma/client";
+import { eq, gte, sql, and, or } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
-import { type GlobalMapData } from "../../../libs/travel/types";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "../../../utils/time";
 import { getServerPusher } from "../../../libs/pusher";
+import { userData } from "../../../../drizzle/schema";
+import { fetchUser } from "./profile";
 import * as map from "../../../../public/map/hexasphere.json";
+import type { GlobalMapData } from "../../../libs/travel/types";
 
 // const redis = Redis.fromEnv();
 
@@ -18,87 +19,87 @@ export const travelRouter = createTRPCRouter({
   getSectorData: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
     .query(async ({ input, ctx }) => {
-      const userData = await fetchUser(ctx.prisma, ctx.userId);
-      if (userData.sector !== input.sector) {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.sector !== input.sector) {
         throw serverError("FORBIDDEN", `You are not in sector ${input.sector}`);
       }
-      const users = await ctx.prisma.userData.findMany({
-        where: {
-          sector: input.sector,
-          OR: [{ updatedAt: { gt: secondsFromNow(-300) } }, { userId: ctx.userId }],
-        },
-        select: {
+      return await ctx.drizzle.query.userData.findMany({
+        columns: {
           userId: true,
           username: true,
           longitude: true,
           latitude: true,
           location: true,
-          cur_health: true,
-          max_health: true,
+          curHealth: true,
+          maxHealth: true,
           sector: true,
           avatar: true,
         },
+        where: and(
+          eq(userData.sector, input.sector),
+          or(
+            gte(userData.updatedAt, secondsFromNow(-300)),
+            eq(userData.userId, ctx.userId)
+          )
+        ),
       });
-      return users;
     }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
     .mutation(async ({ input, ctx }) => {
-      const userData = await fetchUser(ctx.prisma, ctx.userId);
-      if (!isAtEdge({ x: userData.longitude, y: userData.latitude })) {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!isAtEdge({ x: user.longitude, y: user.latitude })) {
         throw serverError(
           "FORBIDDEN",
           `Cannot travel because you are not at the edge of a sector`
         );
       }
-      if (userData.status !== UserStatus.AWAKE) {
+      if (user.status !== "AWAKE") {
         throw serverError(
           "FORBIDDEN",
-          `Cannot travel because your status is: ${userData.status.toLowerCase()}`
+          `Cannot travel because your status is: ${user.status.toLowerCase()}`
         );
       }
       const travelTime = calcGlobalTravelTime(
-        userData.sector,
+        user.sector,
         input.sector,
         map as unknown as GlobalMapData
       );
       const endTime = secondsFromNow(travelTime);
-      // Update database
-      const newUserData = await ctx.prisma.userData.update({
-        where: { userId: ctx.userId },
-        data: {
+      await ctx.drizzle
+        .update(userData)
+        .set({
           sector: input.sector,
-          status: UserStatus.TRAVEL,
+          status: "TRAVEL",
           travelFinishAt: endTime,
-        },
-      });
-      // Update over websockets
+        })
+        .where(eq(userData.userId, ctx.userId));
+      user.sector = input.sector;
+      user.status = "TRAVEL";
+      user.travelFinishAt = endTime;
       const pusher = getServerPusher();
-      void pusher.trigger(userData.sector.toString(), "event", newUserData);
-      // Return new userdata
-      return newUserData;
+      void pusher.trigger(user.sector.toString(), "event", user);
+      return user;
     }),
   // Finish travel on the globe
   finishGlobalMove: protectedProcedure.mutation(async ({ ctx }) => {
-    const userData = await fetchUser(ctx.prisma, ctx.userId);
-    if (userData.status !== UserStatus.TRAVEL) {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (user.status !== "TRAVEL") {
       throw serverError(
         "FORBIDDEN",
-        `Cannot finish travel because your status is: ${userData.status.toLowerCase()}`
+        `Cannot finish travel because your status is: ${user.status.toLowerCase()}`
       );
     }
-    // Update over websockets
+    user.status = "AWAKE";
+    user.travelFinishAt = null;
     const pusher = getServerPusher();
-    void pusher.trigger(userData.sector.toString(), "event", userData);
-    // Return new userdata
-    return await ctx.prisma.userData.update({
-      where: { userId: ctx.userId },
-      data: {
-        status: UserStatus.AWAKE,
-        travelFinishAt: null,
-      },
-    });
+    void pusher.trigger(userData.sector.toString(), "event", user);
+    await ctx.drizzle
+      .update(userData)
+      .set({ status: "AWAKE", travelFinishAt: null })
+      .where(eq(userData.userId, ctx.userId));
+    return user;
   }),
   // Move user to new local location
   moveInSector: protectedProcedure
@@ -119,61 +120,39 @@ export const travelRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Where the user wishes to go
       const { longitude, latitude, sector } = input;
-      // Would this new position be a village?
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
       const location = isVillage ? "Village" : "";
-      // Execute a raw query, which checks that user is not moving longer than one square,
-      // is awake, and updates location
-      const result: number = await ctx.prisma.$executeRaw`
-        UPDATE UserData 
-        SET 
-          longitude = ${longitude}, latitude = ${latitude}, 
-          location = ${location}, updatedAt = Now()
-        WHERE 
-          userId = ${ctx.userId} AND status = 'AWAKE' AND sector = ${sector} AND
-          (ABS(longitude - ${longitude}) <= 1 AND ABS(latitude - ${latitude}) <= 1)`;
-      // If successful, return new data, otherwise run queries to figure out why
-      if (result === 1) {
-        // Output
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          longitude,
+          latitude,
+          location,
+          updatedAt: sql`Now()`,
+        })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            eq(userData.status, "AWAKE"),
+            eq(userData.sector, sector),
+            sql`ABS(longitude - ${longitude}) <= 1`,
+            sql`ABS(latitude - ${latitude}) <= 1`
+          )
+        );
+      if (result.rowsAffected === 1) {
         const output = { ...input, location, userId: ctx.userId };
-        // Push websockets message
         const pusher = getServerPusher();
         void pusher.trigger(input.sector.toString(), "event", output);
         return output;
       } else {
-        const userData = await fetchUser(ctx.prisma, ctx.userId);
-        // Check user status
-        if (userData.status !== UserStatus.AWAKE) {
+        const userData = await fetchUser(ctx.drizzle, ctx.userId);
+        if (userData.status !== "AWAKE") {
           throw serverError("FORBIDDEN", `Status is: ${userData.status.toLowerCase()}`);
         }
-        // Check distance
         if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
           throw serverError("FORBIDDEN", `Cannot move more than one square at a time`);
         }
       }
     }),
 });
-
-/**
- * Fetches the user data
- */
-export const fetchUser = async (client: PrismaClient, id: string) => {
-  const userData = await client.userData.findUniqueOrThrow({
-    where: { userId: id },
-    select: {
-      userId: true,
-      username: true,
-      avatar: true,
-      cur_health: true,
-      max_health: true,
-      longitude: true,
-      latitude: true,
-      location: true,
-      sector: true,
-      status: true,
-    },
-  });
-  return userData;
-};

@@ -1,41 +1,34 @@
 import { z } from "zod";
-
+import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { updateAvatar, checkAvatar } from "../../../libs/replicate";
+import { fetchUser } from "./profile";
+import { userData, historicalAvatar } from "../../../../drizzle/schema";
 
 export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
-    // Check if user has any points
-    const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-      where: { userId: ctx.userId },
-    });
-    if (currentUser?.reputation_points <= 0) {
-      throw serverError("FORBIDDEN", "Not enough reputation points");
+    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
+    if (currentUser.reputationPoints < 1) {
+      throw serverError("PRECONDITION_FAILED", "Not enough reputation points");
     }
-    // Set user avatar to undefined
-    await ctx.prisma.userData.update({
-      where: {
-        userId: ctx.userId,
-      },
-      data: {
-        avatar: undefined,
-        reputation_points: currentUser.reputation_points - 1,
-      },
-    });
-    // Update avatar
-    await updateAvatar(ctx.prisma, currentUser);
+    const result = await ctx.drizzle
+      .update(userData)
+      .set({
+        avatar: null,
+        reputationPoints: sql`${userData.reputationPoints} - 1`,
+      })
+      .where(and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)));
+    if (result.rowsAffected) {
+      await updateAvatar(ctx.drizzle, currentUser);
+    }
   }),
-  // Check if avatar is finished, and return URL if so. Otherwise, wait or restart
   checkAvatar: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const currentUser = await ctx.prisma.userData.findUniqueOrThrow({
-        where: { userId: input.userId },
-      });
-      const entry = await checkAvatar(ctx.prisma, currentUser);
-      return { url: entry?.avatar };
+      const currentUser = await fetchUser(ctx.drizzle, input.userId);
+      const avatarUrl = await checkAvatar(ctx.drizzle, currentUser);
+      return { url: avatarUrl };
     }),
-  // Get previous avatars
   getHistoricalAvatars: protectedProcedure
     .input(
       z.object({
@@ -46,36 +39,36 @@ export const avatarRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const limit = input.limit ?? 50;
       const { cursor } = input;
-      const avatars = await ctx.prisma.historicalAvatar.findMany({
-        take: limit + 1,
-        where: { userId: ctx.userId, done: true, avatar: { not: null } },
-        cursor: cursor ? { id: cursor } : undefined,
-        orderBy: { id: "desc" },
+      const avatars = await ctx.drizzle.query.historicalAvatar.findMany({
+        where: and(
+          eq(historicalAvatar.userId, ctx.userId),
+          eq(historicalAvatar.done, 1),
+          isNotNull(historicalAvatar.avatar)
+        ),
+        offset: cursor ? cursor : 0,
+        limit: limit + 1,
+        orderBy: [desc(historicalAvatar.id)],
       });
-      // Next cursor
       let nextCursor: typeof cursor | undefined = undefined;
       if (avatars.length > limit) {
         const nextItem = avatars.pop();
         nextCursor = nextItem?.id;
       }
-      // Return data and next cursor
       return {
         data: avatars,
         nextCursor,
       };
     }),
-  // Update user avatar based on hisotical avatar
   updateAvatar: protectedProcedure
     .input(z.object({ avatar: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      // Check if avatar exists
-      const avatar = await ctx.prisma.historicalAvatar.findUniqueOrThrow({
-        where: { id: input.avatar },
+      const avatar = await ctx.drizzle.query.historicalAvatar.findFirst({
+        where: eq(historicalAvatar.id, input.avatar),
       });
-      // Update user avatar
-      return ctx.prisma.userData.update({
-        where: { userId: ctx.userId },
-        data: { avatar: avatar.avatar },
-      });
+      if (!avatar) throw serverError("PRECONDITION_FAILED", "Avatar not found");
+      await ctx.drizzle
+        .update(userData)
+        .set({ avatar: avatar.avatar })
+        .where(eq(userData.userId, ctx.userId));
     }),
 });

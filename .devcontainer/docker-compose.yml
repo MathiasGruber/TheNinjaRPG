@@ -51,16 +51,5 @@ services:
       - mysql-store:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password
 
-  phpmyadmin:
-    container_name: tnr_phpmyadmin
-    image: phpmyadmin
-    restart: unless-stopped
-    ports:
-      - 8080:80
-    env_file:
-      - .env
-    environment:
-      - PMA_ARBITRARY=1
-
 volumes:
   mysql-store:

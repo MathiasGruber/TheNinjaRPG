@@ -1,9 +1,10 @@
 import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
+import { createId } from "@paralleldrive/cuid2";
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client";
-
-import sanitize from "../../../utils/sanitize";
+import { eq, or, and, sql, gte, ne, desc, inArray } from "drizzle-orm";
+import { conversation, userReportComment, forumPost } from "../../../../drizzle/schema";
+import { usersInConversation, conversationComment } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { mutateCommentSchema } from "../../../validators/comments";
@@ -13,10 +14,11 @@ import { canPostReportComment } from "../../../validators/reports";
 import { canSeeReport } from "../../../validators/reports";
 import { createConversationSchema } from "../../../validators/comments";
 import { getServerPusher } from "../../../libs/pusher";
-
 import { fetchUserReport } from "./reports";
 import { fetchThread } from "./forum";
 import { fetchUser } from "./profile";
+import sanitize from "../../../utils/sanitize";
+import type { DrizzleClient } from "../../db";
 
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
@@ -39,18 +41,16 @@ export const commentsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      // Guard
-      const report = await fetchUserReport(ctx.prisma, input.id);
-      // Fetch comments
+      const report = await fetchUserReport(ctx.drizzle, input.id);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.prisma.userReportComment.findMany({
-        skip: skip,
-        take: input.limit,
-        where: { reportId: report.id },
-        include: {
+      const comments = await ctx.drizzle.query.userReportComment.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(userReportComment.reportId, report.id),
+        with: {
           user: {
-            select: {
+            columns: {
               userId: true,
               username: true,
               avatar: true,
@@ -59,9 +59,7 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: [desc(userReportComment.createdAt)],
       });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
       return {
@@ -72,9 +70,8 @@ export const commentsRouter = createTRPCRouter({
   createReportComment: protectedProcedure
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      // Guards
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const report = await fetchUserReport(ctx.prisma, input.object_id);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const report = await fetchUserReport(ctx.drizzle, input.object_id);
       if (!canPostReportComment(report)) {
         throw serverError("PRECONDITION_FAILED", "Already been resolved");
       }
@@ -85,13 +82,11 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      // Create comment
-      return ctx.prisma.userReportComment.create({
-        data: {
-          userId: ctx.userId,
-          reportId: input.object_id,
-          content: sanitize(input.comment),
-        },
+      return await ctx.drizzle.insert(userReportComment).values({
+        id: createId(),
+        userId: ctx.userId,
+        reportId: input.object_id,
+        content: sanitize(input.comment),
       });
     }),
   /**
@@ -107,18 +102,16 @@ export const commentsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      // Guard
-      const thread = await fetchThread(ctx.prisma, input.thread_id);
-      // Fetch comments
+      const thread = await fetchThread(ctx.drizzle, input.thread_id);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.prisma.forumPost.findMany({
-        skip: skip,
-        take: input.limit,
-        where: { threadId: thread.id },
-        include: {
+      const comments = await ctx.drizzle.query.forumPost.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(forumPost.threadId, thread.id),
+        with: {
           user: {
-            select: {
+            columns: {
               userId: true,
               username: true,
               avatar: true,
@@ -127,14 +120,14 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: {
-          createdAt: "asc",
-        },
+        orderBy: [desc(forumPost.createdAt)],
       });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
-      const totalComments = await ctx.prisma.forumPost.count({
-        where: { threadId: thread.id },
-      });
+      const counts = await ctx.drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(forumPost)
+        .where(eq(forumPost.threadId, thread.id));
+      const totalComments = counts?.[0]?.count || 0;
       return {
         thread: thread,
         data: comments,
@@ -145,9 +138,8 @@ export const commentsRouter = createTRPCRouter({
   createForumComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      // Guard
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const thread = await fetchThread(ctx.prisma, input.object_id);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const thread = await fetchThread(ctx.drizzle, input.object_id);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
@@ -155,31 +147,28 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      return ctx.prisma.forumPost.create({
-        data: {
-          content: sanitize(input.comment),
-          userId: ctx.userId,
-          threadId: thread.id,
-        },
+      return ctx.drizzle.insert(forumPost).values({
+        id: createId(),
+        userId: ctx.userId,
+        threadId: thread.id,
+        content: sanitize(input.comment),
       });
     }),
   editForumComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.prisma, ctx.userId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
-      const comment = await ctx.prisma.forumPost.findUniqueOrThrow({
-        where: { id: input.object_id },
+      const comment = await ctx.drizzle.query.forumPost.findFirst({
+        where: and(eq(forumPost.id, input.object_id), eq(forumPost.userId, ctx.userId)),
       });
-      if (comment?.userId === ctx.userId) {
-        return ctx.prisma.forumPost.update({
-          where: { id: input.object_id },
-          data: {
-            content: sanitize(input.comment),
-          },
-        });
+      if (comment) {
+        return ctx.drizzle
+          .update(forumPost)
+          .set({ content: sanitize(input.comment) })
+          .where(eq(forumPost.id, input.object_id));
       } else {
         throw serverError("UNAUTHORIZED", "You can only edit own comments");
       }
@@ -187,14 +176,12 @@ export const commentsRouter = createTRPCRouter({
   deleteForumComment: protectedProcedure
     .input(deleteCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const comment = await ctx.prisma.forumPost.findUniqueOrThrow({
-        where: { id: input.id },
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const comment = await ctx.drizzle.query.forumPost.findFirst({
+        where: and(eq(forumPost.id, input.id)),
       });
       if (comment?.userId === ctx.userId || user.role === "ADMIN") {
-        return ctx.prisma.forumPost.delete({
-          where: { id: input.id },
-        });
+        return ctx.drizzle.delete(forumPost).where(eq(forumPost.id, input.id));
       } else {
         throw serverError("UNAUTHORIZED", "You can only delete own comments");
       }
@@ -214,37 +201,16 @@ export const commentsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const conversations = await ctx.prisma.conversation.findMany({
-        skip: skip,
-        take: input.limit,
-        where: {
-          isPublic: false,
-          OR: [
-            {
-              UsersInConversation: {
-                some: {
-                  userId: ctx.userId,
-                },
-              },
-            },
-          ],
-        },
-        include: {
-          UsersInConversation: {
-            include: {
-              user: {
-                select: {
-                  userId: true,
-                  username: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          updatedAt: "desc",
-        },
+      const conversations = await ctx.drizzle.query.conversation.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: (table, { sql }) =>
+          and(
+            eq(conversation.isPublic, 0),
+            sql`JSON_SEARCH(${table.users}, ${ctx.userId}) IS NOT NULL`
+          ),
+        with: { users: { columns: { userId: true, username: true, avatar: true } } },
+        orderBy: [desc(conversation.updatedAt)],
       });
       const nextCursor = conversations.length < input.limit ? null : currentCursor + 1;
       return {
@@ -255,7 +221,7 @@ export const commentsRouter = createTRPCRouter({
   createConversation: protectedProcedure
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.prisma, ctx.userId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
@@ -263,60 +229,50 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      return await ctx.prisma.$transaction(async (tx) => {
-        const convo = await tx.conversation.create({
-          data: {
-            title: input.title,
-            createdById: ctx.userId,
-            isPublic: false,
-            isLocked: false,
-            UsersInConversation: {
-              create: [...input.users, ctx.userId].map((user) => {
-                return {
-                  userId: user,
-                };
-              }),
-            },
-          },
+      return await ctx.drizzle.transaction(async (tx) => {
+        const convoId = createId();
+        await tx.insert(conversation).values({
+          id: convoId,
+          title: input.title,
+          createdById: ctx.userId,
+          isPublic: 0,
+          isLocked: 0,
         });
-        await tx.conversationComment.create({
-          data: {
-            content: sanitize(input.comment),
-            userId: ctx.userId,
-            conversationId: convo.id,
-          },
+        [...input.users, ctx.userId].map(async (user) => {
+          await tx.insert(usersInConversation).values({
+            conversationId: convoId,
+            userId: user,
+          });
         });
-        return convo;
+        await tx.insert(conversationComment).values({
+          id: createId(),
+          content: sanitize(input.comment),
+          userId: ctx.userId,
+          conversationId: convoId,
+        });
       });
     }),
   exitConversation: protectedProcedure
-    .input(
-      z.object({
-        convo_id: z.string().cuid(),
-      })
-    )
+    .input(z.object({ convo_id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      // Guard
       const convo = await fetchConversation({
-        client: ctx.prisma,
+        client: ctx.drizzle,
         id: input.convo_id,
         userId: ctx.userId,
       });
-      // Remove user from conversation
-      await ctx.prisma.usersInConversation.deleteMany({
-        where: {
-          userId: ctx.userId,
-          conversationId: convo.id,
-        },
-      });
-      // If user is the last in conversation, delete without waiting
-      if (convo.UsersInConversation.length === 1) {
-        void ctx.prisma.conversation.delete({
-          where: { id: convo.id },
-        });
-        void ctx.prisma.conversationComment.deleteMany({
-          where: { conversationId: convo.id },
-        });
+      await ctx.drizzle
+        .delete(usersInConversation)
+        .where(
+          and(
+            eq(usersInConversation.conversationId, convo.id),
+            eq(usersInConversation.userId, ctx.userId)
+          )
+        );
+      if (convo.users.length === 1) {
+        await ctx.drizzle.delete(conversation).where(eq(conversation.id, convo.id));
+        await ctx.drizzle
+          .delete(conversationComment)
+          .where(eq(conversationComment.conversationId, convo.id));
       }
     }),
   getConversationComments: protectedProcedure
@@ -335,23 +291,21 @@ export const commentsRouter = createTRPCRouter({
         )
     )
     .query(async ({ ctx, input }) => {
-      // Guard
       const convo = await fetchConversation({
-        client: ctx.prisma,
+        client: ctx.drizzle,
         id: input.convo_id,
         title: input.convo_title,
         userId: ctx.userId,
       });
-      // Fetch comments
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.prisma.conversationComment.findMany({
-        skip: skip,
-        take: input.limit,
-        where: { conversationId: convo.id },
-        include: {
+      const comments = await ctx.drizzle.query.conversationComment.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(conversationComment.conversationId, convo.id),
+        with: {
           user: {
-            select: {
+            columns: {
               userId: true,
               username: true,
               avatar: true,
@@ -360,9 +314,7 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: [desc(conversationComment.createdAt)],
       });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
       return {
@@ -374,13 +326,12 @@ export const commentsRouter = createTRPCRouter({
   createConversationComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      // Guard
       const convo = await fetchConversation({
-        client: ctx.prisma,
+        client: ctx.drizzle,
         id: input.object_id,
         userId: ctx.userId,
       });
-      const user = await fetchUser(ctx.prisma, ctx.userId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
@@ -388,36 +339,33 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      const comment = ctx.prisma.conversationComment.create({
-        data: {
-          content: sanitize(input.comment),
-          userId: ctx.userId,
-          conversationId: convo.id,
-        },
-      });
       const pusher = getServerPusher();
-      await pusher.trigger(convo.id, "event", {
-        message: "hello world",
+      void pusher.trigger(convo.id, "event", { message: "new" });
+      return ctx.drizzle.insert(conversationComment).values({
+        id: createId(),
+        content: sanitize(input.comment),
+        userId: ctx.userId,
+        conversationId: convo.id,
       });
-      return comment;
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.prisma, ctx.userId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
-      const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
-        where: { id: input.object_id },
+      const comment = await ctx.drizzle.query.conversationComment.findFirst({
+        where: and(
+          eq(conversationComment.id, input.object_id),
+          eq(conversationComment.userId, ctx.userId)
+        ),
       });
-      if (comment?.userId === ctx.userId) {
-        return ctx.prisma.conversationComment.update({
-          where: { id: input.object_id },
-          data: {
-            content: sanitize(input.comment),
-          },
-        });
+      if (comment) {
+        return ctx.drizzle
+          .update(conversationComment)
+          .set({ content: sanitize(input.comment) })
+          .where(eq(conversationComment.id, input.object_id));
       } else {
         throw serverError("UNAUTHORIZED", "You can only edit own comments");
       }
@@ -425,14 +373,14 @@ export const commentsRouter = createTRPCRouter({
   deleteConversationComment: protectedProcedure
     .input(deleteCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const comment = await ctx.prisma.conversationComment.findUniqueOrThrow({
-        where: { id: input.id },
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const comment = await ctx.drizzle.query.conversationComment.findFirst({
+        where: eq(conversationComment.id, input.id),
       });
       if (comment?.userId === ctx.userId || user.role === "ADMIN") {
-        return ctx.prisma.conversationComment.delete({
-          where: { id: input.id },
-        });
+        return ctx.drizzle
+          .delete(conversationComment)
+          .where(eq(conversationComment.id, input.id));
       } else {
         throw serverError("UNAUTHORIZED", "You can only delete own comments");
       }
@@ -440,35 +388,35 @@ export const commentsRouter = createTRPCRouter({
 });
 
 /**
- * Fetches the forum thread. Throws an error if not found.
+ * Fetches a conversation from the database. Throws an error if not found.
  */
-interface FetchThreadOptions {
-  client: PrismaClient;
+interface FetchConvoOptions {
+  client: DrizzleClient;
   id?: string;
   title?: string;
   userId?: string;
 }
-export const fetchConversation = async (params: FetchThreadOptions) => {
+export const fetchConversation = async (params: FetchConvoOptions) => {
   const { client, id, title, userId } = params;
   const getConvo = async () => {
     if (id) {
-      const convo = await client.conversation.findUniqueOrThrow({
-        where: { id: id },
-        include: { UsersInConversation: true },
+      return await client.query.conversation.findFirst({
+        where: eq(conversation.id, id),
+        with: { users: true },
       });
-      return convo;
     } else if (title && userId) {
-      const convo = await client.conversation.findUniqueOrThrow({
-        where: { title: title },
-        include: { UsersInConversation: true },
+      return await client.query.conversation.findFirst({
+        where: eq(conversation.title, title),
+        with: { users: true },
       });
-      return convo;
     } else {
       throw serverError("BAD_REQUEST", "Invalid request");
     }
   };
   const convo = await getConvo();
-  if (convo.isPublic || convo.UsersInConversation.some((u) => u.userId === userId)) {
+  const isPublic = convo?.isPublic;
+  const inConversation = convo?.users.some((u) => u.userId === userId);
+  if (convo && (isPublic || inConversation)) {
     return convo;
   } else {
     throw serverError("UNAUTHORIZED", "Conversation not found");

@@ -1,39 +1,38 @@
 import { z } from "zod";
-import { ItemType, ItemSlot, ItemRarity } from "@prisma/client";
-import type { UserData } from "@prisma/client";
-import { fetchUser } from "./profile";
-import {
-  createTRPCRouter,
-  publicProcedure,
-  protectedProcedure,
-  serverError,
-} from "../trpc";
+import { createId } from "@paralleldrive/cuid2";
+import { eq, sql, gte, and } from "drizzle-orm";
+import { item, userItem, userData } from "../../../../drizzle/schema";
+import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/schema";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import { serverError } from "../trpc";
+import type { DrizzleClient } from "../../db";
 
-const calcMaxItems = (user: UserData) => {
+const calcMaxItems = () => {
   const base = 20;
   return base;
 };
 
 export const itemRouter = createTRPCRouter({
+  // Get all items
   getAll: publicProcedure
     .input(
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        itemType: z.nativeEnum(ItemType).optional(),
-        itemRarity: z.nativeEnum(ItemRarity).optional(),
+        itemType: z.enum(ItemTypes).optional(),
+        itemRarity: z.enum(ItemRarities).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const results = await ctx.prisma.item.findMany({
-        skip: skip,
-        take: input.limit,
-        where: {
-          ...(input.itemRarity && { rarity: input.itemRarity }),
-          ...(input.itemType && { itemType: input.itemType }),
-        },
+      const results = await ctx.drizzle.query.item.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: and(
+          input.itemRarity ? eq(item.rarity, input.itemRarity) : sql``,
+          input.itemType ? eq(item.itemType, input.itemType) : sql``
+        ),
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
@@ -41,106 +40,105 @@ export const itemRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  // Get counts of user items grouped by item ID
   getUserItemCounts: protectedProcedure.query(async ({ ctx }) => {
-    const counts = await ctx.prisma.userItem.groupBy({
-      by: ["itemId"],
-      _sum: {
-        quantity: true,
-      },
-    });
-    return counts.map((c) => ({ id: c.itemId, quantity: c._sum.quantity ?? 0 }));
+    const counts = await ctx.drizzle
+      .select({
+        count: sql<number>`count(${userItem.id})`,
+        itemId: userItem.itemId,
+        quantity: userItem.quantity,
+      })
+      .from(userItem)
+      .groupBy(userItem.itemId);
+    return counts.map((c) => ({ id: c.itemId, quantity: c.quantity ?? 0 }));
   }),
+  // Get user items
   getUserItems: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.prisma.userItem.findMany({
-      where: { userId: ctx.userId },
-      include: { item: true },
-    });
+    return await fetchUserItems(ctx.drizzle, ctx.userId);
   }),
+  // Merge item stacks
   mergeStacks: protectedProcedure
     .input(z.object({ itemId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      // Pre-fetches
-      const item = await ctx.prisma.item.findUniqueOrThrow({
-        where: { id: input.itemId },
+      const info = await ctx.drizzle.query.item.findFirst({
+        where: eq(item.id, input.itemId),
       });
-      const userItems = await ctx.prisma.userItem.findMany({
-        where: { userId: ctx.userId, itemId: item.id },
+      const userItems = await ctx.drizzle.query.userItem.findMany({
+        where: and(eq(userItem.userId, ctx.userId), eq(userItem.itemId, input.itemId)),
       });
-      // Calculate total quantity
       const totalQuantity = userItems.reduce((acc, i) => acc + i.quantity, 0);
-      // Update stacks
-      await ctx.prisma.$transaction(async (tx) => {
-        let currentCount = 0;
-        for (let i = 0; i < userItems.length; i++) {
-          const newQuantity = Math.min(item.stackSize, totalQuantity - currentCount);
-          if (newQuantity > 0) {
-            currentCount += newQuantity;
-            await tx.userItem.update({
-              where: { id: userItems?.[i]?.id },
-              data: { quantity: newQuantity },
-            });
-          } else {
-            await tx.userItem.delete({ where: { id: userItems?.[i]?.id } });
+      if (info && userItems.length > 0) {
+        await ctx.drizzle.transaction(async (tx) => {
+          let currentCount = 0;
+          for (let i = 0; i < userItems.length; i++) {
+            const id = userItems?.[i]?.id;
+            const newQuantity = Math.min(info.stackSize, totalQuantity - currentCount);
+            if (id) {
+              if (newQuantity > 0) {
+                currentCount += newQuantity;
+                await tx
+                  .update(userItem)
+                  .set({ quantity: newQuantity })
+                  .where(eq(userItem.id, id));
+              } else {
+                await tx.delete(userItem).where(eq(userItem.id, id));
+              }
+            }
           }
-        }
-      });
+        });
+      }
     }),
+  // Drop user item
   dropUserItem: protectedProcedure
     .input(z.object({ userItemId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      const useritem = await ctx.prisma.userItem.findUniqueOrThrow({
-        where: { id: input.userItemId },
-      });
-      if (useritem.userId === ctx.userId) {
-        return await ctx.prisma.userItem.delete({
-          where: { id: input.userItemId },
-        });
+      const useritem = await fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId);
+      if (useritem) {
+        return await ctx.drizzle
+          .delete(userItem)
+          .where(eq(userItem.id, input.userItemId));
       } else {
         throw serverError("NOT_FOUND", "User item not found");
       }
     }),
+  // Use user item
   toggleEquip: protectedProcedure
     .input(
       z.object({
         userItemId: z.string().cuid(),
-        slot: z.nativeEnum(ItemSlot),
+        slot: z.enum(ItemSlots),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Pre-fetches
-      const userItems = await ctx.prisma.userItem.findMany({
-        where: { userId: ctx.userId },
-        include: { item: true },
-      });
-      // Guards
+      const userItems = await fetchUserItems(ctx.drizzle, ctx.userId);
       const useritem = userItems.find((i) => i.id === input.userItemId);
       if (!useritem) {
         throw serverError("NOT_FOUND", "User item not found");
       }
-      // Toggle
-      return await ctx.prisma.$transaction(async (tx) => {
+      return await ctx.drizzle.transaction(async (tx) => {
         if (!useritem.equipped || useritem.equipped !== input.slot) {
           const equipped = userItems.find(
             (i) => i.equipped === input.slot && i.id !== useritem.id
           );
           if (equipped) {
-            await tx.userItem.update({
-              where: { id: equipped.id },
-              data: { equipped: null },
-            });
+            await tx
+              .update(userItem)
+              .set({ equipped: null })
+              .where(eq(userItem.id, equipped.id));
           }
-          return await tx.userItem.update({
-            where: { id: useritem.id },
-            data: { equipped: input.slot },
-          });
+          return await tx
+            .update(userItem)
+            .set({ equipped: input.slot })
+            .where(eq(userItem.id, useritem.id));
         } else {
-          return await tx.userItem.update({
-            where: { id: useritem.id },
-            data: { equipped: null },
-          });
+          return await tx
+            .update(userItem)
+            .set({ equipped: null })
+            .where(eq(userItem.id, useritem.id));
         }
       });
     }),
+  // Buy user item
   buy: protectedProcedure
     .input(
       z.object({
@@ -149,41 +147,66 @@ export const itemRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Pre-fetches
       const iid = input.itemId;
       const uid = ctx.userId;
-      const item = await ctx.prisma.item.findUniqueOrThrow({ where: { id: iid } });
-      const user = await fetchUser(ctx.prisma, uid);
-      const counts = await ctx.prisma.userItem.count({ where: { userId: uid } });
-      // Guards
+      const info = await ctx.drizzle.query.item.findFirst({
+        where: eq(item.id, iid),
+      });
+      const counts = await ctx.drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(userItem)
+        .where(eq(userItem.userId, uid));
+      const userItemsCount = counts?.[0]?.count || 0;
       if (input.stack > 1 && !item.canStack) {
         throw serverError("PRECONDITION_FAILED", "Item cannot be stacked");
       }
-      if (counts >= calcMaxItems(user)) {
+      if (userItemsCount >= calcMaxItems()) {
         throw serverError("PRECONDITION_FAILED", "Inventory is full");
       }
-      // Purchase
-      const result = await ctx.prisma.$transaction(async (tx) => {
-        const userItem = await tx.userItem.create({
-          data: {
-            userId: uid,
-            itemId: item.id,
-            quantity: input.stack,
-          },
+      if (!info) {
+        throw serverError("PRECONDITION_FAILED", "Item not found");
+      }
+      const cost = info.cost * input.stack;
+      const result = await ctx.drizzle.transaction(async (tx) => {
+        await tx.insert(userItem).values({
+          id: createId(),
+          userId: uid,
+          itemId: iid,
+          quantity: input.stack,
+          equipped: null,
         });
-        const update = await tx.$executeRaw`
-          UPDATE UserData
-          SET 
-            money = money - ${item.cost * input.stack}
-          WHERE
-            userId = ${uid} AND
-            money >= ${item.cost * input.stack}
-        `;
-        if (update !== 1) {
+        const result = await tx
+          .update(userData)
+          .set({
+            money: sql`${userData.money} - ${cost}`,
+          })
+          .where(and(eq(userData.userId, uid), gte(userData.money, cost)));
+        if (result.rowsAffected !== 1) {
           throw serverError("PRECONDITION_FAILED", "Not enough money");
         }
-        return userItem;
       });
       return result;
     }),
 });
+
+/**
+ * COMMON QUERIES WHICH ARE REUSED
+ */
+
+export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
+  return await client.query.userItem.findMany({
+    where: eq(userItem.userId, userId),
+    with: { item: true },
+  });
+};
+
+export const fetchUserItem = async (
+  client: DrizzleClient,
+  userId: string,
+  itemId: string
+) => {
+  return await client.query.userItem.findFirst({
+    where: and(eq(userItem.userId, userId), eq(userItem.itemId, itemId)),
+    with: { item: true },
+  });
+};

@@ -1,24 +1,21 @@
 import { z } from "zod";
-import { type PrismaClient } from "@prisma/client";
-
+import { forumThread, forumBoard, forumPost } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 
+import { eq, or, and, sql, gte, ne, asc, desc, inArray } from "drizzle-orm";
 import { forumBoardSchema } from "../../../validators/forum";
 import { canModerate } from "../../../validators/forum";
 import { fetchUser } from "./profile";
+import type { DrizzleClient } from "../../db";
+import { createId } from "@paralleldrive/cuid2";
 
 export const forumRouter = createTRPCRouter({
   // Get all boards in the system
   getAll: publicProcedure.query(async ({ ctx }) => {
-    const boards = await ctx.prisma.forumBoard.findMany({
-      orderBy: [
-        {
-          createdAt: "asc",
-        },
-      ],
+    return await ctx.drizzle.query.forumBoard.findMany({
+      orderBy: asc(forumBoard.createdAt),
     });
-    return boards;
   }),
   // Get board in the system
   getThreads: publicProcedure
@@ -30,32 +27,19 @@ export const forumRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      // Guards
-      const board = await fetchBoard(ctx.prisma, input.board_id);
-      // Fetch threads
+      const board = await fetchBoard(ctx.drizzle, input.board_id);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const threads = await ctx.prisma.forumThread.findMany({
-        skip: skip,
-        take: input.limit,
-        where: {
-          boardId: input.board_id,
-        },
-        include: {
+      const threads = await ctx.drizzle.query.forumThread.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(forumThread.boardId, board.id),
+        with: {
           user: {
-            select: {
-              username: true,
-            },
+            columns: { username: true },
           },
         },
-        orderBy: [
-          {
-            isPinned: "desc",
-          },
-          {
-            createdAt: "desc",
-          },
-        ],
+        orderBy: [desc(forumThread.isPinned), desc(forumThread.createdAt)],
       });
       const nextCursor = threads.length < input.limit ? null : currentCursor + 1;
       return {
@@ -67,36 +51,32 @@ export const forumRouter = createTRPCRouter({
   createThread: protectedProcedure
     .input(forumBoardSchema)
     .mutation(async ({ ctx, input }) => {
-      // Guards
-      const user = await fetchUser(ctx.prisma, ctx.userId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
-      const board = await fetchBoard(ctx.prisma, input.board_id);
-      // Create thread, post, and update board
-      await ctx.prisma.$transaction(async (tx) => {
-        const thread = await tx.forumThread.create({
-          data: {
-            title: input.title,
-            boardId: board.id,
-            userId: ctx.userId,
-          },
+      const board = await fetchBoard(ctx.drizzle, input.board_id);
+      return await ctx.drizzle.transaction(async (tx) => {
+        const threadId = createId();
+        await tx.insert(forumThread).values({
+          id: threadId,
+          title: input.title,
+          boardId: board.id,
+          userId: ctx.userId,
         });
-        await tx.forumPost.create({
-          data: {
-            content: input.content,
-            threadId: thread.id,
-            userId: ctx.userId,
-          },
+        await tx.insert(forumPost).values({
+          id: createId(),
+          content: input.content,
+          threadId: threadId,
+          userId: ctx.userId,
         });
-        await tx.forumBoard.update({
-          where: { id: board.id },
-          data: {
-            nThreads: { increment: 1 },
-          },
-        });
+        await tx
+          .update(forumBoard)
+          .set({ nThreads: sql`n_threads + 1` })
+          .where(eq(forumBoard.id, board.id));
       });
     }),
+  // Pin forum thread to be on top
   pinThread: protectedProcedure
     .input(
       z.object({
@@ -105,19 +85,15 @@ export const forumRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Guards
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const thread = await fetchThread(ctx.prisma, input.thread_id);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const thread = await fetchThread(ctx.drizzle, input.thread_id);
       if (!canModerate(user)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
-      // Update thread
-      await ctx.prisma.forumThread.update({
-        where: { id: thread.id },
-        data: {
-          isPinned: input.status,
-        },
-      });
+      return await ctx.drizzle
+        .update(forumThread)
+        .set({ isPinned: input.status ? 1 : 0 })
+        .where(eq(forumThread.id, thread.id));
     }),
   lockThread: protectedProcedure
     .input(
@@ -127,38 +103,34 @@ export const forumRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Guards
-      const user = await fetchUser(ctx.prisma, ctx.userId);
-      const thread = await fetchThread(ctx.prisma, input.thread_id);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const thread = await fetchThread(ctx.drizzle, input.thread_id);
       if (!canModerate(user)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
-      // Update thread
-      await ctx.prisma.forumThread.update({
-        where: { id: thread.id },
-        data: {
-          isLocked: input.status,
-        },
-      });
+      return await ctx.drizzle
+        .update(forumThread)
+        .set({ isLocked: input.status ? 1 : 0 })
+        .where(eq(forumThread.id, thread.id));
     }),
 });
 
-/**
- * Fetches the forum board. Throws an error if not found.
- */
-export const fetchBoard = async (client: PrismaClient, id: string) => {
-  const board = await client.forumBoard.findUniqueOrThrow({
-    where: { id },
+export const fetchBoard = async (client: DrizzleClient, threadId: string) => {
+  const entry = await client.query.forumBoard.findFirst({
+    where: eq(forumBoard.id, threadId),
   });
-  return board;
+  if (!entry) {
+    throw new Error("Board not found");
+  }
+  return entry;
 };
 
-/**
- * Fetches the forum thread. Throws an error if not found.
- */
-export const fetchThread = async (client: PrismaClient, id: string) => {
-  const thread = await client.forumThread.findUniqueOrThrow({
-    where: { id },
+export const fetchThread = async (client: DrizzleClient, threadId: string) => {
+  const entry = await client.query.forumThread.findFirst({
+    where: eq(forumThread.id, threadId),
   });
-  return thread;
+  if (!entry) {
+    throw new Error("Thread not found");
+  }
+  return entry;
 };
