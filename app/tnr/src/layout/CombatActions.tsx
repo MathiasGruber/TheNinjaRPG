@@ -1,5 +1,5 @@
 import ContentImage from "./ContentImage";
-import type { ItemRarity } from "@prisma/client";
+import type { ItemRarity } from "../../drizzle/schema";
 
 interface ActionSelectorProps {
   items?: {

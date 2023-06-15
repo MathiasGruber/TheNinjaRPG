@@ -52,24 +52,24 @@ model UserData {
     userId                  String                @unique
     username                String                @unique
     isBanned                Boolean               @default(false)
-    isAI                    Boolean               @default(false)
+    isAi                    Boolean               @default(false)
     role                    Role                  @default(USER)
     // Statistics    
     gender                  String
     // Bars
-    cur_health              Int                   @default(100)
-    max_health              Int                   @default(100)
-    cur_chakra              Int                   @default(100)
-    max_chakra              Int                   @default(100)
-    cur_stamina             Int                   @default(100)
-    max_stamina             Int                   @default(100)
+    curHealth               Int                   @default(100)
+    maxHealth               Int                   @default(100)
+    curChakra               Int                   @default(100)
+    maxChakra               Int                   @default(100)
+    curStamina              Int                   @default(100)
+    maxStamina              Int                   @default(100)
     regeneration            Int                   @default(1)
     // Financials
     money                   Int                   @default(100)
     bank                    Int                   @default(100)
     // ELO ratings
-    elo_pvp                 Int                   @default(1)
-    elo_pve                 Int                   @default(1)
+    eloPvp                  Int                   @default(1)
+    eloPve                  Int                   @default(1)
     // Experience
     experience              Int                   @default(0)
     // Rank & Village
@@ -86,17 +86,17 @@ model UserData {
     willpower               Float                 @default(10)
     speed                   Float                 @default(10)
     // Specialities
-    ninjutsu_offence        Float                 @default(10)
-    ninjutsu_defence        Float                 @default(10)
-    genjutsu_offence        Float                 @default(10)
-    genjutsu_defence        Float                 @default(10)
-    taijutsu_offence        Float                 @default(10)
-    taijutsu_defence        Float                 @default(10)
-    bukijutsu_offence       Float                 @default(10)
-    bukijutsu_defence       Float                 @default(10)
+    ninjutsuOffence         Float                 @default(10)
+    ninjutsuDefence         Float                 @default(10)
+    genjutsuOffence         Float                 @default(10)
+    genjutsuDefence         Float                 @default(10)
+    taijutsuOffence         Float                 @default(10)
+    taijutsuDefence         Float                 @default(10)
+    bukijutsuOffence        Float                 @default(10)
+    bukijutsuDefence        Float                 @default(10)
     // Purchase Points
-    reputation_points       Int                   @default(0)
-    reputation_points_total Int                   @default(0)
+    reputationPoints       Int                   @default(0)
+    reputationPoints_total Int                   @default(0)
     popularity_points       Int                   @default(6) // Required for initial avatar creation    
     popularity_points_total Int                   @default(6) // Required for initial avatar creation
     federalStatus           FederalStatus         @default(NONE)

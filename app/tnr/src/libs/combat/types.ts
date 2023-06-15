@@ -1,16 +1,9 @@
 import { z } from "zod";
-import type { Jutsu, Item, Bloodline } from "@prisma/client";
-import { UserRank } from "@prisma/client";
-import { AttackTarget } from "@prisma/client";
-import { LetterRank } from "@prisma/client";
-import { JutsuType } from "@prisma/client";
-import { ItemType } from "@prisma/client";
-import { WeaponType } from "@prisma/client";
-import { AttackMethod } from "@prisma/client";
-import { ItemRarity } from "@prisma/client";
-import { ItemSlotType } from "@prisma/client";
-import type { Village } from "@prisma/client";
-import type { UserData, UserJutsu, UserItem } from "@prisma/client";
+import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/schema";
+import { ItemSlots, ItemTypes, JutsuTypes } from "../../../drizzle/schema";
+import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/schema";
+import type { Jutsu, Item, Bloodline } from "../../../drizzle/schema";
+import type { UserData, UserJutsu, UserItem, Village } from "../../../drizzle/schema";
 import type { TerrainHex } from "../hexgrid";
 import type { UserBattle } from "../../utils/UserContext";
 
@@ -23,40 +16,40 @@ export const publicState = [
   "username",
   "gender",
   "avatar",
-  "cur_health",
-  "max_health",
+  "curHealth",
+  "maxHealth",
   "longitude",
   "latitude",
   "location",
   "sector",
   "updatedAt",
-  "elo_pvp",
-  "elo_pve",
+  "eloPvp",
+  "eloPve",
   "regeneration",
   "village",
   "fledBattle",
   "leftBattle",
-  "is_original",
-  "isAI",
+  "isOriginal",
+  "isAi",
   "controllerId",
 ] as const;
 
 export const privateState = [
   "updatedAt",
-  "cur_chakra",
-  "max_chakra",
-  "cur_stamina",
-  "max_stamina",
-  "ninjutsu_offence",
-  "ninjutsu_defence",
-  "genjutsu_offence",
-  "genjutsu_defence",
-  "taijutsu_offence",
-  "taijutsu_defence",
-  "bukijutsu_offence",
-  "bukijutsu_defence",
-  "highest_offence",
-  "highest_defence",
+  "curChakra",
+  "maxChakra",
+  "curStamina",
+  "maxStamina",
+  "ninjutsuOffence",
+  "ninjutsuDefence",
+  "genjutsuOffence",
+  "genjutsuDefence",
+  "taijutsuOffence",
+  "taijutsuDefence",
+  "bukijutsuOffence",
+  "bukijutsuDefence",
+  "highestOffence",
+  "highestDefence",
   "strength",
   "intelligence",
   "willpower",
@@ -80,13 +73,13 @@ export type BattleUserState = UserData & {
   })[];
   bloodline?: Bloodline | null;
   village?: Village | null;
-  highest_offence: number;
-  highest_defence: number;
-  highest_offence_type: typeof StatNames[number];
-  highest_defence_type: typeof StatNames[number];
+  highestOffence: number;
+  highestDefence: number;
+  highestOffence_type: typeof StatNames[number];
+  highestDefence_type: typeof StatNames[number];
   armor: number;
   hidden?: boolean;
-  is_original: boolean;
+  isOriginal: boolean;
   controllerId: string;
   leftBattle: boolean;
   fledBattle: boolean;
@@ -135,8 +128,8 @@ export type CombatAction = {
   image: string;
   battleDescription: string;
   type: "basic" | "jutsu" | "item";
-  target: AttackTarget;
-  method: AttackMethod;
+  target: typeof AttackTargets[number];
+  method: typeof AttackMethods[number];
   range: number;
   healthCostPerc: number;
   chakraCostPerc: number;
@@ -188,14 +181,14 @@ const StatType = ["Highest", "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as
 const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
 const PoolType = ["Health", "Chakra", "Stamina"] as const;
 export const StatNames = [
-  "ninjutsu_offence",
-  "ninjutsu_defence",
-  "genjutsu_offence",
-  "genjutsu_defence",
-  "taijutsu_offence",
-  "taijutsu_defence",
-  "bukijutsu_offence",
-  "bukijutsu_defence",
+  "ninjutsuOffence",
+  "ninjutsuDefence",
+  "genjutsuOffence",
+  "genjutsuDefence",
+  "taijutsuOffence",
+  "taijutsuDefence",
+  "bukijutsuOffence",
+  "bukijutsuDefence",
 ] as const;
 
 /**
@@ -580,16 +573,16 @@ export type BattleEffect = ZodAllTags & {
   isNew: boolean;
   createdAt: number;
   targetType?: "user" | "barrier";
-  highest_offence?: number;
-  highest_defence?: number;
-  ninjutsu_offence?: number;
-  ninjutsu_defence?: number;
-  genjutsu_offence?: number;
-  genjutsu_defence?: number;
-  taijutsu_offence?: number;
-  taijutsu_defence?: number;
-  bukijutsu_offence?: number;
-  bukijutsu_defence?: number;
+  highestOffence?: number;
+  highestDefence?: number;
+  ninjutsuOffence?: number;
+  ninjutsuDefence?: number;
+  genjutsuOffence?: number;
+  genjutsuDefence?: number;
+  taijutsuOffence?: number;
+  taijutsuDefence?: number;
+  bukijutsuOffence?: number;
+  bukijutsuDefence?: number;
   strength?: number;
   intelligence?: number;
   willpower?: number;
@@ -617,7 +610,7 @@ export type ActionEffect = {
  * Refiner object, which is used to refine the data in the battle object
  */
 type ActionValidatorType = {
-  target: AttackTarget;
+  target: typeof AttackTargets[number];
   effects: ZodAllTags[];
 };
 
@@ -647,7 +640,7 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
 };
 
 const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
-  if (data.target !== AttackTarget.EMPTY_GROUND) {
+  if (data.target !== "EMPTY_GROUND") {
     if (data.effects.find((e) => e.type === "barrier")) {
       addIssue(ctx, "Barriers need empty ground");
     }
@@ -666,12 +659,12 @@ export const JutsuValidator = z
     image: z.string(),
     description: z.string(),
     battleDescription: z.string(),
-    jutsuWeapon: z.nativeEnum(WeaponType).optional(),
-    jutsuType: z.nativeEnum(JutsuType),
-    jutsuRank: z.nativeEnum(LetterRank),
-    requiredRank: z.nativeEnum(UserRank),
-    method: z.nativeEnum(AttackMethod),
-    target: z.nativeEnum(AttackTarget),
+    jutsuWeapon: z.enum(WeaponTypes).optional(),
+    jutsuType: z.enum(JutsuTypes),
+    jutsuRank: z.enum(LetterRanks),
+    requiredRank: z.enum(UserRanks),
+    method: z.enum(AttackMethods),
+    target: z.enum(AttackTargets),
     range: z.number().int().min(0).max(5),
     healthCostPerc: z.number().min(0).max(100).optional(),
     chakraCostPerc: z.number().min(0).max(100).optional(),
@@ -690,7 +683,7 @@ const BloodlineValidator = z.object({
   name: z.string(),
   image: z.string(),
   description: z.string(),
-  rank: z.nativeEnum(LetterRank),
+  rank: z.enum(LetterRanks),
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
   effects: z
@@ -731,11 +724,11 @@ const ItemValidator = z
     actionCostPerc: z.number().int().min(1).max(100).optional(),
     cost: z.number().int().min(1),
     range: z.number().int().min(0).max(10).optional(),
-    target: z.nativeEnum(AttackTarget),
-    itemType: z.nativeEnum(ItemType),
-    weaponType: z.nativeEnum(WeaponType).optional(),
-    rarity: z.nativeEnum(ItemRarity),
-    slot: z.nativeEnum(ItemSlotType),
+    target: z.enum(AttackTargets),
+    itemType: z.enum(ItemTypes),
+    weaponType: z.enum(WeaponTypes).optional(),
+    rarity: z.enum(ItemRarities),
+    slot: z.enum(ItemSlots),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineAction);

@@ -1,5 +1,6 @@
 import { type NextApiRequest, type NextApiResponse } from "next";
-import { type Prisma } from "@prisma/client";
+import { createId } from "@paralleldrive/cuid2";
+import { paypalWebhookMessage } from "../../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { appRouter } from "../../server/api/root";
@@ -44,12 +45,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       default:
         break;
     }
-    await ctx.prisma.paypalWebhookMessage.create({
-      data: {
-        rawData: body as unknown as Prisma.JsonArray,
-        eventType: body.event_type,
-        handled: handled,
-      },
+    await ctx.drizzle.insert(paypalWebhookMessage).values({
+      id: createId(),
+      rawData: body,
+      eventType: body.event_type,
+      handled: handled ? 1 : 0,
     });
     res.status(200);
   } catch (cause) {

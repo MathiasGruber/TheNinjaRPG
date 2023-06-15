@@ -1,16 +1,15 @@
 import { useRouter } from "next/router";
-import { UserStatus } from "@prisma/client";
-import { type UserDataWithRelations } from "./UserContext";
+import type { UserWithRelations } from "../server/api/routers/profile";
 
-export const useAwake = (userData: UserDataWithRelations) => {
+export const useAwake = (userData: UserWithRelations) => {
   const router = useRouter();
-  if (userData?.status === UserStatus.AWAKE) {
+  if (userData?.status === "AWAKE") {
     return true;
-  } else if (userData?.status === UserStatus.HOSPITALIZED) {
+  } else if (userData?.status === "HOSPITALIZED") {
     void router.push("/hospital");
-  } else if (userData?.status === UserStatus.BATTLE) {
+  } else if (userData?.status === "BATTLE") {
     void router.push("/combat");
-  } else if (userData?.status === UserStatus.TRAVEL) {
+  } else if (userData?.status === "TRAVEL") {
     void router.push("/travel");
   }
   return false;

@@ -2,12 +2,13 @@ import { z } from "zod";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, sql, and } from "drizzle-orm";
 import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
-import { LetterRank } from "@prisma/client";
+import { LetterRanks } from "../../../../drizzle/schema";
 import { fetchUser } from "./profile";
 import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu/jutsu";
 import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
+import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "../../db";
 
 export const jutsuRouter = createTRPCRouter({
@@ -17,7 +18,7 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        rarity: z.nativeEnum(LetterRank),
+        rarity: z.enum(LetterRanks),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -120,3 +121,6 @@ export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => 
     where: eq(userJutsu.userId, userId),
   });
 };
+
+type RouterOutput = inferRouterOutputs<typeof jutsuRouter>;
+export type JutsuWithRelations = RouterOutput["getUser"]["userData"];

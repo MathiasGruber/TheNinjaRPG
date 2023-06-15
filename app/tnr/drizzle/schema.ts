@@ -16,6 +16,97 @@ import type { InferModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
+export const LetterRanks = ["D", "C", "B", "A", "S"] as const;
+export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
+export const ItemSlotTypes = [
+  "HEAD",
+  "CHEST",
+  "LEGS",
+  "FEET",
+  "HAND",
+  "ITEM",
+  "NONE",
+] as const;
+export const ItemSlots = [
+  "HEAD",
+  "CHEST",
+  "LEGS",
+  "FEET",
+  "HAND_1",
+  "HAND_2",
+  "ITEM_1",
+  "ITEM_2",
+  "ITEM_3",
+  "ITEM_4",
+  "ITEM_5",
+  "ITEM_6",
+  "ITEM_7",
+  "NONE",
+] as const;
+export const UserRoles = ["USER", "MODERATOR", "ADMIN"] as const;
+export const UserStatuses = ["AWAKE", "HOSPITALIZED", "TRAVEL", "BATTLE"] as const;
+export const FederalStatuses = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
+export const UserRanks = [
+  "STUDENT",
+  "GENIN",
+  "CHUNIN",
+  "JONIN",
+  "COMMANDER",
+  "ELDER",
+  "NONE",
+] as const;
+export const ItemTypes = [
+  "WEAPON",
+  "CONSUMABLE",
+  "ARMOR",
+  "ACCESSORY",
+  "MATERIAL",
+  "EVENT",
+  "OTHER",
+] as const;
+export const WeaponTypes = [
+  "STAFF",
+  "AXE",
+  "FIST_WEAPON",
+  "SHURIKEN",
+  "SICKLE",
+  "DAGGER",
+  "SWORD",
+  "POLEARM",
+  "FLAIL",
+  "CHAIN",
+  "FAN",
+  "BOW",
+  "HAMMER",
+] as const;
+export const AttackTargets = [
+  "SELF",
+  "OTHER_USER",
+  "OPPONENT",
+  "ALLY",
+  "CHARACTER",
+  "GROUND",
+  "EMPTY_GROUND",
+] as const;
+export const AttackMethods = [
+  "SINGLE",
+  "ALL",
+  "AOE_CIRCLE_SPAWN",
+  "AOE_LINE_SHOOT",
+  "AOE_CIRCLE_SHOOT",
+  "AOE_SPIRAL_SHOOT",
+] as const;
+export const JutsuTypes = [
+  "NORMAL",
+  "SPECIAL",
+  "BLOODLINE",
+  "FORBIDDEN",
+  "LOYALTY",
+  "CLAN",
+  "EVENT",
+  "AI",
+] as const;
+
 export const battle = mysqlTable(
   "Battle",
   {
@@ -23,7 +114,9 @@ export const battle = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     background: varchar("background", { length: 191 }).notNull(),
     battleType: mysqlEnum("battleType", ["ARENA", "COMBAT", "SPARRING"]).notNull(),
     usersState: json("usersState").notNull(),
@@ -38,6 +131,7 @@ export const battle = mysqlTable(
   }
 );
 export type Battle = InferModel<typeof battle>;
+export type BattleType = Battle["battleType"];
 
 export const battleAction = mysqlTable(
   "BattleAction",
@@ -61,8 +155,6 @@ export const battleAction = mysqlTable(
   }
 );
 
-export const LetterRank = ["D", "C", "B", "A", "S"] as const;
-
 export const bloodline = mysqlTable(
   "Bloodline",
   {
@@ -79,7 +171,7 @@ export const bloodline = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    rank: mysqlEnum("rank", LetterRank).notNull(),
+    rank: mysqlEnum("rank", LetterRanks).notNull(),
   },
   (table) => {
     return {
@@ -240,6 +332,7 @@ export const conversationComment = mysqlTable(
     };
   }
 );
+export type ConversationComment = InferModel<typeof conversationComment>;
 
 export const conversationCommentRelations = relations(
   conversationComment,
@@ -290,6 +383,7 @@ export const forumPost = mysqlTable(
     };
   }
 );
+export type ForumPost = InferModel<typeof forumPost>;
 
 export const forumPostRelations = relations(forumPost, ({ one }) => ({
   user: one(userData, {
@@ -359,50 +453,6 @@ export const historicalAvatar = mysqlTable(
   }
 );
 
-export const ItemTypes = [
-  "WEAPON",
-  "CONSUMABLE",
-  "ARMOR",
-  "ACCESSORY",
-  "MATERIAL",
-  "EVENT",
-  "OTHER",
-] as const;
-export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
-export const ItemSlots = ["HEAD", "CHEST", "LEGS", "FEET", "HAND", "ITEM"] as const;
-export const WeaponTypes = [
-  "STAFF",
-  "AXE",
-  "FIST_WEAPON",
-  "SHURIKEN",
-  "SICKLE",
-  "DAGGER",
-  "SWORD",
-  "POLEARM",
-  "FLAIL",
-  "CHAIN",
-  "FAN",
-  "BOW",
-  "HAMMER",
-] as const;
-export const AttackTargets = [
-  "SELF",
-  "OTHER_USER",
-  "OPPONENT",
-  "ALLY",
-  "CHARACTER",
-  "GROUND",
-  "EMPTY_GROUND",
-] as const;
-export const AttackMethods = [
-  "SINGLE",
-  "ALL",
-  "AOE_CIRCLE_SPAWN",
-  "AOE_LINE_SHOOT",
-  "AOE_CIRCLE_SHOOT",
-  "AOE_SPIRAL_SHOOT",
-] as const;
-
 export const item = mysqlTable(
   "Item",
   {
@@ -416,7 +466,7 @@ export const item = mysqlTable(
     effects: json("effects").notNull(),
     itemType: mysqlEnum("itemType", ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", ItemRarities).notNull(),
-    slot: mysqlEnum("slot", ItemSlots).notNull(),
+    slot: mysqlEnum("slot", ItemSlotTypes).notNull(),
     cost: int("cost").default(1).notNull(),
     weaponType: mysqlEnum("weaponType", WeaponTypes),
     canStack: tinyint("canStack").default(0).notNull(),
@@ -442,6 +492,9 @@ export const item = mysqlTable(
   }
 );
 export type Item = InferModel<typeof item>;
+export type ItemType = Item["itemType"];
+export type ItemSlotType = Item["slot"];
+export type ItemRarity = Item["rarity"];
 
 export const jutsu = mysqlTable(
   "Jutsu",
@@ -454,69 +507,21 @@ export const jutsu = mysqlTable(
       .notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
     effects: json("effects").notNull(),
-    target: mysqlEnum("target", [
-      "SELF",
-      "OTHER_USER",
-      "OPPONENT",
-      "ALLY",
-      "CHARACTER",
-      "GROUND",
-      "EMPTY_GROUND",
-    ]).notNull(),
+    target: mysqlEnum("target", AttackTargets).notNull(),
     range: int("range").notNull(),
     cooldown: int("cooldown").default(0).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    requiredRank: mysqlEnum("requiredRank", [
-      "STUDENT",
-      "GENIN",
-      "CHUNIN",
-      "JONIN",
-      "COMMANDER",
-      "ELDER",
-      "NONE",
-    ]).notNull(),
-    jutsuType: mysqlEnum("jutsuType", [
-      "NORMAL",
-      "SPECIAL",
-      "BLOODLINE",
-      "FORBIDDEN",
-      "LOYALTY",
-      "CLAN",
-      "EVENT",
-      "AI",
-    ]).notNull(),
+    requiredRank: mysqlEnum("requiredRank", UserRanks).notNull(),
+    jutsuType: mysqlEnum("jutsuType", JutsuTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
-    jutsuWeapon: mysqlEnum("jutsuWeapon", [
-      "STAFF",
-      "AXE",
-      "FIST_WEAPON",
-      "SHURIKEN",
-      "SICKLE",
-      "DAGGER",
-      "SWORD",
-      "POLEARM",
-      "FLAIL",
-      "CHAIN",
-      "FAN",
-      "BOW",
-      "HAMMER",
-    ]),
+    jutsuWeapon: mysqlEnum("jutsuWeapon", WeaponTypes),
     battleDescription: text("battleDescription").notNull(),
     chakraCostPerc: double("chakraCostPerc").default(0.05).notNull(),
     healthCostPerc: double("healthCostPerc").notNull(),
-    jutsuRank: mysqlEnum("jutsuRank", LetterRank).default("D").notNull(),
+    jutsuRank: mysqlEnum("jutsuRank", LetterRanks).default("D").notNull(),
     staminaCostPerc: double("staminaCostPerc").notNull(),
     villageId: varchar("villageId", { length: 191 }),
-    method: mysqlEnum("method", [
-      "SINGLE",
-      "ALL",
-      "AOE_CIRCLE_SPAWN",
-      "AOE_LINE_SHOOT",
-      "AOE_CIRCLE_SHOOT",
-      "AOE_SPIRAL_SHOOT",
-    ])
-      .default("SINGLE")
-      .notNull(),
+    method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
     actionCostPerc: double("actionCostPerc").default(80).notNull(),
   },
   (table) => {
@@ -530,6 +535,7 @@ export const jutsu = mysqlTable(
 );
 
 export type Jutsu = InferModel<typeof jutsu>;
+export type JutsuRank = Jutsu["jutsuRank"];
 
 export const paypalSubscription = mysqlTable(
   "PaypalSubscription",
@@ -538,12 +544,7 @@ export const paypalSubscription = mysqlTable(
     createdById: varchar("createdById", { length: 191 }).notNull(),
     affectedUserId: varchar("affectedUserId", { length: 191 }).notNull(),
     status: varchar("status", { length: 191 }).notNull(),
-    federalStatus: mysqlEnum("federalStatus", [
-      "NONE",
-      "NORMAL",
-      "SILVER",
-      "GOLD",
-    ]).notNull(),
+    federalStatus: mysqlEnum("federalStatus", FederalStatuses).notNull(),
     orderId: varchar("orderId", { length: 191 }),
     subscriptionId: varchar("subscriptionId", { length: 191 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
@@ -629,7 +630,9 @@ export const paypalWebhookMessage = mysqlTable("PaypalWebhookMessage", {
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
     .default(sql`(CURRENT_TIMESTAMP(3))`)
     .notNull(),
-  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
   eventType: varchar("eventType", { length: 191 }).notNull(),
   rawData: json("rawData").notNull(),
   handled: tinyint("handled").default(0).notNull(),
@@ -688,23 +691,11 @@ export const userData = mysqlTable(
     money: int("money").default(100).notNull(),
     bank: int("bank").default(100).notNull(),
     experience: int("experience").default(0).notNull(),
-    rank: mysqlEnum("rank", [
-      "STUDENT",
-      "GENIN",
-      "CHUNIN",
-      "JONIN",
-      "COMMANDER",
-      "ELDER",
-      "NONE",
-    ])
-      .default("STUDENT")
-      .notNull(),
+    rank: mysqlEnum("rank", UserRanks).default("STUDENT").notNull(),
     level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    status: mysqlEnum("status", ["AWAKE", "HOSPITALIZED", "TRAVEL", "BATTLE"])
-      .default("AWAKE")
-      .notNull(),
+    status: mysqlEnum("status", UserStatuses).default("AWAKE").notNull(),
     strength: double("strength").default(10).notNull(),
     intelligence: double("intelligence").default(10).notNull(),
     willpower: double("willpower").default(10).notNull(),
@@ -719,7 +710,7 @@ export const userData = mysqlTable(
     reputationPointsTotal: int("reputation_points_total").default(0).notNull(),
     popularityPoints: int("popularity_points").default(6).notNull(),
     popularityPointsTotal: int("popularity_points_total").default(6).notNull(),
-    federalStatus: mysqlEnum("federalStatus", ["NONE", "NORMAL", "SILVER", "GOLD"])
+    federalStatus: mysqlEnum("federalStatus", FederalStatuses)
       .default("NONE")
       .notNull(),
     approvedTos: tinyint("approved_tos").default(0).notNull(),
@@ -737,7 +728,7 @@ export const userData = mysqlTable(
     deletionAt: datetime("deletionAt", { mode: "date", fsp: 3 }),
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: tinyint("isBanned").default(0).notNull(),
-    role: mysqlEnum("role", ["USER", "MODERATOR", "ADMIN"]).default("USER").notNull(),
+    role: mysqlEnum("role", UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: tinyint("isAI").default(0).notNull(),
     bukijutsuDefence: double("bukijutsu_defence").default(10).notNull(),
@@ -761,6 +752,7 @@ export const userData = mysqlTable(
 );
 export type UserData = InferModel<typeof userData>;
 export type UserRank = UserData["rank"];
+export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
@@ -773,6 +765,8 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     references: [village.id],
   }),
   conversations: many(conversation),
+  items: many(userItem),
+  jutsus: many(userJutsu),
 }));
 
 export const userItem = mysqlTable(
@@ -788,21 +782,7 @@ export const userItem = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     itemId: varchar("itemId", { length: 191 }).notNull(),
     quantity: int("quantity").default(1).notNull(),
-    equipped: mysqlEnum("equipped", [
-      "HEAD",
-      "CHEST",
-      "LEGS",
-      "FEET",
-      "HAND_1",
-      "HAND_2",
-      "ITEM_1",
-      "ITEM_2",
-      "ITEM_3",
-      "ITEM_4",
-      "ITEM_5",
-      "ITEM_6",
-      "ITEM_7",
-    ]),
+    equipped: mysqlEnum("equipped", ItemSlots).default("NONE").notNull(),
   },
   (table) => {
     return {
@@ -811,11 +791,17 @@ export const userItem = mysqlTable(
     };
   }
 );
+export type UserItem = InferModel<typeof userItem>;
+export type ItemSlot = UserItem["equipped"];
 
 export const userItemRelations = relations(userItem, ({ one }) => ({
   item: one(item, {
     fields: [userItem.itemId],
     references: [item.id],
+  }),
+  user: one(userData, {
+    fields: [userItem.userId],
+    references: [userData.userId],
   }),
 }));
 
@@ -846,11 +832,16 @@ export const userJutsu = mysqlTable(
     };
   }
 );
+export type UserJutsu = InferModel<typeof userJutsu>;
 
 export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
   jutsu: one(jutsu, {
     fields: [userJutsu.jutsuId],
     references: [jutsu.id],
+  }),
+  user: one(userData, {
+    fields: [userJutsu.userId],
+    references: [userData.userId],
   }),
 }));
 
@@ -889,6 +880,7 @@ export const userReport = mysqlTable(
   }
 );
 export type UserReport = InferModel<typeof userReport>;
+export type ReportAction = UserReport["status"];
 
 export const userReportRelations = relations(userReport, ({ one }) => ({
   reportedUser: one(userData, {
@@ -925,6 +917,7 @@ export const userReportComment = mysqlTable(
     };
   }
 );
+export type UserReportComment = InferModel<typeof userReportComment>;
 
 export const userReportCommentRelations = relations(userReportComment, ({ one }) => ({
   user: one(userData, {
@@ -982,6 +975,7 @@ export const village = mysqlTable(
     };
   }
 );
+export type Village = InferModel<typeof village>;
 
 export const villageRelations = relations(village, ({ many }) => ({
   structures: many(villageStructure),
@@ -1009,3 +1003,4 @@ export const villageStructure = mysqlTable(
     };
   }
 );
+export type VillageStructure = InferModel<typeof villageStructure>;

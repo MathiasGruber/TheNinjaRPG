@@ -2,7 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
 import { createId } from "@paralleldrive/cuid2";
 import { z } from "zod";
-import { eq, or, and, sql, gte, ne, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { conversation, userReportComment, forumPost } from "../../../../drizzle/schema";
 import { usersInConversation, conversationComment } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -250,6 +250,7 @@ export const commentsRouter = createTRPCRouter({
           userId: ctx.userId,
           conversationId: convoId,
         });
+        return { conversationId: convoId };
       });
     }),
   exitConversation: protectedProcedure
@@ -341,7 +342,7 @@ export const commentsRouter = createTRPCRouter({
       }
       const pusher = getServerPusher();
       void pusher.trigger(convo.id, "event", { message: "new" });
-      return ctx.drizzle.insert(conversationComment).values({
+      return await ctx.drizzle.insert(conversationComment).values({
         id: createId(),
         content: sanitize(input.comment),
         userId: ctx.userId,

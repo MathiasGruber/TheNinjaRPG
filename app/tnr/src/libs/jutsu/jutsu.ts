@@ -1,17 +1,17 @@
-import { UserRank, FederalStatus, LetterRank } from "@prisma/client";
-import type { Jutsu, UserData } from "../../../drizzle/schema";
+import type { Jutsu, JutsuRank } from "../../../drizzle/schema";
+import type { UserData, UserRank, FederalStatus } from "../../../drizzle/schema";
 
-const hasRank = (rank: LetterRank, userrank: UserRank) => {
+const hasRank = (rank: JutsuRank, userrank: UserRank) => {
   switch (userrank) {
-    case UserRank.STUDENT:
+    case "STUDENT":
       return rank === "D";
-    case UserRank.GENIN:
+    case "GENIN":
       return "DC".includes(rank);
-    case UserRank.CHUNIN:
+    case "CHUNIN":
       return "DCB".includes(rank);
-    case UserRank.JONIN:
+    case "JONIN":
       return "DCBA".includes(rank);
-    case UserRank.COMMANDER:
+    case "COMMANDER":
       return "DCBAS".includes(rank);
   }
 };
@@ -25,13 +25,13 @@ export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
 
 export const calcTrainTime = (jutsu: Jutsu, level: number) => {
   let base = 20;
-  if (jutsu.jutsuRank === LetterRank.C) {
+  if (jutsu.jutsuRank === "C") {
     base = 22;
-  } else if (jutsu.jutsuRank === LetterRank.B) {
+  } else if (jutsu.jutsuRank === "B") {
     base = 24;
-  } else if (jutsu.jutsuRank === LetterRank.A) {
+  } else if (jutsu.jutsuRank === "A") {
     base = 26;
-  } else if (jutsu.jutsuRank === LetterRank.S) {
+  } else if (jutsu.jutsuRank === "S") {
     base = 28;
   }
   return Math.pow(base, 1 + level / 10) * 1000;
@@ -39,13 +39,13 @@ export const calcTrainTime = (jutsu: Jutsu, level: number) => {
 
 export const calcTrainCost = (jutsu: Jutsu, level: number) => {
   let base = 20;
-  if (jutsu.jutsuRank === LetterRank.C) {
+  if (jutsu.jutsuRank === "C") {
     base = 22;
-  } else if (jutsu.jutsuRank === LetterRank.B) {
+  } else if (jutsu.jutsuRank === "B") {
     base = 24;
-  } else if (jutsu.jutsuRank === LetterRank.A) {
+  } else if (jutsu.jutsuRank === "A") {
     base = 26;
-  } else if (jutsu.jutsuRank === LetterRank.S) {
+  } else if (jutsu.jutsuRank === "S") {
     base = 28;
   }
   return Math.floor(Math.pow(base, 1 + level / 10) * 10);
@@ -54,24 +54,24 @@ export const calcTrainCost = (jutsu: Jutsu, level: number) => {
 export const calcJutsuEquipLimit = (userdata: UserData) => {
   const rankContrib = (rank: UserRank) => {
     switch (rank) {
-      case UserRank.GENIN:
+      case "GENIN":
         return 1;
-      case UserRank.CHUNIN:
+      case "CHUNIN":
         return 2;
-      case UserRank.JONIN:
+      case "JONIN":
         return 3;
-      case UserRank.COMMANDER:
+      case "COMMANDER":
         return 4;
     }
     return 0;
   };
   const fedContrib = (status: FederalStatus) => {
     switch (status) {
-      case FederalStatus.NORMAL:
+      case "NORMAL":
         return 1;
-      case FederalStatus.SILVER:
+      case "SILVER":
         return 2;
-      case FederalStatus.GOLD:
+      case "GOLD":
         return 3;
     }
     return 0;

@@ -27,7 +27,6 @@ import { show_toast } from "../libs/toast";
 import { type BuyRepsSchema, buyRepsSchema } from "../validators/points";
 import { getSearchValidator } from "../validators/register";
 import { type ArrayElement } from "../utils/typeutils";
-import { FederalStatus } from "@prisma/client";
 
 const CURRENCY = "USD";
 const OPTIONS = {
@@ -104,7 +103,7 @@ const ReputationStore = (props: { currency: string }) => {
   });
 
   const repFormMethods = useForm<BuyRepsSchema>({
-    defaultValues: { reputation_points: 20 },
+    defaultValues: { reputationPoints: 20 },
     resolver: zodResolver(buyRepsSchema),
   });
 
@@ -114,7 +113,7 @@ const ReputationStore = (props: { currency: string }) => {
   });
 
   const watchedUsers = userSearchMethods.watch("users", []);
-  const watchedPoints = repFormMethods.watch("reputation_points", 20);
+  const watchedPoints = repFormMethods.watch("reputationPoints", 20);
   const selectedUser = watchedUsers?.[0];
 
   useEffect(() => {
@@ -135,7 +134,7 @@ const ReputationStore = (props: { currency: string }) => {
       <div className="text-center text-2xl">
         <p className="text-3xl font-bold">Cost: ${amount}</p>
         <SliderField
-          id="reputation_points"
+          id="reputationPoints"
           default={20}
           min={5}
           max={1000}
@@ -143,7 +142,7 @@ const ReputationStore = (props: { currency: string }) => {
           register={repFormMethods.register}
           setValue={repFormMethods.setValue}
           watchedValue={watchedPoints}
-          error={repFormMethods.formState.errors.reputation_points?.message}
+          error={repFormMethods.formState.errors.reputationPoints?.message}
         />
       </div>
       {userData && (
@@ -280,7 +279,7 @@ const FederalStore = () => {
           maxUsers={maxUsers}
         />
       )}
-      {selectedUser?.federalStatus === FederalStatus.NONE ? (
+      {selectedUser?.federalStatus === "NONE" ? (
         <div className="flex flex-col lg:flex-row">
           <div className="m-3 basis-1/3">
             <h2 className="font-bold">Normal Support</h2>
@@ -365,7 +364,7 @@ const FederalStore = () => {
  */
 const SubscriptionsOverview = () => {
   const { data: subscriptions, refetch } = api.paypal.getPaypalSubscriptions.useQuery();
-  const allSubscriptions = subscriptions?.data.map((subscription) => {
+  const allSubscriptions = subscriptions?.map((subscription) => {
     return {
       ...subscription,
       payer: subscription.createdBy.avatar,

@@ -26,6 +26,7 @@ export const villageRouter = createTRPCRouter({
 export const fetchVillage = async (client: DrizzleClient, villageId: string) => {
   const entry = await client.query.village.findFirst({
     where: eq(village.id, villageId),
+    with: { structures: true },
   });
   if (!entry) {
     throw new Error("Village not found");

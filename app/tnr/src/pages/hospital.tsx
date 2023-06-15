@@ -2,8 +2,8 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { LetterRank, UserStatus, type Bloodline } from "@prisma/client";
-import { type NextPage } from "next";
+import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
+import type { NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
 import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";
 
@@ -28,7 +28,7 @@ import { calcHealCost } from "../libs/hospital/hospital";
 const Hospital: NextPage = () => {
   // Settings
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const isHospitalized = userData?.status === UserStatus.HOSPITALIZED;
+  const isHospitalized = userData?.status === "HOSPITALIZED";
   const hospitalName = userData?.village?.name
     ? userData.village.name + " Hospital"
     : "Hospital";
@@ -121,7 +121,7 @@ const PurchaseBloodline: React.FC = () => {
   // State
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
-  const [rank, setRank] = useState<LetterRank>(LetterRank.S);
+  const [rank, setRank] = useState<BloodlineRank>("S");
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
@@ -158,7 +158,7 @@ const PurchaseBloodline: React.FC = () => {
 
   // Derived calculations
   const cost = BLOODLINE_COST[rank];
-  const canAfford = userData?.reputation_points && userData.reputation_points >= cost;
+  const canAfford = userData?.reputationPoints && userData.reputationPoints >= cost;
 
   return (
     <ContentBox
@@ -180,7 +180,7 @@ const PurchaseBloodline: React.FC = () => {
           <p>
             A {rank}-rank bloodline costs <b>{cost} reputation points</b>. You have{" "}
             <span className={`${!canAfford ? "text-red-500" : ""} font-bold`}>
-              {userData.reputation_points} points.{" "}
+              {userData.reputationPoints} points.{" "}
             </span>
             {!canAfford ? (
               <p className="text-base">
@@ -225,7 +225,7 @@ const PurchaseBloodline: React.FC = () => {
               ? undefined
               : canAfford
               ? `Buy for ${cost} reps`
-              : `Need ${cost - userData.reputation_points} reps`
+              : `Need ${cost - userData.reputationPoints} reps`
           }
           setIsOpen={setIsOpen}
           isValid={false}
@@ -278,7 +278,7 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
 
   // Can afford removing
   const canAfford =
-    userData?.reputation_points && userData.reputation_points >= REMOVAL_COST;
+    userData?.reputationPoints && userData.reputationPoints >= REMOVAL_COST;
 
   return (
     <ContentBox title="Bloodline" subtitle="Genetic Details">
@@ -291,7 +291,7 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
             proceed_label={
               canAfford
                 ? `Remove for ${REMOVAL_COST} reps`
-                : `Need ${userData.reputation_points - REMOVAL_COST} more reps`
+                : `Need ${userData.reputationPoints - REMOVAL_COST} more reps`
             }
             isValid={!isFetching}
             button={
@@ -391,11 +391,11 @@ const RollBloodline: React.FC = () => {
               Statistically, the chances for the different ranks of bloodlines are:
             </p>
             <ul className="pl-5 pt-3">
-              <li>S-Ranked: {ROLL_CHANCE[LetterRank.S] * 100}%</li>
-              <li>A-Ranked: {ROLL_CHANCE[LetterRank.A] * 100}%</li>
-              <li>B-Ranked: {ROLL_CHANCE[LetterRank.B] * 100}%</li>
-              <li>C-Ranked: {ROLL_CHANCE[LetterRank.C] * 100}%</li>
-              <li>D-Ranked: {ROLL_CHANCE[LetterRank.D] * 100}%</li>
+              <li>S-Ranked: {ROLL_CHANCE["S"] * 100}%</li>
+              <li>A-Ranked: {ROLL_CHANCE["A"] * 100}%</li>
+              <li>B-Ranked: {ROLL_CHANCE["B"] * 100}%</li>
+              <li>C-Ranked: {ROLL_CHANCE["C"] * 100}%</li>
+              <li>D-Ranked: {ROLL_CHANCE["D"] * 100}%</li>
             </ul>
           </Confirm>
         </div>

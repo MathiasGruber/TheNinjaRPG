@@ -47,43 +47,43 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
     effect.statTypes?.forEach((stat) => {
       if (stat === "Highest") {
         if (effect.calculation === "static") {
-          target.highest_offence += power;
-          target.highest_defence += power;
+          target.highestOffence += power;
+          target.highestDefence += power;
         } else if (effect.calculation === "percentage") {
-          target.highest_offence *= (100 + power) / 100;
-          target.highest_defence *= (100 + power) / 100;
+          target.highestOffence *= (100 + power) / 100;
+          target.highestDefence *= (100 + power) / 100;
         }
       } else if (stat === "Ninjutsu") {
         if (effect.calculation === "static") {
-          target.ninjutsu_offence += power;
-          target.ninjutsu_defence += power;
+          target.ninjutsuOffence += power;
+          target.ninjutsuDefence += power;
         } else if (effect.calculation === "percentage") {
-          target.ninjutsu_offence *= (100 + power) / 100;
-          target.ninjutsu_defence *= (100 + power) / 100;
+          target.ninjutsuOffence *= (100 + power) / 100;
+          target.ninjutsuDefence *= (100 + power) / 100;
         }
       } else if (stat === "Genjutsu") {
         if (effect.calculation === "static") {
-          target.genjutsu_offence += power;
-          target.genjutsu_defence += power;
+          target.genjutsuOffence += power;
+          target.genjutsuDefence += power;
         } else if (effect.calculation === "percentage") {
-          target.genjutsu_offence *= (100 + power) / 100;
-          target.genjutsu_defence *= (100 + power) / 100;
+          target.genjutsuOffence *= (100 + power) / 100;
+          target.genjutsuDefence *= (100 + power) / 100;
         }
       } else if (stat === "Taijutsu") {
         if (effect.calculation === "static") {
-          target.taijutsu_offence += power;
-          target.taijutsu_defence += power;
+          target.taijutsuOffence += power;
+          target.taijutsuDefence += power;
         } else if (effect.calculation === "percentage") {
-          target.taijutsu_offence *= (100 + power) / 100;
-          target.taijutsu_defence *= (100 + power) / 100;
+          target.taijutsuOffence *= (100 + power) / 100;
+          target.taijutsuDefence *= (100 + power) / 100;
         }
       } else if (stat === "Bukijutsu") {
         if (effect.calculation === "static") {
-          target.bukijutsu_offence += power;
-          target.bukijutsu_defence += power;
+          target.bukijutsuOffence += power;
+          target.bukijutsuDefence += power;
         } else if (effect.calculation === "percentage") {
-          target.bukijutsu_offence *= (100 + power) / 100;
-          target.bukijutsu_defence *= (100 + power) / 100;
+          target.bukijutsuOffence *= (100 + power) / 100;
+          target.bukijutsuDefence *= (100 + power) / 100;
         }
       }
     });
@@ -221,22 +221,22 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
   if (user && effect.power) {
     const perc = effect.power / 100;
-    user.max_health = user.max_health * perc;
-    user.max_chakra = user.max_chakra * perc;
-    user.max_stamina = user.max_stamina * perc;
-    user.cur_health = user.cur_health * perc;
-    user.cur_chakra = user.cur_chakra * perc;
-    user.cur_stamina = user.cur_stamina * perc;
-    user.ninjutsu_offence = user.ninjutsu_offence * perc;
-    user.ninjutsu_defence = user.ninjutsu_defence * perc;
-    user.genjutsu_offence = user.genjutsu_offence * perc;
-    user.genjutsu_defence = user.genjutsu_defence * perc;
-    user.taijutsu_offence = user.taijutsu_offence * perc;
-    user.taijutsu_defence = user.taijutsu_defence * perc;
-    user.bukijutsu_offence = user.bukijutsu_offence * perc;
-    user.bukijutsu_defence = user.bukijutsu_defence * perc;
-    user.highest_offence = user.highest_offence * perc;
-    user.highest_defence = user.highest_defence * perc;
+    user.maxHealth = user.maxHealth * perc;
+    user.maxChakra = user.maxChakra * perc;
+    user.maxStamina = user.maxStamina * perc;
+    user.curHealth = user.curHealth * perc;
+    user.curChakra = user.curChakra * perc;
+    user.curStamina = user.curStamina * perc;
+    user.ninjutsuOffence = user.ninjutsuOffence * perc;
+    user.ninjutsuDefence = user.ninjutsuDefence * perc;
+    user.genjutsuOffence = user.genjutsuOffence * perc;
+    user.genjutsuDefence = user.genjutsuDefence * perc;
+    user.taijutsuOffence = user.taijutsuOffence * perc;
+    user.taijutsuDefence = user.taijutsuDefence * perc;
+    user.bukijutsuOffence = user.bukijutsuOffence * perc;
+    user.bukijutsuDefence = user.bukijutsuDefence * perc;
+    user.highestOffence = user.highestOffence * perc;
+    user.highestDefence = user.highestDefence * perc;
     user.strength = user.strength * perc;
     user.intelligence = user.intelligence * perc;
     user.willpower = user.willpower * perc;
@@ -246,7 +246,7 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
       userId: createId(),
       longitude: effect.longitude,
       latitude: effect.latitude,
-      is_original: false,
+      isOriginal: false,
     });
     return true;
   }
@@ -266,37 +266,37 @@ export const updateStatUsage = (
       ) {
         switch (statType) {
           case "Taijutsu":
-            user.usedStats.push("taijutsu_offence");
+            user.usedStats.push("taijutsuOffence");
             break;
           case "Bukijutsu":
-            user.usedStats.push("bukijutsu_offence");
+            user.usedStats.push("bukijutsuOffence");
             break;
           case "Ninjutsu":
-            user.usedStats.push("ninjutsu_offence");
+            user.usedStats.push("ninjutsuOffence");
             break;
           case "Genjutsu":
-            user.usedStats.push("genjutsu_offence");
+            user.usedStats.push("genjutsuOffence");
             break;
           case "Highest":
-            user.usedStats.push(user.highest_offence_type);
+            user.usedStats.push(user.highestOffence_type);
             break;
         }
       } else {
         switch (statType) {
           case "Taijutsu":
-            user.usedStats.push("taijutsu_defence");
+            user.usedStats.push("taijutsuDefence");
             break;
           case "Bukijutsu":
-            user.usedStats.push("bukijutsu_defence");
+            user.usedStats.push("bukijutsuDefence");
             break;
           case "Ninjutsu":
-            user.usedStats.push("ninjutsu_defence");
+            user.usedStats.push("ninjutsuDefence");
             break;
           case "Genjutsu":
-            user.usedStats.push("genjutsu_defence");
+            user.usedStats.push("genjutsuDefence");
             break;
           case "Highest":
-            user.usedStats.push(user.highest_defence_type);
+            user.usedStats.push(user.highestDefence_type);
             break;
         }
       }
@@ -423,7 +423,7 @@ export const heal = (
   const { power } = getPower(effect);
   const heal =
     effect.calculation === "percentage"
-      ? target.max_health * (power / 100) * applyTimes
+      ? target.maxHealth * (power / 100) * applyTimes
       : power * applyTimes;
   consequences.set(effect.id, {
     userId: effect.creatorId,
@@ -521,7 +521,7 @@ export const onehitkill = (
 
   let info: ActionEffect | undefined = undefined;
   if (primaryCheck && secondaryCheck) {
-    target.cur_health = 0;
+    target.curHealth = 0;
     info = { txt: `${target.username} was killed`, color: "red" };
   } else if (primaryCheck) {
     effect.rounds = 0;

@@ -15,7 +15,6 @@ import {
   Mesh,
   type Raycaster,
 } from "three";
-import type { UserData } from "@prisma/client";
 import { createNoise2D } from "simplex-noise";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
@@ -24,6 +23,7 @@ import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
 import { groupBy } from "../../utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
+import type { UserData } from "../../../drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, GlobalTile } from "./types";
 

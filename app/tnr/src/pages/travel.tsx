@@ -1,8 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
-import { type NextPage } from "next";
-import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
-
 import Loader from "../layout/Loader";
 import Map from "../layout/Map";
 import Sector from "../layout/Sector";
@@ -10,17 +7,14 @@ import ContentBox from "../layout/ContentBox";
 import NavTabs from "../layout/NavTabs";
 import Modal from "../layout/Modal";
 import Countdown from "../layout/Countdown";
-
+import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
 import { fetchMap } from "../libs/travel/globe";
 import { api } from "../utils/api";
-import {
-  isAtEdge,
-  findNearestEdge,
-  calcGlobalTravelTime,
-} from "../libs/travel/controls";
+import { isAtEdge, findNearestEdge } from "../libs/travel/controls";
+import { calcGlobalTravelTime } from "../libs/travel/controls";
 import { useRequiredUserData } from "../utils/UserContext";
-import { type GlobalTile, type SectorPoint } from "../libs/travel/types";
-import { UserStatus } from "@prisma/client";
+import type { NextPage } from "next";
+import type { GlobalTile, SectorPoint } from "../libs/travel/types";
 
 const Travel: NextPage = () => {
   // What is shown on this page
@@ -46,7 +40,7 @@ const Travel: NextPage = () => {
 
   // Router for forwarding
   const router = useRouter();
-  if (userData && userData.status === UserStatus.BATTLE) {
+  if (userData && userData.status === "BATTLE") {
     void router.push(`/combat`);
   }
 

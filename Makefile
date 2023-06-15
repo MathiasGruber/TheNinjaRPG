@@ -40,38 +40,12 @@ enter: # Connect to app container.
 	@echo "${YELLOW}Enter into app docker container${RESET}"
 	docker exec -it tnr_app bash
 
-.PHONY: initial_setup
-initial_setup: # Connect to app container.
-	@echo "${YELLOW}Enter into app docker container${RESET}"
-	docker exec -it tnr_app yarn prisma generate
-	docker exec -it tnr_app yarn prisma migrate dev
-	docker exec -it tnr_app yarn prisma db seed
-
 
 --------------MIGRATIONS----------------: # -------------------------------------------------------
 
 .PHONY: sync
 sync: # Make sure node_modules is updated in editor
 	@echo "${YELLOW}Update node_modules in devcontainer${RESET}"
-	cd app/tnr && yarn install
-
-.PHONY: prototype_migrations
-prototype_migrations: # Prototype migrations locally
-	@echo "${YELLOW}Run prisma db push ${RESET}"
-	docker exec -it tnr_app yarn prisma db push
-
-.PHONY: createmigrations
-makemigrations: # Create local migrations
-	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
-	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS} --create-only
-	docker restart tnr_app
-	cd app/tnr && yarn install
-
-.PHONY: makemigrations
-makemigrations: # Create & apply local migrations
-	@echo "${YELLOW}Run prisma migrate dev ${RESET}"
-	docker exec -it tnr_app yarn prisma migrate dev --name ${ARGS}
-	docker restart tnr_app
 	cd app/tnr && yarn install
 
 .PHONY: yarn

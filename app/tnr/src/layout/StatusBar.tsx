@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { UserStatus } from "@prisma/client";
 import { secondsPassed } from "../utils/time";
+import type { UserStatus } from "../../drizzle/schema";
 
 interface StatusBarProps {
   title: string;
@@ -25,9 +25,9 @@ const calcCurrent = (
   regenAt?: Date
 ) => {
   let current = start;
-  if (status === UserStatus.BATTLE) {
+  if (status === "BATTLE") {
     current = total;
-  } else if (regen && regenAt && status === UserStatus.AWAKE) {
+  } else if (regen && regenAt && status === "AWAKE") {
     const seconds = secondsPassed(regenAt);
     current = Math.min(total, start + regen * seconds);
   }
@@ -40,8 +40,8 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
   const { regen, lastRegenAt, showText, title, current, total, status } = props;
 
   // Is the user in battle?
-  const isInBattle = props.status === UserStatus.BATTLE;
-  const isAwake = props.status === UserStatus.AWAKE;
+  const isInBattle = props.status === "BATTLE";
+  const isAwake = props.status === "AWAKE";
 
   // Calculate initial state
   const [state, setState] = useState(

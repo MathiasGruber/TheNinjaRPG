@@ -311,7 +311,7 @@ export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: numb
  */
 export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) => {
   // If not there, nope
-  if (userData.cur_health <= 0 || userData.fledBattle) return undefined;
+  if (userData.curHealth <= 0 || userData.fledBattle) return undefined;
 
   // Group is used to group components of the user Marker
   const group = new Group();
@@ -340,7 +340,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   group.add(shadow_sprite);
 
   // User marker background or raw image
-  const noMarker = userData.isAI && userData.is_original;
+  const noMarker = userData.isAi && userData.isOriginal;
   if (noMarker) {
     const map = new TextureLoader().load(userData.avatar || "");
     map.generateMipmaps = false;
@@ -392,7 +392,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // If this is the original and our user (we have SP/CP), then show a star
-  if ("cur_stamina" in userData && userData.is_original) {
+  if ("curStamina" in userData && userData.isOriginal) {
     const marker = new TextureLoader().load("combat/star.webp");
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);
@@ -409,7 +409,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   group.add(hp_bar);
 
   // Stamina Bar if available
-  if ("cur_stamina" in userData && "max_stamina" in userData) {
+  if ("curStamina" in userData && "maxStamina" in userData) {
     const sp_background = drawStatusBar(w, h, "gray", true, "sp_background", t + 1);
     const sp_bar = drawStatusBar(w, h, "green", true, "sp_current", t + 1);
     group.add(sp_background);
@@ -417,7 +417,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Chakra Bar if available
-  if ("cur_chakra" in userData && "max_chakra" in userData) {
+  if ("curChakra" in userData && "maxChakra" in userData) {
     const cp_background = drawStatusBar(w, h, "gray", true, "cp_background", t + 2);
     const cp_bar = drawStatusBar(w, h, "blue", true, "cp_current", t + 2);
     group.add(cp_background);
@@ -525,23 +525,23 @@ export const drawCombatUsers = (info: {
         userMesh.position.set(targetX, targetY, 0);
         // Handle remove users from combat.
         if (
-          (user.cur_health <= 0 || user.fledBattle === true) &&
+          (user.curHealth <= 0 || user.fledBattle === true) &&
           user.hidden === undefined
         ) {
           setVisible(userMesh, false);
-          if (user.is_original) {
+          if (user.isOriginal) {
             const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
             tombstone.visible = true;
           }
           user.hidden = true;
         }
         // userMesh.material.color.offsetHSL(0, 0, 0.1);
-        updateStatusBar("hp_current", userMesh, user.cur_health / user.max_health);
-        if (user.cur_stamina && user.max_stamina) {
-          updateStatusBar("sp_current", userMesh, user.cur_stamina / user.max_stamina);
+        updateStatusBar("hp_current", userMesh, user.curHealth / user.maxHealth);
+        if (user.curStamina && user.maxStamina) {
+          updateStatusBar("sp_current", userMesh, user.curStamina / user.maxStamina);
         }
-        if (user.cur_chakra && user.max_chakra) {
-          updateStatusBar("cp_current", userMesh, user.cur_chakra / user.max_chakra);
+        if (user.curChakra && user.maxChakra) {
+          updateStatusBar("cp_current", userMesh, user.curChakra / user.maxChakra);
         }
 
         drawnIds.add(userMesh.name);
@@ -684,7 +684,7 @@ export const highlightUsers = (info: {
       (u) =>
         u.longitude === targetTile.col &&
         u.latitude === targetTile.row &&
-        u.cur_health > 0 &&
+        u.curHealth > 0 &&
         u.fledBattle === false
     );
     if (target) {

@@ -1,5 +1,5 @@
 import React from "react";
-import { type UserReport } from "@prisma/client";
+import type { UserReport } from "../../drizzle/schema";
 import ReactHtmlParser from "react-html-parser";
 
 const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
@@ -11,9 +11,7 @@ const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
         <div>
           <b>Reported Title:</b>
           <hr />
-          {ReactHtmlParser(
-            (props.report.infraction as { title: string }).title
-          )}
+          {ReactHtmlParser((props.report.infraction as { title: string }).title)}
           <br />
           <br />
         </div>
@@ -22,9 +20,7 @@ const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
         <div>
           <b>Reported Summary:</b>
           <hr />
-          {ReactHtmlParser(
-            (props.report.infraction as { summary: string }).summary
-          )}
+          {ReactHtmlParser((props.report.infraction as { summary: string }).summary)}
           <br />
           <br />
         </div>
@@ -33,9 +29,7 @@ const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
         <div>
           <b>Reported Content:</b>
           <hr />
-          {ReactHtmlParser(
-            (props.report.infraction as { content: string }).content
-          )}
+          {ReactHtmlParser((props.report.infraction as { content: string }).content)}
         </div>
       )}
       <br />

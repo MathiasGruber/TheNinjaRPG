@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FederalStatus } from "@prisma/client";
+import { FederalStatuses } from "../../drizzle/schema";
 
 // List of possible attributes
 export const attributes = [
@@ -90,7 +90,7 @@ export const getSearchValidator = (props: { max: number }) => {
           avatar: z.string().url().optional().nullish(),
           rank: z.string(),
           level: z.number(),
-          federalStatus: z.nativeEnum(FederalStatus),
+          federalStatus: z.enum(FederalStatuses),
         })
       )
       .min(1)

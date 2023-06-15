@@ -61,7 +61,7 @@ const upsertAI = async (prisma: PrismaClient, name: string, ai: AIdefinition) =>
       username: name,
     },
     update: { ...ai, jutsus: {} },
-    create: { ...ai, username: name, isAI: true, jutsus: {} },
+    create: { ...ai, username: name, isAi: true, jutsus: {} },
   });
   const jutsus = await prisma.jutsu.findMany({
     where: { name: { in: ai.jutsus } },

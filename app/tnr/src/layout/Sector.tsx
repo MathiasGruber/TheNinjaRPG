@@ -2,16 +2,12 @@ import React from "react";
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-
-import { Vector2, OrthographicCamera, Group } from "three";
-import { useRouter } from "next/router";
-import { type Village, type UserData } from "@prisma/client";
-import { type Grid } from "honeycomb-grid";
 import alea from "alea";
 import Pusher from "pusher-js";
-
 import AvatarImage from "./Avatar";
 import Modal from "./Modal";
+import { Vector2, OrthographicCamera, Group } from "three";
+import { useRouter } from "next/router";
 import { api } from "../utils/api";
 import { PathCalculator, findHex } from "../libs/hexgrid";
 import { OrbitControls } from "../libs/threejs/OrbitControls";
@@ -22,6 +18,8 @@ import { intersectUsers } from "../libs/travel/sector";
 import { intersectTiles } from "../libs/travel/sector";
 import { useRequiredUserData } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
+import type { Village, UserData } from "../../drizzle/schema";
+import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "../libs/travel/types";
 import type { TerrainHex } from "../libs/hexgrid";
 

@@ -130,9 +130,9 @@ const Combat: React.FC<CombatProps> = (props) => {
         const usersState = battle.current.usersState;
         const user = usersState.find((u) => u.userId === userId.current);
         const ai = usersState.find(
-          (u) => u.isAI && u.cur_health > 0 && u.controllerId === u.userId
+          (u) => u.isAi && u.curHealth > 0 && u.controllerId === u.userId
         );
-        if (user && ai && user.cur_health > 0 && !user.leftBattle) {
+        if (user && ai && user.curHealth > 0 && !user.leftBattle) {
           const actions = availableUserActions(usersState, ai.userId, false);
           const hasAction = actions.find((a) => actionSecondsAfterAction(ai, a) > 0);
           if (hasAction) {
@@ -257,7 +257,7 @@ const Combat: React.FC<CombatProps> = (props) => {
               const target = battle.current.usersState.find(
                 (u) =>
                   u.userId === i.object.userData.userId &&
-                  u.cur_health > 0 &&
+                  u.curHealth > 0 &&
                   u.controllerId === userData.userId
               );
               if (target) setUserId(target.userId);
@@ -292,9 +292,9 @@ const Combat: React.FC<CombatProps> = (props) => {
           );
 
           // If selected user is dead, select another user controlled by the same player
-          if (user && user.cur_health <= 0) {
+          if (user && user.curHealth <= 0) {
             const another = battle.current.usersState.find(
-              (u) => u.controllerId === userData?.userId && u.cur_health > 0
+              (u) => u.controllerId === userData?.userId && u.curHealth > 0
             );
             if (another) setUserId(another.userId);
           }
@@ -380,34 +380,34 @@ const Combat: React.FC<CombatProps> = (props) => {
           <div className="text-center text-white">
             <p className="p-5 pb-2 text-3xl">
               You{" "}
-              {result.cur_health <= 0 ? "Lost" : result.experience > 0 ? "Won" : "Fled"}
+              {result.curHealth <= 0 ? "Lost" : result.experience > 0 ? "Won" : "Fled"}
             </p>
             {result.experience > 0 && (
               <p>Experience Points: {result.experience.toFixed(2)}</p>
             )}
-            {result.ninjutsu_offence > 0 && (
-              <p>Offensive Ninjutsu: {result.ninjutsu_offence.toFixed(2)}</p>
+            {result.ninjutsuOffence > 0 && (
+              <p>Offensive Ninjutsu: {result.ninjutsuOffence.toFixed(2)}</p>
             )}
-            {result.ninjutsu_defence > 0 && (
-              <p>Defensive Ninjutsu: {result.ninjutsu_defence.toFixed(2)}</p>
+            {result.ninjutsuDefence > 0 && (
+              <p>Defensive Ninjutsu: {result.ninjutsuDefence.toFixed(2)}</p>
             )}
-            {result.taijutsu_offence > 0 && (
-              <p>Offensive Taijutsu: {result.taijutsu_offence.toFixed(2)}</p>
+            {result.taijutsuOffence > 0 && (
+              <p>Offensive Taijutsu: {result.taijutsuOffence.toFixed(2)}</p>
             )}
-            {result.taijutsu_defence > 0 && (
-              <p>Defensive Taijutsu: {result.taijutsu_defence.toFixed(2)}</p>
+            {result.taijutsuDefence > 0 && (
+              <p>Defensive Taijutsu: {result.taijutsuDefence.toFixed(2)}</p>
             )}
-            {result.genjutsu_offence > 0 && (
-              <p>Offensive Genjutsu: {result.genjutsu_offence.toFixed(2)}</p>
+            {result.genjutsuOffence > 0 && (
+              <p>Offensive Genjutsu: {result.genjutsuOffence.toFixed(2)}</p>
             )}
-            {result.genjutsu_defence > 0 && (
-              <p>Defensive Genjutsu: {result.genjutsu_defence.toFixed(2)}</p>
+            {result.genjutsuDefence > 0 && (
+              <p>Defensive Genjutsu: {result.genjutsuDefence.toFixed(2)}</p>
             )}
-            {result.bukijutsu_offence > 0 && (
-              <p>Offensive Bukijutsu: {result.bukijutsu_offence.toFixed(2)}</p>
+            {result.bukijutsuOffence > 0 && (
+              <p>Offensive Bukijutsu: {result.bukijutsuOffence.toFixed(2)}</p>
             )}
-            {result.bukijutsu_defence > 0 && (
-              <p>Defensive Bukijutsu: {result.bukijutsu_defence.toFixed(2)}</p>
+            {result.bukijutsuDefence > 0 && (
+              <p>Defensive Bukijutsu: {result.bukijutsuDefence.toFixed(2)}</p>
             )}
             {result.intelligence > 0 && (
               <p>Intelligence: {result.intelligence.toFixed(2)}</p>
@@ -416,10 +416,10 @@ const Combat: React.FC<CombatProps> = (props) => {
             {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
             {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
             <div className="p-5">
-              <Link href={result.cur_health <= 0 ? "/hospital" : "/profile"}>
+              <Link href={result.curHealth <= 0 ? "/hospital" : "/profile"}>
                 <Button
                   id="return"
-                  label={`Return to ${result.cur_health <= 0 ? "Hospital" : "Profile"}`}
+                  label={`Return to ${result.curHealth <= 0 ? "Hospital" : "Profile"}`}
                 />
               </Link>
             </div>

@@ -290,8 +290,8 @@ export const updateReps = async (input: {
     await tx
       .update(userData)
       .set({
-        reputationPointsTotal: sql`reputation_points_total + ${input.reps}`,
-        reputationPoints: sql`reputation_points + ${input.reps}`,
+        reputationPointsTotal: sql`reputationPoints_total + ${input.reps}`,
+        reputationPoints: sql`reputationPoints + ${input.reps}`,
       })
       .where(eq(userData.userId, input.affectedUserId));
     return await tx.insert(paypalTransaction).values({

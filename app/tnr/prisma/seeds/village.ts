@@ -81,7 +81,7 @@ export const seedVillages = async (prisma: PrismaClient) => {
           username: elders[i]?.name as string,
           villageId: villageData.id,
           rank: UserRank.ELDER,
-          isAI: true,
+          isAi: true,
           status: UserStatus.AWAKE,
         },
       })

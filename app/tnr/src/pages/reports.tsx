@@ -71,9 +71,11 @@ const Reports: NextPage = () => {
         <Loader explanation="Fetching Results..." />
       ) : (
         allReports &&
-        allReports.flatMap(
-          (report, i) =>
-            report.reportedUser && (
+        allReports.flatMap((entry, i) => {
+          const report = entry.UserReport;
+          const reportedUser = entry.reportedUser;
+          return (
+            reportedUser && (
               <div
                 key={report.id}
                 ref={i === allReports.length - 1 ? setLastElement : null}
@@ -82,7 +84,7 @@ const Reports: NextPage = () => {
                   <Post
                     title={reportCommentExplain(report.status)}
                     color={reportCommentColor(report.status)}
-                    user={report.reportedUser}
+                    user={reportedUser}
                     hover_effect={true}
                   >
                     {report.banEnd && (
@@ -92,12 +94,13 @@ const Reports: NextPage = () => {
                       </div>
                     )}
                     <ParsedReportJson report={report} />
-                    <b>Report by</b> {report.reporterUser?.username}
+                    <b>Report by</b> {reportedUser.username}
                   </Post>
                 </Link>
               </div>
             )
-        )
+          );
+        })
       )}
     </ContentBox>
   );

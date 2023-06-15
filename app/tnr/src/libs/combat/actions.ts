@@ -1,17 +1,17 @@
-import { AttackTarget, AttackMethod } from "@prisma/client";
 import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
 import { isEffectStillActive } from "./util";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./process";
 import { secondsFromNow } from "../../utils/time";
-import { Grid, ring } from "honeycomb-grid";
+import { ring } from "honeycomb-grid";
 import { applyEffects } from "./process";
+import { calcPoolCost } from "./util";
+import { updateStatUsage } from "./tags";
+import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
-import { calcPoolCost } from "./util";
-import { updateStatUsage } from "./tags";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -31,8 +31,8 @@ export const availableUserActions = (
             image: "/combat/basicActions/stamina.png",
             battleDescription: "%user perform a basic physical strike against %target",
             type: "basic" as const,
-            target: AttackTarget.OTHER_USER,
-            method: AttackMethod.SINGLE,
+            target: "OTHER_USER" as const,
+            method: "SINGLE" as const,
             healthCostPerc: 0,
             chakraCostPerc: 0,
             staminaCostPerc: 10,
@@ -56,8 +56,8 @@ export const availableUserActions = (
             image: "/combat/basicActions/heal.png",
             battleDescription: "%user perform basic healing of %target",
             type: "basic" as const,
-            target: AttackTarget.OTHER_USER,
-            method: AttackMethod.SINGLE,
+            target: "OTHER_USER" as const,
+            method: "SINGLE" as const,
             healthCostPerc: 0,
             chakraCostPerc: 1,
             staminaCostPerc: 0,
@@ -84,8 +84,8 @@ export const availableUserActions = (
       image: "/combat/basicActions/stamina.png",
       battleDescription: "%user stands and does nothing.",
       type: "basic" as const,
-      target: AttackTarget.SELF,
-      method: AttackMethod.SINGLE,
+      target: "SELF" as const,
+      method: "SINGLE" as const,
       healthCostPerc: 0,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
@@ -100,8 +100,8 @@ export const availableUserActions = (
       image: "/combat/basicActions/move.png",
       battleDescription: "%user moves to %location",
       type: "basic" as const,
-      target: AttackTarget.GROUND,
-      method: AttackMethod.SINGLE,
+      target: "GROUND" as const,
+      method: "SINGLE" as const,
       range: 1,
       healthCostPerc: 0,
       chakraCostPerc: 0,
@@ -117,8 +117,8 @@ export const availableUserActions = (
             image: "/combat/basicActions/flee.png",
             battleDescription: "%user attempts to flee the battle",
             type: "basic" as const,
-            target: AttackTarget.SELF,
-            method: AttackMethod.SINGLE,
+            target: "SELF" as const,
+            method: "SINGLE" as const,
             range: 0,
             healthCostPerc: 0.1,
             chakraCostPerc: 0,
@@ -143,7 +143,7 @@ export const availableUserActions = (
             chakraCostPerc: userjutsu.jutsu.chakraCostPerc,
             staminaCostPerc: userjutsu.jutsu.staminaCostPerc,
             actionCostPerc: userjutsu.jutsu.actionCostPerc,
-            effects: userjutsu.jutsu.effects as unknown as ZodAllTags[],
+            effects: userjutsu.jutsu.effects as ZodAllTags[],
             level: userjutsu.level,
             data: userjutsu.jutsu,
           };
@@ -165,7 +165,7 @@ export const availableUserActions = (
             chakraCostPerc: useritem.item.chakraCostPerc,
             staminaCostPerc: useritem.item.staminaCostPerc,
             actionCostPerc: useritem.item.actionCostPerc,
-            effects: useritem.item.effects as unknown as ZodAllTags[],
+            effects: useritem.item.effects as ZodAllTags[],
             quantity: useritem.quantity,
             data: useritem.item,
           };
@@ -190,7 +190,7 @@ export const insertAction = (info: {
 
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
-  const alive = usersState.filter((u) => u.cur_health > 0);
+  const alive = usersState.filter((u) => u.curHealth > 0);
   const user = alive.find((u) => u.userId === userId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
@@ -204,9 +204,9 @@ export const insertAction = (info: {
   if (user?.hex && targetTile) {
     // Check pools cost
     const { hpCost, cpCost, spCost } = calcPoolCost(action, usersEffects, user);
-    if (user.cur_health < hpCost) throw new Error("Not enough health");
-    if (user.cur_chakra < cpCost) throw new Error("Not enough chakra");
-    if (user.cur_stamina < spCost) throw new Error("Not enough stamina");
+    if (user.curHealth < hpCost) throw new Error("Not enough health");
+    if (user.curChakra < cpCost) throw new Error("Not enough chakra");
+    if (user.curStamina < spCost) throw new Error("Not enough stamina");
 
     // Village ID
     const villageId = user.villageId;
@@ -231,10 +231,7 @@ export const insertAction = (info: {
 
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
-      if (
-        action.target === AttackTarget.GROUND ||
-        action.target === AttackTarget.EMPTY_GROUND
-      ) {
+      if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
           const effect = realizeTag(tag as GroundEffect, user, action.level, true);
@@ -248,15 +245,15 @@ export const insertAction = (info: {
         // ADD USER EFFECTS
         type TargetType = { userId: string; username: string; gender: string };
         let target: TargetType | undefined = undefined;
-        if (action.target === AttackTarget.SELF) {
+        if (action.target === "SELF") {
           target = alive.find((u) => u.userId === user.userId && u.hex === tile);
-        } else if (action.target === AttackTarget.OPPONENT) {
+        } else if (action.target === "OPPONENT") {
           target = alive.find((u) => u.villageId !== villageId && u.hex === tile);
-        } else if (action.target === AttackTarget.ALLY) {
+        } else if (action.target === "ALLY") {
           target = alive.find((u) => u.villageId === villageId && u.hex === tile);
-        } else if (action.target === AttackTarget.OTHER_USER) {
+        } else if (action.target === "OTHER_USER") {
           target = alive.find((u) => u.userId !== userId && u.hex === tile);
-        } else if (action.target === AttackTarget.CHARACTER) {
+        } else if (action.target === "CHARACTER") {
           target = alive.find((u) => u.hex === tile);
         }
         // Apply effects
@@ -307,12 +304,12 @@ export const insertAction = (info: {
     user.usedActionIDs.push(action.id);
     // Update pools & action timer based on action
     if (affectedTiles.size > 0) {
-      user.cur_chakra -= cpCost;
-      user.cur_chakra = Math.max(0, user.cur_chakra);
-      user.cur_stamina -= spCost;
-      user.cur_stamina = Math.max(0, user.cur_stamina);
-      user.cur_health -= hpCost;
-      user.cur_health = Math.max(0, user.cur_health);
+      user.curChakra -= cpCost;
+      user.curChakra = Math.max(0, user.curChakra);
+      user.curStamina -= spCost;
+      user.curStamina = Math.max(0, user.curStamina);
+      user.curHealth -= hpCost;
+      user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = secondsFromNow(-newSeconds);
       // Update user descriptions
       action.battleDescription = action.battleDescription.replaceAll(

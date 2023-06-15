@@ -2,13 +2,12 @@ import { z } from "zod";
 import { forumThread, forumBoard, forumPost } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
-
-import { eq, or, and, sql, gte, ne, asc, desc, inArray } from "drizzle-orm";
+import { eq, sql, asc, desc } from "drizzle-orm";
 import { forumBoardSchema } from "../../../validators/forum";
 import { canModerate } from "../../../validators/forum";
 import { fetchUser } from "./profile";
-import type { DrizzleClient } from "../../db";
 import { createId } from "@paralleldrive/cuid2";
+import type { DrizzleClient } from "../../db";
 
 export const forumRouter = createTRPCRouter({
   // Get all boards in the system

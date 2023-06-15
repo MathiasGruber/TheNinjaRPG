@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import type { Jutsu, UserJutsu } from "@prisma/client";
-
 import ItemWithEffects from "../layout/ItemWithEffects";
 import ContentBox from "../layout/ContentBox";
-import { ActionSelector } from "../layout/CombatActions";
 import Modal from "../layout/Modal";
 import Loader from "../layout/Loader";
-
+import { ActionSelector } from "../layout/CombatActions";
 import { calcJutsuEquipLimit } from "../libs/jutsu/jutsu";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import type { NextPage } from "next";
+import type { Jutsu, UserJutsu } from "../../drizzle/schema";
 
 const MyJutsu: NextPage = () => {
   // Settings
@@ -56,7 +54,11 @@ const MyJutsu: NextPage = () => {
 
   // Collapse UserItem and Item
   const allJutsu = userJutsus?.map((userjutsu) => {
-    return { ...userjutsu.jutsu, ...userjutsu, highlight: userjutsu.equipped };
+    return {
+      ...userjutsu.jutsu,
+      ...userjutsu,
+      highlight: userjutsu.equipped ? true : false,
+    };
   });
 
   // Derived calculations

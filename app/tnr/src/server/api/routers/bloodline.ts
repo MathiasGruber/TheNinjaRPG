@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, gte, and } from "drizzle-orm";
-import { LetterRank } from "../../../../drizzle/schema";
+import { LetterRanks } from "../../../../drizzle/schema";
 import { bloodline, bloodlineRolls, userData } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
@@ -18,7 +18,7 @@ export const bloodlineRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        rank: z.enum(LetterRank),
+        rank: z.enum(LetterRanks),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -67,6 +67,7 @@ export const bloodlineRouter = createTRPCRouter({
       bloodlineRank = "D";
     }
     // Update roll & user if successfull
+    let bloodlineId: null | string = null;
     if (bloodlineRank) {
       const randomBloodline = getRandomElement(
         await ctx.drizzle.query.bloodline.findMany({
@@ -74,6 +75,7 @@ export const bloodlineRouter = createTRPCRouter({
         })
       );
       if (randomBloodline) {
+        bloodlineId = randomBloodline.id;
         await ctx.drizzle.transaction(async (tx) => {
           await tx
             .update(userData)
@@ -92,6 +94,7 @@ export const bloodlineRouter = createTRPCRouter({
         userId: ctx.userId,
       });
     }
+    return { bloodlineId: bloodlineId };
   }),
   // Remove a bloodline from session user
   removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {

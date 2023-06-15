@@ -22,7 +22,7 @@ export const performAIaction = (
 
   // Find AI users who are in control of themselves (i.e. not controlled by a player)
   const aiUsers = rawUsersState.filter(
-    (user) => user.isAI && user.controllerId === user.userId
+    (user) => user.isAi && user.controllerId === user.userId
   );
 
   // Path finder on grid
@@ -243,8 +243,8 @@ export const evaluateFitness = (
   if (!newUser || !curUser) return fitness;
 
   // Damage healed is added to the fitness
-  if (newUser.cur_health > curUser.cur_health) {
-    fitness += newUser.cur_health - curUser.cur_health;
+  if (newUser.curHealth > curUser.curHealth) {
+    fitness += newUser.curHealth - curUser.curHealth;
   }
 
   // Go through each user in the battle
@@ -266,8 +266,8 @@ export const evaluateFitness = (
       }
 
       // Damage taken by enemy added to fitness
-      if (curEnemy && curEnemy.cur_health > newEnemy.cur_health) {
-        fitness += curEnemy.cur_health - newEnemy.cur_health;
+      if (curEnemy && curEnemy.curHealth > newEnemy.curHealth) {
+        fitness += curEnemy.curHealth - newEnemy.curHealth;
       }
     });
   return fitness;

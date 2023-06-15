@@ -62,7 +62,7 @@ const PublicProfile: NextPage = () => {
                 <p>Experience for lvl: ---</p>
                 <br />
                 <b>Special</b>
-                <p>Reputation points: {profile.reputation_points}</p>
+                <p>Reputation points: {profile.reputationPoints}</p>
                 <p>Federal Support: {profile.federalStatus.toLowerCase()}</p>
               </div>
               <div>
@@ -100,8 +100,8 @@ const PublicProfile: NextPage = () => {
                     color="bg-red-500"
                     showText={true}
                     status={profile.status}
-                    current={profile.cur_health}
-                    total={profile.max_health}
+                    current={profile.curHealth}
+                    total={profile.maxHealth}
                   />
                   <StatusBar
                     title="CP"
@@ -109,8 +109,8 @@ const PublicProfile: NextPage = () => {
                     color="bg-blue-500"
                     showText={true}
                     status={profile.status}
-                    current={profile.cur_chakra}
-                    total={profile.max_chakra}
+                    current={profile.curChakra}
+                    total={profile.maxChakra}
                   />
                   <StatusBar
                     title="SP"
@@ -118,8 +118,8 @@ const PublicProfile: NextPage = () => {
                     color="bg-green-500"
                     showText={true}
                     status={profile.status}
-                    current={profile.cur_stamina}
-                    total={profile.max_stamina}
+                    current={profile.curStamina}
+                    total={profile.maxStamina}
                   />
                 </div>
               </div>

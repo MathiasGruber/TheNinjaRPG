@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import { LetterRank } from "@prisma/client";
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
+import type { LetterRanks } from "../../../drizzle/schema";
+import type { NextPage } from "next";
 
 const ManualBloodlines: NextPage = () => {
   // Settings
-  const [rank, setRank] = useState<LetterRank>(LetterRank.D);
+  const [rank, setRank] = useState<typeof LetterRanks[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Data

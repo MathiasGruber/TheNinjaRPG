@@ -11,9 +11,8 @@ import {
   UserIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
-
-import { type UserDataWithRelations } from "../utils/UserContext";
 import { calcIsInVillage } from "./travel/controls";
+import type { UserWithRelations } from "../server/api/routers/profile";
 
 export interface NavBarDropdownLink {
   href: string;
@@ -60,7 +59,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
 /**
  * Get main game links
  */
-export const getMainGameLinks = (userData: UserDataWithRelations) => {
+export const getMainGameLinks = (userData: UserWithRelations) => {
   const systems: NavBarDropdownLink[] = [
     {
       href: "/tavern",

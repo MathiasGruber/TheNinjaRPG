@@ -25,8 +25,8 @@ export interface GlobalMapData {
 export interface SectorUser {
   userId: string;
   username: string;
-  cur_health: number;
-  max_health: number;
+  curHealth: number;
+  maxHealth: number;
   avatar: string | null;
   sector: number;
   longitude: number;
