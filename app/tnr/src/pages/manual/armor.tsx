@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import { ItemType } from "@prisma/client";
-import { ItemRarity } from "@prisma/client";
-
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
+import { ItemRarities } from "../../../drizzle/schema";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
+import type { NextPage } from "next";
 
 const ManualArmor: NextPage = () => {
   // Settings
-  const [rarity, setRarity] = useState<ItemRarity>(ItemRarity.COMMON);
+  const [rarity, setRarity] = useState<typeof ItemRarities[number]>("COMMON");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Data
@@ -22,7 +20,7 @@ const ManualArmor: NextPage = () => {
     fetchNextPage,
     hasNextPage,
   } = api.item.getAll.useInfiniteQuery(
-    { itemType: ItemType.ARMOR, itemRarity: rarity, limit: 20 },
+    { itemType: "ARMOR", itemRarity: rarity, limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -57,7 +55,7 @@ const ManualArmor: NextPage = () => {
             <div className="grow"></div>
             <NavTabs
               current={rarity}
-              options={Object.values(ItemRarity)}
+              options={Object.values(ItemRarities)}
               setValue={setRarity}
             />
           </>

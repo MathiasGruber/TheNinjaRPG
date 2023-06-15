@@ -7,16 +7,16 @@ import RichInput from "./RichInput";
 import Button from "./Button";
 import Confirm from "../layout/Confirm";
 import ReportUser from "../layout/Report";
-import { type MutateCommentSchema } from "../validators/comments";
-import { type DeleteCommentSchema } from "../validators/comments";
 import { mutateCommentSchema } from "../validators/comments";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import { type systems } from "../validators/reports";
-import { type ConversationComment } from "@prisma/client";
-import { type ForumPost } from "@prisma/client";
-import { type UserReportComment } from "@prisma/client";
 import { useUserData } from "../utils/UserContext";
+import type { systems } from "../validators/reports";
+import type { ConversationComment } from "../../drizzle/schema";
+import type { ForumPost } from "../../drizzle/schema";
+import type { UserReportComment } from "../../drizzle/schema";
+import type { MutateCommentSchema } from "../validators/comments";
+import type { DeleteCommentSchema } from "../validators/comments";
 /**
  * Component for handling comments on user reports
  * @param props
@@ -125,7 +125,7 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
 interface BaseCommentProps extends PostProps {
   comment: UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
-  system?: (typeof systems)[number];
+  system?: typeof systems[number];
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;

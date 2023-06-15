@@ -1,11 +1,11 @@
 import { createContext, useEffect } from "react";
 import { useContext } from "react";
-import { Prisma, type BattleType } from "@prisma/client";
 import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
 import type { UserWithRelations } from "../server/api/routers/profile";
 import type { UserEffect, GroundEffect } from "../libs/combat/types";
-import { type ReturnedUserState } from "../libs/combat/types";
+import type { BattleType } from "../../drizzle/schema";
+import type { ReturnedUserState } from "../libs/combat/types";
 
 // Create type for battle, which contains information on user current state
 export type UserBattle = {

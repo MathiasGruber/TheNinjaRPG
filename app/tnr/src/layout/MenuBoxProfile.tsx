@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { UserStatus } from "@prisma/client";
-
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
@@ -15,7 +13,7 @@ import type { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle } = useUserData();
-  const [state, setState] = useState<number>(0);
+  const [, setState] = useState<number>(0);
 
   /** Convenience method for showing effects based on stats */
   const showStatAffects = (
@@ -123,7 +121,7 @@ const MenuBoxProfile: React.FC = () => {
           <hr />
           <p className="mt-2">
             <b>Status:</b>{" "}
-            {userData.status === UserStatus.BATTLE ? (
+            {userData.status === "BATTLE" ? (
               <Link className="font-bold  " href="/combat">
                 BATTLE
               </Link>
@@ -260,8 +258,7 @@ const Cooldown: React.FC<CooldownProps> = (props) => {
       const secondsLeft = createdAt + rounds * COMBAT_SECONDS * 1000 - Date.now();
       if (secondsLeft > 0) {
         const interval = setInterval(() => {
-          const [days, hours, minutes, seconds] =
-            getDaysHoursMinutesSeconds(secondsLeft);
+          const [, , minutes, seconds] = getDaysHoursMinutesSeconds(secondsLeft);
           const minutesStr = minutes.toString().padStart(2, "0");
           const secondsStr = seconds.toString().padStart(2, "0");
           setCounter(`${minutesStr}:${secondsStr}`);

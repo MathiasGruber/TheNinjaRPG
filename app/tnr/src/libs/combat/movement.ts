@@ -1,4 +1,3 @@
-import { AttackMethod, AttackTarget } from "@prisma/client";
 import { spiral, line, ring, fromCoordinates } from "honeycomb-grid";
 import { COMBAT_SECONDS } from "./constants";
 import { secondsPassed } from "../../utils/time";
@@ -23,22 +22,22 @@ export const isValidMove = (info: {
       (u) =>
         u.longitude === target.col &&
         u.latitude === target.row &&
-        u.cur_health > 0 &&
+        u.curHealth > 0 &&
         !u.fledBattle
     );
-    if (action.target === AttackTarget.CHARACTER) {
+    if (action.target === "CHARACTER") {
       if (opponent) return true;
-    } else if (action.target === AttackTarget.OPPONENT) {
+    } else if (action.target === "OPPONENT") {
       if (opponent && opponent?.villageId !== villageId) return true;
-    } else if (action.target === AttackTarget.OTHER_USER) {
+    } else if (action.target === "OTHER_USER") {
       if (opponent && opponent?.userId !== userId) return true;
-    } else if (action.target === AttackTarget.ALLY) {
+    } else if (action.target === "ALLY") {
       if (opponent && opponent?.villageId === villageId) return true;
-    } else if (action.target === AttackTarget.SELF) {
+    } else if (action.target === "SELF") {
       if (opponent && opponent?.userId === userId) return true;
-    } else if (action.target === AttackTarget.EMPTY_GROUND) {
+    } else if (action.target === "EMPTY_GROUND") {
       if (!opponent) return true;
-    } else if (action.target === AttackTarget.GROUND) {
+    } else if (action.target === "GROUND") {
       if (!(action.id === "move" && opponent)) {
         return true;
       }
@@ -91,18 +90,18 @@ export const getAffectedTiles = (info: {
   if (!user) return { green, red };
 
   // Handle different methods separately
-  if (action.method === AttackMethod.SINGLE) {
+  if (action.method === "SINGLE") {
     tiles = grid.traverse(fromCoordinates<TerrainHex>([b.q, b.r]));
-  } else if (action.method === AttackMethod.AOE_CIRCLE_SPAWN) {
+  } else if (action.method === "AOE_CIRCLE_SPAWN") {
     tiles = grid.traverse(spiral<TerrainHex>({ start: [b.q, b.r], radius: 1 }));
-  } else if (action.method === AttackMethod.AOE_LINE_SHOOT) {
+  } else if (action.method === "AOE_LINE_SHOOT") {
     tiles = grid.traverse(line<TerrainHex>({ start: [b.q, b.r], stop: [a.q, a.r] }));
-  } else if (action.method === AttackMethod.AOE_CIRCLE_SHOOT) {
+  } else if (action.method === "AOE_CIRCLE_SHOOT") {
     tiles = grid.traverse(ring<TerrainHex>({ center: [a.q, a.r], radius }));
-  } else if (action.method === AttackMethod.AOE_SPIRAL_SHOOT) {
+  } else if (action.method === "AOE_SPIRAL_SHOOT") {
     tiles = grid.traverse(spiral<TerrainHex>({ start: [a.q, a.r], radius }));
     if (tiles) tiles = tiles.filter((t) => t !== a);
-  } else if (action.method === AttackMethod.ALL) {
+  } else if (action.method === "ALL") {
     grid.forEach((target) => {
       if (isValidMove({ action, target, user, users, barriers })) {
         green.add(target);

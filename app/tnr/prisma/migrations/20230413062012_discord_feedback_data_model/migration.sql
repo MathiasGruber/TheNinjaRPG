@@ -21,5 +21,5 @@ ALTER TABLE `Jutsu` DROP COLUMN `type`,
 -- AlterTable
 ALTER TABLE `UserData` DROP COLUMN `weapon_defence`,
     DROP COLUMN `weapon_offence`,
-    ADD COLUMN `bukijutsu_defence` INTEGER NOT NULL DEFAULT 10,
-    ADD COLUMN `bukijutsu_offence` INTEGER NOT NULL DEFAULT 10;
+    ADD COLUMN `bukijutsuDefence` INTEGER NOT NULL DEFAULT 10,
+    ADD COLUMN `bukijutsuOffence` INTEGER NOT NULL DEFAULT 10;

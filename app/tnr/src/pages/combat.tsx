@@ -1,19 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
-import { type NextPage } from "next";
-
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
 import Combat from "../layout/Combat";
 import ActionTimer from "../layout/ActionTimer";
 import CombatHistory from "../layout/CombatHistory";
-
 import { availableUserActions } from "../libs/combat/actions";
 import { ActionSelector } from "../layout/CombatActions";
 import { api } from "../utils/api";
 import { useRequiredUserData } from "../utils/UserContext";
+import type { NextPage } from "next";
 import type { BattleState } from "../libs/combat/types";
-import { UserStatus } from "@prisma/client";
 
 const CombatPage: NextPage = () => {
   // State
@@ -85,7 +82,7 @@ const CombatPage: NextPage = () => {
         padding={false}
         topRightContent={
           battle &&
-          userData?.status === UserStatus.BATTLE && (
+          userData?.status === "BATTLE" && (
             <ActionTimer
               actionPerc={actionPerc}
               isLoading={battleState.isLoading}
@@ -101,7 +98,7 @@ const CombatPage: NextPage = () => {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {battle && userData?.status === UserStatus.BATTLE && (
+      {battle && userData?.status === "BATTLE" && (
         <ActionSelector
           items={actions}
           showBgColor={true}

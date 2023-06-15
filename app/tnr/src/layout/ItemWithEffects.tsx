@@ -1,8 +1,7 @@
 import React from "react";
 import ContentImage from "./ContentImage";
-import type { Bloodline, Item, Jutsu } from "@prisma/client";
-import { AttackTarget } from "@prisma/client";
-import { type ZodAllTags } from "../libs/combat/types";
+import type { Bloodline, Item, Jutsu } from "../../drizzle/schema";
+import type { ZodAllTags } from "../libs/combat/types";
 
 export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu;
@@ -11,7 +10,7 @@ export interface ItemWithEffectsProps {
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item } = props;
-  const effects = props.item.effects as unknown as ZodAllTags[];
+  const effects = props.item.effects as ZodAllTags[];
   const image = (
     <div className="relative flex flex-row items-center justify-center">
       <ContentImage
@@ -64,7 +63,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Stackable</b>: {item.stackSize}
               </p>
             )}
-            {"range" in item && item.target !== AttackTarget.CHARACTER && (
+            {"range" in item && item.target !== "CHARACTER" && (
               <p>
                 <b>Range</b>: {item.range}
               </p>

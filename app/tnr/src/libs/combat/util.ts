@@ -1,20 +1,20 @@
-import { Prisma } from "@prisma/client";
 import { publicState, allState } from "./types";
 import { getPower } from "./tags";
+import { createId } from "@paralleldrive/cuid2";
+import { eq, or, and, sql, gt, isNotNull } from "drizzle-orm";
+import { userData, battle } from "../../../drizzle/schema";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS, COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { realizeTag } from "../../libs/combat/process";
 import { BarrierTag } from "../../libs/combat/types";
-import { UserStatus, BattleType, ItemType } from "@prisma/client";
 import { combatAssets } from "../../libs/travel/biome";
 import { getServerPusher } from "../../libs/pusher";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
-import type { Item, UserItem } from "@prisma/client";
-import type { PrismaClient } from "@prisma/client";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
-import type { Battle } from "../../../drizzle/schema";
+import type { Item, UserItem, Battle, BattleType } from "../../../drizzle/schema";
+import type { DrizzleClient } from "../../server/db";
 
 /**
  * Finds a user in the battle state based on location
@@ -28,7 +28,7 @@ export const findUser = (
     (u) =>
       u.longitude === longitude &&
       u.latitude === latitude &&
-      u.cur_health > 0 &&
+      u.curHealth > 0 &&
       !u.fledBattle
   );
 };
@@ -143,9 +143,9 @@ export const calcPoolCost = (
   usersEffects: UserEffect[],
   target: BattleUserState
 ) => {
-  let hpCost = (action.healthCostPerc * target.max_health) / 100;
-  let cpCost = (action.chakraCostPerc * target.max_chakra) / 100;
-  let spCost = (action.staminaCostPerc * target.max_stamina) / 100;
+  let hpCost = (action.healthCostPerc * target.maxHealth) / 100;
+  let cpCost = (action.chakraCostPerc * target.maxChakra) / 100;
+  let spCost = (action.staminaCostPerc * target.maxStamina) / 100;
   usersEffects
     .filter((e) => e.type === "poolcostadjust" && e.targetId === target.userId)
     .forEach((e) => {
@@ -220,8 +220,8 @@ export const maskBattle = (battle: Battle, userId: string) => {
  */
 export const calcBattleResult = (users: BattleUserState[], userId: string) => {
   const user = users.find((u) => u.userId === userId);
-  const originals = users.filter((u) => u.is_original);
-  if (user && user.cur_stamina && user.cur_chakra && !user.leftBattle) {
+  const originals = users.filter((u) => u.isOriginal);
+  if (user && user.curStamina && user.curChakra && !user.leftBattle) {
     // If 1v1, then friends/targets are the opposing team. If MPvP, separate by village
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
@@ -232,15 +232,15 @@ export const calcBattleResult = (users: BattleUserState[], userId: string) => {
       targets = originals.filter((u) => u.villageId !== user.villageId);
       friends = originals.filter((u) => u.villageId === user.villageId);
     }
-    const survivingTargets = targets.filter((t) => t.cur_health > 0 && !t.fledBattle);
-    if (user.cur_health <= 0 || user.fledBattle || survivingTargets.length === 0) {
+    const survivingTargets = targets.filter((t) => t.curHealth > 0 && !t.fledBattle);
+    if (user.curHealth <= 0 || user.fledBattle || survivingTargets.length === 0) {
       // Update the user left
       user.leftBattle = true;
 
       // Calculate ELO change
       const uExp = friends.reduce((a, b) => a + b.experience, 0) / friends.length;
       const oExp = targets.reduce((a, b) => a + b.experience, 0) / targets.length;
-      const didWin = user.cur_health > 0;
+      const didWin = user.curHealth > 0;
       console.log("~~~~~~~~~~~~~~~~~~~~~~~~");
       console.log(uExp, oExp, didWin);
       const eloDiff = Math.max(calcEloChange(uExp, oExp, 32, didWin), 0);
@@ -324,45 +324,30 @@ export const initiateBattle = async (
     sector: number;
     userId: string;
     targetId: string;
-    prisma: PrismaClient;
+    client: DrizzleClient;
   },
   battleType: BattleType,
   background = "forest.webp"
 ) => {
-  const { longitude, latitude, sector, userId, targetId, prisma } = info;
-  const battle = await prisma.$transaction(async (tx) => {
+  const { longitude, latitude, sector, userId, targetId, client } = info;
+  return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
-    const users = await tx.userData.findMany({
-      include: {
-        items: {
-          include: {
-            item: true,
-          },
-          where: {
-            quantity: {
-              gt: 0,
-            },
-            equipped: {
-              not: null,
-            },
-          },
-        },
-        jutsus: {
-          include: {
-            jutsu: true,
-          },
-          where: {
-            equipped: true,
-          },
-        },
+    const users = await tx.query.userData.findMany({
+      with: {
         bloodline: true,
         village: true,
+        items: {
+          with: { item: true },
+          where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+        },
+        jutsus: {
+          with: { jutsu: true },
+          where: (jutsus) => eq(jutsus.equipped, 1),
+        },
       },
-      where: {
-        OR: [{ userId: userId }, { userId: targetId }],
-      },
+      where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
     });
-    users.sort((a, b) => (a.userId === userId ? -1 : 1));
+    users.sort((a) => (a.userId === userId ? -1 : 1));
 
     // Use long/lat fields for position in combat map
     if (users?.[0]) {
@@ -384,7 +369,7 @@ export const initiateBattle = async (
       // Add basics
       const user = raw as BattleUserState;
       user.controllerId = user.userId;
-      user.is_original = true;
+      user.isOriginal = true;
 
       // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
       // Therefore we need to calculate the current pools here, before inserting the user into battle
@@ -392,22 +377,22 @@ export const initiateBattle = async (
         (user.bloodline?.regenIncrease
           ? user.regeneration + user.bloodline.regenIncrease
           : user.regeneration) * secondsPassed(user.regenAt);
-      user.cur_health = Math.min(user.cur_health + regen, user.max_health);
-      user.cur_chakra = Math.min(user.cur_chakra + regen, user.max_chakra);
-      user.cur_stamina = Math.min(user.cur_stamina + regen, user.max_stamina);
+      user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
+      user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
+      user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
 
       // Add highest stats to user
-      user.highest_offence = Math.max(
-        user.ninjutsu_offence,
-        user.genjutsu_offence,
-        user.taijutsu_offence,
-        user.bukijutsu_offence
+      user.highestOffence = Math.max(
+        user.ninjutsuOffence,
+        user.genjutsuOffence,
+        user.taijutsuOffence,
+        user.bukijutsuOffence
       );
-      user.highest_defence = Math.max(
-        user.ninjutsu_offence,
-        user.genjutsu_offence,
-        user.taijutsu_offence,
-        user.bukijutsu_offence
+      user.highestDefence = Math.max(
+        user.ninjutsuOffence,
+        user.genjutsuOffence,
+        user.taijutsuOffence,
+        user.bukijutsuOffence
       );
 
       // Set the history lists to record actions during battle
@@ -430,7 +415,7 @@ export const initiateBattle = async (
       const items: (UserItem & { item: Item })[] = [];
       user.items.forEach((useritem) => {
         const itemType = useritem.item.itemType;
-        if (itemType === ItemType.ARMOR || itemType === ItemType.ACCESSORY) {
+        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
           if (useritem.item.effects) {
             const effects = useritem.item.effects as unknown as UserEffect[];
             effects.forEach((effect) => {
@@ -487,35 +472,38 @@ export const initiateBattle = async (
     }
 
     // Create combat entry
-    const battle = await tx.battle.create({
-      data: {
-        battleType,
-        background,
-        usersState: usersState as unknown as Prisma.JsonArray,
-        usersEffects: userEffects as unknown as Prisma.JsonArray,
-        groundEffects: groundEffects as unknown as Prisma.JsonArray,
-      },
+    const battleId = createId();
+    await tx.insert(battle).values({
+      id: battleId,
+      battleType: battleType,
+      background: background,
+      usersState: usersState,
+      usersEffects: userEffects,
+      groundEffects: groundEffects,
     });
 
     // Update users, but only succeed transaction if none of them already had a battle assigned
-    const result: number = await tx.$executeRaw`
-      UPDATE UserData
-      SET
-        status = CASE WHEN isAI = false THEN 
-          ${UserStatus.BATTLE} ELSE ${UserStatus.AWAKE} END,
-        battleId = CASE WHEN isAI = false THEN 
-          ${battle.id} ELSE NULL END,
-        updatedAt = Now()
-      WHERE
-        (userId = ${userId} OR userId = ${targetId}) AND  
-        status = 'AWAKE' 
-        ${
-          battleType === BattleType.COMBAT
-            ? Prisma.sql`AND sector = ${sector} AND longitude = ${longitude} AND latitude = ${latitude}`
-            : Prisma.empty
-        }  
-        `;
-    if (result !== 2) {
+    const result = await tx
+      .update(userData)
+      .set({
+        status: sql`CASE WHEN isAi = false THEN "BATTLE" ELSE "AWAKE" END`,
+        battleId: sql`CASE WHEN isAi = false THEN ${battleId} ELSE NULL END`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          or(eq(userData.userId, userId), eq(userData.userId, targetId)),
+          eq(userData.status, "AWAKE"),
+          battleType === "COMBAT"
+            ? and(
+                eq(userData.sector, sector),
+                longitude ? eq(userData.longitude, longitude) : sql``,
+                latitude ? eq(userData.latitude, latitude) : sql``
+              )
+            : sql``
+        )
+      );
+    if (result.rowsAffected !== 2) {
       throw new Error(`Attack failed, did the target move?`);
     }
     // Push websockets message to target
@@ -523,7 +511,6 @@ export const initiateBattle = async (
     void pusher.trigger(targetId, "event", { type: "battle" });
 
     // Return the battle
-    return battle;
+    return battleId;
   });
-  return battle;
 };

@@ -1,21 +1,19 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import { type Item } from "@prisma/client";
-import { ItemType } from "@prisma/client";
-
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
 import SelectField from "../layout/SelectField";
 import Modal from "../layout/Modal";
-import { ActionSelector } from "../layout/CombatActions";
 import ItemWithEffects from "../layout/ItemWithEffects";
+import { ActionSelector } from "../layout/CombatActions";
 import { UncontrolledSliderField } from "../layout/SliderField";
 import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUserData } from "../utils/UserContext";
-
 import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { ItemTypes } from "../../drizzle/schema";
+import type { ItemType, Item } from "../../drizzle/schema";
+import type { NextPage } from "next";
 
 const ItemShop: NextPage = () => {
   // Settings
@@ -23,7 +21,7 @@ const ItemShop: NextPage = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
-  const [itemtype, setItemtype] = useState<ItemType>(ItemType.WEAPON);
+  const [itemtype, setItemtype] = useState<ItemType>("WEAPON");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const isAwake = useAwake(userData);
 
@@ -83,7 +81,7 @@ const ItemShop: NextPage = () => {
                     setItem(undefined);
                   }}
                 >
-                  {Object.values(ItemType).map((option) => (
+                  {Object.values(ItemTypes).map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>

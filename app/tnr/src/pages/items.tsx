@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import type { Item, UserItem } from "@prisma/client";
-import { ItemSlot } from "@prisma/client";
 import { ArrowsPointingInIcon, TrashIcon } from "@heroicons/react/24/solid";
-
 import Image from "next/image";
 import NavTabs from "../layout/NavTabs";
 import ContentBox from "../layout/ContentBox";
@@ -12,16 +8,17 @@ import ItemWithEffects from "../layout/ItemWithEffects";
 import Modal from "../layout/Modal";
 import ContentImage from "../layout/ContentImage";
 import Button from "../layout/Button";
-
 import { ActionSelector } from "../layout/CombatActions";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import type { Item, UserItem, ItemSlot } from "../../drizzle/schema";
+import type { NextPage } from "next";
 
 const MyItems: NextPage = () => {
   // State
   const tabs = ["Character", "Backpack"];
-  const [screen, setScreen] = useState<(typeof tabs)[number]>("Character");
+  const [screen, setScreen] = useState<typeof tabs[number]>("Character");
 
   // Data from DB
   useRequiredUserData();
@@ -206,19 +203,19 @@ const Character: React.FC<CharacterProps> = (props) => {
         width={461}
         height={461}
       />
-      <Equip slot={ItemSlot.HEAD} act={act} txt="Head" pos={t1} items={items} />
-      <Equip slot={ItemSlot.CHEST} act={act} txt="Chest" pos={t2} items={items} />
-      <Equip slot={ItemSlot.LEGS} act={act} txt="Legs" pos={t3} items={items} />
-      <Equip slot={ItemSlot.FEET} act={act} txt="Feet" pos={t4} items={items} />
-      <Equip slot={ItemSlot.ITEM_1} act={act} txt="Item" pos={l + t2} items={items} />
-      <Equip slot={ItemSlot.ITEM_2} act={act} txt="Item" pos={r + t2} items={items} />
-      <Equip slot={ItemSlot.HAND_1} act={act} txt="Hand" pos={l + t3} items={items} />
-      <Equip slot={ItemSlot.HAND_2} act={act} txt="Hand" pos={r + t3} items={items} />
-      <Equip slot={ItemSlot.ITEM_3} act={act} txt="Item" pos={l + t4} items={items} />
-      <Equip slot={ItemSlot.ITEM_4} act={act} txt="Item" pos={r + t4} items={items} />
-      <Equip slot={ItemSlot.ITEM_5} act={act} txt="Item" pos={l + t5} items={items} />
-      <Equip slot={ItemSlot.ITEM_6} act={act} txt="Item" pos={t5} items={items} />
-      <Equip slot={ItemSlot.ITEM_7} act={act} txt="Item" pos={r + t5} items={items} />
+      <Equip slot={"HEAD"} act={act} txt="Head" pos={t1} items={items} />
+      <Equip slot={"CHEST"} act={act} txt="Chest" pos={t2} items={items} />
+      <Equip slot={"LEGS"} act={act} txt="Legs" pos={t3} items={items} />
+      <Equip slot={"FEET"} act={act} txt="Feet" pos={t4} items={items} />
+      <Equip slot={"ITEM_1"} act={act} txt="Item" pos={l + t2} items={items} />
+      <Equip slot={"ITEM_2"} act={act} txt="Item" pos={r + t2} items={items} />
+      <Equip slot={"HAND_1"} act={act} txt="Hand" pos={l + t3} items={items} />
+      <Equip slot={"HAND_2"} act={act} txt="Hand" pos={r + t3} items={items} />
+      <Equip slot={"ITEM_3"} act={act} txt="Item" pos={l + t4} items={items} />
+      <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
+      <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
+      <Equip slot={"ITEM_6"} act={act} txt="Item" pos={t5} items={items} />
+      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t5} items={items} />
       {isOpen && slot && (
         <Modal
           title="Item Details"

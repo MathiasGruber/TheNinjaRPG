@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { UserStatus } from "@prisma/client";
 import {
   ShieldExclamationIcon,
   InformationCircleIcon,
@@ -26,8 +25,8 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
     return <div></div>;
   }
 
-  const inBattle = userData.status === UserStatus.BATTLE;
-  const inHospital = userData.status === UserStatus.HOSPITALIZED;
+  const inBattle = userData.status === "BATTLE";
+  const inHospital = userData.status === "HOSPITALIZED";
   const notAwake = inBattle || inHospital;
 
   return (

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { eq, or, and, sql, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { battle, battleAction } from "../../../../drizzle/schema";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
@@ -9,7 +9,6 @@ import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
-import { BattleType } from "@prisma/client";
 import { ais } from "../../../../prisma/seeds/ai";
 import { fetchUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
@@ -146,17 +145,17 @@ export const combatRouter = createTRPCRouter({
         /**
          * DATABASE UPDATES in parallel transaction
          */
-        const newBattle = await ctx.prisma.$transaction(async (tx) => {
+        const newBattle = await ctx.drizzle.transaction(async (tx) => {
           const [newBattle] = await Promise.all([
             updateBattle(
               result,
-              battle,
+              userBattle,
               finalUsersState,
               nextUsersEffects,
               nextGroundEffects,
               tx
             ),
-            createAction(battleDescription.join(". "), battle, actionEffects, tx),
+            createAction(battleDescription.join(". "), userBattle, actionEffects, tx),
             updateUser(result, ctx.userId, tx),
           ]);
           return newBattle;
@@ -181,9 +180,9 @@ export const combatRouter = createTRPCRouter({
           sector: user.sector,
           userId: user.userId,
           targetId: selectedAI.userId,
-          drizzle: ctx.drizzle,
+          client: ctx.drizzle,
         },
-        BattleType.ARENA,
+        "ARENA",
         "coliseum.webp"
       );
     }
@@ -213,9 +212,9 @@ export const combatRouter = createTRPCRouter({
           sector: input.sector,
           userId: ctx.userId,
           targetId: input.userId,
-          drizzle: ctx.drizzle,
+          client: ctx.drizzle,
         },
-        BattleType.COMBAT
+        "COMBAT"
       );
     }),
 });

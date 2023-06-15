@@ -137,17 +137,17 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                   key={convo.id}
                   onClick={() => setSelectedConvo(convo.id)}
                 >
-                  {convo.UsersInConversation.length > 0 &&
-                    convo.UsersInConversation.map((user, i) => (
+                  {convo.users.length > 0 &&
+                    convo.users.map((user, i) => (
                       <div
                         key={user.userId}
                         className={`absolute w-14`}
                         style={{ left: `${i * 2}rem` }}
                       >
                         <AvatarImage
-                          href={user.user.avatar}
-                          userId={user.user.userId}
-                          alt={user.user.username}
+                          href={user.avatar}
+                          userId={user.userId}
+                          alt={user.username}
                           size={50}
                           priority
                         />
@@ -156,8 +156,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                   <span
                     className="... truncate text-sm"
                     style={{
-                      marginLeft:
-                        (convo.UsersInConversation.length * 2 + 1.5).toString() + "rem",
+                      marginLeft: (convo.users.length * 2 + 1.5).toString() + "rem",
                     }}
                   >
                     {convo.title}
@@ -216,7 +215,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
   const createConversation = api.comments.createConversation.useMutation({
     onSuccess: (data) => {
       create.reset();
-      props.setSelectedConvo(data.id);
+      props.setSelectedConvo(data.conversationId);
     },
     onError: (error) => {
       show_toast("Error on creating new conversation", error.message, "error");

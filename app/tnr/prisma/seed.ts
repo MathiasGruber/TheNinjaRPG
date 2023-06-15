@@ -11,12 +11,12 @@ const prisma = new PrismaClient();
 
 // Seed the database
 async function main() {
-  await seedJutsus(prisma);
-  await seedBloodlines(prisma);
-  await seedItems(prisma);
-  await seedVillages(prisma);
-  await seedForum(prisma);
-  await seedAI(prisma);
+  // await seedJutsus(prisma);
+  // await seedBloodlines(prisma);
+  // await seedItems(prisma);
+  // await seedVillages(prisma);
+  // await seedForum(prisma);
+  // await seedAI(prisma);
 }
 
 // Run the seeding & close databse connection

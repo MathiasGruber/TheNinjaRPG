@@ -116,7 +116,7 @@ const Profile: NextPage = () => {
           <p>Experience for lvl: ---</p>
           <br />
           <b>Special</b>
-          <p>Reputation points: {userData.reputation_points}</p>
+          <p>Reputation points: {userData.reputationPoints}</p>
           <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
         </div>
         <div>

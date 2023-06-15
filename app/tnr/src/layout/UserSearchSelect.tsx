@@ -1,14 +1,12 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { type FederalStatus } from "@prisma/client";
-
 import InputField from "./InputField";
 import AvatarImage from "./Avatar";
 import { XMarkIcon } from "@heroicons/react/24/solid";
-
-import { type UseFormReturn } from "react-hook-form";
 import { getUnique } from "../utils/grouping";
 import { api } from "../utils/api";
+import type { FederalStatus } from "../../drivers/schema";
+import type { UseFormReturn } from "react-hook-form";
 
 type SelectedUser = {
   username: string;

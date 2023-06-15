@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
-import { ItemRarity } from "@prisma/client";
+import { ItemRarities } from "../../drizzle/schema";
+import type { ItemRarity } from "../../drizzle/schema";
 
 interface ContentImageProps {
   image: string;
@@ -12,7 +13,7 @@ interface ContentImageProps {
 
 const ContentImage: React.FC<ContentImageProps> = (props) => {
   const drawBackground =
-    props.rarity && Object.values(ItemRarity).includes(props.rarity);
+    props.rarity && Object.values(ItemRarities).includes(props.rarity);
 
   return (
     <>

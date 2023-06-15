@@ -1,14 +1,12 @@
 import { type NextPage } from "next";
 import Link from "next/link";
-
-import { type VillageStructure } from "@prisma/client";
 import Image from "next/image";
 import ContentBox from "../layout/ContentBox";
 import StatusBar from "../layout/StatusBar";
 import Loader from "../layout/Loader";
-
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
+import type { VillageStructure } from "../../drizzle/schema";
 
 const VillageOverview: NextPage = () => {
   const { data: userData } = useRequiredUserData();
@@ -29,7 +27,7 @@ const VillageOverview: NextPage = () => {
       <div className="grid grid-cols-3 items-center lg:grid-cols-4">
         {data && userData && userData.village && (
           <>
-            {data.structures.map((structure, i) => (
+            {data.villageData.structures.map((structure, i) => (
               <div key={i}>
                 <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>
                   <Building structure={structure} key={structure.id} />
@@ -63,8 +61,8 @@ const Building: React.FC<BuildingProps> = (props) => {
           tooltip="Health"
           color="bg-red-500"
           showText={true}
-          current={props.structure.cur_sp}
-          total={props.structure.max_sp}
+          current={props.structure.curSp}
+          total={props.structure.maxSp}
         />
       </div>
       <Image

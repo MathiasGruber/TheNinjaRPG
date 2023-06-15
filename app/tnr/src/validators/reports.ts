@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { ReportAction } from "@prisma/client";
 import type { UserData, UserReport } from "../../drizzle/schema";
 
 export const systems = [
@@ -63,7 +62,7 @@ export const canEscalateBan = (user: UserData, report: UserReport) => {
   return (
     !report.adminResolved &&
     !canModerateReports(user, report) &&
-    report.status === ReportAction.BAN_ACTIVATED &&
+    report.status === "BAN_ACTIVATED" &&
     report.banEnd &&
     report.banEnd > new Date()
   );

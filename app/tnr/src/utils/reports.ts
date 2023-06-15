@@ -1,4 +1,4 @@
-import { type ReportAction } from "@prisma/client";
+import type { ReportAction } from "../../drizzle/schema";
 
 export const reportCommentColor = (status: ReportAction | null) => {
   switch (status) {

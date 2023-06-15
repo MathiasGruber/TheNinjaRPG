@@ -5,7 +5,6 @@ import type { DrizzleClient } from "../../server/db";
 import type { Battle } from "../../../drizzle/schema";
 import type { CombatResult, ReturnedUserState } from "./types";
 import type { UserEffect, GroundEffect, ActionEffect } from "./types";
-import type { JsonData } from "../../utils/typeutils";
 
 /**
  * Update the battle state with raw queries for speed

@@ -1,31 +1,27 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-import { LetterRank, type Jutsu } from "@prisma/client";
-
 import ItemWithEffects from "../layout/ItemWithEffects";
 import Modal from "../layout/Modal";
 import ContentBox from "../layout/ContentBox";
 import NavTabs from "../layout/NavTabs";
-import { ActionSelector } from "../layout/CombatActions";
 import Loader from "../layout/Loader";
 import Countdown from "../layout/Countdown";
-
+import { ActionSelector } from "../layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
 import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../libs/jutsu/jutsu";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
-
 import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import type { LetterRanks, Jutsu } from "../../drizzle/schema";
+import type { NextPage } from "next";
 
 const Training: NextPage = () => {
   // Settings
-  type JutsuWithRelation = Jutsu & { UserJutsu?: { level?: number }[] };
   const { data: userData } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [jutsu, setJutsu] = useState<JutsuWithRelation | undefined>(undefined);
-  const [rarity, setRarity] = useState<LetterRank>(LetterRank.D);
+  const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
+  const [rarity, setRarity] = useState<typeof LetterRanks[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const isAwake = useAwake(userData);
   const now = new Date();

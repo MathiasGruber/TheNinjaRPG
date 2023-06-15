@@ -25,19 +25,19 @@ export const realizeTag = <T extends BattleEffect>(
 ): T => {
   if (isGround && "statTypes" in tag && tag.statTypes) {
     if (tag.statTypes.includes("Ninjutsu")) {
-      tag.ninjutsu_offence = user.ninjutsu_offence;
+      tag.ninjutsuOffence = user.ninjutsuOffence;
     }
     if (tag.statTypes.includes("Genjutsu")) {
-      tag.genjutsu_offence = user.genjutsu_offence;
+      tag.genjutsuOffence = user.genjutsuOffence;
     }
     if (tag.statTypes.includes("Taijutsu")) {
-      tag.taijutsu_offence = user.taijutsu_offence;
+      tag.taijutsuOffence = user.taijutsuOffence;
     }
     if (tag.statTypes.includes("Bukijutsu")) {
-      tag.bukijutsu_offence = user.bukijutsu_offence;
+      tag.bukijutsuOffence = user.bukijutsuOffence;
     }
     if (tag.statTypes.includes("Highest")) {
-      tag.highest_offence = user.highest_offence;
+      tag.highestOffence = user.highestOffence;
     }
   }
   if (isGround && "generalTypes" in tag) {
@@ -67,7 +67,7 @@ export const realizeTag = <T extends BattleEffect>(
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: (typeof AnimationNames)[number]
+  animation?: typeof AnimationNames[number]
 ): GroundEffect => {
   return {
     ...VisualTag.parse({
@@ -252,42 +252,42 @@ export const applyEffects = (
       const target = newUsersState.find((u) => u.userId === c.targetId);
       if (target && user) {
         if (c.damage && c.damage > 0) {
-          target.cur_health -= c.damage;
-          target.cur_health = Math.max(0, target.cur_health);
+          target.curHealth -= c.damage;
+          target.curHealth = Math.max(0, target.curHealth);
           actionEffects.push({
             txt: `${target.username} takes ${c.damage} damage`,
             color: "red",
           });
         }
         if (c.heal && c.heal > 0) {
-          target.cur_health += c.heal;
-          target.cur_health = Math.min(target.max_health, target.cur_health);
+          target.curHealth += c.heal;
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
             txt: `${target.username} heals ${c.heal} HP`,
             color: "green",
           });
         }
         if (c.reflect && c.reflect > 0) {
-          user.cur_health -= c.reflect;
-          user.cur_health = Math.max(0, user.cur_health);
+          user.curHealth -= c.reflect;
+          user.curHealth = Math.max(0, user.curHealth);
           actionEffects.push({
             txt: `${user.username} takes ${c.reflect} reflect damage`,
             color: "red",
           });
         }
         if (c.absorb && c.absorb > 0) {
-          user.cur_health += c.absorb;
-          user.cur_health = Math.min(user.max_health, user.cur_health);
+          user.curHealth += c.absorb;
+          user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
             txt: `${user.username} absorbs ${c.absorb} damage and restores HP`,
             color: "green",
           });
         }
         // Process disappear animation of characters
-        if (target.cur_health <= 0 && !target.is_original) {
+        if (target.curHealth <= 0 && !target.isOriginal) {
           newGroundEffects.push(getVisual(target.longitude, target.latitude, "smoke"));
         }
-        if (user.cur_health <= 0 && !user.is_original) {
+        if (user.curHealth <= 0 && !user.isOriginal) {
           newGroundEffects.push(getVisual(user.longitude, user.latitude, "smoke"));
         }
       }
