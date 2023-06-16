@@ -1,10 +1,14 @@
 import { useState, useMemo } from "react";
-import { type NextPage } from "next";
-import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../libs/travel/constants";
+import dynamic from "next/dynamic";
 import ContentBox from "../../layout/ContentBox";
-import Map from "../../layout/Map";
+import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../libs/travel/constants";
 import { fetchMap } from "../../libs/travel/globe";
 import { api } from "../../utils/api";
+import type { NextPage } from "next";
+
+const Map = dynamic(() => import("../../layout/Map"), {
+  ssr: false,
+});
 
 const ManualTravel: NextPage = () => {
   const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
