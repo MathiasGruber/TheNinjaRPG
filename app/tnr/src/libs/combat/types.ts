@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/schema";
-import { ItemSlots, ItemTypes, JutsuTypes } from "../../../drizzle/schema";
+import { ItemSlotTypes, ItemTypes, JutsuTypes } from "../../../drizzle/schema";
 import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/schema";
 import type { Jutsu, Item, Bloodline } from "../../../drizzle/schema";
 import type { UserData, UserJutsu, UserItem, Village } from "../../../drizzle/schema";
@@ -728,7 +728,7 @@ const ItemValidator = z
     itemType: z.enum(ItemTypes),
     weaponType: z.enum(WeaponTypes).optional(),
     rarity: z.enum(ItemRarities),
-    slot: z.enum(ItemSlots),
+    slot: z.enum(ItemSlotTypes),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineAction);

@@ -2,12 +2,14 @@
   "name": "tnr",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "next build",
     "build-stats": "ANALYZE=true next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "seed": "ts-node --esm --files drizzle/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.306.0",
@@ -70,6 +72,7 @@
     "prettier-plugin-tailwindcss": "0.2.1",
     "tailwindcss": "3.2.0",
     "ts-node": "10.9.1",
+    "tslib": "^2.5.3",
     "typescript": "5.0.2"
   },
   "ct3aMetadata": {

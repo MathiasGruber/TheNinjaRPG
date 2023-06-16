@@ -5,7 +5,7 @@ import AvatarImage from "./Avatar";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import { getUnique } from "../utils/grouping";
 import { api } from "../utils/api";
-import type { FederalStatus } from "../../drivers/schema";
+import type { FederalStatus } from "../../drizzle/schema";
 import type { UseFormReturn } from "react-hook-form";
 
 type SelectedUser = {

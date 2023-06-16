@@ -250,32 +250,28 @@ export const fetchUserReport = async (client: DrizzleClient, userReportId: strin
   const entry = await client.query.userReport.findFirst({
     where: eq(userReport.id, userReportId),
     with: {
-      ...userReportUserDataSelect,
+      reporterUser: {
+        columns: {
+          userId: true,
+          username: true,
+          avatar: true,
+          rank: true,
+          level: true,
+        },
+      },
+      reportedUser: {
+        columns: {
+          userId: true,
+          username: true,
+          avatar: true,
+          rank: true,
+          level: true,
+        },
+      },
     },
   });
   if (!entry) {
     throw new Error("Report not found");
   }
   return entry;
-};
-
-const userReportUserDataSelect = {
-  reporterUser: {
-    columns: {
-      userId: true,
-      username: true,
-      avatar: true,
-      rank: true,
-      level: true,
-    },
-  },
-  reportedUser: {
-    columns: {
-      userId: true,
-      username: true,
-      avatar: true,
-      rank: true,
-      level: true,
-    },
-  },
 };

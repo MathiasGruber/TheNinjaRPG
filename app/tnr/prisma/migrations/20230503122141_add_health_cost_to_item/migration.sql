@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `Item` ADD COLUMN `healthCostPerc` DOUBLE NOT NULL DEFAULT 0;

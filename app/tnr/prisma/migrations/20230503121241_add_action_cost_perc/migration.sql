@@ -1,5 +1,0 @@
--- AlterTable
-ALTER TABLE `Item` ADD COLUMN `actionCostPerc` DOUBLE NOT NULL DEFAULT 60;
-
--- AlterTable
-ALTER TABLE `Jutsu` ADD COLUMN `actionCostPerc` DOUBLE NOT NULL DEFAULT 80;

@@ -171,7 +171,7 @@ const BugReport: NextPage = () => {
                         className="mr-1"
                         onClick={(e) => {
                           e.preventDefault();
-                          createVote.mutate({ id: bug.id, value: -1 });
+                          createVote.mutate({ bugId: bug.id, value: -1 });
                         }}
                       >
                         <HandThumbDownIcon
@@ -186,7 +186,7 @@ const BugReport: NextPage = () => {
                         className="mr-1"
                         onClick={(e) => {
                           e.preventDefault();
-                          createVote.mutate({ id: bug.id, value: 1 });
+                          createVote.mutate({ bugId: bug.id, value: 1 });
                         }}
                       >
                         <HandThumbUpIcon
@@ -220,7 +220,7 @@ const BugReport: NextPage = () => {
                           }
                           onAccept={(e) => {
                             e.preventDefault();
-                            deleteReport.mutate({ id: bug.id });
+                            deleteReport.mutate({ bugId: bug.id });
                           }}
                         >
                           You are about to delete a bug report. Are you sure? If the bug

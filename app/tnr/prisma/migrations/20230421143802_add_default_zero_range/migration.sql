@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `Item` MODIFY `range` INTEGER NOT NULL DEFAULT 0;

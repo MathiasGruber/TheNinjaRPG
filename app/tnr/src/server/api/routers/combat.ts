@@ -9,7 +9,7 @@ import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { getServerPusher } from "../../../libs/pusher";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
-import { ais } from "../../../../prisma/seeds/ai";
+import { ais } from "../../../../drizzle/seeds/ai";
 import { fetchUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { initiateBattle } from "../../../libs/combat/util";
