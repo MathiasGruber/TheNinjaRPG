@@ -1,18 +1,16 @@
 import { useState, useMemo } from "react";
 import React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import ContentBox from "../layout/ContentBox";
 import InputField from "../layout/InputField";
 import SelectField from "../layout/SelectField";
 import CheckBox from "../layout/CheckBox";
 import Button from "../layout/Button";
 import Loader from "../layout/Loader";
-import Map from "../layout/Map";
-
 import { fetchMap } from "../libs/travel/globe";
 import { useUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
@@ -20,8 +18,10 @@ import { registrationSchema } from "../validators/register";
 import { attributes } from "../validators/register";
 import { colors, skin_colors } from "../validators/register";
 import { genders } from "../validators/register";
-import { type RegistrationSchema } from "../validators/register";
 import { show_toast } from "../libs/toast";
+import type { RegistrationSchema } from "../validators/register";
+
+const Map = dynamic(() => import("../layout/Map"));
 
 const Register: React.FC = () => {
   const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
