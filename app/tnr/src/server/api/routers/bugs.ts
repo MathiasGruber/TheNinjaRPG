@@ -1,6 +1,6 @@
 import sanitize from "../../../utils/sanitize";
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { bugReport, bugVotes, conversation } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
@@ -51,14 +51,14 @@ export const bugsRouter = createTRPCRouter({
       throw serverError("UNAUTHORIZED", "You are banned");
     }
     return await ctx.drizzle.transaction(async (tx) => {
-      const convoId = createId();
+      const convoId = nanoid();
       await tx.insert(conversation).values({
         id: convoId,
         title: input.title,
         createdById: ctx.userId,
       });
       return await tx.insert(bugReport).values({
-        id: createId(),
+        id: nanoid(),
         title: input.title,
         content: sanitize(input.content),
         system: input.system,
@@ -105,7 +105,7 @@ export const bugsRouter = createTRPCRouter({
             .where(eq(bugVotes.id, currentVote.id));
         } else {
           await tx.insert(bugVotes).values({
-            id: createId(),
+            id: nanoid(),
             bugId: report.id,
             userId: ctx.userId,
             value: input.value,

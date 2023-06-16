@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { bloodline } from "../schema.ts";
 import { eq } from "drizzle-orm";
 import { AdjustStatTag } from "../../src/libs/combat/types";
@@ -158,7 +158,7 @@ const upsertBloodline = async (client: DrizzleClient, data: ZodBloodlineType) =>
     await client.update(bloodline).set(data).where(eq(bloodline.name, data.name));
   } else {
     await client.insert(bloodline).values({
-      id: createId(),
+      id: nanoid(),
       ...data,
     });
   }

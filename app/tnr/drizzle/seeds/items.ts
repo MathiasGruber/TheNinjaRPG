@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { item } from "../schema.ts";
 import { eq } from "drizzle-orm";
 import { DamageTag } from "../../src/libs/combat/types";
@@ -307,7 +307,7 @@ const upsertIten = async (client: DrizzleClient, data: ZodItemType) => {
     await client.update(item).set(formatted).where(eq(item.name, data.name));
   } else {
     await client.insert(item).values({
-      id: createId(),
+      id: nanoid(),
       ...formatted,
     });
   }

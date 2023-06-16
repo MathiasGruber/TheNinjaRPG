@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { jutsu } from "../schema.ts";
 import { eq } from "drizzle-orm";
 import { JutsuValidator } from "../../src/libs/combat/types";
@@ -243,7 +243,7 @@ const upsertJutsu = async (client: DrizzleClient, data: ZodJutsuType) => {
     await client.update(jutsu).set(parsed).where(eq(jutsu.name, parsed.name));
   } else {
     await client.insert(jutsu).values({
-      id: createId(),
+      id: nanoid(),
       ...parsed,
     });
   }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { item, userItem, userData } from "../../../../drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/schema";
@@ -169,7 +169,7 @@ export const itemRouter = createTRPCRouter({
       const cost = info.cost * input.stack;
       const result = await ctx.drizzle.transaction(async (tx) => {
         await tx.insert(userItem).values({
-          id: createId(),
+          id: nanoid(),
           userId: uid,
           itemId: iid,
           quantity: input.stack,

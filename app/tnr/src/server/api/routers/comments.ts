@@ -1,6 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { conversation, userReportComment, forumPost } from "../../../../drizzle/schema";
@@ -83,7 +83,7 @@ export const commentsRouter = createTRPCRouter({
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return await ctx.drizzle.insert(userReportComment).values({
-        id: createId(),
+        id: nanoid(),
         userId: ctx.userId,
         reportId: input.object_id,
         content: sanitize(input.comment),
@@ -148,7 +148,7 @@ export const commentsRouter = createTRPCRouter({
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return ctx.drizzle.insert(forumPost).values({
-        id: createId(),
+        id: nanoid(),
         userId: ctx.userId,
         threadId: thread.id,
         content: sanitize(input.comment),
@@ -230,7 +230,7 @@ export const commentsRouter = createTRPCRouter({
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return await ctx.drizzle.transaction(async (tx) => {
-        const convoId = createId();
+        const convoId = nanoid();
         await tx.insert(conversation).values({
           id: convoId,
           title: input.title,
@@ -245,7 +245,7 @@ export const commentsRouter = createTRPCRouter({
           });
         });
         await tx.insert(conversationComment).values({
-          id: createId(),
+          id: nanoid(),
           content: sanitize(input.comment),
           userId: ctx.userId,
           conversationId: convoId,
@@ -343,7 +343,7 @@ export const commentsRouter = createTRPCRouter({
       const pusher = getServerPusher();
       void pusher.trigger(convo.id, "event", { message: "new" });
       return await ctx.drizzle.insert(conversationComment).values({
-        id: createId(),
+        id: nanoid(),
         content: sanitize(input.comment),
         userId: ctx.userId,
         conversationId: convo.id,

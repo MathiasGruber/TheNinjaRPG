@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, or, and, sql, desc } from "drizzle-orm";
 import { paypalTransaction, paypalSubscription } from "../../../../drizzle/schema";
 import { userData } from "../../../../drizzle/schema";
@@ -257,7 +257,7 @@ export const updateSubscription = async (input: {
         .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
     } else {
       return await tx.insert(paypalSubscription).values({
-        id: createId(),
+        id: nanoid(),
         createdById: input.createdById,
         subscriptionId: input.subscriptionId,
         affectedUserId: input.affectedUserId,
@@ -295,7 +295,7 @@ export const updateReps = async (input: {
       })
       .where(eq(userData.userId, input.affectedUserId));
     return await tx.insert(paypalTransaction).values({
-      id: createId(),
+      id: nanoid(),
       createdById: input.createdById,
       transactionId: input.transactionId,
       transactionUpdatedDate: input.transactionUpdatedDate,

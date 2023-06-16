@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { registrationSchema } from "../../../validators/register";
 import { fetchVillage } from "./village";
@@ -22,7 +22,7 @@ export const registerRouter = createTRPCRouter({
       ];
       await ctx.drizzle.insert(userAttribute).values(
         unique_attributes.map((attribute) => ({
-          id: createId(),
+          id: nanoid(),
           attribute: attribute,
           userId: ctx.userId,
         }))

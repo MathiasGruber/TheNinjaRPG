@@ -1,6 +1,6 @@
 import { publicState, allState } from "./types";
 import { getPower } from "./tags";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, or, and, sql, gt, isNotNull } from "drizzle-orm";
 import { userData, battle } from "../../../drizzle/schema";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
@@ -472,7 +472,7 @@ export const initiateBattle = async (
     }
 
     // Create combat entry
-    const battleId = createId();
+    const battleId = nanoid();
     await tx.insert(battle).values({
       id: battleId,
       battleType: battleType,

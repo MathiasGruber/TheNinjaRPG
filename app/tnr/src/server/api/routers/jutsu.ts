@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, sql, and } from "drizzle-orm";
 import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/schema";
@@ -78,7 +78,7 @@ export const jutsuRouter = createTRPCRouter({
             );
         } else {
           return await tx.insert(userJutsu).values({
-            id: createId(),
+            id: nanoid(),
             userId: ctx.userId,
             jutsuId: input.jutsuId,
             finishTraining: new Date(Date.now() + trainTime),
