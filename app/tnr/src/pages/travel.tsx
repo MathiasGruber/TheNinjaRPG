@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
+import dynamic from "next/dynamic";
 import Loader from "../layout/Loader";
-import Map from "../layout/Map";
-import Sector from "../layout/Sector";
 import ContentBox from "../layout/ContentBox";
 import NavTabs from "../layout/NavTabs";
 import Modal from "../layout/Modal";
@@ -15,6 +14,9 @@ import { calcGlobalTravelTime } from "../libs/travel/controls";
 import { useRequiredUserData } from "../utils/UserContext";
 import type { NextPage } from "next";
 import type { GlobalTile, SectorPoint } from "../libs/travel/types";
+
+const Map = dynamic(() => import("../layout/Map"));
+const Sector = dynamic(() => import("../layout/Sector"));
 
 const Travel: NextPage = () => {
   // What is shown on this page

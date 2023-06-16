@@ -5,7 +5,7 @@ import { createTRPCContext } from "../../../server/api/trpc";
 import { appRouter } from "../../../server/api/root";
 
 export const config = {
-  runtime: "edge",
+  // runtime: "edge",
   regions: ["iad1"],
   memory: 3008,
   maxDuration: 10,
