@@ -1,5 +1,5 @@
 // import { DamageTag } from "../../src/libs/combat/types";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import type { UserData } from "../schema.ts";
 import { userData, jutsu, userJutsu } from "../schema.ts";
 import { eq, inArray } from "drizzle-orm";
@@ -74,7 +74,7 @@ const upsertAI = async (client: DrizzleClient, name: string, ai: AIdefinition) =
   await client.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
   await client.insert(userJutsu).values(
     jutsus.map((jutsu) => ({
-      id: createId(),
+      id: nanoid(),
       userId: ai.userId,
       jutsuId: jutsu.id,
       level: ai.level,

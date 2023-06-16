@@ -4,7 +4,7 @@ import { VisualTag, type Consequence } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive } from "./util";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
@@ -52,7 +52,7 @@ export const realizeTag = <T extends BattleEffect>(
   if ("power" in tag) {
     tag.power = tag.power;
   }
-  tag.id = createId();
+  tag.id = nanoid();
   tag.createdAt = Date.now();
   tag.creatorId = user.userId;
   tag.targetType = "user";
@@ -77,9 +77,9 @@ const getVisual = (
       appearAnimation: animation,
       createdAt: Date.now(),
     }),
-    id: createId(),
+    id: nanoid(),
     createdAt: Date.now(),
-    creatorId: createId(),
+    creatorId: nanoid(),
     level: 0,
     isNew: true,
     longitude,

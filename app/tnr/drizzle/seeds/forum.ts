@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { forumBoard } from "../schema.ts";
 import { eq } from "drizzle-orm";
 import type { DrizzleClient } from "../../src/server/db.ts";
@@ -75,7 +75,7 @@ const upsertBoard = async (
     await client.update(forumBoard).set(board).where(eq(forumBoard.name, board.name));
   } else {
     await client.insert(forumBoard).values({
-      id: createId(),
+      id: nanoid(),
       ...board,
     });
   }

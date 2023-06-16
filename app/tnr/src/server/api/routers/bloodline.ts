@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { eq, gte, and } from "drizzle-orm";
 import { LetterRanks } from "../../../../drizzle/schema";
 import { bloodline, bloodlineRolls, userData } from "../../../../drizzle/schema";
@@ -82,7 +82,7 @@ export const bloodlineRouter = createTRPCRouter({
             .set({ bloodlineId: randomBloodline.id })
             .where(eq(userData.userId, ctx.userId));
           await tx.insert(bloodlineRolls).values({
-            id: createId(),
+            id: nanoid(),
             userId: ctx.userId,
             bloodlineId: randomBloodline.id,
           });
@@ -90,7 +90,7 @@ export const bloodlineRouter = createTRPCRouter({
       }
     } else {
       await ctx.drizzle.insert(bloodlineRolls).values({
-        id: createId(),
+        id: nanoid(),
         userId: ctx.userId,
       });
     }

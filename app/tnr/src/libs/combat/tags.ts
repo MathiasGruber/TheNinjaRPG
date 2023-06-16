@@ -1,7 +1,7 @@
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { shouldApplyEffectTimes } from "./util";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -243,7 +243,7 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
     user.speed = user.speed * perc;
     usersState.push({
       ...user,
-      userId: createId(),
+      userId: nanoid(),
       longitude: effect.longitude,
       latitude: effect.latitude,
       isOriginal: false,

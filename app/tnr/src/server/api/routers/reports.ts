@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { eq, or, and, sql, gte, ne, ilike, notInArray, inArray } from "drizzle-orm";
 import { reportLog } from "../../../../drizzle/schema";
@@ -108,7 +108,7 @@ export const reportsRouter = createTRPCRouter({
       await getInfraction(input.system).then((report) => {
         if (report) {
           return ctx.drizzle.insert(userReport).values({
-            id: createId(),
+            id: nanoid(),
             reporterUserId: ctx.userId,
             reportedUserId: input.reported_userId,
             system: input.system,
@@ -152,7 +152,7 @@ export const reportsRouter = createTRPCRouter({
           })
           .where(eq(userReport.id, input.object_id));
         await tx.insert(userReportComment).values({
-          id: createId(),
+          id: nanoid(),
           userId: ctx.userId,
           reportId: input.object_id,
           content: sanitize(input.comment),
@@ -175,7 +175,7 @@ export const reportsRouter = createTRPCRouter({
           .set({ status: "BAN_ESCALATED" })
           .where(eq(userReport.id, input.object_id));
         await tx.insert(userReportComment).values({
-          id: createId(),
+          id: nanoid(),
           userId: ctx.userId,
           reportId: input.object_id,
           content: sanitize(input.comment),
@@ -216,7 +216,7 @@ export const reportsRouter = createTRPCRouter({
           })
           .where(eq(userReport.id, report.id));
         await tx.insert(userReportComment).values({
-          id: createId(),
+          id: nanoid(),
           userId: ctx.userId,
           reportId: report.id,
           content: sanitize(input.comment),
@@ -231,7 +231,7 @@ export const reportsRouter = createTRPCRouter({
       if (canChangeAvatar(user)) {
         void updateAvatar(ctx.drizzle, user);
         await ctx.drizzle.insert(reportLog).values({
-          id: createId(),
+          id: nanoid(),
           staffUserId: ctx.userId,
           action: "AVATAR_CHANGE",
           targetUserId: input.userId,

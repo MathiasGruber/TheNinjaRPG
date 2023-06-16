@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { village, villageStructure, conversation } from "../schema.ts";
 import { userData, userAttribute } from "../schema.ts";
 import { eq, and } from "drizzle-orm";
@@ -49,7 +49,7 @@ export const seedVillages = async (client: DrizzleClient) => {
     elderData: typeof elders[number] | undefined
   ) => {
     // Create Village
-    let villageId = createId();
+    let villageId = nanoid();
     const curVillage = await client.query.village.findFirst({
       where: eq(village.name, villageData.name),
     });
@@ -83,12 +83,12 @@ export const seedVillages = async (client: DrizzleClient) => {
       } else {
         await client
           .insert(villageStructure)
-          .values({ id: createId(), ...building, villageId: villageId });
+          .values({ id: nanoid(), ...building, villageId: villageId });
       }
     });
     // Village elder
     if (elderData) {
-      let elderId = createId();
+      let elderId = nanoid();
       const curElder = await client.query.userData.findFirst({
         where: eq(userData.username, elderData.username),
       });
@@ -107,7 +107,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       await client.delete(userAttribute).where(eq(userAttribute.userId, elderId));
       elderData.attributes.map(async (attribute) => {
         await client.insert(userAttribute).values({
-          id: createId(),
+          id: nanoid(),
           userId: elderId,
           attribute,
         });
@@ -120,7 +120,7 @@ export const seedVillages = async (client: DrizzleClient) => {
     // });
     // if (!curConversation) {
     //   await client.insert(conversation).values({
-    //     id: createId(),
+    //     id: nanoid(),
     //     title: villageData.name,
     //   });
     // }
@@ -134,7 +134,7 @@ export const seedVillages = async (client: DrizzleClient) => {
   });
   if (!curGlobalConversation) {
     await client.insert(conversation).values({
-      id: createId(),
+      id: nanoid(),
       title: "Global",
     });
   }

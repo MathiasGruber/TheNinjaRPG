@@ -1,5 +1,5 @@
 import { type NextApiRequest, type NextApiResponse } from "next";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import { paypalWebhookMessage } from "../../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -46,7 +46,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         break;
     }
     await ctx.drizzle.insert(paypalWebhookMessage).values({
-      id: createId(),
+      id: nanoid(),
       rawData: body,
       eventType: body.event_type,
       handled: handled ? 1 : 0,

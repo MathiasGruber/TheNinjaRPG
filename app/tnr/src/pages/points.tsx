@@ -10,7 +10,7 @@ import {
 } from "@paypal/react-paypal-js";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 
 import SliderField from "../layout/SliderField";
 import ContentBox from "../layout/ContentBox";
@@ -91,7 +91,7 @@ const ReputationStore = (props: { currency: string }) => {
   const [{ isResolved }] = usePayPalScriptReducer();
   const [amount, setAmount] = useState(0);
   const maxUsers = 1;
-  let invoiceId = createId();
+  let invoiceId = nanoid();
 
   const buyReps = api.paypal.resolveOrder.useMutation({
     onSuccess: () => {
@@ -173,7 +173,7 @@ const ReputationStore = (props: { currency: string }) => {
             });
           }}
           onApprove={(data, actions) => {
-            invoiceId = createId();
+            invoiceId = nanoid();
             if (actions.order) {
               return actions.order.capture().then((details) => {
                 buyReps.mutate({ orderId: details.id });

@@ -6,7 +6,7 @@ import { eq, sql, asc, desc } from "drizzle-orm";
 import { forumBoardSchema } from "../../../validators/forum";
 import { canModerate } from "../../../validators/forum";
 import { fetchUser } from "./profile";
-import { createId } from "@paralleldrive/cuid2";
+import { nanoid } from "nanoid";
 import type { DrizzleClient } from "../../db";
 
 export const forumRouter = createTRPCRouter({
@@ -56,7 +56,7 @@ export const forumRouter = createTRPCRouter({
       }
       const board = await fetchBoard(ctx.drizzle, input.board_id);
       return await ctx.drizzle.transaction(async (tx) => {
-        const threadId = createId();
+        const threadId = nanoid();
         await tx.insert(forumThread).values({
           id: threadId,
           title: input.title,
@@ -64,7 +64,7 @@ export const forumRouter = createTRPCRouter({
           userId: ctx.userId,
         });
         await tx.insert(forumPost).values({
-          id: createId(),
+          id: nanoid(),
           content: input.content,
           threadId: threadId,
           userId: ctx.userId,
