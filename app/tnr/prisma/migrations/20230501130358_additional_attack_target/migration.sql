@@ -1,5 +1,0 @@
--- AlterTable
-ALTER TABLE `Item` MODIFY `target` ENUM('SELF', 'OPPONENT', 'CHARACTER', 'GROUND') NOT NULL;
-
--- AlterTable
-ALTER TABLE `Jutsu` MODIFY `target` ENUM('SELF', 'OPPONENT', 'CHARACTER', 'GROUND') NOT NULL;

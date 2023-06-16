@@ -69,13 +69,11 @@ export const bugsRouter = createTRPCRouter({
   }),
   // Delete a bug report
   delete: protectedProcedure
-    .input(z.object({ bugReportId: z.string().cuid() }))
+    .input(z.object({ bugId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.role === "ADMIN") {
-        return await ctx.drizzle
-          .delete(bugReport)
-          .where(eq(bugReport.id, input.bugReportId));
+        return await ctx.drizzle.delete(bugReport).where(eq(bugReport.id, input.bugId));
       } else {
         throw serverError("UNAUTHORIZED", "Only admins can delete bugs");
       }

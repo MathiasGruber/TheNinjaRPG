@@ -354,7 +354,9 @@ export const forumBoard = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     nPosts: int("nPosts").default(0).notNull(),
     nThreads: int("nThreads").default(0).notNull(),
   },
@@ -462,7 +464,9 @@ export const item = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     effects: json("effects").notNull(),
     itemType: mysqlEnum("itemType", ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", ItemRarities).notNull(),
@@ -472,14 +476,14 @@ export const item = mysqlTable(
     canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
     target: mysqlEnum("target", AttackTargets).notNull(),
-    chakraCostPerc: double("chakraCostPerc").notNull(),
     image: varchar("image", { length: 191 }).notNull(),
-    staminaCostPerc: double("staminaCostPerc").notNull(),
     destroyOnUse: tinyint("destroyOnUse").default(0).notNull(),
     range: int("range").default(0).notNull(),
     method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
+    chakraCostPerc: double("chakraCostPerc").default(0).notNull(),
+    staminaCostPerc: double("staminaCostPerc").default(0).notNull(),
     actionCostPerc: double("actionCostPerc").default(60).notNull(),
-    healthCostPerc: double("healthCostPerc").notNull(),
+    healthCostPerc: double("healthCostPerc").default(0).notNull(),
     battleDescription: text("battleDescription")
       .default(sql`('')`)
       .notNull(),
@@ -505,7 +509,9 @@ export const jutsu = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     effects: json("effects").notNull(),
     target: mysqlEnum("target", AttackTargets).notNull(),
     range: int("range").notNull(),
@@ -516,13 +522,13 @@ export const jutsu = mysqlTable(
     image: varchar("image", { length: 191 }).notNull(),
     jutsuWeapon: mysqlEnum("jutsuWeapon", WeaponTypes),
     battleDescription: text("battleDescription").notNull(),
-    chakraCostPerc: double("chakraCostPerc").default(0.05).notNull(),
-    healthCostPerc: double("healthCostPerc").notNull(),
     jutsuRank: mysqlEnum("jutsuRank", LetterRanks).default("D").notNull(),
-    staminaCostPerc: double("staminaCostPerc").notNull(),
+    actionCostPerc: double("actionCostPerc").default(80).notNull(),
+    staminaCostPerc: double("staminaCostPerc").default(0.05).notNull(),
+    chakraCostPerc: double("chakraCostPerc").default(0.05).notNull(),
+    healthCostPerc: double("healthCostPerc").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
-    actionCostPerc: double("actionCostPerc").default(80).notNull(),
   },
   (table) => {
     return {

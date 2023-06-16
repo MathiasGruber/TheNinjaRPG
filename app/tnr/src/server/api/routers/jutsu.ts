@@ -121,6 +121,3 @@ export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => 
     where: eq(userJutsu.userId, userId),
   });
 };
-
-type RouterOutput = inferRouterOutputs<typeof jutsuRouter>;
-export type JutsuWithRelations = RouterOutput["getUser"]["userData"];

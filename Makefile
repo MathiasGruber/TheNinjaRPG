@@ -57,6 +57,6 @@ yarn: # Run yarn command in app container
 
 .PHONY: seed
 seed: # Seed database
-	@echo "${YELLOW}Run prisma db seed ${RESET}"
-	docker exec -it tnr_app yarn prisma db seed
+	@echo "${YELLOW}Run drizzle db seed ${RESET}"
+	docker exec -it tnr_app yarn seed
 	

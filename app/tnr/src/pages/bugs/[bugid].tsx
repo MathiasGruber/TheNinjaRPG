@@ -57,8 +57,8 @@ const BugReport: NextPage = () => {
                   <div className="grow"></div>
                   <Button
                     id="submit_resolve"
-                    label={bug.is_resolved ? "Unresolve" : "Resolve"}
-                    color={bug.is_resolved ? "red" : "green"}
+                    label={bug.isResolved ? "Unresolve" : "Resolve"}
+                    color={bug.isResolved ? "red" : "green"}
                     image={<CheckIcon className="mr-1 h-5 w-5" />}
                     onClick={() => {
                       resolveComment.mutate({ id: bug.id });

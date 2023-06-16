@@ -123,7 +123,7 @@ export const itemRouter = createTRPCRouter({
           if (equipped) {
             await tx
               .update(userItem)
-              .set({ equipped: null })
+              .set({ equipped: "NONE" })
               .where(eq(userItem.id, equipped.id));
           }
           return await tx
@@ -133,7 +133,7 @@ export const itemRouter = createTRPCRouter({
         } else {
           return await tx
             .update(userItem)
-            .set({ equipped: null })
+            .set({ equipped: "NONE" })
             .where(eq(userItem.id, useritem.id));
         }
       });
@@ -173,7 +173,7 @@ export const itemRouter = createTRPCRouter({
           userId: uid,
           itemId: iid,
           quantity: input.stack,
-          equipped: null,
+          equipped: "NONE",
         });
         const result = await tx
           .update(userData)
