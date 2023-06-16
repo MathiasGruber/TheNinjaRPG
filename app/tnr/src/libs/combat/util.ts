@@ -7,7 +7,7 @@ import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS, COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { realizeTag } from "../../libs/combat/process";
 import { BarrierTag } from "../../libs/combat/types";
-import { combatAssets } from "../../libs/travel/biome";
+import { combatAssets } from "../../libs/travel/constants";
 import { getServerPusher } from "../../libs/pusher";
 import type { CombatResult } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
