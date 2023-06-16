@@ -6,6 +6,8 @@ import { z } from "zod";
  * This way you can ensure the app isn't built with invalid env vars.
  */
 export const serverSchema = z.object({
+  PUSHER_APP_ID: z.string(),
+  PUSHER_APP_SECRET: z.string(),
   DRIZZLE_DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   AWS_S3_BUCKET_NAME: z.string(),
@@ -18,6 +20,8 @@ export const serverSchema = z.object({
  * @type {{ [k in keyof z.infer<typeof serverSchema>]: z.infer<typeof serverSchema>[k] | undefined }}
  */
 export const serverEnv = {
+  PUSHER_APP_ID: process.env.PUSHER_APP_ID,
+  PUSHER_APP_SECRET: process.env.PUSHER_APP_SECRET,
   DRIZZLE_DATABASE_URL: process.env.DRIZZLE_DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
@@ -30,7 +34,8 @@ export const serverEnv = {
  * To expose them to the client, prefix them with `NEXT_PUBLIC_`.
  */
 export const clientSchema = z.object({
-  // NEXT_PUBLIC_CLIENTVAR: z.string(),
+  NEXT_PUBLIC_PUSHER_APP_KEY: z.string(),
+  NEXT_PUBLIC_PUSHER_APP_CLUSTER: z.string(),
 });
 
 /**
@@ -40,5 +45,6 @@ export const clientSchema = z.object({
  * @type {{ [k in keyof z.infer<typeof clientSchema>]: z.infer<typeof clientSchema>[k] | undefined }}
  */
 export const clientEnv = {
-  // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
+  NEXT_PUBLIC_PUSHER_APP_KEY: process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
+  NEXT_PUBLIC_PUSHER_APP_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
 };
