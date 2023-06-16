@@ -6,7 +6,7 @@ import { z } from "zod";
  * This way you can ensure the app isn't built with invalid env vars.
  */
 export const serverSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  DRIZZLE_DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   AWS_S3_BUCKET_NAME: z.string(),
   AWS_REGION: z.string(),
@@ -18,7 +18,7 @@ export const serverSchema = z.object({
  * @type {{ [k in keyof z.infer<typeof serverSchema>]: z.infer<typeof serverSchema>[k] | undefined }}
  */
 export const serverEnv = {
-  DATABASE_URL: process.env.DATABASE_URL,
+  DRIZZLE_DATABASE_URL: process.env.DRIZZLE_DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
   AWS_REGION: process.env.AWS_REGION,
