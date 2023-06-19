@@ -10,11 +10,13 @@ interface ContentBoxProps {
   topRightCorntentBreakpoint?: "sm" | "md" | "lg" | "xl" | "2xl";
   topRightContent?: React.ReactNode;
   padding?: boolean;
+  initialBreak?: boolean;
 }
 
 const ContentBox: React.FC<ContentBoxProps> = (props) => {
   return (
     <>
+      {props.initialBreak && <div className="h-4"></div>}
       <div className="sm:container">
         <div
           className={`flex ${

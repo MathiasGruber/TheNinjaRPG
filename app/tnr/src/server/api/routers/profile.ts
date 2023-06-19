@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, sql, inArray, and, or, ilike, desc } from "drizzle-orm";
+import { eq, sql, inArray, and, or, like, desc } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
@@ -13,7 +13,7 @@ import {
   userReportComment,
   forumPost,
   conversationComment,
-  usersInConversation,
+  user2conversation,
   userReport,
 } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
@@ -144,9 +144,9 @@ export const profileRouter = createTRPCRouter({
           federalStatus: true,
         },
         where: and(
-          ilike(userData.username, `%${input.username}%`),
+          like(userData.username, `%${input.username}%`),
           eq(userData.approvedTos, 1),
-          input.showYourself ? sql`` : sql`${userData.userId} != ${ctx.userId}`
+          ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`])
         ),
         limit: 5,
       });
@@ -213,7 +213,7 @@ export const profileRouter = createTRPCRouter({
       const users = await ctx.drizzle.query.userData.findMany({
         where:
           input.username !== undefined
-            ? ilike(userData.username, `%${input.username}%`)
+            ? like(userData.username, `%${input.username}%`)
             : sql``,
         columns: {
           userId: true,
@@ -266,8 +266,8 @@ export const profileRouter = createTRPCRouter({
         .delete(conversationComment)
         .where(eq(conversationComment.userId, ctx.userId));
       await tx
-        .delete(usersInConversation)
-        .where(eq(usersInConversation.userId, ctx.userId));
+        .delete(user2conversation)
+        .where(eq(user2conversation.userId, ctx.userId));
       await tx
         .delete(reportLog)
         .where(

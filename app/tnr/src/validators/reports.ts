@@ -11,7 +11,7 @@ export const systems = [
 
 export const userReportSchema = z.object({
   system: z.enum(systems),
-  system_id: z.string().cuid(),
+  system_id: z.string(),
   reported_userId: z.string(),
   reason: z.string().min(1).max(1000),
 });
@@ -20,7 +20,7 @@ export type UserReportSchema = z.infer<typeof userReportSchema>;
 
 export const reportCommentSchema = z.object({
   comment: z.string().min(10).max(1000),
-  object_id: z.string().cuid(),
+  object_id: z.string(),
   banTime: z.number().min(0).max(365),
 });
 

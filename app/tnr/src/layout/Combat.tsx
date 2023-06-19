@@ -91,7 +91,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     });
 
   // Data from the DB
-  const { data: userData, refetch: refetchUser, setBattle } = useRequiredUserData();
+  const { data: userData, pusher, refetch: refetchUser, setBattle } = useRequiredUserData();
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -153,6 +153,22 @@ const Combat: React.FC<CombatProps> = (props) => {
     battle.current = props.battleState.battle;
   }, [props]);
 
+  const battleId = battle.current?.id
+  useEffect(() => {
+    if(battleId && pusher){
+      console.log("SUBSCRIBE TO PUSHER in Combat")
+      const channel = pusher.subscribe(battleId);
+      channel.bind("event", (data: { version: number }) => {
+        if (battle.current?.version !== data.version && !result) {
+          refetchBattle();
+        }
+      });
+      return () => {
+        pusher.unsubscribe(battleId);
+      };
+    }    
+  }, [battleId])
+
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
       // Used for map size calculations
@@ -161,17 +177,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Map size
       const WIDTH = mountRef.current.getBoundingClientRect().width;
       const HEIGHT = WIDTH * backgroundLengthToWidth;
-
-      // Websocket connection
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-      });
-      const channel = pusher.subscribe(userData.battleId.toString());
-      channel.bind("event", (data: { version: number }) => {
-        if (battle.current?.version !== data.version && !result) {
-          refetchBattle();
-        }
-      });
 
       // Listeners
       mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
@@ -365,9 +370,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         mountRef.current?.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
-        if (userData.battleId) {
-          pusher.unsubscribe(userData.battleId.toString());
-        }
       };
     }
   }, []);

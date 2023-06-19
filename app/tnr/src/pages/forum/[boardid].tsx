@@ -63,17 +63,19 @@ const BugReport: NextPage = () => {
     resolver: zodResolver(forumBoardSchema),
   });
 
-  const createThread = api.forum.createThread.useMutation({
-    onSuccess: async () => {
-      await refetch();
-      reset();
-    },
-    onError: (error) => {
-      show_toast("Error on creating new thread", error.message, "error");
-    },
-  });
+  const { mutate: createThread, isLoading: load1 } = api.forum.createThread.useMutation(
+    {
+      onSuccess: async () => {
+        await refetch();
+        reset();
+      },
+      onError: (error) => {
+        show_toast("Error on creating new thread", error.message, "error");
+      },
+    }
+  );
 
-  const pinThread = api.forum.pinThread.useMutation({
+  const { mutate: pinThread, isLoading: load2 } = api.forum.pinThread.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -82,7 +84,7 @@ const BugReport: NextPage = () => {
     },
   });
 
-  const lockThread = api.forum.lockThread.useMutation({
+  const { mutate: lockThread, isLoading: load3 } = api.forum.lockThread.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -98,10 +100,13 @@ const BugReport: NextPage = () => {
   }, [board, setValue]);
 
   const onSubmit = handleSubmit((data) => {
-    createThread.mutate(data);
+    createThread(data);
   });
 
   if (!board) return <Loader explanation="Loading..."></Loader>;
+
+  const isLoading = load1 || load2 || load3;
+  const canEdit = userData && canModerate(userData);
 
   return (
     <ContentBox
@@ -109,49 +114,58 @@ const BugReport: NextPage = () => {
       back_href="/forum"
       subtitle={board.name}
       topRightContent={
-        userData &&
-        !userData.isBanned && (
-          <div className="flex flex-row items-center">
-            <Confirm
-              title="Create a new thread"
-              proceed_label="Submit"
-              button={<Button id="create" label="New Thread" />}
-              isValid={isValid}
-              onAccept={onSubmit}
-            >
-              <InputField
-                id="title"
-                label="Title for your thread"
-                register={register}
-                error={errors.title?.message}
-              />
-              <RichInput
-                id="content"
-                label="Contents of your thread"
-                height="300"
-                placeholder=""
-                control={control}
-                error={errors.content?.message}
-              />
-            </Confirm>
-          </div>
-        )
+        <>
+          {isLoading && <Loader></Loader>}
+          {userData && !userData.isBanned && !isLoading && (
+            <div className="flex flex-row items-center">
+              <Confirm
+                title="Create a new thread"
+                proceed_label="Submit"
+                button={<Button id="create" label="New Thread" />}
+                isValid={isValid}
+                onAccept={onSubmit}
+              >
+                <InputField
+                  id="title"
+                  label="Title for your thread"
+                  register={register}
+                  error={errors.title?.message}
+                />
+                <RichInput
+                  id="content"
+                  label="Contents of your thread"
+                  height="300"
+                  placeholder=""
+                  control={control}
+                  error={errors.content?.message}
+                />
+              </Confirm>
+            </div>
+          )}
+        </>
       }
     >
+      {allThreads?.length === 0 && <div>No threads found</div>}
       {allThreads &&
         allThreads.map((thread, i) => {
           // Icons, which have to be clickable for moderators+, but just shown otherwise
           const MyBookmarkIcon = (
             <BookmarkIcon
               className={`mr-2 h-6 w-6 ${
-                thread.isPinned ? "fill-orange-500" : "hover:fill-orange-500"
+                thread.isPinned
+                  ? "fill-orange-500"
+                  : canEdit
+                  ? "hover:fill-orange-500"
+                  : ""
               }`}
             />
           );
           const MyLockIcon = thread.isLocked ? (
             <LockClosedIcon className="h-6 w-6 fill-orange-500" />
           ) : (
-            <LockOpenIcon className="h-6 w-6 hover:fill-orange-500" />
+            <LockOpenIcon
+              className={`h-6 w-6 ${canEdit ? "hover:fill-orange-500" : ""}`}
+            />
           );
           // Dynamic Names
           const pinAction = thread.isPinned ? "unpin" : "pin";
@@ -193,7 +207,7 @@ const BugReport: NextPage = () => {
                               button={MyBookmarkIcon}
                               onAccept={(e) => {
                                 e.preventDefault();
-                                pinThread.mutate({
+                                pinThread({
                                   thread_id: thread.id,
                                   status: !thread.isPinned,
                                 });
@@ -206,7 +220,7 @@ const BugReport: NextPage = () => {
                               button={MyLockIcon}
                               onAccept={(e) => {
                                 e.preventDefault();
-                                lockThread.mutate({
+                                lockThread({
                                   thread_id: thread.id,
                                   status: !thread.isLocked,
                                 });

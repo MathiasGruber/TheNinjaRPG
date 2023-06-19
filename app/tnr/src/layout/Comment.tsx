@@ -97,6 +97,7 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
   const deleteComment = api.comments.deleteForumComment.useMutation({
     onSuccess: () => {
       props.refetchComments();
+      show_toast("Deletion", "Comment was deleted", "info");
       setEditing(false);
     },
     onError: (error) => {

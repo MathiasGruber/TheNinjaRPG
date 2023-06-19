@@ -37,13 +37,13 @@ export const bloodlineRouter = createTRPCRouter({
     }),
   // Get a specific bloodline
   getBloodline: publicProcedure
-    .input(z.object({ bloodlineId: z.string().cuid() }))
+    .input(z.object({ bloodlineId: z.string() }))
     .query(async ({ ctx, input }) => {
       return await fetchBloodline(ctx.drizzle, input.bloodlineId);
     }),
   // Get bloodline roll of a specific user
   getRolls: protectedProcedure
-    .input(z.object({ currentBloodlineId: z.string().cuid().optional().nullable() }))
+    .input(z.object({ currentBloodlineId: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
       return await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
     }),
@@ -128,7 +128,7 @@ export const bloodlineRouter = createTRPCRouter({
   }),
   // Purchase a bloodline for session user
   purchaseBloodline: protectedProcedure
-    .input(z.object({ bloodlineId: z.string().cuid() }))
+    .input(z.object({ bloodlineId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const roll = await fetchBloodlineRoll(ctx.drizzle, ctx.userId);

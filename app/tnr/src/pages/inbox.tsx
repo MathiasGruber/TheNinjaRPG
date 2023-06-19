@@ -138,21 +138,24 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                   onClick={() => setSelectedConvo(convo.id)}
                 >
                   {convo.users.length > 0 &&
-                    convo.users.map((user, i) => (
-                      <div
-                        key={user.userId}
-                        className={`absolute w-14`}
-                        style={{ left: `${i * 2}rem` }}
-                      >
-                        <AvatarImage
-                          href={user.avatar}
-                          userId={user.userId}
-                          alt={user.username}
-                          size={50}
-                          priority
-                        />
-                      </div>
-                    ))}
+                    convo.users.map((relation, i) => {
+                      const user = relation.userData;
+                      return (
+                        <div
+                          key={user.userId}
+                          className={`absolute w-14`}
+                          style={{ left: `${i * 2}rem` }}
+                        >
+                          <AvatarImage
+                            href={user.avatar}
+                            userId={user.userId}
+                            alt={user.username}
+                            size={50}
+                            priority
+                          />
+                        </div>
+                      );
+                    })}
                   <span
                     className="... truncate text-sm"
                     style={{

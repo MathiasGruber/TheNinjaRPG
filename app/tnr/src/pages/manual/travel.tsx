@@ -26,8 +26,7 @@ const ManualTravel: NextPage = () => {
         viewing one of these sectors, you will see a {SECTOR_HEIGHT} times{" "}
         {SECTOR_WIDTH} hexagonal grid. You should think of this grid as a small section
         of that sector, in which your character can move, explore and interact with
-        other players, meaning that it only represents a smaller section of that actual
-        sector of the world.
+        other players.
         {villages && map && (
           <Map intersection={false} highlights={villages} hexasphere={map} />
         )}

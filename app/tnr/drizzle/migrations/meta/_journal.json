@@ -1,0 +1,13 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1687003442906,
+      "tag": "0000_groovy_sauron",
+      "breakpoints": false
+    }
+  ]
+}

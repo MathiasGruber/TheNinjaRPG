@@ -2,6 +2,7 @@
   "dependencies": {
     "@types/cli-progress": "^3.11.0",
     "drizzle-orm": "^0.26.5",
-    "mysql2": "^3.3.3"
+    "mysql2": "^3.3.3",
+    "prettier": "^2.8.8"
   }
 }

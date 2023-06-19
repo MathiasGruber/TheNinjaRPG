@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
 import Button from "../layout/Button";
+import Loader from "../layout/Loader";
 import InputField from "../layout/InputField";
 import SelectField from "../layout/SelectField";
 import ContentBox from "../layout/ContentBox";
@@ -66,7 +67,7 @@ const BugReport: NextPage = () => {
     resolver: zodResolver(bugreportSchema),
   });
 
-  const createReport = api.bugs.create.useMutation({
+  const { mutate: createReport, isLoading: load1 } = api.bugs.create.useMutation({
     onSuccess: async () => {
       await refetch();
       reset();
@@ -76,7 +77,7 @@ const BugReport: NextPage = () => {
     },
   });
 
-  const createVote = api.bugs.vote.useMutation({
+  const { mutate: createVote, isLoading: load2 } = api.bugs.vote.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -85,7 +86,7 @@ const BugReport: NextPage = () => {
     },
   });
 
-  const deleteReport = api.bugs.delete.useMutation({
+  const { mutate: deleteReport, isLoading: load3 } = api.bugs.delete.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -94,8 +95,10 @@ const BugReport: NextPage = () => {
     },
   });
 
+  const isLoading = load1 || load2 || load3;
+
   const onSubmit = handleSubmit((data) => {
-    createReport.mutate(data);
+    createReport(data);
   });
 
   return (
@@ -105,8 +108,9 @@ const BugReport: NextPage = () => {
       topRightContent={
         userData && (
           <div className="flex flex-row items-center">
-            <Toggle value={showActive} setShowActive={setShowActive} />
-            {!userData.isBanned && (
+            {isLoading && <Loader />}
+            {!isLoading && <Toggle value={showActive} setShowActive={setShowActive} />}
+            {!userData.isBanned && !isLoading && (
               <Confirm
                 title="Write a new bug report"
                 proceed_label="Submit"
@@ -171,7 +175,7 @@ const BugReport: NextPage = () => {
                         className="mr-1"
                         onClick={(e) => {
                           e.preventDefault();
-                          createVote.mutate({ bugId: bug.id, value: -1 });
+                          createVote({ bugId: bug.id, value: -1 });
                         }}
                       >
                         <HandThumbDownIcon
@@ -186,7 +190,7 @@ const BugReport: NextPage = () => {
                         className="mr-1"
                         onClick={(e) => {
                           e.preventDefault();
-                          createVote.mutate({ bugId: bug.id, value: 1 });
+                          createVote({ bugId: bug.id, value: 1 });
                         }}
                       >
                         <HandThumbUpIcon
@@ -220,7 +224,7 @@ const BugReport: NextPage = () => {
                           }
                           onAccept={(e) => {
                             e.preventDefault();
-                            deleteReport.mutate({ bugId: bug.id });
+                            deleteReport({ bugId: bug.id });
                           }}
                         >
                           You are about to delete a bug report. Are you sure? If the bug

@@ -20,7 +20,7 @@ export const forumRouter = createTRPCRouter({
   getThreads: publicProcedure
     .input(
       z.object({
-        board_id: z.string().cuid(),
+        board_id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
       })
@@ -50,36 +50,49 @@ export const forumRouter = createTRPCRouter({
   createThread: protectedProcedure
     .input(forumBoardSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned) {
-        throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const board = await fetchBoard(ctx.drizzle, input.board_id);
-      return await ctx.drizzle.transaction(async (tx) => {
-        const threadId = nanoid();
-        await tx.insert(forumThread).values({
-          id: threadId,
-          title: input.title,
-          boardId: board.id,
-          userId: ctx.userId,
-        });
-        await tx.insert(forumPost).values({
-          id: nanoid(),
-          content: input.content,
-          threadId: threadId,
-          userId: ctx.userId,
-        });
-        await tx
-          .update(forumBoard)
-          .set({ nThreads: sql`n_threads + 1` })
-          .where(eq(forumBoard.id, board.id));
-      });
+      return await ctx.drizzle.transaction(
+        async (tx) => {
+          const threadId = nanoid();
+          const [board, user] = await Promise.all([
+            await fetchBoard(tx, input.board_id),
+            await fetchUser(tx, ctx.userId),
+            await tx.insert(forumThread).values({
+              id: threadId,
+              title: input.title,
+              boardId: input.board_id,
+              userId: ctx.userId,
+            }),
+            await tx.insert(forumPost).values({
+              id: nanoid(),
+              content: input.content,
+              threadId: threadId,
+              userId: ctx.userId,
+            }),
+            await tx
+              .update(forumBoard)
+              .set({ nThreads: sql`nThreads + 1` })
+              .where(eq(forumBoard.id, input.board_id)),
+          ]);
+
+          if (user.isBanned) {
+            throw serverError("UNAUTHORIZED", "You are banned");
+          }
+          if (!board) {
+            throw serverError("UNAUTHORIZED", "Board does not exist");
+          }
+          return threadId;
+        },
+        {
+          isolationLevel: "read uncommitted",
+          accessMode: "read write",
+        }
+      );
     }),
   // Pin forum thread to be on top
   pinThread: protectedProcedure
     .input(
       z.object({
-        thread_id: z.string().cuid(),
+        thread_id: z.string(),
         status: z.boolean(),
       })
     )
@@ -97,7 +110,7 @@ export const forumRouter = createTRPCRouter({
   lockThread: protectedProcedure
     .input(
       z.object({
-        thread_id: z.string().cuid(),
+        thread_id: z.string(),
         status: z.boolean(),
       })
     )

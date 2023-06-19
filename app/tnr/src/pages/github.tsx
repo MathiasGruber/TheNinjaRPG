@@ -24,7 +24,7 @@ const GitHub: NextPage = () => {
   );
   return (
     <ContentBox title="Contribute to TNR" subtitle="Learn to code and improve TNR">
-      <h2 className="mt-3 text-2xl">Coding is Awesome</h2>
+      <h2 className="mt-3 text-2xl">Programming is Awesome</h2>
       <p>
         Coding is a skill that has become increasingly important in today&rsquo;s
         digital age. It involves using computer programming languages to create
@@ -32,14 +32,15 @@ const GitHub: NextPage = () => {
         simplify various tasks. With coding, you can bring to life anything you can
         imagine and make a real impact on the world.
       </p>
-      <h2 className="mt-3 text-2xl">An Opportunity</h2>
-      <p className="my-2">
-        Personally, the countless hours I spent coding TNR as a youth have been
-        extremely beneficial both personally and in my professional life, rapidly
-        propelling my career faster than would otherwise have been possible. With this
-        latest version of TNR, I hope that by enabling others to contribute to the
-        codebase, we can inspire more people, young and old, to learn to code, while
-        also creating an inclusive, supportive and awesome development community.
+      <p className="mt-3">
+        <i>
+          &quot;Personally, the countless hours I spent coding TNR as a youth have been
+          extremely beneficial both personally and in my professional life. With this
+          latest version of TNR, I hope that by enabling others to contribute to the
+          codebase, we can inspire more people, young and old, to learn to code, while
+          also creating an inclusive, supportive and awesome developmer community&quot;.
+          ~Terr
+        </i>
       </p>
       <h2 className="mt-3 text-2xl">How to Contribute?</h2>
       <p>

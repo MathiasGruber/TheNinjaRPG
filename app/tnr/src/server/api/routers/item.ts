@@ -30,8 +30,8 @@ export const itemRouter = createTRPCRouter({
         offset: skip,
         limit: input.limit,
         where: and(
-          input.itemRarity ? eq(item.rarity, input.itemRarity) : sql``,
-          input.itemType ? eq(item.itemType, input.itemType) : sql``
+          ...(input.itemRarity ? [eq(item.rarity, input.itemRarity)] : []),
+          ...(input.itemType ? [eq(item.itemType, input.itemType)] : [])
         ),
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
@@ -58,7 +58,7 @@ export const itemRouter = createTRPCRouter({
   }),
   // Merge item stacks
   mergeStacks: protectedProcedure
-    .input(z.object({ itemId: z.string().cuid() }))
+    .input(z.object({ itemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const info = await ctx.drizzle.query.item.findFirst({
         where: eq(item.id, input.itemId),
@@ -90,7 +90,7 @@ export const itemRouter = createTRPCRouter({
     }),
   // Drop user item
   dropUserItem: protectedProcedure
-    .input(z.object({ userItemId: z.string().cuid() }))
+    .input(z.object({ userItemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const useritem = await fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId);
       if (useritem) {
@@ -105,7 +105,7 @@ export const itemRouter = createTRPCRouter({
   toggleEquip: protectedProcedure
     .input(
       z.object({
-        userItemId: z.string().cuid(),
+        userItemId: z.string(),
         slot: z.enum(ItemSlots),
       })
     )
@@ -142,7 +142,7 @@ export const itemRouter = createTRPCRouter({
   buy: protectedProcedure
     .input(
       z.object({
-        itemId: z.string().cuid(),
+        itemId: z.string(),
         stack: z.number().min(1).max(50),
       })
     )

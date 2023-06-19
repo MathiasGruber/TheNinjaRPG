@@ -8,7 +8,7 @@ interface PaginationProps {
 
 const Pagination: React.FC<PaginationProps> = (props) => {
   return (
-    <div className="flex flex-row justify-center">
+    <div className="my-4 flex flex-row justify-center">
       <nav aria-label="Page navigation example">
         <ul className="inline-flex -space-x-px">
           <li>

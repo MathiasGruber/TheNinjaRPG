@@ -2,6 +2,7 @@ import { createContext, useEffect } from "react";
 import { useContext } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
+import type Pusher from "pusher-js";
 import type { UserWithRelations } from "../server/api/routers/profile";
 import type { UserEffect, GroundEffect } from "../libs/combat/types";
 import type { BattleType } from "../../drizzle/schema";
@@ -30,12 +31,14 @@ export const UserContext = createContext<{
   data: UserWithRelations;
   battle: UserBattle | undefined;
   status: string;
+  pusher: Pusher | undefined;
   setBattle: React.Dispatch<React.SetStateAction<UserBattle | undefined>>;
   refetch: (options?: any) => Promise<any> | void;
 }>({
   data: undefined,
   battle: undefined,
   status: "unknown",
+  pusher: undefined,
   setBattle: () => undefined,
   refetch: () => undefined,
 });
@@ -49,11 +52,11 @@ export const useUserData = () => {
 export const useRequiredUserData = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { data, status, refetch, battle, setBattle } = useUserData();
+  const { data, status, pusher, battle, refetch, setBattle } = useUserData();
   useEffect(() => {
     if (data === null || (!isSignedIn && isLoaded)) {
       void router.push("/");
     }
   }, [router, data, isLoaded, isSignedIn]);
-  return { data, status, refetch, battle, setBattle };
+  return { data, status, pusher, battle, refetch, setBattle };
 };

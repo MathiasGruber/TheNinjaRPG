@@ -12,7 +12,7 @@ export interface PostProps {
   image?: React.ReactNode;
   title?: string;
   color?: "default" | "green" | "red" | "blue";
-  children: React.ReactNode;
+  children: any;
   options?: React.ReactNode;
   align_middle?: boolean;
   hover_effect?: boolean;

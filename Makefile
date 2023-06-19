@@ -40,6 +40,11 @@ enter: # Connect to app container.
 	@echo "${YELLOW}Enter into app docker container${RESET}"
 	docker exec -it tnr_app bash
 
+.PHONY: cloc
+cloc: # Count lines of code
+	@echo "${YELLOW}Count lines of code${RESET}"
+	cloc --exclude-dir=node_modules --exclude-ext=csv .
+
 
 --------------MIGRATIONS----------------: # -------------------------------------------------------
 

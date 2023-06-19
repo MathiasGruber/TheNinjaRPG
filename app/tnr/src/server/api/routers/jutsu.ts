@@ -41,7 +41,7 @@ export const jutsuRouter = createTRPCRouter({
   }),
   // Start training a given jutsu
   startTraining: protectedProcedure
-    .input(z.object({ jutsuId: z.string().cuid() }))
+    .input(z.object({ jutsuId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const info = await ctx.drizzle.query.jutsu.findFirst({
@@ -88,7 +88,7 @@ export const jutsuRouter = createTRPCRouter({
     }),
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
-    .input(z.object({ userJutsuId: z.string().cuid() }))
+    .input(z.object({ userJutsuId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const user = await fetchUser(ctx.drizzle, ctx.userId);

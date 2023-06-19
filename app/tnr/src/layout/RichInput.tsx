@@ -10,12 +10,13 @@ interface RichInputProps {
   height: string;
   placeholder?: string;
   error?: string;
+  disabled?: boolean;
   control: Control<any>;
 }
 
 const RichInput: React.FC<RichInputProps> = (props) => {
   return (
-    <div className="m-1">
+    <div className={`m-1 ${props.disabled ? "opacity-50" : ""}`}>
       <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
         {props.label}
       </label>
@@ -32,6 +33,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             onInit={(evt, editor) => {
               ref(editor);
             }}
+            disabled={props.disabled}
             onEditorChange={onChange}
             initialValue={props.placeholder}
             init={{

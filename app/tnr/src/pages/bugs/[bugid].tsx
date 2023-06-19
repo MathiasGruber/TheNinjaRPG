@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
-
 import ReactHtmlParser from "react-html-parser";
 import { CheckIcon } from "@heroicons/react/24/solid";
-
+import Loader from "../../layout/Loader";
 import Button from "../../layout/Button";
 import ContentBox from "../../layout/ContentBox";
 import Post from "../../layout/Post";
-
 import Conversation from "../../layout/Conversation";
-
 import { api } from "../../utils/api";
 import { useUserData } from "../../utils/UserContext";
 import { show_toast } from "../../libs/toast";
@@ -26,7 +23,7 @@ const BugReport: NextPage = () => {
     { enabled: bug_id !== undefined }
   );
 
-  const resolveComment = api.bugs.resolve.useMutation({
+  const { mutate: resolveComment, isLoading } = api.bugs.resolve.useMutation({
     onSuccess: async () => {
       await refetchBug();
       setConversationKey((prev) => prev + 1);
@@ -55,25 +52,30 @@ const BugReport: NextPage = () => {
               {userData?.role === "ADMIN" && (
                 <>
                   <div className="grow"></div>
-                  <Button
-                    id="submit_resolve"
-                    label={bug.isResolved ? "Unresolve" : "Resolve"}
-                    color={bug.isResolved ? "red" : "green"}
-                    image={<CheckIcon className="mr-1 h-5 w-5" />}
-                    onClick={() => {
-                      resolveComment.mutate({ id: bug.id });
-                    }}
-                  />
+                  {!isLoading && (
+                    <Button
+                      id="submit_resolve"
+                      label={bug.isResolved ? "Unresolve" : "Resolve"}
+                      color={bug.isResolved ? "red" : "green"}
+                      image={<CheckIcon className="mr-1 h-5 w-5" />}
+                      onClick={() => {
+                        resolveComment({ id: bug.id });
+                      }}
+                    />
+                  )}
                 </>
               )}
             </Post>
           </ContentBox>
-          <Conversation
-            refreshKey={conversationKey}
-            convo_id={bug.conversationId}
-            title={"Bug Discussion"}
-            subtitle="Related information & discussion"
-          />
+          {isLoading && <Loader />}
+          {!isLoading && (
+            <Conversation
+              refreshKey={conversationKey}
+              convo_id={bug.conversationId}
+              title={"Bug Discussion"}
+              subtitle="Related information & discussion"
+            />
+          )}
         </>
       )}
     </>

@@ -38,6 +38,7 @@ const Reports: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const allReports = reports?.pages.map((page) => page.data).flat();
@@ -70,37 +71,39 @@ const Reports: NextPage = () => {
       {isFetching ? (
         <Loader explanation="Fetching Results..." />
       ) : (
-        allReports &&
-        allReports.flatMap((entry, i) => {
-          const report = entry.UserReport;
-          const reportedUser = entry.reportedUser;
-          return (
-            reportedUser && (
-              <div
-                key={report.id}
-                ref={i === allReports.length - 1 ? setLastElement : null}
-              >
-                <Link href={"/reports/" + report.id}>
-                  <Post
-                    title={reportCommentExplain(report.status)}
-                    color={reportCommentColor(report.status)}
-                    user={reportedUser}
-                    hover_effect={true}
-                  >
-                    {report.banEnd && (
-                      <div className="mb-3">
-                        <b>Ban countdown:</b> <Countdown targetDate={report.banEnd} />
-                        <hr />
-                      </div>
-                    )}
-                    <ParsedReportJson report={report} />
-                    <b>Report by</b> {reportedUser.username}
-                  </Post>
-                </Link>
-              </div>
-            )
-          );
-        })
+        <div>
+          {allReports?.length === 0 && <p>No reports found</p>}
+          {allReports?.flatMap((entry, i) => {
+            const report = entry.UserReport;
+            const reportedUser = entry.reportedUser;
+            return (
+              reportedUser && (
+                <div
+                  key={report.id}
+                  ref={i === allReports.length - 1 ? setLastElement : null}
+                >
+                  <Link href={"/reports/" + report.id}>
+                    <Post
+                      title={reportCommentExplain(report.status)}
+                      color={reportCommentColor(report.status)}
+                      user={reportedUser}
+                      hover_effect={true}
+                    >
+                      {report.banEnd && (
+                        <div className="mb-3">
+                          <b>Ban countdown:</b> <Countdown targetDate={report.banEnd} />
+                          <hr />
+                        </div>
+                      )}
+                      <ParsedReportJson report={report} />
+                      <b>Report by</b> {reportedUser.username}
+                    </Post>
+                  </Link>
+                </div>
+              )
+            );
+          })}
+        </div>
       )}
     </ContentBox>
   );
