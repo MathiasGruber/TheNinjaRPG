@@ -308,7 +308,42 @@ export const conversation = mysqlTable(
 );
 
 export const conversationRelations = relations(conversation, ({ many }) => ({
-  users: many(userData),
+  users: many(user2conversation),
+  comments: many(conversationComment),
+}));
+
+export const user2conversation = mysqlTable(
+  "UsersInConversation",
+  {
+    conversationId: varchar("conversationId", { length: 191 }).notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    assignedAt: datetime("assignedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("UsersInConversation_userId_idx").on(table.userId),
+      conversationIdIdx: index("UsersInConversation_conversationId_idx").on(
+        table.conversationId
+      ),
+      usersInConversationConversationIdUserId: primaryKey(
+        table.conversationId,
+        table.userId
+      ),
+    };
+  }
+);
+
+export const user2conversationRelations = relations(user2conversation, ({ one }) => ({
+  userData: one(userData, {
+    fields: [user2conversation.userId],
+    references: [userData.userId],
+  }),
+  conversation: one(conversation, {
+    fields: [user2conversation.conversationId],
+    references: [conversation.id],
+  }),
 }));
 
 export const conversationComment = mysqlTable(
@@ -340,6 +375,10 @@ export const conversationCommentRelations = relations(
     user: one(userData, {
       fields: [conversationComment.userId],
       references: [userData.userId],
+    }),
+    conversation: one(conversation, {
+      fields: [conversationComment.conversationId],
+      references: [conversation.id],
     }),
   })
 );
@@ -770,7 +809,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.villageId],
     references: [village.id],
   }),
-  conversations: many(conversation),
+  conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
 }));
@@ -929,40 +968,6 @@ export const userReportCommentRelations = relations(userReportComment, ({ one })
   user: one(userData, {
     fields: [userReportComment.userId],
     references: [userData.userId],
-  }),
-}));
-
-export const usersInConversation = mysqlTable(
-  "UsersInConversation",
-  {
-    conversationId: varchar("conversationId", { length: 191 }).notNull(),
-    userId: varchar("userId", { length: 191 }).notNull(),
-    assignedAt: datetime("assignedAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
-  },
-  (table) => {
-    return {
-      userIdIdx: index("UsersInConversation_userId_idx").on(table.userId),
-      conversationIdIdx: index("UsersInConversation_conversationId_idx").on(
-        table.conversationId
-      ),
-      usersInConversationConversationIdUserId: primaryKey(
-        table.conversationId,
-        table.userId
-      ),
-    };
-  }
-);
-
-export const usersToGroupsRelations = relations(usersInConversation, ({ one }) => ({
-  userData: one(userData, {
-    fields: [usersInConversation.userId],
-    references: [userData.userId],
-  }),
-  conversation: one(conversation, {
-    fields: [usersInConversation.conversationId],
-    references: [conversation.id],
   }),
 }));
 

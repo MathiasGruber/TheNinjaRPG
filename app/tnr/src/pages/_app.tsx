@@ -1,3 +1,4 @@
+export { reportWebVitals } from 'next-axiom';
 import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
 import { type AppType } from "next/app";
 

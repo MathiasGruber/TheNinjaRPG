@@ -51,7 +51,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const mouse = new Vector2();
 
   // Data from db
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, pusher, refetch: refetchUser } = useRequiredUserData();
   const { data: users } = api.travel.getSectorData.useQuery({ sector: props.sector });
 
   // Router for forwarding
@@ -164,6 +164,19 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   useEffect(() => {
+    if(pusher){
+      console.log("SUBSCRIBE TO PUSHER in Sector")
+      const channel = pusher.subscribe(props.sector.toString());
+      channel.bind("event", (data: UserData) => {
+        if (data.userId !== userData?.userId) updateUsersList(data);
+      });
+      return () => {
+        pusher.unsubscribe(props.sector.toString());
+      };
+    }    
+  }, [])
+
+  useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
       // Get target hex
       const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
@@ -196,15 +209,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Map size
       const WIDTH = mountRef.current.getBoundingClientRect().width;
       const HEIGHT = WIDTH * hexagonLengthToWidth;
-
-      // Websocket connection
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-      });
-      const channel = pusher.subscribe(props.sector.toString());
-      channel.bind("event", (data: UserData) => {
-        if (data.userId !== userData.userId) updateUsersList(data);
-      });
 
       // Performance monitor
       // const stats = new Stats();
@@ -388,7 +392,6 @@ const Sector: React.FC<SectorProps> = (props) => {
         document.removeEventListener("keydown", onDocumentKeyDown, false);
         mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
         mountRef.current?.removeChild(renderer.domElement);
-        pusher.unsubscribe(props.sector.toString());
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
         void refetchUser();

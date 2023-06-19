@@ -2,9 +2,9 @@ import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, asc } from "drizzle-orm";
 import { conversation, userReportComment, forumPost } from "../../../../drizzle/schema";
-import { usersInConversation, conversationComment } from "../../../../drizzle/schema";
+import { user2conversation, conversationComment } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { mutateCommentSchema } from "../../../validators/comments";
@@ -35,7 +35,7 @@ export const commentsRouter = createTRPCRouter({
   getReportComments: protectedProcedure
     .input(
       z.object({
-        id: z.string().cuid(),
+        id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
       })
@@ -96,7 +96,7 @@ export const commentsRouter = createTRPCRouter({
   getForumComments: protectedProcedure
     .input(
       z.object({
-        thread_id: z.string().cuid(),
+        thread_id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
       })
@@ -120,7 +120,7 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: [desc(forumPost.createdAt)],
+        orderBy: [asc(forumPost.createdAt)],
       });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
       const counts = await ctx.drizzle
@@ -132,7 +132,8 @@ export const commentsRouter = createTRPCRouter({
         thread: thread,
         data: comments,
         nextCursor: nextCursor,
-        total: Math.ceil(totalComments / input.limit),
+        totalComments: totalComments,
+        totalPages: Math.ceil(totalComments / input.limit),
       };
     }),
   createForumComment: protectedProcedure
@@ -195,7 +196,7 @@ export const commentsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        selectedConvo: z.string().cuid().nullish().optional(),
+        selectedConvo: z.string().nullish().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -209,7 +210,19 @@ export const commentsRouter = createTRPCRouter({
             eq(conversation.isPublic, 0),
             sql`JSON_SEARCH(${table.users}, ${ctx.userId}) IS NOT NULL`
           ),
-        with: { users: { columns: { userId: true, username: true, avatar: true } } },
+        with: {
+          users: {
+            with: {
+              userData: {
+                columns: {
+                  userId: true,
+                  username: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: [desc(conversation.updatedAt)],
       });
       const nextCursor = conversations.length < input.limit ? null : currentCursor + 1;
@@ -239,7 +252,7 @@ export const commentsRouter = createTRPCRouter({
           isLocked: 0,
         });
         [...input.users, ctx.userId].map(async (user) => {
-          await tx.insert(usersInConversation).values({
+          await tx.insert(user2conversation).values({
             conversationId: convoId,
             userId: user,
           });
@@ -254,7 +267,7 @@ export const commentsRouter = createTRPCRouter({
       });
     }),
   exitConversation: protectedProcedure
-    .input(z.object({ convo_id: z.string().cuid() }))
+    .input(z.object({ convo_id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const convo = await fetchConversation({
         client: ctx.drizzle,
@@ -262,11 +275,11 @@ export const commentsRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       await ctx.drizzle
-        .delete(usersInConversation)
+        .delete(user2conversation)
         .where(
           and(
-            eq(usersInConversation.conversationId, convo.id),
-            eq(usersInConversation.userId, ctx.userId)
+            eq(user2conversation.conversationId, convo.id),
+            eq(user2conversation.userId, ctx.userId)
           )
         );
       if (convo.users.length === 1) {
@@ -280,7 +293,7 @@ export const commentsRouter = createTRPCRouter({
     .input(
       z
         .object({
-          convo_id: z.string().cuid().optional(),
+          convo_id: z.string().optional(),
           convo_title: z.string().min(1).max(10).optional(),
           cursor: z.number().nullish(),
           limit: z.number().min(1).max(100),

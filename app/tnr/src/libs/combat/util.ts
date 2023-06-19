@@ -494,13 +494,15 @@ export const initiateBattle = async (
         and(
           or(eq(userData.userId, userId), eq(userData.userId, targetId)),
           eq(userData.status, "AWAKE"),
-          battleType === "COMBAT"
-            ? and(
-                eq(userData.sector, sector),
-                longitude ? eq(userData.longitude, longitude) : sql``,
-                latitude ? eq(userData.latitude, latitude) : sql``
-              )
-            : sql``
+          ...(battleType === "COMBAT"
+            ? [
+                and(
+                  eq(userData.sector, sector),
+                  ...(longitude ? [eq(userData.longitude, longitude)] : []),
+                  ...(latitude ? [eq(userData.latitude, latitude)] : [])
+                ),
+              ]
+            : [])
         )
       );
     if (result.rowsAffected !== 2) {

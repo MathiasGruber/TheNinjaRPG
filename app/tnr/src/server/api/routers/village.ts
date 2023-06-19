@@ -11,7 +11,7 @@ export const villageRouter = createTRPCRouter({
   }),
   // Get a specific village & its structures
   get: publicProcedure
-    .input(z.object({ id: z.string().cuid() }))
+    .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const villageData = await fetchVillage(ctx.drizzle, input.id);
       const counts = await ctx.drizzle

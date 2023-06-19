@@ -37,7 +37,7 @@ import { canEscalateBan } from "../../validators/reports";
 import { canClearReport } from "../../validators/reports";
 
 const BugReport: NextPage = () => {
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -87,17 +87,18 @@ const BugReport: NextPage = () => {
 
   const watchedLength = watch("banTime", 0);
 
-  const createComment = api.comments.createReportComment.useMutation({
-    onSuccess: async () => {
-      reset();
-      await refetchComments();
-    },
-    onError: (error) => {
-      show_toast("Error on creating comment", error.message, "error");
-    },
-  });
+  const { mutate: createComment, isLoading: load1 } =
+    api.comments.createReportComment.useMutation({
+      onSuccess: async () => {
+        reset();
+        await refetchComments();
+      },
+      onError: (error) => {
+        show_toast("Error on creating comment", error.message, "error");
+      },
+    });
 
-  const banUser = api.reports.ban.useMutation({
+  const { mutate: banUser, isLoading: load2 } = api.reports.ban.useMutation({
     onSuccess: async () => {
       await refetchReport();
       await refetchComments();
@@ -108,27 +109,32 @@ const BugReport: NextPage = () => {
     },
   });
 
-  const escalateReport = api.reports.escalate.useMutation({
-    onSuccess: async () => {
-      await refetchReport();
-      await refetchComments();
-      reset();
-    },
-    onError: (error) => {
-      show_toast("Error on excalating report", error.message, "error");
-    },
-  });
+  const { mutate: escalateReport, isLoading: load3 } = api.reports.escalate.useMutation(
+    {
+      onSuccess: async () => {
+        await refetchReport();
+        await refetchComments();
+        reset();
+      },
+      onError: (error) => {
+        show_toast("Error on excalating report", error.message, "error");
+      },
+    }
+  );
 
-  const clearReport = api.reports.clear.useMutation({
+  const { mutate: clearReport, isLoading: load4 } = api.reports.clear.useMutation({
     onSuccess: async () => {
       await refetchReport();
       await refetchComments();
+      await refetchUser();
       reset();
     },
     onError: (error) => {
       show_toast("Error on clearing report", error.message, "error");
     },
   });
+
+  const isLoading = load1 || load2 || load3 || load4;
 
   useEffect(() => {
     if (report) {
@@ -137,30 +143,22 @@ const BugReport: NextPage = () => {
   }, [report, setValue]);
 
   const handleSubmitComment = handleSubmit(
-    (data) => {
-      createComment.mutate(data);
-    },
+    (data) => createComment(data),
     (errors) => console.log(errors)
   );
 
   const handleSubmitBan = handleSubmit(
-    (data) => {
-      banUser.mutate(data);
-    },
+    (data) => banUser(data),
     (errors) => console.log(errors)
   );
 
   const handleSubmitEscalation = handleSubmit(
-    (data) => {
-      escalateReport.mutate(data);
-    },
+    (data) => escalateReport(data),
     (errors) => console.log(errors)
   );
 
   const handleSubmitClear = handleSubmit(
-    (data) => {
-      clearReport.mutate(data);
-    },
+    (data) => clearReport(data),
     (errors) => console.log(errors)
   );
 
@@ -198,7 +196,7 @@ const BugReport: NextPage = () => {
         )}
       </ContentBox>
 
-      <ContentBox title="Further Input / Chat">
+      <ContentBox title="Further Input / Chat" initialBreak={true}>
         <form>
           <div className="mb-3">
             {canBan && (
@@ -219,91 +217,95 @@ const BugReport: NextPage = () => {
               <RichInput
                 id="comment"
                 height="200"
+                disabled={isLoading}
                 label="Add information or ask questions"
                 error={errors.comment?.message}
                 control={control}
               />
             )}
-            <div className="flex flex-row-reverse">
-              {canComment && (
-                <Confirm
-                  title="Confirm Posting Comment"
-                  button={
-                    <Button
-                      id="submit_comment"
-                      label="Add Comment"
-                      image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                    />
-                  }
-                  onAccept={async () => {
-                    await handleSubmitComment();
-                  }}
-                >
-                  You are about to post a comment on this report. Please note that this
-                  comment can not be edited or deleted afterwards
-                </Confirm>
-              )}
-              {!canBan && canEscalate && (
-                <Confirm
-                  title="Confirm Escalating Report"
-                  button={
-                    <Button
-                      id="submit_comment"
-                      color="blue"
-                      label="Escalate"
-                      image={<RocketLaunchIcon className="mr-1 h-5 w-5" />}
-                    />
-                  }
-                  onAccept={async () => {
-                    await handleSubmitEscalation();
-                  }}
-                >
-                  You can chose to escalate this report to admin-level. Please only do
-                  this if you feel strongly the decision is wrong, and know that if you
-                  do not have good reason for escalating, it may result in further
-                  extension of the ban.
-                </Confirm>
-              )}
-              {canBan && (
-                <Confirm
-                  title="Confirm Banning User"
-                  button={
-                    <Button
-                      id="submit_resolve"
-                      label="Ban User"
-                      color="red"
-                      image={<ShieldExclamationIcon className="mr-1 h-5 w-5" />}
-                    />
-                  }
-                  onAccept={async () => {
-                    await handleSubmitBan();
-                  }}
-                >
-                  You are about to ban the user. Please note that the comment and
-                  decision can not be edited or deleted. You can unban the person by
-                  posting another comment and &rdquo;Clear&rdquo; the report.
-                </Confirm>
-              )}
-              {canClear && (
-                <Confirm
-                  title="Confirm Clearing Report"
-                  button={
-                    <Button
-                      id="submit_resolve"
-                      color="green"
-                      label="Clear Report"
-                      image={<ShieldCheckIcon className="mr-1 h-5 w-5" />}
-                    />
-                  }
-                  onAccept={async () => {
-                    await handleSubmitClear();
-                  }}
-                >
-                  You are about to clear the report. Please note that the comment and
-                  decision can not be edited or deleted.
-                </Confirm>
-              )}
-            </div>
+            {isLoading && <Loader explanation="Executing action..." />}
+            {!isLoading && (
+              <div className="flex flex-row-reverse">
+                {canComment && (
+                  <Confirm
+                    title="Confirm Posting Comment"
+                    button={
+                      <Button
+                        id="submit_comment"
+                        label="Add Comment"
+                        image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                      />
+                    }
+                    onAccept={async () => {
+                      await handleSubmitComment();
+                    }}
+                  >
+                    You are about to post a comment on this report. Please note that
+                    this comment can not be edited or deleted afterwards
+                  </Confirm>
+                )}
+                {!canBan && canEscalate && (
+                  <Confirm
+                    title="Confirm Escalating Report"
+                    button={
+                      <Button
+                        id="submit_comment"
+                        color="blue"
+                        label="Escalate"
+                        image={<RocketLaunchIcon className="mr-1 h-5 w-5" />}
+                      />
+                    }
+                    onAccept={async () => {
+                      await handleSubmitEscalation();
+                    }}
+                  >
+                    You can chose to escalate this report to admin-level. Please only do
+                    this if you feel strongly the decision is wrong, and know that if
+                    you do not have good reason for escalating, it may result in further
+                    extension of the ban.
+                  </Confirm>
+                )}
+                {canBan && (
+                  <Confirm
+                    title="Confirm Banning User"
+                    button={
+                      <Button
+                        id="submit_resolve"
+                        label="Ban User"
+                        color="red"
+                        image={<ShieldExclamationIcon className="mr-1 h-5 w-5" />}
+                      />
+                    }
+                    onAccept={async () => {
+                      await handleSubmitBan();
+                    }}
+                  >
+                    You are about to ban the user. Please note that the comment and
+                    decision can not be edited or deleted. You can unban the person by
+                    posting another comment and &rdquo;Clear&rdquo; the report.
+                  </Confirm>
+                )}
+                {canClear && (
+                  <Confirm
+                    title="Confirm Clearing Report"
+                    button={
+                      <Button
+                        id="submit_resolve"
+                        color="green"
+                        label="Clear Report"
+                        image={<ShieldCheckIcon className="mr-1 h-5 w-5" />}
+                      />
+                    }
+                    onAccept={async () => {
+                      await handleSubmitClear();
+                    }}
+                  >
+                    You are about to clear the report. Please note that the comment and
+                    decision can not be edited or deleted.
+                  </Confirm>
+                )}
+              </div>
+            )}
           </div>
         </form>
         {allComments &&

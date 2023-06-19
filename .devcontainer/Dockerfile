@@ -3,6 +3,9 @@ FROM nanomathias/vscode-devcontainer:release-1.2.3
 # Install gitmoji
 RUN npm i -g gitmoji-cli
 
+# Install drizzle-kit
+RUN npm i -g drizzle-kit
+
 # Show we're in devcontainer
 RUN echo 'export PS1="\[\e[36m\]DevContainer>\[\e[m\] "' >> /home/vscode/.bashrc
 

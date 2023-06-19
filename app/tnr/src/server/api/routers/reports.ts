@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, or, and, sql, gte, ne, ilike, notInArray, inArray } from "drizzle-orm";
+import { eq, or, and, gte, ne, like, notInArray, inArray } from "drizzle-orm";
 import { reportLog } from "../../../../drizzle/schema";
 import { bugReport, forumPost, conversationComment } from "../../../../drizzle/schema";
 import { userReport, userReportComment, userData } from "../../../../drizzle/schema";
@@ -38,29 +38,34 @@ export const reportsRouter = createTRPCRouter({
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const reportedUser = alias(userData, "reportedUser");
       const reports = await ctx.drizzle
         .select()
         .from(userReport)
         .where(
           and(
-            input.is_active !== undefined
+            // Active or not
+            input.is_active !== undefined && input.is_active === true
               ? inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"])
               : notInArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]),
-            user.role === "USER"
-              ? or(
-                  eq(userReport.reportedUserId, ctx.userId),
-                  eq(userReport.reporterUserId, ctx.userId)
-                )
-              : sql``
+            // Pertaining to user (if user)
+            ...(user.role === "USER"
+              ? [
+                  or(
+                    eq(userReport.reportedUserId, ctx.userId),
+                    eq(userReport.reporterUserId, ctx.userId)
+                  ),
+                ]
+              : [])
           )
         )
         .innerJoin(
-          alias(userData, "reportedUser"),
+          reportedUser,
           and(
-            eq(userData.userId, userReport.reportedUserId),
-            input.username !== undefined
-              ? ilike(userData.username, input.username)
-              : sql``
+            eq(reportedUser.userId, userReport.reportedUserId),
+            ...(input.username !== undefined
+              ? [like(reportedUser.username, `%${input.username}%`)]
+              : [])
           )
         )
         .limit(input.limit)
@@ -73,7 +78,7 @@ export const reportsRouter = createTRPCRouter({
     }),
   // Get a single report
   get: protectedProcedure
-    .input(z.object({ id: z.string().cuid() }))
+    .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const report = await fetchUserReport(ctx.drizzle, input.id);

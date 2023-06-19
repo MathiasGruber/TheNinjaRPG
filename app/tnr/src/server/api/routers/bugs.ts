@@ -40,7 +40,7 @@ export const bugsRouter = createTRPCRouter({
     }),
   // Get a single bug report
   get: publicProcedure
-    .input(z.object({ id: z.string().cuid() }))
+    .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return await fetchBugReport(ctx.drizzle, input.id);
     }),
@@ -69,11 +69,15 @@ export const bugsRouter = createTRPCRouter({
   }),
   // Delete a bug report
   delete: protectedProcedure
-    .input(z.object({ bugId: z.string().cuid() }))
+    .input(z.object({ bugId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.role === "ADMIN") {
-        return await ctx.drizzle.delete(bugReport).where(eq(bugReport.id, input.bugId));
+      const report = await fetchBugReport(ctx.drizzle, input.bugId);
+      if (report && user.role === "ADMIN") {
+        const convoId = report.conversationId;
+        await ctx.drizzle.delete(bugReport).where(eq(bugReport.id, input.bugId));
+        await ctx.drizzle.delete(bugVotes).where(eq(bugVotes.bugId, input.bugId));
+        await ctx.drizzle.delete(conversation).where(eq(conversation.id, convoId));
       } else {
         throw serverError("UNAUTHORIZED", "Only admins can delete bugs");
       }
@@ -82,7 +86,7 @@ export const bugsRouter = createTRPCRouter({
   vote: protectedProcedure
     .input(
       z.object({
-        bugId: z.string().cuid(),
+        bugId: z.string(),
         value: z.number().min(-1).max(1),
       })
     )
@@ -92,16 +96,14 @@ export const bugsRouter = createTRPCRouter({
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
+      const currentVote = await ctx.drizzle.query.bugVotes.findFirst({
+        where: and(eq(bugVotes.bugId, report.id), eq(bugVotes.userId, ctx.userId)),
+      });
       await ctx.drizzle.transaction(async (tx) => {
-        const currentVote = await tx.query.bugVotes.findFirst({
-          where: and(eq(bugVotes.bugId, report.id), eq(bugVotes.userId, ctx.userId)),
-        });
         if (currentVote) {
           await tx
             .update(bugVotes)
-            .set({
-              value: input.value,
-            })
+            .set({ value: input.value })
             .where(eq(bugVotes.id, currentVote.id));
         } else {
           await tx.insert(bugVotes).values({
@@ -111,16 +113,14 @@ export const bugsRouter = createTRPCRouter({
             value: input.value,
           });
         }
-        const result = await ctx.drizzle
+        const result = await tx
           .select({ sum: sql<number>`sum(${bugVotes.value})` })
           .from(bugVotes)
           .where(eq(bugVotes.bugId, input.bugId));
         const popularity = result?.[0]?.sum || 0;
         return await tx
           .update(bugReport)
-          .set({
-            popularity: popularity,
-          })
+          .set({ popularity: popularity })
           .where(eq(bugReport.id, report.id));
       });
     }),
@@ -128,7 +128,7 @@ export const bugsRouter = createTRPCRouter({
   resolve: protectedProcedure
     .input(
       z.object({
-        id: z.string().cuid(),
+        id: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {

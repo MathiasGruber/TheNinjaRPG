@@ -1,23 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import ReactHtmlParser from "react-html-parser";
-import Pusher from "pusher-js";
-
 import { CommentOnConversation } from "../layout/Comment";
 import ContentBox from "../layout/ContentBox";
 import RichInput from "../layout/RichInput";
 import Button from "../layout/Button";
 import Loader from "../layout/Loader";
-
 import { useUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { mutateCommentSchema } from "../validators/comments";
 import { useInfinitePagination } from "../libs/pagination";
-import { type MutateCommentSchema } from "../validators/comments";
+import type { MutateCommentSchema } from "../validators/comments";
 
 interface ConversationProps {
   convo_title?: string;
@@ -30,7 +26,7 @@ interface ConversationProps {
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
-  const { data: userData } = useUserData();
+  const { data: userData, pusher } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
 
@@ -87,10 +83,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     });
 
   useEffect(() => {
-    if (conversation) {
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-      });
+    if (conversation && pusher) {
+      console.log("SUBSCRIBE TO PUSHER in Conversation");
       const channel = pusher.subscribe(conversation.id);
       channel.bind("event", async () => {
         await refetch();
@@ -99,7 +93,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         pusher.unsubscribe(conversation.id);
       };
     }
-  }, [conversation, refetch]);
+  }, [conversation]);
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
@@ -113,6 +107,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         <ContentBox
           title={props.title}
           subtitle={props.subtitle}
+          initialBreak={true}
           topRightContent={props.topRightContent}
         >
           <form>
@@ -121,6 +116,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                 id="comment"
                 refreshKey={editorKey}
                 height="200"
+                disabled={isCommenting}
                 placeholder=""
                 control={control}
                 error={errors.comment?.message}
@@ -142,7 +138,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         </ContentBox>
       )}
       {!isLoading && allComments && allComments.length > 0 && (
-        <ContentBox title="Messages">
+        <ContentBox title="Messages" initialBreak={true}>
           {allComments.map((comment, i) => {
             return (
               <div

@@ -21,20 +21,25 @@ import { mutateCommentSchema } from "../../../validators/comments";
 import { type MutateCommentSchema } from "../../../validators/comments";
 
 const BugReport: NextPage = () => {
+  const limit = 10;
   const { data: userData } = useUserData();
   const [page, setPage] = useState(0);
+  const [triggerRefetch, setTriggerRefetch] = useState<null | number>(null);
   const router = useRouter();
   const thread_id = router.query.threadid as string;
 
   const { data: comments, refetch } = api.comments.getForumComments.useQuery(
-    { thread_id: thread_id, limit: 3, cursor: page },
+    { thread_id: thread_id, limit: limit, cursor: page },
     {
       enabled: thread_id !== undefined,
+      staleTime: Infinity,
+      keepPreviousData: true,
     }
   );
-  const allComments = comments?.data;
   const thread = comments?.thread;
-  const totalPages = comments?.total;
+  const allComments = comments?.data;
+  const totalPages = comments?.totalPages ?? 0;
+  const totalComments = comments?.totalComments ?? 0;
 
   const {
     handleSubmit,
@@ -52,20 +57,33 @@ const BugReport: NextPage = () => {
     }
   }, [thread, setValue]);
 
-  const createComment = api.comments.createForumComment.useMutation({
-    onSuccess: async () => {
-      reset();
-      await refetch();
-    },
-    onError: (error) => {
-      show_toast("Error on creating new thread", error.message, "error");
-    },
-  });
+  useEffect(() => {
+    const fn = async () => await refetch();
+    if (triggerRefetch && triggerRefetch === page) {
+      setTriggerRefetch(null);
+      fn().catch(console.error);
+    }
+  }, [triggerRefetch, page, refetch]);
+
+  const { mutate: createComment, isLoading } =
+    api.comments.createForumComment.useMutation({
+      onSuccess: () => {
+        reset();
+        if (totalComments && totalPages && allComments) {
+          const newPage = totalComments % limit === 0 ? totalPages : totalPages - 1;
+          if (newPage !== page) {
+            setPage(newPage);
+          }
+          setTriggerRefetch(newPage);
+        }
+      },
+      onError: (error) => {
+        show_toast("Error on creating new comment", error.message, "error");
+      },
+    });
 
   const handleSubmitComment = handleSubmit(
-    (data) => {
-      createComment.mutate(data);
-    },
+    (data) => createComment(data),
     (errors) => console.error(errors)
   );
 
@@ -103,17 +121,23 @@ const BugReport: NextPage = () => {
               <RichInput
                 id="comment"
                 height="200"
-                placeholder="Write your comment here..."
+                refreshKey={totalComments}
+                placeholder=""
                 control={control}
+                disabled={isLoading}
                 error={errors.comment?.message}
               />
               <div className="flex flex-row-reverse">
-                <Button
-                  id="submit_comment"
-                  label="Post Comment"
-                  image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                  onClick={handleSubmitComment}
-                />
+                {!isLoading ? (
+                  <Button
+                    id="submit_comment"
+                    label="Post Comment"
+                    image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                    onClick={handleSubmitComment}
+                  />
+                ) : (
+                  <Loader />
+                )}
               </div>
             </div>
           )}

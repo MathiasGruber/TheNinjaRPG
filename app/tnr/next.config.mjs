@@ -1,4 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
+import {withAxiom} from "next-axiom";
 
 // @ts-check
 /**
@@ -33,4 +34,4 @@ const config = {
     defaultLocale: "en",
   },
 };
-export default withBundleAnalyzer(config);
+export default withAxiom(withBundleAnalyzer(config));

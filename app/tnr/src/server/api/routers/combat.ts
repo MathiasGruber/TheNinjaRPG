@@ -22,7 +22,7 @@ import type { DrizzleClient } from "../../db";
 
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
-    .input(z.object({ battleId: z.string().cuid().optional().nullable() }))
+    .input(z.object({ battleId: z.string().optional().nullable() }))
     .query(async ({ ctx, input }) => {
       // No battle ID
       if (!input.battleId) {
@@ -52,7 +52,7 @@ export const combatRouter = createTRPCRouter({
   getBattleEntry: protectedProcedure
     .input(
       z.object({
-        battleId: z.string().cuid(),
+        battleId: z.string(),
         version: z.number(),
       })
     )

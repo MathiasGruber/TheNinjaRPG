@@ -152,7 +152,7 @@ export interface BattleState {
  * Schema & types for performing battle actions
  */
 export const performActionSchema = z.object({
-  battleId: z.string().cuid(),
+  battleId: z.string(),
   userId: z.string().optional(),
   actionId: z.string().optional(),
   longitude: z.number().optional(),
