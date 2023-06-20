@@ -57,13 +57,17 @@ export const combatRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      return await ctx.drizzle.query.battleAction.findFirst({
+      const entry = await ctx.drizzle.query.battleAction.findFirst({
         where: and(
           eq(battleAction.battleId, input.battleId),
           eq(battleAction.battleVersion, input.version)
         ),
         orderBy: desc(battleAction.createdAt),
       });
+      if (entry) {
+        entry.appliedEffects = JSON.parse(entry.appliedEffects as string);
+      }
+      return entry !== undefined ? entry : null;
     }),
   performAction: protectedProcedure
     .input(performActionSchema)
@@ -226,5 +230,8 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   if (!entry) {
     throw new Error("Battle not found");
   }
+  entry.usersState = JSON.parse(entry.usersState as string);
+  entry.usersEffects = JSON.parse(entry.usersEffects as string);
+  entry.groundEffects = JSON.parse(entry.groundEffects as string);
   return entry;
 };

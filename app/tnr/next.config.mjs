@@ -1,5 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
-import {withAxiom} from "next-axiom";
+import { withAxiom } from "next-axiom";
 
 // @ts-check
 /**

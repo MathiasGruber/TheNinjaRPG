@@ -18,9 +18,9 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   // From database
   const { data, isFetching: isFetchingHistory } = api.combat.getBattleEntry.useQuery(
     { battleId: battleId, version: version },
-    { staleTime: Infinity }
+    { staleTime: Infinity, keepPreviousData: true }
   );
-  const effects = data?.appliedEffects as ActionEffect[];
+  const effects = data && (data.appliedEffects as ActionEffect[]);
 
   // Create an array from zero to maxVersion
   const versionArray = Array.from(Array(battleVersion).keys());

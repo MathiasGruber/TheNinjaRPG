@@ -74,8 +74,6 @@ const CombatPage: NextPage = () => {
     );
   }, [battleId, versionId]);
 
-  console.log("Results", results);
-
   return (
     <div className="sm:container">
       <ContentBox
