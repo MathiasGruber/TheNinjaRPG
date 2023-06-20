@@ -3,7 +3,6 @@ import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import alea from "alea";
-import Pusher from "pusher-js";
 import AvatarImage from "./Avatar";
 import Modal from "./Modal";
 import { Vector2, OrthographicCamera, Group } from "three";
@@ -164,8 +163,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   useEffect(() => {
-    if(pusher){
-      console.log("SUBSCRIBE TO PUSHER in Sector")
+    if (pusher) {
+      console.log("SUBSCRIBE TO PUSHER in Sector");
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
         if (data.userId !== userData?.userId) updateUsersList(data);
@@ -173,8 +172,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       return () => {
         pusher.unsubscribe(props.sector.toString());
       };
-    }    
-  }, [])
+    }
+  }, []);
 
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
