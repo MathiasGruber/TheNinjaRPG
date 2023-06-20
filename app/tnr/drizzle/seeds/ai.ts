@@ -1,9 +1,9 @@
 // import { DamageTag } from "../../src/libs/combat/types";
 import { nanoid } from "nanoid";
-import type { UserData } from "../schema.ts";
-import { userData, jutsu, userJutsu } from "../schema.ts";
+import type { UserData } from "../schema";
+import { userData, jutsu, userJutsu } from "../schema";
 import { eq, inArray } from "drizzle-orm";
-import type { DrizzleClient } from "../../src/server/db.ts";
+import type { DrizzleClient } from "../../src/server/db";
 
 type AIdefinition = Partial<UserData> &
   Pick<UserData, "userId" | "gender" | "avatar" | "level" | "rank"> & {

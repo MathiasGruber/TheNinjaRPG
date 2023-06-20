@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
-import { forumBoard } from "../schema.ts";
+import { forumBoard } from "../schema";
 import { eq } from "drizzle-orm";
-import type { DrizzleClient } from "../../src/server/db.ts";
+import type { DrizzleClient } from "../../src/server/db";
 
 const boards = [
   {

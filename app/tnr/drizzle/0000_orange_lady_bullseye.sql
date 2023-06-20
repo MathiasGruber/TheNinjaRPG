@@ -241,7 +241,7 @@ CREATE TABLE `UserData` (
 	`taijutsuOffence` double NOT NULL DEFAULT 10,
 	`taijutsuDefence` double NOT NULL DEFAULT 10,
 	`reputationPoints` int NOT NULL DEFAULT 0,
-	`reputationPoints_total` int NOT NULL DEFAULT 0,
+	`reputationPointsTotal` int NOT NULL DEFAULT 0,
 	`popularity_points` int NOT NULL DEFAULT 6,
 	`popularity_points_total` int NOT NULL DEFAULT 6,
 	`federalStatus` enum('NONE','NORMAL','SILVER','GOLD') NOT NULL DEFAULT 'NONE',

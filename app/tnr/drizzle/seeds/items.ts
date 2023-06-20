@@ -1,11 +1,11 @@
 import { nanoid } from "nanoid";
-import { item } from "../schema.ts";
+import { item } from "../schema";
 import { eq } from "drizzle-orm";
 import { DamageTag } from "../../src/libs/combat/types";
 import { HealTag } from "../../src/libs/combat/types";
 import { AdjustArmorTag } from "../../src/libs/combat/types";
 import type { ZodItemType } from "../../src/libs/combat/types";
-import type { DrizzleClient } from "../../src/server/db.ts";
+import type { DrizzleClient } from "../../src/server/db";
 
 const items: ZodItemType[] = [
   /************ */

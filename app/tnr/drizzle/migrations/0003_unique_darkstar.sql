@@ -1,0 +1,14 @@
+ALTER TABLE `BugReport` RENAME COLUMN `is_resolved` TO `isResolved`;
+ALTER TABLE `UserData` RENAME COLUMN `cur_health` TO `curHealth`;
+ALTER TABLE `UserData` RENAME COLUMN `max_health` TO `maxHealth`;
+ALTER TABLE `UserData` RENAME COLUMN `cur_chakra` TO `curChakra`;
+ALTER TABLE `UserData` RENAME COLUMN `max_chakra` TO `maxChakra`;
+ALTER TABLE `UserData` RENAME COLUMN `cur_stamina` TO `curStamina`;
+ALTER TABLE `UserData` RENAME COLUMN `max_stamina` TO `maxStamina`;
+ALTER TABLE `UserData` RENAME COLUMN `popularity_points` TO `popularityPoints`;
+ALTER TABLE `UserData` RENAME COLUMN `popularity_points_total` TO `popularityPointsTotal`;
+ALTER TABLE `UserData` RENAME COLUMN `approved_tos` TO `approvedTos`;
+ALTER TABLE `UserData` RENAME COLUMN `elo_pve` TO `eloPve`;
+ALTER TABLE `UserData` RENAME COLUMN `elo_pvp` TO `eloPvp`;
+ALTER TABLE `VillageStructure` RENAME COLUMN `cur_sp` TO `curSp`;
+ALTER TABLE `VillageStructure` RENAME COLUMN `max_sp` TO `maxSp`;

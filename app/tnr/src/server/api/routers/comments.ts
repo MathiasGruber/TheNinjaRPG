@@ -208,7 +208,7 @@ export const commentsRouter = createTRPCRouter({
         where: (table, { sql }) =>
           and(
             eq(conversation.isPublic, 0),
-            sql`JSON_SEARCH(${table.users}, ${ctx.userId}) IS NOT NULL`
+            sql`JSON_SEARCH(${table.users},'one',${ctx.userId}) IS NOT NULL`
           ),
         with: {
           users: {

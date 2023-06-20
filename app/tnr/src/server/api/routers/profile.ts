@@ -188,7 +188,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        orderBy: z.enum(["updatedAt", "level", "reputationPoints_total"]),
+        orderBy: z.enum(["updatedAt", "level", "reputationPointsTotal"]),
         username: z
           .string()
           .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
@@ -206,15 +206,18 @@ export const profileRouter = createTRPCRouter({
             return desc(userData.updatedAt);
           case "level":
             return desc(userData.level);
-          case "reputationPoints_total":
+          case "reputationPointsTotal":
             return desc(userData.reputationPointsTotal);
         }
       };
       const users = await ctx.drizzle.query.userData.findMany({
-        where:
-          input.username !== undefined
-            ? like(userData.username, `%${input.username}%`)
-            : sql``,
+        where: and(
+          ...(input.username !== undefined
+            ? [like(userData.username, `%${input.username}%`)]
+            : []),
+          eq(userData.approvedTos, 1),
+          eq(userData.isAi, 0)
+        ),
         columns: {
           userId: true,
           username: true,

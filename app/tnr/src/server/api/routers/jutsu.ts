@@ -8,7 +8,6 @@ import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu
 import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
-import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "../../db";
 
 export const jutsuRouter = createTRPCRouter({
@@ -72,9 +71,10 @@ export const jutsuRouter = createTRPCRouter({
             .set({
               level: sql`${userJutsu.level} + 1`,
               finishTraining: new Date(Date.now() + trainTime),
+              updatedAt: new Date(),
             })
             .where(
-              and(eq(userJutsu.id, input.jutsuId), eq(userJutsu.userId, ctx.userId))
+              and(eq(userJutsu.id, userjutsu.id), eq(userJutsu.userId, ctx.userId))
             );
         } else {
           return await tx.insert(userJutsu).values({

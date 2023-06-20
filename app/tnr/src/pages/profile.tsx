@@ -15,7 +15,7 @@ import { capitalizeFirstLetter } from "../utils/sanitize";
 
 const Profile: NextPage = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const { signOut } = useClerk();
+  // const { signOut } = useClerk();
 
   const toggleDeletionTimer = api.profile.toggleDeletionTimer.useMutation({
     onSuccess: async () => {
@@ -27,7 +27,9 @@ const Profile: NextPage = () => {
   });
 
   const confirmDeletion = api.profile.cofirmDeletion.useMutation({
-    onSuccess: () => signOut(),
+    onSuccess: () => {
+      // signOut()
+    },
     onError: (error) => {
       show_toast("Error on performing deletion", error.message, "error");
     },

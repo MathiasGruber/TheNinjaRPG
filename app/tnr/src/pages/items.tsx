@@ -26,7 +26,7 @@ const MyItems: NextPage = () => {
     data: userItems,
     refetch,
     isFetching,
-  } = api.item.getUserItems.useQuery(undefined, {});
+  } = api.item.getUserItems.useQuery(undefined, { staleTime: Infinity });
 
   // Collapse UserItem and Item
   const allItems = userItems?.map((useritem) => {
@@ -218,7 +218,7 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t5} items={items} />
       {isOpen && slot && (
         <Modal
-          title="Item Details"
+          title="Select Item"
           setIsOpen={setIsOpen}
           isValid={false}
           proceed_label={equipped ? "Unequip" : undefined}
@@ -233,9 +233,11 @@ const Character: React.FC<CharacterProps> = (props) => {
             <ActionSelector
               items={items?.filter((item) => slot?.includes(item.slot))}
               counts={items}
-              selectedId={item?.id}
               showBgColor={false}
               showLabels={false}
+              greyedIds={items
+                ?.filter((item) => item.equipped !== "NONE")
+                .map((item) => item.id)}
               onClick={(id) => {
                 setItem(items?.find((item) => item.id === id));
                 equip({ userItemId: id, slot: slot });

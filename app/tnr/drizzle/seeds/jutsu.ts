@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { jutsu } from "../schema.ts";
+import { jutsu } from "../schema";
 import { eq } from "drizzle-orm";
 import { JutsuValidator } from "../../src/libs/combat/types";
 import { CloneTag } from "../../src/libs/combat/types";
@@ -7,7 +7,7 @@ import { DamageTag } from "../../src/libs/combat/types";
 import { BarrierTag } from "../../src/libs/combat/types";
 import { StunTag } from "../../src/libs/combat/types";
 import type { ZodJutsuType } from "../../src/libs/combat/types";
-import type { DrizzleClient } from "../../src/server/db.ts";
+import type { DrizzleClient } from "../../src/server/db";
 
 const jutsus: ZodJutsuType[] = [
   /******************** */

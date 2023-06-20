@@ -9,7 +9,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "seed": "ts-node --esm --files drizzle/seed.ts",
+    "seed": "ts-node --esm --files --experimentalSpecifierResolution node drizzle/seed.ts",
     "db-push": "drizzle-kit push:mysql",
     "makemigrations": "drizzle-kit generate:mysql"
   },
