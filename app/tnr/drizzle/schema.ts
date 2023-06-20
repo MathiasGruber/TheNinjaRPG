@@ -233,7 +233,7 @@ export const bugReport = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
-    isResolved: tinyint("is_resolved").default(0).notNull(),
+    isResolved: tinyint("isResolved").default(0).notNull(),
     popularity: int("popularity").default(0).notNull(),
     conversationId: varchar("conversationId", { length: 191 }).notNull(),
   },
@@ -726,12 +726,12 @@ export const userData = mysqlTable(
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
     username: varchar("username", { length: 191 }).notNull(),
     gender: varchar("gender", { length: 191 }).notNull(),
-    curHealth: int("cur_health").default(100).notNull(),
-    maxHealth: int("max_health").default(100).notNull(),
-    curChakra: int("cur_chakra").default(100).notNull(),
-    maxChakra: int("max_chakra").default(100).notNull(),
-    curStamina: int("cur_stamina").default(100).notNull(),
-    maxStamina: int("max_stamina").default(100).notNull(),
+    curHealth: int("curHealth").default(100).notNull(),
+    maxHealth: int("maxHealth").default(100).notNull(),
+    curChakra: int("curChakra").default(100).notNull(),
+    maxChakra: int("maxChakra").default(100).notNull(),
+    curStamina: int("curStamina").default(100).notNull(),
+    maxStamina: int("maxStamina").default(100).notNull(),
     regeneration: int("regeneration").default(1).notNull(),
     money: int("money").default(100).notNull(),
     bank: int("bank").default(100).notNull(),
@@ -745,20 +745,22 @@ export const userData = mysqlTable(
     intelligence: double("intelligence").default(10).notNull(),
     willpower: double("willpower").default(10).notNull(),
     speed: double("speed").default(10).notNull(),
-    ninjutsuOffence: double("ninjutsu_offence").default(10).notNull(),
-    ninjutsuDefence: double("ninjutsu_defence").default(10).notNull(),
-    genjutsuOffence: double("genjutsu_offence").default(10).notNull(),
-    genjutsuDefence: double("genjutsu_defence").default(10).notNull(),
-    taijutsuOffence: double("taijutsu_offence").default(10).notNull(),
-    taijutsuDefence: double("taijutsu_defence").default(10).notNull(),
-    reputationPoints: int("reputation_points").default(0).notNull(),
-    reputationPointsTotal: int("reputation_points_total").default(0).notNull(),
-    popularityPoints: int("popularity_points").default(6).notNull(),
-    popularityPointsTotal: int("popularity_points_total").default(6).notNull(),
+    ninjutsuOffence: double("ninjutsuOffence").default(10).notNull(),
+    ninjutsuDefence: double("ninjutsuDefence").default(10).notNull(),
+    genjutsuOffence: double("genjutsuOffence").default(10).notNull(),
+    genjutsuDefence: double("genjutsuDefence").default(10).notNull(),
+    taijutsuOffence: double("taijutsuOffence").default(10).notNull(),
+    taijutsuDefence: double("taijutsuDefence").default(10).notNull(),
+    bukijutsuDefence: double("bukijutsuDefence").default(10).notNull(),
+    bukijutsuOffence: double("bukijutsuOffence").default(10).notNull(),
+    reputationPoints: int("reputationPoints").default(0).notNull(),
+    reputationPointsTotal: int("reputationPointsTotal").default(0).notNull(),
+    popularityPoints: int("popularityPoints").default(6).notNull(),
+    popularityPointsTotal: int("popularityPointsTotal").default(6).notNull(),
     federalStatus: mysqlEnum("federalStatus", FederalStatuses)
       .default("NONE")
       .notNull(),
-    approvedTos: tinyint("approved_tos").default(0).notNull(),
+    approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
     sector: int("sector").default(0).notNull(),
     longitude: int("longitude").default(10).notNull(),
@@ -776,10 +778,8 @@ export const userData = mysqlTable(
     role: mysqlEnum("role", UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: tinyint("isAI").default(0).notNull(),
-    bukijutsuDefence: double("bukijutsu_defence").default(10).notNull(),
-    bukijutsuOffence: double("bukijutsu_offence").default(10).notNull(),
-    eloPve: int("elo_pve").default(1).notNull(),
-    eloPvp: int("elo_pvp").default(1).notNull(),
+    eloPve: int("eloPve").default(1).notNull(),
+    eloPvp: int("eloPvp").default(1).notNull(),
     regenAt: datetime("regenAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1000,9 +1000,9 @@ export const villageStructure = mysqlTable(
     image: varchar("image", { length: 191 }).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
     level: int("level").default(1).notNull(),
-    maxLevel: int("max_level").default(10).notNull(),
-    curSp: int("cur_sp").default(100).notNull(),
-    maxSp: int("max_sp").default(100).notNull(),
+    maxLevel: int("maxLevel").default(10).notNull(),
+    curSp: int("curSp").default(100).notNull(),
+    maxSp: int("maxSp").default(100).notNull(),
   },
   (table) => {
     return {
@@ -1015,3 +1015,10 @@ export const villageStructure = mysqlTable(
   }
 );
 export type VillageStructure = InferModel<typeof villageStructure>;
+
+export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
+  village: one(village, {
+    fields: [villageStructure.villageId],
+    references: [village.id],
+  }),
+}));

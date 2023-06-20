@@ -33,8 +33,8 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
       )}
       <Image
         className={`${props.className} ${
-          drawBackground ? "absolute" : "relative"
-        } bottom-0 left-0 right-0 top-0 rounded-xl border-2`}
+          drawBackground ? "absolute left-1/2 -translate-x-1/2 " : "relative left-0"
+        } bottom-0 right-0 top-0 rounded-xl border-2`}
         src={props.image}
         alt={props.alt}
         width={125}

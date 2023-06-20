@@ -1,12 +1,12 @@
 import { nanoid } from "nanoid";
-import { bloodline } from "../schema.ts";
+import { bloodline } from "../schema";
 import { eq } from "drizzle-orm";
 import { AdjustStatTag } from "../../src/libs/combat/types";
 import { AdjustDamageGivenTag } from "../../src/libs/combat/types";
 import { AdjustDamageTakenTag } from "../../src/libs/combat/types";
 import { AdjustHealGivenTag } from "../../src/libs/combat/types";
 import type { ZodBloodlineType } from "../../src/libs/combat/types";
-import type { DrizzleClient } from "../../src/server/db.ts";
+import type { DrizzleClient } from "../../src/server/db";
 
 const bloodlines: ZodBloodlineType[] = [
   /*********************** */

@@ -37,11 +37,11 @@ const Hospital: NextPage = () => {
   const router = useRouter();
 
   // Get data from DB
-  const { data: prevRoll, isLoading: isLoadingBlood } = api.bloodline.getRolls.useQuery(
-    {
-      currentBloodlineId: userData?.bloodlineId,
-    }
-  );
+  const {
+    data: prevRoll,
+    isLoading: isLoadingBlood,
+    refetch: refetchBloodline,
+  } = api.bloodline.getRolls.useQuery({ currentBloodlineId: userData?.bloodlineId });
 
   // Mutations
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
@@ -105,7 +105,7 @@ const Hospital: NextPage = () => {
       <br />
 
       {isLoadingBlood && <Loader explanation="Loading bloodlines" />}
-      {!isLoadingBlood && !hasRolled && <RollBloodline />}
+      {!isLoadingBlood && !hasRolled && <RollBloodline refetch={refetchBloodline} />}
       {!isLoadingBlood && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
       {!isLoadingBlood && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
     </>
@@ -320,13 +320,17 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
 /**
  * Component for rolling a new bloodline
  */
-const RollBloodline: React.FC = () => {
-  const { refetch } = useRequiredUserData();
+interface RollBloodlineProps {
+  refetch: () => void;
+}
+const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
+  const { refetch: refetchUser } = useRequiredUserData();
   // State
   const { mutate: roll, isLoading: isRolling } = api.bloodline.roll.useMutation({
     onSuccess: async (data) => {
-      await refetch();
+      props.refetch();
       if (data.bloodlineId) {
+        await refetchUser();
         show_toast(
           "Bloodline confirmed!",
           "After thorough examination a bloodline was detected",

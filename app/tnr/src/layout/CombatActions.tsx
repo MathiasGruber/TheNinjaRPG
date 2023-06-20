@@ -18,6 +18,7 @@ interface ActionSelectorProps {
   showBgColor: boolean;
   showLabels: boolean;
   selectedId?: string;
+  greyedIds?: string[];
   labelSingles?: boolean;
   onClick: (id: string) => void;
   emptyText?: string;
@@ -53,8 +54,10 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
               bgColor = "bg-orange-200";
             }
             const isGreyed =
-              props.selectedId !== undefined && props.selectedId !== item.id;
+              (props.selectedId !== undefined && props.selectedId !== item.id) ||
+              (props.greyedIds !== undefined && props.greyedIds.includes(item.id));
             const isHighlight = item.highlight ?? false;
+
             return (
               <ActionOption
                 key={i}

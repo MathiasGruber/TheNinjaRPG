@@ -33,7 +33,7 @@ const Training: NextPage = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 20 },
+    { rarity: rarity, limit: 50 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,

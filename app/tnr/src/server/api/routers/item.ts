@@ -46,7 +46,7 @@ export const itemRouter = createTRPCRouter({
       .select({
         count: sql<number>`count(${userItem.id})`,
         itemId: userItem.itemId,
-        quantity: userItem.quantity,
+        quantity: sql<number>`sum(${userItem.quantity})`,
       })
       .from(userItem)
       .groupBy(userItem.itemId);
@@ -203,10 +203,10 @@ export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
 export const fetchUserItem = async (
   client: DrizzleClient,
   userId: string,
-  itemId: string
+  userItemId: string
 ) => {
   return await client.query.userItem.findFirst({
-    where: and(eq(userItem.userId, userId), eq(userItem.itemId, itemId)),
+    where: and(eq(userItem.userId, userId), eq(userItem.id, userItemId)),
     with: { item: true },
   });
 };

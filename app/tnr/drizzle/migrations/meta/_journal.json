@@ -8,6 +8,34 @@
       "when": 1687003442906,
       "tag": "0000_groovy_sauron",
       "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1687244533179,
+      "tag": "0001_lying_cannonball",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1687244713915,
+      "tag": "0002_serious_mysterio",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1687245794199,
+      "tag": "0003_unique_darkstar",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1687245947634,
+      "tag": "0004_next_the_renegades",
+      "breakpoints": false
     }
   ]
 }

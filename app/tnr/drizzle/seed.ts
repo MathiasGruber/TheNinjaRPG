@@ -1,13 +1,13 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/planetscale-serverless";
 import { connect } from "@planetscale/database";
-import { seedVillages } from "./seeds/village.ts";
+import { seedVillages } from "./seeds/village";
 import { seedForum } from "./seeds/forum";
 import { seedJutsus } from "./seeds/jutsu";
 import { seedBloodlines } from "./seeds/bloodline";
 import { seedItems } from "./seeds/items";
-import { seedAI } from "./seeds/ai.ts";
-import * as schema from "./schema.ts";
+import { seedAI } from "./seeds/ai";
+import * as schema from "./schema";
 
 // Create a new database client
 const client = drizzle(
@@ -16,7 +16,7 @@ const client = drizzle(
     username: process.env["DATABASE_USERNAME"],
     password: process.env["DATABASE_PASSWORD"],
   }),
-  { schema, logger: true } //
+  { schema } //, logger: true
 );
 
 // Seed the database
