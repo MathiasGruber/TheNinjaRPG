@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import Link from "next/link";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
-import Pusher from "pusher-js";
 import type { Grid } from "honeycomb-grid";
 
 import Button from "./Button";
@@ -91,7 +90,12 @@ const Combat: React.FC<CombatProps> = (props) => {
     });
 
   // Data from the DB
-  const { data: userData, pusher, refetch: refetchUser, setBattle } = useRequiredUserData();
+  const {
+    data: userData,
+    pusher,
+    refetch: refetchUser,
+    setBattle,
+  } = useRequiredUserData();
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -153,10 +157,10 @@ const Combat: React.FC<CombatProps> = (props) => {
     battle.current = props.battleState.battle;
   }, [props]);
 
-  const battleId = battle.current?.id
+  const battleId = battle.current?.id;
   useEffect(() => {
-    if(battleId && pusher){
-      console.log("SUBSCRIBE TO PUSHER in Combat")
+    if (battleId && pusher) {
+      console.log("SUBSCRIBE TO PUSHER in Combat");
       const channel = pusher.subscribe(battleId);
       channel.bind("event", (data: { version: number }) => {
         if (battle.current?.version !== data.version && !result) {
@@ -166,8 +170,8 @@ const Combat: React.FC<CombatProps> = (props) => {
       return () => {
         pusher.unsubscribe(battleId);
       };
-    }    
-  }, [battleId])
+    }
+  }, [battleId]);
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {

@@ -7,7 +7,7 @@ import Button from "../layout/Button";
 import Countdown from "../layout/Countdown";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
-import { useClerk } from "@clerk/clerk-react";
+// import { useClerk } from "@clerk/clerk-react";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
