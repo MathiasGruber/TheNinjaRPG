@@ -29,9 +29,9 @@ export const updateBattle = async (
       .update(battle)
       .set({
         version: curBattle.version + 1,
-        usersState: JSON.stringify(finalUsersState),
-        usersEffects: JSON.stringify(newUsersEffects),
-        groundEffects: JSON.stringify(newGroundEffects),
+        usersState: finalUsersState,
+        usersEffects: newUsersEffects,
+        groundEffects: newGroundEffects,
       })
       .where(and(eq(battle.id, curBattle.id), eq(battle.version, curBattle.version)));
 
@@ -60,7 +60,7 @@ export const createAction = async (
     battleId: battle.id,
     battleVersion: battle.version + 1,
     description: battleDescription,
-    appliedEffects: JSON.stringify(effects),
+    appliedEffects: effects,
   });
 };
 
