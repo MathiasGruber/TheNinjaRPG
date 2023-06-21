@@ -146,25 +146,25 @@ export const combatRouter = createTRPCRouter({
         /**
          * DATABASE UPDATES in parallel transaction
          */
-        const newBattle = await ctx.drizzle.transaction(async (tx) => {
-          const [newBattle] = await Promise.all([
-            updateBattle(
-              result,
-              userBattle,
-              finalUsersState,
-              nextUsersEffects,
-              nextGroundEffects,
-              tx
-            ),
-            createAction(battleDescription.join(". "), userBattle, actionEffects, tx),
-            updateUser(result, ctx.userId, tx),
-          ]);
-          return newBattle;
-        });
+        const newBattle = await updateBattle(
+          result,
+          userBattle,
+          finalUsersState,
+          nextUsersEffects,
+          nextGroundEffects,
+          ctx.drizzle
+        );
 
         // Return the new battle + results state if applicable
         if (newBattle) {
           const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+          await createAction(
+            battleDescription.join(". "),
+            userBattle,
+            actionEffects,
+            ctx.drizzle
+          );
+          await updateUser(result, ctx.userId, ctx.drizzle);
           return { battle: newMaskedBattle, result: result };
         }
       }
