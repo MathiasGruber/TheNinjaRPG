@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { ItemRarities } from "../../drizzle/schema";
+import { ItemRarities } from "../../drizzle/constants";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ContentImageProps {

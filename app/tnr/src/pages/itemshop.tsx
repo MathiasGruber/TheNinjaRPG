@@ -11,7 +11,7 @@ import { useRequiredUserData } from "../utils/UserContext";
 import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import { ItemTypes } from "../../drizzle/schema";
+import { ItemTypes } from "../../drizzle/constants";
 import type { ItemType, Item } from "../../drizzle/schema";
 import type { NextPage } from "next";
 

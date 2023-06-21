@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, gte, and } from "drizzle-orm";
-import { LetterRanks } from "../../../../drizzle/schema";
+import { LetterRanks } from "../../../../drizzle/constants";
 import { bloodline, bloodlineRolls, userData } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";

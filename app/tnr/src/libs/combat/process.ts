@@ -1,5 +1,6 @@
-import type { BattleUserState, AnimationNames } from "./types";
+import type { BattleUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
+import type { AnimationNames } from "./types";
 import { VisualTag, type Consequence } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
@@ -12,7 +13,6 @@ import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { clear } from "./tags";
-// TODO: Import all tags at once
 
 /**
  * Realize tag with information about how powerful tag is
@@ -67,7 +67,7 @@ export const realizeTag = <T extends BattleEffect>(
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: typeof AnimationNames[number]
+  animation?: keyof typeof AnimationNames
 ): GroundEffect => {
   return {
     ...VisualTag.parse({

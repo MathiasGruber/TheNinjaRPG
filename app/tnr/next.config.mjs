@@ -15,6 +15,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: false,
+  swcMinify: false,
   images: {
     remotePatterns: [
       {

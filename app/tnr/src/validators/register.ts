@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FederalStatuses } from "../../drizzle/schema";
+import { FederalStatuses } from "../../drizzle/constants";
 
 // List of possible attributes
 export const attributes = [

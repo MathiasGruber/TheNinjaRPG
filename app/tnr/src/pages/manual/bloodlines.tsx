@@ -5,7 +5,7 @@ import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
-import type { LetterRanks } from "../../../drizzle/schema";
+import type { LetterRanks } from "../../../drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualBloodlines: NextPage = () => {
