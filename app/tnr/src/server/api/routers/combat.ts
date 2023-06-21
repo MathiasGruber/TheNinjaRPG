@@ -64,9 +64,6 @@ export const combatRouter = createTRPCRouter({
         ),
         orderBy: desc(battleAction.createdAt),
       });
-      if (entry) {
-        entry.appliedEffects = JSON.parse(entry.appliedEffects as string);
-      }
       return entry !== undefined ? entry : null;
     }),
   performAction: protectedProcedure
@@ -230,8 +227,5 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   if (!entry) {
     throw new Error("Battle not found");
   }
-  entry.usersState = JSON.parse(entry.usersState as string);
-  entry.usersEffects = JSON.parse(entry.usersEffects as string);
-  entry.groundEffects = JSON.parse(entry.groundEffects as string);
   return entry;
 };
