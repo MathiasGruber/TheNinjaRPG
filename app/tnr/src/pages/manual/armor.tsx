@@ -3,7 +3,7 @@ import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
-import { ItemRarities } from "../../../drizzle/schema";
+import { ItemRarities } from "../../../drizzle/constants";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
 import type { NextPage } from "next";

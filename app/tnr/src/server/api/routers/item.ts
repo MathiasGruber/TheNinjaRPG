@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { item, userItem, userData } from "../../../../drizzle/schema";
-import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/schema";
+import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/constants";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import type { DrizzleClient } from "../../db";

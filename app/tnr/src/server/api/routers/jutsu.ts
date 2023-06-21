@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and } from "drizzle-orm";
 import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
-import { LetterRanks } from "../../../../drizzle/schema";
+import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
 import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu/jutsu";
 import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";

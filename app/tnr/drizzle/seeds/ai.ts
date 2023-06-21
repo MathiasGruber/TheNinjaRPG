@@ -1,8 +1,8 @@
 // import { DamageTag } from "../../src/libs/combat/types";
 import { nanoid } from "nanoid";
-import type { UserData } from "../schema";
 import { userData, jutsu, userJutsu } from "../schema";
 import { eq, inArray } from "drizzle-orm";
+import type { UserData } from "../schema";
 import type { DrizzleClient } from "../../src/server/db";
 
 type AIdefinition = Partial<UserData> &

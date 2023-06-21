@@ -1,65 +1,15 @@
 import { z } from "zod";
-import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/schema";
-import { ItemSlotTypes, ItemTypes, JutsuTypes } from "../../../drizzle/schema";
-import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/schema";
+import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/constants";
+import { ItemSlotTypes, ItemTypes, JutsuTypes } from "../../../drizzle/constants";
+import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/constants";
+import { Element } from "./constants";
+import { StatType, GeneralType, PoolType } from "./constants";
+import type { publicState } from "./constants";
+import type { StatNames } from "./constants";
 import type { Jutsu, Item, Bloodline } from "../../../drizzle/schema";
 import type { UserData, UserJutsu, UserItem, Village } from "../../../drizzle/schema";
 import type { TerrainHex } from "../hexgrid";
 import type { UserBattle } from "../../utils/UserContext";
-
-/**
- * Which state is public / private on users
- */
-export const publicState = [
-  "userId",
-  "villageId",
-  "username",
-  "gender",
-  "avatar",
-  "curHealth",
-  "maxHealth",
-  "longitude",
-  "latitude",
-  "location",
-  "sector",
-  "updatedAt",
-  "eloPvp",
-  "eloPve",
-  "regeneration",
-  "village",
-  "fledBattle",
-  "leftBattle",
-  "isOriginal",
-  "isAi",
-  "controllerId",
-] as const;
-
-export const privateState = [
-  "updatedAt",
-  "curChakra",
-  "maxChakra",
-  "curStamina",
-  "maxStamina",
-  "ninjutsuOffence",
-  "ninjutsuDefence",
-  "genjutsuOffence",
-  "genjutsuDefence",
-  "taijutsuOffence",
-  "taijutsuDefence",
-  "bukijutsuOffence",
-  "bukijutsuDefence",
-  "highestOffence",
-  "highestDefence",
-  "strength",
-  "intelligence",
-  "willpower",
-  "speed",
-  "bloodline",
-  "items",
-  "jutsus",
-] as const;
-
-export const allState = [...publicState, ...privateState] as const;
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user
@@ -174,24 +124,6 @@ export type Consequence = {
 };
 
 /**
- * Enum types
- */
-const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
-const StatType = ["Highest", "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const;
-const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
-const PoolType = ["Health", "Chakra", "Stamina"] as const;
-export const StatNames = [
-  "ninjutsuOffence",
-  "ninjutsuDefence",
-  "genjutsuOffence",
-  "genjutsuDefence",
-  "taijutsuOffence",
-  "taijutsuDefence",
-  "bukijutsuOffence",
-  "bukijutsuDefence",
-] as const;
-
-/**
  * Animation Visuals
  */
 export const Animations = new Map<string, { frames: number; speed: number }>();
@@ -201,22 +133,14 @@ Animations.set("fire", { frames: 6, speed: 50 });
 Animations.set("heal", { frames: 20, speed: 50 });
 Animations.set("explosion", { frames: 10, speed: 50 });
 Animations.set("rising_smoke", { frames: 14, speed: 50 });
-export const AnimationNames = [
-  "hit",
-  "smoke",
-  "fire",
-  "heal",
-  "explosion",
-  "rising_smoke",
-] as const;
-
-/**
- * Static Visuals
- */
-export const Statics = new Map<string, { frames: number; speed: number }>();
-Statics.set("hit", { frames: 4, speed: 50 });
-Statics.set("smoke", { frames: 9, speed: 50 });
-export const StaticNames = ["hit", "smoke"] as const;
+export enum AnimationNames {
+  hit = "hit",
+  smoke = "smoke",
+  fire = "fire",
+  heal = "heal",
+  explosion = "explosion",
+  rising_smoke = "rising_smoke",
+}
 
 /**
  * Convenience method for a string with a default value
@@ -258,9 +182,9 @@ const type = (defaultString: string) => {
 const BaseAttributes = z.object({
   // Visual controls
   staticAssetPath: z.string().optional(),
-  staticAnimation: z.enum(AnimationNames).optional(),
-  appearAnimation: z.enum(AnimationNames).optional(),
-  disappearAnimation: z.enum(AnimationNames).optional(),
+  staticAnimation: z.nativeEnum(AnimationNames).optional(),
+  appearAnimation: z.nativeEnum(AnimationNames).optional(),
+  disappearAnimation: z.nativeEnum(AnimationNames).optional(),
   // Timing controls
   rounds: z.number().int().min(0).max(20).optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),

@@ -13,7 +13,7 @@ import { useInfinitePagination } from "../libs/pagination";
 import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import type { LetterRanks, Jutsu } from "../../drizzle/schema";
+import type { JutsuRank, Jutsu } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
 const Training: NextPage = () => {
@@ -21,7 +21,7 @@ const Training: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
-  const [rarity, setRarity] = useState<typeof LetterRanks[number]>("D");
+  const [rarity, setRarity] = useState<JutsuRank>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const isAwake = useAwake(userData);
   const now = new Date();
