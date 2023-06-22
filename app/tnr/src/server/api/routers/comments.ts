@@ -242,29 +242,27 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      return await ctx.drizzle.transaction(async (tx) => {
-        const convoId = nanoid();
-        await tx.insert(conversation).values({
-          id: convoId,
-          title: input.title,
-          createdById: ctx.userId,
-          isPublic: 0,
-          isLocked: 0,
-        });
-        [...input.users, ctx.userId].map(async (user) => {
-          await tx.insert(user2conversation).values({
-            conversationId: convoId,
-            userId: user,
-          });
-        });
-        await tx.insert(conversationComment).values({
-          id: nanoid(),
-          content: sanitize(input.comment),
-          userId: ctx.userId,
-          conversationId: convoId,
-        });
-        return { conversationId: convoId };
+      const convoId = nanoid();
+      await ctx.drizzle.insert(conversation).values({
+        id: convoId,
+        title: input.title,
+        createdById: ctx.userId,
+        isPublic: 0,
+        isLocked: 0,
       });
+      [...input.users, ctx.userId].map(async (user) => {
+        await ctx.drizzle.insert(user2conversation).values({
+          conversationId: convoId,
+          userId: user,
+        });
+      });
+      await ctx.drizzle.insert(conversationComment).values({
+        id: nanoid(),
+        content: sanitize(input.comment),
+        userId: ctx.userId,
+        conversationId: convoId,
+      });
+      return { conversationId: convoId };
     }),
   exitConversation: protectedProcedure
     .input(z.object({ convo_id: z.string() }))

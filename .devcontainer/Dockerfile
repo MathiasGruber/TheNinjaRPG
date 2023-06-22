@@ -7,7 +7,8 @@ RUN npm i -g gitmoji-cli
 RUN npm i -g drizzle-kit
 
 # Show we're in devcontainer
-RUN echo 'export PS1="\[\e[36m\]DevContainer>\[\e[m\] "' >> /home/vscode/.bashrc
+RUN bash -c "$(curl -fskSL https://raw.github.com/ohmybash/oh-my-bash/master/tools/install.sh)"
+RUN sed -i 's/OSH_THEME="font"/OSH_THEME="agnoster"/g' /home/vscode/.bashrc
 
 # Change to non-root
 USER vscode

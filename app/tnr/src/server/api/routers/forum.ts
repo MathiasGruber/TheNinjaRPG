@@ -50,43 +50,35 @@ export const forumRouter = createTRPCRouter({
   createThread: protectedProcedure
     .input(forumBoardSchema)
     .mutation(async ({ ctx, input }) => {
-      return await ctx.drizzle.transaction(
-        async (tx) => {
-          const threadId = nanoid();
-          const [board, user] = await Promise.all([
-            await fetchBoard(tx, input.board_id),
-            await fetchUser(tx, ctx.userId),
-            await tx.insert(forumThread).values({
-              id: threadId,
-              title: input.title,
-              boardId: input.board_id,
-              userId: ctx.userId,
-            }),
-            await tx.insert(forumPost).values({
-              id: nanoid(),
-              content: input.content,
-              threadId: threadId,
-              userId: ctx.userId,
-            }),
-            await tx
-              .update(forumBoard)
-              .set({ nThreads: sql`nThreads + 1` })
-              .where(eq(forumBoard.id, input.board_id)),
-          ]);
+      const threadId = nanoid();
+      const [board, user] = await Promise.all([
+        await fetchBoard(ctx.drizzle, input.board_id),
+        await fetchUser(ctx.drizzle, ctx.userId),
+        await ctx.drizzle.insert(forumThread).values({
+          id: threadId,
+          title: input.title,
+          boardId: input.board_id,
+          userId: ctx.userId,
+        }),
+        await ctx.drizzle.insert(forumPost).values({
+          id: nanoid(),
+          content: input.content,
+          threadId: threadId,
+          userId: ctx.userId,
+        }),
+        await ctx.drizzle
+          .update(forumBoard)
+          .set({ nThreads: sql`nThreads + 1` })
+          .where(eq(forumBoard.id, input.board_id)),
+      ]);
 
-          if (user.isBanned) {
-            throw serverError("UNAUTHORIZED", "You are banned");
-          }
-          if (!board) {
-            throw serverError("UNAUTHORIZED", "Board does not exist");
-          }
-          return threadId;
-        },
-        {
-          isolationLevel: "read uncommitted",
-          accessMode: "read write",
-        }
-      );
+      if (user.isBanned) {
+        throw serverError("UNAUTHORIZED", "You are banned");
+      }
+      if (!board) {
+        throw serverError("UNAUTHORIZED", "Board does not exist");
+      }
+      return threadId;
     }),
   // Pin forum thread to be on top
   pinThread: protectedProcedure

@@ -68,24 +68,22 @@ export const itemRouter = createTRPCRouter({
       });
       const totalQuantity = userItems.reduce((acc, i) => acc + i.quantity, 0);
       if (info && userItems.length > 0) {
-        await ctx.drizzle.transaction(async (tx) => {
-          let currentCount = 0;
-          for (let i = 0; i < userItems.length; i++) {
-            const id = userItems?.[i]?.id;
-            const newQuantity = Math.min(info.stackSize, totalQuantity - currentCount);
-            if (id) {
-              if (newQuantity > 0) {
-                currentCount += newQuantity;
-                await tx
-                  .update(userItem)
-                  .set({ quantity: newQuantity })
-                  .where(eq(userItem.id, id));
-              } else {
-                await tx.delete(userItem).where(eq(userItem.id, id));
-              }
+        let currentCount = 0;
+        for (let i = 0; i < userItems.length; i++) {
+          const id = userItems?.[i]?.id;
+          const newQuantity = Math.min(info.stackSize, totalQuantity - currentCount);
+          if (id) {
+            if (newQuantity > 0) {
+              currentCount += newQuantity;
+              await ctx.drizzle
+                .update(userItem)
+                .set({ quantity: newQuantity })
+                .where(eq(userItem.id, id));
+            } else {
+              await ctx.drizzle.delete(userItem).where(eq(userItem.id, id));
             }
           }
-        });
+        }
       }
     }),
   // Drop user item
@@ -115,28 +113,26 @@ export const itemRouter = createTRPCRouter({
       if (!useritem) {
         throw serverError("NOT_FOUND", "User item not found");
       }
-      return await ctx.drizzle.transaction(async (tx) => {
-        if (!useritem.equipped || useritem.equipped !== input.slot) {
-          const equipped = userItems.find(
-            (i) => i.equipped === input.slot && i.id !== useritem.id
-          );
-          if (equipped) {
-            await tx
-              .update(userItem)
-              .set({ equipped: "NONE" })
-              .where(eq(userItem.id, equipped.id));
-          }
-          return await tx
-            .update(userItem)
-            .set({ equipped: input.slot })
-            .where(eq(userItem.id, useritem.id));
-        } else {
-          return await tx
+      if (!useritem.equipped || useritem.equipped !== input.slot) {
+        const equipped = userItems.find(
+          (i) => i.equipped === input.slot && i.id !== useritem.id
+        );
+        if (equipped) {
+          await ctx.drizzle
             .update(userItem)
             .set({ equipped: "NONE" })
-            .where(eq(userItem.id, useritem.id));
+            .where(eq(userItem.id, equipped.id));
         }
-      });
+        return await ctx.drizzle
+          .update(userItem)
+          .set({ equipped: input.slot })
+          .where(eq(userItem.id, useritem.id));
+      } else {
+        return await ctx.drizzle
+          .update(userItem)
+          .set({ equipped: "NONE" })
+          .where(eq(userItem.id, useritem.id));
+      }
     }),
   // Buy user item
   buy: protectedProcedure
@@ -167,23 +163,21 @@ export const itemRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "Item not found");
       }
       const cost = info.cost * input.stack;
-      const result = await ctx.drizzle.transaction(async (tx) => {
-        await tx.insert(userItem).values({
-          id: nanoid(),
-          userId: uid,
-          itemId: iid,
-          quantity: input.stack,
-          equipped: "NONE",
-        });
-        const result = await tx
-          .update(userData)
-          .set({
-            money: sql`${userData.money} - ${cost}`,
-          })
-          .where(and(eq(userData.userId, uid), gte(userData.money, cost)));
-        if (result.rowsAffected !== 1) {
-          throw serverError("PRECONDITION_FAILED", "Not enough money");
-        }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: sql`${userData.money} - ${cost}`,
+        })
+        .where(and(eq(userData.userId, uid), gte(userData.money, cost)));
+      if (result.rowsAffected !== 1) {
+        throw serverError("PRECONDITION_FAILED", "Not enough money");
+      }
+      await ctx.drizzle.insert(userItem).values({
+        id: nanoid(),
+        userId: uid,
+        itemId: iid,
+        quantity: input.stack,
+        equipped: "NONE",
       });
       return result;
     }),

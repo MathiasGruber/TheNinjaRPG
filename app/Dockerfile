@@ -1,4 +1,6 @@
-FROM arm64v8/node:19
+FROM node:20.3-alpine3.17
+
+RUN apk update && apk add bash
 
 RUN mkdir /app
 WORKDIR /app

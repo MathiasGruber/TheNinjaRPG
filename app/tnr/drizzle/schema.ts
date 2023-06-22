@@ -677,8 +677,8 @@ export const userData = mysqlTable(
     taijutsuDefence: double("taijutsuDefence").default(10).notNull(),
     bukijutsuDefence: double("bukijutsuDefence").default(10).notNull(),
     bukijutsuOffence: double("bukijutsuOffence").default(10).notNull(),
-    reputationPoints: int("reputationPoints").default(0).notNull(),
-    reputationPointsTotal: int("reputationPointsTotal").default(0).notNull(),
+    reputationPoints: int("reputationPoints").default(5).notNull(),
+    reputationPointsTotal: int("reputationPointsTotal").default(5).notNull(),
     popularityPoints: int("popularityPoints").default(6).notNull(),
     popularityPointsTotal: int("popularityPointsTotal").default(6).notNull(),
     federalStatus: mysqlEnum("federalStatus", FederalStatuses)
