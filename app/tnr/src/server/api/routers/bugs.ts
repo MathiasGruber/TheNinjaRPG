@@ -50,21 +50,19 @@ export const bugsRouter = createTRPCRouter({
     if (user.isBanned) {
       throw serverError("UNAUTHORIZED", "You are banned");
     }
-    return await ctx.drizzle.transaction(async (tx) => {
-      const convoId = nanoid();
-      await tx.insert(conversation).values({
-        id: convoId,
-        title: input.title,
-        createdById: ctx.userId,
-      });
-      return await tx.insert(bugReport).values({
-        id: nanoid(),
-        title: input.title,
-        content: sanitize(input.content),
-        system: input.system,
-        userId: ctx.userId,
-        conversationId: convoId,
-      });
+    const convoId = nanoid();
+    await ctx.drizzle.insert(conversation).values({
+      id: convoId,
+      title: input.title,
+      createdById: ctx.userId,
+    });
+    return await ctx.drizzle.insert(bugReport).values({
+      id: nanoid(),
+      title: input.title,
+      content: sanitize(input.content),
+      system: input.system,
+      userId: ctx.userId,
+      conversationId: convoId,
     });
   }),
   // Delete a bug report
@@ -99,30 +97,28 @@ export const bugsRouter = createTRPCRouter({
       const currentVote = await ctx.drizzle.query.bugVotes.findFirst({
         where: and(eq(bugVotes.bugId, report.id), eq(bugVotes.userId, ctx.userId)),
       });
-      await ctx.drizzle.transaction(async (tx) => {
-        if (currentVote) {
-          await tx
-            .update(bugVotes)
-            .set({ value: input.value })
-            .where(eq(bugVotes.id, currentVote.id));
-        } else {
-          await tx.insert(bugVotes).values({
-            id: nanoid(),
-            bugId: report.id,
-            userId: ctx.userId,
-            value: input.value,
-          });
-        }
-        const result = await tx
-          .select({ sum: sql<number>`sum(${bugVotes.value})` })
-          .from(bugVotes)
-          .where(eq(bugVotes.bugId, input.bugId));
-        const popularity = result?.[0]?.sum || 0;
-        return await tx
-          .update(bugReport)
-          .set({ popularity: popularity })
-          .where(eq(bugReport.id, report.id));
-      });
+      if (currentVote) {
+        await ctx.drizzle
+          .update(bugVotes)
+          .set({ value: input.value })
+          .where(eq(bugVotes.id, currentVote.id));
+      } else {
+        await ctx.drizzle.insert(bugVotes).values({
+          id: nanoid(),
+          bugId: report.id,
+          userId: ctx.userId,
+          value: input.value,
+        });
+      }
+      const result = await ctx.drizzle
+        .select({ sum: sql<number>`sum(${bugVotes.value})` })
+        .from(bugVotes)
+        .where(eq(bugVotes.bugId, input.bugId));
+      const popularity = result?.[0]?.sum || 0;
+      return await ctx.drizzle
+        .update(bugReport)
+        .set({ popularity: popularity })
+        .where(eq(bugReport.id, report.id));
     }),
   // Resolve / unresolve bug report
   resolve: protectedProcedure
@@ -135,16 +131,14 @@ export const bugsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.role === "ADMIN") {
         const report = await fetchBugReport(ctx.drizzle, input.id);
-        return await ctx.drizzle.transaction(async (tx) => {
-          await tx
-            .update(bugReport)
-            .set({ isResolved: report.isResolved ? 0 : 1 })
-            .where(eq(bugReport.id, report.id));
-          return await tx
-            .update(conversation)
-            .set({ isLocked: report.isResolved ? 0 : 1 })
-            .where(eq(conversation.id, report.conversationId));
-        });
+        await ctx.drizzle
+          .update(bugReport)
+          .set({ isResolved: report.isResolved ? 0 : 1 })
+          .where(eq(bugReport.id, report.id));
+        return await ctx.drizzle
+          .update(conversation)
+          .set({ isLocked: report.isResolved ? 0 : 1 })
+          .where(eq(conversation.id, report.conversationId));
       } else {
         throw serverError("UNAUTHORIZED", "Only admins can resolve bugs");
       }

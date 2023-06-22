@@ -76,16 +76,14 @@ export const bloodlineRouter = createTRPCRouter({
       );
       if (randomBloodline) {
         bloodlineId = randomBloodline.id;
-        await ctx.drizzle.transaction(async (tx) => {
-          await tx
-            .update(userData)
-            .set({ bloodlineId: randomBloodline.id })
-            .where(eq(userData.userId, ctx.userId));
-          await tx.insert(bloodlineRolls).values({
-            id: nanoid(),
-            userId: ctx.userId,
-            bloodlineId: randomBloodline.id,
-          });
+        await ctx.drizzle
+          .update(userData)
+          .set({ bloodlineId: randomBloodline.id })
+          .where(eq(userData.userId, ctx.userId));
+        await ctx.drizzle.insert(bloodlineRolls).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          bloodlineId: randomBloodline.id,
         });
       }
     } else {

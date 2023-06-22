@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-
+import { useRouter } from "next/router";
 import Confirm from "../layout/Confirm";
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
@@ -17,27 +17,38 @@ const Profile: NextPage = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   // const { signOut } = useClerk();
 
-  const toggleDeletionTimer = api.profile.toggleDeletionTimer.useMutation({
-    onSuccess: async () => {
-      await refetchUser();
-    },
-    onError: (error) => {
-      show_toast("Error on toggle deletion timer", error.message, "error");
-    },
-  });
+  // Router for forwarding
+  const router = useRouter();
 
-  const confirmDeletion = api.profile.cofirmDeletion.useMutation({
-    onSuccess: () => {
-      // signOut()
-    },
-    onError: (error) => {
-      show_toast("Error on performing deletion", error.message, "error");
-    },
-  });
+  const { mutate: toggleDeletionTimer, isLoading: isTogglingDelete } =
+    api.profile.toggleDeletionTimer.useMutation({
+      onSuccess: async () => {
+        await refetchUser();
+      },
+      onError: (error) => {
+        show_toast("Error on toggle deletion timer", error.message, "error");
+      },
+    });
+
+  const { mutate: confirmDeletion, isLoading: isDeleting } =
+    api.profile.confirmDeletion.useMutation({
+      onSuccess: async () => {
+        await refetchUser();
+        await router.push("/");
+      },
+      onError: (error) => {
+        show_toast("Error on performing deletion", error.message, "error");
+      },
+    });
 
   if (!userData) {
     return <Loader explanation="Loading profile page..." />;
   }
+  if (isTogglingDelete || isDeleting) {
+    return <Loader explanation="Performing action..." />;
+  }
+
+  const canDelete = userData.deletionAt && new Date(userData.deletionAt) < new Date();
 
   return (
     <ContentBox
@@ -55,14 +66,18 @@ const Profile: NextPage = () => {
               />
             }
             proceed_label={
-              userData.deletionAt ? "Disable Deletion Timer" : "Enable Deletion Timer"
+              canDelete
+                ? "Complete Deletion"
+                : userData.deletionAt
+                ? "Disable Deletion Timer"
+                : "Enable Deletion Timer"
             }
             onAccept={(e) => {
               e.preventDefault();
-              if (userData.deletionAt && new Date(userData.deletionAt) < new Date()) {
-                confirmDeletion.mutate();
+              if (canDelete) {
+                confirmDeletion();
               } else {
-                toggleDeletionTimer.mutate();
+                toggleDeletionTimer();
               }
             }}
           >
@@ -85,8 +100,8 @@ const Profile: NextPage = () => {
                   }
                   onClick={(e) => {
                     e.preventDefault();
-                    if (userData.deletionAt && userData.deletionAt < new Date()) {
-                      confirmDeletion.mutate();
+                    if (userData.deletionAt) {
+                      toggleDeletionTimer();
                     }
                   }}
                 />

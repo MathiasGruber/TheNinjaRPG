@@ -138,31 +138,30 @@ export const reportsRouter = createTRPCRouter({
       if (!hasModRights) {
         throw serverError("UNAUTHORIZED", "You cannot resolve this report");
       }
-      await ctx.drizzle.transaction(async (tx) => {
-        if (report.reportedUserId) {
-          await tx
-            .update(userData)
-            .set({ isBanned: 1 })
-            .where(eq(userData.userId, report.reportedUserId));
-        }
-        await tx
-          .update(userReport)
-          .set({
-            status: "BAN_ACTIVATED",
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
-            banEnd:
-              input.banTime !== undefined
-                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
-                : null,
-          })
-          .where(eq(userReport.id, input.object_id));
-        await tx.insert(userReportComment).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          reportId: input.object_id,
-          content: sanitize(input.comment),
-          decision: "BAN_ACTIVATED",
-        });
+
+      if (report.reportedUserId) {
+        await ctx.drizzle
+          .update(userData)
+          .set({ isBanned: 1 })
+          .where(eq(userData.userId, report.reportedUserId));
+      }
+      await ctx.drizzle
+        .update(userReport)
+        .set({
+          status: "BAN_ACTIVATED",
+          adminResolved: user.role === "ADMIN" ? 1 : 0,
+          banEnd:
+            input.banTime !== undefined
+              ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
+              : null,
+        })
+        .where(eq(userReport.id, input.object_id));
+      await ctx.drizzle.insert(userReportComment).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        reportId: input.object_id,
+        content: sanitize(input.comment),
+        decision: "BAN_ACTIVATED",
       });
     }),
   // Escalate a report to admin. Only if already banned, and no previous escalation
@@ -174,18 +173,16 @@ export const reportsRouter = createTRPCRouter({
       if (canEscalateBan(user, report)) {
         throw serverError("UNAUTHORIZED", "This ban cannot be escalated");
       }
-      await ctx.drizzle.transaction(async (tx) => {
-        await tx
-          .update(userReport)
-          .set({ status: "BAN_ESCALATED" })
-          .where(eq(userReport.id, input.object_id));
-        await tx.insert(userReportComment).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          reportId: input.object_id,
-          content: sanitize(input.comment),
-          decision: "BAN_ESCALATED",
-        });
+      await ctx.drizzle
+        .update(userReport)
+        .set({ status: "BAN_ESCALATED" })
+        .where(eq(userReport.id, input.object_id));
+      await ctx.drizzle.insert(userReportComment).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        reportId: input.object_id,
+        content: sanitize(input.comment),
+        decision: "BAN_ESCALATED",
       });
     }),
   clear: protectedProcedure
@@ -196,37 +193,36 @@ export const reportsRouter = createTRPCRouter({
       if (!canClearReport(user, report)) {
         throw serverError("UNAUTHORIZED", "You cannot clear this report");
       }
-      await ctx.drizzle.transaction(async (tx) => {
-        if (report.reportedUserId) {
-          const reports = await tx.query.userReport.findMany({
-            where: and(
-              eq(userReport.reportedUserId, report.reportedUserId),
-              eq(userReport.status, "BAN_ACTIVATED"),
-              gte(userReport.banEnd, new Date()),
-              ne(userReport.id, report.id)
-            ),
-          });
-          if (reports.length === 0) {
-            await tx
-              .update(userData)
-              .set({ isBanned: 0 })
-              .where(eq(userData.userId, report.reportedUserId));
-          }
-        }
-        await tx
-          .update(userReport)
-          .set({
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
-            status: "REPORT_CLEARED",
-          })
-          .where(eq(userReport.id, report.id));
-        await tx.insert(userReportComment).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          reportId: report.id,
-          content: sanitize(input.comment),
-          decision: "REPORT_CLEARED",
+
+      if (report.reportedUserId) {
+        const reports = await ctx.drizzle.query.userReport.findMany({
+          where: and(
+            eq(userReport.reportedUserId, report.reportedUserId),
+            eq(userReport.status, "BAN_ACTIVATED"),
+            gte(userReport.banEnd, new Date()),
+            ne(userReport.id, report.id)
+          ),
         });
+        if (reports.length === 0) {
+          await ctx.drizzle
+            .update(userData)
+            .set({ isBanned: 0 })
+            .where(eq(userData.userId, report.reportedUserId));
+        }
+      }
+      await ctx.drizzle
+        .update(userReport)
+        .set({
+          adminResolved: user.role === "ADMIN" ? 1 : 0,
+          status: "REPORT_CLEARED",
+        })
+        .where(eq(userReport.id, report.id));
+      await ctx.drizzle.insert(userReportComment).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        reportId: report.id,
+        content: sanitize(input.comment),
+        decision: "REPORT_CLEARED",
       });
     }),
   updateUserAvatar: protectedProcedure

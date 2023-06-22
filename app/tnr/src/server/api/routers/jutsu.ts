@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
@@ -57,34 +57,31 @@ export const jutsuRouter = createTRPCRouter({
       if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
         throw serverError("NOT_FOUND", "You are already training a jutsu");
       }
-      return await ctx.drizzle.transaction(async (tx) => {
-        const level = userjutsu ? userjutsu.level : 0;
-        const trainTime = calcTrainTime(info, level);
-        const trainCost = calcTrainCost(info, level);
-        await tx
-          .update(userData)
-          .set({ money: sql`${userData.money} - ${trainCost}` })
-          .where(eq(userData.userId, ctx.userId));
-        if (userjutsu) {
-          return await tx
-            .update(userJutsu)
-            .set({
-              level: sql`${userJutsu.level} + 1`,
-              finishTraining: new Date(Date.now() + trainTime),
-              updatedAt: new Date(),
-            })
-            .where(
-              and(eq(userJutsu.id, userjutsu.id), eq(userJutsu.userId, ctx.userId))
-            );
-        } else {
-          return await tx.insert(userJutsu).values({
-            id: nanoid(),
-            userId: ctx.userId,
-            jutsuId: input.jutsuId,
+
+      const level = userjutsu ? userjutsu.level : 0;
+      const trainTime = calcTrainTime(info, level);
+      const trainCost = calcTrainCost(info, level);
+      await ctx.drizzle
+        .update(userData)
+        .set({ money: sql`${userData.money} - ${trainCost}` })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, trainCost)));
+      if (userjutsu) {
+        return await ctx.drizzle
+          .update(userJutsu)
+          .set({
+            level: sql`${userJutsu.level} + 1`,
             finishTraining: new Date(Date.now() + trainTime),
-          });
-        }
-      });
+            updatedAt: new Date(),
+          })
+          .where(and(eq(userJutsu.id, userjutsu.id), eq(userJutsu.userId, ctx.userId)));
+      } else {
+        return await ctx.drizzle.insert(userJutsu).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          jutsuId: input.jutsuId,
+          finishTraining: new Date(Date.now() + trainTime),
+        });
+      }
     }),
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure

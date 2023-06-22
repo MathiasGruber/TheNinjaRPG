@@ -120,10 +120,12 @@ export const profileRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      return ctx.drizzle.query.userData.findFirst({
+      const username = await ctx.drizzle.query.userData.findFirst({
         columns: { username: true },
         where: eq(userData.username, input.username),
       });
+      if (username) return username;
+      return null;
     }),
   // Return list of 5 most similar users in database
   searchUsers: protectedProcedure
@@ -250,7 +252,7 @@ export const profileRouter = createTRPCRouter({
       .where(eq(userData.userId, ctx.userId));
   }),
   // Delete user
-  cofirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
+  confirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
     const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
     if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
