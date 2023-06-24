@@ -160,7 +160,6 @@ const Combat: React.FC<CombatProps> = (props) => {
   const battleId = battle.current?.id;
   useEffect(() => {
     if (battleId && pusher) {
-      console.log("SUBSCRIBE TO PUSHER in Combat");
       const channel = pusher.subscribe(battleId);
       channel.bind("event", (data: { version: number }) => {
         if (battle.current?.version !== data.version && !result) {

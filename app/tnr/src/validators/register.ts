@@ -34,7 +34,7 @@ export const usernameSchema = z
 export const registrationSchema = z
   .object({
     username: usernameSchema,
-    village: z.string().cuid({ message: "Must select a village" }),
+    village: z.string(),
     gender: z.enum(genders),
     hair_color: z.enum(colors),
     eye_color: z.enum(colors),

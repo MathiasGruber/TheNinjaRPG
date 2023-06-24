@@ -5,17 +5,24 @@ import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown from "./NavBarDropdown";
-import { UserButton } from "@clerk/nextjs";
 
+import { UserButton } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
 import { useUserData } from "../utils/UserContext";
 import { getMainNavbarLinks } from "../libs/menus";
 import { getMainGameLinks } from "../libs/menus";
+import type { NavBarDropdownLink } from "../libs/menus";
 
-const NavBar: React.FC = () => {
+interface NavBarProps {
+  notifications: NavBarDropdownLink[] | undefined;
+}
+
+const NavBar: React.FC<NavBarProps> = (props) => {
   // Information on user
+  const { notifications } = props;
   const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
+
   // Main links
   const navLinks = getMainNavbarLinks(isSignedIn);
   const { systems } = getMainGameLinks(userData);
@@ -23,7 +30,7 @@ const NavBar: React.FC = () => {
   // Top element of mobile navbar
   const topElement = userData && (
     <div className="flex flex-row">
-      <div className="basis-1/3">
+      <div className="my-3 basis-1/3">
         <AvatarImage
           href={userData.avatar}
           userId={userData.userId}
@@ -66,6 +73,10 @@ const NavBar: React.FC = () => {
       </div>
     </div>
   );
+
+  // Links to show on game menu
+  const gameLinks = notifications ? notifications.concat(systems) : navLinks;
+
   // Return navbar
   return (
     <>
@@ -119,7 +130,7 @@ const NavBar: React.FC = () => {
           </h1>
         </div>
         <div>
-          <NavBarDropdown icon={<IconGlobe />} links={systems} position="right" />
+          <NavBarDropdown icon={<IconGlobe />} links={gameLinks} position="right" />
         </div>
       </div>
     </>

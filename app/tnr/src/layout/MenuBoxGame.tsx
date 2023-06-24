@@ -5,12 +5,10 @@ import {
   InformationCircleIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-
 import MenuBox from "./MenuBox";
-
 import { getMainGameLinks } from "../libs/menus";
 import { useUserData } from "../utils/UserContext";
-import { type NavBarDropdownLink } from "../libs/menus";
+import type { NavBarDropdownLink } from "../libs/menus";
 
 interface MenuBoxGameProps {
   notifications: NavBarDropdownLink[] | undefined;
@@ -18,9 +16,7 @@ interface MenuBoxGameProps {
 
 const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   const { data: userData } = useUserData();
-
   const { systems, location } = getMainGameLinks(userData);
-
   if (!userData) {
     return <div></div>;
   }

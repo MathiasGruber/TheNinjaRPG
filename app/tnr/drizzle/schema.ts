@@ -15,21 +15,7 @@ import {
 import type { InferModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import {
-  LetterRanks,
-  ItemRarities,
-  ItemSlotTypes,
-  ItemSlots,
-  UserRoles,
-  UserStatuses,
-  FederalStatuses,
-  UserRanks,
-  ItemTypes,
-  WeaponTypes,
-  AttackTargets,
-  AttackMethods,
-  JutsuTypes,
-} from "./constants";
+import * as consts from "./constants";
 
 export const battle = mysqlTable(
   "Battle",
@@ -75,6 +61,10 @@ export const battleAction = mysqlTable(
   (table) => {
     return {
       battleIdIdx: index("BattleAction_battleId_idx").on(table.battleId),
+      battleIdVersionIdx: index("BattleAction_battleId_version_idx").on(
+        table.battleId,
+        table.battleVersion
+      ),
     };
   }
 );
@@ -95,7 +85,7 @@ export const bloodline = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    rank: mysqlEnum("rank", LetterRanks).notNull(),
+    rank: mysqlEnum("rank", consts.LetterRanks).notNull(),
   },
   (table) => {
     return {
@@ -431,18 +421,18 @@ export const item = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     effects: json("effects").notNull(),
-    itemType: mysqlEnum("itemType", ItemTypes).notNull(),
-    rarity: mysqlEnum("rarity", ItemRarities).notNull(),
-    slot: mysqlEnum("slot", ItemSlotTypes).notNull(),
+    itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
+    rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
+    slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
     cost: int("cost").default(1).notNull(),
-    weaponType: mysqlEnum("weaponType", WeaponTypes),
+    weaponType: mysqlEnum("weaponType", consts.WeaponTypes),
     canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
-    target: mysqlEnum("target", AttackTargets).notNull(),
+    target: mysqlEnum("target", consts.AttackTargets).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     destroyOnUse: tinyint("destroyOnUse").default(0).notNull(),
     range: int("range").default(0).notNull(),
-    method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
+    method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     chakraCostPerc: double("chakraCostPerc").default(0).notNull(),
     staminaCostPerc: double("staminaCostPerc").default(0).notNull(),
     actionCostPerc: double("actionCostPerc").default(60).notNull(),
@@ -476,22 +466,22 @@ export const jutsu = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     effects: json("effects").notNull(),
-    target: mysqlEnum("target", AttackTargets).notNull(),
+    target: mysqlEnum("target", consts.AttackTargets).notNull(),
     range: int("range").notNull(),
     cooldown: int("cooldown").default(0).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    requiredRank: mysqlEnum("requiredRank", UserRanks).notNull(),
-    jutsuType: mysqlEnum("jutsuType", JutsuTypes).notNull(),
+    requiredRank: mysqlEnum("requiredRank", consts.UserRanks).notNull(),
+    jutsuType: mysqlEnum("jutsuType", consts.JutsuTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
-    jutsuWeapon: mysqlEnum("jutsuWeapon", WeaponTypes),
+    jutsuWeapon: mysqlEnum("jutsuWeapon", consts.WeaponTypes),
     battleDescription: text("battleDescription").notNull(),
-    jutsuRank: mysqlEnum("jutsuRank", LetterRanks).default("D").notNull(),
+    jutsuRank: mysqlEnum("jutsuRank", consts.LetterRanks).default("D").notNull(),
     actionCostPerc: double("actionCostPerc").default(80).notNull(),
     staminaCostPerc: double("staminaCostPerc").default(0.05).notNull(),
     chakraCostPerc: double("chakraCostPerc").default(0.05).notNull(),
     healthCostPerc: double("healthCostPerc").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
-    method: mysqlEnum("method", AttackMethods).default("SINGLE").notNull(),
+    method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
   },
   (table) => {
     return {
@@ -513,7 +503,7 @@ export const paypalSubscription = mysqlTable(
     createdById: varchar("createdById", { length: 191 }).notNull(),
     affectedUserId: varchar("affectedUserId", { length: 191 }).notNull(),
     status: varchar("status", { length: 191 }).notNull(),
-    federalStatus: mysqlEnum("federalStatus", FederalStatuses).notNull(),
+    federalStatus: mysqlEnum("federalStatus", consts.FederalStatuses).notNull(),
     orderId: varchar("orderId", { length: 191 }),
     subscriptionId: varchar("subscriptionId", { length: 191 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
@@ -660,11 +650,11 @@ export const userData = mysqlTable(
     money: int("money").default(100).notNull(),
     bank: int("bank").default(100).notNull(),
     experience: int("experience").default(0).notNull(),
-    rank: mysqlEnum("rank", UserRanks).default("STUDENT").notNull(),
+    rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    status: mysqlEnum("status", UserStatuses).default("AWAKE").notNull(),
+    status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),
     strength: double("strength").default(10).notNull(),
     intelligence: double("intelligence").default(10).notNull(),
     willpower: double("willpower").default(10).notNull(),
@@ -681,7 +671,7 @@ export const userData = mysqlTable(
     reputationPointsTotal: int("reputationPointsTotal").default(5).notNull(),
     popularityPoints: int("popularityPoints").default(6).notNull(),
     popularityPointsTotal: int("popularityPointsTotal").default(6).notNull(),
-    federalStatus: mysqlEnum("federalStatus", FederalStatuses)
+    federalStatus: mysqlEnum("federalStatus", consts.FederalStatuses)
       .default("NONE")
       .notNull(),
     approvedTos: tinyint("approvedTos").default(0).notNull(),
@@ -699,7 +689,7 @@ export const userData = mysqlTable(
     deletionAt: datetime("deletionAt", { mode: "date", fsp: 3 }),
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: tinyint("isBanned").default(0).notNull(),
-    role: mysqlEnum("role", UserRoles).default("USER").notNull(),
+    role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: tinyint("isAI").default(0).notNull(),
     eloPve: int("eloPve").default(1).notNull(),
@@ -751,7 +741,7 @@ export const userItem = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     itemId: varchar("itemId", { length: 191 }).notNull(),
     quantity: int("quantity").default(1).notNull(),
-    equipped: mysqlEnum("equipped", ItemSlots).default("NONE").notNull(),
+    equipped: mysqlEnum("equipped", consts.ItemSlots).default("NONE").notNull(),
   },
   (table) => {
     return {

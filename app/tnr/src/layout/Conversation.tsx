@@ -84,7 +84,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   useEffect(() => {
     if (conversation && pusher) {
-      console.log("SUBSCRIBE TO PUSHER in Conversation");
       const channel = pusher.subscribe(conversation.id);
       channel.bind("event", async () => {
         await refetch();

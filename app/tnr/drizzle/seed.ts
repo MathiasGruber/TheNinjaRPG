@@ -11,11 +11,7 @@ import * as schema from "./schema";
 
 // Create a new database client
 const client = drizzle(
-  connect({
-    host: process.env["DATABASE_HOST"],
-    username: process.env["DATABASE_USERNAME"],
-    password: process.env["DATABASE_PASSWORD"],
-  }),
+  connect({ url: process.env["DATABASE_URL"] }),
   { schema } //, logger: true
 );
 

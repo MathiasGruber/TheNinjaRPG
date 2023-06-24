@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=docs,prototype_migrations,makemigrations,createmigrations,yarn
+ARGS_TARGETS=makemigrations,yarn
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -54,7 +54,7 @@ sync: # Make sure node_modules is updated in editor
 	cd app/tnr && yarn install
 
 .PHONY: yarn
-yarn: # Run yarn command in app container
+yarn: # Run yarn command in app container & restart afterwards
 	@echo "${YELLOW}Run yarn ${RESET}"
 	docker exec -it tnr_app yarn ${ARGS}
 	docker restart tnr_app
@@ -64,4 +64,14 @@ yarn: # Run yarn command in app container
 seed: # Seed database
 	@echo "${YELLOW}Run drizzle db seed ${RESET}"
 	docker exec -it tnr_app yarn seed
+	
+.PHONY: makemigrations
+makemigrations: # Create database migration file
+	@echo "${YELLOW}Create database migrations file ${RESET}"
+	docker exec -it tnr_app yarn makemigrations
+	
+.PHONY: dbpush
+makemigrations: # Create database migration file
+	@echo "${YELLOW}Pushing database schema to development server ${RESET}"
+	docker exec -it tnr_app yarn dbpush
 	

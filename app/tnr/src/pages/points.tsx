@@ -38,12 +38,15 @@ const OPTIONS = {
  * Main component for doing paypal transactions
  */
 const PaypalShop: NextPage = () => {
+  const { data: userData } = useRequiredUserData();
   const [activeTab, setActiveTab] = useState<string>("Reputation");
   const currency = "USD";
 
   useEffect(() => {
     destroySDKScript(getScriptID(OPTIONS));
   }, [activeTab]);
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <>

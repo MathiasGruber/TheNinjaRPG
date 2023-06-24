@@ -54,7 +54,7 @@ export const useRequiredUserData = () => {
   const { isLoaded, isSignedIn } = useAuth();
   const { data, status, pusher, battle, refetch, setBattle } = useUserData();
   useEffect(() => {
-    if (data === null || (!isSignedIn && isLoaded)) {
+    if (data === undefined || (!isSignedIn && isLoaded)) {
       void router.push("/");
     }
   }, [router, data, isLoaded, isSignedIn]);

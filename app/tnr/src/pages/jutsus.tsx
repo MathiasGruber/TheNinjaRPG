@@ -70,6 +70,8 @@ const MyJutsu: NextPage = () => {
       ? `Equipped ${curEquip}/${maxEquip}`
       : "Jutsus you want to use in combat";
 
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <ContentBox title="Jutsu Management" subtitle={subtitle}>
       <ActionSelector

@@ -8,7 +8,7 @@ import { z } from "zod";
 export const serverSchema = z.object({
   PUSHER_APP_ID: z.string(),
   PUSHER_APP_SECRET: z.string(),
-  DRIZZLE_DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   AWS_S3_BUCKET_NAME: z.string(),
   AWS_REGION: z.string(),
@@ -22,7 +22,7 @@ export const serverSchema = z.object({
 export const serverEnv = {
   PUSHER_APP_ID: process.env.PUSHER_APP_ID,
   PUSHER_APP_SECRET: process.env.PUSHER_APP_SECRET,
-  DRIZZLE_DATABASE_URL: process.env.DRIZZLE_DATABASE_URL,
+  DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
   AWS_REGION: process.env.AWS_REGION,

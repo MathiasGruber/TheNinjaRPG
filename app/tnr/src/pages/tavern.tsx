@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-
+import Loader from "../layout/Loader";
 import Conversation from "../layout/Conversation";
 import NavTabs from "../layout/NavTabs";
 
@@ -9,8 +9,10 @@ import { useRequiredUserData } from "../utils/UserContext";
 const Tavern: NextPage = () => {
   const [activeTab, setActiveTab] = useState<string>("Global");
   const { data: userData } = useRequiredUserData();
-
   const localTavern = userData?.village ? userData?.village?.name : "Syndicate";
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <>
       <Conversation

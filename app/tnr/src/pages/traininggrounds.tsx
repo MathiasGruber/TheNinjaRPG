@@ -38,6 +38,7 @@ const Training: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
+      enabled: userData !== undefined,
     }
   );
   const alljutsus = jutsus?.pages
@@ -86,6 +87,8 @@ const Training: NextPage = () => {
   const trainCost = (jutsu && calcTrainCost(jutsu, level)) || 0;
   const canTrain = jutsu && userData && canTrainJutsu(jutsu, userData);
   const canAfford = userData && trainCost && userData.money >= trainCost;
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <>

@@ -164,7 +164,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (pusher) {
-      console.log("SUBSCRIBE TO PUSHER in Sector");
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
         if (data.userId !== userData?.userId) updateUsersList(data);

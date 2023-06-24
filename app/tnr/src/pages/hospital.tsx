@@ -41,7 +41,12 @@ const Hospital: NextPage = () => {
     data: prevRoll,
     isLoading: isLoadingBlood,
     refetch: refetchBloodline,
-  } = api.bloodline.getRolls.useQuery({ currentBloodlineId: userData?.bloodlineId });
+  } = api.bloodline.getRolls.useQuery(
+    {
+      currentBloodlineId: userData?.bloodlineId,
+    },
+    { staleTime: Infinity, enabled: userData !== undefined }
+  );
 
   // Mutations
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
@@ -63,6 +68,8 @@ const Hospital: NextPage = () => {
   const healFinishAt = userData && calcHealFinish(userData);
   const healCost = userData && calcHealCost(userData);
   const canAfford = userData && healCost && userData.money >= healCost;
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <>

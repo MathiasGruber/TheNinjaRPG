@@ -22,6 +22,9 @@ const VillageOverview: NextPage = () => {
     data && userData?.village
       ? `${userData.village.name} Village, Population ${data.population}`
       : "Your shinobi community";
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <ContentBox title={title} subtitle={subtitle}>
       <div className="grid grid-cols-3 items-center lg:grid-cols-4">

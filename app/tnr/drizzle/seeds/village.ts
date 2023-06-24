@@ -48,7 +48,7 @@ export const seedVillages = async (client: DrizzleClient) => {
     villageData: typeof villages[number],
     elderData: typeof elders[number] | undefined
   ) => {
-    // Create Village
+    // // Create Village
     let villageId = nanoid();
     const curVillage = await client.query.village.findFirst({
       where: eq(village.name, villageData.name),
@@ -86,7 +86,7 @@ export const seedVillages = async (client: DrizzleClient) => {
           .values({ id: nanoid(), ...building, villageId: villageId });
       }
     });
-    // Village elder
+    // // Village elder
     if (elderData) {
       let elderId = nanoid();
       const curElder = await client.query.userData.findFirst({
@@ -99,7 +99,8 @@ export const seedVillages = async (client: DrizzleClient) => {
           rank: "ELDER",
           isAi: 1,
           status: "AWAKE",
-          ...elderData,
+          username: elderData.username,
+          gender: elderData.gender,
         });
       } else {
         elderId = curElder.userId;
@@ -113,17 +114,16 @@ export const seedVillages = async (client: DrizzleClient) => {
         });
       });
     }
-
     // Village conversation
-    // const curConversation = await client.query.conversation.findFirst({
-    //   where: eq(conversation.title, villageData.name),
-    // });
-    // if (!curConversation) {
-    //   await client.insert(conversation).values({
-    //     id: nanoid(),
-    //     title: villageData.name,
-    //   });
-    // }
+    const curConversation = await client.query.conversation.findFirst({
+      where: eq(conversation.title, villageData.name),
+    });
+    if (!curConversation) {
+      await client.insert(conversation).values({
+        id: nanoid(),
+        title: villageData.name,
+      });
+    }
   };
 
   villages.map((data, i) => promises.push(createVillage(data, elders[i])));
