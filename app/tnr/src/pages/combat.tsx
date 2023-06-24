@@ -74,6 +74,8 @@ const CombatPage: NextPage = () => {
     );
   }, [battleId, versionId]);
 
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <div className="sm:container">
       <ContentBox

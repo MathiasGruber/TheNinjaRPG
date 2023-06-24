@@ -39,6 +39,7 @@ const Reports: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
+      enabled: userData !== undefined,
     }
   );
   const allReports = reports?.pages.map((page) => page.data).flat();
@@ -48,6 +49,8 @@ const Reports: NextPage = () => {
     hasNextPage,
     lastElement,
   });
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <ContentBox

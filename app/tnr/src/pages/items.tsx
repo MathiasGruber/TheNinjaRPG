@@ -17,6 +17,7 @@ import type { NextPage } from "next";
 
 const MyItems: NextPage = () => {
   // State
+  const { data: userData } = useRequiredUserData();
   const tabs = ["Character", "Backpack"];
   const [screen, setScreen] = useState<typeof tabs[number]>("Character");
 
@@ -26,13 +27,17 @@ const MyItems: NextPage = () => {
     data: userItems,
     refetch,
     isFetching,
-  } = api.item.getUserItems.useQuery(undefined, { staleTime: Infinity });
+  } = api.item.getUserItems.useQuery(undefined, {
+    staleTime: Infinity,
+    enabled: userData !== undefined,
+  });
 
   // Collapse UserItem and Item
   const allItems = userItems?.map((useritem) => {
     return { ...useritem.item, ...useritem };
   });
 
+  if (!userData) return <Loader explanation="Loading userdata" />;
   return (
     <ContentBox
       title="Item Management"

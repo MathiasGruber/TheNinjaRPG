@@ -8,7 +8,7 @@ import Loader from "../layout/Loader";
 
 const Arena: NextPage = () => {
   // Data from database
-  const { refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
   // Router for forwarding
   const router = useRouter();
@@ -27,6 +27,8 @@ const Arena: NextPage = () => {
         document.body.style.cursor = "default";
       },
     });
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <ContentBox title="Battle Arena" subtitle="Fight Training" back_href="/village">

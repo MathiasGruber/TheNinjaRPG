@@ -7,7 +7,7 @@ import type { DrizzleClient } from "../../src/server/db";
 
 type AIdefinition = Partial<UserData> &
   Pick<UserData, "userId" | "gender" | "avatar" | "level" | "rank"> & {
-    jutsus: string[];
+    jutsus?: string[];
   };
 
 function ReadonlyMapWithStringKeys<K extends string, AIdefinition>(
@@ -58,30 +58,32 @@ let counter = 0;
 const total = ais.size;
 
 const upsertAI = async (client: DrizzleClient, name: string, ai: AIdefinition) => {
+  // Jutsus
+  await client.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
+  if (ai.jutsus) {
+    const jutsus = await client.query.jutsu.findMany({
+      where: inArray(jutsu.name, ai.jutsus),
+    });
+    await client.insert(userJutsu).values(
+      jutsus.map((jutsu) => ({
+        id: nanoid(),
+        userId: ai.userId,
+        jutsuId: jutsu.id,
+        level: ai.level,
+        equipped: 1,
+      }))
+    );
+  }
   // User data
   const obj = await client.query.userData.findFirst({
     where: eq(userData.username, name),
   });
+  delete ai.jutsus;
   if (obj) {
     await client.update(userData).set(ai).where(eq(userData.username, name));
   } else {
     await client.insert(userData).values({ ...ai, username: name, isAi: 1 });
   }
-  // Jutsus
-  const jutsus = await client.query.jutsu.findMany({
-    where: inArray(jutsu.name, ai.jutsus),
-  });
-  await client.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
-  await client.insert(userJutsu).values(
-    jutsus.map((jutsu) => ({
-      id: nanoid(),
-      userId: ai.userId,
-      jutsuId: jutsu.id,
-      level: ai.level,
-      equipped: 1,
-    }))
-  );
-
   // Progress
   counter++;
   process.stdout.moveCursor(0, -1);

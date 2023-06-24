@@ -23,7 +23,10 @@ import { type CreateConversationSchema } from "../validators/comments";
 import { getSearchValidator } from "../validators/register";
 
 const Inbox: NextPage = () => {
+  const { data: userData } = useRequiredUserData();
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <div className={`grid grid-cols-4`}>

@@ -38,6 +38,7 @@ const Travel: NextPage = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const { data: villages } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
+    enabled: userData !== undefined,
   });
 
   // Router for forwarding
@@ -101,6 +102,8 @@ const Travel: NextPage = () => {
   const isGlobal = activeTab === "Global";
   const showGlobal = villages && globe && isGlobal;
   const showSector = villages && currentSector && currentTile && !isGlobal;
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <>

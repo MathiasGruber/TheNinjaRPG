@@ -34,6 +34,7 @@ const ItemShop: NextPage = () => {
   } = api.item.getAll.useInfiniteQuery(
     { itemType: itemtype, limit: 20 },
     {
+      enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
@@ -63,6 +64,8 @@ const ItemShop: NextPage = () => {
 
   // Can user affort selected item
   const canAfford = item && userData && userData.money >= item.cost;
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <>

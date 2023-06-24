@@ -14,7 +14,6 @@ import type { UserBattle, UserEvent } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 
-
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Pusher connection
   const [pusher, setPusher] = useState<Pusher | undefined>(undefined);
@@ -35,12 +34,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
 
   // Listen on user channel for live updates on things
   useEffect(() => {
-    if (userId) {        
+    if (userId) {
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
       });
       setPusher(pusher);
-      const channel = pusher.subscribe(userId);      
+      const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {
         if (data.type === "battle") {
           await refetchUser();
@@ -74,14 +73,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         <div className="container max-w-7xl">
           <div className="grid grid-cols-3 md:grid-cols-5">
             <div className="col-span-1 hidden md:block">
-              {data?.userData && isSignedIn && (
-                <>
-                  <MenuBoxProfile />
-                </>
-              )}
+              {data?.userData && isSignedIn && <MenuBoxProfile />}
             </div>
             <div className="col-span-3">
-              <NavBar />
+              <NavBar notifications={data?.notifications} />
               <div className="mx-1 mt-2 rounded-md bg-orange-100 p-1 md:mx-0">
                 <div className="rounded-md bg-yellow-50 p-5">{props.children}</div>
               </div>

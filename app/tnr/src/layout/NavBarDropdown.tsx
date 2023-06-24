@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { type NavBarDropdownLink } from "../libs/menus";
+import {
+  ShieldExclamationIcon,
+  InformationCircleIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
+import type { NavBarDropdownLink } from "../libs/menus";
 
 interface NavBarDropdownProps {
   icon: React.ReactNode;
@@ -31,21 +36,37 @@ const NavBarDropdown: React.FC<NavBarDropdownProps> = (props) => {
               <div>{props.topElement}</div>
             )}
 
-            {props.links?.map((link) => (
-              <div key={link.name} className="flex flex-row items-center">
-                <div className="px-2">{link.icon && link.icon}</div>
-                <Link
-                  className="flex w-full justify-between px-1 py-2 text-left text-sm leading-5 text-gray-700"
-                  href={link.href}
-                  onClick={async () => {
-                    await link.onClick?.();
-                    setOpen(false);
-                  }}
+            {props.links?.map((link) => {
+              if (!link.icon && link.color) {
+                if (link.color === "red") {
+                  link.icon = <ShieldExclamationIcon className="mr-2 h-6 w-6" />;
+                } else if (link.color === "blue") {
+                  link.icon = <InformationCircleIcon className="mr-2 h-6 w-6" />;
+                } else if (link.color === "green") {
+                  link.icon = <ShieldCheckIcon className="mr-2 h-6 w-6" />;
+                }
+              }
+              return (
+                <div
+                  key={link.name}
+                  className={`flex flex-row items-center ${
+                    link.color ? `bg-${link.color}-500` : ""
+                  }`}
                 >
-                  {link.name}
-                </Link>
-              </div>
-            ))}
+                  <div className="px-2">{link.icon && link.icon}</div>
+                  <Link
+                    className="flex w-full justify-between px-1 py-2 text-left text-sm leading-5 text-gray-700"
+                    href={link.href}
+                    onClick={async () => {
+                      await link.onClick?.();
+                      setOpen(false);
+                    }}
+                  >
+                    {link.name}
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
