@@ -17,6 +17,9 @@ services:
       - /var/run/docker.sock:/var/run/docker-host.sock
       # Update this to wherever you want VS Code to mount the folder of your project
       - ..:/workspace:cached
+      # Shared node modules (see guide: https://code.visualstudio.com/remote/advancedcontainers/improve-performance)
+      - shared-node_modules:/workspace/app/tnr/node_modules
+      - shared-pnpm-store:/workspace/app/tnr/.pnpm-store
     # Overrides default command so things don't shut down after the process ends.
     entrypoint: /usr/local/share/docker-init.sh
     command: sh -c "cd /workspace && ls && sleep infinity"
@@ -36,20 +39,10 @@ services:
       - "4000:4000"
     volumes:
       - ../app/tnr/:/app/
-      - /app/node_modules
-    depends_on:
-      - mysql
-    command: bash -c "yarn && yarn dev"
-
-  mysql:
-    container_name: tnr_database
-    restart: unless-stopped
-    image: mysql:8.0.32
-    env_file:
-      - .env
-    volumes:
-      - mysql-store:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
+      - shared-node_modules:/app/node_modules
+      - shared-pnpm-store:/app/.pnpm-store
+    command: bash -c "pnpm dev"
 
 volumes:
-  mysql-store:
+  shared-node_modules:
+  shared-pnpm-store:

@@ -22,6 +22,7 @@
   // Use 'postCreateCommand' to run commands after the container is created.
   // "postCreateCommand": "docker --version",
   // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
+  "postCreateCommand": "sudo chown vscode:vscode app/tnr/node_modules app/tnr/.pnpm-store",
   // "remoteUser": "vscode"
   "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}"
 }

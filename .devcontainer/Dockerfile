@@ -5,6 +5,7 @@ RUN npm i -g gitmoji-cli
 
 # Install drizzle-kit
 RUN npm i -g drizzle-kit
+RUN npm install -g pnpm
 
 # Show we're in devcontainer
 RUN bash -c "$(curl -fskSL https://raw.github.com/ohmybash/oh-my-bash/master/tools/install.sh)"
