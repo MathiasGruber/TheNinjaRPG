@@ -234,7 +234,7 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
     where: eq(battle.id, battleId),
   });
   if (!entry) {
-    throw serverError("NOT_FOUND", `Invalid action`);
+    throw serverError("NOT_FOUND", `Could not find the battle`);
   }
   return entry;
 };
