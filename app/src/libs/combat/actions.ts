@@ -396,7 +396,6 @@ export const performAction = (props: {
   longitude: number;
   latitude: number;
 }) => {
-  ring({ center: [1, 1], radius: 1 });
   // Destructure
   const { usersState, usersEffects, groundEffects } = props;
   const { grid, action, contextUserId, actionUserId, longitude, latitude } = props;
