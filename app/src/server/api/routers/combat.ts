@@ -37,7 +37,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Distinguish between public and non-public user state
-      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+      let userBattle = await fetchBattle(ctx.drizzle, input.battleId);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { result } = calcBattleResult(
@@ -45,6 +45,12 @@ export const combatRouter = createTRPCRouter({
         ctx.userId,
         userBattle.rewardScaling
       );
+
+      // Optimistic update for all other users before we process request
+      const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+      if (battleOver) {
+        userBattle = await updateBattle(ctx.drizzle, result, userBattle);
+      }
 
       // Hide private state of non-session user
       const newMaskedBattle = maskBattle(userBattle, ctx.userId);
@@ -163,12 +169,12 @@ export const combatRouter = createTRPCRouter({
            * DATABASE UPDATES in parallel transaction
            */
           const newBattle = await updateBattle(
+            ctx.drizzle,
             result,
             userBattle,
             finalUsersState,
             nextUsersEffects,
-            nextGroundEffects,
-            ctx.drizzle
+            nextGroundEffects
           );
 
           // Return the new battle + results state if applicable
