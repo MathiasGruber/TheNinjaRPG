@@ -34,8 +34,9 @@ export const updateBattle = async (
         groundEffects: newGroundEffects,
       })
       .where(and(eq(battle.id, curBattle.id), eq(battle.version, curBattle.version)));
-
-    if (result.rowsAffected === 0) return undefined;
+    if (result.rowsAffected === 0) {
+      throw new Error("Failed to update battle");
+    }
   }
   const newBattle = {
     ...curBattle,

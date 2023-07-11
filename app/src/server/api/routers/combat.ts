@@ -152,9 +152,12 @@ export const combatRouter = createTRPCRouter({
           );
 
           // Optimistic update for all other users before we process request
-          void pusher.trigger(userBattle.id, "event", {
-            version: userBattle.version + 1,
-          });
+          const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+          if (!battleOver) {
+            void pusher.trigger(userBattle.id, "event", {
+              version: userBattle.version + 1,
+            });
+          }
 
           /**
            * DATABASE UPDATES in parallel transaction
@@ -169,17 +172,15 @@ export const combatRouter = createTRPCRouter({
           );
 
           // Return the new battle + results state if applicable
-          if (newBattle) {
-            const newMaskedBattle = maskBattle(newBattle, ctx.userId);
-            await createAction(
-              battleDescription.join(". "),
-              userBattle,
-              actionEffects,
-              ctx.drizzle
-            );
-            await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
-            return { battle: newMaskedBattle, result: result };
-          }
+          const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+          await createAction(
+            battleDescription.join(". "),
+            userBattle,
+            actionEffects,
+            ctx.drizzle
+          );
+          await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
+          return { battle: newMaskedBattle, result: result };
         } catch (e) {
           if (attempts > 2) {
             console.error(e);
