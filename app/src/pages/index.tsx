@@ -1,9 +1,10 @@
-import { type NextPage } from "next";
+import React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
+import { useUserData } from "../utils/UserContext";
 import Loader from "../layout/Loader";
 import Welcome from "./welcome";
-import { useUserData } from "../utils/UserContext";
+import type { NextPage } from "next";
 
 /**
  * Either shows welcome page, user creation page, or profile

@@ -55,7 +55,7 @@ export const useRequiredUserData = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const info = useUserData();
-  const { data } = info;
+  const { data, status } = info;
   useEffect(() => {
     if (isLoaded && status !== "loading" && (data === undefined || !isSignedIn)) {
       void router.push("/");
