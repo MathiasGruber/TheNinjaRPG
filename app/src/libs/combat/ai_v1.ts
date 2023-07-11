@@ -59,7 +59,7 @@ export const performAIaction = (
           usersEffects: nextUsersEffects,
           groundEffects: nextGroundEffects,
           grid,
-          action: originalAction,
+          action: bestAction.action,
           contextUserId: user.userId,
           actionUserId: user.userId,
           longitude: bestAction.longitude,
@@ -94,14 +94,13 @@ type SearchAction = {
 
 const getHighestFitness = (searchTree: SearchAction, depth: number) => {
   let fitness = searchTree.fitness;
-  // if (
-  //   searchTree.action?.name === "Poisonous Bite" ||
-  //   searchTree.action?.name === "Wait"
-  // ) {
+  // if (searchTree.action?.name === "Scratch" || searchTree.action?.name === "Wait") {
   //   console.log(
   //     `Calculating depth-${depth} highest fitness for: `,
   //     searchTree.action?.name,
-  //     searchTree.fitness
+  //     searchTree.fitness,
+  //     searchTree.longitude,
+  //     searchTree.latitude
   //   );
   // }
   if (searchTree.nextActions) {
@@ -177,7 +176,7 @@ const getActionTree = (
             usersEffects: structuredClone(usersEffects),
             groundEffects: structuredClone(groundEffects),
             grid,
-            action,
+            action: structuredClone(action),
             contextUserId: user.userId,
             actionUserId: user.userId,
             longitude: tile.col,
