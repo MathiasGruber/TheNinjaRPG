@@ -11,6 +11,12 @@ The codebase relies on a variety of external services for e.g. auth, websockets,
 - https://pusher.com/ - for websockets
 - https://upstash.com/ - for redis
 
+The following videos on youtube are recommended to get up to speed with different components of the stack:
+
+- Next.js, Clerk, tRPC, Planetscale, tailwind: [T3 Stack Tutorial ](https://www.youtube.com/watch?v=YkOSUVzOAA4)
+- Drizzle ORM: [DrizzleORM Pitch](https://www.youtube.com/watch?v=_SLxGYzv6jo)
+- Upstash: [Rate-Limit with UpStash](https://www.youtube.com/watch?v=yfGCmSjGIxk)
+
 Using information from these services, copy `app/.env.example` to `app/.env` and fill in all variables related to these services (`*CLERK*`, `DATABASE_URL`, `UPSTASH*`, and `*PUSHER*`). The project is bootstrapped using [VScode devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) and docker, making it as easy as possible to get up and running. The recommended way of spinning up locally, therefore, is to open the project in VSCode, and then open the VScode devcontainer in the lower left corner. This should set up the entire development environment.
 
 - Run `make dbpush` to setup database.
