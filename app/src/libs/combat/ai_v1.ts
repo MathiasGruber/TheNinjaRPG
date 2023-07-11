@@ -155,7 +155,7 @@ const getActionTree = (
   astar: PathCalculator,
   initialFitness = 0,
   curDepth = 0,
-  searchDepth = 2
+  searchDepth = 1
   // actionMemory
 ) => {
   // Get user location on grid
