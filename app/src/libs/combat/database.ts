@@ -10,12 +10,12 @@ import type { UserEffect, GroundEffect, ActionEffect } from "./types";
  * Update the battle state with raw queries for speed
  */
 export const updateBattle = async (
+  client: DrizzleClient,
   result: CombatResult | null,
   curBattle: Battle,
-  finalUsersState: ReturnedUserState[],
-  newUsersEffects: UserEffect[],
-  newGroundEffects: GroundEffect[],
-  client: DrizzleClient
+  finalUsersState?: ReturnedUserState[],
+  newUsersEffects?: UserEffect[],
+  newGroundEffects?: GroundEffect[]
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
@@ -29,9 +29,9 @@ export const updateBattle = async (
       .update(battle)
       .set({
         version: curBattle.version + 1,
-        usersState: finalUsersState,
-        usersEffects: newUsersEffects,
-        groundEffects: newGroundEffects,
+        usersState: finalUsersState ? finalUsersState : curBattle.usersState,
+        usersEffects: newUsersEffects ? newUsersEffects : curBattle.usersEffects,
+        groundEffects: newGroundEffects ? newGroundEffects : curBattle.groundEffects,
       })
       .where(and(eq(battle.id, curBattle.id), eq(battle.version, curBattle.version)));
     if (result.rowsAffected === 0) {
