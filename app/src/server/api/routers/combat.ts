@@ -87,95 +87,106 @@ export const combatRouter = createTRPCRouter({
         return tile;
       });
 
+      // Pusher instance
+      const pusher = getServerPusher();
+
       // Attempt to perform action untill success || error thrown
+      let attempts = 0;
       while (true) {
-        // Fetch battle
-        const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+        try {
+          // Fetch battle
+          const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
 
-        // Cast to correct types
-        const usersState = userBattle.usersState as BattleUserState[];
-        const usersEffects = userBattle.usersEffects as UserEffect[];
-        const groundEffects = userBattle.groundEffects as GroundEffect[];
-        const battleDescription: string[] = [];
-        let newUsersEffects = structuredClone(usersEffects);
-        let newGroundEffects = structuredClone(groundEffects);
-        let newUsersState = structuredClone(usersState);
-        let actionEffects: ActionEffect[] = [];
+          // Cast to correct types
+          const usersState = userBattle.usersState as BattleUserState[];
+          const usersEffects = userBattle.usersEffects as UserEffect[];
+          const groundEffects = userBattle.groundEffects as GroundEffect[];
+          const battleDescription: string[] = [];
+          let newUsersEffects = structuredClone(usersEffects);
+          let newGroundEffects = structuredClone(groundEffects);
+          let newUsersState = structuredClone(usersState);
+          let actionEffects: ActionEffect[] = [];
 
-        // Optimistic update for all other users before we process request
-        const pusher = getServerPusher();
-        void pusher.trigger(userBattle.id, "event", {
-          version: userBattle.version + 1,
-        });
+          // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
+          if (input.userId && input.longitude && input.latitude && input.actionId) {
+            // Get action
+            const actions = availableUserActions(usersState, ctx.userId);
+            const action = actions.find((a) => a.id === input.actionId);
+            if (!action) throw serverError("CONFLICT", `Invalid action`);
 
-        // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
-        if (input.userId && input.longitude && input.latitude && input.actionId) {
-          // Get action
-          const actions = availableUserActions(usersState, ctx.userId);
-          const action = actions.find((a) => a.id === input.actionId);
-          if (!action) throw serverError("CONFLICT", `Invalid action`);
+            // Attempt to perform action
+            ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+              performAction({
+                usersState,
+                usersEffects,
+                groundEffects,
+                grid,
+                action,
+                contextUserId: ctx.userId,
+                actionUserId: input.userId,
+                longitude: input.longitude,
+                latitude: input.latitude,
+              }));
+            battleDescription.push(action.battleDescription);
+          }
 
-          // Attempt to perform action
-          ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-            performAction({
-              usersState,
-              usersEffects,
-              groundEffects,
-              grid,
-              action,
-              contextUserId: ctx.userId,
-              actionUserId: input.userId,
-              longitude: input.longitude,
-              latitude: input.latitude,
-            }));
-          battleDescription.push(action.battleDescription);
-        }
+          // Attempt to perform AI action
+          const {
+            nextUsersState,
+            nextUsersEffects,
+            nextGroundEffects,
+            nextActionEffects,
+            description,
+          } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
+          battleDescription.push(description);
+          actionEffects = actionEffects.concat(nextActionEffects);
 
-        // Attempt to perform AI action
-        const {
-          nextUsersState,
-          nextUsersEffects,
-          nextGroundEffects,
-          nextActionEffects,
-          description,
-        } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
-        battleDescription.push(description);
-        actionEffects = actionEffects.concat(nextActionEffects);
+          // If no description, means no actions, just return now
+          if (!battleDescription) return;
 
-        // If no description, means no actions, just return now
-        if (!battleDescription) return;
+          // Calculate if the battle is over for this user, and if so update user DB
+          const { finalUsersState, result } = calcBattleResult(
+            nextUsersState,
+            ctx.userId,
+            userBattle.rewardScaling
+          );
 
-        // Calculate if the battle is over for this user, and if so update user DB
-        const { finalUsersState, result } = calcBattleResult(
-          nextUsersState,
-          ctx.userId,
-          userBattle.rewardScaling
-        );
+          // Optimistic update for all other users before we process request
+          void pusher.trigger(userBattle.id, "event", {
+            version: userBattle.version + 1,
+          });
 
-        /**
-         * DATABASE UPDATES in parallel transaction
-         */
-        const newBattle = await updateBattle(
-          result,
-          userBattle,
-          finalUsersState,
-          nextUsersEffects,
-          nextGroundEffects,
-          ctx.drizzle
-        );
-
-        // Return the new battle + results state if applicable
-        if (newBattle) {
-          const newMaskedBattle = maskBattle(newBattle, ctx.userId);
-          await createAction(
-            battleDescription.join(". "),
+          /**
+           * DATABASE UPDATES in parallel transaction
+           */
+          const newBattle = await updateBattle(
+            result,
             userBattle,
-            actionEffects,
+            finalUsersState,
+            nextUsersEffects,
+            nextGroundEffects,
             ctx.drizzle
           );
-          await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
-          return { battle: newMaskedBattle, result: result };
+
+          // Return the new battle + results state if applicable
+          if (newBattle) {
+            const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+            await createAction(
+              battleDescription.join(". "),
+              userBattle,
+              actionEffects,
+              ctx.drizzle
+            );
+            await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
+            return { battle: newMaskedBattle, result: result };
+          }
+        } catch (e) {
+          if (attempts > 2) {
+            console.error(e);
+            throw e;
+          }
         }
+        attempts += 1;
       }
     }),
   startArenaBattle: protectedProcedure.mutation(async ({ ctx }) => {
