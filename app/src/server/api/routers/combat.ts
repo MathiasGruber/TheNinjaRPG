@@ -37,7 +37,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Distinguish between public and non-public user state
-      let userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { result } = calcBattleResult(
@@ -46,11 +46,12 @@ export const combatRouter = createTRPCRouter({
         userBattle.rewardScaling
       );
 
+      // TODO: This needs to happen, otherwise PvP battles do not get deleted. However, it causes a caught in battle bug right now
       // Optimistic update for all other users before we process request
-      const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-      if (battleOver) {
-        userBattle = await updateBattle(ctx.drizzle, result, userBattle);
-      }
+      // const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+      // if (battleOver) {
+      //   userBattle = await updateBattle(ctx.drizzle, result, userBattle);
+      // }
 
       // Hide private state of non-session user
       const newMaskedBattle = maskBattle(userBattle, ctx.userId);
