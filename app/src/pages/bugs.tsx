@@ -1,3 +1,4 @@
+import React from "react";
 import ContentBox from "../layout/ContentBox";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,8 +14,9 @@ const BugReport: NextPage = () => {
       in fine-tuning the gameplay, improving the overall user experience, and ensuring a
       seamless adventure for everyone. Together, let&lsquo;s forge a stronger connection
       and make this game the best it can be. Join our Discord today and let your voice
-      be heard!
-      <div className="flex flex-row justify-center p-5">
+      be heard! Alternatively, report bugs directly on Github and help us improve the
+      game.
+      <div className="flex flex-row justify-center space-x-5 p-5">
         <Link
           href="https://discord.gg/tnr"
           className="flex flex-col items-center font-bold hover:opacity-50"
@@ -26,6 +28,18 @@ const BugReport: NextPage = () => {
             height={100}
           />
           <p>Go to Discord</p>
+        </Link>
+        <Link
+          href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+          className="flex flex-col items-center font-bold hover:opacity-50"
+        >
+          <Image
+            src={"/images/github-mark.png"}
+            width={100}
+            height={100}
+            alt="GitHub Logo"
+          />
+          <p>Go to GitHub</p>
         </Link>
       </div>
     </ContentBox>
