@@ -46,19 +46,16 @@ export const combatRouter = createTRPCRouter({
         userBattle.rewardScaling
       );
 
-      // TODO: This needs to happen, otherwise PvP battles do not get deleted. However, it causes a caught in battle bug right now
-      // Optimistic update for all other users before we process request
-      // const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-      // if (battleOver) {
-      //   userBattle = await updateBattle(ctx.drizzle, result, userBattle);
-      // }
-
       // Hide private state of non-session user
       const newMaskedBattle = maskBattle(userBattle, ctx.userId);
 
-      // Delete the battle if it's done
+      // Update user & delete the battle if it's done
       if (result) {
         await updateUser(result, userBattle, ctx.userId, ctx.drizzle);
+        const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+        if (battleOver) {
+          await updateBattle(ctx.drizzle, result, userBattle);
+        }
       }
 
       // Return the new battle + result state if applicable
