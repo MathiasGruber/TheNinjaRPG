@@ -6,7 +6,6 @@ import { seedJutsus } from "./seeds/jutsu";
 import { seedBloodlines } from "./seeds/bloodline";
 import { seedItems } from "./seeds/items";
 import { seedAI } from "./seeds/ai";
-import * as schema from "./schema";
 
 // Seed the database
 async function main() {
