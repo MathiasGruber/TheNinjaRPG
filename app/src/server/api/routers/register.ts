@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { registrationSchema } from "../../../validators/register";
 import { fetchVillage } from "./village";
+import { secondsFromNow } from "../../../utils/time";
 import { userData, userAttribute } from "../../../../drizzle/schema";
 
 export const registerRouter = createTRPCRouter({
@@ -34,6 +35,7 @@ export const registerRouter = createTRPCRouter({
         villageId: input.village,
         approvedTos: 1,
         sector: village.sector,
+        immunityUntil: secondsFromNow(24 * 3600),
       });
     }),
 });
