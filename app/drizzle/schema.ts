@@ -657,7 +657,7 @@ export const userData = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     immunityUntil: datetime("immunityUntil", { mode: "date", fsp: 3 })
-      .default(sql`(NOW(3) + INTERVAL 1 DAY)`)
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
   },
   (table) => {
