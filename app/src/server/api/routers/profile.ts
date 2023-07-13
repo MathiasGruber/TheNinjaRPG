@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { eq, sql, inArray, and, or, like, desc } from "drizzle-orm";
+import { eq, sql, inArray, and, or, like, desc, isNull, isNotNull } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
 import {
   userData,
   userAttribute,
@@ -14,13 +14,126 @@ import {
   user2conversation,
   userReport,
 } from "../../../../drizzle/schema";
+import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";
+import { UserStatNames } from "../../../../drizzle/constants";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
 
 export const profileRouter = createTRPCRouter({
+  // Start training of a specific attribute
+  startTraining: protectedProcedure
+    .input(z.object({ stat: z.enum(UserStatNames) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId, true);
+      if (!user) {
+        throw serverError("NOT_FOUND", "User not found");
+      }
+      if (user.curEnergy < 1) {
+        return { success: false, message: "Not enough energy" };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ trainingStartedAt: new Date(), currentlyTraining: input.stat })
+        .where(
+          and(eq(userData.userId, ctx.userId), isNull(userData.currentlyTraining))
+        );
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "You are already training" };
+      } else {
+        return { success: true, message: `Started training` };
+      }
+    }),
+  // Stop training
+  stopTraining: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId, true);
+      if (!user) {
+        throw serverError("NOT_FOUND", "User not found");
+      }
+      if (user.status === "BATTLE") {
+        return { success: false, message: "You cannot stop training while in battle" };
+      }
+      if (!user.trainingStartedAt || !user.currentlyTraining) {
+        return { success: false, message: "You are not currently training anything" };
+      }
+      const secondsPassed = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
+      const trainingAmount = Math.min(
+        Math.floor(ENERGY_SPENT_PER_SECOND * secondsPassed),
+        user.curEnergy
+      );
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          trainingStartedAt: null,
+          currentlyTraining: null,
+          curEnergy: sql`curEnergy - ${trainingAmount}`,
+          experience: sql`experience + ${trainingAmount}`,
+          strength:
+            user.currentlyTraining === "strength"
+              ? sql`strength + ${trainingAmount}`
+              : sql`strength`,
+          intelligence:
+            user.currentlyTraining === "intelligence"
+              ? sql`intelligence + ${trainingAmount}`
+              : sql`intelligence`,
+          willpower:
+            user.currentlyTraining === "willpower"
+              ? sql`willpower + ${trainingAmount}`
+              : sql`willpower`,
+          speed:
+            user.currentlyTraining === "speed"
+              ? sql`speed + ${trainingAmount}`
+              : sql`speed`,
+          ninjutsuOffence:
+            user.currentlyTraining === "ninjutsuOffence"
+              ? sql`ninjutsuOffence + ${trainingAmount}`
+              : sql`ninjutsuOffence`,
+          ninjutsuDefence:
+            user.currentlyTraining === "ninjutsuDefence"
+              ? sql`ninjutsuDefence + ${trainingAmount}`
+              : sql`ninjutsuDefence`,
+          genjutsuOffence:
+            user.currentlyTraining === "genjutsuOffence"
+              ? sql`genjutsuOffence + ${trainingAmount}`
+              : sql`genjutsuOffence`,
+          genjutsuDefence:
+            user.currentlyTraining === "genjutsuDefence"
+              ? sql`genjutsuDefence + ${trainingAmount}`
+              : sql`genjutsuDefence`,
+          taijutsuOffence:
+            user.currentlyTraining === "taijutsuOffence"
+              ? sql`taijutsuOffence + ${trainingAmount}`
+              : sql`taijutsuOffence`,
+          taijutsuDefence:
+            user.currentlyTraining === "taijutsuDefence"
+              ? sql`taijutsuDefence + ${trainingAmount}`
+              : sql`taijutsuDefence`,
+          bukijutsuDefence:
+            user.currentlyTraining === "bukijutsuDefence"
+              ? sql`bukijutsuDefence + ${trainingAmount}`
+              : sql`bukijutsuDefence`,
+          bukijutsuOffence:
+            user.currentlyTraining === "bukijutsuOffence"
+              ? sql`bukijutsuOffence + ${trainingAmount}`
+              : sql`bukijutsuOffence`,
+        })
+        .where(
+          and(eq(userData.userId, ctx.userId), isNotNull(userData.currentlyTraining))
+        );
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "You are not training" };
+      } else {
+        return {
+          success: true,
+          message: `You gained ${trainingAmount} ${user.currentlyTraining}`,
+        };
+      }
+    }),
   // Update user with new level
   levelUp: protectedProcedure.mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -42,38 +155,7 @@ export const profileRouter = createTRPCRouter({
   }),
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
-    // User
-    const user = await ctx.drizzle.query.userData.findFirst({
-      where: eq(userData.userId, ctx.userId),
-      with: { bloodline: true, village: true },
-    });
-
-    // Add bloodline regen to regeneration
-    // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
-    //       and we can avoid running an database UPDATE on each load
-    if (user?.bloodline?.regenIncrease) {
-      user.regeneration = user.regeneration + user.bloodline.regenIncrease;
-    }
-    // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
-    // and it is mostly done to keep user updated on the overview pages
-    if (user?.updatedAt && user?.regenAt) {
-      const sinceUpdate = secondsPassed(user.updatedAt);
-      if (sinceUpdate > 300) {
-        const regen = user.regeneration * secondsPassed(user.regenAt);
-        await ctx.drizzle
-          .update(userData)
-          .set({
-            curHealth: Math.min(user.curHealth + regen, user.maxHealth),
-            curStamina: Math.min(user.curStamina + regen, user.maxStamina),
-            curChakra: Math.min(user.curChakra + regen, user.maxChakra),
-            updatedAt: new Date(),
-            regenAt: new Date(),
-          })
-          .where(eq(userData.userId, ctx.userId));
-      }
-    }
-
-    // Notifications
+    const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
     const notifications: NavBarDropdownLink[] = [];
     if (user) {
       // Get number of un-resolved user reports
@@ -317,7 +399,58 @@ export const fetchUser = async (client: DrizzleClient, userId: string) => {
     where: eq(userData.userId, userId),
   });
   if (!user) {
-    throw new Error("User not found");
+    throw new Error(`fetchUser: User not found: ${userId}`);
+  }
+  return user;
+};
+
+/**
+ * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
+ * of pools, or optionally forces regeneration with forceRegen=true
+ */
+export const fetchRegeneratedUser = async (
+  client: DrizzleClient,
+  userId: string,
+  forceRegen = false
+) => {
+  // Ensure we can fetch the user
+  const user = await client.query.userData.findFirst({
+    where: eq(userData.userId, userId),
+    with: { bloodline: true, village: true },
+  });
+
+  // Add bloodline regen to regeneration
+  // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
+  //       and we can avoid running an database UPDATE on each load
+  if (user?.bloodline?.regenIncrease) {
+    user.regeneration = user.regeneration + user.bloodline.regenIncrease;
+  }
+  // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
+  // and it is mostly done to keep user updated on the overview pages
+  if (user) {
+    const sinceUpdate = secondsPassed(user.updatedAt);
+    if (sinceUpdate > 300 || forceRegen) {
+      const regen = user.regeneration * secondsPassed(user.regenAt);
+      user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
+      user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
+      user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
+      if (!user.currentlyTraining) {
+        user.curEnergy = Math.min(user.curEnergy + regen, user.maxEnergy);
+      }
+      user.updatedAt = new Date();
+      user.regenAt = new Date();
+      await client
+        .update(userData)
+        .set({
+          curHealth: user.curHealth,
+          curStamina: user.curStamina,
+          curChakra: user.curChakra,
+          curEnergy: user.curEnergy,
+          updatedAt: user.updatedAt,
+          regenAt: user.regenAt,
+        })
+        .where(eq(userData.userId, userId));
+    }
   }
   return user;
 };

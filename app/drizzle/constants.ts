@@ -106,3 +106,18 @@ export const JutsuTypes = [
   "EVENT",
   "AI",
 ] as const;
+
+export const UserStatNames = [
+  "ninjutsuOffence",
+  "taijutsuOffence",
+  "genjutsuOffence",
+  "bukijutsuOffence",
+  "ninjutsuDefence",
+  "taijutsuDefence",
+  "genjutsuDefence",
+  "bukijutsuDefence",
+  "strength",
+  "speed",
+  "intelligence",
+  "willpower",
+] as const;

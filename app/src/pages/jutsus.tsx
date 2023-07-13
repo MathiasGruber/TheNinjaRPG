@@ -4,7 +4,7 @@ import ContentBox from "../layout/ContentBox";
 import Modal from "../layout/Modal";
 import Loader from "../layout/Loader";
 import { ActionSelector } from "../layout/CombatActions";
-import { calcJutsuEquipLimit } from "../libs/jutsu/jutsu";
+import { calcJutsuEquipLimit } from "../libs/train";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";

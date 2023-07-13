@@ -1,7 +1,9 @@
-import type { Jutsu, JutsuRank } from "../../../drizzle/schema";
-import type { UserData, UserRank, FederalStatus } from "../../../drizzle/schema";
+import type { Jutsu, JutsuRank } from "../../drizzle/schema";
+import type { UserData, UserRank, FederalStatus } from "../../drizzle/schema";
 
-const hasRank = (rank: JutsuRank, userrank: UserRank) => {
+export const ENERGY_SPENT_PER_SECOND = 0.1;
+
+const sufficientJutsuRank = (rank: JutsuRank, userrank: UserRank) => {
   switch (userrank) {
     case "STUDENT":
       return rank === "D";
@@ -17,13 +19,13 @@ const hasRank = (rank: JutsuRank, userrank: UserRank) => {
 };
 
 export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
-  const sufficientRank = hasRank(jutsu.jutsuRank, userdata.rank);
+  const sufficientRank = sufficientJutsuRank(jutsu.jutsuRank, userdata.rank);
   const villageCheck = !jutsu.villageId || jutsu.villageId === userdata.villageId;
   const bloodCheck = !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
   return sufficientRank && villageCheck && bloodCheck;
 };
 
-export const calcTrainTime = (jutsu: Jutsu, level: number) => {
+export const calcJutsuTrainTime = (jutsu: Jutsu, level: number) => {
   let base = 20;
   if (jutsu.jutsuRank === "C") {
     base = 22;
@@ -37,7 +39,7 @@ export const calcTrainTime = (jutsu: Jutsu, level: number) => {
   return Math.pow(base, 1 + level / 10) * 1000;
 };
 
-export const calcTrainCost = (jutsu: Jutsu, level: number) => {
+export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
   let base = 20;
   if (jutsu.jutsuRank === "C") {
     base = 22;

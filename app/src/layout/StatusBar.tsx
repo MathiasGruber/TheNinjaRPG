@@ -5,11 +5,11 @@ import type { UserStatus } from "../../drizzle/schema";
 interface StatusBarProps {
   title: string;
   regen?: number;
-  lastRegenAt?: Date;
+  lastRegenAt?: Date | null;
   tooltip?: string;
   showText?: boolean;
   status?: UserStatus;
-  color: "bg-red-500" | "bg-blue-500" | "bg-green-500";
+  color: "bg-red-500" | "bg-blue-500" | "bg-green-500" | "bg-yellow-500";
   current: number;
   total: number;
 }
@@ -22,14 +22,23 @@ const calcCurrent = (
   total: number,
   status?: UserStatus,
   regen?: number,
-  regenAt?: Date
+  regenAt?: Date | null
 ) => {
   let current = start;
   if (status === "BATTLE") {
     current = total;
-  } else if (regen && status && regenAt && ["AWAKE", "ASLEEP"].includes(status)) {
+  } else if (
+    regen &&
+    status &&
+    regenAt &&
+    ["AWAKE", "ASLEEP", "TRAVEL"].includes(status)
+  ) {
     const seconds = secondsPassed(regenAt);
-    current = Math.min(total, start + regen * seconds);
+    if (regen > 0) {
+      current = Math.min(total, start + regen * seconds);
+    } else {
+      current = Math.max(0, start + regen * seconds);
+    }
   }
   const width = (current / total) * 100;
   return { current, width };
@@ -56,8 +65,13 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
   // Updating the bars based on regen
   useEffect(() => {
     const interval = setInterval(() => {
-      if (state.current < total || current < total) {
-        setState(calcCurrent(current, total, status, regen, lastRegenAt));
+      if (regen) {
+        if (
+          (regen > 0 && (state.current < total || current < total)) ||
+          (regen < 0 && (state.current > 0 || current > 0))
+        ) {
+          setState(calcCurrent(current, total, status, regen, lastRegenAt));
+        }
       }
     }, 1000);
     return () => {
@@ -69,7 +83,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
     <div className="group relative mt-2 flex-row">
       {showText && !isInBattle && (
         <div>
-          {title} ({state.current} / {total})
+          {title} ({Math.round(state.current)} / {total})
         </div>
       )}
 
