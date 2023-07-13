@@ -226,7 +226,8 @@ export const reportsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (canChangeAvatar(user)) {
-        void updateAvatar(ctx.drizzle, user);
+        const target = await fetchUser(ctx.drizzle, input.userId);
+        void updateAvatar(ctx.drizzle, target);
         await ctx.drizzle.insert(reportLog).values({
           id: nanoid(),
           staffUserId: ctx.userId,
