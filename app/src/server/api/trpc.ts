@@ -17,7 +17,6 @@
  *
  */
 import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
-
 import { drizzleDB } from "../db";
 
 /**
@@ -47,6 +46,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { type TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
 import { getAuth } from "@clerk/nextjs/server";
+import { z } from "zod";
 import { ZodError } from "zod";
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
@@ -108,3 +108,8 @@ export const serverError = (code: TRPC_ERROR_CODE_KEY, message: string) => {
     message,
   });
 };
+
+export const baseServerResponse = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});

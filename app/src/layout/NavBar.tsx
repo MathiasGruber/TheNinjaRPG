@@ -6,6 +6,7 @@ import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown from "./NavBarDropdown";
 
+import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { UserButton } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
 import { useUserData } from "../utils/UserContext";
@@ -69,6 +70,22 @@ const NavBar: React.FC<NavBarProps> = (props) => {
           status={userData.status}
           current={userData.curStamina}
           total={userData.maxStamina}
+        />
+        <StatusBar
+          title="EP"
+          tooltip="Energy"
+          color="bg-yellow-500"
+          lastRegenAt={
+            userData.currentlyTraining ? userData.trainingStartedAt : userData.regenAt
+          }
+          regen={
+            userData.currentlyTraining
+              ? -ENERGY_SPENT_PER_SECOND
+              : userData.regeneration
+          }
+          status={userData.status}
+          current={userData.curEnergy}
+          total={userData.maxEnergy}
         />
       </div>
     </div>

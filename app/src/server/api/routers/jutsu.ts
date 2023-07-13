@@ -4,8 +4,12 @@ import { eq, sql, and, gte } from "drizzle-orm";
 import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
-import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../../../libs/jutsu/jutsu";
-import { calcJutsuEquipLimit } from "../../../libs/jutsu/jutsu";
+import {
+  canTrainJutsu,
+  calcJutsuTrainTime,
+  calcJutsuTrainCost,
+} from "../../../libs/train";
+import { calcJutsuEquipLimit } from "../../../libs/train";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import type { DrizzleClient } from "../../db";
@@ -59,8 +63,8 @@ export const jutsuRouter = createTRPCRouter({
       }
 
       const level = userjutsu ? userjutsu.level : 0;
-      const trainTime = calcTrainTime(info, level);
-      const trainCost = calcTrainCost(info, level);
+      const trainTime = calcJutsuTrainTime(info, level);
+      const trainCost = calcJutsuTrainCost(info, level);
       await ctx.drizzle
         .update(userData)
         .set({ money: sql`${userData.money} - ${trainCost}` })

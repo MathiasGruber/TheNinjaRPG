@@ -1,22 +1,166 @@
 import { useState } from "react";
+import Image from "next/image";
 import ItemWithEffects from "../layout/ItemWithEffects";
 import Modal from "../layout/Modal";
 import ContentBox from "../layout/ContentBox";
 import NavTabs from "../layout/NavTabs";
 import Loader from "../layout/Loader";
 import Countdown from "../layout/Countdown";
+import StatusBar from "../layout/StatusBar";
+import Button from "../layout/Button";
+import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { ActionSelector } from "../layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
-import { canTrainJutsu, calcTrainTime, calcTrainCost } from "../libs/jutsu/jutsu";
+import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "../libs/train";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
 import { useAwake } from "../utils/routing";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
+import { BoltIcon } from "@heroicons/react/24/solid";
+import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
+import { FingerPrintIcon } from "@heroicons/react/24/solid";
+import { UserStatNames } from "../../drizzle/constants";
 import type { JutsuRank, Jutsu } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
 const Training: NextPage = () => {
+  const { data: userData } = useRequiredUserData();
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  return (
+    <>
+      <StatsTraining />
+      <JutsuTraining />
+    </>
+  );
+};
+
+export default Training;
+
+const StatsTraining: React.FC = () => {
+  // Settings
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+
+  // Mutations
+  const { mutate: startTraining, isLoading: isStarting } =
+    api.profile.startTraining.useMutation({
+      onSuccess: async (data) => {
+        show_toast("Training", data.message, "info");
+        if (data.success) {
+          await refetchUser();
+        }
+      },
+      onError: (error) => {
+        show_toast("Error training", error.message, "error");
+      },
+      onSettled: () => {
+        setIsOpen(false);
+      },
+    });
+
+  const { mutate: stopTraining, isLoading: isStopping } =
+    api.profile.stopTraining.useMutation({
+      onSuccess: async (data) => {
+        if (data.success) {
+          show_toast("Training", data.message, "success");
+          await refetchUser();
+        } else {
+          show_toast("Training", data.message, "info");
+        }
+      },
+      onError: (error) => {
+        show_toast("Error training", error.message, "error");
+      },
+      onSettled: () => {
+        setIsOpen(false);
+      },
+    });
+
+  const isLoading = isStarting || isStopping;
+
+  // Convenience definitions
+  const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
+  const iconClassName = "w-5 h-5 absolute top-1 right-1 fill-blue-500";
+
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
+  return (
+    <ContentBox title="Training" subtitle="Character Training" back_href="/village">
+      <div className="grid grid-cols-4 text-center font-bold">
+        {UserStatNames.map((stat, i) => {
+          const part = stat.match(/[a-z]+/g)?.[0] as string;
+          const label = part.charAt(0).toUpperCase() + part.slice(1);
+          const icon = stat.includes("Offence") ? (
+            <BoltIcon className={iconClassName} />
+          ) : stat.includes("Defence") ? (
+            <ShieldExclamationIcon className={iconClassName} />
+          ) : (
+            <FingerPrintIcon className={iconClassName} />
+          );
+          return (
+            <div
+              key={i}
+              className={trainItemClassName}
+              onClick={() => startTraining({ stat })}
+            >
+              <Image
+                src={`/training/${stat}.png`}
+                alt={label}
+                width={256}
+                height={256}
+              />
+              {icon}
+              {label}
+            </div>
+          );
+        })}
+      </div>
+      {userData.currentlyTraining && (
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-95">
+          <div className="m-auto text-center text-white flex flex-col items-center">
+            <p className="p-5  text-2xl">Training {userData.currentlyTraining}</p>
+            <p className="text-2xl">
+              {/* <Countdown
+                targetDate={finishTrainingAt.finishTraining}
+                onFinish={async () => {
+                  await refetchUserJutsu();
+                }}
+              /> */}
+            </p>
+            <Image
+              src={`/training/${userData.currentlyTraining}.png`}
+              alt={userData.currentlyTraining}
+              width={128}
+              height={128}
+            />
+            <div className="w-2/3">
+              <StatusBar
+                title="Energy"
+                tooltip="Energy"
+                color="bg-yellow-500"
+                showText={true}
+                lastRegenAt={userData.trainingStartedAt}
+                regen={-ENERGY_SPENT_PER_SECOND}
+                status={userData.status}
+                current={userData.curEnergy}
+                total={userData.maxEnergy}
+              />
+              <Button
+                className="mt-3"
+                id="return"
+                label="Finish Training"
+                onClick={() => stopTraining()}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </ContentBox>
+  );
+};
+
+const JutsuTraining: React.FC = () => {
   // Settings
   const { data: userData } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -83,8 +227,9 @@ const Training: NextPage = () => {
   // Derived calculations
   const level = userJutsuCounts?.find((jutsu) => jutsu.id === jutsu?.id)?.quantity || 0;
   const trainSeconds =
-    jutsu && getTimeLeftStr(...getDaysHoursMinutesSeconds(calcTrainTime(jutsu, level)));
-  const trainCost = (jutsu && calcTrainCost(jutsu, level)) || 0;
+    jutsu &&
+    getTimeLeftStr(...getDaysHoursMinutesSeconds(calcJutsuTrainTime(jutsu, level)));
+  const trainCost = (jutsu && calcJutsuTrainCost(jutsu, level)) || 0;
   const canTrain = jutsu && userData && canTrainJutsu(jutsu, userData);
   const canAfford = userData && trainCost && userData.money >= trainCost;
 
@@ -94,9 +239,10 @@ const Training: NextPage = () => {
     <>
       {isAwake && (
         <ContentBox
-          title="Training"
+          title="Techniques"
           subtitle="Jutsu Techniques"
           back_href="/village"
+          initialBreak={true}
           topRightContent={
             <>
               <div className="grow"></div>
@@ -184,5 +330,3 @@ const Training: NextPage = () => {
     </>
   );
 };
-
-export default Training;

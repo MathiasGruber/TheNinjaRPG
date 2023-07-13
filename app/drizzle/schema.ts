@@ -659,6 +659,10 @@ export const userData = mysqlTable(
     immunityUntil: datetime("immunityUntil", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    curEnergy: int("curEnergy").default(100).notNull(),
+    maxEnergy: int("maxEnergy").default(100).notNull(),
+    trainingStartedAt: datetime("trainingStartedAt", { mode: "date", fsp: 3 }),
+    currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
   },
   (table) => {
     return {

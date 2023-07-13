@@ -3,6 +3,7 @@ import Link from "next/link";
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
+import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
@@ -120,6 +121,23 @@ const MenuBoxProfile: React.FC = () => {
           status={userData.status}
           current={userData.curStamina}
           total={userData.maxStamina}
+        />
+        <StatusBar
+          title="EP"
+          tooltip="Energy"
+          color="bg-yellow-500"
+          showText={true}
+          lastRegenAt={
+            userData.currentlyTraining ? userData.trainingStartedAt : userData.regenAt
+          }
+          regen={
+            userData.currentlyTraining
+              ? -ENERGY_SPENT_PER_SECOND
+              : userData.regeneration
+          }
+          status={userData.status}
+          current={userData.curEnergy}
+          total={userData.maxEnergy}
         />
 
         <div className="mt-4">

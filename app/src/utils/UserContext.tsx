@@ -60,6 +60,6 @@ export const useRequiredUserData = () => {
     if (isLoaded && status !== "loading" && (data === undefined || !isSignedIn)) {
       void router.push("/");
     }
-  }, [router, data, isLoaded, isSignedIn]);
+  }, [router, status, data, isLoaded, isSignedIn]);
   return info;
 };
