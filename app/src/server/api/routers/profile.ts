@@ -282,6 +282,7 @@ export const profileRouter = createTRPCRouter({
           curChakra: true,
           maxChakra: true,
           level: true,
+          role: true,
           reputationPoints: true,
           popularityPoints: true,
           experience: true,

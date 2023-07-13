@@ -102,6 +102,8 @@ export const reportsRouter = createTRPCRouter({
             return ctx.drizzle.query.conversationComment.findFirst({
               where: eq(conversationComment.id, input.system_id),
             });
+          case "user_profile":
+            return fetchUser(ctx.drizzle, input.system_id);
           default:
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }

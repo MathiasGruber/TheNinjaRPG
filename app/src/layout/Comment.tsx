@@ -5,7 +5,6 @@ import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outli
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Button from "./Button";
-import Loader from "./Loader";
 import Confirm from "../layout/Confirm";
 import ReportUser from "../layout/Report";
 import { canDeleteComment } from "../validators/reports";

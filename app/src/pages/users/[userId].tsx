@@ -6,6 +6,8 @@ import StatusBar from "../../layout/StatusBar";
 import AvatarImage from "../../layout/Avatar";
 import ContentBox from "../../layout/ContentBox";
 import Confirm from "../../layout/Confirm";
+import ReportUser from "../../layout/Report";
+import { FlagIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
 
 import { api } from "../../utils/api";
@@ -41,6 +43,21 @@ const PublicProfile: NextPage = () => {
             title="Users"
             back_href="/users"
             subtitle={"Public Profile: " + profile.username}
+            topRightContent={
+              <div>
+                <ReportUser
+                  user={profile}
+                  content={{
+                    id: profile.userId,
+                    title: profile.username,
+                    content:
+                      "General user behavior, justification must be provided in comments",
+                  }}
+                  system="user_profile"
+                  button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
+                />
+              </div>
+            }
           >
             <div className="grid grid-cols-2">
               <div>
