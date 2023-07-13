@@ -100,10 +100,9 @@ export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> =>
       input: {
         prompt: prompt,
         negative_prompt: "two heads, 2people, 2face",
-        width: 512,
-        height: 512,
+        image_dimensions: "512x512",
         num_outputs: 1,
-        num_inference_steps: 100,
+        num_inference_steps: 50,
         guidance_scale: 20,
         scheduler: "DDIM",
       },
