@@ -57,15 +57,15 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
   const rankContrib = (rank: UserRank) => {
     switch (rank) {
       case "GENIN":
-        return 1;
+        return 5;
       case "CHUNIN":
-        return 2;
+        return 6;
       case "JONIN":
-        return 3;
+        return 7;
       case "COMMANDER":
-        return 4;
+        return 8;
     }
-    return 0;
+    return 4;
   };
   const fedContrib = (status: FederalStatus) => {
     switch (status) {
