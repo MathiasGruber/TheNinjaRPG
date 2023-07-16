@@ -392,6 +392,13 @@ export const initiateBattle = async (
           userEffects.push(realized);
         });
       }
+
+      // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
+      user.jutsus = user.jutsus.map((userjutsu) => {
+        userjutsu.updatedAt = new Date();
+        return userjutsu;
+      });
+
       // Add item effects
       const items: (UserItem & { item: Item })[] = [];
       user.items.forEach((useritem) => {
@@ -407,6 +414,7 @@ export const initiateBattle = async (
             });
           }
         } else {
+          useritem.updatedAt = new Date();
           items.push(useritem);
         }
       });

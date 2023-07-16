@@ -46,7 +46,10 @@ const CombatPage: NextPage = () => {
   }, [userData, results, router, data, setBattle]);
 
   // Collect all possible actions for action selector
-  const actions = availableUserActions(data?.battle?.usersState, userData?.userId);
+  const actions = availableUserActions(
+    battleState?.battle?.usersState,
+    userData?.userId
+  );
   const action = actions.find((a) => a.id === actionId);
 
   // Battle scene

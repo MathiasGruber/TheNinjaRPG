@@ -173,7 +173,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           }
         }
       }
-    }, 2500);
+    }, 5000);
     return () => clearInterval(interval);
   }, [performAIAction, isLoadingUser, isLoadingAI]);
 
@@ -364,7 +364,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             currentHighlights: userHighlights,
           });
 
-          // Detect intersections with tiles for movement
+          // Detect intersections with tiles for movement/action
           if (user) {
             highlights = highlightTiles({
               group_tiles,

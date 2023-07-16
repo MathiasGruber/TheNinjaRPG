@@ -3,7 +3,6 @@ import { isEffectStillActive } from "./util";
 import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
 import { realizeTag } from "./process";
 import { secondsFromNow } from "../../utils/time";
-import { ring } from "honeycomb-grid";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { updateStatUsage } from "./tags";
@@ -38,6 +37,8 @@ export const availableUserActions = (
             staminaCostPerc: 10,
             actionCostPerc: 50,
             range: 1,
+            updatedAt: Date.now(),
+            cooldown: 0,
             level: user?.level,
             effects: [
               DamageTag.parse({
@@ -63,6 +64,8 @@ export const availableUserActions = (
             staminaCostPerc: 0,
             actionCostPerc: 50,
             range: 1,
+            updatedAt: Date.now(),
+            cooldown: 0,
             level: user?.level,
             effects: [
               HealTag.parse({
@@ -91,6 +94,8 @@ export const availableUserActions = (
       staminaCostPerc: 0,
       actionCostPerc: 0,
       range: 0,
+      updatedAt: Date.now(),
+      cooldown: 0,
       effects: [],
       hidden: true,
     },
@@ -103,6 +108,8 @@ export const availableUserActions = (
       target: "GROUND" as const,
       method: "SINGLE" as const,
       range: 1,
+      updatedAt: Date.now(),
+      cooldown: 0,
       healthCostPerc: 0,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
@@ -120,6 +127,8 @@ export const availableUserActions = (
             target: "SELF" as const,
             method: "SINGLE" as const,
             range: 0,
+            updatedAt: Date.now(),
+            cooldown: 0,
             healthCostPerc: 0.1,
             chakraCostPerc: 0,
             staminaCostPerc: 0,
@@ -139,6 +148,8 @@ export const availableUserActions = (
             target: userjutsu.jutsu.target,
             method: userjutsu.jutsu.method,
             range: userjutsu.jutsu.range,
+            updatedAt: new Date(userjutsu.updatedAt).getTime(),
+            cooldown: userjutsu.jutsu.cooldown,
             healthCostPerc: userjutsu.jutsu.healthCostPerc,
             chakraCostPerc: userjutsu.jutsu.chakraCostPerc,
             staminaCostPerc: userjutsu.jutsu.staminaCostPerc,
@@ -160,6 +171,8 @@ export const availableUserActions = (
             target: useritem.item.target,
             method: useritem.item.method,
             range: useritem.item.range,
+            updatedAt: new Date(useritem.updatedAt).getTime(),
+            cooldown: 0,
             level: user?.level,
             healthCostPerc: useritem.item.healthCostPerc,
             chakraCostPerc: useritem.item.chakraCostPerc,
@@ -419,6 +432,14 @@ export const performAction = (props: {
   });
   if (!check) {
     throw new Error("Requested action not possible anymore");
+  }
+
+  // Update the action updatedAt state, so as keep state for technique cooldowns
+  if (action.cooldown && action.cooldown > 0) {
+    const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
+    if (jutsu) jutsu.updatedAt = new Date();
+    const item = user.items.find((i) => i.item.id === action.id);
+    if (item) item.updatedAt = new Date();
   }
 
   // Apply relevant effects, and get back new state + active effects

@@ -603,10 +603,15 @@ export const highlightTiles = (info: {
     actionSecondsAfterAction(user, action, timeDiff) >= -COMBAT_PREMOVE_SECONDS;
   const hit = intersects.length > 0 && intersects[0];
 
+  // Check if cooldown for action has expired
+  const syncedTime = Date.now() - timeDiff;
+  const isAvailable =
+    !action?.cooldown || action.updatedAt < syncedTime - action.cooldown * 1000;
+
   // Highlight intersected tile
   /* ************************** */
   const newSelection = new Set<string>();
-  if (action && origin && highlights && hit && canAct) {
+  if (action && origin && highlights && hit && canAct && isAvailable) {
     const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
     // Based on the intersected tile, highlight the tiles which are affected.

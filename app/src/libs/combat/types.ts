@@ -86,6 +86,8 @@ export type CombatAction = {
   chakraCostPerc: number;
   staminaCostPerc: number;
   actionCostPerc: number;
+  updatedAt: number;
+  cooldown: number;
   effects: ZodAllTags[];
   data?: Jutsu | Item;
   level?: number;

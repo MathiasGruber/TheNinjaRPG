@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from "react";
 import ContentImage from "./ContentImage";
+import { useUserData } from "../utils/UserContext";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ActionSelectorProps {
@@ -10,6 +12,8 @@ interface ActionSelectorProps {
     type?: "jutsu" | "item" | "basic";
     highlight?: boolean;
     hidden?: boolean;
+    updatedAt?: number;
+    cooldown?: number;
   }[];
   counts?: {
     id: string;
@@ -68,6 +72,8 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 isGreyed={isGreyed}
                 alt="sp"
                 rarity={item.rarity}
+                updatedAt={item.updatedAt}
+                cooldown={item.cooldown}
                 txt={props.showLabels ? item.name : ""}
                 count={props.counts?.find((c) => c.id === item.id)?.quantity}
                 labelSingles={props.labelSingles}
@@ -96,10 +102,34 @@ interface ActionOptionProps {
   isGreyed: boolean;
   className?: string;
   labelSingles?: boolean;
+  updatedAt?: number;
+  cooldown?: number;
   onClick?: () => void;
 }
 
 export const ActionOption: React.FC<ActionOptionProps> = (props) => {
+  const { timeDiff } = useUserData();
+  const { cooldown, updatedAt } = props;
+  const [cooldownPerc, setCooldownPerc] = useState<number>(0);
+
+  // If cooldown, how much of the component is filled with cone
+  useEffect(() => {
+    if (cooldown && updatedAt) {
+      const interval = setInterval(() => {
+        // Calculate how much time left for cooldown
+        const syncedTime = new Date().getTime() - timeDiff;
+        const secondsLeft = (cooldown * 1000 + updatedAt - syncedTime) / 1000;
+        // Calculate percentage of cooldown
+        setCooldownPerc(Math.max((secondsLeft / cooldown) * 100, 0));
+        // Clear interval if cooldown is over
+        if (secondsLeft < 0) {
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [updatedAt, cooldown, timeDiff]);
+
   return (
     <div
       className={`relative text-center leading-5 ${
@@ -120,6 +150,14 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
             {props.count}
           </div>
+        )}
+        {cooldownPerc > 0 && (
+          <div
+            className="absolute top-0 right-0 left-0 bottom-0 opacity-80 hover:cursor-none"
+            style={{
+              background: `conic-gradient(#ededed ${cooldownPerc}%, rgba(0, 0, 0, 0.1) 0deg)`,
+            }}
+          ></div>
         )}
       </div>
       {props.txt}
