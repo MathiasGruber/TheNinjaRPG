@@ -12,7 +12,7 @@ interface ActionSelectorProps {
     type?: "jutsu" | "item" | "basic";
     highlight?: boolean;
     hidden?: boolean;
-    updatedAt?: number;
+    updatedAt?: number | Date;
     cooldown?: number;
   }[];
   counts?: {
@@ -102,7 +102,7 @@ interface ActionOptionProps {
   isGreyed: boolean;
   className?: string;
   labelSingles?: boolean;
-  updatedAt?: number;
+  updatedAt?: number | Date;
   cooldown?: number;
   onClick?: () => void;
 }
@@ -118,7 +118,8 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
       const interval = setInterval(() => {
         // Calculate how much time left for cooldown
         const syncedTime = new Date().getTime() - timeDiff;
-        const secondsLeft = (cooldown * 1000 + updatedAt - syncedTime) / 1000;
+        const t = updatedAt instanceof Date ? updatedAt.getTime() : updatedAt;
+        const secondsLeft = (cooldown * 1000 + t - syncedTime) / 1000;
         // Calculate percentage of cooldown
         setCooldownPerc(Math.max((secondsLeft / cooldown) * 100, 0));
         // Clear interval if cooldown is over
