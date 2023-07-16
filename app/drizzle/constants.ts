@@ -29,7 +29,7 @@ export const ItemSlots = [
   "NONE",
 ] as const;
 
-export const UserRoles = ["USER", "MODERATOR", "ADMIN"] as const;
+export const UserRoles = ["USER", "MODERATOR", "CONTENT", "EVENT", "ADMIN"] as const;
 
 export const UserStatuses = [
   "AWAKE",

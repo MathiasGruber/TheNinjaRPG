@@ -1,0 +1,2 @@
+ALTER TABLE `UserData` MODIFY COLUMN `role` enum('USER','MODERATOR','CONTENT','EVENT','ADMIN') NOT NULL DEFAULT 'USER';
+ALTER TABLE `UserData` MODIFY COLUMN `currentlyTraining` enum('ninjutsuOffence','taijutsuOffence','genjutsuOffence','bukijutsuOffence','ninjutsuDefence','taijutsuDefence','genjutsuDefence','bukijutsuDefence','strength','speed','intelligence','willpower');

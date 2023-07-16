@@ -2,12 +2,13 @@ import { useRouter } from "next/router";
 import AvatarImage from "./Avatar";
 import Button from "./Button";
 import { secondsPassed } from "../utils/time";
+import { capitalizeFirstLetter } from "../utils/sanitize";
 
 export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;
   header: string;
   width?: number;
-  type: "avatar" | "string" | "time_passed" | "date";
+  type: "avatar" | "string" | "capitalized" | "time_passed" | "date";
 };
 
 type TableProps<T, K extends keyof T> = {
@@ -76,6 +77,8 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                     />
                   )}
                   {column.type === "string" && (row[column.key] as string)}
+                  {column.type === "capitalized" &&
+                    capitalizeFirstLetter(row[column.key] as string)}
                   {column.type === "date" && (row[column.key] as Date).toLocaleString()}
                   {column.type === "time_passed" && (
                     <p className="text-center">

@@ -13,7 +13,8 @@ import { useUserSearch } from "../utils/search";
 import { type ArrayElement } from "../utils/typeutils";
 
 const Users: NextPage = () => {
-  const [activeTab, setActiveTab] = useState<string>("Online");
+  const tabNames = ["Online", "Strongest", "Staff"] as const;
+  const [activeTab, setActiveTab] = useState<typeof tabNames[number]>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { register, errors, searchTerm } = useUserSearch();
 
@@ -25,7 +26,7 @@ const Users: NextPage = () => {
   } = api.profile.getPublicUsers.useInfiniteQuery(
     {
       limit: 30,
-      orderBy: activeTab === "Online" ? "updatedAt" : "level",
+      orderBy: activeTab,
       username: searchTerm,
     },
     {
@@ -46,13 +47,15 @@ const Users: NextPage = () => {
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar", width: 7 },
     { key: "username", header: "Username", type: "string" },
-    { key: "rank", header: "Rank", type: "string" },
+    { key: "rank", header: "Rank", type: "capitalized" },
   ];
   if (activeTab === "Strongest") {
     columns.push({ key: "level", header: "Lvl.", type: "string" });
     columns.push({ key: "experience", header: "Experience", type: "string" });
   } else if (activeTab === "Online") {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
+  } else if (activeTab === "Staff") {
+    columns.push({ key: "role", header: "Role", type: "capitalized" });
   }
 
   return (
@@ -71,7 +74,7 @@ const Users: NextPage = () => {
           />
           <NavTabs
             current={activeTab}
-            options={["Online", "Strongest"]}
+            options={["Online", "Strongest", "Staff"]}
             setValue={setActiveTab}
           />
         </div>

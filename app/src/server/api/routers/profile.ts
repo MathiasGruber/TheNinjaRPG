@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { eq, sql, inArray, and, or, like, desc, isNull, isNotNull } from "drizzle-orm";
+import { eq, sql, and, or, like, desc, isNull, isNotNull } from "drizzle-orm";
+import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
@@ -301,7 +302,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        orderBy: z.enum(["updatedAt", "level", "reputationPointsTotal"]),
+        orderBy: z.enum(["Online", "Strongest", "Staff"]),
         username: z
           .string()
           .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
@@ -315,12 +316,12 @@ export const profileRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const getOrder = () => {
         switch (input.orderBy) {
-          case "updatedAt":
+          case "Online":
             return [desc(userData.updatedAt)];
-          case "level":
+          case "Strongest":
             return [desc(userData.level), desc(userData.experience)];
-          case "reputationPointsTotal":
-            return [desc(userData.reputationPointsTotal)];
+          case "Staff":
+            return [desc(userData.role)];
         }
       };
       const users = await ctx.drizzle.query.userData.findMany({
@@ -328,6 +329,7 @@ export const profileRouter = createTRPCRouter({
           ...(input.username !== undefined
             ? [like(userData.username, `%${input.username}%`)]
             : []),
+          ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
           eq(userData.approvedTos, 1),
           eq(userData.isAi, 0)
         ),
@@ -337,6 +339,7 @@ export const profileRouter = createTRPCRouter({
           avatar: true,
           rank: true,
           level: true,
+          role: true,
           experience: true,
           updatedAt: true,
           reputationPointsTotal: true,
