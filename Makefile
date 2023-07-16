@@ -30,8 +30,8 @@ help: # Print help.
 	@sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)
 	@cat $(MAKEFILE_LIST) | grep -e "^[a-zA-Z_\-]*: *.*# *" | awk 'BEGIN {FS = ":.*?# "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: build
-build: # Build/Rebuild the application.
+.PHONY: build-container
+build-container: # Build/Rebuild the application.
 	@echo "${YELLOW}Building/Rebuilding the application${RESET}"
 	docker-compose --file $$PWD/.devcontainer/docker-compose.yml build --no-cache
 
