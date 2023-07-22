@@ -9,6 +9,9 @@ import {
   BuildingStorefrontIcon,
   FireIcon,
   UserIcon,
+  // BeakerIcon,
+  // WrenchIcon,
+  // RectangleGroupIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 import { calcIsInVillage } from "./travel/controls";
@@ -31,7 +34,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   const links: NavBarDropdownLink[] = [
     {
       href: "/manual",
-      name: "Manual",
+      name: "Data",
     },
     {
       href: "/forum",
@@ -105,6 +108,29 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
       icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
     },
   ];
+  // TODO: Add back in if needed, until then incorporate things closer in the game
+  // if (userData && ["CONTENT", "ADMIN"].includes(userData.role)) {
+  //   systems.push({
+  //     href: "/cpanel",
+  //     name: `Content`,
+  //     icon: <BeakerIcon key="cpanel" className="h-6 w-6" />,
+  //   });
+  // }
+  // if (userData && ["MODERATOR", "ADMIN"].includes(userData.role)) {
+  //   systems.push({
+  //     href: "/mpanel",
+  //     name: `Moderate`,
+  //     icon: <WrenchIcon key="mpanel" className="h-6 w-6" />,
+  //   });
+  // }
+  // if (userData && ["ADMIN"].includes(userData.role)) {
+  //   systems.push({
+  //     href: "/apanel",
+  //     name: `Admin`,
+  //     icon: <RectangleGroupIcon key="mpanel" className="h-6 w-6" />,
+  //   });
+  // }
+
   // Is in village
   let location: NavBarDropdownLink | undefined = undefined;
   if (

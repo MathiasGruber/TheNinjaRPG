@@ -12,6 +12,7 @@ import {
   double,
   primaryKey,
 } from "drizzle-orm/mysql-core";
+import { createInsertSchema } from "drizzle-zod";
 import type { InferModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -95,11 +96,11 @@ export const bloodline = mysqlTable(
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
-    effects: json("effects").notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
     description: text("description").notNull(),
+    effects: json("effects").notNull(),
     regenIncrease: int("regenIncrease").default(0).notNull(),
     village: varchar("village", { length: 191 }).notNull(),
-    image: varchar("image", { length: 191 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -380,15 +381,15 @@ export const item = mysqlTable(
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
     slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
+    weaponType: mysqlEnum("weaponType", consts.WeaponTypes).default("NONE").notNull(),
+    target: mysqlEnum("target", consts.AttackTargets).notNull(),
+    method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     cost: int("cost").default(1).notNull(),
-    weaponType: mysqlEnum("weaponType", consts.WeaponTypes),
     canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
-    target: mysqlEnum("target", consts.AttackTargets).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     destroyOnUse: tinyint("destroyOnUse").default(0).notNull(),
     range: int("range").default(0).notNull(),
-    method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     chakraCostPerc: double("chakraCostPerc").default(0).notNull(),
     staminaCostPerc: double("staminaCostPerc").default(0).notNull(),
     actionCostPerc: double("actionCostPerc").default(60).notNull(),
@@ -429,7 +430,7 @@ export const jutsu = mysqlTable(
     requiredRank: mysqlEnum("requiredRank", consts.UserRanks).notNull(),
     jutsuType: mysqlEnum("jutsuType", consts.JutsuTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
-    jutsuWeapon: mysqlEnum("jutsuWeapon", consts.WeaponTypes),
+    jutsuWeapon: mysqlEnum("jutsuWeapon", consts.WeaponTypes).default("NONE").notNull(),
     battleDescription: text("battleDescription").notNull(),
     jutsuRank: mysqlEnum("jutsuRank", consts.LetterRanks).default("D").notNull(),
     actionCostPerc: double("actionCostPerc").default(80).notNull(),
@@ -572,6 +573,22 @@ export const reportLog = mysqlTable(
   }
 );
 
+export const actionLog = mysqlTable(
+  "ActionLog",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    tableName: varchar("tableName", { length: 191 }),
+    changes: json("changes").notNull(),
+  },
+  (table) => {
+    return { userId: index("ActionLog_userId_idx").on(table.userId) };
+  }
+);
+
 export const userAttribute = mysqlTable(
   "UserAttribute",
   {
@@ -675,6 +692,12 @@ export const userData = mysqlTable(
     };
   }
 );
+export const insertUserDataSchema = createInsertSchema(userData).omit({
+  trainingStartedAt: true,
+  currentlyTraining: true,
+  deletionAt: true,
+  travelFinishAt: true,
+});
 export type UserData = InferModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];

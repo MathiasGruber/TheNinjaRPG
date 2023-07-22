@@ -34,6 +34,49 @@ function ReadonlyMapWithStringKeys<K extends string, AIdefinition>(
   return new Map(input);
 }
 
+/** Scale stats of user, and return total number of experience / stat points */
+export function scaleUserStats(user: AIdefinition) {
+  // Pools
+  user["curHealth"] = calcHP(user.level);
+  user["maxHealth"] = calcHP(user.level);
+  user["curStamina"] = calcSP(user.level);
+  user["maxStamina"] = calcSP(user.level);
+  user["curChakra"] = calcCP(user.level);
+  user["maxChakra"] = calcCP(user.level);
+  // Stats
+  const exp = calcLevelRequirements(user.level) - 500;
+  user["experience"] = exp;
+  const sum = [
+    user.ninjutsuOffence ?? 0,
+    user.ninjutsuDefence ?? 0,
+    user.genjutsuOffence ?? 0,
+    user.genjutsuDefence ?? 0,
+    user.taijutsuOffence ?? 0,
+    user.taijutsuDefence ?? 0,
+    user.bukijutsuOffence ?? 0,
+    user.bukijutsuDefence ?? 0,
+    user.strength ?? 0,
+    user.intelligence ?? 0,
+    user.willpower ?? 0,
+    user.speed ?? 0,
+  ].reduce((a, b) => a + b, 0);
+  const calcStat = (stat: keyof StatDistribution) => {
+    return 10 + Math.floor((user[stat] ?? 0 / sum) * exp * 100) / 100;
+  };
+  user["ninjutsuOffence"] = calcStat("ninjutsuOffence");
+  user["ninjutsuDefence"] = calcStat("ninjutsuDefence");
+  user["genjutsuOffence"] = calcStat("genjutsuOffence");
+  user["genjutsuDefence"] = calcStat("genjutsuDefence");
+  user["taijutsuOffence"] = calcStat("taijutsuOffence");
+  user["taijutsuDefence"] = calcStat("taijutsuDefence");
+  user["bukijutsuOffence"] = calcStat("bukijutsuOffence");
+  user["bukijutsuDefence"] = calcStat("bukijutsuDefence");
+  user["strength"] = calcStat("strength");
+  user["intelligence"] = calcStat("intelligence");
+  user["willpower"] = calcStat("willpower");
+  user["speed"] = calcStat("speed");
+}
+
 // Convenience stats distributions for AIs
 const beastDistribution: StatDistribution = {
   ninjutsuOffence: 0,
@@ -60,7 +103,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 1,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -72,7 +115,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 2,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -84,7 +127,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 3,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -96,7 +139,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 4,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -108,7 +151,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 5,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -120,7 +163,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 6,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -132,7 +175,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 7,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -144,7 +187,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 8,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -156,7 +199,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 9,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -168,7 +211,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 10,
       rank: "NONE" as const,
       jutsus: ["Scratch"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
   [
@@ -180,7 +223,7 @@ export const ais = ReadonlyMapWithStringKeys([
       level: 11,
       rank: "NONE" as const,
       jutsus: ["Poisonous Bite", "Poisonous Spit"],
-      statsDistribution: beastDistribution,
+      ...beastDistribution,
     },
   ],
 ]);
@@ -191,61 +234,32 @@ let counter = 0;
 const total = ais.size;
 
 const upsertAI = async (client: DrizzleClient, name: string, ai: AIdefinition) => {
-  // Jutsus
-  await client.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
-  if (ai.jutsus) {
-    const jutsus = await client.query.jutsu.findMany({
-      where: inArray(jutsu.name, ai.jutsus),
-    });
-    await client.insert(userJutsu).values(
-      jutsus.map((jutsu) => ({
-        id: nanoid(),
-        userId: ai.userId,
-        jutsuId: jutsu.id,
-        level: ai.level,
-        equipped: 1,
-      }))
-    );
-  }
-  // User data
+  // AI data
   const obj = await client.query.userData.findFirst({
     where: eq(userData.username, name),
   });
-  // Level-based pools
-  ai["curHealth"] = calcHP(ai.level);
-  ai["maxHealth"] = calcHP(ai.level);
-  ai["curStamina"] = calcSP(ai.level);
-  ai["maxStamina"] = calcSP(ai.level);
-  ai["curChakra"] = calcCP(ai.level);
-  ai["maxChakra"] = calcCP(ai.level);
-  // Level-based stats
-  const stats = ai.statsDistribution;
-  if (stats) {
-    const exp = calcLevelRequirements(ai.level) - 500;
-    const sum = Object.values(stats).reduce((a, b) => a + b, 0);
-    ai["experience"] = exp;
-    const calcStat = (stat: keyof StatDistribution) => {
-      return 10 + Math.floor((stats[stat] / sum) * exp * 100) / 100;
-    };
-    ai["ninjutsuOffence"] = calcStat("ninjutsuOffence");
-    ai["ninjutsuDefence"] = calcStat("ninjutsuDefence");
-    ai["genjutsuOffence"] = calcStat("genjutsuOffence");
-    ai["genjutsuDefence"] = calcStat("genjutsuDefence");
-    ai["taijutsuOffence"] = calcStat("taijutsuOffence");
-    ai["taijutsuDefence"] = calcStat("taijutsuDefence");
-    ai["bukijutsuOffence"] = calcStat("bukijutsuOffence");
-    ai["bukijutsuDefence"] = calcStat("bukijutsuDefence");
-    ai["strength"] = calcStat("strength");
-    ai["intelligence"] = calcStat("intelligence");
-    ai["willpower"] = calcStat("willpower");
-    ai["speed"] = calcStat("speed");
-  }
-  // Upsert into database
-  delete ai.jutsus;
-  delete ai.statsDistribution;
-  if (obj) {
-    await client.update(userData).set(ai).where(eq(userData.username, name));
-  } else {
+  if (!obj) {
+    // Jutsus
+    await client.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
+    if (ai.jutsus) {
+      const jutsus = await client.query.jutsu.findMany({
+        where: inArray(jutsu.name, ai.jutsus),
+      });
+      await client.insert(userJutsu).values(
+        jutsus.map((jutsu) => ({
+          id: nanoid(),
+          userId: ai.userId,
+          jutsuId: jutsu.id,
+          level: ai.level,
+          equipped: 1,
+        }))
+      );
+    }
+    // Level-based pools
+    scaleUserStats(ai);
+    // Insert into database if not already exists
+    delete ai.jutsus;
+    delete ai.statsDistribution;
     await client.insert(userData).values({ ...ai, username: name, isAi: 1 });
   }
   // Progress

@@ -67,7 +67,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
               className={system.className ? system.className : ""}
             >
               <li
-                className={`flex flex-row rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
+                className={`flex flex-row items-center text-base lg:text-sm rounded-lg border-2 border-slate-800 bg-orange-100 p-2 font-bold ${
                   disabled ? "opacity-30" : "hover:bg-orange-200"
                 } ${system.className ? system.className : ""}`}
               >

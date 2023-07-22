@@ -5,7 +5,7 @@ interface InputFieldProps {
   label?: string;
   placeholder?: string;
   options?: React.ReactNode;
-  type?: string;
+  type?: "text" | "number";
   error?: string;
   register?: UseFormRegister<any>;
 }
@@ -23,7 +23,8 @@ const InputField: React.FC<InputFieldProps> = (props) => {
       )}
 
       <input
-        {...(props.register && props.register(props.id))}
+        {...(props.register &&
+          props.register(props.id, { valueAsNumber: props.type === "number" }))}
         type={props.type || "text"}
         id={props.id}
         className={`text-sm ${border_color} block w-full rounded-lg bg-gray-50 p-2.5`}

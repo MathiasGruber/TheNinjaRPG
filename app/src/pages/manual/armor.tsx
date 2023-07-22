@@ -49,6 +49,7 @@ const ManualArmor: NextPage = () => {
       <ContentBox
         title="Database"
         subtitle="All armor"
+        initialBreak={true}
         topRightCorntentBreakpoint="sm"
         topRightContent={
           <>
@@ -65,7 +66,7 @@ const ManualArmor: NextPage = () => {
         {!isFetching &&
           allItems?.map((item, i) => (
             <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
-              <ItemWithEffects item={item} key={item.id} />
+              <ItemWithEffects item={item} key={item.id} showEdit="item" />
             </div>
           ))}
       </ContentBox>

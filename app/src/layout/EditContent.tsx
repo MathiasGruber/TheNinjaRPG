@@ -1,0 +1,264 @@
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import React, { useEffect } from "react";
+import { ErrorMessage } from "@hookform/error-message";
+import Button from "./Button";
+import InputField from "./InputField";
+import SelectField from "./SelectField";
+import AvatarImage from "./Avatar";
+import { getTagSchema } from "../libs/combat/types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tagTypes } from "../libs/combat/types";
+import { show_toast } from "../libs/toast";
+import type { ZodAllTags } from "../libs/combat/types";
+import type { FieldErrors } from "react-hook-form";
+import type { UseFormRegister } from "react-hook-form";
+
+export type FormDbValue = { id: string; name: string };
+export type FormEntry<K> = {
+  id: K;
+  label?: string;
+} & (
+  | { type: "text" }
+  | { type: "number" }
+  | { type: "db_values"; values: FormDbValue[] | undefined; multiple?: boolean }
+  | { type: "str_array"; values: readonly string[]; multiple?: boolean }
+  | { type: "avatar"; href?: string | null }
+);
+
+interface EditContentProps<T, K> {
+  schema: T;
+  formData: FormEntry<K>[];
+  errors: FieldErrors;
+  showSubmit: boolean;
+  buttonTxt?: string;
+  register: UseFormRegister<any>;
+  onAccept: (
+    e: React.BaseSyntheticEvent<object, any, any> | undefined
+  ) => Promise<void>;
+}
+
+/**
+ * Generic edit content component, used for creating and editing e.g. jutsu, bloodline, item, AI
+ * @returns JSX.Element
+ */
+export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]>(
+  props: EditContentProps<T, K>
+) => {
+  const { formData, errors, showSubmit, buttonTxt, register, onAccept } = props;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+      {formData.map((formEntry) => {
+        const id = formEntry.id as string;
+        if (formEntry.type === "text") {
+          return (
+            <InputField
+              key={id}
+              id={id}
+              label={formEntry.label ? formEntry.label : id}
+              register={register}
+              error={errors[id]?.message as string}
+            />
+          );
+        } else if (formEntry.type === "number") {
+          return (
+            <InputField
+              key={id}
+              id={id}
+              type="number"
+              label={formEntry.label ? formEntry.label : id}
+              register={register}
+              error={errors[id]?.message as string}
+            />
+          );
+        } else if (formEntry.type === "str_array" || formEntry.type === "db_values") {
+          return (
+            <SelectField
+              key={id}
+              id={id}
+              label={formEntry.label ? formEntry.label : id}
+              register={register}
+              error={errors[id]?.message as string}
+              multiple={formEntry.multiple}
+            >
+              {formEntry.type === "str_array" &&
+                formEntry.values.map((target) => (
+                  <option key={target} value={target}>
+                    {target}
+                  </option>
+                ))}
+              {formEntry.type === "db_values" &&
+                formEntry.values?.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name}
+                  </option>
+                ))}
+              {formEntry.type === "db_values" && (
+                <option key={undefined} value={""}>
+                  None
+                </option>
+              )}
+            </SelectField>
+          );
+        } else if (formEntry.type === "avatar") {
+          return (
+            <div key={id} className="row-span-4">
+              <AvatarImage
+                href={formEntry.href}
+                alt={id}
+                size={100}
+                hover_effect={true}
+                priority
+              />
+            </div>
+          );
+        }
+      })}
+      {showSubmit && (
+        <div className="col-span-2 items-center mt-3">
+          <Button id="create" label={buttonTxt ?? "Save"} onClick={onAccept} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface TagFormWrapperProps {
+  idx: number;
+  tag: ZodAllTags;
+  setEffects: React.Dispatch<React.SetStateAction<ZodAllTags[]>>;
+}
+
+/**
+ * A wrapper component around EditContent for creating a form for a single tag
+ * @returns JSX.Element
+ */
+export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
+  // Destructure props
+  const { tag, idx, setEffects } = props;
+
+  // Get the schema
+  const tagSchema = getTagSchema(tag.type);
+
+  // Form for handling the specific tag
+  const {
+    register,
+    watch,
+    handleSubmit,
+    formState: { errors, isDirty },
+  } = useForm<ZodAllTags>({
+    values: tag,
+    resolver: zodResolver(tagSchema),
+    mode: "onBlur",
+  });
+
+  // When user changes type, we need to update the effects array to re-render form
+  const watchType = watch("type");
+  useEffect(() => {
+    setEffects((effects) => {
+      const newEffects = [...effects];
+      const curTag = newEffects?.[idx];
+      if (curTag?.type) {
+        curTag.type = watchType;
+      }
+      return newEffects;
+    });
+  }, [watchType, idx, setEffects]);
+
+  // Form submission
+  const handleTagupdate = handleSubmit(
+    (data) => {
+      setEffects((effects) => {
+        const newEffects = [...effects];
+        newEffects[idx] = data;
+        return newEffects;
+      });
+    },
+    (errors) => {
+      const msgs = (
+        <div>
+          {Object.keys(errors).map((key, i) => {
+            return (
+              <ErrorMessage
+                key={i}
+                errors={errors}
+                name={key}
+                render={({ message }: { message: string }) => <span>{message}</span>}
+              />
+            );
+          })}
+        </div>
+      );
+      show_toast("Error fetching avatar", msgs, "error");
+    }
+  );
+
+  // Attributes on this tag, each of which we should show a form field for
+  type Attribute = keyof ZodAllTags;
+  const attributes = Object.keys(tagSchema.shape) as Attribute[];
+
+  /** Unwrap zod types to get inner-most type */
+  const getInner = (type: z.ZodTypeAny): z.ZodTypeAny => {
+    if (
+      type instanceof z.ZodDefault ||
+      type instanceof z.ZodOptional ||
+      type instanceof z.ZodNullable
+    ) {
+      return getInner(type._def.innerType as z.ZodTypeAny);
+    }
+    return type;
+  };
+
+  // Parse how to present the tag form
+  const formData: FormEntry<Attribute>[] = attributes
+    .filter((value) => !["timeTracker", "type"].includes(value))
+    .map((value) => {
+      const innerType = getInner(tagSchema.shape[value]);
+      if (innerType instanceof z.ZodLiteral || innerType instanceof z.ZodString) {
+        return { id: value, label: value, type: "text" };
+      } else if (innerType instanceof z.ZodNumber) {
+        return { id: value, label: value, type: "number" };
+      } else if (innerType instanceof z.ZodEnum) {
+        return {
+          id: value,
+          type: "str_array",
+          values: innerType._def.values as string[],
+        };
+      } else if (innerType instanceof z.ZodNativeEnum) {
+        return {
+          id: value,
+          type: "str_array",
+          values: Object.keys(innerType._def.values as Record<string, string>),
+        };
+      } else if (
+        innerType instanceof z.ZodArray &&
+        innerType._def.type instanceof z.ZodEnum
+      ) {
+        const values = innerType._def.type._def.values as string[];
+        return { id: value, type: "str_array", values: values, multiple: true };
+      } else {
+        return { id: value, label: value, type: "text" };
+      }
+    });
+
+  // Add tag type as first entry
+  formData.unshift({
+    id: "type",
+    type: "str_array",
+    values: tagTypes,
+  });
+
+  // Re-used EditContent component for actually showing the form
+  return (
+    <EditContent
+      schema={tagSchema}
+      showSubmit={isDirty}
+      buttonTxt="Confirm Changes (No database sync)"
+      register={register}
+      errors={errors}
+      formData={formData}
+      onAccept={handleTagupdate}
+    />
+  );
+};

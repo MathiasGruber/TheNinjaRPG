@@ -6,6 +6,7 @@ interface SelectFieldProps {
   placeholder?: string;
   children: React.ReactNode;
   error?: string;
+  multiple?: boolean;
   register?: UseFormRegister<any>;
   onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
@@ -24,9 +25,10 @@ const SelectField: React.FC<SelectFieldProps> = (props) => {
       <select
         {...(props.onChange && { onChange: props.onChange })}
         {...(props.register && props.register(props.id))}
+        multiple={props.multiple}
         id={props.id}
         className={`text-sm ${border_color} block w-full rounded-lg bg-gray-50 p-2.5`}
-        defaultValue={props.placeholder || props.label}
+        {...(!props.multiple && { defaultValue: props.placeholder || props.label })}
       >
         {props.placeholder && (
           <option key="---" value="---">

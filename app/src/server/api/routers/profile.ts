@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { eq, sql, and, or, like, desc, isNull, isNotNull } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { eq, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -14,11 +15,16 @@ import {
   conversationComment,
   user2conversation,
   userReport,
+  actionLog,
 } from "../../../../drizzle/schema";
+import { scaleUserStats } from "../../../../drizzle/seeds/ai";
+import { insertUserDataSchema } from "../../../../drizzle/schema";
+import { canChangeContent } from "../../../utils/permissions";
 import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";
 import { UserStatNames } from "../../../../drizzle/constants";
+import HumanDiff from "human-object-diff";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
@@ -218,6 +224,51 @@ export const profileRouter = createTRPCRouter({
     }
     return { userData: user, notifications: notifications, serverTime: Date.now() };
   }),
+  // Get an AI
+  getAi: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.drizzle.query.userData.findFirst({
+        where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
+      });
+      if (!user) {
+        throw serverError("NOT_FOUND", "AI not found");
+      }
+      return user;
+    }),
+  // Update a jutsu
+  updateAi: protectedProcedure
+    .input(z.object({ id: z.string(), data: insertUserDataSchema }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const ai = await fetchUser(ctx.drizzle, input.id);
+      if (ai && canChangeContent(user.role)) {
+        // Update input data based on level
+        const newAi = {
+          ...ai,
+          ...input.data,
+        };
+        // Level-based stats / pools
+        scaleUserStats(newAi);
+        // Calculate diff
+        const diff = new HumanDiff({ objectName: "user" }).diff(ai, newAi);
+        // Update database
+        await ctx.drizzle
+          .update(userData)
+          .set(newAi)
+          .where(eq(userData.userId, input.id));
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: diff,
+        });
+        return { success: true, message: `Data updated: ${diff.join(". ")}` };
+      } else {
+        return { success: false, message: `Not allowed to edit AI` };
+      }
+    }),
   // Get user attributes
   getUserAttributes: protectedProcedure.query(async ({ ctx }) => {
     return fetchAttributes(ctx.drizzle, ctx.userId);
@@ -302,7 +353,8 @@ export const profileRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        orderBy: z.enum(["Online", "Strongest", "Staff"]),
+        isAi: z.number().min(0).max(1).default(0),
+        orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
         username: z
           .string()
           .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
@@ -320,6 +372,8 @@ export const profileRouter = createTRPCRouter({
             return [desc(userData.updatedAt)];
           case "Strongest":
             return [desc(userData.level), desc(userData.experience)];
+          case "Strongest":
+            return [asc(userData.level), asc(userData.experience)];
           case "Staff":
             return [desc(userData.role)];
         }
@@ -330,8 +384,10 @@ export const profileRouter = createTRPCRouter({
             ? [like(userData.username, `%${input.username}%`)]
             : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-          eq(userData.approvedTos, 1),
-          eq(userData.isAi, 0)
+          ...(input.isAi === 1
+            ? [eq(userData.isAi, 1)]
+            : [eq(userData.approvedTos, 1)]),
+          isNotNull(userData.avatar)
         ),
         columns: {
           userId: true,
@@ -343,6 +399,25 @@ export const profileRouter = createTRPCRouter({
           experience: true,
           updatedAt: true,
           reputationPointsTotal: true,
+        },
+        // If AI, also include relations information
+        with: {
+          ...(input.isAi === 1
+            ? {
+                jutsus: {
+                  columns: {
+                    level: true,
+                  },
+                  with: {
+                    jutsu: {
+                      columns: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              }
+            : {}),
         },
         offset: skip,
         limit: input.limit,

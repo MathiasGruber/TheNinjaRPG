@@ -287,9 +287,7 @@ const upsertJutsu = async (client: DrizzleClient, data: ZodJutsuType) => {
   const obj = await client.query.jutsu.findFirst({
     where: eq(jutsu.name, parsed.name),
   });
-  if (obj) {
-    await client.update(jutsu).set(parsed).where(eq(jutsu.name, parsed.name));
-  } else {
+  if (!obj) {
     await client.insert(jutsu).values({
       id: nanoid(),
       ...parsed,

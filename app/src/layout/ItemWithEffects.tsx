@@ -1,15 +1,34 @@
 import React from "react";
+import Link from "next/link";
 import ContentImage from "./ContentImage";
+import { canChangeContent } from "../utils/permissions";
+import { useUserData } from "../utils/UserContext";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import type { ItemRarity } from "../../drizzle/schema";
 import type { Bloodline, Item, Jutsu } from "../../drizzle/schema";
 import type { ZodAllTags } from "../libs/combat/types";
 
+export type GenericObject = {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  rarity: ItemRarity;
+  createdAt: Date;
+  updatedAt: Date;
+  attacks: string[];
+  effects: ZodAllTags[];
+};
+
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu;
+  item: Bloodline | Item | Jutsu | GenericObject;
   imageBorder?: boolean;
+  showEdit?: "bloodline" | "item" | "jutsu" | "ai";
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item } = props;
+  const { item, showEdit } = props;
+  const { data: userData } = useUserData();
   const effects = props.item.effects as ZodAllTags[];
   const image = (
     <div className="relative flex flex-row items-center justify-center">
@@ -37,12 +56,27 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               {item.createdAt.toLocaleDateString()},<b>Updated: </b>
               {item.updatedAt.toLocaleDateString()}
             </p>
+            {userData && showEdit && canChangeContent(userData.role) && (
+              <div className="absolute right-6 flex flex-row">
+                <Link href={`/cpanel/${showEdit}/${item.id}`}>
+                  <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
+                </Link>
+                {/* <Link href={`/cpanel/${showEdit}/${item.id}`}>
+                  <TrashIcon className="h-6 w-6 hover:fill-orange-500" />
+                </Link> */}
+              </div>
+            )}
             <hr className="py-1" />
             <div>{item.description}</div>
           </div>
         </div>
         <div>
           <div className="my-2 grid grid-cols-2 rounded-lg bg-orange-100 p-2">
+            {"attacks" in item && (
+              <p className="col-span-2">
+                <b>Attacks</b>: {item.attacks.join(", ")}
+              </p>
+            )}
             {"rarity" in item && (
               <p>
                 <b>Rarity</b>: {item.rarity}

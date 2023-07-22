@@ -1,21 +1,30 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, gte } from "drizzle-orm";
-import { jutsu, userJutsu, userData } from "../../../../drizzle/schema";
+import { jutsu, userJutsu, userData, actionLog } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
-import {
-  canTrainJutsu,
-  calcJutsuTrainTime,
-  calcJutsuTrainCost,
-} from "../../../libs/train";
+import { canTrainJutsu } from "../../../libs/train";
+import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
 import { calcJutsuEquipLimit } from "../../../libs/train";
+import { JutsuValidator } from "../../../libs/combat/types";
+import { canChangeContent } from "../../../utils/permissions";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
+import HumanDiff from "human-object-diff";
+import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
 
 export const jutsuRouter = createTRPCRouter({
-  // Get all jutsu
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = await fetchJutsu(ctx.drizzle, input.id);
+      if (!result) {
+        throw serverError("NOT_FOUND", "Jutsu not found");
+      }
+      return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
+    }),
   getAll: publicProcedure
     .input(
       z.object({
@@ -38,6 +47,34 @@ export const jutsuRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  // Update a jutsu
+  update: protectedProcedure
+    .input(z.object({ id: z.string(), data: JutsuValidator }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchJutsu(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        // Calculate diff
+        const diff = new HumanDiff({ objectName: "jutsu" }).diff(entry, {
+          id: entry.id,
+          updatedAt: entry.updatedAt,
+          createdAt: entry.createdAt,
+          ...input.data,
+        });
+        // Update database
+        await ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id));
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "jutsu",
+          changes: diff,
+        });
+        return { success: true, message: `Data updated: ${diff.join(". ")}` };
+      } else {
+        return { success: false, message: `Not allowed to edit jutsu` };
+      }
+    }),
   // Get all uset jutsu
   getUserJutsus: protectedProcedure.query(async ({ ctx }) => {
     return await fetchUserJutsus(ctx.drizzle, ctx.userId);
@@ -47,9 +84,7 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const info = await ctx.drizzle.query.jutsu.findFirst({
-        where: eq(jutsu.id, input.jutsuId),
-      });
+      const info = await fetchJutsu(ctx.drizzle, input.jutsuId);
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
       if (!info) {
@@ -115,6 +150,12 @@ export const jutsuRouter = createTRPCRouter({
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */
+
+export const fetchJutsu = async (client: DrizzleClient, id: string) => {
+  return await client.query.jutsu.findFirst({
+    where: eq(jutsu.id, id),
+  });
+};
 
 export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => {
   return await client.query.userJutsu.findMany({

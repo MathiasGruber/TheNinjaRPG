@@ -2,7 +2,11 @@ import { toast } from "react-toastify";
 import { type ToastProps } from "react-toastify/dist/types/index.d";
 import "react-toastify/dist/ReactToastify.css";
 
-export const show_toast = (title: string, message: string, type: string) => {
+export const show_toast = (
+  title: string,
+  message: string | JSX.Element,
+  type: string
+) => {
   // Settings for toast
   const params = {
     position: "top-right",

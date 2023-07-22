@@ -24,6 +24,7 @@ const ManualJutsus: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const alljutsus = jutsus?.pages.map((page) => page.data).flat();
@@ -50,6 +51,7 @@ const ManualJutsus: NextPage = () => {
       <ContentBox
         title="Database"
         subtitle="All known jutsu"
+        initialBreak={true}
         topRightContent={
           <>
             <div className="grow"></div>
@@ -68,7 +70,7 @@ const ManualJutsus: NextPage = () => {
               key={jutsu.id}
               ref={i === alljutsus.length - 1 ? setLastElement : null}
             >
-              <ItemWithEffects item={jutsu} key={jutsu.id} imageBorder={true} />
+              <ItemWithEffects item={jutsu} key={jutsu.id} showEdit="jutsu" />
             </div>
           ))}
       </ContentBox>

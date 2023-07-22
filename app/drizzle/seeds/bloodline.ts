@@ -154,9 +154,7 @@ const upsertBloodline = async (client: DrizzleClient, data: ZodBloodlineType) =>
   const obj = await client.query.bloodline.findFirst({
     where: eq(bloodline.name, data.name),
   });
-  if (obj) {
-    await client.update(bloodline).set(data).where(eq(bloodline.name, data.name));
-  } else {
+  if (!obj) {
     await client.insert(bloodline).values({
       id: nanoid(),
       ...data,

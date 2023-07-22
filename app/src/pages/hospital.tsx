@@ -267,8 +267,8 @@ interface CurrentBloodlineProps {
 const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   // Get current bloodline
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  const { data, isFetching } = api.bloodline.getBloodline.useQuery(
-    { bloodlineId: props.bloodlineId },
+  const { data, isFetching } = api.bloodline.get.useQuery(
+    { id: props.bloodlineId },
     { staleTime: Infinity }
   );
 

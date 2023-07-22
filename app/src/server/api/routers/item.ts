@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
-import { item, userItem, userData } from "../../../../drizzle/schema";
+import { item, userItem, userData, actionLog } from "../../../../drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/constants";
+import { fetchUser } from "./profile";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
+import { ItemValidator } from "../../../libs/combat/types";
+import { canChangeContent } from "../../../utils/permissions";
+import HumanDiff from "human-object-diff";
+import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
 
 const calcMaxItems = () => {
@@ -13,7 +18,48 @@ const calcMaxItems = () => {
 };
 
 export const itemRouter = createTRPCRouter({
-  // Get all items
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.item.findMany({
+      columns: { id: true, name: true },
+    });
+  }),
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = await fetchItem(ctx.drizzle, input.id);
+      if (!result) {
+        throw serverError("NOT_FOUND", "Item not found");
+      }
+      return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
+    }),
+  // Update an item
+  update: protectedProcedure
+    .input(z.object({ id: z.string(), data: ItemValidator }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchItem(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        // Calculate diff
+        const diff = new HumanDiff({ objectName: "item" }).diff(entry, {
+          id: entry.id,
+          updatedAt: entry.updatedAt,
+          createdAt: entry.createdAt,
+          ...input.data,
+        });
+        // Update database
+        await ctx.drizzle.update(item).set(input.data).where(eq(item.id, input.id));
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "item",
+          changes: diff,
+        });
+        return { success: true, message: `Data updated: ${diff.join(". ")}` };
+      } else {
+        return { success: false, message: `Not allowed to edit item` };
+      }
+    }),
   getAll: publicProcedure
     .input(
       z.object({
@@ -61,9 +107,7 @@ export const itemRouter = createTRPCRouter({
   mergeStacks: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const info = await ctx.drizzle.query.item.findFirst({
-        where: eq(item.id, input.itemId),
-      });
+      const info = await fetchItem(ctx.drizzle, input.itemId);
       const userItems = await ctx.drizzle.query.userItem.findMany({
         where: and(eq(userItem.userId, ctx.userId), eq(userItem.itemId, input.itemId)),
       });
@@ -146,9 +190,7 @@ export const itemRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const iid = input.itemId;
       const uid = ctx.userId;
-      const info = await ctx.drizzle.query.item.findFirst({
-        where: eq(item.id, iid),
-      });
+      const info = await fetchItem(ctx.drizzle, iid);
       const counts = await ctx.drizzle
         .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(userItem)
@@ -187,6 +229,12 @@ export const itemRouter = createTRPCRouter({
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */
+
+export const fetchItem = async (client: DrizzleClient, id: string) => {
+  return await client.query.item.findFirst({
+    where: eq(item.id, id),
+  });
+};
 
 export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
   return await client.query.userItem.findMany({

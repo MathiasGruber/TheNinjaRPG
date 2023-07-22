@@ -75,6 +75,7 @@ export const WeaponTypes = [
   "FAN",
   "BOW",
   "HAMMER",
+  "NONE",
 ] as const;
 
 export const AttackTargets = [

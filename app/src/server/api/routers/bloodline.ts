@@ -2,17 +2,26 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, gte, and } from "drizzle-orm";
 import { LetterRanks } from "../../../../drizzle/constants";
-import { bloodline, bloodlineRolls, userData } from "../../../../drizzle/schema";
+import { userData } from "../../../../drizzle/schema";
+import { bloodline, bloodlineRolls, actionLog } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
 import { fetchUser } from "./profile";
+import { BloodlineValidator } from "../../../libs/combat/types";
 import { getRandomElement } from "../../../utils/array";
+import { canChangeContent } from "../../../utils/permissions";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "../../../libs/bloodline";
+import HumanDiff from "human-object-diff";
+import type { ZodAllTags } from "../../../libs/combat/types";
 import type { BloodlineRank } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 
 export const bloodlineRouter = createTRPCRouter({
-  // Get all bloodlines
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.bloodline.findMany({
+      columns: { id: true, name: true },
+    });
+  }),
   getAll: publicProcedure
     .input(
       z.object({
@@ -36,10 +45,45 @@ export const bloodlineRouter = createTRPCRouter({
       };
     }),
   // Get a specific bloodline
-  getBloodline: publicProcedure
-    .input(z.object({ bloodlineId: z.string() }))
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return await fetchBloodline(ctx.drizzle, input.bloodlineId);
+      const result = await fetchBloodline(ctx.drizzle, input.id);
+      if (!result) {
+        throw serverError("NOT_FOUND", "Bloodline not found");
+      }
+      return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
+    }),
+  // Update a bloodline
+  update: protectedProcedure
+    .input(z.object({ id: z.string(), data: BloodlineValidator }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchBloodline(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        // Calculate diff
+        const diff = new HumanDiff({ objectName: "bloodline" }).diff(entry, {
+          id: entry.id,
+          updatedAt: entry.updatedAt,
+          createdAt: entry.createdAt,
+          ...input.data,
+        });
+        // Update database
+        await ctx.drizzle
+          .update(bloodline)
+          .set(input.data)
+          .where(eq(bloodline.id, input.id));
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "jutsu",
+          changes: diff,
+        });
+        return { success: true, message: `Data updated: ${diff.join(". ")}` };
+      } else {
+        return { success: false, message: `Not allowed to edit bloodline` };
+      }
     }),
   // Get bloodline roll of a specific user
   getRolls: protectedProcedure

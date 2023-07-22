@@ -192,8 +192,8 @@ const BaseAttributes = z.object({
   rounds: z.number().int().min(0).max(20).optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),
   // Power controls. Has different meanings depending on calculation
-  power: z.number().min(1).default(1),
-  powerPerLevel: z.number().min(0).default(0),
+  power: z.number().min(1).max(100).default(1),
+  powerPerLevel: z.number().min(0).max(100).default(0),
   // Used for indicating offensive / defensive effect
   direction: z.enum(["offence", "defence"]).default("offence"),
 });
@@ -307,10 +307,7 @@ export const CloneTag = z
     calculation: z.enum(["percentage"]).default("percentage"),
   })
   .merge(BaseAttributes)
-  .merge(IncludeStats)
-  .refine((data) => data.rounds === 0, {
-    message: "CloneTag can only be set to 0 rounds, indicating a single clone creation",
-  });
+  .merge(IncludeStats);
 
 export const DamageTag = z
   .object({
@@ -455,6 +452,95 @@ export const VisualTag = z
   })
   .merge(BaseAttributes);
 
+// All the possible tags
+export const tagTypes = [
+  "absorb",
+  "armoradjust",
+  "damagegivenadjust",
+  "damagetakenadjust",
+  "healadjust",
+  "poolcostadjust",
+  "statadjust",
+  "barrier",
+  "clear",
+  "clone",
+  "damage",
+  "flee",
+  "fleeprevent",
+  "heal",
+  "move",
+  "onehitkill",
+  "onehitkillprevent",
+  "reflect",
+  "rob",
+  "robprevent",
+  "seal",
+  "sealprevent",
+  "stun",
+  "stunprevent",
+  "summon",
+  "summonprevent",
+] as const;
+
+/** Based on type name, get the zod schema for validation of that tag */
+export const getTagSchema = (type: string) => {
+  switch (type) {
+    case "absorb":
+      return AbsorbTag;
+    case "armoradjust":
+      return AdjustArmorTag;
+    case "damagegivenadjust":
+      return AdjustDamageGivenTag;
+    case "damagetakenadjust":
+      return AdjustDamageTakenTag;
+    case "healadjust":
+      return AdjustHealGivenTag;
+    case "poolcostadjust":
+      return AdjustPoolCostTag;
+    case "statadjust":
+      return AdjustStatTag;
+    case "barrier":
+      return BarrierTag;
+    case "clear":
+      return ClearTag;
+    case "clone":
+      return CloneTag;
+    case "damage":
+      return DamageTag;
+    case "flee":
+      return FleeTag;
+    case "fleeprevent":
+      return FleePreventTag;
+    case "heal":
+      return HealTag;
+    case "move":
+      return MoveTag;
+    case "onehitkill":
+      return OneHitKillTag;
+    case "onehitkillprevent":
+      return OneHitKillPreventTag;
+    case "reflect":
+      return ReflectTag;
+    case "rob":
+      return RobTag;
+    case "robprevent":
+      return RobPreventTag;
+    case "seal":
+      return SealTag;
+    case "sealprevent":
+      return SealPreventTag;
+    case "stun":
+      return StunTag;
+    case "stunprevent":
+      return StunPreventTag;
+    case "summon":
+      return SummonTag;
+    case "summonprevent":
+      return SummonPreventTag;
+  }
+  throw new Error(`Unknown tag type ${type}`);
+};
+
 /******************** */
 /** UNIONS OF TAGS   **/
 /******************** */
@@ -562,6 +648,11 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
         addIssue(ctx, "ArmorTag power & direction mismatch");
     } else if (e.type === "barrier" && e.direction === "offence") {
       addIssue(ctx, "BarrierTag power & direction mismatch");
+    } else if (e.type === "clone" && e.rounds === 0) {
+      addIssue(
+        ctx,
+        "CloneTag can only be set to 0 rounds, indicating a single clone creation"
+      );
     }
   });
 };
@@ -598,6 +689,8 @@ export const JutsuValidator = z
     staminaCostPerc: z.number().min(0).max(100).optional(),
     actionCostPerc: z.number().int().min(1).max(100).optional(),
     cooldown: z.number().int().min(1).max(300),
+    bloodlineId: z.string().nullable().optional(),
+    villageId: z.string().nullable().optional(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineAction);
@@ -606,7 +699,7 @@ export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 /**
  * Bloodline Type. Used for validating a bloodline object is set up properly
  */
-const BloodlineValidator = z.object({
+export const BloodlineValidator = z.object({
   name: z.string(),
   image: z.string(),
   description: z.string(),
@@ -638,19 +731,22 @@ export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 /**
  * Item Type. Used for validating a item object is set up properly
  */
-const ItemValidator = z
+export const ItemValidator = z
   .object({
     name: z.string(),
     image: z.string(),
     description: z.string(),
-    canStack: z.boolean().optional(),
+    battleDescription: z.string().optional(),
+    canStack: z.number().min(0).max(1).optional(),
     stackSize: z.number().int().min(1).max(100).optional(),
-    destroyOnUse: z.boolean().optional(),
-    chakraCostPerc: z.number().int().min(1).max(100).optional(),
-    staminaCostPerc: z.number().int().min(1).max(100).optional(),
+    destroyOnUse: z.number().min(0).max(1).optional(),
+    chakraCostPerc: z.number().int().min(0).max(100).optional(),
+    healthCostPerc: z.number().int().min(0).max(100).optional(),
+    staminaCostPerc: z.number().int().min(0).max(100).optional(),
     actionCostPerc: z.number().int().min(1).max(100).optional(),
     cost: z.number().int().min(1),
     range: z.number().int().min(0).max(10).optional(),
+    method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     itemType: z.enum(ItemTypes),
     weaponType: z.enum(WeaponTypes).optional(),

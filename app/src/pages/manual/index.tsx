@@ -5,9 +5,12 @@ import ContentBox from "../../layout/ContentBox";
 
 const ManualMain: NextPage = () => {
   return (
-    <ContentBox title="Game Manual" subtitle="Learn about the game & look up data">
+    <ContentBox
+      title="Game Data & Manual"
+      subtitle="Learn about the game & look up data"
+    >
       <div className="grid grid-cols-4 gap-4 text-center font-bold">
-        {["combat", "travel", "bloodlines", "jutsus", "armor", "weapons"].map(
+        {["combat", "travel", "bloodlines", "jutsus", "armor", "weapons", "ai"].map(
           (page) => (
             <Link key={page} href={`/manual/${page}`}>
               <Image

@@ -24,6 +24,7 @@ const ManualBloodlines: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
+      staleTime: Infinity,
     }
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
@@ -51,6 +52,7 @@ const ManualBloodlines: NextPage = () => {
       <ContentBox
         title="Database"
         subtitle="All bloodlines"
+        initialBreak={true}
         topRightContent={
           <>
             <div className="grow"></div>
@@ -69,7 +71,11 @@ const ManualBloodlines: NextPage = () => {
               key={bloodline.id}
               ref={i === allBloodlines.length - 1 ? setLastElement : null}
             >
-              <ItemWithEffects item={bloodline} key={bloodline.id} imageBorder={true} />
+              <ItemWithEffects
+                item={bloodline}
+                key={bloodline.id}
+                showEdit="bloodline"
+              />
             </div>
           ))}
       </ContentBox>
