@@ -102,7 +102,7 @@ const NavBar: React.FC<NavBarProps> = (props) => {
           {navLinks.map((link) => (
             <Link
               key={link.name}
-              className="basis-1/5 font-bold"
+              className="basis-1/5 font-bold hover:text-orange-500"
               href={link.href}
               onClick={async () => {
                 if (link.onClick) {

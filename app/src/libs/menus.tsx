@@ -34,7 +34,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   const links: NavBarDropdownLink[] = [
     {
       href: "/manual",
-      name: "Data",
+      name: "Game Info",
     },
     {
       href: "/forum",
