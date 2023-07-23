@@ -14,6 +14,7 @@ export type GenericObject = {
   description: string;
   image: string;
   rarity: ItemRarity;
+  level: number;
   createdAt: Date;
   updatedAt: Date;
   attacks: string[];
@@ -80,6 +81,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             {"rarity" in item && (
               <p>
                 <b>Rarity</b>: {item.rarity}
+              </p>
+            )}
+            {"level" in item && (
+              <p>
+                <b>Level</b>: {item.level}
               </p>
             )}
             {"regenIncrease" in item && item.regenIncrease > 0 && (

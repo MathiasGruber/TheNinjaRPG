@@ -44,8 +44,6 @@ const ManualAI: NextPage = () => {
       } as GenericObject;
     });
 
-  console.log(allUsers);
-
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   return (
