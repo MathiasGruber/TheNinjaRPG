@@ -186,8 +186,14 @@ const getActionTree = (
           availableActions.forEach((a) => (a.actionCostPerc = 0));
           // Calculate the fitness
           const fitness =
-            evaluateFitness(usersState, newUsersState, user.userId, grid, astar) +
-            initialFitness;
+            evaluateFitness(
+              usersState,
+              newUsersState,
+              user.userId,
+              grid,
+              astar,
+              action
+            ) + initialFitness;
           // if (action.name === "Scratch" && curDepth === 2 && origin) {
           //   console.log(
           //     `action: ${action.name}, depth:${curDepth},  fitness: ${fitness}, location: ${origin.col}, ${origin.row}`
@@ -233,7 +239,8 @@ export const evaluateFitness = (
   newUsersState: BattleUserState[],
   userId: string,
   grid: Grid<TerrainHex>,
-  astar: PathCalculator
+  astar: PathCalculator,
+  action: CombatAction
 ) => {
   const curUser = curUsersState.find((u) => u.userId === userId);
   const newUser = newUsersState.find((u) => u.userId === userId);
@@ -245,6 +252,11 @@ export const evaluateFitness = (
   // Damage healed is added to the fitness
   if (newUser.curHealth > curUser.curHealth) {
     fitness += newUser.curHealth - curUser.curHealth;
+  }
+
+  // Waiting is penalized
+  if (action.name === "Wait") {
+    fitness -= 1;
   }
 
   // Go through each user in the battle
