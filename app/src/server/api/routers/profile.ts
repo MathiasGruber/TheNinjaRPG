@@ -339,6 +339,7 @@ export const profileRouter = createTRPCRouter({
           popularityPoints: true,
           experience: true,
           avatar: true,
+          isAi: true,
           federalStatus: true,
         },
         with: {

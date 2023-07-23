@@ -35,6 +35,8 @@ const PublicProfile: NextPage = () => {
     },
   });
 
+  const canChange = isSignedIn && userData && canChangeAvatar(userData);
+
   return (
     <>
       {profile && (
@@ -93,7 +95,7 @@ const PublicProfile: NextPage = () => {
                       priority={true}
                       size={100}
                     />
-                    {isSignedIn && userData && canChangeAvatar(userData) && (
+                    {canChange && !profile.isAi && (
                       <Confirm
                         title="Confirm Deletion"
                         button={
