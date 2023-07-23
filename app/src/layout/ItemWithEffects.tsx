@@ -12,7 +12,7 @@ export type GenericObject = {
   id: string;
   name: string;
   description: string;
-  image: string;
+  image?: string;
   rarity: ItemRarity;
   level: number;
   createdAt: Date;

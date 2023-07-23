@@ -1,10 +1,11 @@
 import React from "react";
 import Image from "next/image";
+import Loader from "./Loader";
 import { ItemRarities } from "../../drizzle/constants";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ContentImageProps {
-  image: string;
+  image?: string;
   alt: string;
   rarity?: ItemRarity;
   className: string;
@@ -31,17 +32,24 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
           onClick={props.onClick}
         />
       )}
-      <Image
-        className={`${props.className} ${
-          drawBackground ? "absolute left-1/2 -translate-x-1/2 " : "relative left-0"
-        } bottom-0 right-0 top-0 rounded-xl border-2`}
-        src={props.image}
-        alt={props.alt}
-        width={125}
-        height={125}
-        priority={true}
-        onClick={props.onClick}
-      />
+      {!props.image && (
+        <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 right-0 top-0`}>
+          <Loader explanation="Creating..." />
+        </div>
+      )}
+      {props.image && (
+        <Image
+          className={`${props.className} ${
+            drawBackground ? "absolute left-1/2 -translate-x-1/2 " : "relative left-0"
+          } bottom-0 right-0 top-0 rounded-xl border-2`}
+          src={props.image}
+          alt={props.alt}
+          width={125}
+          height={125}
+          priority={true}
+          onClick={props.onClick}
+        />
+      )}
     </>
   );
 };

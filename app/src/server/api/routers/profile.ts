@@ -373,7 +373,7 @@ export const profileRouter = createTRPCRouter({
             return [desc(userData.updatedAt)];
           case "Strongest":
             return [desc(userData.level), desc(userData.experience)];
-          case "Strongest":
+          case "Weakest":
             return [asc(userData.level), asc(userData.experience)];
           case "Staff":
             return [desc(userData.role)];
@@ -385,10 +385,7 @@ export const profileRouter = createTRPCRouter({
             ? [like(userData.username, `%${input.username}%`)]
             : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-          ...(input.isAi === 1
-            ? [eq(userData.isAi, 1)]
-            : [eq(userData.approvedTos, 1)]),
-          isNotNull(userData.avatar)
+          ...(input.isAi === 1 ? [eq(userData.isAi, 1)] : [eq(userData.approvedTos, 1)])
         ),
         columns: {
           userId: true,
