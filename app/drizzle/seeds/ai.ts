@@ -61,7 +61,7 @@ export function scaleUserStats(user: AIdefinition) {
     user.speed ?? 0,
   ].reduce((a, b) => a + b, 0);
   const calcStat = (stat: keyof StatDistribution) => {
-    return 10 + Math.floor((user[stat] ?? 0 / sum) * exp * 100) / 100;
+    return 10 + Math.floor(((user[stat] ?? 0) / sum) * exp * 100) / 100;
   };
   user["ninjutsuOffence"] = calcStat("ninjutsuOffence");
   user["ninjutsuDefence"] = calcStat("ninjutsuDefence");
