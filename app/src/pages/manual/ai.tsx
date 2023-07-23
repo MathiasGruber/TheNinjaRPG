@@ -37,6 +37,7 @@ const ManualAI: NextPage = () => {
         rarity: "COMMON",
         createdAt: user.updatedAt,
         effects: [],
+        href: `/users/${user.userId}`,
         attacks: user.jutsus?.map((jutsu) =>
           "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown"
         ),

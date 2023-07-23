@@ -19,6 +19,7 @@ export type GenericObject = {
   updatedAt: Date;
   attacks: string[];
   effects: ZodAllTags[];
+  href?: string;
 };
 
 export interface ItemWithEffectsProps {
@@ -31,7 +32,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item, showEdit } = props;
   const { data: userData } = useUserData();
   const effects = props.item.effects as ZodAllTags[];
-  const image = (
+
+  // Define image
+  let image = (
     <div className="relative flex flex-row items-center justify-center">
       <ContentImage
         image={item.image}
@@ -41,6 +44,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
       />
     </div>
   );
+  if ("href" in item && item.href) {
+    image = <Link href={item.href}>{image}</Link>;
+  }
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-orange-50 p-2 align-middle shadow ">
