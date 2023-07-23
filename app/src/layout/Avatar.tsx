@@ -62,6 +62,7 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
         width={props.size}
         height={props.size}
         priority={props.priority}
+        unoptimized={true}
       />
     );
   }
