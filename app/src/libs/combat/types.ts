@@ -482,6 +482,23 @@ export const tagTypes = [
   "summonprevent",
 ] as const;
 
+export const bloodlineTypes = [
+  "absorb",
+  "armoradjust",
+  "damagegivenadjust",
+  "damagetakenadjust",
+  "healadjust",
+  "poolcostadjust",
+  "statadjust",
+  "damage",
+  "fleeprevent",
+  "heal",
+  "reflect",
+  "robprevent",
+  "sealprevent",
+  "stunprevent",
+] as const;
+
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: string) => {
   switch (type) {

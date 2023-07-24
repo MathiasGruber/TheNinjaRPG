@@ -14,8 +14,9 @@ import { LetterRanks } from "../../../../drizzle/constants";
 import { setNullsToEmptyStrings } from "../../../../src/utils/typeutils";
 import { DamageTag } from "../../../libs/combat/types";
 import { BloodlineValidator } from "../../../libs/combat/types";
-import { show_toast } from "../../../libs/toast";
+import { show_toast, show_errors } from "../../../libs/toast";
 import { canChangeContent } from "../../../utils/permissions";
+import { bloodlineTypes } from "../../../libs/combat/types";
 import type { ZodBloodlineType } from "../../../libs/combat/types";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { FormEntry } from "../../../layout/EditContent";
@@ -84,7 +85,7 @@ const BloodlinePanel: NextPage = () => {
   // Form submission
   const handleBloodlineSubmit = handleSubmit(
     (data) => updateBloodline({ id: bloodlineId, data: { ...data, effects: effects } }),
-    (errors) => console.log(errors)
+    (errors) => show_errors(errors)
   );
 
   // Prevent unauthorized access
@@ -168,7 +169,13 @@ const BloodlinePanel: NextPage = () => {
               </div>
             }
           >
-            <TagFormWrapper idx={i} tag={tag} setEffects={setEffects} />
+            <TagFormWrapper
+              idx={i}
+              tag={tag}
+              availableTags={bloodlineTypes}
+              hideRounds={true}
+              setEffects={setEffects}
+            />
           </ContentBox>
         );
       })}

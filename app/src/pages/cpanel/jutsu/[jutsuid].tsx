@@ -19,8 +19,9 @@ import { UserRanks } from "../../../../drizzle/constants";
 import { setNullsToEmptyStrings } from "../../../../src/utils/typeutils";
 import { DamageTag } from "../../../libs/combat/types";
 import { JutsuValidator } from "../../../libs/combat/types";
-import { show_toast } from "../../../libs/toast";
+import { show_toast, show_errors } from "../../../libs/toast";
 import { canChangeContent } from "../../../utils/permissions";
+import { tagTypes } from "../../../libs/combat/types";
 import type { ZodJutsuType } from "../../../libs/combat/types";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { FormEntry } from "../../../layout/EditContent";
@@ -94,7 +95,7 @@ const JutsuPanel: NextPage = () => {
   // Form submission
   const handleJutsuSubmit = handleSubmit(
     (data) => updateJutsu({ id: jutsuId, data: { ...data, effects: effects } }),
-    (errors) => console.log(errors)
+    (errors) => show_errors(errors)
   );
 
   // Prevent unauthorized access
@@ -186,7 +187,12 @@ const JutsuPanel: NextPage = () => {
               </div>
             }
           >
-            <TagFormWrapper idx={i} tag={tag} setEffects={setEffects} />
+            <TagFormWrapper
+              idx={i}
+              tag={tag}
+              availableTags={tagTypes}
+              setEffects={setEffects}
+            />
           </ContentBox>
         );
       })}

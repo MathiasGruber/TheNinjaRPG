@@ -1,6 +1,26 @@
 import { toast } from "react-toastify";
-import { type ToastProps } from "react-toastify/dist/types/index.d";
+import { ErrorMessage } from "@hookform/error-message";
+import type { FieldErrors } from "react-hook-form";
+import type { ToastProps } from "react-toastify/dist/types/index.d";
 import "react-toastify/dist/ReactToastify.css";
+
+export const show_errors = (errors: FieldErrors<any>) => {
+  const msgs = (
+    <>
+      {Object.keys(errors).map((key, i) => {
+        return (
+          <ErrorMessage
+            key={i}
+            errors={errors}
+            name={key}
+            render={({ message }: { message: string }) => <span>{message}</span>}
+          />
+        );
+      })}
+    </>
+  );
+  show_toast("Error submitting form", msgs, "error");
+};
 
 export const show_toast = (
   title: string,

@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import React, { useEffect } from "react";
-import { ErrorMessage } from "@hookform/error-message";
 import Button from "./Button";
 import InputField from "./InputField";
 import SelectField from "./SelectField";
 import AvatarImage from "./Avatar";
 import { getTagSchema } from "../libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { tagTypes } from "../libs/combat/types";
-import { show_toast } from "../libs/toast";
+import { show_toast, show_errors } from "../libs/toast";
 import { UploadButton } from "../utils/uploadthing";
 import type { ZodAllTags } from "../libs/combat/types";
 import type { FieldErrors } from "react-hook-form";
@@ -143,6 +141,8 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
 
 interface TagFormWrapperProps {
   idx: number;
+  availableTags: readonly string[];
+  hideRounds?: boolean;
   tag: ZodAllTags;
   setEffects: React.Dispatch<React.SetStateAction<ZodAllTags[]>>;
 }
@@ -193,23 +193,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
         return newEffects;
       });
     },
-    (errors) => {
-      const msgs = (
-        <div>
-          {Object.keys(errors).map((key, i) => {
-            return (
-              <ErrorMessage
-                key={i}
-                errors={errors}
-                name={key}
-                render={({ message }: { message: string }) => <span>{message}</span>}
-              />
-            );
-          })}
-        </div>
-      );
-      show_toast("Error fetching avatar", msgs, "error");
-    }
+    (errors) => show_errors(errors)
   );
 
   // Attributes on this tag, each of which we should show a form field for
@@ -230,7 +214,10 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
 
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
-    .filter((value) => !["timeTracker", "type"].includes(value))
+    .filter(
+      (value) =>
+        !["timeTracker", "type", props.hideRounds ? "rounds" : ""].includes(value)
+    )
     .map((value) => {
       const innerType = getInner(tagSchema.shape[value]);
       if (innerType instanceof z.ZodLiteral || innerType instanceof z.ZodString) {
@@ -264,7 +251,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   formData.unshift({
     id: "type",
     type: "str_array",
-    values: tagTypes,
+    values: props.availableTags,
   });
 
   // Re-used EditContent component for actually showing the form
