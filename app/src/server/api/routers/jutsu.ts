@@ -47,6 +47,43 @@ export const jutsuRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  // Create new jutsu
+  create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (canChangeContent(user.role)) {
+      const id = nanoid();
+      await ctx.drizzle.insert(jutsu).values({
+        id: id,
+        name: "New Jutsu",
+        description: "New jutsu description",
+        battleDescription: "%user uses %jutsu on %target",
+        effects: [],
+        range: 1,
+        requiredRank: "STUDENT",
+        target: "OTHER_USER",
+        jutsuType: "AI",
+        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+      });
+      return { success: true, message: id };
+    } else {
+      return { success: false, message: `Not allowed to create jutsu` };
+    }
+  }),
+  // Delete a jutsu
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchJutsu(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        await ctx.drizzle.delete(jutsu).where(eq(jutsu.id, input.id));
+        await ctx.drizzle.delete(userJutsu).where(eq(userJutsu.jutsuId, input.id));
+        return { success: true, message: `Jutsu deleted` };
+      } else {
+        return { success: false, message: `Not allowed to delete jutsu` };
+      }
+    }),
   // Update a jutsu
   update: protectedProcedure
     .input(z.object({ id: z.string(), data: JutsuValidator }))

@@ -141,7 +141,11 @@ const JutsuPanel: NextPage = () => {
   // Show panel controls
   return (
     <>
-      <ContentBox title="Content Panel" subtitle="Jutsu Management">
+      <ContentBox
+        title="Content Panel"
+        subtitle="Jutsu Management"
+        back_href="/manual/jutsus"
+      >
         {!data && <p>Could not find this jutsu</p>}
         {data && (
           <EditContent

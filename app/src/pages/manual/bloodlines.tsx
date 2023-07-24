@@ -89,7 +89,7 @@ const ManualBloodlines: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row">
             <Button
-              id="submit_comment"
+              id="create-bloodline"
               className="sm:mr-5"
               label="New Bloodline"
               image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}

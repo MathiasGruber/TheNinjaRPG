@@ -11,7 +11,7 @@ interface ActionSelectorProps {
     rarity?: ItemRarity;
     type?: "jutsu" | "item" | "basic";
     highlight?: boolean;
-    hidden?: boolean;
+    hidden?: boolean | number;
     updatedAt?: number | Date;
     cooldown?: number;
   }[];
