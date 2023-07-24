@@ -10,9 +10,12 @@ import { getTagSchema } from "../libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tagTypes } from "../libs/combat/types";
 import { show_toast } from "../libs/toast";
+import { UploadButton } from "../utils/uploadthing";
 import type { ZodAllTags } from "../libs/combat/types";
 import type { FieldErrors } from "react-hook-form";
-import type { UseFormRegister } from "react-hook-form";
+import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
+// You need to import our styles for the button to look right. Best to import in the root /_app.tsx but this is fine
+import "@uploadthing/react/styles.css";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
@@ -32,6 +35,7 @@ interface EditContentProps<T, K> {
   errors: FieldErrors;
   showSubmit: boolean;
   buttonTxt?: string;
+  setValue: UseFormSetValue<any>;
   register: UseFormRegister<any>;
   onAccept: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined
@@ -45,7 +49,7 @@ interface EditContentProps<T, K> {
 export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]>(
   props: EditContentProps<T, K>
 ) => {
-  const { formData, errors, showSubmit, buttonTxt, register, onAccept } = props;
+  const { formData, errors, showSubmit, buttonTxt, register, setValue } = props;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 items-center">
@@ -103,7 +107,7 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
           );
         } else if (formEntry.type === "avatar") {
           return (
-            <div key={id} className="row-span-4">
+            <div key={id} className="row-span-5">
               <AvatarImage
                 href={formEntry.href}
                 alt={id}
@@ -111,13 +115,26 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
                 hover_effect={true}
                 priority
               />
+              <br />
+              <UploadButton
+                endpoint="imageUploader"
+                onClientUploadComplete={(res) => {
+                  const url = res?.[0]?.fileUrl;
+                  if (url) {
+                    setValue(id, url, { shouldDirty: true });
+                  }
+                }}
+                onUploadError={(error: Error) => {
+                  show_toast("Error uploading", error.message, "error");
+                }}
+              />
             </div>
           );
         }
       })}
       {showSubmit && (
         <div className="col-span-2 items-center mt-3">
-          <Button id="create" label={buttonTxt ?? "Save"} onClick={onAccept} />
+          <Button id="create" label={buttonTxt ?? "Save"} onClick={props.onAccept} />
         </div>
       )}
     </div>
@@ -144,6 +161,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Form for handling the specific tag
   const {
     register,
+    setValue,
     watch,
     handleSubmit,
     formState: { errors, isDirty },
@@ -255,6 +273,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
       schema={tagSchema}
       showSubmit={isDirty}
       buttonTxt="Confirm Changes (No database sync)"
+      setValue={setValue}
       register={register}
       errors={errors}
       formData={formData}

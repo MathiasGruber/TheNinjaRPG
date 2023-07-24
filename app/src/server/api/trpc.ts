@@ -28,7 +28,6 @@ import { drizzleDB } from "../db";
 export const createTRPCContext = (opts: CreateNextContextOptions) => {
   const { req } = opts;
   const sesh = getAuth(req);
-
   const userId = sesh.userId;
 
   return {
@@ -87,14 +86,9 @@ export const publicProcedure = t.procedure;
 
 const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
   if (!ctx.userId) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-    });
+    throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-
-  return next({
-    ctx: { userId: ctx.userId },
-  });
+  return next({ ctx: { userId: ctx.userId } });
 });
 
 export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);

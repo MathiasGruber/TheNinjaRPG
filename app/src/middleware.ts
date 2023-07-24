@@ -24,7 +24,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/(.*?trpc.*?|(?!static|.*\\..*|_next|favicon.ico).*)",
+    "/(.*?trpc.*?|.*?api.*?|(?!static|.*\\..*|_next|favicon.ico).*)",
     "/",
+    "/api/uploadthing(.*)",
   ],
 };

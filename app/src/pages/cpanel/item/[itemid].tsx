@@ -64,8 +64,9 @@ const ItemPanel: NextPage = () => {
   // Form handling
   const {
     register,
-    handleSubmit,
     setValue,
+    handleSubmit,
+    watch,
     formState: { errors, isDirty },
   } = useForm<ZodItemType>({
     values: data,
@@ -89,10 +90,13 @@ const ItemPanel: NextPage = () => {
     return <Loader explanation="Loading data" />;
   }
 
+  // Watch for changes to avatar
+  const imageUrl = watch("image");
+
   // Object for form values
   const formData: FormEntry<keyof ZodItemType>[] = [
     { id: "name", label: "Item Name", type: "text" },
-    { id: "image", type: "avatar", href: data?.image },
+    { id: "image", type: "avatar", href: imageUrl },
     { id: "description", type: "text" },
     { id: "battleDescription", type: "text" },
     { id: "itemType", type: "str_array", values: ItemTypes },
@@ -132,6 +136,7 @@ const ItemPanel: NextPage = () => {
             schema={ItemValidator._def.schema}
             showSubmit={isDirty}
             buttonTxt="Save to Database"
+            setValue={setValue}
             register={register}
             errors={errors}
             formData={formData}

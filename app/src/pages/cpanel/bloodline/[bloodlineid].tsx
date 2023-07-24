@@ -68,6 +68,7 @@ const BloodlinePanel: NextPage = () => {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<ZodBloodlineType>({
     values: data,
@@ -91,10 +92,13 @@ const BloodlinePanel: NextPage = () => {
     return <Loader explanation="Loading data" />;
   }
 
+  // Watch for changes to avatar
+  const imageUrl = watch("image");
+
   // Object for form values
   const formData: FormEntry<keyof ZodBloodlineType>[] = [
     { id: "name", label: "Bloodline Name", type: "text" },
-    { id: "image", label: "Image", type: "avatar", href: data?.image },
+    { id: "image", label: "Image", type: "avatar", href: imageUrl },
     { id: "description", label: "Description", type: "text" },
     { id: "regenIncrease", type: "number" },
     { id: "village", label: "Village", type: "db_values", values: villages },
@@ -125,6 +129,7 @@ const BloodlinePanel: NextPage = () => {
             schema={BloodlineValidator}
             showSubmit={isDirty}
             buttonTxt="Save to Database"
+            setValue={setValue}
             register={register}
             errors={errors}
             formData={formData}

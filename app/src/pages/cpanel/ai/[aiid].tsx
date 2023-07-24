@@ -53,7 +53,9 @@ const AIPanel: NextPage = () => {
   // Form handling
   const {
     register,
+    setValue,
     handleSubmit,
+    watch,
     formState: { errors, isDirty },
   } = useForm<InsertUserDataSchema>({
     values: data,
@@ -72,12 +74,16 @@ const AIPanel: NextPage = () => {
     return <Loader explanation="Loading data" />;
   }
 
+  // Watch for changes to avatar
+  const avatarUrl = watch("avatar");
+
   // Object for form values
   const formData: FormEntry<keyof InsertUserDataSchema>[] = [
     { id: "username", type: "text" },
-    { id: "avatar", type: "avatar", href: data?.avatar },
+    { id: "avatar", type: "avatar", href: avatarUrl },
     { id: "gender", type: "text" },
     { id: "level", type: "number" },
+    { id: "regeneration", type: "number" },
     { id: "rank", type: "str_array", values: UserRanks },
     { id: "ninjutsuOffence", label: "Nin Off Focus", type: "number" },
     { id: "ninjutsuDefence", label: "Nin Def Focus", type: "number" },
@@ -107,6 +113,7 @@ const AIPanel: NextPage = () => {
             schema={insertUserDataSchema}
             showSubmit={isDirty}
             buttonTxt="Save to Database"
+            setValue={setValue}
             register={register}
             errors={errors}
             formData={formData}

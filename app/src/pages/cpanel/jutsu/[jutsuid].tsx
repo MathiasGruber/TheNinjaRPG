@@ -78,6 +78,7 @@ const JutsuPanel: NextPage = () => {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<ZodJutsuType>({
     values: data,
@@ -101,12 +102,13 @@ const JutsuPanel: NextPage = () => {
     return <Loader explanation="Loading data" />;
   }
 
-  console.log("isDirty", isDirty);
+  // Watch for changes to avatar
+  const imageUrl = watch("image");
 
   // Object for form values
   const formData: FormEntry<keyof ZodJutsuType>[] = [
     { id: "name", label: "Jutsu Name", type: "text" },
-    { id: "image", label: "Image", type: "avatar", href: data?.image },
+    { id: "image", label: "Image", type: "avatar", href: imageUrl },
     { id: "description", label: "Description", type: "text" },
     { id: "battleDescription", label: "Battle Description", type: "text" },
     { id: "range", label: "Range [hexagons]", type: "number" },
@@ -145,6 +147,7 @@ const JutsuPanel: NextPage = () => {
             schema={JutsuValidator._def.schema}
             showSubmit={isDirty}
             buttonTxt="Save to Database"
+            setValue={setValue}
             register={register}
             errors={errors}
             formData={formData}

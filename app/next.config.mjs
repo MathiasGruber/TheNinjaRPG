@@ -16,6 +16,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 const config = {
   reactStrictMode: false,
   swcMinify: false,
+  experimental: {
+    esmExternals: false, // Must be disabled for UploadThing
+  },
   images: {
     remotePatterns: [
       {
@@ -25,6 +28,10 @@ const config = {
       {
         protocol: "https",
         hostname: "theninja-user-uploads.s3.us-west-2.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "uploadthing.com",
       },
     ],
   },
