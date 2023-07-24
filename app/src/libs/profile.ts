@@ -1,4 +1,4 @@
-export const HP_PER_LVL = 10;
+export const HP_PER_LVL = 100;
 export const SP_PER_LVL = 10;
 export const CP_PER_LVL = 10;
 
