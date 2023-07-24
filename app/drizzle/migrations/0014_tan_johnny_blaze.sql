@@ -1,0 +1,1 @@
+ALTER TABLE `Bloodline` ADD `hidden` tinyint DEFAULT 0 NOT NULL;

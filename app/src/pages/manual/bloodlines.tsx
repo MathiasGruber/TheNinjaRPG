@@ -1,10 +1,14 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
+import Button from "../../layout/Button";
+import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
+import { show_toast } from "../../libs/toast";
 import type { LetterRanks } from "../../../drizzle/constants";
 import type { NextPage } from "next";
 
@@ -13,14 +17,18 @@ const ManualBloodlines: NextPage = () => {
   const [rank, setRank] = useState<typeof LetterRanks[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
+  // Router for forwarding
+  const router = useRouter();
+
   // Data
   const {
     data: bloodlines,
     isFetching,
+    refetch,
     fetchNextPage,
     hasNextPage,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { rank: rank, limit: 20 },
+    { rank: rank, limit: 20, showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -29,6 +37,31 @@ const ManualBloodlines: NextPage = () => {
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
+
+  // Mutations
+  const { mutate: create, isLoading: load1 } = api.bloodline.create.useMutation({
+    onSuccess: async (data) => {
+      await refetch();
+      await router.push(`/cpanel/bloodline/${data.message}`);
+      show_toast("Created Bloodline", "Placeholder Bloodline Created", "success");
+    },
+    onError: (error) => {
+      show_toast("Error creating", error.message, "error");
+    },
+  });
+
+  const { mutate: remove, isLoading: load2 } = api.bloodline.delete.useMutation({
+    onSuccess: async () => {
+      await refetch();
+      show_toast("Deleted Bloodline", "Bloodline Deleted", "success");
+    },
+    onError: (error) => {
+      show_toast("Error deleting", error.message, "error");
+    },
+  });
+
+  // Derived
+  const totalLoading = isFetching || load1 || load2;
 
   return (
     <>
@@ -54,18 +87,25 @@ const ManualBloodlines: NextPage = () => {
         subtitle="All bloodlines"
         initialBreak={true}
         topRightContent={
-          <>
+          <div className="sm:flex sm:flex-row">
+            <Button
+              id="submit_comment"
+              className="sm:mr-5"
+              label="New Bloodline"
+              image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+              onClick={() => create()}
+            />
             <div className="grow"></div>
             <NavTabs
               current={rank}
               options={["D", "C", "B", "A", "S"]}
               setValue={setRank}
             />
-          </>
+          </div>
         }
       >
-        {isFetching && <Loader explanation="Loading data" />}
-        {!isFetching &&
+        {totalLoading && <Loader explanation="Loading data" />}
+        {!totalLoading &&
           allBloodlines?.map((bloodline, i) => (
             <div
               key={bloodline.id}
@@ -74,6 +114,7 @@ const ManualBloodlines: NextPage = () => {
               <ItemWithEffects
                 item={bloodline}
                 key={bloodline.id}
+                onDelete={(id: string) => remove({ id })}
                 showEdit="bloodline"
               />
             </div>

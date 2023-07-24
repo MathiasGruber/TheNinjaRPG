@@ -26,10 +26,11 @@ export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu | GenericObject;
   imageBorder?: boolean;
   showEdit?: "bloodline" | "item" | "jutsu" | "ai";
+  onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit } = props;
+  const { item, showEdit, onDelete } = props;
   const { data: userData } = useUserData();
   const effects = props.item.effects as ZodAllTags[];
 
@@ -68,9 +69,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <Link href={`/cpanel/${showEdit}/${item.id}`}>
                   <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
                 </Link>
-                {/* <Link href={`/cpanel/${showEdit}/${item.id}`}>
-                  <TrashIcon className="h-6 w-6 hover:fill-orange-500" />
-                </Link> */}
+                <TrashIcon
+                  className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer"
+                  onClick={() => onDelete && onDelete(item.id)}
+                />
               </div>
             )}
             <hr className="py-1" />

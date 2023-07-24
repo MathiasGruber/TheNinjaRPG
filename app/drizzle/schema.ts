@@ -108,6 +108,7 @@ export const bloodline = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     rank: mysqlEnum("rank", consts.LetterRanks).notNull(),
+    hidden: tinyint("hidden").default(0).notNull(),
   },
   (table) => {
     return {

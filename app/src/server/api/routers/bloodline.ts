@@ -28,13 +28,17 @@ export const bloodlineRouter = createTRPCRouter({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
         rank: z.enum(LetterRanks),
+        showHidden: z.boolean().optional().nullable(),
       })
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
-        where: eq(bloodline.rank, input.rank),
+        where: and(
+          eq(bloodline.rank, input.rank),
+          ...(input.showHidden ? [] : [eq(bloodline.hidden, 0)])
+        ),
         offset: skip,
         limit: input.limit,
       });
@@ -53,6 +57,44 @@ export const bloodlineRouter = createTRPCRouter({
         throw serverError("NOT_FOUND", "Bloodline not found");
       }
       return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
+    }),
+  // Create new bloodline
+  create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (canChangeContent(user.role)) {
+      const id = nanoid();
+      await ctx.drizzle.insert(bloodline).values({
+        id: id,
+        name: "New Bloodline",
+        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        description: "New bloodline description",
+        effects: [],
+        village: "All",
+        rank: "D",
+        hidden: 1,
+      });
+      return { success: true, message: id };
+    } else {
+      return { success: false, message: `Not allowed to create bloodline` };
+    }
+  }),
+  // Delete a bloodline
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchBloodline(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        await ctx.drizzle.delete(bloodline).where(eq(bloodline.id, input.id));
+        await ctx.drizzle
+          .update(userData)
+          .set({ bloodlineId: null })
+          .where(eq(userData.bloodlineId, input.id));
+        return { success: true, message: `Bloodline deleted` };
+      } else {
+        return { success: false, message: `Not allowed to delete bloodline` };
+      }
     }),
   // Update a bloodline
   update: protectedProcedure
@@ -115,7 +157,7 @@ export const bloodlineRouter = createTRPCRouter({
     if (bloodlineRank) {
       const randomBloodline = getRandomElement(
         await ctx.drizzle.query.bloodline.findMany({
-          where: eq(bloodline.rank, bloodlineRank),
+          where: and(eq(bloodline.rank, bloodlineRank), eq(bloodline.hidden, 0)),
         })
       );
       if (randomBloodline) {
