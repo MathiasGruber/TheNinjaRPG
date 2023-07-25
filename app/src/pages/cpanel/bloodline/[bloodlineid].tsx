@@ -45,18 +45,19 @@ const BloodlinePanel: NextPage = () => {
     staleTime: Infinity,
   });
 
-  const { mutate: updateBloodline } = api.bloodline.update.useMutation({
-    onSuccess: async (data) => {
-      await refetch();
-      show_toast("Updated Bloodline", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
-    },
-  });
+  const { mutate: updateBloodline, isLoading: load2 } =
+    api.bloodline.update.useMutation({
+      onSuccess: async (data) => {
+        await refetch();
+        show_toast("Updated Bloodline", data.message, "info");
+      },
+      onError: (error) => {
+        show_toast("Error updating", error.message, "error");
+      },
+    });
 
   // Total loading state for all queries
-  const totalLoading = isLoading || load1;
+  const totalLoading = isLoading || load1 || load2;
 
   // Redirect to profile if not content or admin
   useEffect(() => {
@@ -106,6 +107,7 @@ const BloodlinePanel: NextPage = () => {
     { id: "image", label: "Image", type: "avatar", href: imageUrl },
     { id: "description", label: "Description", type: "text" },
     { id: "regenIncrease", type: "number" },
+    { id: "hidden", type: "number" },
     { id: "village", label: "Village", type: "db_values", values: villages },
     { id: "rank", type: "str_array", values: LetterRanks },
   ];

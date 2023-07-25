@@ -723,6 +723,7 @@ export const BloodlineValidator = z.object({
   rank: z.enum(LetterRanks),
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
+  hidden: z.number().min(0).max(1).optional(),
   effects: z
     .array(
       z.union([
