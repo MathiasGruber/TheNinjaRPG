@@ -32,6 +32,46 @@ export const itemRouter = createTRPCRouter({
       }
       return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
     }),
+  // Create new item
+  create: protectedProcedure
+    .input(z.object({ type: z.enum(ItemTypes) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (canChangeContent(user.role)) {
+        const id = nanoid();
+        await ctx.drizzle.insert(item).values({
+          id: id,
+          name: "New Item",
+          image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+          description: "New item description",
+          itemType: input.type,
+          rarity: "COMMON",
+          slot: "ITEM",
+          target: "CHARACTER",
+          effects: [],
+          hidden: 1,
+        });
+        return { success: true, message: id };
+      } else {
+        return { success: false, message: `Not allowed to create item` };
+      }
+    }),
+  // Delete a item
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchItem(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        await ctx.drizzle.delete(item).where(eq(item.id, input.id));
+        await ctx.drizzle.delete(userItem).where(eq(userItem.id, input.id));
+        return { success: true, message: `Item deleted` };
+      } else {
+        return { success: false, message: `Not allowed to delete item` };
+      }
+    }),
   // Update an item
   update: protectedProcedure
     .input(z.object({ id: z.string(), data: ItemValidator }))

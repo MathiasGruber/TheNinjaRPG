@@ -55,7 +55,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       }
     },
   });
-  console.log("Client - Server time diff [ms]: ", timeDiff);
+  if (timeDiff > 0) {
+    console.log("Client - Server time diff [ms]: ", timeDiff);
+  }
 
   // Listen on user channel for live updates on things
   useEffect(() => {

@@ -130,7 +130,11 @@ const ItemPanel: NextPage = () => {
   // Show panel controls
   return (
     <>
-      <ContentBox title="Content Panel" subtitle="Item Management" back_href="/manual/">
+      <ContentBox
+        title="Content Panel"
+        subtitle="Item Management"
+        back_href="/manual/items"
+      >
         {!data && <p>Could not find this item</p>}
         {data && (
           <EditContent

@@ -10,21 +10,19 @@ const ManualMain: NextPage = () => {
       subtitle="Learn about the game & look up data"
     >
       <div className="grid grid-cols-4 gap-4 text-center font-bold">
-        {["combat", "travel", "bloodlines", "jutsus", "armor", "weapons", "ai"].map(
-          (page) => (
-            <Link key={page} href={`/manual/${page}`}>
-              <Image
-                className="rounded-2xl border-2 border-black hover:cursor-pointer hover:opacity-50"
-                src={`/manual/${page}.png`}
-                alt={page}
-                width={125}
-                height={125}
-                priority={true}
-              />
-              <p>{page}</p>
-            </Link>
-          )
-        )}
+        {["combat", "travel", "bloodlines", "jutsus", "items", "ai"].map((page) => (
+          <Link key={page} href={`/manual/${page}`}>
+            <Image
+              className="rounded-2xl border-2 border-black hover:cursor-pointer hover:opacity-50"
+              src={`/manual/${page}.png`}
+              alt={page}
+              width={125}
+              height={125}
+              priority={true}
+            />
+            <p>{page}</p>
+          </Link>
+        ))}
       </div>
     </ContentBox>
   );

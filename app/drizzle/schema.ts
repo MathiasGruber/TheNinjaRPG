@@ -398,6 +398,7 @@ export const item = mysqlTable(
     battleDescription: text("battleDescription")
       .default(sql`('')`)
       .notNull(),
+    hidden: tinyint("hidden").default(0).notNull(),
   },
   (table) => {
     return {
@@ -440,6 +441,7 @@ export const jutsu = mysqlTable(
     healthCostPerc: double("healthCostPerc").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
+    hidden: tinyint("hidden").default(0).notNull(),
   },
   (table) => {
     return {
