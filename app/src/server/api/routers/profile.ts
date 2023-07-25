@@ -236,14 +236,49 @@ export const profileRouter = createTRPCRouter({
       }
       return user;
     }),
-  // Update a jutsu
+  // Create new AI
+  create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (canChangeContent(user.role)) {
+      const id = nanoid();
+      await ctx.drizzle.insert(userData).values({
+        userId: id,
+        username: "New AI",
+        gender: "Unknown",
+        avatar: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        villageId: null,
+        approvedTos: 1,
+        sector: 0,
+        level: 999,
+        isAi: 1,
+      });
+      return { success: true, message: id };
+    } else {
+      return { success: false, message: `Not allowed to create AI` };
+    }
+  }),
+  // Delete a AI
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const ai = await fetchUser(ctx.drizzle, input.id);
+      if (ai && ai.isAi && canChangeContent(user.role)) {
+        await deleteUser(ctx.drizzle, ai.userId);
+        return { success: true, message: `AI deleted` };
+      } else {
+        return { success: false, message: `Not allowed to delete AI` };
+      }
+    }),
+  // Update a AI
   updateAi: protectedProcedure
     .input(z.object({ id: z.string(), data: insertUserDataSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const ai = await fetchUser(ctx.drizzle, input.id);
-      if (ai && canChangeContent(user.role)) {
+      if (ai && ai.isAi && canChangeContent(user.role)) {
         // Update input data based on level
         const newAi = {
           ...ai,
@@ -445,31 +480,24 @@ export const profileRouter = createTRPCRouter({
     if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
     }
-    await ctx.drizzle.transaction(async (tx) => {
-      await tx.delete(userData).where(eq(userData.userId, ctx.userId));
-      await tx.delete(userAttribute).where(eq(userAttribute.userId, ctx.userId));
-      await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, ctx.userId));
-      await tx
-        .delete(userReportComment)
-        .where(eq(userReportComment.userId, ctx.userId));
-      await tx.delete(forumPost).where(eq(forumPost.userId, ctx.userId));
-      await tx
-        .delete(conversationComment)
-        .where(eq(conversationComment.userId, ctx.userId));
-      await tx
-        .delete(user2conversation)
-        .where(eq(user2conversation.userId, ctx.userId));
-      await tx
-        .delete(reportLog)
-        .where(
-          or(
-            eq(reportLog.targetUserId, ctx.userId),
-            eq(reportLog.staffUserId, ctx.userId)
-          )
-        );
-    });
+    await deleteUser(ctx.drizzle, ctx.userId);
   }),
 });
+
+export const deleteUser = async (client: DrizzleClient, userId: string) => {
+  await client.transaction(async (tx) => {
+    await tx.delete(userData).where(eq(userData.userId, userId));
+    await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
+    await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
+    await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
+    await tx.delete(forumPost).where(eq(forumPost.userId, userId));
+    await tx.delete(conversationComment).where(eq(conversationComment.userId, userId));
+    await tx.delete(user2conversation).where(eq(user2conversation.userId, userId));
+    await tx
+      .delete(reportLog)
+      .where(or(eq(reportLog.targetUserId, userId), eq(reportLog.staffUserId, userId)));
+  });
+};
 
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({

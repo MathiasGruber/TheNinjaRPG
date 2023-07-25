@@ -36,7 +36,7 @@ const AIPanel: NextPage = () => {
   const { mutate: updateAi } = api.profile.updateAi.useMutation({
     onSuccess: async (data) => {
       await refetch();
-      show_toast("Updated Bloodline", data.message, "info");
+      show_toast("Updated AI", data.message, "info");
     },
     onError: (error) => {
       show_toast("Error updating", error.message, "error");
@@ -64,7 +64,7 @@ const AIPanel: NextPage = () => {
   });
 
   // Form submission
-  const handleBloodlineSubmit = handleSubmit(
+  const handleAiSubmit = handleSubmit(
     (data) => updateAi({ id: aiId, data: data }),
     (errors) => console.error(errors)
   );
@@ -107,7 +107,7 @@ const AIPanel: NextPage = () => {
         subtitle="Note: stats scaled by level!"
         back_href="/manual/ai"
       >
-        {!data && <p>Could not find this bloodline</p>}
+        {!data && <p>Could not find this AI</p>}
         {data && (
           <EditContent
             schema={insertUserDataSchema}
@@ -117,7 +117,7 @@ const AIPanel: NextPage = () => {
             register={register}
             errors={errors}
             formData={formData}
-            onAccept={handleBloodlineSubmit}
+            onAccept={handleAiSubmit}
           />
         )}
       </ContentBox>

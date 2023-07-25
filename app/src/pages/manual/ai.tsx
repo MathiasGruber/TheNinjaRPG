@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import Loader from "../../layout/Loader";
+import Button from "../../layout/Button";
+import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
+import { show_toast } from "../../libs/toast";
 import type { GenericObject } from "../../layout/ItemWithEffects";
 import type { NextPage } from "next";
 
@@ -11,17 +15,20 @@ const ManualAI: NextPage = () => {
   // Settings
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
+  // Router for forwarding
+  const router = useRouter();
+
   // Data
   const {
     data: users,
     fetchNextPage,
+    refetch,
     hasNextPage,
     isFetching,
   } = api.profile.getPublicUsers.useInfiniteQuery(
     { limit: 30, orderBy: "Weakest", isAi: 1 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
       staleTime: Infinity,
     }
   );
@@ -47,6 +54,31 @@ const ManualAI: NextPage = () => {
 
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
+  // Mutations
+  const { mutate: create, isLoading: load1 } = api.profile.create.useMutation({
+    onSuccess: async (data) => {
+      await refetch();
+      await router.push(`/cpanel/ai/${data.message}`);
+      show_toast("Created AI", "Placeholder AI Created", "success");
+    },
+    onError: (error) => {
+      show_toast("Error creating", error.message, "error");
+    },
+  });
+
+  const { mutate: remove, isLoading: load2 } = api.profile.delete.useMutation({
+    onSuccess: async () => {
+      await refetch();
+      show_toast("Deleted AI", "AI Deleted", "success");
+    },
+    onError: (error) => {
+      show_toast("Error deleting", error.message, "error");
+    },
+  });
+
+  // Derived
+  const totalLoading = isFetching || load1 || load2;
+
   return (
     <>
       <ContentBox title="AI" subtitle="NPC Opponents" back_href="/manual">
@@ -58,12 +90,28 @@ const ManualAI: NextPage = () => {
           ninja world immersive and rewarding
         </p>
       </ContentBox>
-      <ContentBox title="Database" subtitle="All NPCs" initialBreak={true}>
-        {isFetching && <Loader explanation="Loading data" />}
-        {!isFetching &&
+      <ContentBox
+        title="Database"
+        subtitle="All NPCs"
+        initialBreak={true}
+        topRightContent={
+          <Button
+            id="create-ai"
+            label="New AI"
+            image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+            onClick={() => create()}
+          />
+        }
+      >
+        {totalLoading && <Loader explanation="Loading data" />}
+        {!totalLoading &&
           allUsers?.map((user, i) => (
             <div key={i} ref={i === allUsers.length - 1 ? setLastElement : null}>
-              <ItemWithEffects item={user} showEdit="ai" />
+              <ItemWithEffects
+                item={user}
+                onDelete={(id: string) => remove({ id })}
+                showEdit="ai"
+              />
             </div>
           ))}
       </ContentBox>
