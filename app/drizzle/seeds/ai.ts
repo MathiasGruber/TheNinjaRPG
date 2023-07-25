@@ -256,7 +256,7 @@ const upsertAI = async (client: DrizzleClient, name: string, ai: AIdefinition) =
       );
     }
     // Level-based pools
-    scaleUserStats(ai);
+    scaleUserStats(ai as UserData);
     // Insert into database if not already exists
     delete ai.jutsus;
     delete ai.statsDistribution;
