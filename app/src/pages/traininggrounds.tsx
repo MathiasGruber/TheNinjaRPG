@@ -162,7 +162,7 @@ const StatsTraining: React.FC = () => {
 
 const JutsuTraining: React.FC = () => {
   // Settings
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [rarity, setRarity] = useState<JutsuRank>("D");
@@ -214,6 +214,7 @@ const JutsuTraining: React.FC = () => {
     api.jutsu.startTraining.useMutation({
       onSuccess: async () => {
         await refetchUserJutsu();
+        await refetchUser();
       },
       onError: (error) => {
         show_toast("Error training", error.message, "error");
