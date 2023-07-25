@@ -35,7 +35,7 @@ function ReadonlyMapWithStringKeys<K extends string, AIdefinition>(
 }
 
 /** Scale stats of user, and return total number of experience / stat points */
-export function scaleUserStats(user: AIdefinition) {
+export function scaleUserStats(user: UserData) {
   // Pools
   user["curHealth"] = calcHP(user.level);
   user["maxHealth"] = calcHP(user.level);

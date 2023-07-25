@@ -17,6 +17,11 @@ import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
 
 export const jutsuRouter = createTRPCRouter({
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.jutsu.findMany({
+      columns: { id: true, name: true },
+    });
+  }),
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {

@@ -12,7 +12,7 @@ import { setNullsToEmptyStrings } from "../../../../src/utils/typeutils";
 import { show_toast } from "../../../libs/toast";
 import { canChangeContent } from "../../../utils/permissions";
 import { insertUserDataSchema } from "../../../../drizzle/schema";
-import type { z } from "zod";
+import type { InsertUserDataSchema } from "../../../../drizzle/schema";
 import type { FormEntry } from "../../../layout/EditContent";
 import type { NextPage } from "next";
 
@@ -27,13 +27,13 @@ const AIPanel: NextPage = () => {
     { staleTime: Infinity, enabled: aiId !== undefined }
   );
 
-  // Type for inserting data
-  type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
-
+  const { data: jutsus, isLoading: l2 } = api.jutsu.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
   // Convert key null values to empty strings, preparing data for form
   setNullsToEmptyStrings(data);
 
-  const { mutate: updateAi } = api.profile.updateAi.useMutation({
+  const { mutate: updateAi, isLoading: l3 } = api.profile.updateAi.useMutation({
     onSuccess: async (data) => {
       await refetch();
       show_toast("Updated AI", data.message, "info");
@@ -50,6 +50,12 @@ const AIPanel: NextPage = () => {
     }
   }, [userData, router, data]);
 
+  // Process data for form
+  const processedData = data && {
+    ...data,
+    jutsus: data?.jutsus?.map((jutsu) => jutsu.jutsuId),
+  };
+
   // Form handling
   const {
     register,
@@ -58,8 +64,8 @@ const AIPanel: NextPage = () => {
     watch,
     formState: { errors, isDirty },
   } = useForm<InsertUserDataSchema>({
-    values: data,
-    defaultValues: data,
+    values: processedData,
+    defaultValues: processedData,
     resolver: zodResolver(insertUserDataSchema),
   });
 
@@ -69,8 +75,11 @@ const AIPanel: NextPage = () => {
     (errors) => console.error(errors)
   );
 
+  // Total loading state for all queries
+  const totalLoading = isLoading || l2 || l3;
+
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role)) {
+  if (totalLoading || !userData || !canChangeContent(userData.role)) {
     return <Loader explanation="Loading data" />;
   }
 
@@ -97,6 +106,14 @@ const AIPanel: NextPage = () => {
     { id: "intelligence", label: "Intelligence Focus", type: "number" },
     { id: "willpower", label: "Willpower Focus", type: "number" },
     { id: "speed", label: "Speed Focus", type: "number" },
+    {
+      id: "jutsus",
+      label: "Jutsus",
+      type: "db_values",
+      values: jutsus,
+      multiple: true,
+      doubleWidth: true,
+    },
   ];
 
   // Show panel controls

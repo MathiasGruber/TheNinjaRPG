@@ -15,6 +15,8 @@ import {
   conversationComment,
   user2conversation,
   userReport,
+  userJutsu,
+  jutsu,
   actionLog,
 } from "../../../../drizzle/schema";
 import { callDiscord } from "../../../libs/discord";
@@ -26,6 +28,8 @@ import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";
 import { UserStatNames } from "../../../../drizzle/constants";
 import HumanDiff from "human-object-diff";
+import type { UserData } from "../../../../drizzle/schema";
+import type { InsertUserDataSchema } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
@@ -231,6 +235,7 @@ export const profileRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const user = await ctx.drizzle.query.userData.findFirst({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
+        with: { jutsus: true },
       });
       if (!user) {
         throw serverError("NOT_FOUND", "AI not found");
@@ -278,21 +283,65 @@ export const profileRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const ai = await fetchUser(ctx.drizzle, input.id);
+      const ai = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, input.id),
+        with: { jutsus: true },
+      });
       if (ai && ai.isAi && canChangeContent(user.role)) {
+        // Store any new jutsus
+        const olds = [...ai.jutsus.map((j) => j.jutsuId)];
+        const news = input.data.jutsus ? [...input.data.jutsus] : [];
+        const newJutsus = olds.sort().join(",") !== news.sort().join(",");
+
+        // If jutsus are different, then update with jutsu names for diff calculation only
+        let jutsuChanges: string[] = [];
+        if (newJutsus) {
+          const data = await ctx.drizzle.query.jutsu.findMany({
+            where: inArray(jutsu.id, olds.concat(news)),
+            columns: { id: true, name: true },
+          });
+          const s1 = { jutsus: olds.map((id) => data.find((j) => j.id === id)?.name) };
+          const s2 = { jutsus: news.map((id) => data.find((j) => j.id === id)?.name) };
+          console.log("Old Jutsus: ", s1);
+          console.log("New Jutsus: ", s2);
+          jutsuChanges = new HumanDiff({ objectName: "jutsu" }).diff(s1, s2);
+        }
+
+        // Delete jutsus from objects
+        ai.jutsus = [];
+        input.data.jutsus = [];
+
         // Update input data based on level
-        const newAi = {
-          ...ai,
-          ...input.data,
-        };
+        const newAi = { ...ai, ...input.data };
+
         // Level-based stats / pools
         scaleUserStats(newAi);
+
         // Calculate diff
-        const diff = new HumanDiff({ objectName: "user" }).diff(ai, newAi);
+        const diff = new HumanDiff({ objectName: "user" })
+          .diff(ai, newAi)
+          .concat(jutsuChanges);
+
+        // Update jutsus if needed
+        if (newJutsus) {
+          await ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
+          await ctx.drizzle.insert(userJutsu).values(
+            news.map((jutsuId) => ({
+              id: nanoid(),
+              userId: newAi.userId,
+              jutsuId: jutsuId,
+              level: newAi.level,
+              equipped: 1,
+            }))
+          );
+        }
+
         // Update database
+        const insertAi = { ...newAi } as UserData & { jutsus?: string[] };
+        delete insertAi.jutsus;
         await ctx.drizzle
           .update(userData)
-          .set(newAi)
+          .set(insertAi)
           .where(eq(userData.userId, input.id));
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
@@ -303,6 +352,8 @@ export const profileRouter = createTRPCRouter({
           relatedMsg: `Update: ${ai.username}`,
           relatedImage: ai.avatar,
         });
+
+        // Update discord channel
         await callDiscord(user.username, ai.username, diff, ai.avatar);
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

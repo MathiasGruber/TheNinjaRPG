@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   mysqlTable,
   uniqueIndex,
@@ -705,12 +706,15 @@ export const userData = mysqlTable(
     };
   }
 );
-export const insertUserDataSchema = createInsertSchema(userData).omit({
-  trainingStartedAt: true,
-  currentlyTraining: true,
-  deletionAt: true,
-  travelFinishAt: true,
-});
+export const insertUserDataSchema = createInsertSchema(userData)
+  .omit({
+    trainingStartedAt: true,
+    currentlyTraining: true,
+    deletionAt: true,
+    travelFinishAt: true,
+  })
+  .merge(z.object({ jutsus: z.array(z.string()).optional() }));
+export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
 export type UserData = InferModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];

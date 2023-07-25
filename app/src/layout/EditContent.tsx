@@ -19,6 +19,7 @@ export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
   id: K;
   label?: string;
+  doubleWidth?: boolean;
 } & (
   | { type: "text" }
   | { type: "number" }
@@ -53,82 +54,85 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
     <div className="grid grid-cols-1 md:grid-cols-2 items-center">
       {formData.map((formEntry) => {
         const id = formEntry.id as string;
-        if (formEntry.type === "text") {
-          return (
-            <InputField
-              key={id}
-              id={id}
-              label={formEntry.label ? formEntry.label : id}
-              register={register}
-              error={errors[id]?.message as string}
-            />
-          );
-        } else if (formEntry.type === "number") {
-          return (
-            <InputField
-              key={id}
-              id={id}
-              type="number"
-              label={formEntry.label ? formEntry.label : id}
-              register={register}
-              error={errors[id]?.message as string}
-            />
-          );
-        } else if (formEntry.type === "str_array" || formEntry.type === "db_values") {
-          return (
-            <SelectField
-              key={id}
-              id={id}
-              label={formEntry.label ? formEntry.label : id}
-              register={register}
-              error={errors[id]?.message as string}
-              multiple={formEntry.multiple}
-            >
-              {formEntry.type === "str_array" &&
-                formEntry.values.map((target) => (
-                  <option key={target} value={target}>
-                    {target}
-                  </option>
-                ))}
-              {formEntry.type === "db_values" &&
-                formEntry.values?.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name}
-                  </option>
-                ))}
-              {formEntry.type === "db_values" && (
-                <option key={undefined} value={""}>
-                  None
-                </option>
-              )}
-            </SelectField>
-          );
-        } else if (formEntry.type === "avatar") {
-          return (
-            <div key={id} className="row-span-5">
-              <AvatarImage
-                href={formEntry.href}
-                alt={id}
-                size={100}
-                hover_effect={true}
-                priority
+        return (
+          <div
+            key={id}
+            className={`${formEntry.type === "avatar" ? "row-span-5" : ""} ${
+              formEntry.doubleWidth ? "col-span-2" : ""
+            }`}
+          >
+            {formEntry.type === "text" && (
+              <InputField
+                id={id}
+                label={formEntry.label ? formEntry.label : id}
+                register={register}
+                error={errors[id]?.message as string}
               />
-              <br />
-              <UploadButton
-                endpoint="imageUploader"
-                onClientUploadComplete={(res) => {
-                  const url = res?.[0]?.fileUrl;
-                  if (url) {
-                    setValue(id, url, { shouldDirty: true });
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  show_toast("Error uploading", error.message, "error");
-                }}
+            )}
+            {formEntry.type === "number" && (
+              <InputField
+                key={id}
+                id={id}
+                type="number"
+                label={formEntry.label ? formEntry.label : id}
+                register={register}
+                error={errors[id]?.message as string}
               />
-            </div>
-          );
-        }
+            )}
+            {(formEntry.type === "str_array" || formEntry.type === "db_values") && (
+              <SelectField
+                key={id}
+                id={id}
+                label={formEntry.label ? formEntry.label : id}
+                register={register}
+                error={errors[id]?.message as string}
+                multiple={formEntry.multiple}
+              >
+                {formEntry.type === "str_array" &&
+                  formEntry.values.map((target) => (
+                    <option key={target} value={target}>
+                      {target}
+                    </option>
+                  ))}
+                {formEntry.type === "db_values" &&
+                  formEntry.values?.map((target) => (
+                    <option key={target.id} value={target.id}>
+                      {target.name}
+                    </option>
+                  ))}
+                {formEntry.type === "db_values" && (
+                  <option key={undefined} value={""}>
+                    None
+                  </option>
+                )}
+              </SelectField>
+            )}
+            {formEntry.type === "avatar" && (
+              <>
+                <AvatarImage
+                  href={formEntry.href}
+                  alt={id}
+                  size={100}
+                  hover_effect={true}
+                  priority
+                />
+                <br />
+                <UploadButton
+                  endpoint="imageUploader"
+                  onClientUploadComplete={(res) => {
+                    const url = res?.[0]?.fileUrl;
+                    if (url) {
+                      setValue(id, url, { shouldDirty: true });
+                    }
+                  }}
+                  onUploadError={(error: Error) => {
+                    show_toast("Error uploading", error.message, "error");
+                  }}
+                />
+              </>
+            )}
+          </div>
+        );
       })}
       {showSubmit && (
         <div className="col-span-2 items-center mt-3">
