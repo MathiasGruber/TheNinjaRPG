@@ -225,7 +225,7 @@ const JutsuTraining: React.FC = () => {
     });
 
   // Derived calculations
-  const level = userJutsuCounts?.find((jutsu) => jutsu.id === jutsu?.id)?.quantity || 0;
+  const level = userJutsuCounts?.find((entry) => entry.id === jutsu?.id)?.quantity || 0;
   const trainSeconds =
     jutsu &&
     getTimeLeftStr(...getDaysHoursMinutesSeconds(calcJutsuTrainTime(jutsu, level)));
