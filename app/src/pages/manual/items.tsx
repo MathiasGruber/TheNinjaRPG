@@ -11,10 +11,13 @@ import { useInfinitePagination } from "../../libs/pagination";
 import { ItemRarities, ItemTypes } from "../../../drizzle/constants";
 import { api } from "../../utils/api";
 import { show_toast } from "../../libs/toast";
+import { canChangeContent } from "../../utils/permissions";
+import { useUserData } from "../../utils/UserContext";
 import type { NextPage } from "next";
 
 const ManualItems: NextPage = () => {
   // Settings
+  const { data: userData } = useUserData();
   const [rarity, setRarity] = useState<typeof ItemRarities[number]>("COMMON");
   const [itemType, setItemType] = useState<typeof ItemTypes[number]>("WEAPON");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -105,13 +108,15 @@ const ManualItems: NextPage = () => {
         topRightCorntentBreakpoint="sm"
         topRightContent={
           <div className="lg:flex lg:flex-row">
-            <Button
-              id={`create-${itemType}`}
-              className="lg:mr-5"
-              label={`New ${itemType.toLocaleLowerCase()}`}
-              image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
-              onClick={() => create({ type: itemType })}
-            />
+            {userData && canChangeContent(userData.role) && (
+              <Button
+                id={`create-${itemType}`}
+                className="lg:mr-5"
+                label={`New`}
+                image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+                onClick={() => create({ type: itemType })}
+              />
+            )}
             <div className="grow"></div>
             <NavTabs
               current={rarity}

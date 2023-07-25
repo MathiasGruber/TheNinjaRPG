@@ -9,11 +9,14 @@ import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
 import { show_toast } from "../../libs/toast";
+import { canChangeContent } from "../../utils/permissions";
+import { useUserData } from "../../utils/UserContext";
 import type { LetterRanks } from "../../../drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualJutsus: NextPage = () => {
   // Settings
+  const { data: userData } = useUserData();
   const [rarity, setRarity] = useState<typeof LetterRanks[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
@@ -87,13 +90,15 @@ const ManualJutsus: NextPage = () => {
         initialBreak={true}
         topRightContent={
           <div className="sm:flex sm:flex-row">
-            <Button
-              id="create-jutsu"
-              className="sm:mr-5"
-              label="New Jutsu"
-              image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
-              onClick={() => create()}
-            />
+            {userData && canChangeContent(userData.role) && (
+              <Button
+                id="create-jutsu"
+                className="sm:mr-5"
+                label="New Jutsu"
+                image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+                onClick={() => create()}
+              />
+            )}
             <div className="grow"></div>
             <NavTabs
               current={rarity}

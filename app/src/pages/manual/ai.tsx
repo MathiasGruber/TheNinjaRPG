@@ -8,11 +8,14 @@ import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
 import { show_toast } from "../../libs/toast";
+import { canChangeContent } from "../../utils/permissions";
+import { useUserData } from "../../utils/UserContext";
 import type { GenericObject } from "../../layout/ItemWithEffects";
 import type { NextPage } from "next";
 
 const ManualAI: NextPage = () => {
   // Settings
+  const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
@@ -95,12 +98,15 @@ const ManualAI: NextPage = () => {
         subtitle="All NPCs"
         initialBreak={true}
         topRightContent={
-          <Button
-            id="create-ai"
-            label="New AI"
-            image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
-            onClick={() => create()}
-          />
+          userData &&
+          canChangeContent(userData.role) && (
+            <Button
+              id="create-ai"
+              label="New AI"
+              image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+              onClick={() => create()}
+            />
+          )
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
