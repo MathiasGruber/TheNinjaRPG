@@ -14,6 +14,7 @@ import { homeRouter } from "./routers/home";
 import { itemRouter } from "./routers/item";
 import { combatRouter } from "./routers/combat";
 import { hospitalRouter } from "./routers/hospital";
+import { logsRouter } from "./routers/logs";
 
 /**
  * This is the primary router for your server.
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
   item: itemRouter,
   combat: combatRouter,
   hospital: hospitalRouter,
+  logs: logsRouter,
 });
 
 // export type definition of API

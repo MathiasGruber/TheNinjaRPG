@@ -296,8 +296,11 @@ export const profileRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "user",
+          tableName: "ai",
           changes: diff,
+          relatedId: ai.userId,
+          relatedMsg: `Update: ${ai.username}`,
+          relatedImage: ai.avatar,
         });
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

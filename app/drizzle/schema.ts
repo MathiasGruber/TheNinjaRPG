@@ -586,11 +586,21 @@ export const actionLog = mysqlTable(
       .notNull(),
     tableName: varchar("tableName", { length: 191 }),
     changes: json("changes").notNull(),
+    relatedId: varchar("relatedId", { length: 191 }),
+    relatedMsg: varchar("relatedText", { length: 191 }),
+    relatedImage: varchar("relatedImage", { length: 191 }),
   },
   (table) => {
     return { userId: index("ActionLog_userId_idx").on(table.userId) };
   }
 );
+
+export const actionLogRelations = relations(actionLog, ({ one }) => ({
+  user: one(userData, {
+    fields: [actionLog.userId],
+    references: [userData.userId],
+  }),
+}));
 
 export const userAttribute = mysqlTable(
   "UserAttribute",

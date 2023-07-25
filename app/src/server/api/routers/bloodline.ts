@@ -119,8 +119,11 @@ export const bloodlineRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "jutsu",
+          tableName: "bloodline",
           changes: diff,
+          relatedId: entry.id,
+          relatedMsg: `Update: ${entry.name}`,
+          relatedImage: entry.image,
         });
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

@@ -94,6 +94,9 @@ export const itemRouter = createTRPCRouter({
           userId: ctx.userId,
           tableName: "item",
           changes: diff,
+          relatedId: entry.id,
+          relatedMsg: `Update: ${entry.name}`,
+          relatedImage: entry.image,
         });
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

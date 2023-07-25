@@ -106,6 +106,9 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           tableName: "jutsu",
           changes: diff,
+          relatedId: entry.id,
+          relatedMsg: `Update: ${entry.name}`,
+          relatedImage: entry.image,
         });
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

@@ -8,7 +8,7 @@ export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;
   header: string;
   width?: number;
-  type: "avatar" | "string" | "capitalized" | "time_passed" | "date";
+  type: "avatar" | "string" | "capitalized" | "time_passed" | "date" | "jsx";
 };
 
 type TableProps<T, K extends keyof T> = {
@@ -65,7 +65,10 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                 <td
                   key={`cell-${i}`}
                   className={`sm:px-6 sm:py-4`}
-                  style={{ width: column.width ? `${column.width}rem` : "auto" }}
+                  style={{
+                    width: column.width ? `${column.width}rem` : "auto",
+                    minWidth: column.width ? `${column.width}rem` : "auto",
+                  }}
                 >
                   {column.type === "avatar" && (
                     <AvatarImage
@@ -77,6 +80,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                     />
                   )}
                   {column.type === "string" && (row[column.key] as string)}
+                  {column.type === "jsx" && (row[column.key] as JSX.Element)}
                   {column.type === "capitalized" &&
                     capitalizeFirstLetter(row[column.key] as string)}
                   {column.type === "date" && (row[column.key] as Date).toLocaleString()}
