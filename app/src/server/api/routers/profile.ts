@@ -17,6 +17,7 @@ import {
   userReport,
   actionLog,
 } from "../../../../drizzle/schema";
+import { callDiscord } from "../../../libs/discord";
 import { scaleUserStats } from "../../../../drizzle/seeds/ai";
 import { insertUserDataSchema } from "../../../../drizzle/schema";
 import { canChangeContent } from "../../../utils/permissions";
@@ -302,6 +303,7 @@ export const profileRouter = createTRPCRouter({
           relatedMsg: `Update: ${ai.username}`,
           relatedImage: ai.avatar,
         });
+        await callDiscord(user.username, ai.username, diff, ai.avatar);
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
         return { success: false, message: `Not allowed to edit AI` };

@@ -9,6 +9,7 @@ import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
 import { calcJutsuEquipLimit } from "../../../libs/train";
 import { JutsuValidator } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
+import { callDiscord } from "../../../libs/discord";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import HumanDiff from "human-object-diff";
@@ -110,6 +111,7 @@ export const jutsuRouter = createTRPCRouter({
           relatedMsg: `Update: ${entry.name}`,
           relatedImage: entry.image,
         });
+        await callDiscord(user.username, entry.name, diff, entry.image);
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
         return { success: false, message: `Not allowed to edit jutsu` };

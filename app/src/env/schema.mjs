@@ -10,6 +10,7 @@ export const serverSchema = z.object({
   PUSHER_APP_SECRET: z.string(),
   DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
+  DISCORD_CONTENT_UPDATES: z.string().url(),
 });
 
 /**
@@ -22,6 +23,7 @@ export const serverEnv = {
   PUSHER_APP_SECRET: process.env.PUSHER_APP_SECRET,
   DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  DISCORD_CONTENT_UPDATES: process.env.DISCORD_CONTENT_UPDATES,
 };
 
 /**

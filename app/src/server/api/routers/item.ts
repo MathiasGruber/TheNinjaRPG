@@ -8,6 +8,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import { ItemValidator } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
+import { callDiscord } from "../../../libs/discord";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
@@ -98,6 +99,7 @@ export const itemRouter = createTRPCRouter({
           relatedMsg: `Update: ${entry.name}`,
           relatedImage: entry.image,
         });
+        const result = await callDiscord(user.username, entry.name, diff, entry.image);
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
         return { success: false, message: `Not allowed to edit item` };

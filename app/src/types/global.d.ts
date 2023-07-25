@@ -5,6 +5,7 @@ declare global {
       AWS_ACCESS_KEY_ID: string;
       AWS_REGION: string;
       DATABASE_URL: string;
+      DISCORD_CONTENT_UPDATES: string;
       AWS_SECRET_ACCESS_KEY: string;
       REPLICATE_API_TOKEN: string;
       PUSHER_APP_ID: string;
