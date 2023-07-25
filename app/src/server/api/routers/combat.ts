@@ -196,7 +196,15 @@ export const combatRouter = createTRPCRouter({
     }),
   startArenaBattle: protectedProcedure.mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
-    const closestAIs = [...ais.values()].sort((a, b) => {
+    const ais = await ctx.drizzle.query.userData.findMany({
+      where: eq(userData.isAi, 1),
+      columns: {
+        userId: true,
+        level: true,
+      },
+    });
+
+    const closestAIs = ais.sort((a, b) => {
       return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
     });
     const selectedAI = closestAIs[0];

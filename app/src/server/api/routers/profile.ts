@@ -29,7 +29,6 @@ import { calcHP, calcSP, calcCP } from "../../../libs/profile";
 import { UserStatNames } from "../../../../drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData } from "../../../../drizzle/schema";
-import type { InsertUserDataSchema } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
