@@ -46,11 +46,18 @@ export const profileRouter = createTRPCRouter({
       if (user.curEnergy < 1) {
         return { success: false, message: "Not enough energy" };
       }
+      if (user.status !== "AWAKE") {
+        return { success: false, message: "Must be awake to start training" };
+      }
       const result = await ctx.drizzle
         .update(userData)
         .set({ trainingStartedAt: new Date(), currentlyTraining: input.stat })
         .where(
-          and(eq(userData.userId, ctx.userId), isNull(userData.currentlyTraining))
+          and(
+            eq(userData.userId, ctx.userId),
+            isNull(userData.currentlyTraining),
+            eq(userData.status, "AWAKE")
+          )
         );
       if (result.rowsAffected === 0) {
         return { success: false, message: "You are already training" };
@@ -66,8 +73,8 @@ export const profileRouter = createTRPCRouter({
       if (!user) {
         throw serverError("NOT_FOUND", "User not found");
       }
-      if (user.status === "BATTLE") {
-        return { success: false, message: "You cannot stop training while in battle" };
+      if (user.status !== "AWAKE") {
+        return { success: false, message: "Must be awake to stop training" };
       }
       if (!user.trainingStartedAt || !user.currentlyTraining) {
         return { success: false, message: "You are not currently training anything" };
@@ -134,7 +141,11 @@ export const profileRouter = createTRPCRouter({
               : sql`bukijutsuOffence`,
         })
         .where(
-          and(eq(userData.userId, ctx.userId), isNotNull(userData.currentlyTraining))
+          and(
+            eq(userData.userId, ctx.userId),
+            isNotNull(userData.currentlyTraining),
+            eq(userData.status, "AWAKE")
+          )
         );
       if (result.rowsAffected === 0) {
         return { success: false, message: "You are not training" };
