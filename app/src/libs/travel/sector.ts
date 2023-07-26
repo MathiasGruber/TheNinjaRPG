@@ -128,7 +128,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 
   // Avatar Sprite
   const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
-  const map = new TextureLoader().load(userData.avatar || "");
+  const map = new TextureLoader().load(userData.avatar ? `${userData.avatar}?1=1` : "");
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });

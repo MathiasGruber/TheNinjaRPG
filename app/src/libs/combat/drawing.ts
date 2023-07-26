@@ -342,7 +342,9 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   // User marker background or raw image
   const noMarker = userData.isAi && userData.isOriginal;
   if (noMarker) {
-    const map = new TextureLoader().load(userData.avatar || "");
+    const map = new TextureLoader().load(
+      userData.avatar ? `${userData.avatar}?1=1` : ""
+    );
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
     const material = new SpriteMaterial({ map: map });
@@ -381,7 +383,9 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 
     // Avatar Sprite
     const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
-    const map = new TextureLoader().load(userData.avatar || "");
+    const map = new TextureLoader().load(
+      userData.avatar ? `${userData.avatar}?1=1` : ""
+    );
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
     const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
