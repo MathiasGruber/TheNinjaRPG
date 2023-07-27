@@ -47,7 +47,7 @@ const ManualItems: NextPage = () => {
   const { mutate: create, isLoading: load1 } = api.item.create.useMutation({
     onSuccess: async (data) => {
       await refetch();
-      await router.push(`/cpanel/item/${data.message}`);
+      await router.push(`/cpanel/item/edit/${data.message}`);
       show_toast("Created Item", "Placeholder Item Created", "success");
     },
     onError: (error) => {

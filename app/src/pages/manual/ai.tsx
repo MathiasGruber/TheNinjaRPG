@@ -61,7 +61,7 @@ const ManualAI: NextPage = () => {
   const { mutate: create, isLoading: load1 } = api.profile.create.useMutation({
     onSuccess: async (data) => {
       await refetch();
-      await router.push(`/cpanel/ai/${data.message}`);
+      await router.push(`/cpanel/ai/edit/${data.message}`);
       show_toast("Created AI", "Placeholder AI Created", "success");
     },
     onError: (error) => {

@@ -45,7 +45,7 @@ const ManualJutsus: NextPage = () => {
   const { mutate: create, isLoading: load1 } = api.jutsu.create.useMutation({
     onSuccess: async (data) => {
       await refetch();
-      await router.push(`/cpanel/jutsu/${data.message}`);
+      await router.push(`/cpanel/jutsu/edit/${data.message}`);
       show_toast("Created Bloodline", "Placeholder Bloodline Created", "success");
     },
     onError: (error) => {

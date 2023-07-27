@@ -45,7 +45,7 @@ const ManualBloodlines: NextPage = () => {
   const { mutate: create, isLoading: load1 } = api.bloodline.create.useMutation({
     onSuccess: async (data) => {
       await refetch();
-      await router.push(`/cpanel/bloodline/${data.message}`);
+      await router.push(`/cpanel/bloodline/edit/${data.message}`);
       show_toast("Created Bloodline", "Placeholder Bloodline Created", "success");
     },
     onError: (error) => {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import ContentImage from "./ContentImage";
 import { canChangeContent } from "../utils/permissions";
 import { useUserData } from "../utils/UserContext";
-import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import type { ItemRarity } from "../../drizzle/schema";
 import type { Bloodline, Item, Jutsu } from "../../drizzle/schema";
 import type { ZodAllTags } from "../libs/combat/types";
@@ -64,17 +64,26 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               {item.createdAt.toLocaleDateString()},<b>Updated: </b>
               {item.updatedAt.toLocaleDateString()}
             </p>
-            {userData && showEdit && canChangeContent(userData.role) && (
+
+            {showEdit && (
               <div className="absolute right-6 flex flex-row">
-                <Link href={`/cpanel/${showEdit}/${item.id}`}>
-                  <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
+                <Link href={`/cpanel/${showEdit}/${item.id}`} className="mr-1">
+                  <ChartBarIcon className="h-6 w-6 hover:fill-orange-500" />
                 </Link>
-                <TrashIcon
-                  className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer"
-                  onClick={() => onDelete && onDelete(item.id)}
-                />
+                {userData && canChangeContent(userData.role) && (
+                  <>
+                    <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
+                      <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
+                    </Link>
+                    <TrashIcon
+                      className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer"
+                      onClick={() => onDelete && onDelete(item.id)}
+                    />
+                  </>
+                )}
               </div>
             )}
+
             <hr className="py-1" />
             <div>{item.description}</div>
           </div>
