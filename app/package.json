@@ -46,6 +46,7 @@
     "next-axiom": "^0.17.0",
     "pusher-js": "8.0.1",
     "react": "18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-cookie-consent": "^8.0.1",
     "react-dom": "18.2.0",
     "react-dropzone": "^14.2.3",
