@@ -65,6 +65,9 @@ dependencies:
   alea:
     specifier: 1.0.1
     version: 1.0.1
+  chart.js:
+    specifier: ^4.3.2
+    version: 4.3.2
   dotenv:
     specifier: ^16.1.4
     version: 16.1.4
