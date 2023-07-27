@@ -138,7 +138,7 @@ export const bloodlineRouter = createTRPCRouter({
   getRolls: protectedProcedure
     .input(z.object({ currentBloodlineId: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      return await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
+      return (await fetchBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
     }),
   // Roll a bloodline
   roll: protectedProcedure.mutation(async ({ ctx }) => {
