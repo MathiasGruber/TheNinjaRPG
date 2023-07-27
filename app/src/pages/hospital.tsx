@@ -189,7 +189,9 @@ const PurchaseBloodline: React.FC = () => {
             <span className={`${!canAfford ? "text-red-500" : ""} font-bold`}>
               {userData.reputationPoints} points.{" "}
             </span>
-            {!canAfford ? (
+          </p>
+          {!canAfford ? (
+            <>
               <p className="text-base">
                 <Link
                   className="font-bold text-red-800 hover:text-orange-500"
@@ -197,12 +199,12 @@ const PurchaseBloodline: React.FC = () => {
                 >
                   Purchase Reputation Points
                 </Link>
-                <hr className="py-2" />
               </p>
-            ) : (
-              ""
-            )}
-          </p>
+              <hr className="py-2" />
+            </>
+          ) : (
+            ""
+          )}
         </>
       )}
 

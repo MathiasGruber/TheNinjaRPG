@@ -600,7 +600,7 @@ export const fetchRegeneratedUser = async (
   }
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
-  if (user) {
+  if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
     const sinceUpdate = secondsPassed(user.updatedAt);
     if (sinceUpdate > 300 || forceRegen) {
       const regen = user.regeneration * secondsPassed(user.regenAt);
