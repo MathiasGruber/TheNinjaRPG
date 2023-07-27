@@ -99,7 +99,9 @@ export const itemRouter = createTRPCRouter({
           relatedMsg: `Update: ${entry.name}`,
           relatedImage: entry.image,
         });
-        const result = await callDiscord(user.username, entry.name, diff, entry.image);
+        if (process.env.NODE_ENV !== "development") {
+          await callDiscord(user.username, entry.name, diff, entry.image);
+        }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
         return { success: false, message: `Not allowed to edit item` };

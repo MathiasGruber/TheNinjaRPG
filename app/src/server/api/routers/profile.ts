@@ -364,7 +364,9 @@ export const profileRouter = createTRPCRouter({
         });
 
         // Update discord channel
-        await callDiscord(user.username, ai.username, diff, ai.avatar);
+        if (process.env.NODE_ENV !== "development") {
+          await callDiscord(user.username, ai.username, diff, ai.avatar);
+        }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
         return { success: false, message: `Not allowed to edit AI` };

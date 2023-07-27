@@ -309,6 +309,12 @@ export const updateStatUsage = (
   }
 };
 
+/** Function used for scaling two attributes against each other, used e.g. in damage calculation */
+const powerEffect = (value1: number, value2: number) => {
+  const scaler = Math.pow((value1 + value2) / 2, 0.06);
+  return Math.log(1 + Math.log(value1) / Math.log(value2)) * scaler;
+};
+
 /** Calculate damage effect on target */
 export const damage = (
   effect: UserEffect,
@@ -327,11 +333,11 @@ export const damage = (
       if (effect.fromGround && a in effect && b in target) {
         const left = effect[a as keyof typeof effect] as number;
         const right = target[b as keyof typeof target] as number;
-        power *= Math.sqrt(left / right);
+        power *= powerEffect(left, right);
       } else if (origin && a in origin && b in target) {
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
-        power *= Math.sqrt(left / right);
+        power *= powerEffect(left, right);
       }
     });
     effect.generalTypes?.forEach((generalType) => {
@@ -339,11 +345,11 @@ export const damage = (
       if (effect.fromGround && lower in effect && lower in target) {
         const left = effect[lower as keyof typeof effect] as number;
         const right = target[lower as keyof typeof target] as number;
-        power *= Math.sqrt(left / right);
+        power *= powerEffect(left, right);
       } else if (origin && lower in origin && lower in target) {
         const left = origin[lower as keyof typeof origin] as number;
         const right = target[lower as keyof typeof target] as number;
-        power *= Math.sqrt(left / right);
+        power *= powerEffect(left, right);
       }
     });
   }
@@ -351,7 +357,7 @@ export const damage = (
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
-    damage: Math.max(Math.floor(20 * power) * applyTimes, 1),
+    damage: Math.max(Math.floor(5 * power) * applyTimes + 10, 1),
   });
 
   return getInfo(target, effect, "will take damage");

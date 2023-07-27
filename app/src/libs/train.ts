@@ -40,17 +40,17 @@ export const calcJutsuTrainTime = (jutsu: Jutsu, level: number) => {
 };
 
 export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
-  let base = 20;
+  let base = 50;
   if (jutsu.jutsuRank === "C") {
-    base = 22;
+    base = 100;
   } else if (jutsu.jutsuRank === "B") {
-    base = 24;
+    base = 150;
   } else if (jutsu.jutsuRank === "A") {
-    base = 26;
+    base = 200;
   } else if (jutsu.jutsuRank === "S") {
-    base = 28;
+    base = 250;
   }
-  return Math.floor(Math.pow(base, 1 + level / 10) * 10);
+  return Math.floor(Math.pow(base, 1 + level / 20));
 };
 
 export const calcJutsuEquipLimit = (userdata: UserData) => {

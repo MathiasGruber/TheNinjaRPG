@@ -254,7 +254,9 @@ export const calcBattleResult = (
       const targetsLeft = targets.filter((u) => !u.leftBattle && !u.isAi);
 
       // Money calculation
-      const newMoney = didWin ? user.money + randomInt(5, 50) * user.level : user.money;
+      const newMoney = didWin
+        ? user.money + randomInt(15, 20) + user.level
+        : user.money;
       const moneyDelta = newMoney - user.originalMoney;
 
       // Result object
