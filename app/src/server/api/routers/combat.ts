@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { serverError } from "../trpc";
 import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
@@ -10,7 +11,6 @@ import { secondsPassed, secondsFromDate } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
-import { ais } from "../../../../drizzle/seeds/ai";
 import { fetchUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { userData } from "../../../../drizzle/schema";
@@ -38,6 +38,9 @@ export const combatRouter = createTRPCRouter({
 
       // Distinguish between public and non-public user state
       const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+      if (!userBattle) {
+        return { battle: null, result: null };
+      }
 
       // Calculate if the battle is over for this user, and if so update user DB
       const { result } = calcBattleResult(
@@ -95,77 +98,81 @@ export const combatRouter = createTRPCRouter({
       const pusher = getServerPusher();
 
       // Attempt to perform action untill success || error thrown
+      // The primary purpose here is that if the battle version was already updated, we retry the user's action
       let attempts = 0;
       while (true) {
+        // Fetch battle
+        const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+        if (!userBattle) {
+          return { battle: null, result: null };
+        }
+
+        // Cast to correct types
+        const usersState = userBattle.usersState as BattleUserState[];
+        const usersEffects = userBattle.usersEffects as UserEffect[];
+        const groundEffects = userBattle.groundEffects as GroundEffect[];
+        const battleDescription: string[] = [];
+        let newUsersEffects = structuredClone(usersEffects);
+        let newGroundEffects = structuredClone(groundEffects);
+        let newUsersState = structuredClone(usersState);
+        let actionEffects: ActionEffect[] = [];
+
+        // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
+        if (input.userId && input.longitude && input.latitude && input.actionId) {
+          // Get action
+          const actions = availableUserActions(usersState, ctx.userId);
+          const action = actions.find((a) => a.id === input.actionId);
+          if (!action) throw serverError("CONFLICT", `Invalid action`);
+
+          // Attempt to perform action
+          ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
+            performAction({
+              usersState,
+              usersEffects,
+              groundEffects,
+              grid,
+              action,
+              contextUserId: ctx.userId,
+              actionUserId: input.userId,
+              longitude: input.longitude,
+              latitude: input.latitude,
+            }));
+          battleDescription.push(action.battleDescription);
+        }
+
+        // Attempt to perform AI action
+        const {
+          nextUsersState,
+          nextUsersEffects,
+          nextGroundEffects,
+          nextActionEffects,
+          description,
+        } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
+        battleDescription.push(description);
+        actionEffects = actionEffects.concat(nextActionEffects);
+
+        // If no description, means no actions, just return now
+        if (!battleDescription) return;
+
+        // Calculate if the battle is over for this user, and if so update user DB
+        const { finalUsersState, result } = calcBattleResult(
+          nextUsersState,
+          ctx.userId,
+          userBattle.rewardScaling
+        );
+
+        // Optimistic update for all other users before we process request
+        const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+        if (!battleOver) {
+          void pusher.trigger(userBattle.id, "event", {
+            version: userBattle.version + 1,
+          });
+        }
+
+        /**
+         * DATABASE UPDATES in parallel transaction
+         */
         try {
-          // Fetch battle
-          const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
-
-          // Cast to correct types
-          const usersState = userBattle.usersState as BattleUserState[];
-          const usersEffects = userBattle.usersEffects as UserEffect[];
-          const groundEffects = userBattle.groundEffects as GroundEffect[];
-          const battleDescription: string[] = [];
-          let newUsersEffects = structuredClone(usersEffects);
-          let newGroundEffects = structuredClone(groundEffects);
-          let newUsersState = structuredClone(usersState);
-          let actionEffects: ActionEffect[] = [];
-
-          // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
-          if (input.userId && input.longitude && input.latitude && input.actionId) {
-            // Get action
-            const actions = availableUserActions(usersState, ctx.userId);
-            const action = actions.find((a) => a.id === input.actionId);
-            if (!action) throw serverError("CONFLICT", `Invalid action`);
-
-            // Attempt to perform action
-            ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-              performAction({
-                usersState,
-                usersEffects,
-                groundEffects,
-                grid,
-                action,
-                contextUserId: ctx.userId,
-                actionUserId: input.userId,
-                longitude: input.longitude,
-                latitude: input.latitude,
-              }));
-            battleDescription.push(action.battleDescription);
-          }
-
-          // Attempt to perform AI action
-          const {
-            nextUsersState,
-            nextUsersEffects,
-            nextGroundEffects,
-            nextActionEffects,
-            description,
-          } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
-          battleDescription.push(description);
-          actionEffects = actionEffects.concat(nextActionEffects);
-
-          // If no description, means no actions, just return now
-          if (!battleDescription) return;
-
-          // Calculate if the battle is over for this user, and if so update user DB
-          const { finalUsersState, result } = calcBattleResult(
-            nextUsersState,
-            ctx.userId,
-            userBattle.rewardScaling
-          );
-
-          // Optimistic update for all other users before we process request
-          const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-          if (!battleOver) {
-            void pusher.trigger(userBattle.id, "event", {
-              version: userBattle.version + 1,
-            });
-          }
-
-          /**
-           * DATABASE UPDATES in parallel transaction
-           */
           const newBattle = await updateBattle(
             ctx.drizzle,
             result,
@@ -254,13 +261,9 @@ export const combatRouter = createTRPCRouter({
 });
 
 export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
-  const entry = await client.query.battle.findFirst({
+  return await client.query.battle.findFirst({
     where: eq(battle.id, battleId),
   });
-  if (!entry) {
-    throw serverError("NOT_FOUND", `Could not find the battle`);
-  }
-  return entry;
 };
 
 export const initiateBattle = async (
@@ -313,6 +316,12 @@ export const initiateBattle = async (
         "CONFLICT",
         `Target is immune from combat until ${users[1].immunityUntil.toLocaleTimeString()}`
       );
+    }
+    if (users[0].status !== "AWAKE") {
+      throw serverError("CONFLICT", `You are not awake`);
+    }
+    if (users[1].status !== "AWAKE") {
+      throw serverError("CONFLICT", `Target is not awake`);
     }
 
     // Get previous battles between these two users within last 60min
