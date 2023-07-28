@@ -34,7 +34,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         before continuing.
       </CookieConsent>
       <HighlightInit
-        projectId={process.env.HIGHLIGHT_IO_PROJECT_ID}
+        projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
         enableStrictPrivacy={true}
         reportConsoleErrors={true}
         enablePerformanceRecording={true}

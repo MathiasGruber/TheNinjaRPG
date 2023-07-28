@@ -18,7 +18,7 @@ declare global {
       NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL: string;
       NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER: string;
       NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD: string;
-      HIGHLIGHT_IO_PROJECT_ID: string;
+      NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID: string;
     }
   }
 }
