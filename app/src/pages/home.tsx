@@ -27,13 +27,13 @@ const Home: NextPage = () => {
 
   const { mutate: toggleSleep, isLoading: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
-      onSuccess: async (newStatus) => {
-        await refetch();
-        show_toast(
-          "Home",
-          newStatus === "AWAKE" ? "You have woken up" : "You have gone to sleep",
-          "success"
-        );
+      onSuccess: async (data) => {
+        if (data.success) {
+          await refetch();
+          show_toast("Home", data.message, "success");
+        } else {
+          show_toast("Home", data.message, "error");
+        }
       },
       onError: (error) => {
         show_toast("Error toggle sleep status", error.message, "error");
