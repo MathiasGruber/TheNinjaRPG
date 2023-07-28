@@ -162,7 +162,7 @@ const ItemShop: NextPage = () => {
           )}
         </ContentBox>
       )}
-      {!isAwake && <Loader explanation="Redirecting to home" />}
+      {!isAwake && <Loader explanation="Redirecting because not awake" />}
     </>
   );
 };
