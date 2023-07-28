@@ -162,7 +162,7 @@ const ItemShop: NextPage = () => {
           )}
         </ContentBox>
       )}
-      {!isAwake && <Loader explanation="Loading userdata" />}
+      {!isAwake && <Loader explanation="Redirecting to home" />}
     </>
   );
 };
