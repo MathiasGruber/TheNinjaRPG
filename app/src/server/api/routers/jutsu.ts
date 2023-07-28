@@ -151,30 +151,37 @@ export const jutsuRouter = createTRPCRouter({
   // Start training a given jutsu
   startTraining: protectedProcedure
     .input(z.object({ jutsuId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const info = await fetchJutsu(ctx.drizzle, input.jutsuId);
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
       if (!info) {
-        throw serverError("NOT_FOUND", "Jutsu not found");
+        return { success: false, message: "Jutsu not found" };
       }
       if (!canTrainJutsu(info, user)) {
-        throw serverError("NOT_FOUND", "You cannot train this jutsu");
+        return { success: false, message: "You cannot train this jutsu" };
+      }
+      if (user.status !== "AWAKE") {
+        return { success: false, message: "Must be awake to start training jutsu" };
       }
       if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
-        throw serverError("NOT_FOUND", "You are already training a jutsu");
+        return { success: false, message: "You are already training a jutsu" };
       }
 
       const level = userjutsu ? userjutsu.level : 0;
       const trainTime = calcJutsuTrainTime(info, level);
       const trainCost = calcJutsuTrainCost(info, level);
-      await ctx.drizzle
+      const moneyUpdate = await ctx.drizzle
         .update(userData)
         .set({ money: sql`${userData.money} - ${trainCost}` })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.money, trainCost)));
+      if (moneyUpdate.rowsAffected !== 1) {
+        return { success: false, message: "You don't have enough money" };
+      }
       if (userjutsu) {
-        return await ctx.drizzle
+        await ctx.drizzle
           .update(userJutsu)
           .set({
             level: sql`${userJutsu.level} + 1`,
@@ -183,13 +190,14 @@ export const jutsuRouter = createTRPCRouter({
           })
           .where(and(eq(userJutsu.id, userjutsu.id), eq(userJutsu.userId, ctx.userId)));
       } else {
-        return await ctx.drizzle.insert(userJutsu).values({
+        await ctx.drizzle.insert(userJutsu).values({
           id: nanoid(),
           userId: ctx.userId,
           jutsuId: input.jutsuId,
           finishTraining: new Date(Date.now() + trainTime),
         });
       }
+      return { success: true, message: `You started training: ${info.name}` };
     }),
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
