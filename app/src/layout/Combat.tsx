@@ -84,7 +84,10 @@ const Combat: React.FC<CombatProps> = (props) => {
         setBattleState({ battle: battle.current, result: null, isLoading: true });
       },
       onSuccess: (data) => {
-        if (data) {
+        if (data.notification) {
+          show_toast("Notification", data.notification, "info");
+        }
+        if (data.updateClient) {
           battle.current = data.battle;
           setBattleState({
             battle: data.battle,
@@ -105,7 +108,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { mutate: performAIAction, isLoading: isLoadingAI } =
     api.combat.performAction.useMutation({
       onSuccess: (data) => {
-        if (data) {
+        if (data.updateClient) {
           battle.current = data.battle;
           setBattleState({
             battle: data.battle,
@@ -413,7 +416,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const outcome = result
     ? result.curHealth <= 0
       ? "Lost"
-      : result.experience > 0
+      : result.experience > 0.01
       ? "Won"
       : "Fled"
     : "Unknown";

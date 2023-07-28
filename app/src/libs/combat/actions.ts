@@ -398,7 +398,7 @@ export const insertAction = (info: {
   return false;
 };
 
-export const performAction = (props: {
+export const performBattleAction = (props: {
   usersState: BattleUserState[];
   usersEffects: UserEffect[];
   groundEffects: GroundEffect[];
@@ -430,9 +430,7 @@ export const performAction = (props: {
     longitude: longitude,
     latitude: latitude,
   });
-  if (!check) {
-    throw new Error("Requested action not possible anymore");
-  }
+  if (!check) return false;
 
   // Update the action updatedAt state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {

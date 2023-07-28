@@ -1,5 +1,5 @@
 import { availableUserActions } from "../../libs/combat/actions";
-import { performAction } from "../../libs/combat/actions";
+import { performBattleAction } from "../../libs/combat/actions";
 import { actionSecondsAfterAction } from "../../libs/combat/movement";
 import { getPossibleActionTiles, PathCalculator, findHex } from "../../libs/hexgrid";
 import type { BattleUserState, ActionEffect } from "../../libs/combat/types";
@@ -54,7 +54,7 @@ export const performAIaction = (
     ) {
       const originalAction = actions.find((a) => a.id === bestAction.action?.id);
       if (originalAction) {
-        const result = performAction({
+        const result = performBattleAction({
           usersState: nextUsersState,
           usersEffects: nextUsersEffects,
           groundEffects: nextGroundEffects,
@@ -65,11 +65,13 @@ export const performAIaction = (
           longitude: bestAction.longitude,
           latitude: bestAction.latitude,
         });
-        nextUsersEffects = result.newUsersEffects;
-        nextGroundEffects = result.newGroundEffects;
-        nextUsersState = result.newUsersState;
-        nextActionEffects = result.actionEffects;
-        description += bestAction.action.battleDescription;
+        if (result) {
+          nextUsersEffects = result.newUsersEffects;
+          nextGroundEffects = result.newGroundEffects;
+          nextUsersState = result.newUsersState;
+          nextActionEffects = result.actionEffects;
+          description += bestAction.action.battleDescription;
+        }
       }
     }
   });
@@ -171,7 +173,7 @@ const getActionTree = (
       const possibleTiles = getPossibleActionTiles(action, origin, grid);
       possibleTiles?.forEach((tile) => {
         try {
-          const { newUsersState, newUsersEffects, newGroundEffects } = performAction({
+          const newState = performBattleAction({
             usersState: structuredClone(usersState),
             usersEffects: structuredClone(usersEffects),
             groundEffects: structuredClone(groundEffects),
@@ -182,6 +184,10 @@ const getActionTree = (
             longitude: tile.col,
             latitude: tile.row,
           });
+          if (!newState) {
+            throw new Error("Action not possible");
+          }
+          const { newUsersState, newUsersEffects, newGroundEffects } = newState;
           // Update all future actions to have zero cost
           availableActions.forEach((a) => (a.actionCostPerc = 0));
           // Calculate the fitness

@@ -16,7 +16,8 @@ import { performAIaction } from "../../../libs/combat/ai_v1";
 import { userData } from "../../../../drizzle/schema";
 import { battle, battleAction, battleHistory } from "../../../../drizzle/schema";
 import { performActionSchema } from "../../../libs/combat/types";
-import { availableUserActions, performAction } from "../../../libs/combat/actions";
+import { performBattleAction } from "../../../libs/combat/actions";
+import { availableUserActions } from "../../../libs/combat/actions";
 import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
@@ -104,40 +105,61 @@ export const combatRouter = createTRPCRouter({
         // Fetch battle
         const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
         if (!userBattle) {
-          return { battle: null, result: null };
+          return { updateClient: true, battle: null, result: null, notification: null };
         }
 
         // Cast to correct types
         const usersState = userBattle.usersState as BattleUserState[];
         const usersEffects = userBattle.usersEffects as UserEffect[];
         const groundEffects = userBattle.groundEffects as GroundEffect[];
-        const battleDescription: string[] = [];
-        let newUsersEffects = structuredClone(usersEffects);
-        let newGroundEffects = structuredClone(groundEffects);
-        let newUsersState = structuredClone(usersState);
-        let actionEffects: ActionEffect[] = [];
+        const battleDescriptions: string[] = [];
 
-        // If userId, actionID, and position specified, perform user action, otherwise attempt AI action
+        // Instantiate new state variables
+        let newUsersEffects: UserEffect[];
+        let newGroundEffects: GroundEffect[];
+        let newUsersState: BattleUserState[];
+        let actionEffects: ActionEffect[];
+
+        // If userId, actionID, and position specified, perform user action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
           // Get action
           const actions = availableUserActions(usersState, ctx.userId);
           const action = actions.find((a) => a.id === input.actionId);
-          if (!action) throw serverError("CONFLICT", `Invalid action`);
+          if (!action) {
+            throw serverError("CONFLICT", `Invalid action`);
+          }
 
           // Attempt to perform action
+          const newState = performBattleAction({
+            usersState,
+            usersEffects,
+            groundEffects,
+            grid,
+            action,
+            contextUserId: ctx.userId,
+            actionUserId: input.userId,
+            longitude: input.longitude,
+            latitude: input.latitude,
+          });
+          if (!newState) {
+            return {
+              updateClient: false,
+              battle: null,
+              result: null,
+              notification: "Action no longer possible",
+            };
+          }
+          // Update state variables
           ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-            performAction({
-              usersState,
-              usersEffects,
-              groundEffects,
-              grid,
-              action,
-              contextUserId: ctx.userId,
-              actionUserId: input.userId,
-              longitude: input.longitude,
-              latitude: input.latitude,
-            }));
-          battleDescription.push(action.battleDescription);
+            newState);
+          // Add description of battle action, which is used for showing battle log
+          battleDescriptions.push(action.battleDescription);
+        } else {
+          // If no action specified, point new state variables to previous (no copy), preparing for AI action
+          newUsersEffects = usersEffects;
+          newGroundEffects = groundEffects;
+          newUsersState = usersState;
+          actionEffects = [];
         }
 
         // Attempt to perform AI action
@@ -148,11 +170,16 @@ export const combatRouter = createTRPCRouter({
           nextActionEffects,
           description,
         } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
-        battleDescription.push(description);
+        battleDescriptions.push(description);
         actionEffects = actionEffects.concat(nextActionEffects);
 
         // If no description, means no actions, just return now
-        if (!battleDescription) return;
+        if (!battleDescriptions) {
+          throw serverError(
+            "BAD_REQUEST",
+            "Somehow no battle description generated. Reported to staff and will be investigated!"
+          );
+        }
 
         // Calculate if the battle is over for this user, and if so update user DB
         const { finalUsersState, result } = calcBattleResult(
@@ -185,13 +212,20 @@ export const combatRouter = createTRPCRouter({
           // Return the new battle + results state if applicable
           const newMaskedBattle = maskBattle(newBattle, ctx.userId);
           await createAction(
-            battleDescription.join(". "),
+            battleDescriptions.join(". "),
             userBattle,
             actionEffects,
             ctx.drizzle
           );
           await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
-          return { battle: newMaskedBattle, result: result };
+
+          // Return the new battle + result state if applicable
+          return {
+            updateClient: true,
+            battle: newMaskedBattle,
+            result: result,
+            notification: null,
+          };
         } catch (e) {
           if (attempts > 2) {
             console.error(e);

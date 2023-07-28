@@ -73,7 +73,6 @@ const Hospital: NextPage = () => {
   const canAfford = userData && healCost && userData.money >= healCost;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
-  console.log("canAfford", canAfford);
 
   return (
     <>
