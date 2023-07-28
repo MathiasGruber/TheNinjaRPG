@@ -1,6 +1,6 @@
 import React from "react";
 import Head from "next/head";
-import Script from "next/script";
+// import Script from "next/script";
 
 const Header: React.FC = () => {
   return (
@@ -22,9 +22,11 @@ const Header: React.FC = () => {
 
         <link rel="icon" href="/favicon.ico" />
       </Head>
+      {/* 
+      NOT USED FOR NOW. NOTE THAT THERE MAY BE CORS CONFLICS CAUSED BETWEEN HIGHLIGHT.IO AND GOOGLE TAG MANAGER
       <Script id="google-tag-manager" strategy="afterInteractive">
         {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-5TK3T9');`}
-      </Script>
+      </Script> */}
     </>
   );
 };

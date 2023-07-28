@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { H } from "highlight.run";
 import Pusher from "pusher-js";
 
 import Image from "next/image";
-import Header from "./Header";
 import Link from "next/link";
 import MenuBoxProfile from "./MenuBoxProfile";
 import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
-import CookieConsent from "react-cookie-consent";
 
-import { ToastContainer } from "react-toastify";
 import { UserContext } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
@@ -59,6 +57,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
     console.log("Client - Server time diff [ms]: ", timeDiff);
   }
 
+  useEffect(() => {
+    if (data?.userData) {
+      H.identify(data.userData.username, {
+        id: data.userData.userId,
+        username: data.userData.username,
+        avatar: data.userData.avatar ?? false,
+      });
+    }
+  }, [data?.userData]);
+
   // Listen on user channel for live updates on things
   useEffect(() => {
     if (userId) {
@@ -82,59 +90,48 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   }, [userId, refetchUser]);
 
   return (
-    <>
-      <ToastContainer />
-      <CookieConsent>
-        This website uses cookies to enhance the user experience. Please read our{" "}
-        <Link href="/policy" className="text-amber-500 font-bold">
-          Privacy Policy
-        </Link>{" "}
-        before continuing.
-      </CookieConsent>
-      <Header />
-      <UserContext.Provider
-        value={{
-          data: data?.userData,
-          battle: battle,
-          pusher: pusher,
-          status: userStatus,
-          timeDiff: timeDiff,
-          setBattle: setBattle,
-          refetch: refetchUser,
-        }}
-      >
-        <h1 className="my-2 hidden text-center font-fontasia text-5xl text-white md:block md:text-8xl">
-          <Link href="/">TheNinja-RPG</Link>
-          <Image
-            src="/versionNotice.png"
-            width={78}
-            height={78}
-            alt="Alpha Notice"
-            className="ml-3 inline"
-          />
-        </h1>
+    <UserContext.Provider
+      value={{
+        data: data?.userData,
+        battle: battle,
+        pusher: pusher,
+        status: userStatus,
+        timeDiff: timeDiff,
+        setBattle: setBattle,
+        refetch: refetchUser,
+      }}
+    >
+      <h1 className="my-2 hidden text-center font-fontasia text-5xl text-white md:block md:text-8xl">
+        <Link href="/">TheNinja-RPG</Link>
+        <Image
+          src="/versionNotice.png"
+          width={78}
+          height={78}
+          alt="Alpha Notice"
+          className="ml-3 inline"
+        />
+      </h1>
 
-        <div className="container max-w-7xl">
-          <div className="grid grid-cols-3 md:grid-cols-5">
-            <div className="col-span-1 hidden md:block">
-              {data?.userData && isSignedIn && <MenuBoxProfile />}
-            </div>
-            <div className="col-span-3">
-              <NavBar notifications={data?.notifications} />
-              <div className="mx-1 mt-2 rounded-md bg-orange-100 p-1 md:mx-0">
-                <div className="rounded-md bg-yellow-50 p-5">{props.children}</div>
-              </div>
-            </div>
-            <div className="col-span-1 hidden md:block">
-              {data?.userData && isSignedIn && (
-                <MenuBoxGame notifications={data?.notifications} />
-              )}
-            </div>
-            <Footer />
+      <div className="container max-w-7xl">
+        <div className="grid grid-cols-3 md:grid-cols-5">
+          <div className="col-span-1 hidden md:block">
+            {data?.userData && isSignedIn && <MenuBoxProfile />}
           </div>
+          <div className="col-span-3">
+            <NavBar notifications={data?.notifications} />
+            <div className="mx-1 mt-2 rounded-md bg-orange-100 p-1 md:mx-0">
+              <div className="rounded-md bg-yellow-50 p-5">{props.children}</div>
+            </div>
+          </div>
+          <div className="col-span-1 hidden md:block">
+            {data?.userData && isSignedIn && (
+              <MenuBoxGame notifications={data?.notifications} />
+            )}
+          </div>
+          <Footer />
         </div>
-      </UserContext.Provider>
-    </>
+      </div>
+    </UserContext.Provider>
   );
 };
 

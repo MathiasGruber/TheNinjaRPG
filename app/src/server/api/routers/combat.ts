@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { serverError, baseServerResponse, errorResponse } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
 import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
