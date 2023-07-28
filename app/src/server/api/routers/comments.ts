@@ -10,7 +10,7 @@ import {
   userData,
 } from "../../../../drizzle/schema";
 import { user2conversation, conversationComment } from "../../../../drizzle/schema";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { mutateCommentSchema } from "../../../validators/comments";
 import { reportCommentSchema } from "../../../validators/reports";
@@ -101,7 +101,7 @@ export const commentsRouter = createTRPCRouter({
    * FORUM POSTS
    * Creating, editing, deleting and getting comments on forum threads
    */
-  getForumComments: protectedProcedure
+  getForumComments: publicProcedure
     .input(
       z.object({
         thread_id: z.string(),
