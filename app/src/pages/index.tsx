@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import { useUserData } from "../utils/UserContext";
@@ -14,15 +14,19 @@ const Home: NextPage = () => {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const { data: userData, status: userStatus } = useUserData();
 
+  useEffect(() => {
+    if (userStatus !== "loading" && !userData) {
+      void router.push("/register");
+    }
+    if (userData && userId) {
+      void router.push("/profile");
+    }
+  }, [router, userData, userId, userStatus]);
+
   if (isLoaded && !isSignedIn) {
     return <Welcome />;
   }
-  if (userStatus !== "loading" && !userData) {
-    void router.push("/register");
-  }
-  if (userData && userId) {
-    void router.push("/profile");
-  }
+
   return <Loader explanation="Fetching user data..." />;
 };
 
