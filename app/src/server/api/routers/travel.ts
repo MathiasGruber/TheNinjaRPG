@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, gte, sql, and, or } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { calcGlobalTravelTime } from "../../../libs/travel/controls";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
@@ -132,6 +133,22 @@ export const travelRouter = createTRPCRouter({
         avatar: z.string().url(),
       })
     )
+    .output(
+      baseServerResponse.merge(
+        z.object({
+          data: z
+            .object({
+              location: z.string(),
+              userId: z.string(),
+              avatar: z.string(),
+              sector: z.number(),
+              longitude: z.number(),
+              latitude: z.number(),
+            })
+            .optional(),
+        })
+      )
+    )
     .mutation(async ({ input, ctx }) => {
       const { longitude, latitude, sector } = input;
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
@@ -157,15 +174,16 @@ export const travelRouter = createTRPCRouter({
         const output = { ...input, location, userId: ctx.userId };
         const pusher = getServerPusher();
         void pusher.trigger(input.sector.toString(), "event", output);
-        return output;
+        return { success: true, message: "OK", data: output };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);
         if (userData.status !== "AWAKE") {
-          throw serverError("FORBIDDEN", `Status is: ${userData.status.toLowerCase()}`);
+          return errorResponse(`Status is: ${userData.status.toLowerCase()}`);
         }
         if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
-          throw serverError("FORBIDDEN", `Cannot move more than one square at a time`);
+          return errorResponse(`Cannot move more than one square at a time`);
         }
+        return errorResponse(`Unknown error while moving`);
       }
     }),
 });

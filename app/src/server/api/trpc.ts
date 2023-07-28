@@ -107,3 +107,7 @@ export const baseServerResponse = z.object({
   success: z.boolean(),
   message: z.string(),
 });
+
+export const errorResponse = (msg: string) => {
+  return { success: false, message: msg };
+};

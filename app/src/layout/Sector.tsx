@@ -130,21 +130,26 @@ const Sector: React.FC<SectorProps> = (props) => {
   };
 
   const { mutate: move } = api.travel.moveInSector.useMutation({
-    onSuccess: async (data) => {
-      if (data) {
-        origin.current = findHex(grid.current, { x: data.longitude, y: data.latitude });
+    onSuccess: async (res) => {
+      if (res.success && res.data) {
+        origin.current = findHex(grid.current, {
+          x: res.data.longitude,
+          y: res.data.latitude,
+        });
         updateUsersList({
           ...userData,
-          longitude: data.longitude,
-          latitude: data.latitude,
-          location: data.location,
+          longitude: res.data.longitude,
+          latitude: res.data.latitude,
+          location: res.data.location,
         } as UserData);
-        setPosition({ x: data.longitude, y: data.latitude });
+        setPosition({ x: res.data.longitude, y: res.data.latitude });
         setMoves((prev) => prev + 1);
-        if (data.location !== userData?.location) {
+        if (res.data.location !== userData?.location) {
           console.log("LOCATION CHANGED; REFETCHING USER");
           await refetchUser();
         }
+      } else if (!res.success && res.message) {
+        show_toast("Error moving", res.message, "info");
       }
     },
     onError: (error) => {
