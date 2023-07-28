@@ -1,17 +1,20 @@
-import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { serverError, baseServerResponse } from "../trpc";
 import { sql, eq, gte, and } from "drizzle-orm";
 import { userData } from "../../../../drizzle/schema";
 import { calcHealFinish } from "../../../libs/hospital/hospital";
 import { calcHealCost } from "../../../libs/hospital/hospital";
 import { fetchUser } from "./profile";
+import type { ExecutedQuery } from "@planetscale/database";
 
 export const hospitalRouter = createTRPCRouter({
   // Pay to heal
-  heal: protectedProcedure.mutation(async ({ ctx }) => {
+  heal: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     const finishAt = calcHealFinish(user);
-    if (finishAt < new Date()) {
-      return await ctx.drizzle
+    let result: ExecutedQuery;
+    if (finishAt <= new Date()) {
+      result = await ctx.drizzle
         .update(userData)
         .set({
           curHealth: user.maxHealth,
@@ -24,9 +27,9 @@ export const hospitalRouter = createTRPCRouter({
     } else {
       const cost = calcHealCost(user);
       if (user.money < cost) {
-        throw serverError("PRECONDITION_FAILED", "You don't have enough money");
+        return { success: false, message: "You don't have enough money" };
       }
-      return await ctx.drizzle
+      result = await ctx.drizzle
         .update(userData)
         .set({
           curHealth: user.maxHealth,
@@ -41,6 +44,11 @@ export const hospitalRouter = createTRPCRouter({
             eq(userData.status, "HOSPITALIZED")
           )
         );
+    }
+    if (result.rowsAffected === 1) {
+      return { success: true, message: "You have been healed" };
+    } else {
+      throw serverError("PRECONDITION_FAILED", "Something went wrong during healing");
     }
   }),
 });

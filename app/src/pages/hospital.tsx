@@ -6,6 +6,7 @@ import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
 import type { NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
 import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";
+import { HandRaisedIcon } from "@heroicons/react/24/solid";
 
 import Countdown from "../layout/Countdown";
 import Confirm from "../layout/Confirm";
@@ -50,10 +51,12 @@ const Hospital: NextPage = () => {
 
   // Mutations
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
-    onSuccess: async () => {
-      await refetchUser();
-      await router.push("/profile");
-      show_toast("Hospital", "You have been healed", "success");
+    onSuccess: async (data) => {
+      if (data.success) {
+        await refetchUser();
+        await router.push("/profile");
+      }
+      show_toast("Hospital", data.message, data.success ? "success" : "error");
     },
     onError: (error) => {
       show_toast("Error healing", error.message, "error");
@@ -70,6 +73,7 @@ const Hospital: NextPage = () => {
   const canAfford = userData && healCost && userData.money >= healCost;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  console.log("canAfford", canAfford);
 
   return (
     <>
@@ -99,7 +103,13 @@ const Hospital: NextPage = () => {
               color={canAfford ? "default" : "red"}
               disabled={healFinishAt && healFinishAt <= new Date()}
               label={<div>Pay {healCost && <span>({healCost} ryo)</span>}</div>}
-              image={<ForwardIcon className="mr-3 h-6 w-6" />}
+              image={
+                canAfford ? (
+                  <ForwardIcon className="mr-3 h-6 w-6" />
+                ) : (
+                  <HandRaisedIcon className="mr-3 h-6 w-6" />
+                )
+              }
               onClick={() => heal()}
             />
           </div>

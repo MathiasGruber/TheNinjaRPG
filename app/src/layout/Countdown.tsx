@@ -14,16 +14,17 @@ const Countdown: React.FC<CountdownProps> = (props) => {
   const [countDown, setCountDown] = useState(targetTime - new Date().getTime());
   const [countString, setCountString] = useState<string | null>(null);
 
+  const updateString = (secondsLeft: number) => {
+    const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(secondsLeft);
+    if (days + hours + minutes + seconds <= 0) {
+      setCountString("Done");
+    } else {
+      setCountString(getTimeLeftStr(days, hours, minutes, seconds));
+    }
+  };
+
   useEffect(() => {
     const secondsLeft = targetTime - new Date().getTime();
-    const updateString = (secondsLeft: number) => {
-      const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(secondsLeft);
-      if (days + hours + minutes + seconds <= 0) {
-        setCountString("Done");
-      } else {
-        setCountString(getTimeLeftStr(days, hours, minutes, seconds));
-      }
-    };
     if (!countString) {
       updateString(secondsLeft);
     }
