@@ -61,7 +61,6 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
     onMutate: () => {
-      console.log("starting arena battle");
       document.body.style.cursor = "wait";
     },
     onSuccess: async (data) => {
