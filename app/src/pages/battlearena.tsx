@@ -19,9 +19,13 @@ const Arena: NextPage = () => {
       onMutate: () => {
         document.body.style.cursor = "wait";
       },
-      onSuccess: async () => {
-        await refetchUser();
-        await router.push("/combat");
+      onSuccess: async (data) => {
+        if (data.success) {
+          await refetchUser();
+          await router.push("/combat");
+        } else {
+          show_toast("Error attacking", data.message, "info");
+        }
       },
       onError: (error) => {
         show_toast("Error attacking", error.message, "error");

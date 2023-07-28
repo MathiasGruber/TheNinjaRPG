@@ -107,6 +107,7 @@ export const baseServerResponse = z.object({
   success: z.boolean(),
   message: z.string(),
 });
+export type BaseServerResponse = z.infer<typeof baseServerResponse>;
 
 export const errorResponse = (msg: string) => {
   return { success: false, message: msg };

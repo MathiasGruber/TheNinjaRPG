@@ -64,10 +64,14 @@ const Combat: React.FC<CombatProps> = (props) => {
       console.log("starting arena battle");
       document.body.style.cursor = "wait";
     },
-    onSuccess: async () => {
-      setBattleState({ battle: undefined, result: null, isLoading: true });
-      refetchBattle();
-      await refetchUser();
+    onSuccess: async (data) => {
+      if (data.success) {
+        setBattleState({ battle: undefined, result: null, isLoading: true });
+        refetchBattle();
+        await refetchUser();
+      } else {
+        show_toast("Error attacking", data.message, "info");
+      }
     },
     onError: (error) => {
       show_toast("Error attacking", error.message, "error");

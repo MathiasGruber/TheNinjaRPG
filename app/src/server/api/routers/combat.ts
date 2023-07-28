@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
@@ -22,6 +22,7 @@ import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
 import { getServerPusher } from "../../../libs/pusher";
+import type { BaseServerResponse } from "../trpc";
 import type { Item, UserItem, BattleType } from "../../../../drizzle/schema";
 import type { BattleUserState } from "../../../libs/combat/types";
 import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
@@ -235,33 +236,37 @@ export const combatRouter = createTRPCRouter({
         attempts += 1;
       }
     }),
-  startArenaBattle: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    const ais = await ctx.drizzle.query.userData.findMany({
-      where: eq(userData.isAi, 1),
-      columns: {
-        userId: true,
-        level: true,
-      },
-    });
-
-    const closestAIs = ais.sort((a, b) => {
-      return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
-    });
-    const selectedAI = closestAIs[0];
-    if (selectedAI) {
-      return await initiateBattle(
-        {
-          sector: user.sector,
-          userId: user.userId,
-          targetId: selectedAI.userId,
-          client: ctx.drizzle,
+  startArenaBattle: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const ais = await ctx.drizzle.query.userData.findMany({
+        where: eq(userData.isAi, 1),
+        columns: {
+          userId: true,
+          level: true,
         },
-        "ARENA",
-        "coliseum.webp"
-      );
-    }
-  }),
+      });
+
+      const closestAIs = ais.sort((a, b) => {
+        return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
+      });
+      const selectedAI = closestAIs[0];
+      if (selectedAI) {
+        return await initiateBattle(
+          {
+            sector: user.sector,
+            userId: user.userId,
+            targetId: selectedAI.userId,
+            client: ctx.drizzle,
+          },
+          "ARENA",
+          "coliseum.webp"
+        );
+      } else {
+        return { success: false, message: "No AI found" };
+      }
+    }),
   attackUser: protectedProcedure
     .input(
       z.object({
@@ -279,6 +284,7 @@ export const combatRouter = createTRPCRouter({
         userId: z.string(),
       })
     )
+    .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
       return await initiateBattle(
         {
@@ -311,7 +317,7 @@ export const initiateBattle = async (
   },
   battleType: BattleType,
   background = "forest.webp"
-) => {
+): Promise<BaseServerResponse> => {
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
@@ -337,25 +343,27 @@ export const initiateBattle = async (
       users[0]["longitude"] = 4;
       users[0]["latitude"] = 2;
     } else {
-      throw serverError("NOT_FOUND", `Failed to set position of left-hand user`);
+      return { success: false, message: "Failed to set position of left-hand user" };
     }
     if (users?.[1]) {
       users[1]["longitude"] = 8;
       users[1]["latitude"] = 2;
     } else {
-      throw serverError("NOT_FOUND", `Failed to set position of right-hand user`);
+      return { success: false, message: "Failed to set position of right-hand user" };
     }
     if (users[1].immunityUntil > new Date()) {
-      throw serverError(
-        "CONFLICT",
-        `Target is immune from combat until ${users[1].immunityUntil.toLocaleTimeString()}`
-      );
+      return {
+        success: false,
+        message:
+          "Target is immune from combat until " +
+          users[1].immunityUntil.toLocaleTimeString(),
+      };
     }
     if (users[0].status !== "AWAKE") {
-      throw serverError("CONFLICT", `You are not awake`);
+      return { success: false, message: "You are not awake" };
     }
     if (users[1].status !== "AWAKE") {
-      throw serverError("CONFLICT", `Target is not awake`);
+      return { success: false, message: "Target is not awake" };
     }
 
     // Get previous battles between these two users within last 60min
@@ -566,13 +574,13 @@ export const initiateBattle = async (
         )
       );
     if (result.rowsAffected !== 2) {
-      throw serverError("CONFLICT", `Attack failed, did the target move?`);
+      return { success: false, message: "Attack failed, did the target move?" };
     }
     // Push websockets message to target
     const pusher = getServerPusher();
     void pusher.trigger(targetId, "event", { type: "battle" });
 
     // Return the battle
-    return battleId;
+    return { success: true, message: battleId };
   });
 };

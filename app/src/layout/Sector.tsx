@@ -161,9 +161,13 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   const { mutate: attack, isLoading: isAttacking } = api.combat.attackUser.useMutation({
-    onSuccess: async () => {
-      await refetchUser();
-      await router.push("/combat");
+    onSuccess: async (data) => {
+      if (data.success) {
+        await refetchUser();
+        await router.push("/combat");
+      } else {
+        show_toast("Error attacking", data.message, "info");
+      }
     },
     onError: (error) => {
       show_toast("Error attacking", error.message, "error");
