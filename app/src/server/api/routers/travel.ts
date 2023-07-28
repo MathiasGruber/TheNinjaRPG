@@ -36,6 +36,7 @@ export const travelRouter = createTRPCRouter({
           maxHealth: true,
           sector: true,
           avatar: true,
+          level: true,
           immunityUntil: true,
           updatedAt: true,
         },
@@ -130,6 +131,7 @@ export const travelRouter = createTRPCRouter({
           .min(0)
           .max(SECTOR_HEIGHT - 1),
         sector: z.number().int(),
+        level: z.number().int(),
         avatar: z.string().url(),
       })
     )

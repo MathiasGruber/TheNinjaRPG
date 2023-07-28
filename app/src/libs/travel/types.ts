@@ -32,6 +32,7 @@ export interface SectorUser {
   longitude: number;
   latitude: number;
   location: string;
+  level: number;
   immunityUntil: Date;
   updatedAt: Date;
 }

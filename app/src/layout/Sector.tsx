@@ -210,6 +210,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           latitude: next.row,
           sector: sector,
           avatar: userData.avatar,
+          level: userData.level,
         });
       }
     }
@@ -513,7 +514,8 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                 priority
               />
             </div>
-            {user.username}
+            <p>{user.username}</p>
+            <p className="text-white ">Level. {user.level}</p>
           </div>
         ))}
       </div>
