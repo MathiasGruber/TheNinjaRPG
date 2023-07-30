@@ -31,7 +31,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const [editorKey, setEditorKey] = useState<number>(0);
 
   const {
-    data: coments,
+    data: comments,
     fetchNextPage,
     hasNextPage,
     refetch,
@@ -50,8 +50,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       staleTime: Infinity,
     }
   );
-  const allComments = coments?.pages.map((page) => page.data).flat();
-  const conversation = coments?.pages[0]?.convo;
+  const allComments = comments?.pages.map((page) => page.data).flat();
+  const conversation = comments?.pages[0]?.convo;
 
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
@@ -146,7 +146,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                 ref={i === allComments.length - 1 ? setLastElement : null}
               >
                 <CommentOnConversation
-                  user={comment.user}
+                  user={comment}
                   hover_effect={false}
                   comment={comment}
                   refetchComments={async () => await refetch()}

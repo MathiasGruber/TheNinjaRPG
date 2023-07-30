@@ -234,6 +234,7 @@ export const conversationComment = mysqlTable(
   (table) => {
     return {
       userIdIdx: index("ConversationComment_userId_idx").on(table.userId),
+      createdAtIdx: index("ConversationComment_createdAt_idx").on(table.createdAt),
       conversationIdIdx: index("ConversationComment_conversationId_idx").on(
         table.conversationId
       ),
@@ -360,6 +361,7 @@ export const historicalAvatar = mysqlTable(
         table.replicateId
       ),
       avatarKey: uniqueIndex("HistoricalAvatar_avatar_key").on(table.avatar),
+      doneIdx: index("HistoricalAvatar_done_idx").on(table.done),
       userIdIdx: index("HistoricalAvatar_userId_idx").on(table.userId),
       replicateIdIdx: index("HistoricalAvatar_replicateId_idx").on(table.replicateId),
       avatarIdx: index("HistoricalAvatar_avatar_idx").on(table.avatar),
@@ -702,7 +704,6 @@ export const userData = mysqlTable(
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
       battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
-      userIdIdx: index("UserData_userId_idx").on(table.userId),
     };
   }
 );
@@ -942,3 +943,20 @@ export const villageStructureRelations = relations(villageStructure, ({ one }) =
     references: [village.id],
   }),
 }));
+
+export const dataBattleActions = mysqlTable(
+  "DataBattleActions",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    type: mysqlEnum("battleType", ["JUTSU", "ITEM", "BLOODLINE"]).notNull(),
+    battleId: varchar("battleId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).notNull(),
+    battleWon: tinyint("battleWon").default(0).notNull(),
+  },
+  (table) => {
+    return {
+      idKey: uniqueIndex("DataBattleActions_id").on(table.id),
+      typeIdx: index("DataBattleActions_type").on(table.type),
+    };
+  }
+);

@@ -337,25 +337,46 @@ export const commentsRouter = createTRPCRouter({
       });
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.drizzle.query.conversationComment.findMany({
-        offset: skip,
-        limit: input.limit,
-        where: eq(conversationComment.conversationId, convo.id),
-        with: {
-          user: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-        },
-        orderBy: [desc(conversationComment.createdAt)],
-      });
+      const comments = await ctx.drizzle
+        .select({
+          id: conversationComment.id,
+          createdAt: conversationComment.createdAt,
+          conversationId: conversationComment.conversationId,
+          content: conversationComment.content,
+          isPinned: conversationComment.isPinned,
+          userId: userData.userId,
+          username: userData.username,
+          avatar: userData.avatar,
+          rank: userData.rank,
+          level: userData.level,
+          role: userData.role,
+          federalStatus: userData.federalStatus,
+        })
+        .from(conversationComment)
+        .innerJoin(userData, eq(conversationComment.userId, userData.userId))
+        .where(eq(conversationComment.conversationId, convo.id))
+        .orderBy(desc(conversationComment.createdAt))
+        .limit(input.limit)
+        .offset(skip);
+      // const comments = await ctx.drizzle.query.conversationComment.findMany({
+      //   offset: skip,
+      //   limit: input.limit,
+      //   where: eq(conversationComment.conversationId, convo.id),
+      //   with: {
+      //     user: {
+      //       columns: {
+      //         userId: true,
+      //         username: true,
+      //         avatar: true,
+      //         rank: true,
+      //         level: true,
+      //         role: true,
+      //         federalStatus: true,
+      //       },
+      //     },
+      //   },
+      //   orderBy: [desc(conversationComment.createdAt)],
+      // });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
       await ctx.drizzle
         .update(userData)
