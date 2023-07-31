@@ -64,14 +64,22 @@ export const saveActions = async (
   const battleType = battle.battleType;
   if (result && user) {
     const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
+    // Basic actions from this user
     const data: InsertDataBattleActionsSchema[] = [];
     user.usedActions?.map((action) => {
       data.push({ type: action.type, contentId: action.id, battleType, battleWon });
     });
+    // Bloodline actions from this user
     if (user.bloodline) {
       const bid = user.bloodline.id;
       data.push({ type: "bloodline", contentId: bid, battleType, battleWon });
     }
+    // If battle is over, check for any AIs in the battle, and add these as well to the statistics
+    usersState
+      .filter((u) => u.isAi && u.userId === u.controllerId)
+      .map((ai) => {
+        data.push({ type: "ai", contentId: ai.userId, battleType, battleWon });
+      });
     // Reduce data to only have unique type-contentId pairs
     const uniqueData = data.reduce((a, c) => {
       if (!a.find((d) => d.type === c.type && d.contentId === c.contentId)) {

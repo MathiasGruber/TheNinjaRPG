@@ -18,6 +18,7 @@ const ItemStatistics: NextPage = () => {
   const usage = data?.usage;
   const totalUsers = data?.totalUsers ?? 0;
   const total = usage?.reduce((acc, curr) => acc + curr.count, 0) ?? 0;
+  const name = item && "name" in item ? item.name : "";
 
   // Prevent unauthorized access
   if (isLoading) {
@@ -27,7 +28,7 @@ const ItemStatistics: NextPage = () => {
   // Show panel controls
   return (
     <ContentBox
-      title={`Item: ${item?.name ?? ""}`}
+      title={`Item: ${name}`}
       subtitle={`#battles: ${total}. #users: ${totalUsers}`}
       back_href="/manual/items"
     >

@@ -2,17 +2,18 @@ import { z } from "zod";
 import { eq, sql, asc } from "drizzle-orm";
 import { userJutsu, userItem, userData } from "../../../../drizzle/schema";
 import { dataBattleAction } from "../../../../drizzle/schema";
-import { createTRPCRouter, publicProcedure } from "../trpc";
+import { createTRPCRouter, publicProcedure, serverError } from "../trpc";
 import { fetchJutsu } from "./jutsu";
 import { fetchBloodline } from "./bloodline";
 import { fetchItem } from "./item";
+import { fetchUser } from "./profile";
 
 export const dataRouter = createTRPCRouter({
   getStatistics: publicProcedure
     .input(
       z.object({
         id: z.string(),
-        type: z.enum(["jutsu", "item", "bloodline", "basic"]),
+        type: z.enum(["jutsu", "item", "bloodline", "basic", "ai"]),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -72,6 +73,12 @@ export const dataRouter = createTRPCRouter({
           .where(eq(userItem.id, input.id));
         const totalUsers = total?.[0]?.count || 0;
         return { info, usage, totalUsers, levelDistribution: null };
+      } else if (input.type === "ai") {
+        // AI Statistics
+        const info = await fetchUser(ctx.drizzle, input.id);
+        return { info, usage, totalUsers: null, levelDistribution: null };
+      } else {
+        throw serverError("BAD_REQUEST", `Invalid input type: ${input.type}`);
       }
     }),
 });

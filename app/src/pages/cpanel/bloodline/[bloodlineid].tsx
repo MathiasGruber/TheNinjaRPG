@@ -19,6 +19,7 @@ const BloodlineStatistics: NextPage = () => {
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
   const total = usage?.reduce((acc, curr) => acc + curr.count, 0) ?? 0;
+  const name = bloodline && "name" in bloodline ? bloodline.name : "";
 
   // Prevent unauthorized access
   if (isLoading) {
@@ -29,7 +30,7 @@ const BloodlineStatistics: NextPage = () => {
   return (
     <>
       <ContentBox
-        title={`Bloodline: ${bloodline?.name ?? ""}`}
+        title={`Bloodline: ${name}`}
         subtitle={`Total users: ${totalUsers}`}
         back_href="/manual/bloodlines"
       >

@@ -19,6 +19,7 @@ const JutsuStatistics: NextPage = () => {
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
   const total = usage?.reduce((acc, curr) => acc + curr.count, 0) ?? 0;
+  const name = jutsu && "name" in jutsu ? jutsu.name : "";
 
   // Prevent unauthorized access
   if (isLoading) {
@@ -29,7 +30,7 @@ const JutsuStatistics: NextPage = () => {
   return (
     <>
       <ContentBox
-        title={`Jutsu: ${jutsu?.name ?? ""}`}
+        title={`Jutsu: ${name}`}
         subtitle={`Total users: ${totalUsers}`}
         back_href="/manual/jutsus"
       >
