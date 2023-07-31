@@ -25,16 +25,17 @@ const JutsuStatistics: NextPage = () => {
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
 
+  // Calc battle usage
+  const wins = usage?.find((x) => x.battleWon === 1)?.count ?? 0;
+  const losses = usage?.find((x) => x.battleWon === 0)?.count ?? 0;
+  const flees = usage?.find((x) => x.battleWon === 2)?.count ?? 0;
+  const total = wins + losses + flees ? wins + losses + flees : 1;
+
   useEffect(() => {
     const ctx1 = baseUsageRef?.current?.getContext("2d");
     const ctx2 = battleUsageRef?.current?.getContext("2d");
     if (ctx1 && ctx2) {
       // Draw battle usage
-      const wins = usage?.find((x) => x.battleWon === 1)?.count ?? 0;
-      const losses = usage?.find((x) => x.battleWon === 0)?.count ?? 0;
-      const flees = usage?.find((x) => x.battleWon === 2)?.count ?? 0;
-      const total = wins + losses + flees ? wins + losses + flees : 1;
-
       const myChart2 = new ChartJS(ctx2, {
         type: "bar",
         options: {
@@ -96,7 +97,7 @@ const JutsuStatistics: NextPage = () => {
         myChart2.destroy();
       };
     }
-  }, [levelDistribution]);
+  }, [levelDistribution, wins, losses, flees, total]);
 
   // Prevent unauthorized access
   if (isLoading) {
@@ -117,7 +118,7 @@ const JutsuStatistics: NextPage = () => {
       </ContentBox>
       <ContentBox
         title="Usage Statistics"
-        subtitle={`Battle data: ${jutsu?.name ?? ""}`}
+        subtitle={`Total battles: ${total}`}
         initialBreak={true}
       >
         <div className="relative w-[99%]">
