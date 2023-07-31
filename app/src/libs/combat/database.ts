@@ -1,8 +1,10 @@
 import { eq, and, sql } from "drizzle-orm";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";
 import { battle, battleAction, userData } from "../../../drizzle/schema";
+import { dataBattleAction } from "../../../drizzle/schema";
 import type { DrizzleClient } from "../../server/db";
 import type { Battle } from "../../../drizzle/schema";
+import type { InsertDataBattleActionsSchema } from "../../../drizzle/schema";
 import type { CombatResult, ReturnedUserState } from "./types";
 import type { UserEffect, GroundEffect, ActionEffect } from "./types";
 
@@ -46,6 +48,39 @@ export const updateBattle = async (
     groundEffects: newGroundEffects,
   };
   return newBattle;
+};
+
+/**
+ * Insert battle actions for usage analytics
+ */
+export const saveActions = async (
+  client: DrizzleClient,
+  usersState: ReturnedUserState[],
+  result: CombatResult | null,
+  userId: string
+) => {
+  const user = usersState.find((user) => user.userId === userId);
+  if (result && user) {
+    const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
+    const data: InsertDataBattleActionsSchema[] = [];
+    user.usedActions?.map((action) => {
+      data.push({ type: action.type, contentId: action.id, battleWon });
+    });
+    if (user.bloodline) {
+      data.push({ type: "bloodline", contentId: user.bloodline.id, battleWon });
+    }
+    // Reduce data to only have unique type-contentId pairs
+    const uniqueData = data.reduce((a, c) => {
+      if (!a.find((d) => d.type === c.type && d.contentId === c.contentId)) {
+        return a.concat([c]);
+      } else {
+        return a;
+      }
+    }, [] as InsertDataBattleActionsSchema[]);
+    if (uniqueData.length > 0) {
+      await client.insert(dataBattleAction).values(uniqueData);
+    }
+  }
 };
 
 /**

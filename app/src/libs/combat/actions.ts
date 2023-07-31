@@ -314,7 +314,7 @@ export const insertAction = (info: {
     action.effects.forEach((effect) => {
       updateStatUsage(user, effect as UserEffect);
     });
-    user.usedActionIDs.push(action.id);
+    user.usedActions.push({ id: action.id, type: action.type });
     // Update pools & action timer based on action
     if (affectedTiles.size > 0) {
       user.curChakra -= cpCost;

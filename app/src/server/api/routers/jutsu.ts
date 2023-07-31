@@ -2,6 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, gte, asc } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "../../../../drizzle/schema";
+import { dataBattleAction } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
 import { canTrainJutsu } from "../../../libs/train";
@@ -44,12 +45,20 @@ export const jutsuRouter = createTRPCRouter({
         .groupBy(userJutsu.level)
         .where(eq(userJutsu.jutsuId, input.id))
         .orderBy(asc(userJutsu.level));
+      const usage = await ctx.drizzle
+        .select({
+          battleWon: dataBattleAction.battleWon,
+          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+        })
+        .from(dataBattleAction)
+        .groupBy(dataBattleAction.battleWon)
+        .where(eq(dataBattleAction.contentId, input.id));
       const total = await ctx.drizzle
         .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(userJutsu)
         .where(eq(userJutsu.jutsuId, input.id));
       const totalUsers = total?.[0]?.count || 0;
-      return { jutsu: info, totalUsers, levelDistribution };
+      return { jutsu: info, usage, totalUsers, levelDistribution };
     }),
   getAll: publicProcedure
     .input(

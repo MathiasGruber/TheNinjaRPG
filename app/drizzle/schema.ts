@@ -944,13 +944,15 @@ export const villageStructureRelations = relations(villageStructure, ({ one }) =
   }),
 }));
 
-export const dataBattleActions = mysqlTable(
-  "DataBattleActions",
+export const dataBattleAction = mysqlTable(
+  "DataBattleAction",
   {
     id: int("id").autoincrement().primaryKey().notNull(),
-    type: mysqlEnum("battleType", ["JUTSU", "ITEM", "BLOODLINE"]).notNull(),
-    battleId: varchar("battleId", { length: 191 }).notNull(),
-    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).notNull(),
+    type: mysqlEnum("battleType", ["jutsu", "item", "bloodline", "basic"]).notNull(),
+    contentId: varchar("contentId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     battleWon: tinyint("battleWon").default(0).notNull(),
   },
   (table) => {
@@ -960,3 +962,5 @@ export const dataBattleActions = mysqlTable(
     };
   }
 );
+export const insertDataBattleActions = createInsertSchema(dataBattleAction);
+export type InsertDataBattleActionsSchema = z.infer<typeof insertDataBattleActions>;

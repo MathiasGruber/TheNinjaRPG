@@ -13,6 +13,7 @@ const JutsuStatistics: NextPage = () => {
 
   // Canvas refs
   const baseUsageRef = useRef<HTMLCanvasElement>(null);
+  const battleUsageRef = useRef<HTMLCanvasElement>(null);
 
   // Queries
   const { data, isLoading } = api.jutsu.getStatistics.useQuery(
@@ -20,34 +21,61 @@ const JutsuStatistics: NextPage = () => {
     { staleTime: Infinity, enabled: jutsuId !== undefined }
   );
   const jutsu = data?.jutsu;
+  const usage = data?.usage;
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
 
-  // Draw charts
   useEffect(() => {
-    const ctx = baseUsageRef?.current?.getContext("2d");
-    if (ctx) {
+    const ctx1 = baseUsageRef?.current?.getContext("2d");
+    const ctx2 = battleUsageRef?.current?.getContext("2d");
+    if (ctx1 && ctx2) {
+      // Draw battle usage
+      const wins = usage?.find((x) => x.battleWon === 1)?.count ?? 0;
+      const losses = usage?.find((x) => x.battleWon === 0)?.count ?? 0;
+      const flees = usage?.find((x) => x.battleWon === 2)?.count ?? 0;
+      const total = wins + losses + flees ? wins + losses + flees : 1;
+
+      const myChart2 = new ChartJS(ctx2, {
+        type: "bar",
+        options: {
+          responsive: true,
+          indexAxis: "y",
+          scales: {
+            x: {
+              stacked: true,
+              title: { display: true, text: "Change of Outcome [%]" },
+            },
+            y: {
+              stacked: true,
+              title: { display: false },
+            },
+          },
+        },
+        data: {
+          labels: [""],
+          datasets: [
+            { data: [(100 * wins) / total], label: "Won" },
+            { data: [(100 * losses) / total], label: "Lost" },
+            { data: [(100 * flees) / total], label: "Fled" },
+          ],
+        },
+      });
+      // Draw base charts
       const labels = levelDistribution?.map((x) => x.level) ?? [];
       const counts = levelDistribution?.map((x) => x.count) ?? [];
-      const myChart = new ChartJS(ctx, {
+      const myChart1 = new ChartJS(ctx1, {
         type: "bar",
         options: {
           scales: {
             x: {
               type: "linear",
               ticks: { stepSize: 1 },
-              title: {
-                display: true,
-                text: "Jutsu Level",
-              },
+              title: { display: true, text: "Jutsu Level" },
             },
             y: {
               type: "linear",
               ticks: { stepSize: 1 },
-              title: {
-                display: true,
-                text: "#Users",
-              },
+              title: { display: true, text: "#Users" },
             },
           },
         },
@@ -64,7 +92,8 @@ const JutsuStatistics: NextPage = () => {
         },
       });
       return () => {
-        myChart.destroy();
+        myChart1.destroy();
+        myChart2.destroy();
       };
     }
   }, [levelDistribution]);
@@ -91,7 +120,9 @@ const JutsuStatistics: NextPage = () => {
         subtitle={`Battle data: ${jutsu?.name ?? ""}`}
         initialBreak={true}
       >
-        Information on jutsu usage statistics
+        <div className="relative w-[99%]">
+          <canvas ref={battleUsageRef} id="battleUsage"></canvas>
+        </div>
       </ContentBox>
     </>
   );

@@ -10,7 +10,8 @@ import { COMBAT_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
-import { updateUser, updateBattle, createAction } from "../../../libs/combat/database";
+import { createAction, saveActions } from "../../../libs/combat/database";
+import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { userData } from "../../../../drizzle/schema";
@@ -86,6 +87,10 @@ export const combatRouter = createTRPCRouter({
   performAction: protectedProcedure
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
+      // Short-form
+      const uid = ctx.userId;
+      const db = ctx.drizzle;
+
       // Create the grid for the battle
       const Tile = defineHex({ dimensions: 1, orientation: Orientation.FLAT });
       const grid = new Grid(
@@ -104,7 +109,7 @@ export const combatRouter = createTRPCRouter({
       let attempts = 0;
       while (true) {
         // Fetch battle
-        const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+        const userBattle = await fetchBattle(db, input.battleId);
         if (!userBattle) {
           return { updateClient: true, battle: null, result: null, notification: null };
         }
@@ -124,7 +129,7 @@ export const combatRouter = createTRPCRouter({
         // If userId, actionID, and position specified, perform user action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
           // Get action
-          const actions = availableUserActions(usersState, ctx.userId);
+          const actions = availableUserActions(usersState, uid);
           const action = actions.find((a) => a.id === input.actionId);
           if (!action) {
             throw serverError("CONFLICT", `Invalid action`);
@@ -137,7 +142,7 @@ export const combatRouter = createTRPCRouter({
             groundEffects,
             grid,
             action,
-            contextUserId: ctx.userId,
+            contextUserId: uid,
             actionUserId: input.userId,
             longitude: input.longitude,
             latitude: input.latitude,
@@ -185,7 +190,7 @@ export const combatRouter = createTRPCRouter({
         // Calculate if the battle is over for this user, and if so update user DB
         const { finalUsersState, result } = calcBattleResult(
           nextUsersState,
-          ctx.userId,
+          uid,
           userBattle.rewardScaling
         );
 
@@ -202,7 +207,7 @@ export const combatRouter = createTRPCRouter({
          */
         try {
           const newBattle = await updateBattle(
-            ctx.drizzle,
+            db,
             result,
             userBattle,
             finalUsersState,
@@ -211,14 +216,15 @@ export const combatRouter = createTRPCRouter({
           );
 
           // Return the new battle + results state if applicable
-          const newMaskedBattle = maskBattle(newBattle, ctx.userId);
+          const newMaskedBattle = maskBattle(newBattle, uid);
           await createAction(
             battleDescriptions.join(". "),
             userBattle,
             actionEffects,
-            ctx.drizzle
+            db
           );
-          await updateUser(result, newBattle, ctx.userId, ctx.drizzle);
+          await saveActions(db, finalUsersState, result, uid);
+          await updateUser(result, newBattle, uid, db);
 
           // Return the new battle + result state if applicable
           return {
@@ -438,7 +444,7 @@ export const initiateBattle = async (
       // Set the history lists to record actions during battle
       user.usedGenerals = [];
       user.usedStats = [];
-      user.usedActionIDs = [];
+      user.usedActions = [];
 
       // Add bloodline efects
       if (user.bloodline?.effects) {

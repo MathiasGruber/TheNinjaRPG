@@ -37,7 +37,7 @@ export type BattleUserState = UserData & {
   originalMoney: number;
   usedGenerals: typeof GeneralType[number][];
   usedStats: typeof StatNames[number][];
-  usedActionIDs: string[];
+  usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
 };
 
 /**
