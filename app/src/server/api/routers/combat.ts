@@ -223,7 +223,7 @@ export const combatRouter = createTRPCRouter({
             actionEffects,
             db
           );
-          await saveActions(db, finalUsersState, result, uid);
+          await saveActions(db, userBattle, finalUsersState, result, uid);
           await updateUser(result, newBattle, uid, db);
 
           // Return the new battle + result state if applicable
@@ -235,7 +235,6 @@ export const combatRouter = createTRPCRouter({
           };
         } catch (e) {
           if (attempts > 2) {
-            console.error(e);
             throw e;
           }
         }

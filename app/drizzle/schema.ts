@@ -948,8 +948,9 @@ export const dataBattleAction = mysqlTable(
   "DataBattleAction",
   {
     id: int("id").autoincrement().primaryKey().notNull(),
-    type: mysqlEnum("battleType", ["jutsu", "item", "bloodline", "basic"]).notNull(),
+    type: mysqlEnum("type", ["jutsu", "item", "bloodline", "basic"]).notNull(),
     contentId: varchar("contentId", { length: 191 }).notNull(),
+    battleType: mysqlEnum("battleType", ["ARENA", "COMBAT", "SPARRING"]).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

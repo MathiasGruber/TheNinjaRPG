@@ -55,19 +55,22 @@ export const updateBattle = async (
  */
 export const saveActions = async (
   client: DrizzleClient,
+  battle: Battle,
   usersState: ReturnedUserState[],
   result: CombatResult | null,
   userId: string
 ) => {
   const user = usersState.find((user) => user.userId === userId);
+  const battleType = battle.battleType;
   if (result && user) {
     const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
     const data: InsertDataBattleActionsSchema[] = [];
     user.usedActions?.map((action) => {
-      data.push({ type: action.type, contentId: action.id, battleWon });
+      data.push({ type: action.type, contentId: action.id, battleType, battleWon });
     });
     if (user.bloodline) {
-      data.push({ type: "bloodline", contentId: user.bloodline.id, battleWon });
+      const bid = user.bloodline.id;
+      data.push({ type: "bloodline", contentId: bid, battleType, battleWon });
     }
     // Reduce data to only have unique type-contentId pairs
     const uniqueData = data.reduce((a, c) => {
