@@ -1,24 +1,22 @@
 import { z } from "zod";
 import { eq, sql, asc } from "drizzle-orm";
-import { userJutsu } from "../../../../drizzle/schema";
+import { userJutsu, userItem, userData } from "../../../../drizzle/schema";
 import { dataBattleAction } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { fetchJutsu } from "./jutsu";
+import { fetchBloodline } from "./bloodline";
+import { fetchItem } from "./item";
 
 export const dataRouter = createTRPCRouter({
   getStatistics: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(
+      z.object({
+        id: z.string(),
+        type: z.enum(["jutsu", "item", "bloodline", "basic"]),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const info = await fetchJutsu(ctx.drizzle, input.id);
-      const levelDistribution = await ctx.drizzle
-        .select({
-          level: userJutsu.level,
-          count: sql<number>`COUNT(${userJutsu.userId})`.mapWith(Number),
-        })
-        .from(userJutsu)
-        .groupBy(userJutsu.level)
-        .where(eq(userJutsu.jutsuId, input.id))
-        .orderBy(asc(userJutsu.level));
+      // General User Statistics
       const usage = await ctx.drizzle
         .select({
           battleWon: dataBattleAction.battleWon,
@@ -28,11 +26,52 @@ export const dataRouter = createTRPCRouter({
         .from(dataBattleAction)
         .groupBy(dataBattleAction.battleWon, dataBattleAction.battleType)
         .where(eq(dataBattleAction.contentId, input.id));
-      const total = await ctx.drizzle
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(userJutsu)
-        .where(eq(userJutsu.jutsuId, input.id));
-      const totalUsers = total?.[0]?.count || 0;
-      return { jutsu: info, usage, totalUsers, levelDistribution };
+      // Process different inputs
+      if (input.type === "jutsu") {
+        // Jutsu Statistics
+        const info = await fetchJutsu(ctx.drizzle, input.id);
+        const levelDistribution = await ctx.drizzle
+          .select({
+            level: userJutsu.level,
+            count: sql<number>`COUNT(${userJutsu.userId})`.mapWith(Number),
+          })
+          .from(userJutsu)
+          .groupBy(userJutsu.level)
+          .where(eq(userJutsu.jutsuId, input.id))
+          .orderBy(asc(userJutsu.level));
+        const total = await ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userJutsu)
+          .where(eq(userJutsu.jutsuId, input.id));
+        const totalUsers = total?.[0]?.count || 0;
+        return { info, usage, totalUsers, levelDistribution };
+      } else if (input.type === "bloodline") {
+        // Bloodline Statistics
+        const info = await fetchBloodline(ctx.drizzle, input.id);
+        const levelDistribution = await ctx.drizzle
+          .select({
+            level: userData.level,
+            count: sql<number>`COUNT(${userData.userId})`.mapWith(Number),
+          })
+          .from(userData)
+          .groupBy(userData.level)
+          .where(eq(userData.bloodlineId, input.id))
+          .orderBy(asc(userData.level));
+        const total = await ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userData)
+          .where(eq(userData.bloodlineId, input.id));
+        const totalUsers = total?.[0]?.count || 0;
+        return { info, usage, totalUsers, levelDistribution };
+      } else if (input.type === "item") {
+        // Item Statistics
+        const info = await fetchItem(ctx.drizzle, input.id);
+        const total = await ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userItem)
+          .where(eq(userItem.id, input.id));
+        const totalUsers = total?.[0]?.count || 0;
+        return { info, usage, totalUsers, levelDistribution: null };
+      }
     }),
 });

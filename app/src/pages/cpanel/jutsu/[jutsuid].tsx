@@ -11,10 +11,10 @@ const JutsuStatistics: NextPage = () => {
 
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
-    { id: jutsuId },
+    { id: jutsuId, type: "jutsu" },
     { staleTime: Infinity, enabled: jutsuId !== undefined }
   );
-  const jutsu = data?.jutsu;
+  const jutsu = data?.info;
   const usage = data?.usage;
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
@@ -33,7 +33,13 @@ const JutsuStatistics: NextPage = () => {
         subtitle={`Total users: ${totalUsers}`}
         back_href="/manual/jutsus"
       >
-        {levelDistribution && <LevelStats levelDistribution={levelDistribution} />}
+        {levelDistribution && (
+          <LevelStats
+            levelDistribution={levelDistribution}
+            title="#Users vs. Jutsu Level"
+            xaxis="Jutsu Level"
+          />
+        )}
       </ContentBox>
       <ContentBox
         title="Usage Statistics"

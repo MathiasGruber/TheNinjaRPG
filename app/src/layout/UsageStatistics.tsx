@@ -7,10 +7,12 @@ interface LevelStatsProps {
     level: number;
     count: number;
   }[];
+  title: string;
+  xaxis: string;
 }
 
 export const LevelStats: React.FC<LevelStatsProps> = (props) => {
-  const { levelDistribution } = props;
+  const { levelDistribution, title, xaxis } = props;
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export const LevelStats: React.FC<LevelStatsProps> = (props) => {
             x: {
               type: "linear",
               ticks: { stepSize: 1 },
-              title: { display: true, text: "Jutsu Level" },
+              title: { display: true, text: xaxis },
             },
             y: {
               type: "linear",
@@ -39,7 +41,7 @@ export const LevelStats: React.FC<LevelStatsProps> = (props) => {
           datasets: [
             {
               data: counts,
-              label: "#Users vs. Jutsu Level",
+              label: title,
               borderColor: "#3e95cd",
               backgroundColor: "#7bb6dd",
             },
