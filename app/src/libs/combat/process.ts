@@ -1,7 +1,8 @@
 import type { BattleUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
 import type { AnimationNames } from "./types";
-import { VisualTag, type Consequence } from "./types";
+import type { CompleteBattle, Consequence } from "./types";
+import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes, isEffectStillActive } from "./util";
@@ -87,15 +88,11 @@ const getVisual = (
   };
 };
 
-export const applyEffects = (
-  usersState: BattleUserState[],
-  usersEffects: UserEffect[],
-  groundEffects: GroundEffect[]
-) => {
+export const applyEffects = (battle: CompleteBattle) => {
+  // Destructure
+  const { usersState, usersEffects, groundEffects } = battle;
   // Things we wish to return
-  const newUsersState: BattleUserState[] = usersState.map((s) => {
-    return { ...s };
-  });
+  const newUsersState = structuredClone(usersState);
   const newGroundEffects: GroundEffect[] = [];
   const newUsersEffects: UserEffect[] = [];
   const actionEffects: ActionEffect[] = [];
@@ -294,9 +291,12 @@ export const applyEffects = (
     });
 
   return {
-    newUsersState,
-    newUsersEffects,
-    newGroundEffects,
+    newBattle: {
+      ...battle,
+      usersState: newUsersState,
+      usersEffects: newUsersEffects,
+      groundEffects: newGroundEffects,
+    },
     actionEffects,
   };
 };

@@ -1,7 +1,6 @@
 export const COMBAT_WIDTH = 13;
 export const COMBAT_HEIGHT = 4;
-export const COMBAT_SECONDS = 10;
-export const COMBAT_PREMOVE_SECONDS = 0.5;
+export const COMBAT_SECONDS = 30;
 
 /**
  * Which user state is public
@@ -28,6 +27,7 @@ export const publicState = [
   "isOriginal",
   "isAi",
   "controllerId",
+  "actionPoints",
 ] as const;
 
 /**

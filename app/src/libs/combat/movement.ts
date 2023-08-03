@@ -51,22 +51,6 @@ export const isValidMove = (info: {
   return false;
 };
 
-/**
- * Returns how many seconds will be left on action timer after performing an action
- */
-export const actionSecondsAfterAction = (
-  user: { updatedAt: string | Date },
-  action: CombatAction,
-  timeDiff = 0
-) => {
-  const timeSinceLastAction = Math.min(
-    secondsPassed(new Date(user.updatedAt)) - timeDiff / 1000,
-    COMBAT_SECONDS
-  );
-  const timeCostForAction = (action.actionCostPerc / 100) * COMBAT_SECONDS;
-  return timeSinceLastAction - timeCostForAction;
-};
-
 export const getAffectedTiles = (info: {
   a: TerrainHex;
   b: TerrainHex;

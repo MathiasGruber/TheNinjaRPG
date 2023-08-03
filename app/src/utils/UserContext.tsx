@@ -4,22 +4,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@clerk/nextjs";
 import type Pusher from "pusher-js";
 import type { UserWithRelations } from "../server/api/routers/profile";
-import type { UserEffect, GroundEffect } from "../libs/combat/types";
-import type { BattleType } from "../../drizzle/schema";
-import type { ReturnedUserState } from "../libs/combat/types";
-
-// Create type for battle, which contains information on user current state
-export type UserBattle = {
-  usersState: ReturnedUserState[];
-  usersEffects: UserEffect[];
-  groundEffects: GroundEffect[];
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  background: string;
-  battleType: BattleType;
-  version: number;
-};
+import type { ReturnedBattle } from "../libs/combat/types";
 
 // Events sent to the user from websockets
 export type UserEvent = {
@@ -29,11 +14,11 @@ export type UserEvent = {
 // User (& current battle) context
 export const UserContext = createContext<{
   data: UserWithRelations;
-  battle: UserBattle | undefined;
+  battle: ReturnedBattle | undefined;
   status: string;
   pusher: Pusher | undefined;
   timeDiff: number;
-  setBattle: React.Dispatch<React.SetStateAction<UserBattle | undefined>>;
+  setBattle: React.Dispatch<React.SetStateAction<ReturnedBattle | undefined>>;
   refetch: (options?: any) => Promise<any> | void;
 }>({
   data: undefined,

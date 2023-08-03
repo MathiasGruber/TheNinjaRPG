@@ -9,7 +9,7 @@ import type { StatNames } from "./constants";
 import type { Jutsu, Item, Bloodline } from "../../../drizzle/schema";
 import type { UserData, UserJutsu, UserItem, Village } from "../../../drizzle/schema";
 import type { TerrainHex } from "../hexgrid";
-import type { UserBattle } from "../../utils/UserContext";
+import type { BattleType } from "../../../drizzle/schema";
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user
@@ -27,6 +27,7 @@ export type BattleUserState = UserData & {
   highestDefence: number;
   highestOffence_type: typeof StatNames[number];
   highestDefence_type: typeof StatNames[number];
+  actionPoints: number;
   armor: number;
   hidden?: boolean;
   isOriginal: boolean;
@@ -40,11 +41,34 @@ export type BattleUserState = UserData & {
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
 };
 
+// Create type for battle, which contains information on user current state
+export type CompleteBattle = {
+  usersState: BattleUserState[];
+  usersEffects: UserEffect[];
+  groundEffects: GroundEffect[];
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  roundStartedAt: Date;
+  round: number;
+  background: string;
+  battleType: BattleType;
+  version: number;
+  rewardScaling: number;
+};
+
 /**
  * User state returned is masked to hide confidential information about other players
  */
 export type ReturnedUserState = Pick<BattleUserState, typeof publicState[number]> &
   Partial<BattleUserState>;
+
+/**
+ * A returned battle used on frontend where private information is hidden
+ */
+export type ReturnedBattle = CompleteBattle & {
+  usersState: ReturnedUserState[];
+};
 
 /**
  * Result type for users when battle is ended
@@ -96,7 +120,7 @@ export type CombatAction = {
 };
 
 export interface BattleState {
-  battle?: UserBattle | null;
+  battle?: ReturnedBattle | null;
   result: CombatResult | null;
   isLoading: boolean;
 }

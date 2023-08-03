@@ -18,12 +18,13 @@ import type { Scene, Object3D, Event, Raycaster } from "three";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { getPossibleActionTiles, findHex, defineHex } from "../hexgrid";
 import { Animations } from "./types";
-import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_PREMOVE_SECONDS } from "./constants";
-import { actionSecondsAfterAction, getAffectedTiles } from "./movement";
+import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
+import { getAffectedTiles } from "./movement";
+import { actionPointsAfterAction } from "./actions";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
-import type { UserBattle } from "../../utils/UserContext";
+import type { ReturnedBattle } from "./types";
 import type { SpriteMixer } from "../threejs/SpriteMixer";
 
 /**
@@ -571,7 +572,7 @@ export const highlightTiles = (info: {
   user: ReturnedUserState;
   timeDiff: number;
   action: CombatAction | undefined;
-  battle: UserBattle;
+  battle: ReturnedBattle;
   grid: Grid<TerrainHex>;
   currentHighlights: Set<string>;
 }) => {
@@ -602,9 +603,7 @@ export const highlightTiles = (info: {
 
   // Check if we have enough action points to perform action
   const canAct =
-    user &&
-    action &&
-    actionSecondsAfterAction(user, action, timeDiff) >= -COMBAT_PREMOVE_SECONDS;
+    user && action && actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
   const hit = intersects.length > 0 && intersects[0];
 
   // Check if cooldown for action has expired
@@ -756,7 +755,7 @@ export const setStatusBarVisibility = (userMesh: Group, visible: boolean) => {
 export const highlightTooltips = (info: {
   group_ground: Group;
   raycaster: Raycaster;
-  battle: UserBattle;
+  battle: ReturnedBattle;
   currentTooltips: Set<string>;
 }) => {
   // Definitions

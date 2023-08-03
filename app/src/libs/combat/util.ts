@@ -3,7 +3,7 @@ import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS } from "./constants";
 import { randomInt } from "../../utils/math";
-import type { CombatResult } from "./types";
+import type { CombatResult, CompleteBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
@@ -217,11 +217,8 @@ export const maskBattle = (battle: Battle, userId: string) => {
 /**
  * Figure out if user is still in battle, and if not whether the user won or lost
  */
-export const calcBattleResult = (
-  users: BattleUserState[],
-  userId: string,
-  rewardScaling: number
-) => {
+export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
+  const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   const originals = users.filter((u) => u.isOriginal);
   if (user && !user.leftBattle) {
@@ -244,7 +241,7 @@ export const calcBattleResult = (
       const uExp = friends.reduce((a, b) => a + b.experience, 0) / friends.length;
       const oExp = targets.reduce((a, b) => a + b.experience, 0) / targets.length;
       const didWin = user.curHealth > 0 && !user.fledBattle;
-      const maxGain = 32 * rewardScaling;
+      const maxGain = 32 * battle.rewardScaling;
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
       const experience = !user.fledBattle ? (didWin ? eloDiff : eloDiff / 2) : 0.01;
@@ -311,10 +308,10 @@ export const calcBattleResult = (
       });
 
       // Return results
-      return { finalUsersState: users, result: result };
+      return result;
     }
   }
-  return { finalUsersState: users, result: null };
+  return null;
 };
 
 /**
