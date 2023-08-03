@@ -28,6 +28,7 @@ import type { Item, UserItem, BattleType } from "../../../../drizzle/schema";
 import type { BattleUserState } from "../../../libs/combat/types";
 import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import type { ActionEffect } from "../../../libs/combat/types";
+import type { CompleteBattle } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
 
 export const combatRouter = createTRPCRouter({
@@ -46,11 +47,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Calculate if the battle is over for this user, and if so update user DB
-      const { result } = calcBattleResult(
-        userBattle.usersState as BattleUserState[],
-        ctx.userId,
-        userBattle.rewardScaling
-      );
+      const result = calcBattleResult(userBattle, ctx.userId);
 
       // Hide private state of non-session user
       const newMaskedBattle = maskBattle(userBattle, ctx.userId);
@@ -109,27 +106,20 @@ export const combatRouter = createTRPCRouter({
       let attempts = 0;
       while (true) {
         // Fetch battle
-        const userBattle = await fetchBattle(db, input.battleId);
-        if (!userBattle) {
+        const battle = await fetchBattle(db, input.battleId);
+        if (!battle) {
           return { updateClient: true, battle: null, result: null, notification: null };
         }
 
-        // Cast to correct types
-        const usersState = userBattle.usersState as BattleUserState[];
-        const usersEffects = userBattle.usersEffects as UserEffect[];
-        const groundEffects = userBattle.groundEffects as GroundEffect[];
-        const battleDescriptions: string[] = [];
-
         // Instantiate new state variables
-        let newUsersEffects: UserEffect[];
-        let newGroundEffects: GroundEffect[];
-        let newUsersState: BattleUserState[];
-        let actionEffects: ActionEffect[];
+        const battleDescriptions: string[] = [];
+        let actionEffects: ActionEffect[] = [];
+        let newBattle: CompleteBattle = battle;
 
         // If userId, actionID, and position specified, perform user action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
           // Get action
-          const actions = availableUserActions(usersState, uid);
+          const actions = availableUserActions(battle.usersState, uid);
           const action = actions.find((a) => a.id === input.actionId);
           if (!action) {
             throw serverError("CONFLICT", `Invalid action`);
@@ -137,13 +127,11 @@ export const combatRouter = createTRPCRouter({
 
           // Attempt to perform action
           const newState = performBattleAction({
-            usersState,
-            usersEffects,
-            groundEffects,
-            grid,
+            battle,
             action,
+            grid,
             contextUserId: uid,
-            actionUserId: input.userId,
+            userId: input.userId,
             longitude: input.longitude,
             latitude: input.latitude,
           });
@@ -156,49 +144,31 @@ export const combatRouter = createTRPCRouter({
             };
           }
           // Update state variables
-          ({ newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-            newState);
+          ({ newBattle, actionEffects } = newState);
+
           // Add description of battle action, which is used for showing battle log
           battleDescriptions.push(action.battleDescription);
-        } else {
-          // If no action specified, point new state variables to previous (no copy), preparing for AI action
-          newUsersEffects = usersEffects;
-          newGroundEffects = groundEffects;
-          newUsersState = usersState;
-          actionEffects = [];
         }
 
         // Attempt to perform AI action
-        const {
-          nextUsersState,
-          nextUsersEffects,
-          nextGroundEffects,
-          nextActionEffects,
-          description,
-        } = performAIaction(newUsersState, newUsersEffects, newGroundEffects, grid);
-        battleDescriptions.push(description);
-        actionEffects = actionEffects.concat(nextActionEffects);
+        const newState = performAIaction(newBattle, grid);
+        const { nextBattle, nextActionEffects, aiDescriptions } = newState;
+        const description = battleDescriptions.concat(aiDescriptions).join(". ");
+        actionEffects.push(...nextActionEffects);
 
         // If no description, means no actions, just return now
         if (!battleDescriptions) {
-          throw serverError(
-            "BAD_REQUEST",
-            "Somehow no battle description generated. Reported to staff and will be investigated!"
-          );
+          throw serverError("BAD_REQUEST", "No battle description generated");
         }
 
         // Calculate if the battle is over for this user, and if so update user DB
-        const { finalUsersState, result } = calcBattleResult(
-          nextUsersState,
-          uid,
-          userBattle.rewardScaling
-        );
+        const result = calcBattleResult(nextBattle, uid);
 
         // Optimistic update for all other users before we process request
         const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
         if (!battleOver) {
-          void pusher.trigger(userBattle.id, "event", {
-            version: userBattle.version + 1,
+          void pusher.trigger(battle.id, "event", {
+            version: battle.version + 1,
           });
         }
 
@@ -206,25 +176,11 @@ export const combatRouter = createTRPCRouter({
          * DATABASE UPDATES in parallel transaction
          */
         try {
-          const newBattle = await updateBattle(
-            db,
-            result,
-            userBattle,
-            finalUsersState,
-            nextUsersEffects,
-            nextGroundEffects
-          );
-
-          // Return the new battle + results state if applicable
+          const newBattle = await updateBattle(db, result, nextBattle);
+          await saveActions(db, nextBattle, result, uid);
+          await updateUser(result, nextBattle, uid, db);
+          await createAction(description, nextBattle, actionEffects, db);
           const newMaskedBattle = maskBattle(newBattle, uid);
-          await createAction(
-            battleDescriptions.join(". "),
-            userBattle,
-            actionEffects,
-            db
-          );
-          await saveActions(db, userBattle, finalUsersState, result, uid);
-          await updateUser(result, newBattle, uid, db);
 
           // Return the new battle + result state if applicable
           return {
@@ -306,9 +262,13 @@ export const combatRouter = createTRPCRouter({
 });
 
 export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
-  return await client.query.battle.findFirst({
+  const result = await client.query.battle.findFirst({
     where: eq(battle.id, battleId),
   });
+  if (!result) {
+    return null;
+  }
+  return result as CompleteBattle;
 };
 
 export const initiateBattle = async (
@@ -407,11 +367,7 @@ export const initiateBattle = async (
       user.isOriginal = true;
 
       // Set the updated at to now, so that action bar starts at 0
-      if (battleType !== "ARENA") {
-        user.updatedAt = new Date();
-      } else {
-        user.updatedAt = secondsFromDate(-COMBAT_SECONDS / 2, new Date());
-      }
+      user.updatedAt = new Date();
 
       // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
       // Therefore we need to calculate the current pools here, before inserting the user into battle
@@ -439,6 +395,7 @@ export const initiateBattle = async (
 
       // Remember how much money this user had
       user.originalMoney = user.money;
+      user.actionPoints = 100;
 
       // Set the history lists to record actions during battle
       user.usedGenerals = [];

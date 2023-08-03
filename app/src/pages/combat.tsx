@@ -18,7 +18,6 @@ const CombatPage: NextPage = () => {
   // State
   const [actionId, setActionId] = useState<string | undefined>(undefined);
   const [userId, setUserId] = useState<string | undefined>(undefined);
-  const [actionPerc, setActionPerc] = useState<number | undefined>(undefined);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
 
   // Data from the DB
@@ -33,6 +32,7 @@ const CombatPage: NextPage = () => {
   const battle = battleState?.battle;
   const battleId = battle?.id;
   const versionId = battle?.version;
+  const user = battle?.usersState.find((u) => u.userId === userId);
 
   // Redirect to profile if not in battle
   const router = useRouter();
@@ -63,7 +63,6 @@ const CombatPage: NextPage = () => {
           userId={userId}
           refetchBattle={async () => await refetch()}
           setUserId={setUserId}
-          setActionPerc={setActionPerc}
           setBattleState={setBattleState}
         />
       )
@@ -88,9 +87,11 @@ const CombatPage: NextPage = () => {
         padding={false}
         topRightContent={
           battle &&
+          user &&
           userData?.status === "BATTLE" && (
             <ActionTimer
-              actionPerc={actionPerc}
+              user={user}
+              battle={battle}
               isLoading={battleState.isLoading}
               action={action}
             />

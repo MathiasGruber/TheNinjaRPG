@@ -1,27 +1,26 @@
 import { availableUserActions } from "../../libs/combat/actions";
 import { performBattleAction } from "../../libs/combat/actions";
-import { actionSecondsAfterAction } from "../../libs/combat/movement";
+import { actionPointsAfterAction } from "../../libs/combat/actions";
 import { getPossibleActionTiles, PathCalculator, findHex } from "../../libs/hexgrid";
-import type { BattleUserState, ActionEffect } from "../../libs/combat/types";
-import type { GroundEffect, UserEffect, CombatAction } from "../../libs/combat/types";
+import type { ActionEffect } from "../../libs/combat/types";
+import type { CombatAction } from "../../libs/combat/types";
+import type { CompleteBattle } from "../../libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { Grid } from "honeycomb-grid";
 
-export const performAIaction = (
-  rawUsersState: BattleUserState[],
-  rawUsersEffects: UserEffect[],
-  rawGroundEffects: GroundEffect[],
-  grid: Grid<TerrainHex>
-) => {
+export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) => {
   // New stats to return
-  let nextUsersState = structuredClone(rawUsersState);
-  let nextUsersEffects = structuredClone(rawUsersEffects);
-  let nextGroundEffects = structuredClone(rawGroundEffects);
-  let nextActionEffects: ActionEffect[] = [];
-  let description = "";
+  const nextActionEffects: ActionEffect[] = [];
+  const aiDescriptions: string[] = [];
+  let nextBattle = {
+    ...battle,
+    usersState: structuredClone(battle.usersState),
+    usersEffects: structuredClone(battle.usersEffects),
+    groundEffects: structuredClone(battle.groundEffects),
+  };
 
   // Find AI users who are in control of themselves (i.e. not controlled by a player)
-  const aiUsers = rawUsersState.filter(
+  const aiUsers = battle.usersState.filter(
     (user) => user.isAi && user.controllerId === user.userId
   );
 
@@ -30,18 +29,10 @@ export const performAIaction = (
 
   // If AI users, check all possible actions to calculate a fitness function
   aiUsers.forEach((user) => {
-    // Possible actions (clone as to not mutate original)
-    const actions = availableUserActions(nextUsersState, user.userId, false);
+    // Possible actions
+    const actions = availableUserActions(nextBattle.usersState, user.userId, false);
     // Get a list of all possible actions from this origin and 2 steps forward
-    const searchTree = getActionTree(
-      actions,
-      nextUsersState,
-      nextUsersEffects,
-      nextGroundEffects,
-      user,
-      grid,
-      aStar
-    );
+    const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action
     const bestAction = getBestAction(searchTree);
     // From the search tree find the best action
@@ -55,34 +46,24 @@ export const performAIaction = (
       const originalAction = actions.find((a) => a.id === bestAction.action?.id);
       if (originalAction) {
         const result = performBattleAction({
-          usersState: nextUsersState,
-          usersEffects: nextUsersEffects,
-          groundEffects: nextGroundEffects,
-          grid,
+          battle: nextBattle,
           action: bestAction.action,
+          grid,
           contextUserId: user.userId,
-          actionUserId: user.userId,
+          userId: user.userId,
           longitude: bestAction.longitude,
           latitude: bestAction.latitude,
         });
         if (result) {
-          nextUsersEffects = result.newUsersEffects;
-          nextGroundEffects = result.newGroundEffects;
-          nextUsersState = result.newUsersState;
-          nextActionEffects = result.actionEffects;
-          description += bestAction.action.battleDescription;
+          nextBattle = result.newBattle;
+          nextActionEffects.push(...result.actionEffects);
+          aiDescriptions.push(bestAction.action.battleDescription);
         }
       }
     }
   });
   // Return the new state
-  return {
-    nextUsersState,
-    nextUsersEffects,
-    nextGroundEffects,
-    nextActionEffects,
-    description,
-  };
+  return { nextBattle, nextActionEffects, aiDescriptions };
 };
 
 type SearchAction = {
@@ -148,17 +129,19 @@ const getBestAction = (searchTree: SearchAction[]) => {
 
 const getActionTree = (
   actions: CombatAction[],
-  usersState: BattleUserState[],
-  usersEffects: UserEffect[],
-  groundEffects: GroundEffect[],
-  user: BattleUserState,
+  battle: CompleteBattle,
+  userId: string,
   grid: Grid<TerrainHex>,
   astar: PathCalculator,
   initialFitness = 0,
   curDepth = 0,
   searchDepth = 1
-  // actionMemory
-) => {
+): SearchAction[] => {
+  // Destructure
+  const user = battle.usersState.find((u) => u.userId === userId);
+  if (!user) {
+    return [];
+  }
   // Get user location on grid
   const origin = user && grid.getHex({ col: user.longitude, row: user.latitude });
   // Initialize list of possible actions from this origin
@@ -167,55 +150,45 @@ const getActionTree = (
   const availableActions = structuredClone(actions);
   // Go through all possible actions for this AI
   availableActions.forEach((action) => {
-    const canAct = actionSecondsAfterAction(user, action) >= 0;
+    const canAct = actionPointsAfterAction(user, battle, action) > 0;
     if (canAct) {
       // Go through all the possible tiles where action can be performed
       const possibleTiles = getPossibleActionTiles(action, origin, grid);
       possibleTiles?.forEach((tile) => {
         try {
           const newState = performBattleAction({
-            usersState: structuredClone(usersState),
-            usersEffects: structuredClone(usersEffects),
-            groundEffects: structuredClone(groundEffects),
-            grid,
+            battle: structuredClone(battle),
             action: structuredClone(action),
+            grid,
             contextUserId: user.userId,
-            actionUserId: user.userId,
+            userId: user.userId,
             longitude: tile.col,
             latitude: tile.row,
           });
           if (!newState) {
             throw new Error("Action not possible");
           }
-          const { newUsersState, newUsersEffects, newGroundEffects } = newState;
+          const { newBattle } = newState;
+
           // Update all future actions to have zero cost
           availableActions.forEach((a) => (a.actionCostPerc = 0));
           // Calculate the fitness
           const fitness =
-            evaluateFitness(
-              usersState,
-              newUsersState,
-              user.userId,
-              grid,
-              astar,
-              action
-            ) + initialFitness;
+            evaluateFitness(battle, newBattle, user.userId, grid, astar, action) +
+            initialFitness;
           // if (action.name === "Scratch" && curDepth === 2 && origin) {
           //   console.log(
           //     `action: ${action.name}, depth:${curDepth},  fitness: ${fitness}, location: ${origin.col}, ${origin.row}`
           //   );
           // }
-          // New user
-          const newUser = newUsersState.find((u) => u.userId === user.userId);
+
           // If we are not at the end of the depth, calculate the next actions
           const nextActions =
-            curDepth < searchDepth && newUser
+            curDepth < searchDepth
               ? getActionTree(
                   availableActions,
-                  newUsersState,
-                  newUsersEffects,
-                  newGroundEffects,
-                  newUser,
+                  newBattle,
+                  userId,
                   grid,
                   astar,
                   fitness,
@@ -241,13 +214,15 @@ const getActionTree = (
 };
 
 export const evaluateFitness = (
-  curUsersState: BattleUserState[],
-  newUsersState: BattleUserState[],
+  curBattle: CompleteBattle,
+  newBattle: CompleteBattle,
   userId: string,
   grid: Grid<TerrainHex>,
   astar: PathCalculator,
   action: CombatAction
 ) => {
+  const curUsersState = curBattle.usersState;
+  const newUsersState = newBattle.usersState;
   const curUser = curUsersState.find((u) => u.userId === userId);
   const newUser = newUsersState.find((u) => u.userId === userId);
   let fitness = 0;

@@ -1,14 +1,15 @@
 import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
 import { isEffectStillActive } from "./util";
-import { getAffectedTiles, actionSecondsAfterAction } from "./movement";
+import { getAffectedTiles } from "./movement";
+import { COMBAT_SECONDS } from "./constants";
 import { realizeTag } from "./process";
-import { secondsFromNow } from "../../utils/time";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { updateStatUsage } from "./tags";
+import type { CompleteBattle, ReturnedBattle } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
-import type { BattleUserState, ReturnedUserState } from "./types";
+import type { ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 
@@ -113,7 +114,7 @@ export const availableUserActions = (
       healthCostPerc: 0,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
-      actionCostPerc: 1,
+      actionCostPerc: 20,
       effects: [MoveTag.parse({ power: 100 })],
     },
     ...(basicMoves
@@ -188,9 +189,7 @@ export const availableUserActions = (
 };
 
 export const insertAction = (info: {
-  usersState: BattleUserState[];
-  usersEffects: UserEffect[];
-  groundEffects: GroundEffect[];
+  battle: CompleteBattle;
   grid: Grid<TerrainHex>;
   action: CombatAction;
   userId: string;
@@ -199,7 +198,7 @@ export const insertAction = (info: {
 }) => {
   // Destruct
   const { grid, action, userId, longitude, latitude } = info;
-  const { usersState, usersEffects, groundEffects } = info;
+  const { usersState, usersEffects, groundEffects } = info.battle;
 
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
@@ -224,8 +223,8 @@ export const insertAction = (info: {
     // Village ID
     const villageId = user.villageId;
     // How much time passed since last action
-    const newSeconds = actionSecondsAfterAction(user, action);
-    if (newSeconds < 0) {
+    const newPoints = actionPointsAfterAction(user, info.battle, action);
+    if (newPoints < 0) {
       return { check: false, usersEffects, groundEffects };
     }
     // Given this action, get the affected tiles
@@ -323,7 +322,8 @@ export const insertAction = (info: {
       user.curStamina = Math.max(0, user.curStamina);
       user.curHealth -= hpCost;
       user.curHealth = Math.max(0, user.curHealth);
-      user.updatedAt = secondsFromNow(-newSeconds);
+      user.updatedAt = new Date();
+      user.actionPoints = newPoints;
       // Update user descriptions
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_subject",
@@ -399,37 +399,25 @@ export const insertAction = (info: {
 };
 
 export const performBattleAction = (props: {
-  usersState: BattleUserState[];
-  usersEffects: UserEffect[];
-  groundEffects: GroundEffect[];
-  grid: Grid<TerrainHex>;
+  battle: CompleteBattle;
   action: CombatAction;
+  grid: Grid<TerrainHex>;
   contextUserId: string;
-  actionUserId: string;
+  userId: string;
   longitude: number;
   latitude: number;
 }) => {
   // Destructure
-  const { usersState, usersEffects, groundEffects } = props;
-  const { grid, action, contextUserId, actionUserId, longitude, latitude } = props;
+  const { battle, grid, action, contextUserId, userId, longitude, latitude } = props;
   // Ensure that the userId we're trying to move is valid
-  const user = usersState.find(
-    (u) => u.controllerId === contextUserId && u.userId === actionUserId
+  const user = battle.usersState.find(
+    (u) => u.controllerId === contextUserId && u.userId === userId
   );
   if (!user) throw new Error("This is not your user");
 
   // Perform action, get latest status effects
   // Note: this mutates usersEffects, groundEffects in place
-  const check = insertAction({
-    usersState,
-    usersEffects,
-    groundEffects,
-    grid,
-    action,
-    userId: actionUserId,
-    longitude: longitude,
-    latitude: latitude,
-  });
+  const check = insertAction({ battle, grid, action, userId, longitude, latitude });
   if (!check) return false;
 
   // Update the action updatedAt state, so as keep state for technique cooldowns
@@ -441,13 +429,30 @@ export const performBattleAction = (props: {
   }
 
   // Apply relevant effects, and get back new state + active effects
-  const { newUsersState, newUsersEffects, newGroundEffects, actionEffects } =
-    applyEffects(usersState, usersEffects, groundEffects);
+  const { newBattle, actionEffects } = applyEffects(battle);
 
-  return {
-    newUsersState,
-    newUsersEffects,
-    newGroundEffects,
-    actionEffects,
-  };
+  return { newBattle, actionEffects };
+};
+
+export const actionPointsAfterAction = (
+  user: { updatedAt: string | Date; actionPoints: number },
+  battle: ReturnedBattle,
+  action: CombatAction,
+  timeDiff = 0
+) => {
+  // Time since combat start
+  const mseconds = Date.now() - timeDiff - new Date(battle.createdAt).getTime();
+  // Calculate round
+  const round = Math.floor(mseconds / 1000 / COMBAT_SECONDS);
+  // Are we in a new round, or same round as previous database update
+  const lastUserUpdate = new Date(user.updatedAt);
+  const latestRoundStartAt = new Date(
+    battle.createdAt.getTime() + round * COMBAT_SECONDS * 1000
+  );
+  // Calculate how much action points we have left
+  if (lastUserUpdate < latestRoundStartAt) {
+    return 100 - action.actionCostPerc;
+  } else {
+    return user.actionPoints - action.actionCostPerc;
+  }
 };

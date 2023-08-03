@@ -13,13 +13,14 @@ import { UserContext } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 import { secondsFromDate } from "../utils/time";
-import type { UserBattle, UserEvent } from "../utils/UserContext";
+import type { UserEvent } from "../utils/UserContext";
+import type { ReturnedBattle } from "../libs/combat/types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Pusher connection
   const [pusher, setPusher] = useState<Pusher | undefined>(undefined);
   // Current user battle
-  const [battle, setBattle] = useState<undefined | UserBattle>(undefined);
+  const [battle, setBattle] = useState<undefined | ReturnedBattle>(undefined);
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user

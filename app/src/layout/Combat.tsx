@@ -8,18 +8,16 @@ import { drawCombatBackground, drawCombatEffects } from "../libs/combat/drawing"
 import { OrbitControls } from "../libs/threejs/OrbitControls";
 import { SpriteMixer } from "../libs/threejs/SpriteMixer";
 import { cleanUp, setupScene } from "../libs/travel/util";
-import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { highlightTiles } from "../libs/combat/drawing";
 import { highlightTooltips } from "../libs/combat/drawing";
 import { highlightUsers } from "../libs/combat/drawing";
 import { availableUserActions } from "../libs/combat/actions";
-import { actionSecondsAfterAction } from "../libs/combat/movement";
+import { actionPointsAfterAction } from "../libs/combat/actions";
 import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import type { UserBattle } from "../utils/UserContext";
-import type { ReturnedUserState } from "../libs/combat/types";
+import type { ReturnedBattle } from "../libs/combat/types";
 import type { CombatAction } from "../libs/combat/types";
 import type { BattleState } from "../libs/combat/types";
 import type { TerrainHex } from "../libs/hexgrid";
@@ -30,18 +28,17 @@ interface CombatProps {
   userId: string;
   refetchBattle: () => void;
   setUserId: React.Dispatch<React.SetStateAction<string | undefined>>;
-  setActionPerc: React.Dispatch<React.SetStateAction<number | undefined>>;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
-  const { setBattleState, setActionPerc, setUserId, refetchBattle } = props;
+  const { setBattleState, setUserId, refetchBattle } = props;
   const { battleState } = props;
   const result = battleState.result;
 
   // References which shouldn't update
-  const battle = useRef<UserBattle | null | undefined>(battleState.battle);
+  const battle = useRef<ReturnedBattle | null | undefined>(battleState.battle);
   const action = useRef<CombatAction | undefined>(props.action);
   const userId = useRef<string>(props.userId);
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -136,23 +133,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       mouse.y = 9999999;
     }
   };
-  const getActionPerc = (user: ReturnedUserState, timeDiff: number) => {
-    const timePassed =
-      (Date.now() - new Date(user.updatedAt).getTime() - timeDiff) / 1000;
-    return Math.min((timePassed / COMBAT_SECONDS) * 100, 100);
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (battle.current && userId.current) {
-        const user = battle.current.usersState.find((u) => u.userId === userId.current);
-        if (user?.updatedAt) {
-          setActionPerc(getActionPerc(user, timeDiff));
-        }
-      }
-    }, 50);
-    return () => clearInterval(interval);
-  }, [setActionPerc, userData, timeDiff]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -170,7 +150,11 @@ const Combat: React.FC<CombatProps> = (props) => {
         );
         if (user && ai && user.curHealth > 0 && !user.leftBattle) {
           const actions = availableUserActions(usersState, ai.userId, false);
-          const hasAction = actions.find((a) => actionSecondsAfterAction(ai, a) > 0);
+          const hasAction = actions.find(
+            (a) =>
+              battle.current &&
+              actionPointsAfterAction(ai, battle.current, a, timeDiff) > 0
+          );
           if (hasAction && !isLoadingUser && !isLoadingAI) {
             performAIAction({
               battleId: battle.current.id,
@@ -181,7 +165,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [performAIAction, isLoadingUser, isLoadingAI]);
+  }, [performAIAction, isLoadingUser, isLoadingAI, result, timeDiff]);
 
   useEffect(() => {
     action.current = props.action;
