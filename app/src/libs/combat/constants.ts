@@ -2,6 +2,11 @@ export const COMBAT_WIDTH = 13;
 export const COMBAT_HEIGHT = 4;
 export const COMBAT_SECONDS = 30;
 
+export const LEVEL_IMPACT = 1.75;
+export const EXP_SCALING = 0.39;
+export const DMG_SCALING = 0.8;
+export const DMG_BASE = 8;
+
 /**
  * Which user state is public
  */

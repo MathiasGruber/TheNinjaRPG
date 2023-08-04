@@ -15,32 +15,32 @@ import type { CompleteBattle } from "./types";
 export const updateBattle = async (
   client: DrizzleClient,
   result: CombatResult | null,
-  battle: CompleteBattle
+  curBattle: CompleteBattle
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
 
   // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
-    await client.delete(battle).where(eq(battle.id, battle.id));
-    await client.delete(battleAction).where(eq(battleAction.battleId, battle.id));
+    await client.delete(battle).where(eq(battle.id, curBattle.id));
+    await client.delete(battleAction).where(eq(battleAction.battleId, curBattle.id));
   } else {
     const result = await client
       .update(battle)
       .set({
-        version: battle.version + 1,
-        usersState: battle.usersState,
-        usersEffects: battle.usersEffects,
-        groundEffects: battle.groundEffects,
+        version: curBattle.version + 1,
+        usersState: curBattle.usersState,
+        usersEffects: curBattle.usersEffects,
+        groundEffects: curBattle.groundEffects,
       })
-      .where(and(eq(battle.id, battle.id), eq(battle.version, battle.version)));
+      .where(and(eq(battle.id, curBattle.id), eq(battle.version, curBattle.version)));
     if (result.rowsAffected === 0) {
       throw new Error("Failed to update battle");
     }
   }
   // Return battle with updated version
-  battle.version = battleOver ? battle.version : battle.version + 1;
-  return battle;
+  curBattle.version = battleOver ? curBattle.version : curBattle.version + 1;
+  return curBattle;
 };
 
 /**
@@ -48,12 +48,12 @@ export const updateBattle = async (
  */
 export const saveActions = async (
   client: DrizzleClient,
-  battle: CompleteBattle,
+  curBattle: CompleteBattle,
   result: CombatResult | null,
   userId: string
 ) => {
-  const user = battle.usersState.find((user) => user.userId === userId);
-  const battleType = battle.battleType;
+  const user = curBattle.usersState.find((user) => user.userId === userId);
+  const battleType = curBattle.battleType;
   if (result && user) {
     const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
     // Basic actions from this user
@@ -67,7 +67,7 @@ export const saveActions = async (
       data.push({ type: "bloodline", contentId: bid, battleType, battleWon });
     }
     // If battle is over, check for any AIs in the battle, and add these as well to the statistics
-    battle.usersState
+    curBattle.usersState
       .filter((u) => u.isAi && u.userId === u.controllerId)
       .map((ai) => {
         data.push({ type: "ai", contentId: ai.userId, battleType, battleWon });
@@ -91,13 +91,13 @@ export const saveActions = async (
  */
 export const createAction = async (
   battleDescription: string,
-  battle: Battle,
+  curBattle: Battle,
   effects: ActionEffect[],
   client: DrizzleClient
 ) => {
   return await client.insert(battleAction).values({
-    battleId: battle.id,
-    battleVersion: battle.version + 1,
+    battleId: curBattle.id,
+    battleVersion: curBattle.version + 1,
     description: battleDescription,
     appliedEffects: effects,
   });
@@ -108,7 +108,7 @@ export const createAction = async (
  */
 export const updateUser = async (
   result: CombatResult | null,
-  battle: Battle,
+  curBattle: Battle,
   userId: string,
   client: DrizzleClient
 ) => {
@@ -143,7 +143,7 @@ export const updateUser = async (
               longitude: VILLAGE_LONG,
               latitude: VILLAGE_LAT,
               immunityUntil:
-                battle.battleType === "COMBAT"
+                curBattle.battleType === "COMBAT"
                   ? sql`NOW() + INTERVAL 5 MINUTE`
                   : sql`immunityUntil`,
             }
