@@ -3,7 +3,7 @@ import { getPower } from "./tags";
 import { secondsPassed, secondsFromDate } from "../../utils/time";
 import { COMBAT_SECONDS } from "./constants";
 import { randomInt } from "../../utils/math";
-import type { CombatResult, CompleteBattle } from "./types";
+import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
@@ -71,7 +71,11 @@ export const shouldApplyEffectTimes = (
 /**
  * Filter effects based on their duration
  */
-export const isEffectStillActive = (effect: UserEffect | GroundEffect) => {
+export const isEffectStillActive = (
+  effect: UserEffect | GroundEffect,
+  battle: ReturnedBattle,
+  timeDiff = 0
+) => {
   if (effect.rounds !== undefined && effect.createdAt) {
     const total = effect.rounds * COMBAT_SECONDS;
     const isActive = secondsFromDate(total, new Date(effect.createdAt)) > new Date();

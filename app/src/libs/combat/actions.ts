@@ -197,8 +197,8 @@ export const insertAction = (info: {
   latitude: number;
 }) => {
   // Destruct
-  const { grid, action, userId, longitude, latitude } = info;
-  const { usersState, usersEffects, groundEffects } = info.battle;
+  const { battle, grid, action, userId, longitude, latitude } = info;
+  const { usersState, usersEffects, groundEffects } = battle;
 
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
@@ -208,7 +208,7 @@ export const insertAction = (info: {
 
   // Check for stun effects
   const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === userId);
-  if (stunned && isEffectStillActive(stunned)) {
+  if (stunned && isEffectStillActive(stunned, battle)) {
     throw new Error("User is stunned");
   }
 
@@ -223,7 +223,7 @@ export const insertAction = (info: {
     // Village ID
     const villageId = user.villageId;
     // How much time passed since last action
-    const newPoints = actionPointsAfterAction(user, info.battle, action);
+    const newPoints = actionPointsAfterAction(user, battle, action);
     if (newPoints < 0) {
       return { check: false, usersEffects, groundEffects };
     }
