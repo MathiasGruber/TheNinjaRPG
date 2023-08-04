@@ -6,7 +6,6 @@ import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
-import { COMBAT_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";

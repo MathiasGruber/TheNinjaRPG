@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, gte, asc } from "drizzle-orm";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "../../../../drizzle/schema";
-import { dataBattleAction } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
 import { canTrainJutsu } from "../../../libs/train";

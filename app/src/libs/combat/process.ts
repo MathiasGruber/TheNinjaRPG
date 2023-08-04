@@ -1,7 +1,3 @@
-import type { BattleUserState } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { AnimationNames } from "./types";
-import type { CompleteBattle, Consequence } from "./types";
 import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
@@ -14,6 +10,10 @@ import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { clear } from "./tags";
+import type { BattleUserState } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
+import type { AnimationNames } from "./types";
+import type { CompleteBattle, Consequence } from "./types";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -115,7 +115,7 @@ export const applyEffects = (battle: CompleteBattle) => {
           fromGround: true,
         } as UserEffect);
       }
-      // Forward any datmage effects, which should be applied to barriers as well
+      // Forward any damage effects, which should be applied to barriers as well
       if (!user && e.type === "damage") {
         const barrier = findBarrier(groundEffects, e.longitude, e.latitude);
         if (barrier) {
@@ -128,7 +128,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         }
       }
       // Let ground effect continue, or is it done?
-      if (isEffectStillActive(e)) {
+      if (isEffectStillActive(e, battle)) {
         e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
@@ -142,7 +142,7 @@ export const applyEffects = (battle: CompleteBattle) => {
 
   // Fetch any active sealing effects
   const sealEffects = usersEffects.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e)
+    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e, battle)
   );
 
   // Apply all user effects to their target users
@@ -233,7 +233,7 @@ export const applyEffects = (battle: CompleteBattle) => {
     }
 
     // Process round reduction & tag removal
-    if (isEffectStillActive(e) && !e.fromGround) {
+    if (isEffectStillActive(e, battle) && !e.fromGround) {
       e.isNew = false;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
@@ -252,7 +252,7 @@ export const applyEffects = (battle: CompleteBattle) => {
           target.curHealth -= c.damage;
           target.curHealth = Math.max(0, target.curHealth);
           actionEffects.push({
-            txt: `${target.username} takes ${c.damage} damage`,
+            txt: `${target.username} takes ${c.damage.toFixed(2)} damage`,
             color: "red",
           });
         }
@@ -268,7 +268,7 @@ export const applyEffects = (battle: CompleteBattle) => {
           user.curHealth -= c.reflect;
           user.curHealth = Math.max(0, user.curHealth);
           actionEffects.push({
-            txt: `${user.username} takes ${c.reflect} reflect damage`,
+            txt: `${user.username} takes ${c.reflect.toFixed(2)} reflect damage`,
             color: "red",
           });
         }
@@ -276,7 +276,9 @@ export const applyEffects = (battle: CompleteBattle) => {
           user.curHealth += c.absorb;
           user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
-            txt: `${user.username} absorbs ${c.absorb} damage and restores HP`,
+            txt: `${user.username} absorbs ${c.absorb.toFixed(
+              2
+            )} damage and restores HP`,
             color: "green",
           });
         }

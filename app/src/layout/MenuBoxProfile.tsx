@@ -61,10 +61,12 @@ const MenuBoxProfile: React.FC = () => {
   }
 
   // Derived data
-  const active = battle?.usersEffects.filter((e) => isEffectStillActive(e));
-  const sealEffects = active?.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e)
-  );
+  const active = battle?.usersEffects.filter((e) => isEffectStillActive(e, battle));
+  const sealEffects =
+    battle &&
+    active?.filter(
+      (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e, battle)
+    );
   const immunitySecondsLeft = (userData.immunityUntil.getTime() - Date.now()) / 1000;
 
   return (

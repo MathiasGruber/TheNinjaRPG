@@ -49,8 +49,6 @@ export type CompleteBattle = {
   id: string;
   createdAt: Date;
   updatedAt: Date;
-  roundStartedAt: Date;
-  round: number;
   background: string;
   battleType: BattleType;
   version: number;
@@ -66,7 +64,7 @@ export type ReturnedUserState = Pick<BattleUserState, typeof publicState[number]
 /**
  * A returned battle used on frontend where private information is hidden
  */
-export type ReturnedBattle = CompleteBattle & {
+export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
   usersState: ReturnedUserState[];
 };
 
