@@ -102,17 +102,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         refetch: refetchUser,
       }}
     >
-      <h1 className="my-2 hidden text-center font-fontasia text-5xl text-white md:block md:text-8xl">
-        <Link href="/">TheNinja-RPG</Link>
-        <Image
-          src="/versionNotice.png"
-          width={78}
-          height={78}
-          alt="Alpha Notice"
-          className="ml-3 inline"
-        />
-      </h1>
-
+      <div className="my-1 hidden md:block">
+        <Link href="/">
+          <Image
+            className="ml-auto mr-auto"
+            src="/logo.webp"
+            width={341}
+            height={122}
+            alt="logo"
+          />
+        </Link>
+      </div>
       <div className="container max-w-7xl">
         <div className="grid grid-cols-3 md:grid-cols-5">
           <div className="col-span-1 hidden md:block">
