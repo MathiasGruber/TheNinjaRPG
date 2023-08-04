@@ -1,5 +1,6 @@
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
+import { LEVEL_IMPACT, EXP_SCALING, DMG_SCALING, DMG_BASE } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
 import { nanoid } from "nanoid";
 
@@ -310,9 +311,10 @@ export const updateStatUsage = (
 };
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
-const powerEffect = (value1: number, value2: number) => {
-  const scaler = Math.pow((value1 + value2) / 2, 0.06);
-  return Math.log(1 + Math.log(value1) / Math.log(value2)) * scaler;
+const powerEffect = (attack: number, defence: number) => {
+  return (
+    DMG_BASE + Math.pow(attack / defence, LEVEL_IMPACT) + Math.pow(attack, EXP_SCALING)
+  );
 };
 
 /** Calculate damage effect on target */
@@ -323,7 +325,9 @@ export const damage = (
   consequences: Map<string, Consequence>,
   applyTimes: number
 ) => {
-  let { power } = getPower(effect);
+  const { power } = getPower(effect);
+  const calcs: number[] = [];
+  // Run battle formula to get list of calculations for each stat
   if ("calculation" in effect && effect.calculation === "formula") {
     const dir = "offensive";
     effect.statTypes?.forEach((statType) => {
@@ -333,11 +337,11 @@ export const damage = (
       if (effect.fromGround && a in effect && b in target) {
         const left = effect[a as keyof typeof effect] as number;
         const right = target[b as keyof typeof target] as number;
-        power *= powerEffect(left, right);
+        calcs.push(powerEffect(left, right));
       } else if (origin && a in origin && b in target) {
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
-        power *= powerEffect(left, right);
+        calcs.push(powerEffect(left, right));
       }
     });
     effect.generalTypes?.forEach((generalType) => {
@@ -345,21 +349,23 @@ export const damage = (
       if (effect.fromGround && lower in effect && lower in target) {
         const left = effect[lower as keyof typeof effect] as number;
         const right = target[lower as keyof typeof target] as number;
-        power *= powerEffect(left, right);
+        calcs.push(powerEffect(left, right));
       } else if (origin && lower in origin && lower in target) {
         const left = origin[lower as keyof typeof origin] as number;
         const right = target[lower as keyof typeof target] as number;
-        power *= powerEffect(left, right);
+        calcs.push(powerEffect(left, right));
       }
     });
   }
-
+  // Calculate final damage
+  const calcSum = calcs.reduce((a, b) => a + b, 0);
+  const dmg = calcSum > 0 ? power * (calcSum / calcs.length) * DMG_SCALING : power;
+  // Add & return consequence
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
-    damage: Math.max(Math.floor(5 * power) * applyTimes + 10, 1),
+    damage: dmg * applyTimes,
   });
-
   return getInfo(target, effect, "will take damage");
 };
 
