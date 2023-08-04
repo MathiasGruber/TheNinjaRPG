@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import IconGlobe from "../icons/IconGlobe";
 import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
@@ -131,20 +132,26 @@ const NavBar: React.FC<NavBarProps> = (props) => {
         </div>
       </div>
 
-      <div className="flex flex-row px-2 pt-2 md:hidden">
-        <div>
-          <NavBarDropdown
-            icon={<IconHome />}
-            position="left"
-            links={navLinks}
-            topElement={topElement}
-            topElementLink="avatar"
-          />
-        </div>
+      <div className="flex flex-row px-2 items-center pt-2 md:hidden">
+        <NavBarDropdown
+          icon={<IconHome />}
+          position="left"
+          links={navLinks}
+          topElement={topElement}
+          topElementLink="avatar"
+        />
         <div className="grow">
-          <h1 className="my-2 text-center font-fontasia text-5xl text-white md:text-8xl">
-            <Link href="/">TheNinja-RPG</Link>
-          </h1>
+          <div className="my-1">
+            <Link href="/">
+              <Image
+                className="ml-auto mr-auto"
+                src="/logo_short.webp"
+                width={256}
+                height={65}
+                alt="logo"
+              />
+            </Link>
+          </div>
         </div>
         <div className="flex flex-row items-start">
           <UserButton
