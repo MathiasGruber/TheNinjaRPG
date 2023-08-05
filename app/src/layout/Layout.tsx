@@ -105,11 +105,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       <div className="my-1 hidden md:block">
         <Link href="/">
           <Image
-            className="ml-auto mr-auto"
+            className="ml-auto mr-auto w-auto h-auto"
             src="/logo.webp"
             width={341}
             height={122}
             alt="logo"
+            priority
           />
         </Link>
       </div>

@@ -1,8 +1,7 @@
 import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
-import { secondsPassed, secondsFromDate } from "../../utils/time";
-import { COMBAT_SECONDS } from "./constants";
 import { randomInt } from "../../utils/math";
+import { getBattleRound } from "./actions";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
@@ -46,25 +45,25 @@ export const findBarrier = (
  */
 export const shouldApplyEffectTimes = (
   effect: UserEffect | GroundEffect,
+  battle: ReturnedBattle,
   targetId: string
 ) => {
-  // By default apply once
-  let applyTimes = 1;
   // Get latest application of effect to the given target
-  if (effect.timeTracker) {
+  let applyTimes = 1;
+  if (effect.rounds !== undefined && effect.timeTracker) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
-      applyTimes = secondsPassed(new Date(prevApply)) / COMBAT_SECONDS;
+      const { round: prevRound } = getBattleRound(battle, prevApply);
+      const { round: curRound } = getBattleRound(battle, Date.now());
+      applyTimes = curRound - prevRound;
       if (applyTimes > 0) {
         effect.timeTracker[targetId] = Date.now();
       }
-    }
-    // Update the time tracker
-    if (applyTimes > 0) {
+    } else {
       effect.timeTracker[targetId] = Date.now();
     }
   }
-  // Return number of times to apply effect
+  // If no rounds, or no previous applies, then apply 1 time
   return applyTimes;
 };
 
@@ -77,10 +76,9 @@ export const isEffectStillActive = (
   timeDiff = 0
 ) => {
   if (effect.rounds !== undefined && effect.createdAt) {
-    const total = effect.rounds * COMBAT_SECONDS;
-    const isActive = secondsFromDate(total, new Date(effect.createdAt)) > new Date();
-    // if (!isActive) console.log("Effect expired: ", effect.type);
-    return isActive;
+    const { round: startRound } = getBattleRound(battle, effect.createdAt, timeDiff);
+    const { round: curRound } = getBattleRound(battle, Date.now(), timeDiff);
+    return startRound + effect.rounds > curRound;
   }
   return true;
 };
