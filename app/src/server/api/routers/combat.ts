@@ -151,9 +151,13 @@ export const combatRouter = createTRPCRouter({
 
         // Attempt to perform AI action
         const newState = performAIaction(newBattle, grid);
-        const { nextBattle, nextActionEffects, aiDescriptions } = newState;
-        const description = battleDescriptions.concat(aiDescriptions).join(". ");
-        actionEffects.push(...nextActionEffects);
+        newBattle = newState.nextBattle;
+        actionEffects.push(...newState.nextActionEffects);
+
+        // Add description of battle action, which is used for showing battle log
+        const description = battleDescriptions
+          .concat(newState.aiDescriptions)
+          .join(". ");
 
         // If no description, means no actions, just return now
         if (!battleDescriptions) {
@@ -161,7 +165,7 @@ export const combatRouter = createTRPCRouter({
         }
 
         // Calculate if the battle is over for this user, and if so update user DB
-        const result = calcBattleResult(nextBattle, uid);
+        const result = calcBattleResult(newBattle, uid);
 
         // Optimistic update for all other users before we process request
         const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
@@ -175,10 +179,10 @@ export const combatRouter = createTRPCRouter({
          * DATABASE UPDATES in parallel transaction
          */
         try {
-          const newBattle = await updateBattle(db, result, nextBattle);
-          await saveActions(db, nextBattle, result, uid);
-          await updateUser(result, nextBattle, uid, db);
-          await createAction(description, nextBattle, actionEffects, db);
+          const finalBattle = await updateBattle(db, result, newBattle);
+          await saveActions(db, finalBattle, result, uid);
+          await updateUser(result, finalBattle, uid, db);
+          await createAction(description, finalBattle, actionEffects, db);
           const newMaskedBattle = maskBattle(newBattle, uid);
 
           // Return the new battle + result state if applicable

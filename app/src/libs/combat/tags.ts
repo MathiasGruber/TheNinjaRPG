@@ -1,4 +1,4 @@
-import type { BattleUserState, Consequence } from "./types";
+import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { LEVEL_IMPACT, EXP_SCALING, DMG_SCALING, DMG_BASE } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
@@ -370,11 +370,12 @@ export const damage = (
 };
 
 /** Apply damage effect to barrier */
-export const damageBarrier = (groundEffects: GroundEffect[], effect: UserEffect) => {
+export const damageBarrier = (battle: ReturnedBattle, effect: UserEffect) => {
+  const { groundEffects } = battle;
   const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
   const barrier = groundEffects[idx];
   if (barrier && barrier.power && effect.power) {
-    const applyTimes = shouldApplyEffectTimes(effect, barrier.id);
+    const applyTimes = shouldApplyEffectTimes(effect, battle, barrier.id);
     if (applyTimes > 0) {
       barrier.power -= effect.power * applyTimes;
       if (barrier.power <= 0) {

@@ -149,6 +149,7 @@ const NavBar: React.FC<NavBarProps> = (props) => {
                 width={256}
                 height={65}
                 alt="logo"
+                priority
               />
             </Link>
           </div>

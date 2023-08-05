@@ -37,9 +37,9 @@ export const updateBattle = async (
     if (result.rowsAffected === 0) {
       throw new Error("Failed to update battle");
     }
+    curBattle.version = battleOver ? curBattle.version : curBattle.version + 1;
   }
   // Return battle with updated version
-  curBattle.version = battleOver ? curBattle.version : curBattle.version + 1;
   return curBattle;
 };
 

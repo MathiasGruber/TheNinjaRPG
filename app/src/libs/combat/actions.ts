@@ -440,19 +440,28 @@ export const actionPointsAfterAction = (
   action: CombatAction,
   timeDiff = 0
 ) => {
-  // Time since combat start
-  const mseconds = Date.now() - timeDiff - new Date(battle.createdAt).getTime();
   // Calculate round
-  const round = Math.floor(mseconds / 1000 / COMBAT_SECONDS);
+  const { latestRoundStartAt } = getBattleRound(battle, Date.now(), timeDiff);
   // Are we in a new round, or same round as previous database update
   const lastUserUpdate = new Date(user.updatedAt);
-  const latestRoundStartAt = new Date(
-    battle.createdAt.getTime() + round * COMBAT_SECONDS * 1000
-  );
   // Calculate how much action points we have left
   if (lastUserUpdate < latestRoundStartAt) {
     return 100 - action.actionCostPerc;
   } else {
     return user.actionPoints - action.actionCostPerc;
   }
+};
+
+/** Return current round of a given battle */
+export const getBattleRound = (
+  battle: ReturnedBattle,
+  timestamp: number,
+  timeDiff = 0
+) => {
+  const mseconds = timestamp - timeDiff - new Date(battle.createdAt).getTime();
+  const round = Math.floor(mseconds / 1000 / COMBAT_SECONDS);
+  const latestRoundStartAt = new Date(
+    battle.createdAt.getTime() + round * COMBAT_SECONDS * 1000
+  );
+  return { round, latestRoundStartAt };
 };

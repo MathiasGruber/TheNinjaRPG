@@ -154,7 +154,7 @@ export const applyEffects = (battle: CompleteBattle) => {
     let info: ActionEffect | undefined = undefined;
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier") {
-      const result = damageBarrier(newGroundEffects, e);
+      const result = damageBarrier(battle, e);
       if (result) {
         longitude = result.barrier.longitude;
         latitude = result.barrier.latitude;
@@ -163,7 +163,7 @@ export const applyEffects = (battle: CompleteBattle) => {
     } else if (e.targetType === "user") {
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
-      const applyTimes = shouldApplyEffectTimes(e, e.targetId);
+      const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
       if (curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
