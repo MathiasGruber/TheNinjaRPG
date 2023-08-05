@@ -1,6 +1,6 @@
 import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import { LEVEL_IMPACT, EXP_SCALING, DMG_SCALING, DMG_BASE } from "./constants";
+import { LVL_SCALING, EXP_SCALING, DMG_SCALING, DMG_BASE, UNDERDOG } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
 import { nanoid } from "nanoid";
 
@@ -312,9 +312,9 @@ export const updateStatUsage = (
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
 const powerEffect = (attack: number, defence: number) => {
-  return (
-    DMG_BASE + Math.pow(attack / defence, LEVEL_IMPACT) + Math.pow(attack, EXP_SCALING)
-  );
+  const scaledDefence = Math.pow(defence, UNDERDOG);
+  const statRatio = Math.pow(attack / scaledDefence, LVL_SCALING);
+  return DMG_BASE + statRatio + Math.pow(attack, EXP_SCALING);
 };
 
 /** Calculate damage effect on target */
@@ -359,7 +359,8 @@ export const damage = (
   }
   // Calculate final damage
   const calcSum = calcs.reduce((a, b) => a + b, 0);
-  const dmg = calcSum > 0 ? power * (calcSum / calcs.length) * DMG_SCALING : power;
+  const calcMean = calcSum / calcs.length;
+  const dmg = calcSum > 0 ? power * calcMean * DMG_SCALING : power;
   // Add & return consequence
   consequences.set(effect.id, {
     userId: effect.creatorId,
