@@ -3,6 +3,7 @@ import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { LVL_SCALING, EXP_SCALING, DMG_SCALING, DMG_BASE, UNDERDOG } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
 import { nanoid } from "nanoid";
+import { randomInt } from "../../utils/math";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -360,7 +361,9 @@ export const damage = (
   // Calculate final damage
   const calcSum = calcs.reduce((a, b) => a + b, 0);
   const calcMean = calcSum / calcs.length;
-  const dmg = calcSum > 0 ? power * calcMean * DMG_SCALING : power;
+  let calulated_dmg = calcSum > 0 ? power * calcMean * DMG_SCALING : power;
+  // Between 80-110%
+  const dmg = calulated_dmg * (randomInt(80,110) / 100); 
   // Add & return consequence
   consequences.set(effect.id, {
     userId: effect.creatorId,
