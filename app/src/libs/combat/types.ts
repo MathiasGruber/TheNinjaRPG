@@ -726,7 +726,7 @@ export const JutsuValidator = z
     healthCostPerc: z.number().min(0).max(100).optional(),
     chakraCostPerc: z.number().min(0).max(100).optional(),
     staminaCostPerc: z.number().min(0).max(100).optional(),
-    actionCostPerc: z.number().int().min(1).max(100).optional(),
+    actionCostPerc: z.number().int().min(10).max(100).optional(),
     cooldown: z.number().int().min(1).max(300),
     bloodlineId: z.string().nullable().optional(),
     villageId: z.string().nullable().optional(),
