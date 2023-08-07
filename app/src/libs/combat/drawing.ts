@@ -18,7 +18,7 @@ import type { Scene, Object3D, Event, Raycaster } from "three";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { getPossibleActionTiles, findHex, defineHex } from "../hexgrid";
 import { Animations } from "./types";
-import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
+import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
 import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
@@ -609,7 +609,8 @@ export const highlightTiles = (info: {
   // Check if cooldown for action has expired
   const syncedTime = Date.now() - timeDiff;
   const isAvailable =
-    !action?.cooldown || action.updatedAt < syncedTime - action.cooldown * 1000;
+    !action?.cooldown ||
+    action.updatedAt < syncedTime - action.cooldown * 1000 * COMBAT_SECONDS;
 
   // Highlight intersected tile
   /* ************************** */
