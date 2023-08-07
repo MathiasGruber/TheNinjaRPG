@@ -420,12 +420,15 @@ export const performBattleAction = (props: {
   const check = insertAction({ battle, grid, action, userId, longitude, latitude });
   if (!check) return false;
 
+  // Get battle round
+  const { latestRoundStartAt } = getBattleRound(battle, Date.now());
+
   // Update the action updatedAt state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {
     const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-    if (jutsu) jutsu.updatedAt = new Date();
+    if (jutsu) jutsu.updatedAt = latestRoundStartAt;
     const item = user.items.find((i) => i.item.id === action.id);
-    if (item) item.updatedAt = new Date();
+    if (item) item.updatedAt = latestRoundStartAt;
   }
 
   // Apply relevant effects, and get back new state + active effects

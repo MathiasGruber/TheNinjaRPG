@@ -113,7 +113,7 @@ const JutsuPanel: NextPage = () => {
     { id: "description", label: "Description", type: "text" },
     { id: "battleDescription", label: "Battle Description", type: "text" },
     { id: "range", label: "Range [hexagons]", type: "number" },
-    { id: "cooldown", label: "Cooldown [seconds]", type: "number" },
+    { id: "cooldown", label: "Cooldown [rounds]", type: "number" },
     { id: "actionCostPerc", label: "Action Cost [%]", type: "number" },
     { id: "staminaCostPerc", label: "Stamina Cost [%]", type: "number" },
     { id: "chakraCostPerc", label: "Chakra Cost [%]", type: "number" },

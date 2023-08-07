@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ContentImage from "./ContentImage";
 import { useUserData } from "../utils/UserContext";
+import { COMBAT_SECONDS } from "../libs/combat/constants";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ActionSelectorProps {
@@ -119,9 +120,10 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
         // Calculate how much time left for cooldown
         const syncedTime = new Date().getTime() - timeDiff;
         const t = updatedAt instanceof Date ? updatedAt.getTime() : updatedAt;
-        const secondsLeft = (cooldown * 1000 + t - syncedTime) / 1000;
+        const cooldownSeconds = COMBAT_SECONDS * cooldown;
+        const secondsLeft = (cooldownSeconds * 1000 + t - syncedTime) / 1000;
         // Calculate percentage of cooldown
-        setCooldownPerc(Math.max((secondsLeft / cooldown) * 100, 0));
+        setCooldownPerc(Math.max((secondsLeft / cooldownSeconds) * 100, 0));
         // Clear interval if cooldown is over
         if (secondsLeft < 0) {
           clearInterval(interval);
