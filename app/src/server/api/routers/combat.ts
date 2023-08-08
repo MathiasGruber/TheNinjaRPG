@@ -6,7 +6,8 @@ import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
-import { secondsPassed, secondsFromDate } from "../../../utils/time";
+import { COMBAT_LOBBY_SECONDS } from "../../../libs/combat/constants";
+import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
 import { createAction, saveActions } from "../../../libs/combat/database";
@@ -486,6 +487,8 @@ export const initiateBattle = async (
 
     // Create combat entry
     const battleId = nanoid();
+    const startTime =
+      battleType === "ARENA" ? new Date() : secondsFromNow(COMBAT_LOBBY_SECONDS);
     await tx.insert(battle).values({
       id: battleId,
       battleType: battleType,
@@ -494,6 +497,7 @@ export const initiateBattle = async (
       usersEffects: userEffects,
       groundEffects: groundEffects,
       rewardScaling: rewardScaling,
+      createdAt: startTime,
     });
 
     // If not arena, create a history entry

@@ -1,9 +1,9 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
 import type { Grid } from "honeycomb-grid";
-
 import Button from "./Button";
+import Countdown from "./Countdown";
 import { drawCombatBackground, drawCombatEffects } from "../libs/combat/drawing";
 import { OrbitControls } from "../libs/threejs/OrbitControls";
 import { SpriteMixer } from "../libs/threejs/SpriteMixer";
@@ -36,6 +36,9 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { setBattleState, setUserId, refetchBattle } = props;
   const { battleState } = props;
   const result = battleState.result;
+
+  // State
+  const [isInLobby, setIsInLobby] = useState<boolean>(true);
 
   // References which shouldn't update
   const battle = useRef<ReturnedBattle | null | undefined>(battleState.battle);
@@ -192,6 +195,19 @@ const Combat: React.FC<CombatProps> = (props) => {
       };
     }
   }, [battleId]);
+
+  // Lobby for non-arena battles, letting both oppoenents join
+  useEffect(() => {
+    const syncedTime = Date.now() - timeDiff;
+    if (battle.current && battle.current.createdAt.getTime() > syncedTime) {
+      const interval = setInterval(() => {
+        setIsInLobby(true);
+      }, 500);
+      return () => clearInterval(interval);
+    } else {
+      setIsInLobby(false);
+    }
+  }, [battle, timeDiff]);
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
@@ -412,6 +428,16 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {isInLobby && battle.current && (
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
+          <div className="flex flex-col items-center justify-center text-white h-full">
+            <p className="p-5 text-5xl">Waiting for opponent</p>
+            <p className="text-3xl">
+              Time Left: <Countdown targetDate={battle.current.createdAt} />
+            </p>
+          </div>
+        </div>
+      )}
       {result && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">

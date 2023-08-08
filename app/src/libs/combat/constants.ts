@@ -1,6 +1,7 @@
 export const COMBAT_WIDTH = 13;
 export const COMBAT_HEIGHT = 4;
 export const COMBAT_SECONDS = 30;
+export const COMBAT_LOBBY_SECONDS = 20;
 
 export const LVL_SCALING = 1.75;
 export const EXP_SCALING = 0.39;

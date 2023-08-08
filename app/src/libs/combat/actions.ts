@@ -206,6 +206,11 @@ export const insertAction = (info: {
   const user = alive.find((u) => u.userId === userId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
+  // Can only perform action if battle started
+  if (battle.createdAt.getTime() > Date.now()) {
+    throw new Error("Battle has not started yet");
+  }
+
   // Check for stun effects
   const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === userId);
   if (stunned && isEffectStillActive(stunned, battle)) {
