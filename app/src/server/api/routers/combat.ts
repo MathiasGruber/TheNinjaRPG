@@ -10,7 +10,7 @@ import { COMBAT_LOBBY_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
-import { createAction, saveActions } from "../../../libs/combat/database";
+import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
@@ -80,6 +80,30 @@ export const combatRouter = createTRPCRouter({
         orderBy: desc(battleAction.createdAt),
       });
       return entry !== undefined ? entry : null;
+    }),
+  getBattleEntries: protectedProcedure
+    .input(
+      z.object({
+        battleId: z.string(),
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+        refreshKey: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const entries = await ctx.drizzle.query.battleAction.findMany({
+        offset: skip,
+        limit: input.limit,
+        where: eq(battleAction.battleId, input.battleId),
+        orderBy: [desc(battleAction.createdAt)],
+      });
+      const nextCursor = entries.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: entries,
+        nextCursor: nextCursor,
+      };
     }),
   performAction: protectedProcedure
     .input(performActionSchema)
@@ -181,7 +205,7 @@ export const combatRouter = createTRPCRouter({
          */
         try {
           const finalBattle = await updateBattle(db, result, newBattle);
-          await saveActions(db, finalBattle, result, uid);
+          await saveUsage(db, finalBattle, result, uid);
           await updateUser(result, finalBattle, uid, db);
           await createAction(description, finalBattle, actionEffects, db);
           const newMaskedBattle = maskBattle(newBattle, uid);

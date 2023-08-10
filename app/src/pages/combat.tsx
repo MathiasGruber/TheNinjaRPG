@@ -71,11 +71,8 @@ const CombatPage: NextPage = () => {
 
   // History Component
   const history = useMemo(() => {
-    return (
-      battleId &&
-      versionId && <CombatHistory battleId={battleId} battleVersion={versionId} />
-    );
-  }, [battleId, versionId]);
+    return battle && <CombatHistory battle={battle} />;
+  }, [battle]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 

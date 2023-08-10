@@ -46,7 +46,7 @@ export const updateBattle = async (
 /**
  * Insert battle actions for usage analytics
  */
-export const saveActions = async (
+export const saveUsage = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
@@ -97,7 +97,7 @@ export const createAction = async (
 ) => {
   return await client.insert(battleAction).values({
     battleId: curBattle.id,
-    battleVersion: curBattle.version + 1,
+    battleVersion: curBattle.version,
     description: battleDescription,
     appliedEffects: effects,
   });
