@@ -159,8 +159,10 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Destructure props
   const { tag, idx, setEffects } = props;
 
-  // Get the schema
+  // Get the schema & parse the tag
   const tagSchema = getTagSchema(tag.type);
+  const parsedTag = tagSchema.safeParse(tag);
+  const shownTag = parsedTag.success ? parsedTag.data : tag;
 
   // Form for handling the specific tag
   const {
@@ -170,7 +172,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ZodAllTags>({
-    values: tag,
+    values: shownTag,
     resolver: zodResolver(tagSchema),
     mode: "onBlur",
   });

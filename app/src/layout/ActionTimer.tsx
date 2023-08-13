@@ -54,7 +54,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
       );
       const actionPerc = lastUserUpdate < latestRoundAt ? 100 : user.actionPoints;
       // Update state
-      if (round > 0) {
+      if (round >= 0) {
         setState({ label: `Round: ${round} - Next: ${seconds}s`, actionPerc });
       } else {
         setState({ label: `Waiting in Lobby`, actionPerc });

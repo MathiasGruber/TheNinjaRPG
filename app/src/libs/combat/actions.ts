@@ -6,7 +6,8 @@ import { realizeTag } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { updateStatUsage } from "./tags";
-import type { CompleteBattle, ReturnedBattle } from "./types";
+import type { AttackTargets } from "../../../drizzle/constants";
+import type { CompleteBattle, ReturnedBattle, BattleUserState } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
 import type { ReturnedUserState } from "./types";
@@ -224,9 +225,6 @@ export const insertAction = (info: {
     if (user.curHealth < hpCost) throw new Error("Not enough health");
     if (user.curChakra < cpCost) throw new Error("Not enough chakra");
     if (user.curStamina < spCost) throw new Error("Not enough stamina");
-
-    // Village ID
-    const villageId = user.villageId;
     // How much time passed since last action
     const newPoints = actionPointsAfterAction(user, battle, action);
     if (newPoints < 0) {
@@ -243,50 +241,42 @@ export const insertAction = (info: {
       userId,
     });
     // Bookkeeping
-    const targetUsernames: string[] = [];
-    const targetGenders: string[] = [];
+    let targetUsernames: string[] = [];
+    let targetGenders: string[] = [];
 
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
       if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
         action.effects.forEach((tag) => {
-          const effect = realizeTag(tag as GroundEffect, user, action.level, true);
-          if (effect) {
-            effect.longitude = tile.col;
-            effect.latitude = tile.row;
-            groundEffects.push({ ...effect });
+          if (!tag.target || tag.target === "INHERIT") {
+            const effect = realizeTag(tag as GroundEffect, user, action.level, true);
+            if (effect) {
+              effect.longitude = tile.col;
+              effect.latitude = tile.row;
+              groundEffects.push({ ...effect });
+            }
           }
         });
       } else {
         // ADD USER EFFECTS
-        type TargetType = { userId: string; username: string; gender: string };
-        let target: TargetType | undefined = undefined;
-        if (action.target === "SELF") {
-          target = alive.find((u) => u.userId === user.userId && u.hex === tile);
-        } else if (action.target === "OPPONENT") {
-          target = alive.find((u) => u.villageId !== villageId && u.hex === tile);
-        } else if (action.target === "ALLY") {
-          target = alive.find((u) => u.villageId === villageId && u.hex === tile);
-        } else if (action.target === "OTHER_USER") {
-          target = alive.find((u) => u.userId !== userId && u.hex === tile);
-        } else if (action.target === "CHARACTER") {
-          target = alive.find((u) => u.hex === tile);
-        }
+        const target = getTargetUser(alive, action.target, tile, user.userId);
         // Apply effects
-        if (target) {
-          targetUsernames.push(target.username);
-          targetGenders.push(target.gender);
-          action.effects.forEach((tag) => {
-            if (target) {
-              const effect = realizeTag(tag as UserEffect, user, action.level);
-              if (effect) {
-                effect.targetId = target.userId;
-                usersEffects.push(effect);
-              }
+        action.effects.forEach((tag) => {
+          const effect = realizeTag(tag as UserEffect, user, action.level);
+          if (effect) {
+            if (target && (!tag.target || tag.target === "INHERIT")) {
+              targetUsernames.push(target.username);
+              targetGenders.push(target.gender);
+              effect.targetId = target.userId;
+            } else if (tag.target === "SELF") {
+              effect.targetId = user.userId;
+            } else {
+              throw new Error(`Unknown tag target: ${tag.target}`);
             }
-          });
-        }
+            usersEffects.push(effect);
+          }
+        });
         // Special case; attacking barrier, add damage tag as ground effect,
         // which will resolve against the barrier when applied
         if (!target) {
@@ -309,11 +299,13 @@ export const insertAction = (info: {
                 }
               }
             });
-            target = { userId: barrier.id, username: "barrier", gender: "it" };
           }
         }
       }
     });
+    // Get uniques only
+    targetUsernames = [...new Set(targetUsernames)];
+    targetGenders = [...new Set(targetGenders)];
     // Update local battle history in terms of usage of action, effects, etc.
     action.effects.forEach((effect) => {
       updateStatUsage(user, effect as UserEffect);
@@ -401,6 +393,30 @@ export const insertAction = (info: {
     }
   }
   return false;
+};
+
+export const getTargetUser = (
+  users: BattleUserState[],
+  target: typeof AttackTargets[number],
+  tile: TerrainHex,
+  userId: string
+) => {
+  let result: BattleUserState | undefined = undefined;
+  const user = users.find((u) => u.userId === userId);
+  if (user) {
+    if (target === "SELF") {
+      result = users.find((u) => u.userId === user.userId && u.hex === tile);
+    } else if (target === "OPPONENT") {
+      result = users.find((u) => u.villageId !== user.villageId && u.hex === tile);
+    } else if (target === "ALLY") {
+      result = users.find((u) => u.villageId === user.villageId && u.hex === tile);
+    } else if (target === "OTHER_USER") {
+      result = users.find((u) => u.userId !== user.userId && u.hex === tile);
+    } else if (target === "CHARACTER") {
+      result = users.find((u) => u.hex === tile);
+    }
+  }
+  return result;
 };
 
 export const performBattleAction = (props: {
