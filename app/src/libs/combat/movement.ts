@@ -1,6 +1,4 @@
 import { spiral, line, ring, fromCoordinates } from "honeycomb-grid";
-import { COMBAT_SECONDS } from "./constants";
-import { secondsPassed } from "../../utils/time";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatAction, GroundEffect, ReturnedUserState } from "./types";

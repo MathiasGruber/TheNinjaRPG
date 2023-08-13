@@ -19,6 +19,7 @@ export const show_errors = (errors: FieldErrors<any>) => {
       })}
     </>
   );
+  console.error(errors);
   show_toast("Error submitting form", msgs, "error");
 };
 

@@ -203,7 +203,6 @@ const type = (defaultString: string) => {
 /******************** */
 /**  BASE ATTRIBUTES  */
 /******************** */
-
 const BaseAttributes = z.object({
   // Visual controls
   staticAssetPath: z.string().optional(),
@@ -218,6 +217,8 @@ const BaseAttributes = z.object({
   powerPerLevel: z.number().min(0).max(100).default(0),
   // Used for indicating offensive / defensive effect
   direction: z.enum(["offence", "defence"]).default("offence"),
+  // Attack target, if different from the default
+  target: z.enum(["INHERIT", "SELF"]).optional().default("INHERIT"),
 });
 
 const PoolAttributes = z.object({
