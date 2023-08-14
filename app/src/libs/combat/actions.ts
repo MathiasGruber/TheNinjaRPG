@@ -227,9 +227,7 @@ export const insertAction = (info: {
     if (user.curStamina < spCost) throw new Error("Not enough stamina");
     // How much time passed since last action
     const newPoints = actionPointsAfterAction(user, battle, action);
-    if (newPoints < 0) {
-      return { check: false, usersEffects, groundEffects };
-    }
+    if (newPoints < 0) return false;
     // Given this action, get the affected tiles
     const { green: affectedTiles } = getAffectedTiles({
       a: user.hex,

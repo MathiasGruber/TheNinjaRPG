@@ -47,7 +47,7 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
       if (originalAction) {
         const result = performBattleAction({
           battle: nextBattle,
-          action: bestAction.action,
+          action: originalAction,
           grid,
           contextUserId: user.userId,
           userId: user.userId,
@@ -57,7 +57,7 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
         if (result) {
           nextBattle = result.newBattle;
           nextActionEffects.push(...result.actionEffects);
-          aiDescriptions.push(bestAction.action.battleDescription);
+          aiDescriptions.push(originalAction.battleDescription);
         }
       }
     }
