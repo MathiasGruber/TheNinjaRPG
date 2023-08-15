@@ -107,6 +107,7 @@ const ItemPanel: NextPage = () => {
     { id: "target", type: "str_array", values: AttackTargets },
     { id: "method", type: "str_array", values: AttackMethods },
     { id: "cost", type: "number" },
+    { id: "cooldown", label: "cooldown [rounds]", type: "number" },
     { id: "canStack", type: "number" },
     { id: "stackSize", type: "number" },
     { id: "destroyOnUse", type: "number" },

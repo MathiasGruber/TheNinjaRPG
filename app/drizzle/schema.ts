@@ -385,6 +385,7 @@ export const item = mysqlTable(
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
     slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
+    cooldown: int("cooldown").default(0).notNull(),
     weaponType: mysqlEnum("weaponType", consts.WeaponTypes).default("NONE").notNull(),
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),

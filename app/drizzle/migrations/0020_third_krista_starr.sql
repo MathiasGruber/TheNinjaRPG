@@ -1,0 +1,1 @@
+ALTER TABLE `Item` ADD `cooldown` int DEFAULT 0 NOT NULL;
