@@ -185,8 +185,8 @@ export const combatRouter = createTRPCRouter({
           .join(". ");
 
         // If no description, means no actions, just return now
-        if (!battleDescriptions) {
-          throw serverError("BAD_REQUEST", "No battle description generated");
+        if (!description) {
+          return { updateClient: false, battle: null, result: null };
         }
 
         // Calculate if the battle is over for this user, and if so update user DB
