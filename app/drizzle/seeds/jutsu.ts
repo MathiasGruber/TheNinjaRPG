@@ -25,7 +25,7 @@ const jutsus: ZodJutsuType[] = [
     target: "OTHER_USER" as const,
     method: "SINGLE" as const,
     range: 1,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -49,7 +49,7 @@ const jutsus: ZodJutsuType[] = [
     target: "OTHER_USER" as const,
     method: "SINGLE" as const,
     range: 1,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -73,7 +73,7 @@ const jutsus: ZodJutsuType[] = [
     target: "OTHER_USER" as const,
     method: "SINGLE" as const,
     range: 4,
-    cooldown: 40,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -101,7 +101,7 @@ const jutsus: ZodJutsuType[] = [
     target: "EMPTY_GROUND" as const,
     method: "SINGLE" as const,
     range: 1,
-    cooldown: 10,
+    cooldown: 1,
     chakraCostPerc: 20,
     effects: [
       CloneTag.parse({
@@ -127,7 +127,7 @@ const jutsus: ZodJutsuType[] = [
     target: "CHARACTER" as const,
     method: "SINGLE" as const,
     range: 1,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         rounds: 0,
@@ -148,7 +148,7 @@ const jutsus: ZodJutsuType[] = [
     target: "EMPTY_GROUND" as const,
     method: "SINGLE" as const,
     range: 1,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       BarrierTag.parse({
         rounds: 10,
@@ -177,7 +177,7 @@ const jutsus: ZodJutsuType[] = [
     target: "CHARACTER" as const,
     method: "SINGLE" as const,
     range: 2,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         rounds: 0,
@@ -203,7 +203,7 @@ const jutsus: ZodJutsuType[] = [
     target: "GROUND" as const,
     method: "AOE_CIRCLE_SPAWN" as const,
     range: 3,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         rounds: 3,
@@ -233,7 +233,7 @@ const jutsus: ZodJutsuType[] = [
     target: "CHARACTER" as const,
     method: "SINGLE" as const,
     range: 2,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         rounds: 0,
@@ -263,7 +263,7 @@ const jutsus: ZodJutsuType[] = [
     target: "CHARACTER" as const,
     method: "SINGLE" as const,
     range: 2,
-    cooldown: 10,
+    cooldown: 1,
     effects: [
       DamageTag.parse({
         rounds: 0,

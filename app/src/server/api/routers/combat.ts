@@ -6,7 +6,7 @@ import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
-import { COMBAT_LOBBY_SECONDS } from "../../../libs/combat/constants";
+import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
@@ -444,7 +444,9 @@ export const initiateBattle = async (
 
       // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
       user.jutsus = user.jutsus.map((userjutsu) => {
-        userjutsu.updatedAt = new Date();
+        userjutsu.updatedAt = secondsFromNow(
+          -userjutsu.jutsu.cooldown * COMBAT_SECONDS
+        );
         return userjutsu;
       });
 
@@ -463,7 +465,7 @@ export const initiateBattle = async (
             });
           }
         } else {
-          useritem.updatedAt = new Date();
+          useritem.updatedAt = secondsFromNow(-useritem.item.cooldown * COMBAT_SECONDS);
           items.push(useritem);
         }
       });
