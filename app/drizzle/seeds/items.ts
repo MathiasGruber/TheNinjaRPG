@@ -27,6 +27,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 250,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -51,6 +52,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 400,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -76,6 +78,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 1000,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -101,6 +104,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 2000,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -126,6 +130,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 25,
     range: 3,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -151,6 +156,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 25,
     range: 3,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -176,6 +182,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 9000,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -201,6 +208,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 50000,
     range: 5,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -226,6 +234,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 100000,
     range: 1,
+    cooldown: 0,
     effects: [
       DamageTag.parse({
         power: 1,
@@ -248,6 +257,7 @@ const items: ZodItemType[] = [
     slot: "CHEST" as const,
     method: "SINGLE" as const,
     cost: 100,
+    cooldown: 0,
     effects: [
       AdjustArmorTag.parse({
         type: "armoradjust",
@@ -270,6 +280,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 100,
     range: 0,
+    cooldown: 0,
     effects: [
       HealTag.parse({
         rounds: 0,
@@ -290,6 +301,7 @@ const items: ZodItemType[] = [
     method: "SINGLE" as const,
     cost: 100,
     range: 0,
+    cooldown: 0,
     effects: [
       HealTag.parse({
         rounds: 0,
