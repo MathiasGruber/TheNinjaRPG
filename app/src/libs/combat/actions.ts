@@ -72,7 +72,7 @@ export const availableUserActions = (
             effects: [
               HealTag.parse({
                 power: 5,
-                powerPerLevel: 1,
+                powerPerLevel: 0.1,
                 calculation: "static",
                 statTypes: ["Ninjutsu", "Genjutsu"],
                 generalTypes: ["Willpower", "Intelligence"],

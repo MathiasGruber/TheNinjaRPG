@@ -213,8 +213,8 @@ const BaseAttributes = z.object({
   rounds: z.number().int().min(0).max(20).optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),
   // Power controls. Has different meanings depending on calculation
-  power: z.number().min(1).max(10).default(1),
-  powerPerLevel: z.number().min(0).max(0.1).default(0),
+  power: z.number().min(1).max(100).default(1),
+  powerPerLevel: z.number().min(0).max(1).default(0),
   // Used for indicating offensive / defensive effect
   direction: z.enum(["offence", "defence"]).default("offence"),
   // Attack target, if different from the default

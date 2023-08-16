@@ -24,7 +24,7 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustStatTag.parse({
         calculation: "percentage",
         power: 5,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower"],
         elements: ["Wind"],
@@ -46,7 +46,7 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustStatTag.parse({
         calculation: "percentage",
         power: 10,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower"],
         elements: ["Wind"],
@@ -68,7 +68,7 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustStatTag.parse({
         calculation: "percentage",
         power: 15,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu"],
         generalTypes: ["Willpower", "Intelligence"],
         elements: ["Wind"],
@@ -90,7 +90,7 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustStatTag.parse({
         calculation: "percentage",
         power: 20,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu", "Genjutsu"],
         generalTypes: ["Willpower", "Intelligence"],
         elements: ["Wind"],
@@ -98,7 +98,7 @@ const bloodlines: ZodBloodlineType[] = [
       AdjustHealGivenTag.parse({
         calculation: "percentage",
         power: 10,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu", "Genjutsu"],
         generalTypes: ["Willpower", "Intelligence"],
         elements: ["Wind"],
@@ -119,25 +119,25 @@ const bloodlines: ZodBloodlineType[] = [
     effects: [
       AdjustDamageGivenTag.parse({
         power: 10,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Genjutsu", "Ninjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       AdjustDamageGivenTag.parse({
         power: 20,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Bukijutsu", "Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),
       AdjustDamageTakenTag.parse({
         power: 10,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Genjutsu", "Ninjutsu"],
         generalTypes: ["Intelligence", "Willpower"],
       }),
       AdjustDamageTakenTag.parse({
         power: 20,
-        powerPerLevel: 0.5,
+        powerPerLevel: 0.1,
         statTypes: ["Bukijutsu", "Taijutsu"],
         generalTypes: ["Strength", "Speed"],
       }),

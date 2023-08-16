@@ -53,7 +53,7 @@ const jutsus: ZodJutsuType[] = [
     effects: [
       DamageTag.parse({
         power: 1,
-        powerPerLevel: 0.2,
+        powerPerLevel: 0.1,
         statTypes: ["Taijutsu", "Genjutsu"],
         generalTypes: ["Strength", "Speed", "Willpower"],
         rounds: 2,
@@ -107,7 +107,7 @@ const jutsus: ZodJutsuType[] = [
       CloneTag.parse({
         rounds: 0,
         power: 50,
-        powerPerLevel: 1,
+        powerPerLevel: 0.1,
         statTypes: ["Ninjutsu", "Genjutsu"],
         generalTypes: ["Willpower", "Intelligence"],
         calculation: "percentage",
