@@ -22,13 +22,16 @@ export const updateBattle = async (
 
   // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
-    await client.delete(battle).where(eq(battle.id, curBattle.id));
-    await client.delete(battleAction).where(eq(battleAction.battleId, curBattle.id));
+    await Promise.all([
+      client.delete(battle).where(eq(battle.id, curBattle.id)),
+      client.delete(battleAction).where(eq(battleAction.battleId, curBattle.id)),
+    ]);
   } else {
     const result = await client
       .update(battle)
       .set({
         version: curBattle.version + 1,
+        createdAt: curBattle.createdAt,
         usersState: curBattle.usersState,
         usersEffects: curBattle.usersEffects,
         groundEffects: curBattle.groundEffects,
@@ -37,10 +40,7 @@ export const updateBattle = async (
     if (result.rowsAffected === 0) {
       throw new Error("Failed to update battle");
     }
-    curBattle.version = battleOver ? curBattle.version : curBattle.version + 1;
   }
-  // Return battle with updated version
-  return curBattle;
 };
 
 /**
@@ -93,11 +93,13 @@ export const createAction = async (
   battleDescription: string,
   curBattle: Battle,
   effects: ActionEffect[],
+  round: number,
   client: DrizzleClient
 ) => {
   return await client.insert(battleAction).values({
     battleId: curBattle.id,
     battleVersion: curBattle.version,
+    battleRound: round,
     description: battleDescription,
     appliedEffects: effects,
   });

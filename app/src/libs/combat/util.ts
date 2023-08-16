@@ -2,11 +2,13 @@ import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
 import { randomInt } from "../../utils/math";
 import { getBattleRound } from "./actions";
+import { availableUserActions } from "./actions";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
+import { C } from "drizzle-orm/select.types.d-1d455120";
 
 /**
  * Finds a user in the battle state based on location
@@ -323,4 +325,32 @@ const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolea
   const expectedScore = 1 / (1 + 10 ** ((opponent - user) / 400));
   const ratingChange = kFactor * ((won ? 1 : 0) - expectedScore);
   return Math.floor(ratingChange * 100) / 100;
+};
+
+/**
+ * Evaluate whether we should fast-forward the battle
+ */
+export const doFastForward = (battle: CompleteBattle) => {
+  const { latestRoundStartAt } = getBattleRound(battle, Date.now());
+  for (let i = 0; i < battle.usersState.length; i++) {
+    const user = battle.usersState[i];
+    if (user) {
+      const actionInRound = new Date(user.updatedAt) > latestRoundStartAt;
+      const actionPerc = actionInRound ? user.actionPoints : 100;
+      if (actionPerc > 0) {
+        const actions = availableUserActions(battle.usersState, user.userId);
+        for (let j = 0; j < actions.length; j++) {
+          const action = actions[j];
+          if (action) {
+            const hasPoints = action.actionCostPerc <= user.actionPoints;
+            const aiIgnore = user.isAi === 1 && ["Wait", "Move"].includes(action.name);
+            if (hasPoints && !aiIgnore) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }
+  return true;
 };

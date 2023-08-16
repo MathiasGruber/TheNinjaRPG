@@ -148,6 +148,13 @@
       "when": 1692086138879,
       "tag": "0020_third_krista_starr",
       "breakpoints": false
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1692099401745,
+      "tag": "0021_aromatic_leper_queen",
+      "breakpoints": false
     }
   ]
 }

@@ -9,7 +9,7 @@ import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
-import { calcBattleResult, maskBattle } from "../../../libs/combat/util";
+import { calcBattleResult, maskBattle, doFastForward } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchUser } from "./profile";
@@ -19,6 +19,7 @@ import { battle, battleAction, battleHistory } from "../../../../drizzle/schema"
 import { performActionSchema } from "../../../libs/combat/types";
 import { performBattleAction } from "../../../libs/combat/actions";
 import { availableUserActions } from "../../../libs/combat/actions";
+import { getBattleRound } from "../../../libs/combat/actions";
 import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
@@ -180,9 +181,7 @@ export const combatRouter = createTRPCRouter({
         actionEffects.push(...newState.nextActionEffects);
 
         // Add description of battle action, which is used for showing battle log
-        const description = battleDescriptions
-          .concat(newState.aiDescriptions)
-          .join(". ");
+        let description = battleDescriptions.concat(newState.aiDescriptions).join(". ");
 
         // If no description, means no actions, just return now
         if (!description) {
@@ -192,7 +191,7 @@ export const combatRouter = createTRPCRouter({
         // Calculate if the battle is over for this user, and if so update user DB
         const result = calcBattleResult(newBattle, uid);
 
-        // Optimistic update for all other users before we process request
+        // Optimistic update for all other users before we process request. Also increment version
         const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
         if (!battleOver) {
           void pusher.trigger(battle.id, "event", {
@@ -200,15 +199,30 @@ export const combatRouter = createTRPCRouter({
           });
         }
 
+        // Check if everybody finished their action, and if so, fast-forward the battle
+        const { latestRoundStartAt, round } = getBattleRound(newBattle, Date.now());
+        if (doFastForward(newBattle)) {
+          const secondsIntoRound = secondsPassed(latestRoundStartAt);
+          const remainSeconds = COMBAT_SECONDS - secondsIntoRound;
+          newBattle.createdAt = secondsFromDate(-remainSeconds, newBattle.createdAt);
+          newBattle.usersState.map((user) => {
+            user.updatedAt = secondsFromDate(-remainSeconds, new Date(user.updatedAt));
+          });
+          description += `. Fast-forwarded ${remainSeconds}s to round ${round + 1}.`;
+        }
+
         /**
          * DATABASE UPDATES in parallel transaction
          */
         try {
-          const finalBattle = await updateBattle(db, result, newBattle);
-          await saveUsage(db, finalBattle, result, uid);
-          await updateUser(result, finalBattle, uid, db);
-          await createAction(description, finalBattle, actionEffects, db);
+          await updateBattle(db, result, newBattle);
+          await Promise.all([
+            saveUsage(db, newBattle, result, uid),
+            updateUser(result, newBattle, uid, db),
+            createAction(description, newBattle, actionEffects, round, db),
+          ]);
           const newMaskedBattle = maskBattle(newBattle, uid);
+          newMaskedBattle.version = newBattle.version + 1;
 
           // Return the new battle + result state if applicable
           return {

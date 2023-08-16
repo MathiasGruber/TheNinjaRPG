@@ -30,14 +30,8 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     );
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
-  const allEntries = data?.pages
-    .map((page) => page.data)
-    .flat()
-    .map((entry) => {
-      const { round } = getBattleRound(battle, entry.createdAt.getTime());
-      return { ...entry, round };
-    });
-  const groups = allEntries && groupBy(allEntries, "round");
+  const allEntries = data?.pages.map((page) => page.data).flat();
+  const groups = allEntries && groupBy(allEntries, "battleRound");
 
   // const { data, isFetching: isFetchingHistory } = api.combat.getBattleEntry.useQuery(
   //   { battleId: battleId, version: version },
@@ -59,7 +53,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   const lastVersion = allEntries && allEntries.at(-1)?.battleVersion;
   groups?.forEach((entries, round) => {
     history.push(
-      <li key={round} className=" ml-4">
+      <li key={`r-${round}`} className=" ml-4">
         <div className="absolute w-3 h-3 rounded-full mt-1.5 -left-1.5 border border-gray-900 bg-gray-700"></div>
         <time className="mb-1 text-sm font-normal leading-none text-gray-900">
           Round {round}

@@ -58,6 +58,7 @@ export const battleAction = mysqlTable(
       .notNull(),
     battleId: varchar("battleId", { length: 191 }).notNull(),
     battleVersion: int("battleVersion").notNull(),
+    battleRound: int("battleRound").default(0).notNull(),
     description: text("description").notNull(),
     appliedEffects: json("appliedEffects").notNull(),
   },
