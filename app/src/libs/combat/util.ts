@@ -341,9 +341,10 @@ export const doFastForward = (battle: CompleteBattle) => {
         for (let j = 0; j < actions.length; j++) {
           const action = actions[j];
           if (action) {
+            const notWait = action.name !== "Wait";
             const hasPoints = action.actionCostPerc <= user.actionPoints;
-            const aiIgnore = user.isAi === 1 && ["Wait", "Move"].includes(action.name);
-            if (hasPoints && !aiIgnore) {
+            const aiMove = user.isAi === 1 && action.name === "Move";
+            if (hasPoints && notWait && !aiMove) {
               return false;
             }
           }
