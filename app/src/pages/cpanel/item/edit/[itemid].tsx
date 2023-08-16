@@ -116,6 +116,7 @@ const ItemPanel: NextPage = () => {
     { id: "staminaCostPerc", type: "number" },
     { id: "actionCostPerc", type: "number" },
     { id: "healthCostPerc", type: "number" },
+    { id: "hidden", type: "number", label: "Hidden [hide AI item]" },
   ];
 
   // Icon for adding tag

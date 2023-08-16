@@ -107,7 +107,7 @@ const BloodlinePanel: NextPage = () => {
     { id: "image", label: "Image", type: "avatar", href: imageUrl },
     { id: "description", label: "Description", type: "text" },
     { id: "regenIncrease", type: "number" },
-    { id: "hidden", type: "number" },
+    { id: "hidden", type: "number", label: "Hidden [hide AI bloodline]" },
     { id: "village", label: "Village", type: "db_values", values: villages },
     { id: "rank", type: "str_array", values: LetterRanks },
   ];

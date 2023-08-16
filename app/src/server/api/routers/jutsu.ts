@@ -140,6 +140,9 @@ export const jutsuRouter = createTRPCRouter({
       if (!info) {
         return { success: false, message: "Jutsu not found" };
       }
+      if (info.hidden === 1) {
+        return { success: false, message: "Jutsu can not be trained" };
+      }
       if (!canTrainJutsu(info, user)) {
         return { success: false, message: "You cannot train this jutsu" };
       }

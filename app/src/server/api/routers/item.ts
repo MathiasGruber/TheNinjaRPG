@@ -252,6 +252,9 @@ export const itemRouter = createTRPCRouter({
       if (!info) {
         throw serverError("PRECONDITION_FAILED", "Item not found");
       }
+      if (info.hidden === 1) {
+        throw serverError("PRECONDITION_FAILED", "Item can not be bought");
+      }
       const cost = info.cost * input.stack;
       const result = await ctx.drizzle
         .update(userData)

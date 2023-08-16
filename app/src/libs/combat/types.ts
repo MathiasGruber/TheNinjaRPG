@@ -724,6 +724,7 @@ export const JutsuValidator = z
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     range: z.number().int().min(0).max(5),
+    hidden: z.number().int().min(0).max(1).optional(),
     healthCostPerc: z.number().min(0).max(100).optional(),
     chakraCostPerc: z.number().min(0).max(100).optional(),
     staminaCostPerc: z.number().min(0).max(100).optional(),
@@ -746,7 +747,7 @@ export const BloodlineValidator = z.object({
   rank: z.enum(LetterRanks),
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
-  hidden: z.number().min(0).max(1).optional(),
+  hidden: z.number().int().min(0).max(1).optional(),
   effects: z
     .array(
       z.union([
@@ -785,6 +786,7 @@ export const ItemValidator = z
     healthCostPerc: z.number().int().min(0).max(100).optional(),
     staminaCostPerc: z.number().int().min(0).max(100).optional(),
     actionCostPerc: z.number().int().min(1).max(100).optional(),
+    hidden: z.number().int().min(0).max(1).optional(),
     cooldown: z.number().int().min(0).max(300),
     cost: z.number().int().min(1),
     range: z.number().int().min(0).max(10).optional(),

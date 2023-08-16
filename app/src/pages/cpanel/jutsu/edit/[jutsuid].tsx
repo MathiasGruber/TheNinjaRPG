@@ -118,6 +118,7 @@ const JutsuPanel: NextPage = () => {
     { id: "staminaCostPerc", label: "Stamina Cost [%]", type: "number" },
     { id: "chakraCostPerc", label: "Chakra Cost [%]", type: "number" },
     { id: "healthCostPerc", label: "Health Cost [%]", type: "number" },
+    { id: "hidden", type: "number", label: "Hidden [hide AI jutsu]" },
     { id: "jutsuType", type: "str_array", values: JutsuTypes },
     { id: "bloodlineId", label: "Bloodline", type: "db_values", values: bloodlines },
     { id: "villageId", label: "Village", type: "db_values", values: villages },
