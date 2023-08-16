@@ -99,7 +99,9 @@ const Post: React.FC<PostProps> = (props) => {
             {props.title}
           </h3>
         )}
-        <div className="font-normal text-gray-700">{props.children}</div>
+        <div className="relative font-normal text-gray-900 h-full">
+          {props.children}
+        </div>
       </div>
       {props.options && <div>{props.options}</div>}
     </div>

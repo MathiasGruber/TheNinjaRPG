@@ -212,6 +212,9 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
       ) : (
         props.children
       )}
+      <p className="absolute bottom-0 italic text-xs text-gray-600">
+        @{props.comment.createdAt.toLocaleString()}
+      </p>
     </Post>
   );
 };
