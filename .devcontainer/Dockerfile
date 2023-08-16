@@ -1,13 +1,13 @@
 FROM nanomathias/vscode-devcontainer:release-1.2.3
 
 # Install apt install -y pkg-config
-# RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-# RUN apt-get update && apt-get install -y \
-#   default-libmysqlclient-dev \
-#   pkg-config \
-#   gcc \
-#   pkg-config \
-#   && rm -rf /var/lib/apt/lists/*
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+RUN apt-get update && apt-get install -y \
+  default-libmysqlclient-dev \
+  pkg-config \
+  gcc \
+  pkg-config \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install gitmoji
 RUN npm i -g gitmoji-cli

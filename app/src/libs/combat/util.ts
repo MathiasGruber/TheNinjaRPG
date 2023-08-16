@@ -330,13 +330,17 @@ const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolea
  * Evaluate whether we should fast-forward the battle
  */
 export const doFastForward = (battle: CompleteBattle) => {
+  //   console.log("=======", battle.createdAt);
   const { latestRoundStartAt } = getBattleRound(battle, Date.now());
   for (let i = 0; i < battle.usersState.length; i++) {
+    // console.log(i);
     const user = battle.usersState[i];
     if (user) {
       const actionInRound = new Date(user.updatedAt) > latestRoundStartAt;
       const actionPerc = actionInRound ? user.actionPoints : 100;
+      // console.log(user.updatedAt, latestRoundStartAt, actionInRound, actionPerc);
       if (actionPerc > 0) {
+        // console.log(user.username);
         const actions = availableUserActions(battle.usersState, user.userId);
         for (let j = 0; j < actions.length; j++) {
           const action = actions[j];
@@ -344,7 +348,9 @@ export const doFastForward = (battle: CompleteBattle) => {
             const notWait = action.name !== "Wait";
             const hasPoints = action.actionCostPerc <= user.actionPoints;
             const aiMove = user.isAi === 1 && action.name === "Move";
+            // console.log(action.name, action.actionCostPerc, user.actionPoints);
             if (hasPoints && notWait && !aiMove) {
+              // console.log(hasPoints, aiMove, notWait);
               return false;
             }
           }
