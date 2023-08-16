@@ -6,6 +6,7 @@ export const COMBAT_LOBBY_SECONDS = 20;
 export const LVL_SCALING = 1.75;
 export const EXP_SCALING = 0.39;
 export const DMG_SCALING = 0.8;
+export const POWER_SCALING = 0.1;
 export const DMG_BASE = 8;
 export const UNDERDOG = 3;
 
