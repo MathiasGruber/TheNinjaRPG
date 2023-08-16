@@ -159,7 +159,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               >
                 <b>Effect {i + 1}: </b> {effect.description}
                 <div className="grid grid-cols-2">
-                  {effect.rounds && (
+                  {effect.rounds !== undefined && (
                     <span>
                       <b>Rounds: </b> {effect.rounds}
                     </span>
