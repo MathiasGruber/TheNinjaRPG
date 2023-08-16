@@ -46,8 +46,8 @@ export const availableUserActions = (
               DamageTag.parse({
                 power: 1,
                 powerPerLevel: 0.1,
-                statTypes: ["Taijutsu", "Bukijutsu"],
-                generalTypes: ["Strength", "Speed"],
+                statTypes: ["Taijutsu"],
+                generalTypes: ["Strength"],
                 rounds: 0,
                 appearAnimation: "hit",
               }),

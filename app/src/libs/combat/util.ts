@@ -8,7 +8,6 @@ import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
-import { C } from "drizzle-orm/select.types.d-1d455120";
 
 /**
  * Finds a user in the battle state based on location
