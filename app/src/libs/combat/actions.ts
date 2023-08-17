@@ -37,7 +37,7 @@ export const availableUserActions = (
             healthCostPerc: 0,
             chakraCostPerc: 0,
             staminaCostPerc: 10,
-            actionCostPerc: 50,
+            actionCostPerc: 60,
             range: 1,
             updatedAt: Date.now(),
             cooldown: 0,
