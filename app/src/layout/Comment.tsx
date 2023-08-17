@@ -210,7 +210,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           <Button id="edit_comment" label="Edit Comment" />
         </form>
       ) : (
-        props.children
+        <div className="mb-6">{props.children}</div>
       )}
       <p className="absolute bottom-0 italic text-xs text-gray-600">
         @{props.comment.createdAt.toLocaleString()}
