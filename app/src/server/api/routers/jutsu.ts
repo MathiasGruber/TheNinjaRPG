@@ -138,7 +138,16 @@ export const jutsuRouter = createTRPCRouter({
     }),
   // Get all uset jutsu
   getUserJutsus: protectedProcedure.query(async ({ ctx }) => {
-    return await fetchUserJutsus(ctx.drizzle, ctx.userId);
+    const [user, results] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      fetchUserJutsus(ctx.drizzle, ctx.userId),
+    ]);
+    return results.filter((userjutsu) => {
+      return (
+        userjutsu.jutsu.bloodlineId === "" ||
+        user.bloodlineId === userjutsu.jutsu.bloodlineId
+      );
+    });
   }),
   // Start training a given jutsu
   startTraining: protectedProcedure

@@ -457,12 +457,19 @@ export const initiateBattle = async (
       }
 
       // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
-      user.jutsus = user.jutsus.map((userjutsu) => {
-        userjutsu.updatedAt = secondsFromNow(
-          -userjutsu.jutsu.cooldown * COMBAT_SECONDS
-        );
-        return userjutsu;
-      });
+      user.jutsus = user.jutsus
+        .filter((userjutsu) => {
+          return (
+            userjutsu.jutsu.bloodlineId === "" ||
+            user.bloodlineId === userjutsu.jutsu.bloodlineId
+          );
+        })
+        .map((userjutsu) => {
+          userjutsu.updatedAt = secondsFromNow(
+            -userjutsu.jutsu.cooldown * COMBAT_SECONDS
+          );
+          return userjutsu;
+        });
 
       // Add item effects
       const items: (UserItem & { item: Item })[] = [];
