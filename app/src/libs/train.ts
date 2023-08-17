@@ -1,3 +1,4 @@
+import { StatType, GeneralType } from "./combat/constants";
 import type { Jutsu, JutsuRank } from "../../drizzle/schema";
 import type { UserData, UserRank, FederalStatus } from "../../drizzle/schema";
 
@@ -80,3 +81,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
   };
   return 1 + rankContrib(userdata.rank) + fedContrib(userdata.federalStatus);
 };
+
+// For categorizing jutsu
+export const Filters = ["No Filter", "Bloodline", ...StatType, ...GeneralType] as const;
+export type FilterType = typeof Filters[number];

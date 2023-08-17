@@ -8,6 +8,7 @@ import Loader from "../layout/Loader";
 import Countdown from "../layout/Countdown";
 import StatusBar from "../layout/StatusBar";
 import Button from "../layout/Button";
+import SelectField from "../layout/SelectField";
 import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { ActionSelector } from "../layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
@@ -20,6 +21,8 @@ import { BoltIcon } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
 import { UserStatNames } from "../../drizzle/constants";
+import { Filters } from "../libs/train";
+import type { FilterType } from "../libs/train";
 import type { JutsuRank, Jutsu } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
@@ -165,6 +168,7 @@ const JutsuTraining: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [rarity, setRarity] = useState<JutsuRank>("D");
+  const [filter, setFilter] = useState<FilterType>(Filters[0]);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const now = new Date();
 
@@ -175,7 +179,7 @@ const JutsuTraining: React.FC = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 50 },
+    { rarity: rarity, limit: 50, filter: filter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -186,7 +190,13 @@ const JutsuTraining: React.FC = () => {
   const alljutsus = jutsus?.pages
     .map((page) => page.data)
     .flat()
-    .filter((jutsu) => !jutsu.villageId || userData?.villageId === jutsu.villageId);
+    .filter((jutsu) => !jutsu.villageId || userData?.villageId === jutsu.villageId)
+    .filter(
+      (jutsu) =>
+        !userData ||
+        filter !== "Bloodline" ||
+        (jutsu.bloodlineId === userData.bloodlineId && userData.bloodlineId !== "")
+    );
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
@@ -245,14 +255,25 @@ const JutsuTraining: React.FC = () => {
         back_href="/village"
         initialBreak={true}
         topRightContent={
-          <>
-            <div className="grow"></div>
+          <div className="flex flex-col">
+            <SelectField
+              id="filter"
+              onChange={(e) => setFilter(e.target.value as FilterType)}
+            >
+              {Filters.map((filter) => {
+                return (
+                  <option key={filter} value={filter}>
+                    {filter}
+                  </option>
+                );
+              })}
+            </SelectField>
             <NavTabs
               current={rarity}
               options={["D", "C", "B", "A", "S"]}
               setValue={setRarity}
             />
-          </>
+          </div>
         }
       >
         {!isFetching && userData && (

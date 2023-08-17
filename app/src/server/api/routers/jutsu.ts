@@ -12,6 +12,7 @@ import { canChangeContent } from "../../../utils/permissions";
 import { callDiscord } from "../../../libs/discord";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
+import { Filters } from "../../../libs/train";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
@@ -37,16 +38,27 @@ export const jutsuRouter = createTRPCRouter({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
         rarity: z.enum(LetterRanks),
+        filter: z.enum(Filters).optional().default("No Filter"),
       })
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const results = await ctx.drizzle.query.jutsu.findMany({
+      let results = await ctx.drizzle.query.jutsu.findMany({
         where: eq(jutsu.jutsuRank, input.rarity),
         offset: skip,
         limit: input.limit,
       });
+      if (!["No Filter", "Bloodline"].includes(input.filter)) {
+        results = results.filter((jutsu) => {
+          return JSON.stringify(jutsu.effects).includes(input.filter);
+        });
+      }
+      if (input.filter === "Bloodline") {
+        results = results.filter((jutsu) => {
+          return jutsu.bloodlineId !== "";
+        });
+      }
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
         data: results,
