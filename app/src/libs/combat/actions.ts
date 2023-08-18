@@ -267,12 +267,11 @@ export const insertAction = (info: {
               targetUsernames.push(target.username);
               targetGenders.push(target.gender);
               effect.targetId = target.userId;
+              usersEffects.push(effect);
             } else if (tag.target === "SELF") {
               effect.targetId = user.userId;
-            } else {
-              throw new Error(`Unknown tag target: ${tag.target}`);
+              usersEffects.push(effect);
             }
-            usersEffects.push(effect);
           }
         });
         // Special case; attacking barrier, add damage tag as ground effect,
