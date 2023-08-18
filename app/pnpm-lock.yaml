@@ -17,6 +17,9 @@ dependencies:
   '@highlight-run/next':
     specifier: ^3.1.6
     version: 3.1.6(highlight.run@7.3.11)(next@13.2.4)(react@18.2.0)
+  '@highlight-run/node':
+    specifier: ^3.1.8
+    version: 3.1.8
   '@highlight-run/react':
     specifier: ^3.2.1
     version: 3.2.1(react-dom@18.2.0)(react@18.2.0)
@@ -1812,6 +1815,23 @@ packages:
       '@opentelemetry/sdk-trace-base': 1.15.1(@opentelemetry/api@1.4.1)
       '@opentelemetry/semantic-conventions': 1.15.1
       highlight.run: 7.3.11
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+    dev: false
+
+  /@highlight-run/node@3.1.8:
+    resolution: {integrity: sha512-YF4pBJ7aXi7mBpNQuuKjMgccszNnskHiREo+Pc3zm6NuKhP27/0MorsMM5u/Az6YGO1jUPX6NkgU0GEYTjH+hw==}
+    dependencies:
+      '@opentelemetry/api': 1.4.1
+      '@opentelemetry/auto-instrumentations-node': 0.38.0(@opentelemetry/api@1.4.1)
+      '@opentelemetry/core': 1.15.1(@opentelemetry/api@1.4.1)
+      '@opentelemetry/exporter-trace-otlp-http': 0.41.1(@opentelemetry/api@1.4.1)
+      '@opentelemetry/resources': 1.15.1(@opentelemetry/api@1.4.1)
+      '@opentelemetry/sdk-node': 0.41.1(@opentelemetry/api@1.4.1)
+      '@opentelemetry/sdk-trace-base': 1.15.1(@opentelemetry/api@1.4.1)
+      '@opentelemetry/semantic-conventions': 1.15.1
+      highlight.run: 7.4.0
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -5488,6 +5508,10 @@ packages:
 
   /highlight.run@7.3.11:
     resolution: {integrity: sha512-ThX7dSkLWhV9Pa+BlEVUiDzWVWjUwKT+kyoTGwVtgO4hMTsrTdamnFvJ0h5BGFku1y9JTRy8hiOXkxegLn1iPA==}
+    dev: false
+
+  /highlight.run@7.4.0:
+    resolution: {integrity: sha512-jH39VXdIhVYoWny14+Se2/8SENbvHF2mbgmH51+3dO8GhwR3UZNT+bA2V6N7fmgt6ef7M9thRTrh59aKM2rpqQ==}
     dev: false
 
   /honeycomb-grid@4.1.1:

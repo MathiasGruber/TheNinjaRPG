@@ -10,13 +10,13 @@ export function calcLevelRequirements(level: number): number {
 }
 
 export const calcHP = (level: number) => {
-  return 100 + HP_PER_LVL * level;
+  return 100 + HP_PER_LVL * (level - 1);
 };
 
 export const calcSP = (level: number) => {
-  return 100 + SP_PER_LVL * level;
+  return 100 + SP_PER_LVL * (level - 1);
 };
 
 export const calcCP = (level: number) => {
-  return 100 + CP_PER_LVL * level;
+  return 100 + CP_PER_LVL * (level - 1);
 };

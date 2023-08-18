@@ -38,7 +38,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         enableStrictPrivacy={true}
         reportConsoleErrors={true}
         enablePerformanceRecording={true}
-        tracingOrigins
+        tracingOrigins={[/^\//, "theninja-rpg.com"]}
         networkRecording={{
           enabled: true,
           recordHeadersAndBody: true,

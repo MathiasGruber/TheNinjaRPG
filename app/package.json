@@ -18,6 +18,7 @@
     "@clerk/nextjs": "4.21.14",
     "@heroicons/react": "2.0.16",
     "@highlight-run/next": "^3.1.6",
+    "@highlight-run/node": "^3.1.8",
     "@highlight-run/react": "^3.2.1",
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "2.9.10",
