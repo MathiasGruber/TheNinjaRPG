@@ -7,11 +7,13 @@ import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
+import { SunIcon } from "@heroicons/react/24/solid";
 import { BugAntIcon } from "@heroicons/react/24/solid";
 import { sealCheck } from "../libs/combat/tags";
 import { isEffectStillActive } from "../libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
+import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "../libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
@@ -68,6 +70,26 @@ const MenuBoxProfile: React.FC = () => {
       (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e, battle)
     );
   const immunitySecondsLeft = (userData.immunityUntil.getTime() - Date.now()) / 1000;
+
+  // Status link
+  const statusLink = (status: typeof UserStatuses[number]) => {
+    switch (status) {
+      case "BATTLE":
+        return (
+          <Link href="/combat" className="flex flex-row hover:text-orange-500">
+            BATTLE <ShieldCheckIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+          </Link>
+        );
+      case "ASLEEP":
+        return (
+          <Link href="/home" className="flex flex-row hover:text-orange-500">
+            ASLEEP <SunIcon className="h-6 w-6 hover:fill-orange-500" />
+          </Link>
+        );
+      default:
+        return <span>{userData.status}</span>;
+    }
+  };
 
   return (
     <MenuBox
@@ -144,15 +166,8 @@ const MenuBoxProfile: React.FC = () => {
 
         <div className="mt-4">
           <hr />
-          <p className="mt-2">
-            <b>Status:</b>{" "}
-            {userData.status === "BATTLE" ? (
-              <Link className="font-bold  " href="/combat">
-                BATTLE
-              </Link>
-            ) : (
-              userData.status
-            )}
+          <p className="mt-2 flex flex-row">
+            <b>Status: </b> <span className="ml-1">{statusLink(userData.status)}</span>
           </p>
         </div>
         {userData.immunityUntil > new Date() && (
