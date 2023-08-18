@@ -3,12 +3,11 @@ export const COMBAT_HEIGHT = 4;
 export const COMBAT_SECONDS = 30;
 export const COMBAT_LOBBY_SECONDS = 20;
 
-export const LVL_SCALING = 1.75;
-export const EXP_SCALING = 0.39;
-export const DMG_SCALING = 0.8;
+export const LVL_SCALING = 0.25;
+export const EXP_SCALING = 0.5;
+export const DMG_SCALING = 1;
 export const POWER_SCALING = 0.01;
-export const DMG_BASE = 8;
-export const UNDERDOG = 3;
+export const DMG_BASE = 10;
 
 /**
  * Which user state is public

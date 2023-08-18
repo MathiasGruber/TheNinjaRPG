@@ -1,7 +1,7 @@
 import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import { LVL_SCALING, EXP_SCALING, DMG_SCALING, POWER_SCALING } from "./constants";
-import { DMG_BASE, UNDERDOG } from "./constants";
+import { DMG_BASE } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
 import { nanoid } from "nanoid";
 
@@ -313,9 +313,8 @@ export const updateStatUsage = (
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
 const powerEffect = (attack: number, defence: number) => {
-  const scaledDefence = Math.pow(defence, UNDERDOG);
-  const statRatio = Math.pow(attack / scaledDefence, LVL_SCALING);
-  return DMG_BASE + statRatio + Math.pow(attack, EXP_SCALING);
+  const statRatio = Math.pow(attack / defence, LVL_SCALING);
+  return DMG_BASE + statRatio * Math.pow(attack, EXP_SCALING);
 };
 
 /** Calculate damage effect on target */

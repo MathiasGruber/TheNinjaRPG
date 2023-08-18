@@ -2,7 +2,7 @@ import { secondsPassed, secondsFromNow } from "../../utils/time";
 import type { UserData } from "../../../drizzle/schema";
 
 export const calcHealCost = (user: UserData) => {
-  return (user.maxHealth - user.curHealth) / 4;
+  return (user.maxHealth - user.curHealth) / 10;
 };
 
 export const healSecondsLeft = (user: UserData) => {

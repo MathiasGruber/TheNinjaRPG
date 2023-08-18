@@ -1,6 +1,6 @@
-export const HP_PER_LVL = 10;
-export const SP_PER_LVL = 10;
-export const CP_PER_LVL = 10;
+export const HP_PER_LVL = 50;
+export const SP_PER_LVL = 50;
+export const CP_PER_LVL = 50;
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
