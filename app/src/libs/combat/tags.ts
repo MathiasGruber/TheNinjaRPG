@@ -1,7 +1,7 @@
 import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import { LVL_SCALING, EXP_SCALING, DMG_SCALING, POWER_SCALING } from "./constants";
-import { DMG_BASE } from "./constants";
+import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
+import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
 import { nanoid } from "nanoid";
 
@@ -313,8 +313,9 @@ export const updateStatUsage = (
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
 const powerEffect = (attack: number, defence: number) => {
-  const statRatio = Math.pow(attack / defence, LVL_SCALING);
-  return DMG_BASE + statRatio * Math.pow(attack, EXP_SCALING);
+  const avg = (attack + defence) / 2;
+  const statRatio = Math.pow(attack, ATK_SCALING) / Math.pow(defence, DEF_SCALING);
+  return DMG_BASE + statRatio * Math.pow(avg, EXP_SCALING);
 };
 
 /** Calculate damage effect on target */
@@ -349,11 +350,11 @@ export const damage = (
       if (effect.fromGround && lower in effect && lower in target) {
         const left = effect[lower as keyof typeof effect] as number;
         const right = target[lower as keyof typeof target] as number;
-        calcs.push(powerEffect(left, right));
+        calcs.push(GEN_SCALING * powerEffect(left, right));
       } else if (origin && lower in origin && lower in target) {
         const left = origin[lower as keyof typeof origin] as number;
         const right = target[lower as keyof typeof target] as number;
-        calcs.push(powerEffect(left, right));
+        calcs.push(GEN_SCALING * powerEffect(left, right));
       }
     });
   }

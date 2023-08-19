@@ -3,9 +3,11 @@ export const COMBAT_HEIGHT = 4;
 export const COMBAT_SECONDS = 30;
 export const COMBAT_LOBBY_SECONDS = 20;
 
-export const LVL_SCALING = 0.1;
+export const ATK_SCALING = 0.5;
+export const DEF_SCALING = 0.5;
 export const EXP_SCALING = 0.5;
 export const DMG_SCALING = 1;
+export const GEN_SCALING = 1;
 export const POWER_SCALING = 0.01;
 export const DMG_BASE = 10;
 
