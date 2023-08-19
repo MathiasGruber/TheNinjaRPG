@@ -41,6 +41,9 @@ export const realizeTag = <T extends BattleEffect>(
       tag.highestOffence = user.highestOffence;
     }
   }
+  if (isGround) {
+    tag.experience = user.experience;
+  }
   if (isGround && "generalTypes" in tag) {
     tag.strength = user.strength;
     tag.intelligence = user.intelligence;

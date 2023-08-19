@@ -626,6 +626,7 @@ export type BattleEffect = ZodAllTags & {
   isNew: boolean;
   createdAt: number;
   targetType?: "user" | "barrier";
+  experience?: number;
   highestOffence?: number;
   highestDefence?: number;
   ninjutsuOffence?: number;

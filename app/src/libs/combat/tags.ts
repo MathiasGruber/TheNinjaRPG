@@ -312,10 +312,9 @@ export const updateStatUsage = (
 };
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
-const powerEffect = (attack: number, defence: number) => {
-  const avg = (attack + defence) / 2;
+const powerEffect = (attack: number, defence: number, avg_exp: number) => {
   const statRatio = Math.pow(attack, ATK_SCALING) / Math.pow(defence, DEF_SCALING);
-  return DMG_BASE + statRatio * Math.pow(avg, EXP_SCALING);
+  return DMG_BASE + statRatio * Math.pow(avg_exp, EXP_SCALING);
 };
 
 /** Calculate damage effect on target */
@@ -335,26 +334,30 @@ export const damage = (
       const lower = statType.toLowerCase();
       const a = `${lower}${dir ? "Offence" : "Defence"}`;
       const b = `${lower}${dir ? "Defence" : "Offence"}`;
-      if (effect.fromGround && a in effect && b in target) {
+      if (effect.fromGround && a in effect && b in target && effect.experience) {
         const left = effect[a as keyof typeof effect] as number;
         const right = target[b as keyof typeof target] as number;
-        calcs.push(powerEffect(left, right));
+        const avg_exp = (effect.experience + target.experience) / 2;
+        calcs.push(powerEffect(left, right, avg_exp));
       } else if (origin && a in origin && b in target) {
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
-        calcs.push(powerEffect(left, right));
+        const avg_exp = (origin.experience + target.experience) / 2;
+        calcs.push(powerEffect(left, right, avg_exp));
       }
     });
     effect.generalTypes?.forEach((generalType) => {
-      const lower = generalType.toLowerCase();
-      if (effect.fromGround && lower in effect && lower in target) {
-        const left = effect[lower as keyof typeof effect] as number;
-        const right = target[lower as keyof typeof target] as number;
-        calcs.push(GEN_SCALING * powerEffect(left, right));
-      } else if (origin && lower in origin && lower in target) {
-        const left = origin[lower as keyof typeof origin] as number;
-        const right = target[lower as keyof typeof target] as number;
-        calcs.push(GEN_SCALING * powerEffect(left, right));
+      const gen = generalType.toLowerCase();
+      if (effect.fromGround && gen in effect && gen in target && effect.experience) {
+        const left = effect[gen as keyof typeof effect] as number;
+        const right = target[gen as keyof typeof target] as number;
+        const avg_exp = (effect.experience + target.experience) / 2;
+        calcs.push(GEN_SCALING * powerEffect(left, right, avg_exp));
+      } else if (origin && gen in origin && gen in target) {
+        const left = origin[gen as keyof typeof origin] as number;
+        const right = target[gen as keyof typeof target] as number;
+        const avg_exp = (origin.experience + target.experience) / 2;
+        calcs.push(GEN_SCALING * powerEffect(left, right, avg_exp));
       }
     });
   }
