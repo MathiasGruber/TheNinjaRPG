@@ -185,7 +185,12 @@ export const combatRouter = createTRPCRouter({
 
         // If no description, means no actions, just return now
         if (!description) {
-          return { updateClient: false, battle: null, result: null };
+          return {
+            updateClient: false,
+            battle: null,
+            result: null,
+            notification: "Was not possible to create battle description",
+          };
         }
 
         // Calculate if the battle is over for this user, and if so update user DB
