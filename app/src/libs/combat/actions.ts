@@ -319,6 +319,9 @@ export const insertAction = (info: {
       user.updatedAt = new Date();
       user.actionPoints = newPoints;
       // Update user descriptions
+      if (action.battleDescription === "") {
+        action.battleDescription = `%user uses ${action.name}`;
+      }
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_subject",
         user.gender === "Male" ? "he" : "she"
