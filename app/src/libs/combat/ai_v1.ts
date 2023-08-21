@@ -30,7 +30,7 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
   // If AI users, check all possible actions to calculate a fitness function
   aiUsers.forEach((user) => {
     // Possible actions
-    const actions = availableUserActions(nextBattle.usersState, user.userId, false);
+    const actions = availableUserActions(nextBattle, user.userId, false);
     // Get a list of all possible actions from this origin and 2 steps forward
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action

@@ -144,7 +144,7 @@ export const combatRouter = createTRPCRouter({
         // If userId, actionID, and position specified, perform user action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
           // Get action
-          const actions = availableUserActions(battle.usersState, uid);
+          const actions = availableUserActions(battle, uid);
           const action = actions.find((a) => a.id === input.actionId);
           if (!action) {
             throw serverError("CONFLICT", `Invalid action`);

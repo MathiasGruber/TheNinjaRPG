@@ -341,7 +341,7 @@ export const doFastForward = (battle: CompleteBattle) => {
       // console.log(user.updatedAt, latestRoundStartAt, actionInRound, actionPerc);
       if (actionPerc > 0) {
         // console.log(user.username);
-        const actions = availableUserActions(battle.usersState, user.userId);
+        const actions = availableUserActions(battle, user.userId);
         for (let j = 0; j < actions.length; j++) {
           const action = actions[j];
           if (action) {

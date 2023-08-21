@@ -10,7 +10,6 @@ import type { AttackTargets } from "../../../drizzle/constants";
 import type { CompleteBattle, ReturnedBattle, BattleUserState } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
-import type { ReturnedUserState } from "./types";
 import type { CombatAction, ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 
@@ -18,18 +17,21 @@ import type { GroundEffect, UserEffect } from "./types";
  * Given a user, return a list of actions that the user can perform
  */
 export const availableUserActions = (
-  usersState: ReturnedUserState[] | undefined,
+  battle: ReturnedBattle | undefined | null,
   userId: string | undefined,
   basicMoves = true
 ): CombatAction[] => {
+  const usersState = battle?.usersState;
   const user = usersState?.find((u) => u.userId === userId);
+  const actionPoints =
+    battle && user && (isInNewRound(user, battle) ? 100 : user.actionPoints);
   return [
     ...(basicMoves
       ? [
           {
             id: "sp",
             name: "Basic Attack",
-            image: "/combat/basicActions/stamina.png",
+            image: "/combat/basicActions/stamina.webp",
             battleDescription: "%user perform a basic physical strike against %target",
             type: "basic" as const,
             target: "OTHER_USER" as const,
@@ -56,7 +58,7 @@ export const availableUserActions = (
           {
             id: "cp",
             name: "Basic Heal",
-            image: "/combat/basicActions/heal.png",
+            image: "/combat/basicActions/heal.webp",
             battleDescription: "%user perform basic healing of %target",
             type: "basic" as const,
             target: "OTHER_USER" as const,
@@ -84,27 +86,9 @@ export const availableUserActions = (
         ]
       : []),
     {
-      id: "wait",
-      name: "Wait",
-      image: "/combat/basicActions/stamina.png",
-      battleDescription: "%user stands and does nothing.",
-      type: "basic" as const,
-      target: "SELF" as const,
-      method: "SINGLE" as const,
-      healthCostPerc: 0,
-      chakraCostPerc: 0,
-      staminaCostPerc: 0,
-      actionCostPerc: 0,
-      range: 0,
-      updatedAt: Date.now(),
-      cooldown: 0,
-      effects: [],
-      hidden: true,
-    },
-    {
       id: "move",
       name: "Move",
-      image: "/combat/basicActions/move.png",
+      image: "/combat/basicActions/move.webp",
       battleDescription: "%user moves to %location",
       type: "basic" as const,
       target: "GROUND" as const,
@@ -123,7 +107,7 @@ export const availableUserActions = (
           {
             id: "flee",
             name: "Flee",
-            image: "/combat/basicActions/flee.png",
+            image: "/combat/basicActions/flee.webp",
             battleDescription: "%user attempts to flee the battle",
             type: "basic" as const,
             target: "SELF" as const,
@@ -136,6 +120,27 @@ export const availableUserActions = (
             staminaCostPerc: 0,
             actionCostPerc: 100,
             effects: [FleeTag.parse({ power: 100, rounds: 0 })],
+          },
+        ]
+      : []),
+    ...(actionPoints && actionPoints > 0
+      ? [
+          {
+            id: "wait",
+            name: "Wait",
+            image: "/combat/basicActions/wait.webp",
+            battleDescription: "%user stands and does nothing.",
+            type: "basic" as const,
+            target: "SELF" as const,
+            method: "SINGLE" as const,
+            healthCostPerc: 0,
+            chakraCostPerc: 0,
+            staminaCostPerc: 0,
+            actionCostPerc: actionPoints,
+            range: 0,
+            updatedAt: Date.now(),
+            cooldown: 0,
+            effects: [],
           },
         ]
       : []),
@@ -458,18 +463,26 @@ export const performBattleAction = (props: {
   return { newBattle, actionEffects };
 };
 
-export const actionPointsAfterAction = (
+export const isInNewRound = (
   user: { updatedAt: string | Date; actionPoints: number },
   battle: ReturnedBattle,
-  action: CombatAction,
   timeDiff = 0
 ) => {
   // Calculate round
   const { latestRoundStartAt } = getBattleRound(battle, Date.now(), timeDiff);
   // Are we in a new round, or same round as previous database update
   const lastUserUpdate = new Date(user.updatedAt);
-  // Calculate how much action points we have left
-  if (lastUserUpdate < latestRoundStartAt) {
+  // Return true if user is in new round
+  return lastUserUpdate < latestRoundStartAt;
+};
+
+export const actionPointsAfterAction = (
+  user: { updatedAt: string | Date; actionPoints: number },
+  battle: ReturnedBattle,
+  action: CombatAction,
+  timeDiff = 0
+) => {
+  if (isInNewRound(user, battle, timeDiff)) {
     return 100 - action.actionCostPerc;
   } else {
     return user.actionPoints - action.actionCostPerc;

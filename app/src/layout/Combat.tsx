@@ -152,7 +152,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           (u) => u.isAi && u.curHealth > 0 && u.controllerId === u.userId
         );
         if (user && ai && user.curHealth > 0 && !user.leftBattle) {
-          const actions = availableUserActions(usersState, ai.userId, false);
+          const actions = availableUserActions(battle.current, ai.userId, false);
           const hasAction = actions.find(
             (a) =>
               battle.current &&
