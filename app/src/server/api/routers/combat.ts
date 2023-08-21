@@ -141,11 +141,13 @@ export const combatRouter = createTRPCRouter({
         let actionEffects: ActionEffect[] = [];
         let newBattle: CompleteBattle = battle;
 
+        // Get action
+        const actions = availableUserActions(battle, uid);
+        const action = actions.find((a) => a.id === input.actionId);
+
         // If userId, actionID, and position specified, perform user action
         if (input.userId && input.longitude && input.latitude && input.actionId) {
-          // Get action
-          const actions = availableUserActions(battle, uid);
-          const action = actions.find((a) => a.id === input.actionId);
+          // Check if action is valid
           if (!action) {
             throw serverError("CONFLICT", `Invalid action`);
           }
@@ -176,14 +178,15 @@ export const combatRouter = createTRPCRouter({
         }
 
         // Attempt to perform AI action
-        const newState = performAIaction(newBattle, grid);
-        newBattle = newState.nextBattle;
-        actionEffects.push(...newState.nextActionEffects);
-
-        // Add description of battle action, which is used for showing battle log
-        let description = battleDescriptions.concat(newState.aiDescriptions).join(". ");
+        if (action?.name !== "Wait") {
+          const newState = performAIaction(newBattle, grid);
+          newBattle = newState.nextBattle;
+          actionEffects.push(...newState.nextActionEffects);
+          battleDescriptions.push(...newState.aiDescriptions);
+        }
 
         // If no description, means no actions, just return now
+        let description = battleDescriptions.join(". ");
         if (!description) {
           return {
             updateClient: false,
