@@ -17,7 +17,7 @@ import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import type { ReturnedBattle } from "../libs/combat/types";
+import type { ReturnedBattle, ReturnedUserState } from "../libs/combat/types";
 import type { CombatAction } from "../libs/combat/types";
 import type { BattleState } from "../libs/combat/types";
 import type { TerrainHex } from "../libs/hexgrid";
@@ -111,6 +111,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { mutate: performAIAction, isLoading: isLoadingAI } =
     api.combat.performAction.useMutation({
       onSuccess: (data) => {
+        // Update battle stats
         if (data.updateClient) {
           battle.current = data.battle;
           setBattleState({
@@ -118,6 +119,19 @@ const Combat: React.FC<CombatProps> = (props) => {
             result: data.result,
             isLoading: false,
           });
+        }
+        // Check if user has actions left, if not, then perform another AI action
+        if (battle.current?.usersState) {
+          const { aiHasActions, userHasActions } = getAvailableActions(
+            battle.current.usersState
+          );
+          if (!userHasActions && aiHasActions) {
+            console.log("User has no actions, performing AI action");
+            performAIAction({
+              battleId: battle.current.id,
+              version: battle.current.version,
+            });
+          }
         }
       },
     });
@@ -137,6 +151,33 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   };
 
+  const getAvailableActions = (usersState: ReturnedUserState[]) => {
+    let aiHasActions: CombatAction | undefined = undefined;
+    let userHasActions: CombatAction | undefined = undefined;
+    // Get user & AI
+    const user = usersState.find((u) => u.userId === userId.current);
+    const ai = usersState.find(
+      (u) => u.isAi && u.curHealth > 0 && u.controllerId === u.userId
+    );
+    // If user & AI exists, return their actions availability (note: may need updating once multi-combat becomes a thing)
+    if (user && ai && user.curHealth > 0 && !user.leftBattle) {
+      // Check AI actions
+      const aiActions = availableUserActions(battle.current, ai.userId, false);
+      aiHasActions = aiActions.find(
+        (a) =>
+          battle.current && actionPointsAfterAction(ai, battle.current, a, timeDiff) > 0
+      );
+      // Check user actions
+      const userActions = availableUserActions(battle.current, user.userId);
+      userHasActions = userActions.find(
+        (a) =>
+          battle.current &&
+          actionPointsAfterAction(user, battle.current, a, timeDiff) > 0
+      );
+    }
+    return { aiHasActions, userHasActions };
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (
@@ -146,24 +187,12 @@ const Combat: React.FC<CombatProps> = (props) => {
         !isLoadingAI &&
         !result
       ) {
-        const usersState = battle.current.usersState;
-        const user = usersState.find((u) => u.userId === userId.current);
-        const ai = usersState.find(
-          (u) => u.isAi && u.curHealth > 0 && u.controllerId === u.userId
-        );
-        if (user && ai && user.curHealth > 0 && !user.leftBattle) {
-          const actions = availableUserActions(battle.current, ai.userId, false);
-          const hasAction = actions.find(
-            (a) =>
-              battle.current &&
-              actionPointsAfterAction(ai, battle.current, a, timeDiff) > 0
-          );
-          if (hasAction && !isLoadingUser && !isLoadingAI) {
-            performAIAction({
-              battleId: battle.current.id,
-              version: battle.current.version,
-            });
-          }
+        const { aiHasActions } = getAvailableActions(battle.current.usersState);
+        if (aiHasActions) {
+          performAIAction({
+            battleId: battle.current.id,
+            version: battle.current.version,
+          });
         }
       }
     }, 5000);
