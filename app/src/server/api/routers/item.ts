@@ -67,7 +67,7 @@ export const itemRouter = createTRPCRouter({
       const entry = await fetchItem(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
         await ctx.drizzle.delete(item).where(eq(item.id, input.id));
-        await ctx.drizzle.delete(userItem).where(eq(userItem.id, input.id));
+        await ctx.drizzle.delete(userItem).where(eq(userItem.itemId, input.id));
         return { success: true, message: `Item deleted` };
       } else {
         return { success: false, message: `Not allowed to delete item` };
