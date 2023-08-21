@@ -178,7 +178,7 @@ export const combatRouter = createTRPCRouter({
         }
 
         // Attempt to perform AI action
-        if (action?.name !== "Wait") {
+        if (action?.id !== "wait") {
           const newState = performAIaction(newBattle, grid);
           newBattle = newState.nextBattle;
           actionEffects.push(...newState.nextActionEffects);

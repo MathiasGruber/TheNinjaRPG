@@ -127,7 +127,7 @@ export const availableUserActions = (
       ? [
           {
             id: "wait",
-            name: "Wait",
+            name: "End Turn",
             image: "/combat/basicActions/wait.webp",
             battleDescription: "%user stands and does nothing.",
             type: "basic" as const,

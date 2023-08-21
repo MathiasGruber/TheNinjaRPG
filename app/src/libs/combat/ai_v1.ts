@@ -236,7 +236,7 @@ export const evaluateFitness = (
   }
 
   // Waiting is penalized
-  if (action.name === "Wait") {
+  if (action.id === "wait") {
     fitness -= 1;
   }
 
