@@ -99,7 +99,7 @@ export const availableUserActions = (
       healthCostPerc: 0,
       chakraCostPerc: 0,
       staminaCostPerc: 0,
-      actionCostPerc: 20,
+      actionCostPerc: 30,
       effects: [MoveTag.parse({ power: 100 })],
     },
     ...(basicMoves
