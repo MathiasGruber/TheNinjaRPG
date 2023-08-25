@@ -9,6 +9,18 @@ export function calcLevelRequirements(level: number): number {
   return cost + prevCost;
 }
 
+export const calcLevel = (experience: number) => {
+  let level = 1;
+  let exp = 0;
+  while (exp < experience) {
+    exp += 500 + level * 500;
+    if (exp < experience) {
+      level += 1;
+    }
+  }
+  return level;
+};
+
 export const calcHP = (level: number) => {
   return 100 + HP_PER_LVL * (level - 1);
 };

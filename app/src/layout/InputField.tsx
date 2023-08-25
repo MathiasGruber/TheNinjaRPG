@@ -2,6 +2,7 @@ import { type UseFormRegister } from "react-hook-form";
 
 interface InputFieldProps {
   id: string;
+  inline?: boolean;
   label?: string;
   placeholder?: string;
   options?: React.ReactNode;
@@ -15,9 +16,11 @@ const InputField: React.FC<InputFieldProps> = (props) => {
     ? "border-2 border-red-500"
     : "border border-amber-900";
   return (
-    <div className="relative m-1 grow">
+    <div
+      className={`${props.inline ? "flex flex-row items-center" : "relative grow"} m-1`}
+    >
       {props.label && (
-        <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
+        <label htmlFor={props.id} className="mb-2 block text-sm font-medium mr-2">
           {props.label}
         </label>
       )}
