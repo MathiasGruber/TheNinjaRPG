@@ -19,10 +19,14 @@ import type { BattleUserState, Consequence, UserEffect } from "../../libs/combat
 
 // Default user
 const statSchema = z.object({
-  ninjutsu: z.number().min(10).max(10000000).default(10),
-  taijutsu: z.number().min(10).max(10000000).default(10),
-  genjutsu: z.number().min(10).max(10000000).default(10),
-  bukijutsu: z.number().min(10).max(10000000).default(10),
+  ninjutsuOffence: z.number().min(10).max(10000000).default(10),
+  taijutsuOffence: z.number().min(10).max(10000000).default(10),
+  genjutsuOffence: z.number().min(10).max(10000000).default(10),
+  bukijutsuOffence: z.number().min(10).max(10000000).default(10),
+  ninjutsuDefence: z.number().min(10).max(10000000).default(10),
+  taijutsuDefence: z.number().min(10).max(10000000).default(10),
+  genjutsuDefence: z.number().min(10).max(10000000).default(10),
+  bukijutsuDefence: z.number().min(10).max(10000000).default(10),
   strength: z.number().min(10).max(10000000).default(10),
   speed: z.number().min(10).max(10000000).default(10),
   intelligence: z.number().min(10).max(10000000).default(10),
@@ -65,7 +69,6 @@ const ManualDamageSimulator: NextPage = () => {
   const defMax = useForm<StatSchema>({ ...conf1, resolver: zodResolver(statSchema) });
   const conf2 = { defaultValues: actSchema.parse({}), mode: "all" as const };
   const actForm = useForm<ActSchema>({ ...conf2, resolver: zodResolver(actSchema) });
-  console.log();
 
   // Watch all the forms simultaneously
   const attValues = attForm.watch();
@@ -102,7 +105,7 @@ const ManualDamageSimulator: NextPage = () => {
       // Fetch stat ranges, if any
       const minAttValues = attMin.getValues();
       const maxAttValues = attMax.getValues();
-      console.log(attValues, minAttValues, maxAttValues);
+      // console.log(attValues, minAttValues, maxAttValues);
       const minDefValues = defMin.getValues();
       const maxDefValues = defMax.getValues();
       const attRanges: UserStatType[] = [];
@@ -167,6 +170,7 @@ const ManualDamageSimulator: NextPage = () => {
               id="u1"
               showRanges={showRanges}
               showInline={showInline}
+              ignoreContains="Defence"
               selectForm={attForm}
               minForm={attMin}
               maxForm={attMax}
@@ -182,6 +186,7 @@ const ManualDamageSimulator: NextPage = () => {
               id="u2"
               showRanges={showRanges}
               showInline={showInline}
+              ignoreContains="Offence"
               selectForm={defForm}
               minForm={defMin}
               maxForm={defMax}
@@ -253,6 +258,7 @@ interface UserInputProps {
   id: string;
   showRanges: boolean;
   showInline: boolean;
+  ignoreContains: string;
   selectForm: UseFormReturn<StatSchema>;
   minForm: UseFormReturn<StatSchema>;
   maxForm: UseFormReturn<StatSchema>;
@@ -260,44 +266,46 @@ interface UserInputProps {
 
 const UserInput: React.FC<UserInputProps> = (props) => {
   const { id, showRanges, showInline, selectForm, minForm, maxForm } = props;
-  const fields = statNames.map((stat, i) => {
-    return (
-      <div
-        key={`${i}${id}`}
-        className={`py-2 ${i % 2 === 0 ? "bg-yellow-50" : "bg-amber-100"}`}
-      >
-        <div className="px-3">
-          <InputField
-            id={stat}
-            inline={showInline}
-            type="number"
-            label={stat}
-            register={selectForm.register}
-            error={selectForm.formState.errors?.[stat]?.message}
-          />
-        </div>
-        {showRanges && (
-          <div className="grid grid-cols-2 px-3 ">
+  const fields = statNames
+    .filter((stat) => !stat.includes(props.ignoreContains))
+    .map((stat, i) => {
+      return (
+        <div
+          key={`${i}${id}`}
+          className={`py-2 ${i % 2 === 0 ? "bg-yellow-50" : "bg-amber-100"}`}
+        >
+          <div className="px-3">
             <InputField
               id={stat}
               inline={showInline}
               type="number"
-              label="min"
-              register={minForm.register}
-              error={minForm.formState.errors?.[stat]?.message}
-            />
-            <InputField
-              id={stat}
-              inline={showInline}
-              type="number"
-              label="max"
-              register={maxForm.register}
-              error={maxForm.formState.errors?.[stat]?.message}
+              label={stat}
+              register={selectForm.register}
+              error={selectForm.formState.errors?.[stat]?.message}
             />
           </div>
-        )}
-      </div>
-    );
-  });
+          {showRanges && (
+            <div className="grid grid-cols-2 px-3 ">
+              <InputField
+                id={stat}
+                inline={showInline}
+                type="number"
+                label="min"
+                register={minForm.register}
+                error={minForm.formState.errors?.[stat]?.message}
+              />
+              <InputField
+                id={stat}
+                inline={showInline}
+                type="number"
+                label="max"
+                register={maxForm.register}
+                error={maxForm.formState.errors?.[stat]?.message}
+              />
+            </div>
+          )}
+        </div>
+      );
+    });
   return <div>{fields}</div>;
 };
