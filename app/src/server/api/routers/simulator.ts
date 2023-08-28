@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { eq, and, gt, desc } from "drizzle-orm";
 import { damageSimulation } from "../../../../drizzle/schema";
@@ -14,7 +14,7 @@ export const simulatorRouter = createTRPCRouter({
       orderBy: [desc(damageSimulation.createdAt)],
     });
   }),
-  getDamageSimulation: protectedProcedure
+  getDamageSimulation: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return await fetchEntry(ctx.drizzle, input.id);

@@ -1,7 +1,8 @@
 import { nanoid } from "nanoid";
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useUserData } from "../../../utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
 import { ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/solid";
@@ -17,6 +18,7 @@ import { StatType, GeneralType } from "../../../libs/combat/constants";
 import { statSchema, actSchema } from "../../../libs/combat/types";
 import { api } from "../../../utils/api";
 import { show_toast } from "../../../libs/toast";
+import { Chart as ChartJS } from "chart.js/auto";
 import type { DamageSimulation } from "../../../../drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -33,11 +35,41 @@ const statNames = Object.keys(defaultsStats) as (keyof typeof defaultsStats)[];
 type UserStatType = typeof statNames[number];
 
 const ManualDamageSimulator: NextPage = () => {
+  // Fetch user data
+  const { data: userData } = useUserData();
+
+  // Colors for chart
+  const colors = [
+    "#1f77b4",
+    "#aec7e8",
+    "#ff7f0e",
+    "#ffbb78",
+    "#2ca02c",
+    "#98df8a",
+    "#d62728",
+    "#ff9896",
+    "#9467bd",
+    "#c5b0d5",
+    "#8c564b",
+    "#c49c94",
+    "#e377c2",
+    "#f7b6d2",
+    "#7f7f7f",
+    "#c7c7c7",
+    "#bcbd22",
+    "#dbdb8d",
+    "#17becf",
+    "#9edae5",
+  ];
+
   // Route information
   const router = useRouter();
-  const entryid = router.query.entryid
-    ? (router.query.entryid[0] as string)
+  const damageSimulationId = router.query.damageSimulationId
+    ? (router.query.damageSimulationId[0] as string)
     : undefined;
+
+  // Chart ref
+  const chartRef = useRef<HTMLCanvasElement>(null);
 
   // Page state
   const [selectedDmg, setSelectedDmg] = useState<number | undefined>(undefined);
@@ -55,21 +87,15 @@ const ManualDamageSimulator: NextPage = () => {
   const defValues = defForm.watch();
   const actValues = actForm.watch();
 
-  // Extract information from schema to use for showing forms
-  const attExp = statNames.map((k) => attValues[k]).reduce((a, b) => a + b, 0) - 120;
-  const attLevel = calcLevel(attExp);
-  const defExp = statNames.map((k) => defValues[k]).reduce((a, b) => a + b, 0) - 120;
-  const defLevel = calcLevel(defExp);
-
   // Query for fetching previous entries
   const { data, isLoading, refetch } = api.simulator.getDamageSimulations.useQuery(
     undefined,
-    { staleTime: Infinity }
+    { enabled: !!userData, staleTime: Infinity }
   );
   const { data: previous, isLoading: isFetchingSingle } =
     api.simulator.getDamageSimulation.useQuery(
-      { id: entryid ? entryid : "" },
-      { enabled: !!entryid, staleTime: Infinity }
+      { id: damageSimulationId ? damageSimulationId : "" },
+      { enabled: !!damageSimulationId, staleTime: Infinity }
     );
 
   // Mutation for creating new entry
@@ -102,12 +128,31 @@ const ManualDamageSimulator: NextPage = () => {
   // Total mutation loading state
   const isMutating = isSaving || isUpdating || isDeleting;
 
+  // Calculate experience from stats
+  const calcExperience = (values: StatSchema) => {
+    return statNames.map((k) => values[k]).reduce((a, b) => a + b, 0) - 120;
+  };
+
+  // Extract information from schema to use for showing forms
+  const attExp = calcExperience(attValues);
+  const attLevel = calcLevel(attExp);
+  const defExp = calcExperience(defValues);
+  const defLevel = calcLevel(defExp);
+
   // Monkey-wrap the damage function
   const getDamage = (
-    attacker: BattleUserState,
-    defender: BattleUserState,
+    attValues: StatSchema,
+    defValues: StatSchema,
     actValues: ActSchema
   ) => {
+    const attacker = {
+      ...attValues,
+      experience: calcExperience(attValues),
+    } as unknown as BattleUserState;
+    const defender = {
+      ...defValues,
+      experience: calcExperience(defValues),
+    } as unknown as BattleUserState;
     const effect = {
       id: nanoid(),
       power: actValues.power,
@@ -124,6 +169,58 @@ const ManualDamageSimulator: NextPage = () => {
     return parseFloat(result.toFixed(2));
   };
 
+  // Update the chart
+  useEffect(() => {
+    const ctx = chartRef?.current?.getContext("2d");
+    if (ctx && data && data?.length > 0) {
+      const myChart = new ChartJS(ctx, {
+        type: "scatter",
+        options: {
+          plugins: {
+            legend: {
+              display: false,
+            },
+          },
+          scales: {
+            x: {
+              type: "linear",
+              ticks: { stepSize: 1 },
+              title: { display: true, text: "Previous Calculation" },
+            },
+            y: {
+              type: "linear",
+              ticks: { stepSize: 1 },
+              title: { display: true, text: "Damage" },
+            },
+          },
+        },
+        data: {
+          datasets: data
+            .map((entry, i) => {
+              return { ...entry, colorId: i };
+            })
+            .filter((e) => e.active === 1)
+            .map((entry, i) => {
+              const { attacker, defender, action } = entry.state as {
+                attacker: StatSchema;
+                defender: StatSchema;
+                action: ActSchema;
+              };
+              const stateDmg = getDamage(attacker, defender, action);
+              return {
+                data: [{ x: i + 1, y: stateDmg }],
+                backgroundColor: colors[entry.colorId % colors.length],
+                borderColor: colors[entry.colorId % colors.length],
+              };
+            }),
+        },
+      });
+      return () => {
+        myChart.destroy();
+      };
+    }
+  }, [data]);
+
   // Handle updating current form values whenever retrieve entry changes
   useEffect(() => {
     if (previous?.state) activateEntry(previous);
@@ -131,16 +228,7 @@ const ManualDamageSimulator: NextPage = () => {
 
   // Handle updating damage whenever form changes
   useEffect(() => {
-    const attacker = {
-      ...attValues,
-      experience: attExp,
-    } as unknown as BattleUserState;
-    const defender = {
-      ...defValues,
-      experience: defExp,
-    } as unknown as BattleUserState;
-    const result = getDamage(attacker, defender, actValues);
-    setSelectedDmg(result);
+    setSelectedDmg(getDamage(attValues, defValues, actValues));
   }, [attValues, defValues, actValues]);
 
   // Handle simulation
@@ -188,7 +276,7 @@ const ManualDamageSimulator: NextPage = () => {
         <div className="grid grid-cols-2">
           <div>
             <p className="px-3 pt-3 text-lg font-bold">Attacker</p>
-            <p className="px-3 italic text-sm font-bold">Equal defence:</p>
+            <p className="px-3 italic text-sm font-bold">Assume no defence:</p>
             <p className="px-3 italic text-sm">Estimated Exp: {attExp}</p>
             <p className="px-3 pb-1 italic text-sm">Estimated Lvl: {attLevel}</p>
             <hr />
@@ -201,7 +289,7 @@ const ManualDamageSimulator: NextPage = () => {
           </div>
           <div>
             <p className="px-3 pt-3 text-lg font-bold">Defender</p>
-            <p className="px-3 italic text-sm font-bold">Equal offence:</p>
+            <p className="px-3 italic text-sm font-bold">Assume no offence:</p>
             <p className="px-3 italic text-sm">Estimated Exp: {defExp}</p>
             <p className="px-3 pb-1 italic text-sm">Estimated Lvl: {defLevel}</p>
             <hr />
@@ -263,75 +351,80 @@ const ManualDamageSimulator: NextPage = () => {
           />
         </div>
       </ContentBox>
-      <ContentBox
-        title={`Damage Results`}
-        subtitle="Compare Calculations (Work in Progress)"
-        initialBreak={true}
-      >
-        <div className="grid grid-cols-3">
-          <div className="col-span-2 text-center">[GRAPH HERE]</div>
-          <div>
-            <p className="text-lg font-bold">History</p>
-            {data?.map((entry, i) => {
-              return (
-                <div key={i} className="flex flex-row items-center">
-                  {entry.active === 1 && (
-                    <EyeIcon
-                      className="h-5 w-5 mr-1 hover:text-orange-500  hover:cursor-pointer"
-                      onClick={() => updateEntry({ id: entry.id, active: false })}
-                    />
-                  )}
-                  {entry.active === 0 && (
-                    <EyeSlashIcon
-                      className="h-5 w-5 mr-1 hover:text-orange-500  hover:cursor-pointer"
-                      onClick={() => updateEntry({ id: entry.id, active: true })}
-                    />
-                  )}
-                  <div
-                    className=" hover:text-orange-500"
-                    onClick={() => activateEntry(entry)}
-                  >
-                    {entry.createdAt.toLocaleString(undefined, {
-                      weekday: undefined,
-                      day: "numeric",
-                      year: undefined,
-                      month: "numeric",
-                      hour: "numeric",
-                      minute: "numeric",
-                      second: "numeric",
-                    })}
-                  </div>
+      {userData && (
+        <ContentBox
+          title={`Damage Results`}
+          subtitle="Compare & recall calculations"
+          initialBreak={true}
+        >
+          <div className="grid grid-cols-3">
+            <div className="col-span-2 text-center mr-5">
+              <canvas ref={chartRef} id="overview"></canvas>
+            </div>
+            <div>
+              <p className="text-lg font-bold">History</p>
+              {data?.map((entry, i) => {
+                return (
+                  <div key={i} className="flex flex-row items-center">
+                    {entry.active === 1 && (
+                      <EyeIcon
+                        className={`h-5 w-5 mr-1 hover:cursor-pointer`}
+                        style={{ color: colors[i % colors.length] }}
+                        onClick={() => updateEntry({ id: entry.id, active: false })}
+                      />
+                    )}
+                    {entry.active === 0 && (
+                      <EyeSlashIcon
+                        className="h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer"
+                        onClick={() => updateEntry({ id: entry.id, active: true })}
+                      />
+                    )}
+                    <div
+                      className=" hover:text-orange-500"
+                      onClick={() => activateEntry(entry)}
+                    >
+                      {entry.createdAt.toLocaleString(undefined, {
+                        weekday: undefined,
+                        day: "numeric",
+                        year: undefined,
+                        month: "numeric",
+                        hour: "numeric",
+                        minute: "numeric",
+                        second: "numeric",
+                      })}
+                    </div>
 
-                  <div className="flex-grow" />
-                  <TrashIcon
-                    className="mr-1 h-5 w-5 hover:text-orange-500 hover:cursor-pointer"
-                    onClick={() => deleteEntry({ id: entry.id })}
-                  />
-                  <ArrowTopRightOnSquareIcon
-                    className="ml-1 h-5 w-5 hover:text-orange-900 hover:cursor-pointer"
-                    onClick={() => {
-                      const origin =
-                        typeof window !== "undefined" && window.location.origin
-                          ? window.location.origin
-                          : "";
-                      const link = `${origin}/manual/damage_calcs/${entry.id}`;
-                      navigator.clipboard.writeText(link).then(
-                        function () {
-                          show_toast("Saved", "Copied to clipboard!", "info");
-                        },
-                        function () {
-                          show_toast("Error", "Could not create link", "error");
-                        }
-                      );
-                    }}
-                  />
-                </div>
-              );
-            })}
-            <p className="italic text-xs">- Max 20 items</p>
+                    <div className="flex-grow" />
+                    <TrashIcon
+                      className="mr-1 h-5 w-5 hover:text-orange-500 hover:cursor-pointer"
+                      onClick={() => deleteEntry({ id: entry.id })}
+                    />
+                    <ArrowTopRightOnSquareIcon
+                      className="ml-1 h-5 w-5 hover:text-orange-900 hover:cursor-pointer"
+                      onClick={() => {
+                        const origin =
+                          typeof window !== "undefined" && window.location.origin
+                            ? window.location.origin
+                            : "";
+                        const link = `${origin}/manual/damage_calcs/${entry.id}`;
+                        navigator.clipboard.writeText(link).then(
+                          function () {
+                            show_toast("Saved", "Copied to clipboard!", "info");
+                          },
+                          function () {
+                            show_toast("Error", "Could not create link", "error");
+                          }
+                        );
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              <p className="italic text-xs">- Max 20 items</p>
+            </div>
           </div>
-        </div>
-      </ContentBox>
+        </ContentBox>
+      )}
     </>
   );
 };
