@@ -801,3 +801,27 @@ export const ItemValidator = z
   })
   .superRefine(SuperRefineAction);
 export type ZodItemType = z.infer<typeof ItemValidator>;
+
+/****************************** */
+/*******  DMG SIMULATION  *******/
+/****************************** */
+export const statSchema = z.object({
+  ninjutsuOffence: z.number().min(10).max(10000000).default(10),
+  taijutsuOffence: z.number().min(10).max(10000000).default(10),
+  genjutsuOffence: z.number().min(10).max(10000000).default(10),
+  bukijutsuOffence: z.number().min(10).max(10000000).default(10),
+  ninjutsuDefence: z.number().min(10).max(10000000).default(10),
+  taijutsuDefence: z.number().min(10).max(10000000).default(10),
+  genjutsuDefence: z.number().min(10).max(10000000).default(10),
+  bukijutsuDefence: z.number().min(10).max(10000000).default(10),
+  strength: z.number().min(10).max(10000000).default(10),
+  speed: z.number().min(10).max(10000000).default(10),
+  intelligence: z.number().min(10).max(10000000).default(10),
+  willpower: z.number().min(10).max(10000000).default(10),
+});
+
+export const actSchema = z.object({
+  power: z.number().min(1).max(100).default(1),
+  statTypes: z.array(z.enum(StatType)).default(["Ninjutsu"]),
+  generalTypes: z.array(z.enum(GeneralType)).default(["Strength"]),
+});

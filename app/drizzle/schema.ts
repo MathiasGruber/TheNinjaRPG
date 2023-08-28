@@ -258,6 +258,26 @@ export const conversationCommentRelations = relations(
   })
 );
 
+export const damageSimulation = mysqlTable(
+  "DamageCalculation",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    state: json("state").notNull(),
+    active: tinyint("active").default(1).notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("DamageCalculation_userId_idx").on(table.userId),
+      createdAtIdx: index("DamageCalculation_createdAt_idx").on(table.createdAt),
+    };
+  }
+);
+export type DamageSimulation = InferModel<typeof damageSimulation>;
+
 export const forumBoard = mysqlTable(
   "ForumBoard",
   {
