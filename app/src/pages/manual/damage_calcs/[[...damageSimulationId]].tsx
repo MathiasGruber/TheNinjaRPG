@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useUserData } from "../../../utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
+import { CloudArrowDownIcon, UsersIcon } from "@heroicons/react/24/solid";
 import { ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 import Toggle from "../../../layout/Toggle";
@@ -258,6 +258,13 @@ const ManualDamageSimulator: NextPage = () => {
     }
   };
 
+  // Handle setting user data into form
+  const setUserData = (form: UseFormReturn<StatSchema>) => {
+    statNames.forEach((stat) => {
+      form.setValue(stat, userData?.[stat] ?? 0);
+    });
+  };
+
   return (
     <>
       <ContentBox
@@ -284,7 +291,14 @@ const ManualDamageSimulator: NextPage = () => {
       >
         <div className="grid grid-cols-2">
           <div>
-            <p className="px-3 pt-3 text-lg font-bold">Attacker</p>
+            <div className="flex flex-row items-center">
+              <p className="px-3 pt-3 text-lg font-bold">Attacker</p>
+              <div className="grow"></div>
+              <UsersIcon
+                className="h-5 w-5 mr-3 mt-3"
+                onClick={() => setUserData(attForm)}
+              />
+            </div>
             <p className="px-3 italic text-sm">Experience: {attExp}</p>
             <p className="px-3 pb-1 italic text-sm">Level: {attLevel}</p>
             <hr />
@@ -296,7 +310,14 @@ const ManualDamageSimulator: NextPage = () => {
             />
           </div>
           <div>
-            <p className="px-3 pt-3 text-lg font-bold">Defender</p>
+            <div className="flex flex-row items-center">
+              <p className="px-3 pt-3 text-lg font-bold">Defender</p>
+              <div className="grow"></div>
+              <UsersIcon
+                className="h-5 w-5 mr-3 mt-3"
+                onClick={() => setUserData(defForm)}
+              />
+            </div>
             <p className="px-3 italic text-sm">Experience: {defExp}</p>
             <p className="px-3 pb-1 italic text-sm">Level: {defLevel}</p>
             <hr />
