@@ -74,6 +74,7 @@ const ManualDamageSimulator: NextPage = () => {
   // Page state
   const [selectedDmg, setSelectedDmg] = useState<number | undefined>(undefined);
   const [showInline, setShowInline] = useState<boolean>(false);
+  const [showAll, setShowAll] = useState<boolean>(true);
 
   // Forms setup
   const conf1 = { defaultValues: defaultsStats, mode: "all" as const };
@@ -265,38 +266,44 @@ const ManualDamageSimulator: NextPage = () => {
         back_href="/manual"
         padding={false}
         topRightContent={
-          <Toggle
-            value={showInline}
-            setShowActive={setShowInline}
-            labelActive="Inline"
-            labelInactive="Inline"
-          />
+          <div className="flex flex-row">
+            <Toggle
+              value={showInline}
+              setShowActive={setShowInline}
+              labelActive="Inline"
+              labelInactive="Inline"
+            />
+            <Toggle
+              value={showAll}
+              setShowActive={setShowAll}
+              labelActive="Focus"
+              labelInactive="Focus"
+            />
+          </div>
         }
       >
         <div className="grid grid-cols-2">
           <div>
             <p className="px-3 pt-3 text-lg font-bold">Attacker</p>
-            <p className="px-3 italic text-sm font-bold">Assume no defence:</p>
-            <p className="px-3 italic text-sm">Estimated Exp: {attExp}</p>
-            <p className="px-3 pb-1 italic text-sm">Estimated Lvl: {attLevel}</p>
+            <p className="px-3 italic text-sm">Experience: {attExp}</p>
+            <p className="px-3 pb-1 italic text-sm">Level: {attLevel}</p>
             <hr />
             <UserInput
               id="u1"
               showInline={showInline}
-              ignoreContains="Defence"
+              ignoreContains={showAll ? "Defence" : "None"}
               selectForm={attForm}
             />
           </div>
           <div>
             <p className="px-3 pt-3 text-lg font-bold">Defender</p>
-            <p className="px-3 italic text-sm font-bold">Assume no offence:</p>
-            <p className="px-3 italic text-sm">Estimated Exp: {defExp}</p>
-            <p className="px-3 pb-1 italic text-sm">Estimated Lvl: {defLevel}</p>
+            <p className="px-3 italic text-sm">Experience: {defExp}</p>
+            <p className="px-3 pb-1 italic text-sm">Level: {defLevel}</p>
             <hr />
             <UserInput
               id="u2"
               showInline={showInline}
-              ignoreContains="Offence"
+              ignoreContains={showAll ? "Offence" : "None"}
               selectForm={defForm}
             />
           </div>
