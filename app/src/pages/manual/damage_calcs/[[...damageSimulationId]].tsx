@@ -362,7 +362,20 @@ const ManualDamageSimulator: NextPage = () => {
               <canvas ref={chartRef} id="overview"></canvas>
             </div>
             <div>
-              <p className="text-lg font-bold">History</p>
+              <div className="text-lg font-bold flex flex-row">
+                <p>History</p>
+                <div className="grow"></div>
+                <EyeIcon
+                  className={`h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer`}
+                  onClick={() => updateEntry({ active: true })}
+                />
+                <EyeSlashIcon
+                  className={`h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer`}
+                  onClick={() => updateEntry({ active: false })}
+                />
+              </div>
+              <hr />
+              <p className="my-1"></p>
               {data?.map((entry, i) => {
                 return (
                   <div key={i} className="flex flex-row items-center">

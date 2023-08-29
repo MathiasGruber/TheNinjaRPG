@@ -55,13 +55,24 @@ export const simulatorRouter = createTRPCRouter({
       }
     }),
   updateDamageSimulation: protectedProcedure
-    .input(z.object({ id: z.string(), active: z.boolean() }))
+    .input(z.object({ id: z.string().optional(), active: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      const entry = await fetchEntry(ctx.drizzle, input.id, ctx.userId);
-      return await ctx.drizzle
-        .update(damageSimulation)
-        .set({ active: input.active ? 1 : 0 })
-        .where(eq(damageSimulation.id, entry.id));
+      if (input.id) {
+        return await ctx.drizzle
+          .update(damageSimulation)
+          .set({ active: input.active ? 1 : 0 })
+          .where(
+            and(
+              eq(damageSimulation.id, input.id),
+              eq(damageSimulation.userId, ctx.userId)
+            )
+          );
+      } else {
+        return await ctx.drizzle
+          .update(damageSimulation)
+          .set({ active: input.active ? 1 : 0 })
+          .where(eq(damageSimulation.userId, ctx.userId));
+      }
     }),
   deleteDamageSimulation: protectedProcedure
     .input(z.object({ id: z.string() }))
