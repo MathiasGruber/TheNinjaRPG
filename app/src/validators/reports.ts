@@ -50,6 +50,7 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
   return (
     (user.role === "ADMIN" && report.status === "UNVIEWED") ||
     (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
+    (user.role === "ADMIN" && report.status === "BAN_ACTIVATED") ||
     (user.role === "ADMIN" && report.status === "BAN_ESCALATED")
   );
 };

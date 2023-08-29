@@ -271,7 +271,7 @@ const Report: NextPage = () => {
                     button={
                       <Button
                         id="submit_resolve"
-                        label="Ban User"
+                        label={canClear ? "Edit Ban" : "Ban User"}
                         color="red"
                         image={<ShieldExclamationIcon className="mr-1 h-5 w-5" />}
                       />
