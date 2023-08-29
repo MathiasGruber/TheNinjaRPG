@@ -200,7 +200,7 @@ export const profileRouter = createTRPCRouter({
       if (user.isBanned) {
         notifications.push({
           href: "/reports",
-          name: "You are banned!",
+          name: "Banned!",
           color: "red",
         });
       }
