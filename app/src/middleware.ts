@@ -12,6 +12,7 @@ export default authMiddleware({
     "/rules",
     "/login(.*)",
     "/api/trpc/(.*)",
+    "/api/uploadthing",
   ],
 });
 

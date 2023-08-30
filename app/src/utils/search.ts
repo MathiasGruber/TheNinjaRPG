@@ -19,6 +19,7 @@ export const useUserSearch = () => {
     formState: { errors },
   } = useForm<UserSearchSchema>({
     resolver: zodResolver(userSearchSchema),
+    mode: "all",
   });
   // Watch username field
   const watchUsername = watch("username", "");

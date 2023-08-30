@@ -29,3 +29,10 @@ export const createConversationSchema = z
   .required();
 
 export type CreateConversationSchema = z.infer<typeof createConversationSchema>;
+
+export const mutateNindoContent = z
+  .object({ content: z.string().min(2).max(5000) })
+  .strict()
+  .required();
+
+export type MutateNindoContent = z.infer<typeof mutateNindoContent>;

@@ -1,6 +1,8 @@
 export const HP_PER_LVL = 50;
 export const SP_PER_LVL = 50;
 export const CP_PER_LVL = 50;
+export const COST_CHANGE_USERNAME = 5;
+export const MAX_ATTRIBUTES = 5;
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;

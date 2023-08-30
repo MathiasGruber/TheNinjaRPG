@@ -15,10 +15,14 @@ import {
   conversationComment,
   user2conversation,
   userReport,
+  userNindo,
   userJutsu,
   jutsu,
   actionLog,
 } from "../../../../drizzle/schema";
+import { usernameSchema } from "../../../validators/register";
+import { mutateNindoContent } from "../../../validators/comments";
+import { attributes } from "../../../validators/register";
 import { callDiscord } from "../../../libs/discord";
 import { scaleUserStats } from "../../../../drizzle/seeds/ai";
 import { insertUserDataSchema } from "../../../../drizzle/schema";
@@ -26,12 +30,15 @@ import { canChangeContent } from "../../../utils/permissions";
 import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";
+import { COST_CHANGE_USERNAME } from "../../../libs/profile";
+import { MAX_ATTRIBUTES } from "../../../libs/profile";
 import { UserStatNames } from "../../../../drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
+import { ExecutedQuery } from "@planetscale/database";
 
 export const profileRouter = createTRPCRouter({
   // Start training of a specific attribute
@@ -391,6 +398,121 @@ export const profileRouter = createTRPCRouter({
       if (username) return username;
       return null;
     }),
+  // Update username
+  updateUsername: protectedProcedure
+    .input(z.object({ username: usernameSchema }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.username === input.username) {
+        return { success: false, message: "Username is the same" };
+      } else if (user.reputationPoints < COST_CHANGE_USERNAME) {
+        return { success: false, message: "Not enough reputation points" };
+      }
+      const username = await ctx.drizzle.query.userData.findFirst({
+        columns: { username: true },
+        where: eq(userData.username, input.username),
+      });
+      if (username) {
+        return { success: false, message: "Username already taken!" };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          username: input.username,
+          reputationPoints: sql`reputationPoints - ${COST_CHANGE_USERNAME}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: [`Username changed from ${user.username} to ${input.username}`],
+          relatedId: ctx.userId,
+          relatedMsg: `Update: ${user.username} -> ${input.username}`,
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Username updated" };
+      }
+    }),
+  // Get nindo text of user
+  getNindo: publicProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const nindo = await ctx.drizzle.query.userNindo.findFirst({
+        where: eq(userNindo.userId, input.userId),
+      });
+      return nindo ? nindo.content : "";
+    }),
+  // Update nindo
+  updateNindo: protectedProcedure
+    .input(mutateNindoContent)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const nindo = await ctx.drizzle.query.userNindo.findFirst({
+        where: eq(userNindo.userId, ctx.userId),
+      });
+      let result: ExecutedQuery;
+      if (!nindo) {
+        result = await ctx.drizzle.insert(userNindo).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          content: input.content,
+        });
+      } else {
+        result = await ctx.drizzle
+          .update(userNindo)
+          .set({ content: input.content })
+          .where(eq(userNindo.userId, ctx.userId));
+      }
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update nindo" };
+      } else {
+        return { success: true, message: "Nindo updated" };
+      }
+    }),
+  // Insert attribute
+  insertAttribute: protectedProcedure
+    .input(z.object({ attribute: z.enum(attributes) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const attributes = await fetchAttributes(ctx.drizzle, ctx.userId);
+      if (attributes.length >= MAX_ATTRIBUTES) {
+        return { success: false, message: `Only ${MAX_ATTRIBUTES} attributes allowed` };
+      }
+      const result = await ctx.drizzle.insert(userAttribute).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        attribute: input.attribute,
+      });
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Failed to insert attribute" };
+      } else {
+        return { success: true, message: "Attribute inserted" };
+      }
+    }),
+  // Delete attribute
+  deleteAttribute: protectedProcedure
+    .input(z.object({ attribute: z.enum(attributes) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.drizzle
+        .delete(userAttribute)
+        .where(
+          and(
+            eq(userAttribute.attribute, input.attribute),
+            eq(userAttribute.userId, ctx.userId)
+          )
+        );
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Failed to delete attribute" };
+      } else {
+        return { success: true, message: "Attribute deleted" };
+      }
+    }),
   // Return list of 5 most similar users in database
   searchUsers: protectedProcedure
     .input(
@@ -448,6 +570,7 @@ export const profileRouter = createTRPCRouter({
         with: {
           village: true,
           bloodline: true,
+          nindo: true,
         },
       });
     }),

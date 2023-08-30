@@ -752,10 +752,32 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.villageId],
     references: [village.id],
   }),
+  nindo: one(userNindo, {
+    fields: [userData.userId],
+    references: [userNindo.userId],
+  }),
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
 }));
+
+export const userNindo = mysqlTable(
+  "UserNindo",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    content: text("content").notNull(),
+  },
+  (table) => {
+    return { userIdIdx: index("UserNindo_userId_idx").on(table.userId) };
+  }
+);
 
 export const userItem = mysqlTable(
   "UserItem",

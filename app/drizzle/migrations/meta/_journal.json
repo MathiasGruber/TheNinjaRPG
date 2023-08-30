@@ -162,6 +162,13 @@
       "when": 1693158229137,
       "tag": "0022_vengeful_dreaming_celestial",
       "breakpoints": false
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1693380627151,
+      "tag": "0023_little_nova",
+      "breakpoints": false
     }
   ]
 }

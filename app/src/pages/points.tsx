@@ -293,7 +293,7 @@ const FederalStore = () => {
             <ul className="m-2 ml-6 list-disc">
               <li>Blue username in tavern</li>
               <li>+2 Inventory space</li>
-              <li>Custom avatar (200kb)</li>
+              <li>Custom avatar (128kb)</li>
               <li>One extra jutsu slot</li>
             </ul>
             {selectedUser && userData ? (
@@ -315,7 +315,7 @@ const FederalStore = () => {
             <ul className="m-2 ml-6 list-disc">
               <li>Silver username in tavern</li>
               <li>+5 Inventory space</li>
-              <li>Custom avatar (500kb)</li>
+              <li>Custom avatar (256kb)</li>
               <li>Two extra jutsu slots</li>
             </ul>
             {selectedUser && userData ? (
@@ -337,7 +337,7 @@ const FederalStore = () => {
             <ul className="m-2 ml-6 list-disc">
               <li>Gold username in tavern</li>
               <li>+10 Inventory space</li>
-              <li>Custom avatar (750kb)</li>
+              <li>Custom avatar (512kb)</li>
               <li>Three extra jutsu slots</li>
             </ul>
             {selectedUser && userData ? (

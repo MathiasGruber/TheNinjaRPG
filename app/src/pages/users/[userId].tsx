@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
+import ReactHtmlParser from "react-html-parser";
 
 import StatusBar from "../../layout/StatusBar";
 import AvatarImage from "../../layout/Avatar";
@@ -144,6 +145,15 @@ const PublicProfile: NextPage = () => {
               </div>
             </div>
           </ContentBox>
+          {profile.nindo && (
+            <ContentBox
+              title="Nindo"
+              subtitle={`${profile.username}'s Ninja Way`}
+              initialBreak={true}
+            >
+              {ReactHtmlParser(profile.nindo.content)}
+            </ContentBox>
+          )}
         </>
       )}
     </>
