@@ -4,7 +4,7 @@ import { historicalAvatar, userData } from "../../drizzle/schema";
 import { drizzleDB } from "./db";
 import type { FileRouter } from "uploadthing/next-legacy";
 import type { NextApiRequest } from "next";
-import { FederalStatuses } from "../../drizzle/constants";
+import type { FederalStatuses } from "../../drizzle/constants";
 
 const f = createUploadthing();
 
@@ -12,22 +12,22 @@ export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req))
     .onUploadComplete(async ({ metadata, file }) => {
-      uploadHistoricalAvatar(file, metadata.userId);
+      await uploadHistoricalAvatar(file, metadata.userId);
     }),
   avatarNormalUploader: f({ image: { maxFileSize: "128KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {
-      uploadHistoricalAvatar(file, metadata.userId, true);
+      await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
   avatarSilverUploader: f({ image: { maxFileSize: "256KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "SILVER"))
     .onUploadComplete(async ({ metadata, file }) => {
-      uploadHistoricalAvatar(file, metadata.userId, true);
+      await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
   avatarGoldUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "GOLD"))
     .onUploadComplete(async ({ metadata, file }) => {
-      uploadHistoricalAvatar(file, metadata.userId, true);
+      await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
 } satisfies FileRouter;
 
@@ -42,7 +42,7 @@ const avatarMiddleware = async (
   req: NextApiRequest,
   fedRequirement?: typeof FederalStatuses[number]
 ) => {
-  const { userId } = JSON.parse(req.body) as { userId: string };
+  const { userId } = JSON.parse(req.body as string) as { userId: string };
   if (!userId) throw new Error("Unauthorized");
   const avatars = await drizzleDB
     .select({ count: sql<number>`count(*)`.mapWith(Number) })

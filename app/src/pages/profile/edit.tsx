@@ -11,7 +11,6 @@ import RichInput from "../../layout/RichInput";
 import Button from "../../layout/Button";
 import AvatarImage from "../../layout/Avatar";
 import InputField from "../../layout/InputField";
-import { FederalStatuses } from "../../../drizzle/constants";
 import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
 import { attributes } from "../../validators/register";
@@ -129,7 +128,7 @@ const AvatarChange: React.FC = () => {
           }
           onClientUploadComplete={(res) => {
             if (res?.[0]?.fileUrl) {
-              setTimeout(refetchUser, 1000);
+              setTimeout(() => void refetchUser(), 1000);
             }
           }}
           onUploadError={(error: Error) => {
@@ -166,7 +165,7 @@ const AttributeChange: React.FC = () => {
       onSuccess: async (data) => {
         if (data.success) {
           show_toast("Success", "Attribute inserted", "success");
-          refetch();
+          await refetch();
         } else {
           show_toast("Error on insert", data.message, "error");
         }
@@ -179,7 +178,7 @@ const AttributeChange: React.FC = () => {
       onSuccess: async (data) => {
         if (data.success) {
           show_toast("Success", "Attribute deleted", "success");
-          refetch();
+          await refetch();
         } else {
           show_toast("Error on delete", data.message, "error");
         }
@@ -193,6 +192,7 @@ const AttributeChange: React.FC = () => {
         <p className="font-bold">Current </p>
         {selectedAttributes.map((attribute, i) => (
           <div
+            key={i}
             className="flex flex-row items-center hover:text-orange-500 hover:cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
@@ -200,8 +200,7 @@ const AttributeChange: React.FC = () => {
               deleteAttr({ attribute });
             }}
           >
-            <p key={i}> - {attribute}</p>{" "}
-            <ChevronDoubleRightIcon className="h-5 w-5 ml-1" />
+            <p> - {attribute}</p> <ChevronDoubleRightIcon className="h-5 w-5 ml-1" />
           </div>
         ))}
       </div>
@@ -211,6 +210,7 @@ const AttributeChange: React.FC = () => {
           .filter((a) => !selectedAttributes.includes(a))
           .map((attribute, i) => (
             <div
+              key={i}
               className="flex flex-row items-center hover:text-orange-500 hover:cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
@@ -219,7 +219,7 @@ const AttributeChange: React.FC = () => {
               }}
             >
               <ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />
-              <p key={i}> {attribute} </p>
+              <p> {attribute} </p>
             </div>
           ))}
       </div>
@@ -245,7 +245,7 @@ const NindoChange: React.FC = () => {
     onSuccess: async (data) => {
       if (data.success) {
         show_toast("Success", "Nindo updated", "success");
-        refetch();
+        await refetch();
       } else {
         show_toast("Error on updating nindo", data.message, "error");
       }
