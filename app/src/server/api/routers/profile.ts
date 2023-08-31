@@ -547,6 +547,7 @@ export const profileRouter = createTRPCRouter({
           eq(userData.approvedTos, 1),
           ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`])
         ),
+        orderBy: [sql`LENGTH(${userData.username}) asc`],
         limit: 5,
       });
     }),
