@@ -179,7 +179,7 @@ const JutsuTraining: React.FC = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 50, filter: filter },
+    { rarity: rarity, limit: 100, filter: filter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,

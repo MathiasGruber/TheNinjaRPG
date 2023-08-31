@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, gte, and } from "drizzle-orm";
+import { eq, gte, and, inArray } from "drizzle-orm";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { userData } from "../../../../drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "../../../../drizzle/schema";
+import { userJutsu, jutsu } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import { fetchUser } from "./profile";
@@ -203,18 +204,38 @@ export const bloodlineRouter = createTRPCRouter({
       if (user.reputationPoints < REMOVAL_COST) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
-      return await ctx.drizzle
-        .update(userData)
-        .set({
-          bloodlineId: null,
-          reputationPoints: user.reputationPoints - REMOVAL_COST,
+      const bloodlineJutsus = (
+        await ctx.drizzle.query.jutsu.findMany({
+          columns: { id: true },
+          where: eq(jutsu.bloodlineId, user.bloodlineId),
         })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            gte(userData.reputationPoints, REMOVAL_COST)
-          )
-        );
+      ).map((j) => j.id);
+      // Run queries in parallel
+      await Promise.all([
+        // Update bloodline jutsus currently being trianed
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ finishTraining: null })
+          .where(
+            and(
+              eq(userJutsu.userId, ctx.userId),
+              inArray(userJutsu.jutsuId, bloodlineJutsus)
+            )
+          ),
+        // Update user to remove bloodline
+        ctx.drizzle
+          .update(userData)
+          .set({
+            bloodlineId: null,
+            reputationPoints: user.reputationPoints - REMOVAL_COST,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gte(userData.reputationPoints, REMOVAL_COST)
+            )
+          ),
+      ]);
     }
   }),
   // Purchase a bloodline for session user
