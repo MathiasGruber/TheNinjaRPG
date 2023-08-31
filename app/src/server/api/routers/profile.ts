@@ -39,7 +39,7 @@ import type { UserData } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
-import { ExecutedQuery } from "@planetscale/database";
+import type { ExecutedQuery } from "@planetscale/database";
 
 export const profileRouter = createTRPCRouter({
   // Start training of a specific attribute
@@ -489,9 +489,10 @@ export const profileRouter = createTRPCRouter({
       if (attributes.length >= MAX_ATTRIBUTES) {
         return { success: false, message: `Only ${MAX_ATTRIBUTES} attributes allowed` };
       }
-      const name = ["Hair", "Skin", "Eyes"].includes(input.attribute)
-        ? `${input.color} ${input.attribute}`
-        : input.attribute;
+      const name =
+        ["Hair", "Skin", "Eyes"].includes(input.attribute) && input.color
+          ? `${input.color} ${input.attribute}`
+          : input.attribute;
       const result = await ctx.drizzle.insert(userAttribute).values({
         id: nanoid(),
         userId: ctx.userId,
