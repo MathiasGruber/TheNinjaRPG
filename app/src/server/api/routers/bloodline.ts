@@ -215,7 +215,7 @@ export const bloodlineRouter = createTRPCRouter({
         // Update bloodline jutsus currently being trianed
         ctx.drizzle
           .update(userJutsu)
-          .set({ finishTraining: null })
+          .set({ finishTraining: null, equipped: 0 })
           .where(
             and(
               eq(userJutsu.userId, ctx.userId),
