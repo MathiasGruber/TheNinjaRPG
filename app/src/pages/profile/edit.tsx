@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Confirm from "../../layout/Confirm";
@@ -8,12 +7,14 @@ import ContentBox from "../../layout/ContentBox";
 import Loader from "../../layout/Loader";
 import Accordion from "../../layout/Accordion";
 import RichInput from "../../layout/RichInput";
+import SelectField from "../../layout/SelectField";
 import Button from "../../layout/Button";
 import AvatarImage from "../../layout/Avatar";
 import InputField from "../../layout/InputField";
 import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
 import { attributes } from "../../validators/register";
+import { colors, skin_colors } from "../../validators/register";
 import { mutateNindoContent } from "../../validators/comments";
 import { useRequiredUserData } from "../../utils/UserContext";
 import { api } from "../../utils/api";
@@ -150,6 +151,13 @@ const AvatarChange: React.FC = () => {
  * Nindo change component
  */
 const AttributeChange: React.FC = () => {
+  // State
+  const [hairColor, setHairColor] = useState<typeof colors[number]>("Black");
+  const [eyeColor, setEyeColor] = useState<typeof colors[number]>("Black");
+  const [skinColor, setSkinColor] = useState<typeof skin_colors[number]>("Light");
+
+  console.log(eyeColor);
+
   // Queries
   const { data, refetch, isLoading } = api.profile.getUserAttributes.useQuery(
     undefined,
@@ -222,6 +230,52 @@ const AttributeChange: React.FC = () => {
               <p> {attribute} </p>
             </div>
           ))}
+        <div className="mt-3">
+          <SelectField
+            id="eyecolor"
+            label="Eye Color"
+            placeholder={eyeColor}
+            onChange={(e) => setEyeColor(e.target.value as typeof colors[number])}
+            onButtonClick={(e) => insertAttr({ attribute: "Eyes", color: eyeColor })}
+            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+          >
+            {colors.map((color, i) => (
+              <option key={i} value={color}>
+                {color}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        <div className="mt-3">
+          <SelectField
+            id="skincolor"
+            label="Skin Color"
+            onChange={(e) => setSkinColor(e.target.value as typeof skin_colors[number])}
+            onButtonClick={(e) => insertAttr({ attribute: "Skin", color: skinColor })}
+            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+          >
+            {skin_colors.map((color, i) => (
+              <option key={i} value={color}>
+                {color}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        <div className="mt-3">
+          <SelectField
+            id="haircolor"
+            label="Hair Color"
+            onChange={(e) => setHairColor(e.target.value as typeof colors[number])}
+            onButtonClick={(e) => insertAttr({ attribute: "Hair", color: hairColor })}
+            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+          >
+            {colors.map((color, i) => (
+              <option key={i} value={color}>
+                {color}
+              </option>
+            ))}
+          </SelectField>
+        </div>
       </div>
     </div>
   );

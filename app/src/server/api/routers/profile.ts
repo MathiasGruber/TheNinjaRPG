@@ -23,6 +23,7 @@ import {
 import { usernameSchema } from "../../../validators/register";
 import { mutateNindoContent } from "../../../validators/comments";
 import { attributes } from "../../../validators/register";
+import { colors, skin_colors } from "../../../validators/register";
 import { callDiscord } from "../../../libs/discord";
 import { scaleUserStats } from "../../../../drizzle/seeds/ai";
 import { insertUserDataSchema } from "../../../../drizzle/schema";
@@ -476,17 +477,25 @@ export const profileRouter = createTRPCRouter({
     }),
   // Insert attribute
   insertAttribute: protectedProcedure
-    .input(z.object({ attribute: z.enum(attributes) }))
+    .input(
+      z.object({
+        attribute: z.enum([...attributes, "Hair", "Skin", "Eyes"]),
+        color: z.enum([...colors, ...skin_colors]).optional(),
+      })
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const attributes = await fetchAttributes(ctx.drizzle, ctx.userId);
       if (attributes.length >= MAX_ATTRIBUTES) {
         return { success: false, message: `Only ${MAX_ATTRIBUTES} attributes allowed` };
       }
+      const name = ["Hair", "Skin", "Eyes"].includes(input.attribute)
+        ? `${input.color} ${input.attribute}`
+        : input.attribute;
       const result = await ctx.drizzle.insert(userAttribute).values({
         id: nanoid(),
         userId: ctx.userId,
-        attribute: input.attribute,
+        attribute: name,
       });
       if (result.rowsAffected === 0) {
         return { success: false, message: "Failed to insert attribute" };
@@ -496,7 +505,7 @@ export const profileRouter = createTRPCRouter({
     }),
   // Delete attribute
   deleteAttribute: protectedProcedure
-    .input(z.object({ attribute: z.enum(attributes) }))
+    .input(z.object({ attribute: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.drizzle
