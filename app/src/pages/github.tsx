@@ -72,6 +72,12 @@ const GitHub: NextPage = () => {
           <p>Go to GitHub</p>
         </Link>
       </div>
+      <Link
+        href="https://github.com/MathiasGruber/TNR-Core3"
+        className="italic text-xs font-bold"
+      >
+        - Link to old Core3 Code
+      </Link>
     </ContentBox>
   );
 };
