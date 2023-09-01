@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import ContentImage from "./ContentImage";
+import Confirm from "./Confirm";
 import { canChangeContent } from "../utils/permissions";
 import { useUserData } from "../utils/UserContext";
 import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
@@ -75,10 +76,18 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
                       <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
                     </Link>
-                    <TrashIcon
-                      className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer"
-                      onClick={() => onDelete && onDelete(item.id)}
-                    />
+                    <Confirm
+                      title="Confirm Deletion"
+                      button={
+                        <TrashIcon className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        onDelete && onDelete(item.id);
+                      }}
+                    >
+                      You are about to delete this. Are you sure?
+                    </Confirm>
                   </>
                 )}
               </div>
