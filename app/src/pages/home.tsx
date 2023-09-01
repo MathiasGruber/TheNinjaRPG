@@ -3,27 +3,14 @@ import { useEffect } from "react";
 import Image from "next/image";
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
-import { useRouter } from "next/router";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { useRequiredUserData } from "../utils/UserContext";
-import { calcIsInVillage } from "../libs/travel/controls";
+import { useRequireInVillage } from "../utils/village";
 
 const Home: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (
-      userData &&
-      !calcIsInVillage({
-        x: userData.longitude,
-        y: userData.latitude,
-      })
-    ) {
-      void router.push("/");
-    }
-  }, [userData, router]);
+  useRequireInVillage();
 
   const { mutate: toggleSleep, isLoading: isTogglingSleep } =
     api.home.toggleSleep.useMutation({

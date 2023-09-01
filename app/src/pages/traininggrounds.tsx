@@ -15,6 +15,7 @@ import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
 import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "../libs/train";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useInfinitePagination } from "../libs/pagination";
+import { useRequireInVillage } from "../utils/village";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { BoltIcon } from "@heroicons/react/24/solid";
@@ -27,7 +28,13 @@ import type { JutsuRank, Jutsu } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
 const Training: NextPage = () => {
+  // Get user data
   const { data: userData } = useRequiredUserData();
+
+  // Ensure user is in village
+  useRequireInVillage();
+
+  // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
   return (
     <>

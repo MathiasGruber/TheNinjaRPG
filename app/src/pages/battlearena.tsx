@@ -1,6 +1,7 @@
 import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { useRequiredUserData } from "../utils/UserContext";
+import { useRequireInVillage } from "../utils/village";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import ContentBox from "../layout/ContentBox";
@@ -9,6 +10,7 @@ import Loader from "../layout/Loader";
 const Arena: NextPage = () => {
   // Data from database
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  useRequireInVillage();
 
   // Router for forwarding
   const router = useRouter();
