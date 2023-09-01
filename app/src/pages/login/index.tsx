@@ -9,7 +9,7 @@ const Login: NextPage = () => {
       <SignIn
         path="/login"
         routing="path"
-        redirectUrl="/profile"
+        redirectUrl="/"
         signUpUrl="/signup"
         appearance={{
           elements: {
