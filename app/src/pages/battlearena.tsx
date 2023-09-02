@@ -10,6 +10,8 @@ import Loader from "../layout/Loader";
 const Arena: NextPage = () => {
   // Data from database
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
+
+  // Ensure user is in village
   useRequireInVillage();
 
   // Router for forwarding
