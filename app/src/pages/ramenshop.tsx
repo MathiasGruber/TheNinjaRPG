@@ -43,65 +43,68 @@ const RamenShop: NextPage = () => {
         height={221}
         className="w-full"
       />
-      <div className="grid grid-cols-3 text-center font-bold italic p-3">
-        <div
-          className="hover:cursor-pointer"
-          onClick={() => mutate({ ramen: "small" })}
-        >
-          <Image
-            alt="small"
-            src="/ramen/small_bowl.webp"
-            width={256}
-            height={256}
-            className="hover:opacity-30"
-          />
-          <p>Small Bowl</p>
-          <p className="text-green-700">
-            +{getRamenHealPercentage("small").toFixed()}% HP
-          </p>
-          <p className="text-red-700">
-            -{calcRamenCost("small", userData).toFixed(2)} ryo
-          </p>
+      {isLoading && <Loader explanation="Purchasing food" />}
+      {!isLoading && (
+        <div className="grid grid-cols-3 text-center font-bold italic p-3">
+          <div
+            className="hover:cursor-pointer"
+            onClick={() => mutate({ ramen: "small" })}
+          >
+            <Image
+              alt="small"
+              src="/ramen/small_bowl.webp"
+              width={256}
+              height={256}
+              className="hover:opacity-30"
+            />
+            <p>Small Bowl</p>
+            <p className="text-green-700">
+              +{getRamenHealPercentage("small").toFixed()}% HP
+            </p>
+            <p className="text-red-700">
+              -{calcRamenCost("small", userData).toFixed(2)} ryo
+            </p>
+          </div>
+          <div
+            className="hover:cursor-pointer"
+            onClick={() => mutate({ ramen: "medium" })}
+          >
+            <Image
+              alt="medium"
+              src="/ramen/medium_bowl.webp"
+              width={256}
+              height={256}
+              className="hover:opacity-30"
+            />
+            <p>Medium Bowl</p>
+            <p className="text-green-700">
+              +{getRamenHealPercentage("medium").toFixed()}% HP
+            </p>
+            <p className="text-red-700">
+              -{calcRamenCost("medium", userData).toFixed(2)} ryo
+            </p>
+          </div>
+          <div
+            className="hover:cursor-pointer"
+            onClick={() => mutate({ ramen: "large" })}
+          >
+            <Image
+              alt="large"
+              src="/ramen/large_bowl.webp"
+              width={256}
+              height={256}
+              className="hover:opacity-30"
+            />
+            <p>Large Bowl</p>
+            <p className="text-green-700">
+              +{getRamenHealPercentage("large").toFixed()}% HP
+            </p>
+            <p className="text-red-700">
+              -{calcRamenCost("large", userData).toFixed(2)} ryo
+            </p>
+          </div>
         </div>
-        <div
-          className="hover:cursor-pointer"
-          onClick={() => mutate({ ramen: "medium" })}
-        >
-          <Image
-            alt="medium"
-            src="/ramen/medium_bowl.webp"
-            width={256}
-            height={256}
-            className="hover:opacity-30"
-          />
-          <p>Medium Bowl</p>
-          <p className="text-green-700">
-            +{getRamenHealPercentage("medium").toFixed()}% HP
-          </p>
-          <p className="text-red-700">
-            -{calcRamenCost("medium", userData).toFixed(2)} ryo
-          </p>
-        </div>
-        <div
-          className="hover:cursor-pointer"
-          onClick={() => mutate({ ramen: "large" })}
-        >
-          <Image
-            alt="large"
-            src="/ramen/large_bowl.webp"
-            width={256}
-            height={256}
-            className="hover:opacity-30"
-          />
-          <p>Large Bowl</p>
-          <p className="text-green-700">
-            +{getRamenHealPercentage("large").toFixed()}% HP
-          </p>
-          <p className="text-red-700">
-            -{calcRamenCost("large", userData).toFixed(2)} ryo
-          </p>
-        </div>
-      </div>
+      )}
     </ContentBox>
   );
 };
