@@ -37,7 +37,8 @@ export const seedVillages = async (client: DrizzleClient) => {
     { name: "Item shop", image: "/buildings/Shop.webp", level: 1 },
     { name: "Hospital", image: "/buildings/Hospital.webp", level: 1 },
     { name: "ANBU", image: "/buildings/ANBU.webp", level: 0 },
-    { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
+    // { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
+    { name: "Ramen Shop", image: "/buildings/RamenShop.webp", level: 0 },
     { name: "Black Market", image: "/buildings/BlackMarket.webp", level: 0 },
   ];
 
