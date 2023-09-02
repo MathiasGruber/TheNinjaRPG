@@ -143,7 +143,7 @@ const ItemShop: NextPage = () => {
                   {!isPurchasing && (
                     <>
                       <ItemWithEffects item={item} key={item.id} />
-                      {item.canStack && (
+                      {item.canStack && item.stackSize > 1 && (
                         <UncontrolledSliderField
                           id="stackSize"
                           label={`How many to buy: ${stacksize}`}

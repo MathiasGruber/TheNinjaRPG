@@ -489,7 +489,7 @@ export const initiateBattle = async (
       user.items.forEach((useritem) => {
         const itemType = useritem.item.itemType;
         if (itemType === "ARMOR" || itemType === "ACCESSORY") {
-          if (useritem.item.effects) {
+          if (useritem.item.effects && useritem.equipped !== "NONE") {
             const effects = useritem.item.effects as unknown as UserEffect[];
             effects.forEach((effect) => {
               const realized = realizeTag(effect, user, user.level);
