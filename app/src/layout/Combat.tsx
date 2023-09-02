@@ -227,16 +227,18 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Lobby for non-arena battles, letting both oppoenents join
   useEffect(() => {
-    const syncedTime = Date.now() - timeDiff;
-    if (battle.current && battle.current.createdAt.getTime() > syncedTime) {
+    if (isInLobby) {
       const interval = setInterval(() => {
-        setIsInLobby(true);
+        const syncedTime = Date.now() - timeDiff;
+        if (battle.current && battle.current.createdAt.getTime() > syncedTime) {
+          setIsInLobby(true);
+        } else {
+          setIsInLobby(false);
+        }
       }, 500);
       return () => clearInterval(interval);
-    } else {
-      setIsInLobby(false);
     }
-  }, [battle, timeDiff]);
+  }, [battle, timeDiff, isInLobby]);
 
   useEffect(() => {
     if (mountRef.current && battle.current && userData?.battleId) {
