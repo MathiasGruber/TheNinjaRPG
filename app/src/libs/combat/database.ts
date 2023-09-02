@@ -110,11 +110,12 @@ export const createAction = async (
  */
 export const updateUser = async (
   result: CombatResult | null,
-  curBattle: Battle,
+  curBattle: CompleteBattle,
   userId: string,
   client: DrizzleClient
 ) => {
-  if (result) {
+  const user = curBattle.usersState.find((user) => user.userId === userId);
+  if (result && user) {
     return await client
       .update(userData)
       .set({
@@ -144,6 +145,7 @@ export const updateUser = async (
               status: "HOSPITALIZED",
               longitude: VILLAGE_LONG,
               latitude: VILLAGE_LAT,
+              sector: user.village?.sector,
               immunityUntil:
                 curBattle.battleType === "COMBAT"
                   ? sql`NOW() + INTERVAL 5 MINUTE`
