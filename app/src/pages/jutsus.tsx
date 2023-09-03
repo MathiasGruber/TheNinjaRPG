@@ -117,7 +117,7 @@ const MyJutsu: NextPage = () => {
           <p className="pb-3">You have {userData.money} ryo in your pocket</p>
           {!isEquipping && (
             <>
-              <ItemWithEffects item={userjutsu} key={userjutsu.id} />
+              <ItemWithEffects item={userjutsu} key={userjutsu.id} showEdit="jutsu" />
             </>
           )}
           {isEquipping && <Loader explanation={`Toggling ${userjutsu.name}`} />}

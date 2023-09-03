@@ -330,7 +330,9 @@ const JutsuTraining: React.FC = () => {
                 }
               >
                 <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-                {!isStartingTrain && <ItemWithEffects item={jutsu} key={jutsu.id} />}
+                {!isStartingTrain && (
+                  <ItemWithEffects item={jutsu} key={jutsu.id} showEdit="jutsu" />
+                )}
                 {isStartingTrain && <Loader explanation={`Training ${jutsu.name}`} />}
               </Modal>
             )}
