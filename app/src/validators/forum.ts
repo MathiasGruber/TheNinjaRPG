@@ -18,3 +18,10 @@ export type ForumBoardSchema = z.infer<typeof forumBoardSchema>;
 export const canModerate = (user: UserData) => {
   return user.role === "ADMIN" || user.role === "MODERATOR";
 };
+
+/**
+ * Which user roles can create news
+ */
+export const canCreateNews = (user: UserData) => {
+  return user.role !== "USER";
+};

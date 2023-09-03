@@ -8,7 +8,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import { ItemValidator } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
-import { callDiscord } from "../../../libs/discord";
+import { callDiscordContent } from "../../../libs/discord";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
@@ -100,7 +100,7 @@ export const itemRouter = createTRPCRouter({
           relatedImage: entry.image,
         });
         if (process.env.NODE_ENV !== "development") {
-          await callDiscord(user.username, entry.name, diff, entry.image);
+          await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

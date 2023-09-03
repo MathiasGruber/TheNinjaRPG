@@ -32,7 +32,6 @@ type StatSchema = z.infer<typeof statSchema>;
 type ActSchema = z.infer<typeof actSchema>;
 const defaultsStats = statSchema.parse({});
 const statNames = Object.keys(defaultsStats) as (keyof typeof defaultsStats)[];
-type UserStatType = typeof statNames[number];
 
 const ManualDamageSimulator: NextPage = () => {
   // Fetch user data

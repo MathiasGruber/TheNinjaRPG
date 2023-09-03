@@ -326,6 +326,10 @@ export const forumPostRelations = relations(forumPost, ({ one }) => ({
     fields: [forumPost.userId],
     references: [userData.userId],
   }),
+  thread: one(forumThread, {
+    fields: [forumPost.threadId],
+    references: [forumThread.id],
+  }),
 }));
 
 export const forumThread = mysqlTable(
@@ -353,11 +357,12 @@ export const forumThread = mysqlTable(
   }
 );
 
-export const forumThreadRelations = relations(forumThread, ({ one }) => ({
+export const forumThreadRelations = relations(forumThread, ({ one, many }) => ({
   user: one(userData, {
     fields: [forumThread.userId],
     references: [userData.userId],
   }),
+  posts: many(forumPost),
 }));
 
 export const historicalAvatar = mysqlTable(
@@ -718,6 +723,8 @@ export const userData = mysqlTable(
     maxEnergy: int("maxEnergy").default(100).notNull(),
     trainingStartedAt: datetime("trainingStartedAt", { mode: "date", fsp: 3 }),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
+    unreadNotifications: int("unreadNotifications").default(0).notNull(),
+    unreadNews: int("unreadNews").default(0).notNull(),
   },
   (table) => {
     return {

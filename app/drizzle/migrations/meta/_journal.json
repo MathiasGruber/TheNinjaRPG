@@ -169,6 +169,13 @@
       "when": 1693380627151,
       "tag": "0023_little_nova",
       "breakpoints": false
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1693762074287,
+      "tag": "0024_mighty_big_bertha",
+      "breakpoints": false
     }
   ]
 }

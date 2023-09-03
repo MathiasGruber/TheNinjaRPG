@@ -33,6 +33,10 @@ export interface NavBarDropdownLink {
 export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   const links: NavBarDropdownLink[] = [
     {
+      href: "/news",
+      name: "News",
+    },
+    {
       href: "/manual",
       name: "Game Info",
     },
@@ -41,12 +45,8 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
       name: "Forum",
     },
     {
-      href: "/bugs",
-      name: "Bugs",
-    },
-    {
-      href: "/github",
-      name: "Contribute",
+      href: "/help",
+      name: "Bugs & Help",
     },
   ];
   // Add login or logout button

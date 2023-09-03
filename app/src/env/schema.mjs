@@ -11,6 +11,7 @@ export const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   DISCORD_CONTENT_UPDATES: z.string().url(),
+  DISCORD_NEWS_UPDATES: z.string().url(),
 });
 
 /**
@@ -24,6 +25,7 @@ export const serverEnv = {
   DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   DISCORD_CONTENT_UPDATES: process.env.DISCORD_CONTENT_UPDATES,
+  DISCORD_NEWS_UPDATES: process.env.DISCORD_NEWS_UPDATES,
 };
 
 /**

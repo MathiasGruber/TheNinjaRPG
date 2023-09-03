@@ -11,7 +11,7 @@ import { fetchUser } from "./profile";
 import { BloodlineValidator } from "../../../libs/combat/types";
 import { getRandomElement } from "../../../utils/array";
 import { canChangeContent } from "../../../utils/permissions";
-import { callDiscord } from "../../../libs/discord";
+import { callDiscordContent } from "../../../libs/discord";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "../../../libs/bloodline";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
@@ -128,7 +128,7 @@ export const bloodlineRouter = createTRPCRouter({
           relatedImage: entry.image,
         });
         if (process.env.NODE_ENV !== "development") {
-          await callDiscord(user.username, entry.name, diff, entry.image);
+          await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

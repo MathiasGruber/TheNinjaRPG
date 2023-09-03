@@ -7,6 +7,7 @@ import {
   conversation,
   userReportComment,
   forumPost,
+  forumThread,
   userData,
 } from "../../../../drizzle/schema";
 import { user2conversation, conversationComment } from "../../../../drizzle/schema";
@@ -158,12 +159,19 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      return ctx.drizzle.insert(forumPost).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        threadId: thread.id,
-        content: sanitize(input.comment),
-      });
+      await Promise.all([
+        ctx.drizzle.insert(forumPost).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          threadId: thread.id,
+          content: sanitize(input.comment),
+        }),
+        ctx.drizzle
+          .update(forumThread)
+          .set({ nPosts: sql`nPosts + 1` })
+          .where(eq(forumThread.id, thread.id)),
+      ]);
+      return true;
     }),
   editForumComment: protectedProcedure
     .input(mutateCommentSchema)

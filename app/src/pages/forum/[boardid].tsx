@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
-import { type NextPage } from "next";
+import type { NextPage } from "next";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -23,7 +23,7 @@ import { useUserData } from "../../utils/UserContext";
 import { secondsPassed } from "../../utils/time";
 import { useInfinitePagination } from "../../libs/pagination";
 import { canModerate } from "../../validators/forum";
-import { type ForumBoardSchema } from "../../validators/forum";
+import type { ForumBoardSchema } from "../../validators/forum";
 
 const Board: NextPage = () => {
   const { data: userData } = useUserData();

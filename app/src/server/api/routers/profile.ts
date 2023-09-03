@@ -24,7 +24,7 @@ import { usernameSchema } from "../../../validators/register";
 import { mutateNindoContent } from "../../../validators/comments";
 import { attributes } from "../../../validators/register";
 import { colors, skin_colors } from "../../../validators/register";
-import { callDiscord } from "../../../libs/discord";
+import { callDiscordContent } from "../../../libs/discord";
 import { scaleUserStats } from "../../../../drizzle/seeds/ai";
 import { insertUserDataSchema } from "../../../../drizzle/schema";
 import { canChangeContent } from "../../../utils/permissions";
@@ -244,6 +244,14 @@ export const profileRouter = createTRPCRouter({
           color: "green",
         });
       }
+      // Stuff in news
+      if (user.unreadNews > 0) {
+        notifications?.push({
+          href: "/news",
+          name: `${user.unreadNews} new news`,
+          color: "green",
+        });
+      }
     }
     return { userData: user, notifications: notifications, serverTime: Date.now() };
   }),
@@ -373,7 +381,7 @@ export const profileRouter = createTRPCRouter({
 
         // Update discord channel
         if (process.env.NODE_ENV !== "development") {
-          await callDiscord(user.username, ai.username, diff, ai.avatar);
+          await callDiscordContent(user.username, ai.username, diff, ai.avatar);
         }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {

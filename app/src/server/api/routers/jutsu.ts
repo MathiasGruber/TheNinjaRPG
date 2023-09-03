@@ -9,7 +9,7 @@ import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
 import { calcJutsuEquipLimit } from "../../../libs/train";
 import { JutsuValidator } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
-import { callDiscord } from "../../../libs/discord";
+import { callDiscordContent } from "../../../libs/discord";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import { Filters } from "../../../libs/train";
@@ -129,7 +129,7 @@ export const jutsuRouter = createTRPCRouter({
           relatedImage: entry.image,
         });
         if (process.env.NODE_ENV !== "development") {
-          await callDiscord(user.username, entry.name, diff, entry.image);
+          await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
         return { success: true, message: `Data updated: ${diff.join(". ")}` };
       } else {
