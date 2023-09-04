@@ -3,7 +3,7 @@ import { forumThread, forumBoard, forumPost } from "../../../../drizzle/schema";
 import { userData } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
-import { eq, sql, asc, desc, asc } from "drizzle-orm";
+import { eq, sql, desc, asc } from "drizzle-orm";
 import { forumBoardSchema } from "../../../validators/forum";
 import { canModerate, canCreateNews } from "../../../validators/forum";
 import { callDiscordNews } from "../../../libs/discord";
