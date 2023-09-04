@@ -16,6 +16,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 const config = {
   reactStrictMode: false,
   swcMinify: false,
+  transpilePackages: ["@pusher/push-notifications-web"],
   experimental: {
     esmExternals: false, // Must be disabled for UploadThing
   },

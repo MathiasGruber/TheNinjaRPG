@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { H } from "highlight.run";
 import Pusher from "pusher-js";
+import * as PusherPushNotifications from "@pusher/push-notifications-web";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -71,6 +72,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Listen on user channel for live updates on things
   useEffect(() => {
     if (userId) {
+      // Pusher beam for push notifications
+      if (process.env.NEXT_PUBLIC_PUSHER_BEAM_ID) {
+        const beamsClient = new PusherPushNotifications.Client({
+          instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAM_ID,
+        });
+        beamsClient
+          .start()
+          .then(() => beamsClient.addDeviceInterest("global"))
+          .then(() => console.log("Successfully registered and subscribed!"))
+          .catch(console.error);
+      }
+      // Pusher Channel
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
       });

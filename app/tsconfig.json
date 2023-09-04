@@ -24,7 +24,8 @@
     "**/*.cjs",
     "**/*.mjs",
     "src/libs/drawThreeJson.js",
-    "src/libs/travel/SpriteMixer.js"
+    "src/libs/travel/SpriteMixer.js",
+    "public/service-worker.js"
   ],
   "exclude": ["node_modules", ".next"]
 }
