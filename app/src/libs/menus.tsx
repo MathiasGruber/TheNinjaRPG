@@ -22,7 +22,7 @@ export interface NavBarDropdownLink {
   name: string;
   requireAwake?: boolean;
   className?: string;
-  color?: "default" | "red" | "green" | "blue";
+  color?: "default" | "red" | "green" | "blue" | "toast";
   icon?: ReactNode;
   onClick?: () => Promise<void>;
 }

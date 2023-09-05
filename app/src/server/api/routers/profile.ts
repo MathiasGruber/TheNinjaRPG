@@ -19,9 +19,10 @@ import {
   userJutsu,
   jutsu,
   actionLog,
+  notification,
 } from "../../../../drizzle/schema";
 import { usernameSchema } from "../../../validators/register";
-import { mutateNindoContent } from "../../../validators/comments";
+import { mutateContentSchema } from "../../../validators/comments";
 import { attributes } from "../../../validators/register";
 import { colors, skin_colors } from "../../../validators/register";
 import { callDiscordContent } from "../../../libs/discord";
@@ -252,6 +253,25 @@ export const profileRouter = createTRPCRouter({
           color: "green",
         });
       }
+      if (user.unreadNotifications > 0) {
+        const [unread] = await Promise.all([
+          ctx.drizzle.query.notification.findMany({
+            limit: user.unreadNotifications,
+            orderBy: desc(notification.createdAt),
+          }),
+          ctx.drizzle
+            .update(userData)
+            .set({ unreadNotifications: 0 })
+            .where(eq(userData.userId, ctx.userId)),
+        ]);
+        unread?.forEach((n) => {
+          notifications?.push({
+            href: "/news",
+            name: n.content,
+            color: "toast",
+          });
+        });
+      }
     }
     return { userData: user, notifications: notifications, serverTime: Date.now() };
   }),
@@ -458,7 +478,7 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update nindo
   updateNindo: protectedProcedure
-    .input(mutateNindoContent)
+    .input(mutateContentSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const nindo = await ctx.drizzle.query.userNindo.findFirst({

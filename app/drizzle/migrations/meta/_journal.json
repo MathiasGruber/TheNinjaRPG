@@ -176,6 +176,13 @@
       "when": 1693762074287,
       "tag": "0024_mighty_big_bertha",
       "breakpoints": false
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1693846782761,
+      "tag": "0025_next_living_mummy",
+      "breakpoints": false
     }
   ]
 }

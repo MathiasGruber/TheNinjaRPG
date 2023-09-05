@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +15,7 @@ import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
 import { attributes } from "../../validators/register";
 import { colors, skin_colors } from "../../validators/register";
-import { mutateNindoContent } from "../../validators/comments";
+import { mutateContentSchema } from "../../validators/comments";
 import { useRequiredUserData } from "../../utils/UserContext";
 import { api } from "../../utils/api";
 import { useUserSearch } from "../../utils/search";
@@ -23,22 +23,13 @@ import { show_toast } from "../../libs/toast";
 import { COST_CHANGE_USERNAME } from "../../libs/profile";
 import { UploadButton } from "../../utils/uploadthing";
 import type { NextPage } from "next";
-import type { MutateNindoContent } from "../../validators/comments";
+import type { MutateContentSchema } from "../../validators/comments";
 import "@uploadthing/react/styles.css";
 
 const EditProfile: NextPage = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [activeElement, setActiveElement] = useState("Nindo");
-
-  // Accordion click
-  const handleClick = (value: string) => {
-    if (value === activeElement) {
-      setActiveElement("");
-    } else {
-      setActiveElement(value);
-    }
-  };
 
   if (!userData) {
     return <Loader explanation="Loading profile page..." />;
@@ -315,9 +306,9 @@ const NindoChange: React.FC = () => {
     reset,
     control,
     formState: { errors },
-  } = useForm<MutateNindoContent>({
+  } = useForm<MutateContentSchema>({
     defaultValues: { content: data },
-    resolver: zodResolver(mutateNindoContent),
+    resolver: zodResolver(mutateContentSchema),
   });
 
   // Handling submit

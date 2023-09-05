@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { H } from "highlight.run";
 import Pusher from "pusher-js";
 import * as PusherPushNotifications from "@pusher/push-notifications-web";
+import ReactHtmlParser from "react-html-parser";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import { UserContext } from "../utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../utils/api";
 import { secondsFromDate } from "../utils/time";
+import { show_toast } from "../libs/toast";
 import type { UserEvent } from "../utils/UserContext";
 import type { ReturnedBattle } from "../libs/combat/types";
 
@@ -79,7 +81,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         });
         beamsClient
           .start()
-          .then(() => beamsClient.addDeviceInterest("global"))
+          .then(() => beamsClient.addDeviceInterest("debug-global"))
+          .then(() => beamsClient.getDeviceInterests())
+          .then((interests) => console.log("Current interests:", interests))
           .then(() => console.log("Successfully registered and subscribed!"))
           .catch(console.error);
       }
@@ -102,6 +106,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       };
     }
   }, [userId, refetchUser]);
+
+  // Show user notifications in toast
+  useEffect(() => {
+    data?.notifications
+      .filter((n) => n.color === "toast")
+      .map((n) => {
+        show_toast("Notification!", <div>{ReactHtmlParser(n.name)}</div>, "info");
+      });
+  }, [data?.notifications]);
 
   return (
     <UserContext.Provider

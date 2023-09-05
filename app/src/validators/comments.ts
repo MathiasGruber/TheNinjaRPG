@@ -30,9 +30,9 @@ export const createConversationSchema = z
 
 export type CreateConversationSchema = z.infer<typeof createConversationSchema>;
 
-export const mutateNindoContent = z
+export const mutateContentSchema = z
   .object({ content: z.string().min(2).max(5000) })
   .strict()
   .required();
 
-export type MutateNindoContent = z.infer<typeof mutateNindoContent>;
+export type MutateContentSchema = z.infer<typeof mutateContentSchema>;

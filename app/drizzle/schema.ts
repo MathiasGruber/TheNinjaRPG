@@ -486,6 +486,26 @@ export const jutsu = mysqlTable(
 export type Jutsu = InferModel<typeof jutsu>;
 export type JutsuRank = Jutsu["jutsuRank"];
 
+export const notification = mysqlTable(
+  "Notification",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    content: text("content").notNull(),
+  },
+  (table) => {
+    return {
+      createdAtIdx: index("Notification_createdAt_idx").on(table.createdAt),
+    };
+  }
+);
+
 export const paypalSubscription = mysqlTable(
   "PaypalSubscription",
   {

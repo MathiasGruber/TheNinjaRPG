@@ -1,11 +1,9 @@
 import React from "react";
 import Link from "next/link";
-import {
-  ShieldExclamationIcon,
-  InformationCircleIcon,
-  ShieldCheckIcon,
-} from "@heroicons/react/24/outline";
+import { ShieldExclamationIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
 import MenuBox from "./MenuBox";
+import { canSubmitNotification } from "../utils/permissions";
 import { getMainGameLinks } from "../libs/menus";
 import { useUserData } from "../utils/UserContext";
 import type { NavBarDropdownLink } from "../libs/menus";
@@ -27,29 +25,40 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   const notAwake = inBattle || inHospital || inBed;
 
   return (
-    <MenuBox title="Main Menu">
+    <MenuBox
+      title="Main Menu"
+      link={
+        canSubmitNotification(userData.role) && (
+          <Link href="/notify">
+            <MegaphoneIcon className="h-6 w-6 hover:fill-black" />
+          </Link>
+        )
+      }
+    >
       {props.notifications && props.notifications.length > 0 && (
         <ul className="grid grid-cols-1 gap-2">
-          {props.notifications.map((notification, i) => (
-            <Link key={i} href={notification.href}>
-              <div
-                className={`flex flex-row items-center rounded-lg border-2 border-slate-800 p-1 pl-3 hover:opacity-70 ${
-                  notification.color ? `bg-${notification.color}-500` : "bg-slate-500"
-                }`}
-              >
-                {notification.color === "red" && (
-                  <ShieldExclamationIcon className="mr-2 h-6 w-6" />
-                )}
-                {notification.color === "blue" && (
-                  <InformationCircleIcon className="mr-2 h-6 w-6" />
-                )}
-                {notification.color === "green" && (
-                  <ShieldCheckIcon className="mr-2 h-6 w-6" />
-                )}
-                {notification.name}
-              </div>
-            </Link>
-          ))}
+          {props.notifications
+            .filter((n) => n.color !== "toast")
+            .map((notification, i) => (
+              <Link key={i} href={notification.href}>
+                <div
+                  className={`flex flex-row items-center rounded-lg border-2 border-slate-800 p-1 pl-3 hover:opacity-70 ${
+                    notification.color ? `bg-${notification.color}-500` : "bg-slate-500"
+                  }`}
+                >
+                  {notification.color === "red" && (
+                    <ShieldExclamationIcon className="mr-2 h-6 w-6" />
+                  )}
+                  {notification.color === "blue" && (
+                    <InformationCircleIcon className="mr-2 h-6 w-6" />
+                  )}
+                  {notification.color === "green" && (
+                    <ShieldCheckIcon className="mr-2 h-6 w-6" />
+                  )}
+                  {notification.name}
+                </div>
+              </Link>
+            ))}
         </ul>
       )}
       <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">

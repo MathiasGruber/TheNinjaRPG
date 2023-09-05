@@ -1,4 +1,4 @@
-import { NodeHtmlMarkdown, NodeHtmlMarkdownOptions } from "node-html-markdown";
+import { NodeHtmlMarkdown } from "node-html-markdown";
 
 export const callDiscordContent = async (
   username: string,
