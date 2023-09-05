@@ -253,9 +253,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const friendsLeft = friends.filter((u) => !u.leftBattle && !u.isAi);
       const targetsLeft = targets.filter((u) => !u.leftBattle && !u.isAi);
 
-      // Money calculation
+      // Money/ryo calculation
       const newMoney = didWin
-        ? user.money + randomInt(15, 20) + user.level
+        ? user.money + randomInt(30, 40) + user.level
         : user.money;
       const moneyDelta = newMoney - user.originalMoney;
 
