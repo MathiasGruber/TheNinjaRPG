@@ -85,7 +85,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           .then(() => beamsClient.getDeviceInterests())
           .then((interests) => console.log("Current interests:", interests))
           .then(() => console.log("Successfully registered and subscribed!"))
-          .catch(console.error);
+          .catch(console.log);
       }
       // Pusher Channel
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
