@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { H } from "highlight.run";
 import Pusher from "pusher-js";
-import * as PusherPushNotifications from "@pusher/push-notifications-web";
+// import * as PusherPushNotifications from "@pusher/push-notifications-web";
 import ReactHtmlParser from "react-html-parser";
 
 import Image from "next/image";
@@ -75,18 +75,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   useEffect(() => {
     if (userId) {
       // Pusher beam for push notifications
-      if (process.env.NEXT_PUBLIC_PUSHER_BEAM_ID) {
-        const beamsClient = new PusherPushNotifications.Client({
-          instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAM_ID,
-        });
-        beamsClient
-          .start()
-          .then(() => beamsClient.addDeviceInterest("debug-global"))
-          .then(() => beamsClient.getDeviceInterests())
-          .then((interests) => console.log("Current interests:", interests))
-          .then(() => console.log("Successfully registered and subscribed!"))
-          .catch(console.log);
-      }
+      // if (process.env.NEXT_PUBLIC_PUSHER_BEAM_ID) {
+      //   const beamsClient = new PusherPushNotifications.Client({
+      //     instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAM_ID,
+      //   });
+      //   beamsClient
+      //     .start()
+      //     .then(() => beamsClient.addDeviceInterest("debug-global"))
+      //     .then(() => beamsClient.getDeviceInterests())
+      //     .then((interests) => console.log("Current interests:", interests))
+      //     .then(() => console.log("Successfully registered and subscribed!"))
+      //     .catch(console.log);
+      // }
       // Pusher Channel
       const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
