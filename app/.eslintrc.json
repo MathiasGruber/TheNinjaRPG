@@ -22,7 +22,8 @@
       2,
       {
         "checksVoidReturn": {
-          "attributes": false
+          "attributes": false,
+          "properties": false
         }
       }
     ]

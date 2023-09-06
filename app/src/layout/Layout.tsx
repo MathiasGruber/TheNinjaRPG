@@ -27,7 +27,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
-  const { userId, isSignedIn } = useAuth();
+  const { userId, isSignedIn, signOut } = useAuth();
   // Get user data
   const {
     data: data,
@@ -55,6 +55,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         // e.g. in the battle system
         setTimeDiff(discrepancy);
       }
+    },
+    onError: async () => {
+      await signOut();
     },
   });
   // if (timeDiff > 0) {
