@@ -205,7 +205,9 @@ const getActionTree = (
             futureFitness: 0,
             nextActions,
           });
-        } catch (e) {}
+        } catch (e) {
+          // No worries, ignore that this action was a dud
+        }
       });
     }
   });

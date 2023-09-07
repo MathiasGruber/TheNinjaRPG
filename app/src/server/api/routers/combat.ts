@@ -183,10 +183,21 @@ export const combatRouter = createTRPCRouter({
 
         // Attempt to perform AI action
         if (action?.id !== "wait") {
-          const newState = performAIaction(newBattle, grid);
-          newBattle = newState.nextBattle;
-          actionEffects.push(...newState.nextActionEffects);
-          battleDescriptions.push(...newState.aiDescriptions);
+          let aiState: {
+            nextBattle: CompleteBattle;
+            nextActionEffects: ActionEffect[];
+            aiDescriptions: string[];
+          };
+          try {
+            aiState = performAIaction(newBattle, grid);
+            newBattle = aiState.nextBattle;
+            actionEffects.push(...aiState.nextActionEffects);
+            battleDescriptions.push(...aiState.aiDescriptions);
+          } catch (error) {
+            let notification = "Unknown Error";
+            if (error instanceof Error) notification = error.message;
+            battleDescriptions.push(notification);
+          }
         }
 
         // If no description, means no actions, just return now
