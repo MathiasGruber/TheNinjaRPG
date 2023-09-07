@@ -1,12 +1,6 @@
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import nextBuildId from "next-build-id";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withAxiom } from "next-axiom";
 import { withHighlightConfig } from "@highlight-run/next";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // @ts-check
 /**
@@ -21,7 +15,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import("next").NextConfig} */
 const config = {
-  generateBuildId: () => nextBuildId({ dir: __dirname }),
+  generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
   reactStrictMode: false,
   swcMinify: false,
   transpilePackages: ["@pusher/push-notifications-web"],
