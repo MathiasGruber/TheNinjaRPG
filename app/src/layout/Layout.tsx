@@ -27,14 +27,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
-  const { userId, isSignedIn, signOut } = useAuth();
+  const { userId, isSignedIn, isLoaded, signOut } = useAuth();
   // Get user data
   const {
     data: data,
     status: userStatus,
     refetch: refetchUser,
   } = api.profile.getUser.useQuery(undefined, {
-    enabled: !!userId,
+    enabled: !!userId && isSignedIn && isLoaded,
     staleTime: Infinity,
     retry: false,
     refetchInterval: 300000,
