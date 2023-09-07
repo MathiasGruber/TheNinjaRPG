@@ -1,6 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withAxiom } from "next-axiom";
-import { withHighlightConfig } from "@highlight-run/next";
 
 // @ts-check
 /**
@@ -22,7 +21,7 @@ const config = {
   experimental: {
     esmExternals: false, // Must be disabled for UploadThing
   },
-  productionBrowserSourceMaps: false,
+  productionBrowserSourceMaps: true,
   images: {
     remotePatterns: [
       {
@@ -62,7 +61,7 @@ const config = {
     defaultLocale: "en",
   },
 };
-export default withAxiom(withHighlightConfig(withBundleAnalyzer(config)));
+export default withAxiom(withBundleAnalyzer(config));
 
 // https://securityheaders.com
 const ContentSecurityPolicy = `
