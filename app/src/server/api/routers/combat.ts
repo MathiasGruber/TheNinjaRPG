@@ -158,22 +158,21 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Attempt to perform action
-          const newState = performBattleAction({
-            battle,
-            action,
-            grid,
-            contextUserId: uid,
-            userId: input.userId,
-            longitude: input.longitude,
-            latitude: input.latitude,
-          });
-          if (!newState) {
-            return {
-              updateClient: false,
-              battle: null,
-              result: null,
-              notification: "Action no longer possible",
-            };
+          let newState: { newBattle: CompleteBattle; actionEffects: ActionEffect[] };
+          try {
+            newState = performBattleAction({
+              battle,
+              action,
+              grid,
+              contextUserId: uid,
+              userId: input.userId,
+              longitude: input.longitude,
+              latitude: input.latitude,
+            });
+          } catch (error) {
+            let notification = "Unknown Error";
+            if (error instanceof Error) notification = error.message;
+            return { updateClient: false, battle: null, result: null, notification };
           }
           // Update state variables
           ({ newBattle, actionEffects } = newState);

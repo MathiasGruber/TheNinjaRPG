@@ -444,7 +444,7 @@ export const performBattleAction = (props: {
   // Perform action, get latest status effects
   // Note: this mutates usersEffects, groundEffects in place
   const check = insertAction({ battle, grid, action, userId, longitude, latitude });
-  if (!check) return false;
+  if (!check) throw new Error("Action no longer possible");
 
   // Get battle round
   const { latestRoundStartAt } = getBattleRound(battle, Date.now());
