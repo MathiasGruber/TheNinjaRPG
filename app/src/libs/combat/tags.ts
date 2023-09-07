@@ -365,7 +365,7 @@ export const damage = (
   const calcSum = calcs.reduce((a, b) => a + b, 0);
   const calcMean = calcSum / calcs.length;
   const base = 1 + power * POWER_SCALING;
-  const dmg = calcSum > 0 ? base * calcMean * DMG_SCALING : power;
+  const dmg = calcSum > 0 ? base * calcMean * DMG_SCALING + DMG_BASE : power;
   // Add & return consequence
   consequences.set(effect.id, {
     userId: effect.creatorId,
@@ -504,12 +504,13 @@ export const reflect = (
  * 3. Move user
  */
 export const move = (
+  effect: GroundEffect,
   usersState: BattleUserState[],
-  groundEffects: GroundEffect[],
-  effect: GroundEffect
+  groundEffects: GroundEffect[]
 ) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
   if (user) {
+    // This is related to users stepping into/out of ground effects
     groundEffects.forEach((g) => {
       if (g.timeTracker && user.userId in g.timeTracker) {
         delete g.timeTracker[user.userId];
@@ -524,6 +525,7 @@ export const move = (
         g.timeTracker[user.userId] = Date.now();
       }
     });
+    // Update user location
     user.longitude = effect.longitude;
     user.latitude = effect.latitude;
   }
