@@ -58,6 +58,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       }
     },
     onError: async (error) => {
+      console.log(error.message);
       if (error.message === "UNAUTHORIZED") {
         if (userId) {
           console.error(`User is not logged in, signing out ${userId}`, error);
