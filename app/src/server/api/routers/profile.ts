@@ -582,8 +582,8 @@ export const profileRouter = createTRPCRouter({
   // Get public information on a user
   getPublicUser: publicProcedure
     .input(z.object({ userId: z.string() }))
-    .query(({ ctx, input }) => {
-      return ctx.drizzle.query.userData.findFirst({
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.drizzle.query.userData.findFirst({
         where: and(eq(userData.userId, input.userId)),
         columns: {
           userId: true,
@@ -612,6 +612,7 @@ export const profileRouter = createTRPCRouter({
           nindo: true,
         },
       });
+      return user ?? null;
     }),
   // Get public users
   getPublicUsers: publicProcedure

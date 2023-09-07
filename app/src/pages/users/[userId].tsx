@@ -7,6 +7,7 @@ import StatusBar from "../../layout/StatusBar";
 import AvatarImage from "../../layout/Avatar";
 import ContentBox from "../../layout/ContentBox";
 import Confirm from "../../layout/Confirm";
+import Loader from "../../layout/Loader";
 import ReportUser from "../../layout/Report";
 import { FlagIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
@@ -22,7 +23,11 @@ const PublicProfile: NextPage = () => {
   const router = useRouter();
   const userId = router.query.userId as string;
 
-  const { data: profile, refetch: refetchProfile } = api.profile.getPublicUser.useQuery(
+  const {
+    data: profile,
+    refetch: refetchProfile,
+    isLoading,
+  } = api.profile.getPublicUser.useQuery(
     { userId: userId },
     { enabled: userId !== undefined }
   );
@@ -40,6 +45,12 @@ const PublicProfile: NextPage = () => {
 
   return (
     <>
+      {isLoading && <Loader explanation="Fetching User Data" />}
+      {!profile && !isLoading && (
+        <ContentBox title="Users" subtitle="Search Unsuccessful">
+          User with id <b>{userId}</b> does not exist.
+        </ContentBox>
+      )}
       {profile && (
         <>
           <ContentBox
