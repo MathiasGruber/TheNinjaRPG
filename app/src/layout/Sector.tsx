@@ -311,7 +311,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         const intersects = raycaster.intersectObjects(scene.children);
         intersects
           .filter((i) => i.object.visible)
-          .every((i) => {
+          .every(async (i) => {
             if (i.object.userData.type === "tile") {
               const target = i.object.userData.tile as TerrainHex;
               setTarget({ x: target.col, y: target.row });
@@ -340,7 +340,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             } else if (showUsers.current && i.object.userData.type === "info") {
               const userId = i.object.userData.userId as string;
-              void router.push(`/users/${userId}`);
+              await router.push(`/users/${userId}`);
               return false;
             } else if (showUsers.current && i.object.userData.type === "marker") {
               return false;
