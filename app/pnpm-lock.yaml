@@ -23,6 +23,9 @@ dependencies:
   '@highlight-run/react':
     specifier: ^3.2.1
     version: 3.2.1(react-dom@18.2.0)(react@18.2.0)
+  '@highlight-run/sourcemap-uploader':
+    specifier: ^0.5.2
+    version: 0.5.2
   '@hookform/error-message':
     specifier: ^2.0.1
     version: 2.0.1(react-dom@18.2.0)(react-hook-form@7.43.0)(react@18.2.0)
@@ -116,6 +119,9 @@ dependencies:
   next-axiom:
     specifier: ^0.17.0
     version: 0.17.0(next@13.2.4)
+  next-build-id:
+    specifier: ^3.0.0
+    version: 3.0.0
   node-html-markdown:
     specifier: ^1.3.0
     version: 1.3.0
@@ -1851,6 +1857,17 @@ packages:
 
   /@highlight-run/sourcemap-uploader@0.5.1:
     resolution: {integrity: sha512-uFNQ3eYcmWu4qn1HkBNpeS3Xl6SGu20Ri9hD9zIr4PZs8GWACCKmq9yzlf9O2vPTF10N/y1JJu/oh3Ftyw5C6A==}
+    hasBin: true
+    dependencies:
+      commander: 10.0.1
+      cross-fetch: 3.1.8
+      glob: 9.3.5
+    transitivePeerDependencies:
+      - encoding
+    dev: false
+
+  /@highlight-run/sourcemap-uploader@0.5.2:
+    resolution: {integrity: sha512-/Wsau8qWe/I2z/cuLD9/haRdq14g+ETJdhBPTzdUozSJnKCedUj9rrYyvQRWmADw3TkEZ3BIrpiiY3Z1hTI9Ng==}
     hasBin: true
     dependencies:
       commander: 10.0.1
@@ -5293,7 +5310,7 @@ packages:
       extend: 3.0.2
       https-proxy-agent: 5.0.1
       is-stream: 2.0.1
-      node-fetch: 2.6.11
+      node-fetch: 2.6.12
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -6250,6 +6267,11 @@ packages:
     dependencies:
       next: 13.2.4(@opentelemetry/api@1.4.1)(react-dom@18.2.0)(react@18.2.0)
       whatwg-fetch: 3.6.2
+    dev: false
+
+  /next-build-id@3.0.0:
+    resolution: {integrity: sha512-B3JCsL/9Z/wkmo3EySukQHCgx89Aw0i4LPi2MEhCboQBJ6wpkYTIu1z6hOYKuw/S1Wy8ZRqCEq0dVY/ST6jGqg==}
+    engines: {node: '>=8'}
     dev: false
 
   /next-tick@1.1.0:

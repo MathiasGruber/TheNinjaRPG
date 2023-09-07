@@ -1,5 +1,12 @@
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import nextBuildId from "next-build-id";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withAxiom } from "next-axiom";
+import { withHighlightConfig } from "@highlight-run/next";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // @ts-check
 /**
@@ -14,12 +21,14 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import("next").NextConfig} */
 const config = {
+  generateBuildId: () => nextBuildId({ dir: __dirname }),
   reactStrictMode: false,
   swcMinify: false,
   transpilePackages: ["@pusher/push-notifications-web"],
   experimental: {
     esmExternals: false, // Must be disabled for UploadThing
   },
+  productionBrowserSourceMaps: false,
   images: {
     remotePatterns: [
       {
@@ -59,7 +68,7 @@ const config = {
     defaultLocale: "en",
   },
 };
-export default withAxiom(withBundleAnalyzer(config));
+export default withAxiom(withHighlightConfig(withBundleAnalyzer(config)));
 
 // https://securityheaders.com
 const ContentSecurityPolicy = `

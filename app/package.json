@@ -51,6 +51,7 @@
     "nanoid": "^4.0.2",
     "next": "13.2.4",
     "next-axiom": "^0.17.0",
+    "next-build-id": "^3.0.0",
     "node-html-markdown": "^1.3.0",
     "pusher-js": "8.0.1",
     "react": "18.2.0",
@@ -69,6 +70,7 @@
     "zod": "3.20.2"
   },
   "devDependencies": {
+    "@highlight-run/sourcemap-uploader": "^0.5.2",
     "@types/node": "18.11.18",
     "@types/prettier": "2.7.2",
     "@types/react": "18.0.26",

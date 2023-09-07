@@ -44,13 +44,13 @@ const MyApp: AppType = ({ Component, pageProps }) => {
           urlBlocklist: [],
         }}
       />
-      <MultisessionAppSupport>
-        <ErrorBoundary>
+      <ErrorBoundary>
+        <MultisessionAppSupport>
           <Layout>
             <Component {...pageProps} />
           </Layout>
-        </ErrorBoundary>
-      </MultisessionAppSupport>
+        </MultisessionAppSupport>
+      </ErrorBoundary>
     </ClerkProvider>
   );
 };
