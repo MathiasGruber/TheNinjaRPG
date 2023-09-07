@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { baseServerResponse } from "../trpc";
+import { baseServerResponse, serverError } from "../trpc";
 import { village, userData } from "../../../../drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "../../../utils/ramen";
@@ -18,6 +18,9 @@ export const villageRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const villageData = await fetchVillage(ctx.drizzle, input.id);
+      if (!villageData) {
+        throw serverError("NOT_FOUND", "Village not found");
+      }
       const counts = await ctx.drizzle
         .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(userData)
@@ -53,14 +56,10 @@ export const villageRouter = createTRPCRouter({
 });
 
 export const fetchVillage = async (client: DrizzleClient, villageId: string) => {
-  const entry = await client.query.village.findFirst({
+  return await client.query.village.findFirst({
     where: eq(village.id, villageId),
     with: { structures: true },
   });
-  if (!entry) {
-    throw new Error("Village not found");
-  }
-  return entry;
 };
 
 export const fetchVillages = async (client: DrizzleClient) => {
