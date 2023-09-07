@@ -212,16 +212,20 @@ export const bloodlineRouter = createTRPCRouter({
       ).map((j) => j.id);
       // Run queries in parallel
       await Promise.all([
-        // Update bloodline jutsus currently being trianed
-        ctx.drizzle
-          .update(userJutsu)
-          .set({ finishTraining: null, equipped: 0 })
-          .where(
-            and(
-              eq(userJutsu.userId, ctx.userId),
-              inArray(userJutsu.jutsuId, bloodlineJutsus)
-            )
-          ),
+        // Update bloodline jutsus currently being trained
+        ...(bloodlineJutsus.length > 0
+          ? [
+              ctx.drizzle
+                .update(userJutsu)
+                .set({ finishTraining: null, equipped: 0 })
+                .where(
+                  and(
+                    eq(userJutsu.userId, ctx.userId),
+                    inArray(userJutsu.jutsuId, bloodlineJutsus)
+                  )
+                ),
+            ]
+          : []),
         // Update user to remove bloodline
         ctx.drizzle
           .update(userData)
