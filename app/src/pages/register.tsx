@@ -50,9 +50,13 @@ const Register: React.FC = () => {
   // Create character mutation
   const { mutate: createCharacter, isLoading } =
     api.register.createCharacter.useMutation({
-      onSuccess: async () => {
-        await refetchUserData();
-        createAvatar.mutate();
+      onSuccess: async (data) => {
+        if (data.success) {
+          await refetchUserData();
+          createAvatar.mutate();
+        } else {
+          show_toast("Error on character creation", data.message, "error");
+        }
       },
       onError: (error) => {
         show_toast("Error on character creation", error.message, "error");
