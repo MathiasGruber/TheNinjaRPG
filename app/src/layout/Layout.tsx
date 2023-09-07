@@ -36,6 +36,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   } = api.profile.getUser.useQuery(undefined, {
     enabled: !!userId,
     staleTime: Infinity,
+    retry: false,
     refetchInterval: 300000,
     onSuccess: (data) => {
       // This is used to translate time on client to server side,
@@ -56,8 +57,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         setTimeDiff(discrepancy);
       }
     },
-    onError: async () => {
-      await signOut();
+    onError: async (error) => {
+      if (error.message === "UNAUTHORIZED") {
+        await signOut();
+      }
     },
   });
   // if (timeDiff > 0) {
