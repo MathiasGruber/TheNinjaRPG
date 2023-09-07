@@ -53,19 +53,14 @@ export const travelRouter = createTRPCRouter({
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse.extend({ sector: z.number().optional() }))
     .mutation(async ({ input, ctx }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (!isAtEdge({ x: user.longitude, y: user.latitude })) {
-        throw serverError(
-          "FORBIDDEN",
-          `Cannot travel because you are not at the edge of a sector`
-        );
+        return { success: false, message: "You are not at the edge of a sector" };
       }
       if (user.status !== "AWAKE") {
-        throw serverError(
-          "FORBIDDEN",
-          `Cannot travel because your status is: ${user.status.toLowerCase()}`
-        );
+        return { success: false, message: `Status is: ${user.status.toLowerCase()}` };
       }
       const travelTime = calcGlobalTravelTime(
         user.sector,
@@ -87,35 +82,37 @@ export const travelRouter = createTRPCRouter({
         user.travelFinishAt = endTime;
         const pusher = getServerPusher();
         void pusher.trigger(user.sector.toString(), "event", user);
-        return user;
+        return { success: true, message: "OK", sector: user.sector };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);
         if (userData.status !== "AWAKE") {
-          throw serverError("FORBIDDEN", `Status is: ${userData.status.toLowerCase()}`);
+          return { success: false, message: `Status is: ${user.status.toLowerCase()}` };
         } else {
-          throw serverError("FORBIDDEN", "Failed to start travel");
+          return { success: false, message: "Failed to start travel" };
         }
       }
     }),
   // Finish travel on the globe
-  finishGlobalMove: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    if (user.status !== "TRAVEL") {
-      throw serverError(
-        "FORBIDDEN",
-        `Cannot finish travel because your status is: ${user.status.toLowerCase()}`
-      );
-    }
-    user.status = "AWAKE";
-    user.travelFinishAt = null;
-    const pusher = getServerPusher();
-    void pusher.trigger(userData.sector.toString(), "event", user);
-    await ctx.drizzle
-      .update(userData)
-      .set({ status: "AWAKE", travelFinishAt: null })
-      .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "TRAVEL")));
-    return user;
-  }),
+  finishGlobalMove: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.status !== "TRAVEL") {
+        return {
+          success: false,
+          message: `Cannot finish travel because your status is: ${user.status.toLowerCase()}`,
+        };
+      }
+      user.status = "AWAKE";
+      user.travelFinishAt = null;
+      const pusher = getServerPusher();
+      void pusher.trigger(userData.sector.toString(), "event", user);
+      await ctx.drizzle
+        .update(userData)
+        .set({ status: "AWAKE", travelFinishAt: null })
+        .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "TRAVEL")));
+      return { success: true, message: "OK" };
+    }),
   // Move user to new local location
   moveInSector: protectedProcedure
     .input(

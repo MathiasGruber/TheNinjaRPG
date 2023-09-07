@@ -14,6 +14,7 @@ import { api } from "../utils/api";
 import { isAtEdge, findNearestEdge } from "../libs/travel/controls";
 import { calcGlobalTravelTime } from "../libs/travel/controls";
 import { useRequiredUserData } from "../utils/UserContext";
+import { show_toast } from "../libs/toast";
 import type { NextPage } from "next";
 import type { GlobalTile, SectorPoint } from "../libs/travel/types";
 
@@ -76,26 +77,36 @@ const Travel: NextPage = () => {
   const { mutate: startGlobalMove, isLoading: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({
       onSuccess: async (data) => {
-        await refetchUser();
-        setShowModal(false);
-        setActiveTab("Global");
-        setCurrentSector(data.sector);
-        if (globe) {
-          setCurrentTile(globe.tiles[data.sector] as GlobalTile);
+        if (data.success && data.sector) {
+          await refetchUser();
+          setShowModal(false);
+          setActiveTab("Global");
+          setCurrentSector(data.sector);
+          if (globe) {
+            setCurrentTile(globe.tiles[data.sector] as GlobalTile);
+          }
+        } else {
+          show_toast("Error travelling", data.message, "error");
         }
       },
       onError: (error) => {
+        show_toast("Error travelling", error.message, "error");
         console.error("Error travelling", error);
       },
     });
 
   const { mutate: finishGlobalMove, isLoading: isFinishingTravel } =
     api.travel.finishGlobalMove.useMutation({
-      onSuccess: async () => {
-        await refetchUser();
-        setActiveTab(sectorLink);
+      onSuccess: async (data) => {
+        if (data.success) {
+          await refetchUser();
+          setActiveTab(sectorLink);
+        } else {
+          show_toast("Error travelling", data.message, "error");
+        }
       },
       onError: (error) => {
+        show_toast("Error travelling", error.message, "error");
         console.error("Error travelling", error);
       },
     });
