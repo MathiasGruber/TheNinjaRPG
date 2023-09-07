@@ -103,7 +103,7 @@ export const applyEffects = (battle: CompleteBattle) => {
   // Convert all ground effects to user effects on the users standing on the tile
   groundEffects.sort(sortEffects).forEach((e) => {
     if (e.type === "move") {
-      move(newUsersState, newGroundEffects, e);
+      move(e, newUsersState, newGroundEffects);
     } else if (e.type === "clone") {
       if (clone(newUsersState, e) && e.appearAnimation) {
         newGroundEffects.push(getVisual(e.longitude, e.latitude, e.appearAnimation));
@@ -194,6 +194,9 @@ export const applyEffects = (battle: CompleteBattle) => {
           info = fleePrevent(e, curTarget);
         } else if (e.type === "flee") {
           info = flee(e, newUsersEffects, newTarget);
+        } else if (e.type === "move") {
+          console.log(e.type, curTarget.username);
+          // info = move(e, newUsersState, newGroundEffects);
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
