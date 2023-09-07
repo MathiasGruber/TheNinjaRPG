@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -53,7 +53,6 @@ const Register: React.FC = () => {
       onSuccess: async () => {
         await refetchUserData();
         createAvatar.mutate();
-        void router.push("/profile");
       },
       onError: (error) => {
         show_toast("Error on character creation", error.message, "error");
@@ -92,13 +91,15 @@ const Register: React.FC = () => {
   }
 
   // If we have userdata, we should not be here
-  if (userStatus === "success" && userData) {
-    void router.push("/");
-  }
+  useEffect(() => {
+    if (userStatus === "success" && userData) {
+      void router.push("/");
+    }
+  }, [router, userStatus, userData]);
 
   // If we are still trying to load user data
-  if (userStatus === "loading") {
-    return <Loader explanation="Loading registration page..." />;
+  if (userStatus === "loading" || (userStatus === "success" && userData)) {
+    return <Loader explanation="Loading page..." />;
   }
 
   // Handle form submit
