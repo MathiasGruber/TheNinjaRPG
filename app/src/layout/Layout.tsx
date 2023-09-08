@@ -20,6 +20,8 @@ import type { UserEvent } from "../utils/UserContext";
 import type { ReturnedBattle } from "../libs/combat/types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
+  // Clerk token
+  const [token, setToken] = useState<string | null>(null);
   // Pusher connection
   const [pusher, setPusher] = useState<Pusher | undefined>(undefined);
   // Current user battle
@@ -27,46 +29,59 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
-  const { userId, isSignedIn, isLoaded, signOut } = useAuth();
+  const { userId, sessionId, isSignedIn, isLoaded, getToken, signOut } = useAuth();
+  // Set the token from clerk
+  useEffect(() => {
+    if (isSignedIn && isLoaded) {
+      const fetch = async () => {
+        setToken(await getToken());
+      };
+      fetch().catch(console.error);
+    }
+  }, [sessionId, isSignedIn, isLoaded, getToken]);
+  //const token = getToken();
   // Get user data
   const {
     data: data,
     status: userStatus,
     refetch: refetchUser,
-  } = api.profile.getUser.useQuery(undefined, {
-    enabled: !!userId && isSignedIn && isLoaded,
-    staleTime: Infinity,
-    retry: false,
-    refetchInterval: 300000,
-    onSuccess: (data) => {
-      // This is used to translate time on client to server side,
-      // i.e. synced_client = client_time - timeDiff
-      if (data?.serverTime) {
-        const discrepancy = Date.now() - data.serverTime;
-        if (data.userData) {
-          // Adjust updatedAt to client-time, effectively making client-time
-          // seem the same as server-time, although server-time is still used
-          // for all calculations
-          data.userData.updatedAt = secondsFromDate(
-            -discrepancy / 1000,
-            data.userData.updatedAt
-          );
+  } = api.profile.getUser.useQuery(
+    { token: token },
+    {
+      enabled: !!userId && isSignedIn && isLoaded && !!token,
+      staleTime: Infinity,
+      retry: false,
+      refetchInterval: 300000,
+      onSuccess: (data) => {
+        // This is used to translate time on client to server side,
+        // i.e. synced_client = client_time - timeDiff
+        if (data?.serverTime) {
+          const discrepancy = Date.now() - data.serverTime;
+          if (data.userData) {
+            // Adjust updatedAt to client-time, effectively making client-time
+            // seem the same as server-time, although server-time is still used
+            // for all calculations
+            data.userData.updatedAt = secondsFromDate(
+              -discrepancy / 1000,
+              data.userData.updatedAt
+            );
+          }
+          // Save the time-discrepancy between client and server for reference
+          // e.g. in the battle system
+          setTimeDiff(discrepancy);
         }
-        // Save the time-discrepancy between client and server for reference
-        // e.g. in the battle system
-        setTimeDiff(discrepancy);
-      }
-    },
-    onError: async (error) => {
-      console.log("Error from getUser in frontend", error.message);
-      if (error.message === "UNAUTHORIZED") {
-        if (userId) {
-          console.error(`User is not logged in, signing out ${userId}`, error);
+      },
+      onError: async (error) => {
+        console.log("Error from getUser in frontend", error.message);
+        if (error.message === "UNAUTHORIZED") {
+          if (userId) {
+            console.error(`User is not logged in, signing out ${userId}`, error);
+          }
+          await signOut();
         }
-        await signOut();
-      }
-    },
-  });
+      },
+    }
+  );
   // if (timeDiff > 0) {
   //   console.log("Client - Server time diff [ms]: ", timeDiff);
   // }

@@ -185,96 +185,98 @@ export const profileRouter = createTRPCRouter({
     return result.rowsAffected === 0 ? user.level : newLevel;
   }),
   // Get all information on logged in user
-  getUser: protectedProcedure.query(async ({ ctx }) => {
-    const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
-    const notifications: NavBarDropdownLink[] = [];
-    if (user) {
-      // Get number of un-resolved user reports
-      // TODO: Get number of records from KV store to speed up
-      if (user.role === "MODERATOR" || user.role === "ADMIN") {
-        const reportCounts = await ctx.drizzle
-          .select({ count: sql<number>`count(*)`.mapWith(Number) })
-          .from(userReport)
-          .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
-        const userReports = reportCounts?.[0]?.count || 0;
-        if (userReports > 0) {
+  getUser: protectedProcedure
+    .input(z.object({ token: z.string().optional().nullable() }))
+    .query(async ({ ctx }) => {
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      const notifications: NavBarDropdownLink[] = [];
+      if (user) {
+        // Get number of un-resolved user reports
+        // TODO: Get number of records from KV store to speed up
+        if (user.role === "MODERATOR" || user.role === "ADMIN") {
+          const reportCounts = await ctx.drizzle
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(userReport)
+            .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
+          const userReports = reportCounts?.[0]?.count || 0;
+          if (userReports > 0) {
+            notifications.push({
+              href: "/reports",
+              name: `${userReports} waiting!`,
+              color: "blue",
+            });
+          }
+        }
+        // Check if user is banned
+        if (user.isBanned) {
           notifications.push({
             href: "/reports",
-            name: `${userReports} waiting!`,
-            color: "blue",
+            name: "Banned!",
+            color: "red",
+          });
+        }
+        // Add deletion timer to notifications
+        if (user?.deletionAt) {
+          notifications?.push({
+            href: "/profile",
+            name: "Being deleted",
+            color: "red",
+          });
+        }
+        // Is in combat
+        if (user.status === "BATTLE") {
+          notifications?.push({
+            href: "/combat",
+            name: "In combat",
+            color: "red",
+          });
+        }
+        // Is in hospital
+        if (user.status === "HOSPITALIZED") {
+          notifications?.push({
+            href: "/hospital",
+            name: "In hospital",
+            color: "red",
+          });
+        }
+        // Stuff in inbox
+        if (user.inboxNews > 0) {
+          notifications?.push({
+            href: "/inbox",
+            name: `${user.inboxNews} new messages`,
+            color: "green",
+          });
+        }
+        // Stuff in news
+        if (user.unreadNews > 0) {
+          notifications?.push({
+            href: "/news",
+            name: `${user.unreadNews} new news`,
+            color: "green",
+          });
+        }
+        if (user.unreadNotifications > 0) {
+          const [unread] = await Promise.all([
+            ctx.drizzle.query.notification.findMany({
+              limit: user.unreadNotifications,
+              orderBy: desc(notification.createdAt),
+            }),
+            ctx.drizzle
+              .update(userData)
+              .set({ unreadNotifications: 0 })
+              .where(eq(userData.userId, ctx.userId)),
+          ]);
+          unread?.forEach((n) => {
+            notifications?.push({
+              href: "/news",
+              name: n.content,
+              color: "toast",
+            });
           });
         }
       }
-      // Check if user is banned
-      if (user.isBanned) {
-        notifications.push({
-          href: "/reports",
-          name: "Banned!",
-          color: "red",
-        });
-      }
-      // Add deletion timer to notifications
-      if (user?.deletionAt) {
-        notifications?.push({
-          href: "/profile",
-          name: "Being deleted",
-          color: "red",
-        });
-      }
-      // Is in combat
-      if (user.status === "BATTLE") {
-        notifications?.push({
-          href: "/combat",
-          name: "In combat",
-          color: "red",
-        });
-      }
-      // Is in hospital
-      if (user.status === "HOSPITALIZED") {
-        notifications?.push({
-          href: "/hospital",
-          name: "In hospital",
-          color: "red",
-        });
-      }
-      // Stuff in inbox
-      if (user.inboxNews > 0) {
-        notifications?.push({
-          href: "/inbox",
-          name: `${user.inboxNews} new messages`,
-          color: "green",
-        });
-      }
-      // Stuff in news
-      if (user.unreadNews > 0) {
-        notifications?.push({
-          href: "/news",
-          name: `${user.unreadNews} new news`,
-          color: "green",
-        });
-      }
-      if (user.unreadNotifications > 0) {
-        const [unread] = await Promise.all([
-          ctx.drizzle.query.notification.findMany({
-            limit: user.unreadNotifications,
-            orderBy: desc(notification.createdAt),
-          }),
-          ctx.drizzle
-            .update(userData)
-            .set({ unreadNotifications: 0 })
-            .where(eq(userData.userId, ctx.userId)),
-        ]);
-        unread?.forEach((n) => {
-          notifications?.push({
-            href: "/news",
-            name: n.content,
-            color: "toast",
-          });
-        });
-      }
-    }
-    return { userData: user, notifications: notifications, serverTime: Date.now() };
-  }),
+      return { userData: user, notifications: notifications, serverTime: Date.now() };
+    }),
   // Get an AI
   getAi: protectedProcedure
     .input(z.object({ userId: z.string() }))
