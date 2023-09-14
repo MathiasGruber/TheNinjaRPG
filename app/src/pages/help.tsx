@@ -37,7 +37,7 @@ const BugReport: NextPage = () => {
         improve the game.
         <div className="flex flex-row justify-center space-x-5 p-5">
           <Link
-            href="https://discord.gg/tnr"
+            href="https://discord.gg/grPmTr4z9C"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <Image
