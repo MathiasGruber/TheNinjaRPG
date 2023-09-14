@@ -1,6 +1,6 @@
 export { reportWebVitals } from "next-axiom";
 import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
-import { HighlightInit } from "@highlight-run/next/highlight-init";
+import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
 import Link from "next/link";
 import Header from "../layout/Header";
@@ -35,6 +35,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
       </CookieConsent>
       <HighlightInit
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
+        serviceName="tnr-frontend"
         enableStrictPrivacy={true}
         reportConsoleErrors={true}
         enablePerformanceRecording={true}

@@ -4,7 +4,10 @@ import { appRouter } from "../../../server/api/root";
 import { Handlers, H } from "@highlight-run/node";
 
 // Highlight.io init
-H.init({ projectID: process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID });
+H.init({
+  projectID: process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID,
+  serviceName: "tnr-backend",
+});
 
 // Configure Vercel
 export const config = {
