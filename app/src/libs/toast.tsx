@@ -8,14 +8,26 @@ export const show_errors = (errors: FieldErrors<any>) => {
   const msgs = (
     <>
       {Object.keys(errors).map((key, i) => {
-        return (
-          <ErrorMessage
-            key={i}
-            errors={errors}
-            name={key}
-            render={({ message }: { message: string }) => <span>{message}</span>}
-          />
-        );
+        if (key) {
+          return (
+            <ErrorMessage
+              key={i}
+              errors={errors}
+              name={key}
+              render={({ message }: { message: string }) => (
+                <span>
+                  <b>{key}:</b> {message}
+                </span>
+              )}
+            />
+          );
+        } else {
+          return (
+            <p key={i}>
+              <b>Overall:</b> {errors[key]?.message as string}
+            </p>
+          );
+        }
       })}
     </>
   );

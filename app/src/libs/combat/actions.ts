@@ -6,6 +6,7 @@ import { realizeTag } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { updateStatUsage } from "./tags";
+import { getPossibleActionTiles } from "../hexgrid";
 import type { AttackTargets } from "../../../drizzle/constants";
 import type { CompleteBattle, ReturnedBattle, BattleUserState } from "./types";
 import type { Grid } from "honeycomb-grid";
@@ -89,9 +90,9 @@ export const availableUserActions = (
       id: "move",
       name: "Move",
       image: "/combat/basicActions/move.webp",
-      battleDescription: "%user moves to %location",
+      battleDescription: "%user moves on the battlefield",
       type: "basic" as const,
-      target: "GROUND" as const,
+      target: "EMPTY_GROUND" as const,
       method: "SINGLE" as const,
       range: 1,
       updatedAt: Date.now(),
@@ -233,12 +234,15 @@ export const insertAction = (info: {
     // How much time passed since last action
     const newPoints = actionPointsAfterAction(user, battle, action);
     if (newPoints < 0) return false;
+    // Get the possible action squares
+    const highlights = getPossibleActionTiles(action, user.hex, grid);
     // Given this action, get the affected tiles
     const { green: affectedTiles } = getAffectedTiles({
       a: user.hex,
       b: targetTile,
       action,
       grid: grid,
+      restrictGrid: highlights,
       users: alive,
       ground: groundEffects,
       userId,
@@ -249,8 +253,10 @@ export const insertAction = (info: {
 
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
+      // ADD USER EFFECTS
       if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
+        const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
         action.effects.forEach((tag) => {
           if (!tag.target || tag.target === "INHERIT") {
             const effect = realizeTag(tag as GroundEffect, user, action.level, true);
@@ -258,16 +264,21 @@ export const insertAction = (info: {
               effect.longitude = tile.col;
               effect.latitude = tile.row;
               groundEffects.push({ ...effect });
+              if (target) {
+                targetUsernames.push(target.username);
+                targetGenders.push(target.gender);
+              }
             }
           }
         });
       } else {
-        // ADD USER EFFECTS
-        const target = getTargetUser(alive, action.target, tile, user.userId);
         // Apply effects
+        const target = getTargetUser(alive, action.target, tile, user.userId);
         action.effects.forEach((tag) => {
           const effect = realizeTag(tag as UserEffect, user, action.level);
           if (effect) {
+            effect.longitude = tile.col;
+            effect.latitude = tile.row;
             if (target && (!tag.target || tag.target === "INHERIT")) {
               targetUsernames.push(target.username);
               targetGenders.push(target.gender);

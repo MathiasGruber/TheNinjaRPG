@@ -77,6 +77,8 @@ const BloodlinePanel: NextPage = () => {
     watch,
     formState: { errors, isDirty },
   } = useForm<ZodBloodlineType>({
+    mode: "all",
+    criteriaMode: "all",
     values: data,
     defaultValues: data,
     resolver: zodResolver(BloodlineValidator),

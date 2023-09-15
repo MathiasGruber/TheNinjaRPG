@@ -168,13 +168,14 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   const {
     register,
     setValue,
+    trigger,
     watch,
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ZodAllTags>({
     values: shownTag,
     resolver: zodResolver(tagSchema),
-    mode: "onBlur",
+    mode: "all",
   });
 
   // When user changes type, we need to update the effects array to re-render form
@@ -188,7 +189,12 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
       }
       return newEffects;
     });
-  }, [watchType, idx, setEffects]);
+  }, [watchType, idx, setEffects, trigger]);
+
+  // Trigger re-validation after type changes
+  useEffect(() => {
+    void trigger(undefined, { shouldFocus: true });
+  }, [tag.type, trigger]);
 
   // Form submission
   const handleTagupdate = handleSubmit(

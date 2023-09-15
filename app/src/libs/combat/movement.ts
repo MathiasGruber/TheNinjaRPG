@@ -9,8 +9,9 @@ export const isValidMove = (info: {
   user: ReturnedUserState;
   users: ReturnedUserState[];
   barriers: GroundEffect[];
+  clicked: TerrainHex;
 }) => {
-  const { action, user, users, target, barriers } = info;
+  const { action, user, users, target, clicked, barriers } = info;
   const { villageId, userId } = user;
   const barrier = barriers.find(
     (b) => b.longitude === target.col && b.latitude === target.row
@@ -34,11 +35,9 @@ export const isValidMove = (info: {
     } else if (action.target === "SELF") {
       if (opponent && opponent?.userId === userId) return true;
     } else if (action.target === "EMPTY_GROUND") {
-      if (!opponent) return true;
+      if (!opponent || target !== clicked) return true;
     } else if (action.target === "GROUND") {
-      if (!(action.id === "move" && opponent)) {
-        return true;
-      }
+      return true;
     }
   } else {
     if (action.effects.find((e) => e.type === "damage")) {
@@ -54,12 +53,13 @@ export const getAffectedTiles = (info: {
   b: TerrainHex;
   action: CombatAction;
   grid: Grid<TerrainHex>;
+  restrictGrid?: Grid<TerrainHex>;
   users: ReturnedUserState[];
   ground: GroundEffect[];
   userId: string;
 }) => {
   // Destruct & variables
-  const { action, b, a, grid, users, userId } = info;
+  const { action, b, a, grid, restrictGrid, users, userId } = info;
   const radius = action.range;
   const green = new Set<TerrainHex>();
   const red = new Set<TerrainHex>();
@@ -71,6 +71,13 @@ export const getAffectedTiles = (info: {
 
   // Guard if no user
   if (!user) return { green, red };
+
+  // Guard if action not on restricted grid
+  if (restrictGrid) {
+    if (!restrictGrid.getHex({ q: b.q, r: b.r })) {
+      return { green, red };
+    }
+  }
 
   // Handle different methods separately
   if (action.method === "SINGLE") {
@@ -86,7 +93,7 @@ export const getAffectedTiles = (info: {
     if (tiles) tiles = tiles.filter((t) => t !== a);
   } else if (action.method === "ALL") {
     grid.forEach((target) => {
-      if (isValidMove({ action, target, user, users, barriers })) {
+      if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
         green.add(target);
       }
     });
@@ -94,11 +101,12 @@ export const getAffectedTiles = (info: {
 
   // Return green for valid moves and red for unvalid moves
   tiles?.forEach((target) => {
-    if (isValidMove({ action, target, user, users, barriers })) {
+    if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
       green.add(target);
     } else {
       red.add(target);
     }
   });
+
   return { green, red };
 };

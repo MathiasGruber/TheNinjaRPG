@@ -618,12 +618,15 @@ export const highlightTiles = (info: {
   if (action && origin && highlights && hit && canAct && isAvailable) {
     const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
+    // Is the target in the highlights?
+    const isAvailable = highlights.filter((h) => h === targetTile).size > 0;
     // Based on the intersected tile, highlight the tiles which are affected.
     const { green, red } = getAffectedTiles({
       a: origin,
       b: targetTile,
       action,
-      grid: highlights,
+      grid: grid,
+      restrictGrid: highlights,
       ground: battle.groundEffects,
       userId: user.userId,
       users,
@@ -648,10 +651,15 @@ export const highlightTiles = (info: {
     // Set cursor type on highlight
     if (
       (document.body.style.cursor === "default" || document.body.style.cursor === "") &&
-      green.size > 0
+      green.size > 0 &&
+      isAvailable
     ) {
+      console.log("set pointer");
       document.body.style.cursor = "pointer";
-    } else if (document.body.style.cursor === "pointer" && green.size === 0) {
+    } else if (
+      document.body.style.cursor === "pointer" &&
+      (green.size === 0 || isAvailable === false)
+    ) {
       document.body.style.cursor = "default";
     }
   }

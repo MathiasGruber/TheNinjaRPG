@@ -70,6 +70,8 @@ const ItemPanel: NextPage = () => {
     watch,
     formState: { errors, isDirty },
   } = useForm<ZodItemType>({
+    mode: "all",
+    criteriaMode: "all",
     values: data,
     defaultValues: data,
     resolver: zodResolver(ItemValidator),

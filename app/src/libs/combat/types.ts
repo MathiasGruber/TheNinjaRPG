@@ -642,12 +642,11 @@ export type BattleEffect = ZodAllTags & {
   willpower?: number;
   speed?: number;
   power?: number;
-};
-
-export type GroundEffect = BattleEffect & {
   longitude: number;
   latitude: number;
 };
+
+export type GroundEffect = BattleEffect;
 
 export type UserEffect = BattleEffect & {
   targetId: string;
@@ -665,6 +664,7 @@ export type ActionEffect = {
  */
 type ActionValidatorType = {
   target: typeof AttackTargets[number];
+  method: typeof AttackMethods[number];
   effects: ZodAllTags[];
 };
 
@@ -699,13 +699,27 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
 };
 
 const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
-  if (data.target !== "EMPTY_GROUND") {
-    if (data.effects.find((e) => e.type === "barrier")) {
-      addIssue(ctx, "Barriers need empty ground");
+  // Pick out various effect types
+  const hasMove = data.effects.find((e) => e.type === "move");
+  const hasClone = data.effects.find((e) => e.type === "clone");
+  const hasBarrier = data.effects.find((e) => e.type === "barrier");
+  const hasDamage = data.effects.find((e) => e.type === "damage");
+  const isAOE = data.method.includes("AOE");
+  const isEmptyGround = data.target === "EMPTY_GROUND";
+  // Run checks
+  if (!isEmptyGround) {
+    if (hasBarrier) {
+      addIssue(ctx, "For barrier tag 'target' needs to be empty ground");
     }
-    if (data.effects.find((e) => e.type === "clone")) {
-      addIssue(ctx, "Clone need empty ground");
+    if (hasClone) {
+      addIssue(ctx, "For clone tag 'target' needs to be empty ground");
     }
+    if (hasMove) {
+      addIssue(ctx, "For move tag 'target' needs to be empty ground");
+    }
+  }
+  if (hasDamage && hasMove && !isAOE) {
+    addIssue(ctx, "For Attack+Move tag combo 'method' must AOE-type");
   }
 };
 

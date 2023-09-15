@@ -64,6 +64,8 @@ const AIPanel: NextPage = () => {
     watch,
     formState: { errors, isDirty },
   } = useForm<InsertUserDataSchema>({
+    mode: "all",
+    criteriaMode: "all",
     values: processedData,
     defaultValues: processedData,
     resolver: zodResolver(insertUserDataSchema),

@@ -82,6 +82,8 @@ const JutsuPanel: NextPage = () => {
     watch,
     formState: { errors, isDirty },
   } = useForm<ZodJutsuType>({
+    mode: "all",
+    criteriaMode: "all",
     values: data,
     defaultValues: data,
     resolver: zodResolver(JutsuValidator),

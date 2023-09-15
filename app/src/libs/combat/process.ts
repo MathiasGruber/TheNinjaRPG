@@ -195,7 +195,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         } else if (e.type === "flee") {
           info = flee(e, newUsersEffects, newTarget);
         } else if (e.type === "move") {
-          console.log(e.type, curTarget.username);
+          // move command should never be here, for now at least
           // info = move(e, newUsersState, newGroundEffects);
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);

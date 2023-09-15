@@ -509,7 +509,13 @@ export const move = (
   groundEffects: GroundEffect[]
 ) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
+  let info: ActionEffect | undefined = undefined;
   if (user) {
+    // Update movement information
+    info = {
+      txt: `${user.username} moves to [${effect.latitude}, ${effect.longitude}]`,
+      color: "blue",
+    };
     // This is related to users stepping into/out of ground effects
     groundEffects.forEach((g) => {
       if (g.timeTracker && user.userId in g.timeTracker) {
@@ -525,10 +531,13 @@ export const move = (
         g.timeTracker[user.userId] = Date.now();
       }
     });
-    // Update user location
+    // Update user location. If someone else is already standing on the spot,
+    // move to the nearest available spot on the most direct line between
+    // the current and target location
     user.longitude = effect.longitude;
     user.latitude = effect.latitude;
   }
+  return info;
 };
 
 /** One-hit-kill target with a given static chance */
