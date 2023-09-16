@@ -205,7 +205,7 @@ const type = (defaultString: string) => {
 /******************** */
 /**  BASE ATTRIBUTES  */
 /******************** */
-const BaseTagTargets = ["INHERIT", "SELF"];
+const BaseTagTargets = ["INHERIT", "SELF"] as const;
 const BaseAttributes = z.object({
   // Visual controls
   staticAssetPath: z.string().optional(),
