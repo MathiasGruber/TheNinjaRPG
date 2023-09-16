@@ -191,6 +191,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         latitude = curTarget?.latitude;
         if (e.type === "absorb") {
           info = absorb(e, usersEffects, consequences, curTarget);
+          updateStatUsage(newTarget, e, true);
         } else if (e.type === "armoradjust") {
           info = adjustArmor(e, curTarget);
         } else if (e.type === "statadjust") {
@@ -297,30 +298,30 @@ export const applyEffects = (battle: CompleteBattle) => {
           });
         }
         if (c.absorb_hp && c.absorb_hp > 0) {
-          user.curHealth += c.absorb_hp;
-          user.curHealth = Math.min(user.maxHealth, user.curHealth);
+          target.curHealth += c.absorb_hp;
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
-            txt: `${user.username} absorbs ${c.absorb_hp.toFixed(
+            txt: `${target.username} absorbs ${c.absorb_hp.toFixed(
               2
             )} damage and converts it to health`,
             color: "green",
           });
         }
         if (c.absorb_sp && c.absorb_sp > 0) {
-          user.curHealth += c.absorb_sp;
-          user.curHealth = Math.min(user.maxHealth, user.curHealth);
+          target.curHealth += c.absorb_sp;
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
-            txt: `${user.username} absorbs ${c.absorb_sp.toFixed(
+            txt: `${target.username} absorbs ${c.absorb_sp.toFixed(
               2
             )} damage and converts it to stamina`,
             color: "green",
           });
         }
         if (c.absorb_cp && c.absorb_cp > 0) {
-          user.curHealth += c.absorb_cp;
-          user.curHealth = Math.min(user.maxHealth, user.curHealth);
+          target.curHealth += c.absorb_cp;
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
-            txt: `${user.username} absorbs ${c.absorb_cp.toFixed(
+            txt: `${target.username} absorbs ${c.absorb_cp.toFixed(
               2
             )} damage and converts it to chakra`,
             color: "green",
