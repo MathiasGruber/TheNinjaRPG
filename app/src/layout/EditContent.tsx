@@ -181,7 +181,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // When user changes type, we need to update the effects array to re-render form
   const watchType = watch("type");
   useEffect(() => {
-    if (watchType) {
+    if (watchType && watchType !== tag.type) {
       setEffects((effects) => {
         const newEffects = [...effects];
         const curTag = newEffects?.[idx];
