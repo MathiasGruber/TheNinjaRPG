@@ -119,6 +119,7 @@ const CombatPage: NextPage = () => {
         <div className="pt-2 text-xs">
           <p className="text-red-500">Red: tile not affected</p>
           <p className="text-green-700">Green: tile affected by attack</p>
+          <p className="text-blue-500">Blue: move character</p>
         </div>
       )}
     </div>

@@ -612,6 +612,9 @@ export const highlightTiles = (info: {
     !action?.cooldown ||
     action.updatedAt < syncedTime - action.cooldown * 1000 * COMBAT_SECONDS;
 
+  // Is this a move action (if so, we color the selected green tile blue instead)
+  const hasMove = action?.effects?.find((e) => e.type === "move");
+
   // Highlight intersected tile
   /* ************************** */
   const newSelection = new Set<string>();
@@ -638,7 +641,12 @@ export const highlightTiles = (info: {
       const mesh = group_tiles.getObjectByName(name) as HexagonalFaceMesh;
       mesh.userData.selected = true;
       mesh.userData.canClick = true;
-      mesh.material.color = new Color("rgb(0, 255, 0)");
+      if (hasMove && tile === targetTile) {
+        mesh.material.color = new Color("rgb(0, 0, 255)");
+      } else {
+        mesh.material.color = new Color("rgb(0, 255, 0)");
+      }
+
       newSelection.add(name);
     });
     red.forEach((tile) => {
