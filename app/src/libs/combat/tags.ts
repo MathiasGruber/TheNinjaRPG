@@ -13,25 +13,51 @@ export const absorb = (
   target: BattleUserState
 ) => {
   const { power, qualifier } = getPower(effect);
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.targetId === effect.targetId && consequence.damage) {
-      const damageEffect = usersEffects.find((e) => e.id === effectId);
-      if (damageEffect) {
-        const ratio = getEfficiencyRatio(damageEffect, effect);
-        const convert =
-          Math.ceil(
-            effect.calculation === "percentage"
-              ? consequence.damage * (power / 100)
-              : power > consequence.damage
-              ? consequence.damage
-              : power
-          ) * ratio;
-        consequence.damage -= convert;
-        consequence.absorb = convert;
+  // Pools that are going to be restored
+  const pools =
+    "poolsAffected" in effect && effect.poolsAffected
+      ? effect.poolsAffected
+      : ["Health" as const];
+  const nPools = pools.length;
+  // Apply the absorb effect the round after the effect is applied
+  if (!effect.isNew) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.targetId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const convert =
+            Math.ceil(
+              effect.calculation === "percentage"
+                ? consequence.damage * (power / 100)
+                : power > consequence.damage
+                ? consequence.damage
+                : power
+            ) * ratio;
+          consequence.damage -= convert;
+          pools.map((pool) => {
+            switch (pool) {
+              case "Health":
+                consequence.absorb_hp = convert / nPools;
+                break;
+              case "Stamina":
+                consequence.absorb_sp = convert / nPools;
+                break;
+              case "Chakra":
+                consequence.absorb_cp = convert / nPools;
+                break;
+            }
+          });
+        }
       }
-    }
-  });
-  return getInfo(target, effect, `will absorb ${qualifier} damage`);
+    });
+  }
+  // Return info
+  return getInfo(
+    target,
+    effect,
+    `will absorb up to ${qualifier} damage and convert it to ${pools.join(", ")}`
+  );
 };
 
 /** Adjust armor by a static amount */

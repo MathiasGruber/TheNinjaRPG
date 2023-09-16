@@ -145,7 +145,9 @@ export type Consequence = {
   heal?: number;
   damage?: number;
   reflect?: number;
-  absorb?: number;
+  absorb_hp?: number;
+  absorb_sp?: number;
+  absorb_cp?: number;
 };
 
 /**
@@ -238,16 +240,17 @@ const IncludeStats = z.object({
 /******************** */
 /*******  TAGS  *******/
 /******************** */
-export const AbsorbTag = z
-  .object({
+export const AbsorbTag = BaseAttributes.merge(IncludeStats).merge(
+  z.object({
     type: type("absorb"),
-    direction: type("defence"),
-    description: msg("Absorb damage taken"),
-    elementalOnly: z.boolean().default(false).optional(),
     calculation: z.enum(["percentage"]).default("percentage"),
+    direction: type("defence"),
+    description: msg("Absorb damage taken & convert to health, chakra or stamina"),
+    elementalOnly: z.number().int().min(0).max(1).default(0),
+    elements: z.array(z.enum(Element)).optional(),
+    poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
   })
-  .merge(BaseAttributes)
-  .merge(IncludeStats);
+);
 
 export const AdjustArmorTag = z
   .object({

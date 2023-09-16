@@ -278,13 +278,33 @@ export const applyEffects = (battle: CompleteBattle) => {
             color: "red",
           });
         }
-        if (c.absorb && c.absorb > 0) {
-          user.curHealth += c.absorb;
+        if (c.absorb_hp && c.absorb_hp > 0) {
+          user.curHealth += c.absorb_hp;
           user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
-            txt: `${user.username} absorbs ${c.absorb.toFixed(
+            txt: `${user.username} absorbs ${c.absorb_hp.toFixed(
               2
-            )} damage and restores HP`,
+            )} damage and converts it to health`,
+            color: "green",
+          });
+        }
+        if (c.absorb_sp && c.absorb_sp > 0) {
+          user.curHealth += c.absorb_sp;
+          user.curHealth = Math.min(user.maxHealth, user.curHealth);
+          actionEffects.push({
+            txt: `${user.username} absorbs ${c.absorb_sp.toFixed(
+              2
+            )} damage and converts it to stamina`,
+            color: "green",
+          });
+        }
+        if (c.absorb_cp && c.absorb_cp > 0) {
+          user.curHealth += c.absorb_cp;
+          user.curHealth = Math.min(user.maxHealth, user.curHealth);
+          actionEffects.push({
+            txt: `${user.username} absorbs ${c.absorb_cp.toFixed(
+              2
+            )} damage and converts it to chakra`,
             color: "green",
           });
         }
