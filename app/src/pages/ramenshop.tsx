@@ -1,5 +1,4 @@
 import { type NextPage } from "next";
-import { useEffect } from "react";
 import Image from "next/image";
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";

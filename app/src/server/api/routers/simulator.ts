@@ -29,7 +29,7 @@ export const simulatorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const maxEntries = 20;
-      const [current, _] = await Promise.all([
+      const [current] = await Promise.all([
         ctx.drizzle.query.damageSimulation.findMany({
           columns: { id: true, createdAt: true },
           where: eq(damageSimulation.userId, ctx.userId),

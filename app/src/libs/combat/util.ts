@@ -185,8 +185,20 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     if (val.reflect) {
       current.reflect = current.reflect ? current.reflect + val.reflect : val.reflect;
     }
-    if (val.absorb) {
-      current.absorb = current.absorb ? current.absorb + val.absorb : val.absorb;
+    if (val.absorb_hp) {
+      current.absorb_hp = current.absorb_hp
+        ? current.absorb_hp + val.absorb_hp
+        : val.absorb_hp;
+    }
+    if (val.absorb_sp) {
+      current.absorb_sp = current.absorb_sp
+        ? current.absorb_sp + val.absorb_sp
+        : val.absorb_sp;
+    }
+    if (val.absorb_cp) {
+      current.absorb_cp = current.absorb_cp
+        ? current.absorb_cp + val.absorb_cp
+        : val.absorb_cp;
     }
   } else {
     acc.push(val);

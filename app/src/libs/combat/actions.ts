@@ -2,7 +2,7 @@ import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
 import { isEffectStillActive } from "./util";
 import { getAffectedTiles } from "./movement";
 import { COMBAT_SECONDS } from "./constants";
-import { realizeTag } from "./process";
+import { realizeTag, checkFriendlyFire } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { updateStatUsage } from "./tags";
@@ -264,7 +264,11 @@ export const insertAction = (info: {
               effect.longitude = tile.col;
               effect.latitude = tile.row;
               groundEffects.push({ ...effect });
-              if (target) {
+              if (
+                target &&
+                effect.type !== "move" &&
+                checkFriendlyFire(effect, target)
+              ) {
                 targetUsernames.push(target.username);
                 targetGenders.push(target.gender);
               }
@@ -280,40 +284,37 @@ export const insertAction = (info: {
             effect.longitude = tile.col;
             effect.latitude = tile.row;
             if (target && (!tag.target || tag.target === "INHERIT")) {
-              targetUsernames.push(target.username);
-              targetGenders.push(target.gender);
-              effect.targetId = target.userId;
-              usersEffects.push(effect);
+              // Apply UserEffect to target
+              if (checkFriendlyFire(effect, target)) {
+                targetUsernames.push(target.username);
+                targetGenders.push(target.gender);
+                effect.targetId = target.userId;
+                usersEffects.push(effect);
+              }
             } else if (tag.target === "SELF") {
-              effect.targetId = user.userId;
-              usersEffects.push(effect);
+              // Overwrite: apply UserEffect to self
+              if (checkFriendlyFire(effect, user)) {
+                effect.targetId = user.userId;
+                usersEffects.push(effect);
+              }
+            } else if (!target && tag.type === "damage") {
+              // Extra: If no target, check if there is a barrier & apply damage only
+              const barrier = groundEffects.find(
+                (e) =>
+                  e.longitude === tile.col &&
+                  e.latitude === tile.row &&
+                  e.type === "barrier"
+              );
+              if (barrier) {
+                targetUsernames.push("barrier");
+                targetGenders.push("it");
+                effect.targetType = "barrier";
+                effect.targetId = barrier.id;
+                usersEffects.push(effect);
+              }
             }
           }
         });
-        // Special case; attacking barrier, add damage tag as ground effect,
-        // which will resolve against the barrier when applied
-        if (!target) {
-          const barrier = groundEffects.find(
-            (e) =>
-              e.longitude === tile.col &&
-              e.latitude === tile.row &&
-              e.type === "barrier"
-          );
-          if (barrier) {
-            action.effects.forEach((tag) => {
-              if (tag.type === "damage") {
-                const effect = realizeTag(tag as UserEffect, user, action.level);
-                if (effect) {
-                  targetUsernames.push("barrier");
-                  targetGenders.push("it");
-                  effect.targetType = "barrier";
-                  effect.targetId = barrier.id;
-                  usersEffects.push(effect);
-                }
-              }
-            });
-          }
-        }
       }
     });
     // Get uniques only

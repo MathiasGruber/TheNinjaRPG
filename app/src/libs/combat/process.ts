@@ -10,10 +10,25 @@ import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { clear } from "./tags";
-import type { BattleUserState } from "./types";
+import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
 import type { AnimationNames } from "./types";
 import type { CompleteBattle, Consequence } from "./types";
+
+/**
+ * Check whether to apply given effect to a user, based on friendly fire settings
+ */
+export const checkFriendlyFire = (effect: BattleEffect, target: ReturnedUserState) => {
+  if (
+    !effect.friendlyFire ||
+    effect.friendlyFire === "ALL" ||
+    (effect.friendlyFire === "FRIENDLY" && target.villageId === effect.villageId) ||
+    (effect.friendlyFire === "ENEMIES" && target.villageId !== effect.villageId)
+  ) {
+    return true;
+  }
+  return false;
+};
 
 /**
  * Realize tag with information about how powerful tag is
@@ -59,6 +74,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.id = nanoid();
   tag.createdAt = Date.now();
   tag.creatorId = user.userId;
+  tag.villageId = user.villageId;
   tag.targetType = "user";
   tag.level = level ?? 0;
   tag.isNew = true;
@@ -112,11 +128,13 @@ export const applyEffects = (battle: CompleteBattle) => {
       // Apply ground effect to user
       const user = findUser(newUsersState, e.longitude, e.latitude);
       if (user && e.type !== "visual") {
-        usersEffects.push({
-          ...e,
-          targetId: user.userId,
-          fromGround: true,
-        } as UserEffect);
+        if (checkFriendlyFire(e, user)) {
+          usersEffects.push({
+            ...e,
+            targetId: user.userId,
+            fromGround: true,
+          } as UserEffect);
+        }
       }
       // Forward any damage effects, which should be applied to barriers as well
       if (!user && e.type === "damage") {

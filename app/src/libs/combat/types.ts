@@ -221,6 +221,8 @@ const BaseAttributes = z.object({
   direction: z.enum(["offence", "defence"]).default("offence"),
   // Attack target, if different from the default
   target: z.enum(["INHERIT", "SELF"]).optional().default("INHERIT"),
+  // Enable / disables applying to friendlies. Default is to apply to all users
+  friendlyFire: z.enum(["ALL", "FRIENDLY", "ENEMIES"]).optional(),
 });
 
 const PoolAttributes = z.object({
@@ -628,6 +630,7 @@ export type BattleEffect = ZodAllTags & {
   level: number;
   isNew: boolean;
   createdAt: number;
+  villageId?: string | null;
   targetType?: "user" | "barrier";
   experience?: number;
   highestOffence?: number;
@@ -769,19 +772,19 @@ export const BloodlineValidator = z.object({
   effects: z
     .array(
       z.union([
-        AbsorbTag.omit({ rounds: true }).default({}),
-        AdjustArmorTag.omit({ rounds: true }).default({}),
-        AdjustDamageGivenTag.omit({ rounds: true }).default({}),
-        AdjustDamageTakenTag.omit({ rounds: true }).default({}),
-        AdjustHealGivenTag.omit({ rounds: true }).default({}),
-        AdjustPoolCostTag.omit({ rounds: true }).default({}),
-        AdjustStatTag.omit({ rounds: true }).default({}),
-        DamageTag.omit({ rounds: true }).default({}),
-        HealTag.omit({ rounds: true }).default({}),
-        ReflectTag.omit({ rounds: true }).default({}),
-        RobPreventTag.omit({ rounds: true }).default({}),
-        SealPreventTag.omit({ rounds: true }).default({}),
-        StunPreventTag.omit({ rounds: true }).default({}),
+        AbsorbTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustArmorTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustDamageGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustDamageTakenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustHealGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustPoolCostTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        AdjustStatTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        DamageTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        HealTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        ReflectTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        RobPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        SealPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
+        StunPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
       ])
     )
     .superRefine(SuperRefineEffects),
