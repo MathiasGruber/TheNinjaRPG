@@ -205,6 +205,7 @@ const type = (defaultString: string) => {
 /******************** */
 /**  BASE ATTRIBUTES  */
 /******************** */
+const BaseTagTargets = ["INHERIT", "SELF"];
 const BaseAttributes = z.object({
   // Visual controls
   staticAssetPath: z.string().optional(),
@@ -220,7 +221,7 @@ const BaseAttributes = z.object({
   // Used for indicating offensive / defensive effect
   direction: z.enum(["offence", "defence"]).default("offence"),
   // Attack target, if different from the default
-  target: z.enum(["INHERIT", "SELF"]).optional().default("INHERIT"),
+  target: z.enum(BaseTagTargets).optional().default("INHERIT"),
   // Enable / disables applying to friendlies. Default is to apply to all users
   friendlyFire: z.enum(["ALL", "FRIENDLY", "ENEMIES"]).optional(),
 });
@@ -251,6 +252,7 @@ export const AbsorbTag = BaseAttributes.merge(IncludeStats).merge(
     elementalOnly: z.number().int().min(0).max(1).default(0),
     elements: z.array(z.enum(Element)).optional(),
     poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
+    target: z.enum(BaseTagTargets).optional().default("SELF"),
   })
 );
 
