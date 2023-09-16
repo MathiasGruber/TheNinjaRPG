@@ -618,8 +618,6 @@ export const highlightTiles = (info: {
   if (action && origin && highlights && hit && canAct && isAvailable) {
     const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
-    // Is the target in the highlights?
-    const isAvailable = highlights.filter((h) => h === targetTile).size > 0;
     // Based on the intersected tile, highlight the tiles which are affected.
     const { green, red } = getAffectedTiles({
       a: origin,
@@ -631,6 +629,9 @@ export const highlightTiles = (info: {
       userId: user.userId,
       users,
     });
+    // Is the target in the highlights?
+    const isAvailable =
+      highlights.filter((h) => h === targetTile).size > 0 && !red.has(targetTile);
     // Highlight the tiles in different colors
     green.forEach((tile) => {
       const name = `${tile.row},${tile.col}`;
@@ -644,10 +645,10 @@ export const highlightTiles = (info: {
       const name = `${tile.row},${tile.col}`;
       const mesh = group_tiles.getObjectByName(name) as HexagonalFaceMesh;
       mesh.userData.selected = true;
+      mesh.userData.canClick = false;
       mesh.material.color = new Color("rgb(255, 0, 0)");
       newSelection.add(name);
     });
-
     // Set cursor type on highlight
     if (
       (document.body.style.cursor === "default" || document.body.style.cursor === "") &&
