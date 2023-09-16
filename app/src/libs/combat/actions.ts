@@ -62,7 +62,7 @@ export const availableUserActions = (
             image: "/combat/basicActions/heal.webp",
             battleDescription: "%user perform basic healing of %target",
             type: "basic" as const,
-            target: "OTHER_USER" as const,
+            target: "CHARACTER" as const,
             method: "SINGLE" as const,
             healthCostPerc: 0,
             chakraCostPerc: 1,
