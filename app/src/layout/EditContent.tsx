@@ -12,8 +12,6 @@ import { UploadButton } from "../utils/uploadthing";
 import type { ZodAllTags } from "../libs/combat/types";
 import type { FieldErrors } from "react-hook-form";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
-// You need to import our styles for the button to look right. Best to import in the root /_app.tsx but this is fine
-import "@uploadthing/react/styles.css";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {

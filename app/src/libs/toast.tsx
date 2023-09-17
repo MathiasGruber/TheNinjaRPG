@@ -23,9 +23,9 @@ export const show_errors = (errors: FieldErrors<any>) => {
           );
         } else {
           return (
-            <p key={i}>
+            <span key={i}>
               <b>Overall:</b> {errors[key]?.message as string}
-            </p>
+            </span>
           );
         }
       })}

@@ -24,7 +24,6 @@ import { COST_CHANGE_USERNAME } from "../../libs/profile";
 import { UploadButton } from "../../utils/uploadthing";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "../../validators/comments";
-import "@uploadthing/react/styles.css";
 
 const EditProfile: NextPage = () => {
   // State
