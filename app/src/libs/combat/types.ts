@@ -673,6 +673,7 @@ export type ActionEffect = {
 type ActionValidatorType = {
   target: typeof AttackTargets[number];
   method: typeof AttackMethods[number];
+  range: number;
   effects: ZodAllTags[];
 };
 
@@ -715,6 +716,9 @@ const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
   const isAOE = data.method.includes("AOE");
   const isEmptyGround = data.target === "EMPTY_GROUND";
   // Run checks
+  if (data.target === "SELF" && data.range > 0) {
+    addIssue(ctx, "If target is SELF, range should be 0");
+  }
   if (!isEmptyGround) {
     if (hasBarrier) {
       addIssue(ctx, "For barrier tag 'target' needs to be empty ground");
