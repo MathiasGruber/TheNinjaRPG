@@ -20,8 +20,10 @@ import { useRequiredUserData } from "../../utils/UserContext";
 import { api } from "../../utils/api";
 import { useUserSearch } from "../../utils/search";
 import { show_toast } from "../../libs/toast";
-import { COST_CHANGE_USERNAME } from "../../libs/profile";
+import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../libs/profile";
 import { UploadButton } from "../../utils/uploadthing";
+import { statSchema } from "../../libs/combat/types";
+import type { z } from "zod";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "../../validators/comments";
 
@@ -78,12 +80,123 @@ const EditProfile: NextPage = () => {
         >
           <AttributeChange />
         </Accordion>
+        <Accordion
+          title="Reset Stats"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Redistribute your experience points"
+          selectedSubtitle={`You can redistribute your stats for ${COST_CHANGE_USERNAME} reputation points. You
+          have ${userData.reputationPoints} reputation points. You have ${
+            userData.experience + 120
+          } experience points to distribute.`}
+          onClick={setActiveElement}
+        >
+          <ResetStats />
+        </Accordion>
       </div>
     </ContentBox>
   );
 };
 
 export default EditProfile;
+
+/**
+ * Reset stats component
+ */
+const ResetStats: React.FC = () => {
+  // State
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+
+  // Stats Schema
+  type StatSchema = z.infer<typeof statSchema>;
+  const defaultValues = statSchema.parse(userData);
+  const statNames = Object.keys(defaultValues) as (keyof typeof defaultValues)[];
+
+  // Form setup
+  const form = useForm<StatSchema>({
+    defaultValues,
+    mode: "all",
+    resolver: zodResolver(statSchema),
+  });
+  const formValues = form.watch();
+  const formSum = Object.values(formValues).reduce((a, b) => a + b, 0);
+
+  // Is the form the same as the default values
+  const isDefault = Object.keys(formValues).every((key) => {
+    return formValues[key as keyof typeof formValues] === defaultValues[key];
+  });
+
+  // Mutations
+  const { mutate: updateStats } = api.profile.updateStats.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Success", "Stats updated", "success");
+        await refetchUser();
+      } else {
+        show_toast("Error on updating stats", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error on updating stats", error.message, "error");
+    },
+  });
+
+  // Only show if we have userData
+  if (!userData) {
+    return <Loader explanation="Loading profile page..." />;
+  }
+
+  // Derived data
+  const availableStats = userData.experience + 120;
+  const misalignment = Math.round((formSum - availableStats) * 100) / 100;
+  const canBuy = userData.reputationPoints >= COST_RESET_STATS;
+
+  // Input filds
+  const fields = statNames.map((stat, i) => {
+    return (
+      <div key={i} className={`pt-1`}>
+        <div className="px-3">
+          <InputField
+            id={stat}
+            inline={false}
+            type="number"
+            label={stat}
+            register={form.register}
+            error={form.formState.errors?.[stat]?.message}
+          />
+        </div>
+      </div>
+    );
+  });
+
+  // Figure out what to show on button, and whether it is disabled or not
+  const isDisabled = !canBuy || misalignment !== 0 || isDefault;
+  const buttonText = isDefault
+    ? "Nothing changed"
+    : canBuy
+    ? misalignment === 0
+      ? "Reset Stats"
+      : misalignment > 0
+      ? `Remove ${misalignment} points`
+      : `Place ${misalignment} more points`
+    : "Not enough points";
+
+  // Show component
+  return (
+    <>
+      <div className="grid grid-cols-2">{fields}</div>
+      <Button
+        id="create"
+        className="my-2"
+        label={buttonText}
+        onClick={(e) => {
+          e.preventDefault();
+          updateStats(formValues);
+        }}
+        disabled={isDisabled}
+      />
+    </>
+  );
+};
 
 /**
  * Avatar change component
@@ -145,8 +258,6 @@ const AttributeChange: React.FC = () => {
   const [hairColor, setHairColor] = useState<typeof colors[number]>("Black");
   const [eyeColor, setEyeColor] = useState<typeof colors[number]>("Black");
   const [skinColor, setSkinColor] = useState<typeof skin_colors[number]>("Light");
-
-  console.log(eyeColor);
 
   // Queries
   const { data, refetch, isLoading } = api.profile.getUserAttributes.useQuery(

@@ -831,19 +831,22 @@ export type ZodItemType = z.infer<typeof ItemValidator>;
 /****************************** */
 /*******  DMG SIMULATION  *******/
 /****************************** */
+const roundStat = (stat: number) => {
+  return Math.round(stat * 100) / 100;
+};
 export const statSchema = z.object({
-  ninjutsuOffence: z.number().min(10).max(10000000).default(10),
-  taijutsuOffence: z.number().min(10).max(10000000).default(10),
-  genjutsuOffence: z.number().min(10).max(10000000).default(10),
-  bukijutsuOffence: z.number().min(10).max(10000000).default(10),
-  ninjutsuDefence: z.number().min(10).max(10000000).default(10),
-  taijutsuDefence: z.number().min(10).max(10000000).default(10),
-  genjutsuDefence: z.number().min(10).max(10000000).default(10),
-  bukijutsuDefence: z.number().min(10).max(10000000).default(10),
-  strength: z.number().min(10).max(10000000).default(10),
-  speed: z.number().min(10).max(10000000).default(10),
-  intelligence: z.number().min(10).max(10000000).default(10),
-  willpower: z.number().min(10).max(10000000).default(10),
+  ninjutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  taijutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  genjutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  bukijutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  ninjutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  taijutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  genjutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  bukijutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  strength: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  speed: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  intelligence: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  willpower: z.number().min(10).max(10000000).transform(roundStat).default(10),
 });
 
 export const actSchema = z.object({

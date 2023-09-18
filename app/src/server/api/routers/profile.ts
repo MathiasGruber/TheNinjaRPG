@@ -32,8 +32,9 @@ import { canChangeContent } from "../../../utils/permissions";
 import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";
-import { COST_CHANGE_USERNAME } from "../../../libs/profile";
+import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../../libs/profile";
 import { MAX_ATTRIBUTES } from "../../../libs/profile";
+import { statSchema } from "../../../libs/combat/types";
 import { UserStatNames } from "../../../../drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData } from "../../../../drizzle/schema";
@@ -467,6 +468,42 @@ export const profileRouter = createTRPCRouter({
           relatedImage: user.avatar,
         });
         return { success: true, message: "Username updated" };
+      }
+    }),
+  // Update username
+  updateStats: protectedProcedure
+    .input(statSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.reputationPoints < COST_RESET_STATS) {
+        return { success: false, message: "Not enough reputation points" };
+      }
+      const inputSum = Object.values(input).reduce((a, b) => a + b, 0);
+      if (inputSum !== user.experience + 120) {
+        const message = `Requested points ${inputSum} for not match experience points ${user.experience}`;
+        return { success: false, message };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          ...input,
+          reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: [`User stats distribution changed`],
+          relatedId: ctx.userId,
+          relatedMsg: `Update: ${user.username} stats redistribution`,
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "User stats updated" };
       }
     }),
   // Get nindo text of user
