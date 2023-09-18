@@ -487,7 +487,18 @@ export const profileRouter = createTRPCRouter({
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          ...input,
+          ninjutsuOffence: input.ninjutsuOffence,
+          taijutsuOffence: input.taijutsuOffence,
+          genjutsuOffence: input.genjutsuOffence,
+          bukijutsuOffence: input.bukijutsuOffence,
+          ninjutsuDefence: input.ninjutsuDefence,
+          taijutsuDefence: input.taijutsuDefence,
+          genjutsuDefence: input.genjutsuDefence,
+          bukijutsuDefence: input.bukijutsuDefence,
+          strength: input.strength,
+          speed: input.speed,
+          intelligence: input.intelligence,
+          willpower: input.willpower,
           reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
         })
         .where(eq(userData.userId, ctx.userId));
