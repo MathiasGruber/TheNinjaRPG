@@ -196,7 +196,9 @@ export const combatRouter = createTRPCRouter({
           } catch (error) {
             let notification = "Unknown Error";
             if (error instanceof Error) notification = error.message;
-            battleDescriptions.push(notification);
+            if (!notification.includes("Action no longer possible for")) {
+              battleDescriptions.push(notification);
+            }
           }
         }
 

@@ -49,6 +49,9 @@ export const shouldApplyEffectTimes = (
   battle: ReturnedBattle,
   targetId: string
 ) => {
+  // Certain buff/debuffs are applied always (e.g. resolving against each attack)
+  const alwaysApply = ["absorb"];
+  if (alwaysApply.includes(effect.type)) return 1;
   // Get latest application of effect to the given target
   let applyTimes = 1;
   if (effect.rounds !== undefined && effect.timeTracker) {
