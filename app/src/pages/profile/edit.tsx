@@ -122,7 +122,10 @@ const ResetStats: React.FC = () => {
 
   // Is the form the same as the default values
   const isDefault = Object.keys(formValues).every((key) => {
-    return formValues[key as keyof typeof formValues] === defaultValues[key];
+    return (
+      formValues[key as keyof typeof formValues] ===
+      defaultValues[key as keyof typeof defaultValues]
+    );
   });
 
   // Mutations
