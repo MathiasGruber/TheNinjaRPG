@@ -50,7 +50,22 @@ export const shouldApplyEffectTimes = (
   targetId: string
 ) => {
   // Certain buff/debuffs are applied always (e.g. resolving against each attack)
-  const alwaysApply = ["absorb"];
+  const alwaysApply = [
+    "absorb",
+    "armoradjust",
+    "damagegivenadjust",
+    "damagetakenadjust",
+    "healadjust",
+    "poolcostadjust",
+    "statadjust",
+    "fleeprevent",
+    "onehitkillprevent",
+    "reflect",
+    "robprevent",
+    "sealprevent",
+    "stunprevent",
+    "summonprevent",
+  ];
   if (alwaysApply.includes(effect.type)) return 1;
   // Get latest application of effect to the given target
   let applyTimes = 1;
