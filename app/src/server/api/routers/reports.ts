@@ -23,7 +23,8 @@ export const reportsRouter = createTRPCRouter({
   getAll: protectedProcedure
     .input(
       z.object({
-        is_active: z.boolean().optional(),
+        isUnhandled: z.boolean().optional(),
+        showAll: z.boolean().optional(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
         username: z
@@ -44,10 +45,14 @@ export const reportsRouter = createTRPCRouter({
         .from(userReport)
         .where(
           and(
-            // Active or not
-            input.is_active !== undefined && input.is_active === true
+            // Handled or not
+            input.isUnhandled !== undefined && input.isUnhandled === true
               ? inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"])
               : notInArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]),
+            // Active or Closed
+            ...(input.showAll !== undefined && input.showAll === true
+              ? []
+              : [eq(userReport.status, "BAN_ACTIVATED")]),
             // Pertaining to user (if user)
             ...(user.role === "USER"
               ? [

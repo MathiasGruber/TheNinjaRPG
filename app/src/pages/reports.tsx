@@ -21,7 +21,8 @@ const Reports: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showActive, setShowActive] = useState<boolean>(true);
+  const [showUnhandled, setShowUnhandled] = useState<boolean>(true);
+  const [showAll, setShowAll] = useState<boolean>(true);
   const { register, errors, searchTerm } = useUserSearch();
 
   const {
@@ -31,7 +32,9 @@ const Reports: NextPage = () => {
     hasNextPage,
   } = api.reports.getAll.useInfiniteQuery(
     {
-      ...(userData?.role === "USER" ? {} : { is_active: showActive }),
+      ...(userData?.role === "USER"
+        ? {}
+        : { isUnhandled: showUnhandled, showAll: showAll }),
       ...(searchTerm ? { username: searchTerm } : {}),
       limit: 20,
     },
@@ -66,7 +69,15 @@ const Reports: NextPage = () => {
               error={errors.username?.message}
             />
             <div className="px-2"></div>
-            <Toggle value={showActive} setShowActive={setShowActive} />
+            <Toggle value={showUnhandled} setShowActive={setShowUnhandled} />
+            {!showUnhandled && (
+              <Toggle
+                value={showAll}
+                setShowActive={setShowAll}
+                labelActive="All"
+                labelInactive="Banned"
+              />
+            )}
           </div>
         )
       }
