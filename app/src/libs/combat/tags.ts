@@ -156,19 +156,21 @@ export const adjustDamageGiven = (
   target: BattleUserState
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.userId === effect.targetId && consequence.damage) {
-      const damageEffect = usersEffects.find((e) => e.id === effectId);
-      if (damageEffect) {
-        const ratio = getEfficiencyRatio(damageEffect, effect);
-        const change =
-          effect.calculation === "percentage"
-            ? (power / 100) * consequence.damage
-            : power;
-        consequence.damage = consequence.damage + change * ratio;
+  if (!effect.isNew) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.userId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.damage
+              : power;
+          consequence.damage = consequence.damage + change * ratio;
+        }
       }
-    }
-  });
+    });
+  }
   return getInfo(target, effect, `damage given is ${adverb} by ${qualifier}`);
 };
 
