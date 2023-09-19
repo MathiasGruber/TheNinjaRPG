@@ -129,6 +129,12 @@ const Combat: React.FC<CombatProps> = (props) => {
             isLoading: false,
           });
         }
+        // Update battle history
+        if (battleId && data.logEntry) {
+          utils.combat.getBattleEntries.setData({ battleId }, (old) =>
+            old ? [data.logEntry, ...old] : [data.logEntry]
+          );
+        }
         // Check if user has actions left, if not, then perform another AI action
         if (battle.current?.usersState) {
           const { aiHasActions, userHasActions } = getAvailableActions(
