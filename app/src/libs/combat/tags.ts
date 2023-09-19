@@ -175,7 +175,7 @@ export const adjustDamageGiven = (
       }
     });
   }
-  return getInfo(target, effect, `damage given is ${adverb} by ${qualifier}`);
+  return getInfo(target, effect, `damage given is ${adverb} by up to ${qualifier}`);
 };
 
 /** Adjust damage taken by user */
@@ -201,7 +201,7 @@ export const adjustDamageTaken = (
       }
     });
   }
-  return getInfo(target, effect, `damage taken is ${adverb} by ${qualifier}`);
+  return getInfo(target, effect, `damage taken is ${adverb} by up to ${qualifier}`);
 };
 
 /** Adjust ability to heal other of target */
