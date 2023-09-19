@@ -62,8 +62,8 @@ export const absorb = (
 
 /** Adjust armor by a static amount */
 export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
+  const { power, adverb, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
-    const { power, adverb, qualifier } = getPower(effect);
     target.armor += power;
   }
   return getInfo(target, effect, `armor is ${adverb} by ${qualifier}`);
