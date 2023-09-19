@@ -631,6 +631,7 @@ export type BattleEffect = ZodAllTags & {
   creatorId: string;
   level: number;
   isNew: boolean;
+  castThisRound: boolean;
   createdAt: number;
   villageId?: string | null;
   targetType?: "user" | "barrier";

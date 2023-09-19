@@ -445,6 +445,7 @@ export const initiateBattle = async (
         effects.forEach((effect) => {
           const realized = realizeTag(effect, user, user.level);
           realized.isNew = false;
+          realized.castThisRound = false;
           realized.targetId = user.userId;
           realized.fromBloodline = true;
           userEffects.push(realized);
@@ -476,6 +477,7 @@ export const initiateBattle = async (
             effects.forEach((effect) => {
               const realized = realizeTag(effect, user, user.level);
               realized.isNew = false;
+              realized.castThisRound = false;
               realized.targetId = user.userId;
               userEffects.push(realized);
             });
@@ -517,6 +519,7 @@ export const initiateBattle = async (
               longitude: col,
               latitude: row,
               isNew: false,
+              castThisRound: false,
               staticAssetPath: asset.filepath + asset.filename,
             };
             groundEffects.push(tag);

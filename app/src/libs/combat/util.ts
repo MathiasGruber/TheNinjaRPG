@@ -87,9 +87,9 @@ export const shouldApplyEffectTimes = (
 };
 
 /**
- * Filter effects based on their duration
+ * Calculate effect round information based on a given battle
  */
-export const isEffectStillActive = (
+export const calcEffectRoundInfo = (
   effect: UserEffect | GroundEffect,
   battle: ReturnedBattle,
   timeDiff = 0
@@ -97,9 +97,22 @@ export const isEffectStillActive = (
   if (effect.rounds !== undefined && effect.createdAt) {
     const { round: startRound } = getBattleRound(battle, effect.createdAt, timeDiff);
     const { round: curRound } = getBattleRound(battle, Date.now(), timeDiff);
-    return startRound + effect.rounds > curRound;
+    const endRound = startRound + effect.rounds;
+    return { startRound, endRound, curRound };
   }
-  return true;
+  return { startRound: -1, curRound: 0, endRound: 1337 };
+};
+
+/**
+ * Filter for effects based on their duration
+ */
+export const isEffectStillActive = (
+  effect: UserEffect | GroundEffect,
+  battle: ReturnedBattle,
+  timeDiff = 0
+) => {
+  const { endRound, curRound } = calcEffectRoundInfo(effect, battle, timeDiff);
+  return endRound > curRound;
 };
 
 /**

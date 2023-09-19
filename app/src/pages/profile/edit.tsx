@@ -180,7 +180,7 @@ const ResetStats: React.FC = () => {
       ? "Reset Stats"
       : misalignment > 0
       ? `Remove ${misalignment} points`
-      : `Place ${misalignment} more points`
+      : `Place ${-misalignment} more points`
     : "Not enough points";
 
   // Show component

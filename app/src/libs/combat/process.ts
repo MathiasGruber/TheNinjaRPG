@@ -1,7 +1,8 @@
 import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
-import { shouldApplyEffectTimes, isEffectStillActive } from "./util";
+import { shouldApplyEffectTimes } from "./util";
+import { calcEffectRoundInfo, isEffectStillActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
@@ -78,6 +79,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.targetType = "user";
   tag.level = level ?? 0;
   tag.isNew = true;
+  tag.castThisRound = true;
   return tag;
 };
 
@@ -102,6 +104,7 @@ const getVisual = (
     creatorId: nanoid(),
     level: 0,
     isNew: true,
+    castThisRound: true,
     longitude,
     latitude,
   };
@@ -118,6 +121,10 @@ export const applyEffects = (battle: CompleteBattle) => {
 
   // Convert all ground effects to user effects on the users standing on the tile
   groundEffects.sort(sortEffects).forEach((e) => {
+    // Get the round information for the effect
+    const { startRound, curRound } = calcEffectRoundInfo(e, battle);
+    e.castThisRound = startRound === curRound;
+    // Process special effects
     if (e.type === "move") {
       move(e, newUsersState, newGroundEffects);
     } else if (e.type === "clone") {
@@ -168,6 +175,9 @@ export const applyEffects = (battle: CompleteBattle) => {
 
   // Apply all user effects to their target users
   usersEffects.sort(sortEffects).forEach((e) => {
+    // Get the round information for the effect
+    const { startRound, curRound } = calcEffectRoundInfo(e, battle);
+    e.castThisRound = startRound === curRound;
     // Get the user && effect details
     const newUser = newUsersState.find((u) => u.userId === e.creatorId);
     let longitude: number | undefined = undefined;

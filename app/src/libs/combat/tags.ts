@@ -20,7 +20,7 @@ export const absorb = (
       : ["Health" as const];
   const nPools = pools.length;
   // Apply the absorb effect the round after the effect is applied
-  if (!effect.isNew) {
+  if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId && consequence.damage) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -62,8 +62,10 @@ export const absorb = (
 
 /** Adjust armor by a static amount */
 export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
-  const { power, adverb, qualifier } = getPower(effect);
-  target.armor += power;
+  if (!effect.isNew && !effect.castThisRound) {
+    const { power, adverb, qualifier } = getPower(effect);
+    target.armor += power;
+  }
   return getInfo(target, effect, `armor is ${adverb} by ${qualifier}`);
 };
 
@@ -71,79 +73,81 @@ export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
   const affected: string[] = [];
-  if ("calculation" in effect && "statTypes" in effect) {
-    effect.statTypes?.forEach((stat) => {
-      if (stat === "Highest") {
-        if (effect.calculation === "static") {
-          target.highestOffence += power;
-          target.highestDefence += power;
-        } else if (effect.calculation === "percentage") {
-          target.highestOffence *= (100 + power) / 100;
-          target.highestDefence *= (100 + power) / 100;
+  if (!effect.isNew && !effect.castThisRound) {
+    if ("calculation" in effect && "statTypes" in effect) {
+      effect.statTypes?.forEach((stat) => {
+        if (stat === "Highest") {
+          if (effect.calculation === "static") {
+            target.highestOffence += power;
+            target.highestDefence += power;
+          } else if (effect.calculation === "percentage") {
+            target.highestOffence *= (100 + power) / 100;
+            target.highestDefence *= (100 + power) / 100;
+          }
+        } else if (stat === "Ninjutsu") {
+          if (effect.calculation === "static") {
+            target.ninjutsuOffence += power;
+            target.ninjutsuDefence += power;
+          } else if (effect.calculation === "percentage") {
+            target.ninjutsuOffence *= (100 + power) / 100;
+            target.ninjutsuDefence *= (100 + power) / 100;
+          }
+        } else if (stat === "Genjutsu") {
+          if (effect.calculation === "static") {
+            target.genjutsuOffence += power;
+            target.genjutsuDefence += power;
+          } else if (effect.calculation === "percentage") {
+            target.genjutsuOffence *= (100 + power) / 100;
+            target.genjutsuDefence *= (100 + power) / 100;
+          }
+        } else if (stat === "Taijutsu") {
+          if (effect.calculation === "static") {
+            target.taijutsuOffence += power;
+            target.taijutsuDefence += power;
+          } else if (effect.calculation === "percentage") {
+            target.taijutsuOffence *= (100 + power) / 100;
+            target.taijutsuDefence *= (100 + power) / 100;
+          }
+        } else if (stat === "Bukijutsu") {
+          if (effect.calculation === "static") {
+            target.bukijutsuOffence += power;
+            target.bukijutsuDefence += power;
+          } else if (effect.calculation === "percentage") {
+            target.bukijutsuOffence *= (100 + power) / 100;
+            target.bukijutsuDefence *= (100 + power) / 100;
+          }
         }
-      } else if (stat === "Ninjutsu") {
-        if (effect.calculation === "static") {
-          target.ninjutsuOffence += power;
-          target.ninjutsuDefence += power;
-        } else if (effect.calculation === "percentage") {
-          target.ninjutsuOffence *= (100 + power) / 100;
-          target.ninjutsuDefence *= (100 + power) / 100;
+      });
+      effect.generalTypes?.forEach((general) => {
+        if (general === "Strength") {
+          if (effect.calculation === "static") {
+            target.strength += power;
+          } else if (effect.calculation === "percentage") {
+            target.strength *= (100 + power) / 100;
+          }
+        } else if (general === "Intelligence") {
+          if (effect.calculation === "static") {
+            target.intelligence += power;
+          } else if (effect.calculation === "percentage") {
+            target.intelligence *= (100 + power) / 100;
+          }
+        } else if (general === "Willpower") {
+          if (effect.calculation === "static") {
+            target.willpower += power;
+          } else if (effect.calculation === "percentage") {
+            target.willpower *= (100 + power) / 100;
+          }
+        } else if (general === "Speed") {
+          if (effect.calculation === "static") {
+            target.speed += power;
+          } else if (effect.calculation === "percentage") {
+            target.speed *= (100 + power) / 100;
+          }
         }
-      } else if (stat === "Genjutsu") {
-        if (effect.calculation === "static") {
-          target.genjutsuOffence += power;
-          target.genjutsuDefence += power;
-        } else if (effect.calculation === "percentage") {
-          target.genjutsuOffence *= (100 + power) / 100;
-          target.genjutsuDefence *= (100 + power) / 100;
-        }
-      } else if (stat === "Taijutsu") {
-        if (effect.calculation === "static") {
-          target.taijutsuOffence += power;
-          target.taijutsuDefence += power;
-        } else if (effect.calculation === "percentage") {
-          target.taijutsuOffence *= (100 + power) / 100;
-          target.taijutsuDefence *= (100 + power) / 100;
-        }
-      } else if (stat === "Bukijutsu") {
-        if (effect.calculation === "static") {
-          target.bukijutsuOffence += power;
-          target.bukijutsuDefence += power;
-        } else if (effect.calculation === "percentage") {
-          target.bukijutsuOffence *= (100 + power) / 100;
-          target.bukijutsuDefence *= (100 + power) / 100;
-        }
-      }
-    });
-    effect.generalTypes?.forEach((general) => {
-      if (general === "Strength") {
-        if (effect.calculation === "static") {
-          target.strength += power;
-        } else if (effect.calculation === "percentage") {
-          target.strength *= (100 + power) / 100;
-        }
-      } else if (general === "Intelligence") {
-        if (effect.calculation === "static") {
-          target.intelligence += power;
-        } else if (effect.calculation === "percentage") {
-          target.intelligence *= (100 + power) / 100;
-        }
-      } else if (general === "Willpower") {
-        if (effect.calculation === "static") {
-          target.willpower += power;
-        } else if (effect.calculation === "percentage") {
-          target.willpower *= (100 + power) / 100;
-        }
-      } else if (general === "Speed") {
-        if (effect.calculation === "static") {
-          target.speed += power;
-        } else if (effect.calculation === "percentage") {
-          target.speed *= (100 + power) / 100;
-        }
-      }
-    });
-    if (effect.statTypes) affected.push(...effect.statTypes);
-    if (effect.generalTypes) affected.push(...effect.generalTypes);
+      });
+      if (effect.statTypes) affected.push(...effect.statTypes);
+      if (effect.generalTypes) affected.push(...effect.generalTypes);
+    }
   }
   return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
 };
@@ -156,7 +160,7 @@ export const adjustDamageGiven = (
   target: BattleUserState
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  if (!effect.isNew) {
+  if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.userId === effect.targetId && consequence.damage) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
@@ -182,19 +186,21 @@ export const adjustDamageTaken = (
   target: BattleUserState
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.targetId === effect.targetId && consequence.damage) {
-      const damageEffect = usersEffects.find((e) => e.id === effectId);
-      if (damageEffect) {
-        const ratio = getEfficiencyRatio(damageEffect, effect);
-        const change =
-          effect.calculation === "percentage"
-            ? (power / 100) * consequence.damage
-            : power;
-        consequence.damage = consequence.damage - change * ratio;
+  if (!effect.isNew && !effect.castThisRound) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.targetId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.damage
+              : power;
+          consequence.damage = consequence.damage - change * ratio;
+        }
       }
-    }
-  });
+    });
+  }
   return getInfo(target, effect, `damage taken is ${adverb} by ${qualifier}`);
 };
 
@@ -206,19 +212,21 @@ export const adjustHealGiven = (
   target: BattleUserState
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.userId === effect.targetId && consequence.heal) {
-      const healEffect = usersEffects.find((e) => e.id === effectId);
-      if (healEffect) {
-        const ratio = getEfficiencyRatio(healEffect, effect);
-        const change =
-          effect.calculation === "percentage"
-            ? (power / 100) * consequence.heal
-            : power;
-        consequence.heal = consequence.heal + change * ratio;
+  if (!effect.isNew && !effect.castThisRound) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.userId === effect.targetId && consequence.heal) {
+        const healEffect = usersEffects.find((e) => e.id === effectId);
+        if (healEffect) {
+          const ratio = getEfficiencyRatio(healEffect, effect);
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.heal
+              : power;
+          consequence.heal = consequence.heal + change * ratio;
+        }
       }
-    }
-  });
+    });
+  }
   return getInfo(target, effect, `healing capacity is ${adverb} by ${qualifier}`);
 };
 
@@ -504,24 +512,26 @@ export const reflect = (
   target: BattleUserState
 ) => {
   const { power } = getPower(effect);
-  consequences.forEach((consequence, effectId) => {
-    if (consequence.targetId === effect.targetId && consequence.damage) {
-      const damageEffect = usersEffects.find((e) => e.id === effectId);
-      if (damageEffect) {
-        const ratio = getEfficiencyRatio(damageEffect, effect);
-        const convert =
-          Math.ceil(
-            effect.calculation === "percentage"
-              ? consequence.damage * (power / 100)
-              : power > consequence.damage
-              ? consequence.damage
-              : power
-          ) * ratio;
-        consequence.damage -= convert;
-        consequence.reflect = convert;
+  if (!effect.isNew && !effect.castThisRound) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.targetId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const convert =
+            Math.ceil(
+              effect.calculation === "percentage"
+                ? consequence.damage * (power / 100)
+                : power > consequence.damage
+                ? consequence.damage
+                : power
+            ) * ratio;
+          consequence.damage -= convert;
+          consequence.reflect = convert;
+        }
       }
-    }
-  });
+    });
+  }
   return getInfo(target, effect, "will reflect damage");
 };
 
