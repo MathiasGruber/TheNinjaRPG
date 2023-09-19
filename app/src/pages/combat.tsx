@@ -66,11 +66,6 @@ const CombatPage: NextPage = () => {
     );
   }, [versionId, actionId, userId, results]);
 
-  // History Component
-  const history = useMemo(() => {
-    return battle && <CombatHistory battle={battle} />;
-  }, [battle]);
-
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
@@ -114,7 +109,7 @@ const CombatPage: NextPage = () => {
           }}
         />
       )}
-      {history}
+      {battle && <CombatHistory battle={battle} />}
       {battle && !results && actionId && (
         <div className="pt-2 text-xs">
           <p className="text-red-500">Red: tile not affected</p>

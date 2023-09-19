@@ -65,46 +65,15 @@ export const combatRouter = createTRPCRouter({
       // Return the new battle + result state if applicable
       return { battle: newMaskedBattle, result: result };
     }),
-  getBattleEntry: protectedProcedure
-    .input(
-      z.object({
-        battleId: z.string(),
-        version: z.number(),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const entry = await ctx.drizzle.query.battleAction.findFirst({
-        where: and(
-          eq(battleAction.battleId, input.battleId),
-          eq(battleAction.battleVersion, input.version)
-        ),
-        orderBy: desc(battleAction.createdAt),
-      });
-      return entry !== undefined ? entry : null;
-    }),
   getBattleEntries: protectedProcedure
-    .input(
-      z.object({
-        battleId: z.string(),
-        cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
-        refreshKey: z.number(),
-      })
-    )
+    .input(z.object({ battleId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const currentCursor = input.cursor ? input.cursor : 0;
-      const skip = currentCursor * input.limit;
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        offset: skip,
-        limit: input.limit,
+        limit: 10,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
-      const nextCursor = entries.length < input.limit ? null : currentCursor + 1;
-      return {
-        data: entries,
-        nextCursor: nextCursor,
-      };
+      return entries;
     }),
   performAction: protectedProcedure
     .input(performActionSchema)
@@ -241,10 +210,10 @@ export const combatRouter = createTRPCRouter({
          */
         try {
           await updateBattle(db, result, newBattle);
-          await Promise.all([
+          const [logEntry] = await Promise.all([
+            createAction(description, newBattle, actionEffects, round, db),
             saveUsage(db, newBattle, result, uid),
             updateUser(result, newBattle, uid, db),
-            createAction(description, newBattle, actionEffects, round, db),
           ]);
           const newMaskedBattle = maskBattle(newBattle, uid);
           newMaskedBattle.version = newBattle.version + 1;
@@ -255,6 +224,7 @@ export const combatRouter = createTRPCRouter({
             battle: newMaskedBattle,
             result: result,
             notification: null,
+            logEntry: logEntry,
           };
         } catch (e) {
           if (attempts > 2) {

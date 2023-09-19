@@ -49,7 +49,7 @@ export type BattleType = Battle["battleType"];
 export const battleAction = mysqlTable(
   "BattleAction",
   {
-    id: int("id").autoincrement().primaryKey().notNull(),
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

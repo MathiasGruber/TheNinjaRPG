@@ -1,0 +1,1 @@
+ALTER TABLE `BattleAction` MODIFY COLUMN `id` varchar(191) NOT NULL;

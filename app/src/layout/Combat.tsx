@@ -36,6 +36,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { setBattleState, setUserId, refetchBattle } = props;
   const { battleState } = props;
   const result = battleState.result;
+  const utils = api.useContext();
 
   // State
   const [isInLobby, setIsInLobby] = useState<boolean>(true);
@@ -87,9 +88,11 @@ const Combat: React.FC<CombatProps> = (props) => {
         setBattleState({ battle: battle.current, result: null, isLoading: true });
       },
       onSuccess: (data) => {
+        // Notifications (if any)
         if (data.notification) {
           show_toast("Notification", data.notification, "info");
         }
+        // Update battle state
         if (data.updateClient) {
           battle.current = data.battle;
           setBattleState({
@@ -97,6 +100,12 @@ const Combat: React.FC<CombatProps> = (props) => {
             result: data.result,
             isLoading: false,
           });
+        }
+        // Update battle history
+        if (battleId && data.logEntry) {
+          utils.combat.getBattleEntries.setData({ battleId }, (old) =>
+            old ? [data.logEntry, ...old] : [data.logEntry]
+          );
         }
       },
       onError: (error) => {

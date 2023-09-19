@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { eq, and, sql } from "drizzle-orm";
 import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";
 import { battle, battleAction, userData } from "../../../drizzle/schema";
@@ -96,13 +97,18 @@ export const createAction = async (
   round: number,
   client: DrizzleClient
 ) => {
-  return await client.insert(battleAction).values({
+  const action = {
+    id: nanoid(),
     battleId: curBattle.id,
     battleVersion: curBattle.version,
     battleRound: round,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     description: battleDescription,
     appliedEffects: effects,
-  });
+  };
+  await client.insert(battleAction).values(action);
+  return action;
 };
 
 /**

@@ -8,7 +8,7 @@ interface ToggleProps {
 }
 
 const Toggle: React.FC<ToggleProps> = (props) => {
-  const active = props.labelActive ?? "Active";
+  const active = props.labelActive ?? "Unhandled";
   const inactive = props.labelInactive ?? "Resolved";
   return (
     <label className="relative mr-3 inline-flex cursor-pointer items-center">
