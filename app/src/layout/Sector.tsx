@@ -6,8 +6,8 @@ import alea from "alea";
 import AvatarImage from "./Avatar";
 import Modal from "./Modal";
 import { Vector2, OrthographicCamera, Group } from "three";
-import { useRouter } from "next/router";
 import { api } from "../utils/api";
+import { useSafePush } from "../utils/routing";
 import { PathCalculator, findHex } from "../libs/hexgrid";
 import { OrbitControls } from "../libs/threejs/OrbitControls";
 import { getBackgroundColor } from "../libs/travel/biome";
@@ -60,7 +60,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   // Convenience calculations
   const isInSector = userData?.sector === props.sector;
@@ -164,7 +164,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     onSuccess: async (data) => {
       if (data.success) {
         await refetchUser();
-        await router.push("/combat");
+        router.safePush("/combat");
       } else {
         show_toast("Error attacking", data.message, "info");
       }
@@ -311,7 +311,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         const intersects = raycaster.intersectObjects(scene.children);
         intersects
           .filter((i) => i.object.visible)
-          .every(async (i) => {
+          .every((i) => {
             if (i.object.userData.type === "tile") {
               const target = i.object.userData.tile as TerrainHex;
               setTarget({ x: target.col, y: target.row });
@@ -340,7 +340,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             } else if (showUsers.current && i.object.userData.type === "info") {
               const userId = i.object.userData.userId as string;
-              await router.push(`/users/${userId}`);
+              router.safePush(`/users/${userId}`);
               return false;
             } else if (showUsers.current && i.object.userData.type === "marker") {
               return false;

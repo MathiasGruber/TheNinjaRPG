@@ -1,6 +1,6 @@
-import { useRouter } from "next/router";
 import AvatarImage from "./Avatar";
 import Button from "./Button";
+import { useSafePush } from "../utils/routing";
 import { secondsPassed } from "../utils/time";
 import { capitalizeFirstLetter } from "../utils/sanitize";
 
@@ -25,7 +25,7 @@ type TableProps<T, K extends keyof T> = {
 
 const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
   const { data, columns } = props;
-  const router = useRouter();
+  const router = useSafePush();
 
   return (
     <div className="relative overflow-x-auto">
@@ -52,12 +52,12 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
               className={`border-b border-gray-700 ${
                 i % 2 == 0 ? "bg-orange-50" : "bg-yellow-50"
               } ${props.linkColumn ? "cursor-pointer hover:bg-orange-300" : ""}`}
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.preventDefault();
                 if (props.linkColumn) {
                   let route = row[props.linkColumn] as string;
                   route = props.linkPrefix ? props.linkPrefix + route : route;
-                  await router.push(route);
+                  router.safePush(route);
                 }
               }}
             >
