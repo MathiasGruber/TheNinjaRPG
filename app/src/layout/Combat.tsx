@@ -103,9 +103,13 @@ const Combat: React.FC<CombatProps> = (props) => {
         }
         // Update battle history
         if (battleId && data.logEntry) {
+          const prevData = utils.combat.getBattleEntries.getData({
+            battleId,
+            refreshKey: data.battle.version - 1,
+          });
           utils.combat.getBattleEntries.setData(
             { battleId, refreshKey: data.battle.version },
-            (old) => (old ? [data.logEntry, ...old] : [data.logEntry])
+            () => (prevData ? [data.logEntry, ...prevData] : [data.logEntry])
           );
         }
       },
@@ -132,9 +136,13 @@ const Combat: React.FC<CombatProps> = (props) => {
         }
         // Update battle history
         if (battleId && data.logEntry) {
+          const prevData = utils.combat.getBattleEntries.getData({
+            battleId,
+            refreshKey: data.battle.version - 1,
+          });
           utils.combat.getBattleEntries.setData(
             { battleId, refreshKey: data.battle.version },
-            (old) => (old ? [data.logEntry, ...old] : [data.logEntry])
+            () => (prevData ? [data.logEntry, ...prevData] : [data.logEntry])
           );
         }
         // Check if user has actions left, if not, then perform another AI action
