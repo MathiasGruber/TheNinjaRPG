@@ -52,12 +52,12 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
               className={`border-b border-gray-700 ${
                 i % 2 == 0 ? "bg-orange-50" : "bg-yellow-50"
               } ${props.linkColumn ? "cursor-pointer hover:bg-orange-300" : ""}`}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
                 if (props.linkColumn) {
                   let route = row[props.linkColumn] as string;
                   route = props.linkPrefix ? props.linkPrefix + route : route;
-                  router.safePush(route);
+                  await router.push(route);
                 }
               }}
             >

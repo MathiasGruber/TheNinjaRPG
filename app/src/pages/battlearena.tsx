@@ -1,5 +1,5 @@
 import type { NextPage } from "next";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { useRequireInVillage } from "../utils/village";
 import { api } from "../utils/api";
@@ -15,7 +15,7 @@ const Arena: NextPage = () => {
   useRequireInVillage();
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   // Mutation for starting a fight
   const { mutate: attack, isLoading: isAttacking } =

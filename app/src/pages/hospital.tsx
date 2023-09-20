@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
 import type { NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
@@ -35,7 +35,7 @@ const Hospital: NextPage = () => {
     : "Hospital";
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   // Get data from DB
   const {

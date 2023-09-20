@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
@@ -35,7 +34,6 @@ const CombatPage: NextPage = () => {
   const user = battle?.usersState.find((u) => u.userId === userId);
 
   // Redirect to profile if not in battle
-  const router = useRouter();
   useEffect(() => {
     if (data?.battle && userData) {
       setBattle(data.battle);
@@ -43,7 +41,7 @@ const CombatPage: NextPage = () => {
       const newResult = results ? results : data?.result;
       setBattleState({ battle: data?.battle, result: newResult, isLoading: false });
     }
-  }, [userData, results, router, data, setBattle]);
+  }, [userData, results, data, setBattle]);
 
   // Collect all possible actions for action selector
   const actions = availableUserActions(battleState?.battle, userData?.userId);

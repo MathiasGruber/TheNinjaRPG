@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useSafePush } from "../../utils/routing";
 import Confirm from "../../layout/Confirm";
 import ContentBox from "../../layout/ContentBox";
 import Loader from "../../layout/Loader";
@@ -26,7 +26,7 @@ const Profile: NextPage = () => {
   const [isLevelling, setIsLevelling] = useState<boolean>(false);
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   const { mutate: toggleDeletionTimer, isLoading: isTogglingDelete } =
     api.profile.toggleDeletionTimer.useMutation({

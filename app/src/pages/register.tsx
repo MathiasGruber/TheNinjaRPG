@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "../layout/ContentBox";
@@ -30,7 +30,7 @@ const Register: React.FC = () => {
   }, []);
 
   // Router
-  const router = useRouter();
+  const router = useSafePush();
 
   // User data
   const {

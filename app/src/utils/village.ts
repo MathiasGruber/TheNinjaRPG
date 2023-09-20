@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useRouter } from "next/router";
+import { useSafePush } from "./routing";
 import { useRequiredUserData } from "./UserContext";
 import { calcIsInVillage } from "../libs/travel/controls";
 
@@ -9,7 +9,7 @@ import { calcIsInVillage } from "../libs/travel/controls";
  */
 export const useRequireInVillage = () => {
   const { data: userData } = useRequiredUserData();
-  const router = useRouter();
+  const router = useSafePush();
   useEffect(() => {
     if (
       userData &&

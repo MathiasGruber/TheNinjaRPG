@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import { useUserData } from "../utils/UserContext";
 import Loader from "../layout/Loader";
 import Welcome from "./welcome";
@@ -10,7 +10,7 @@ import type { NextPage } from "next";
  * Either shows welcome page, user creation page, or profile
  */
 const Home: NextPage = () => {
-  const router = useRouter();
+  const router = useSafePush();
   const { isLoaded, isSignedIn, userId } = useAuth();
   const { data: userData, status: userStatus } = useUserData();
 

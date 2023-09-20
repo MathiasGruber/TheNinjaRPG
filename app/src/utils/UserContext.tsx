@@ -1,6 +1,6 @@
 import { createContext, useEffect } from "react";
 import { useContext } from "react";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import { useAuth } from "@clerk/nextjs";
 import type Pusher from "pusher-js";
 import type { UserWithRelations } from "../server/api/routers/profile";
@@ -37,7 +37,7 @@ export const useUserData = () => {
 
 // Require the user to be logged in
 export const useRequiredUserData = () => {
-  const router = useRouter();
+  const router = useSafePush();
   const { isLoaded, isSignedIn } = useAuth();
   const info = useUserData();
   const { data, status } = info;

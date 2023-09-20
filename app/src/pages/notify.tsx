@@ -2,7 +2,7 @@ import { type NextPage } from "next";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import ContentBox from "../layout/ContentBox";
 import Button from "../layout/Button";
 import Loader from "../layout/Loader";
@@ -18,7 +18,7 @@ const NotifyUsers: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   // Mutations
   const { mutate, isLoading } = api.misc.submitNotification.useMutation({

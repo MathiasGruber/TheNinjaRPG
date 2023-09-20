@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/router";
+import { useSafePush } from "../utils/routing";
 import dynamic from "next/dynamic";
 import Loader from "../layout/Loader";
 import ContentBox from "../layout/ContentBox";
@@ -46,7 +46,7 @@ const Travel: NextPage = () => {
   });
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
   if (userData && userData.status === "BATTLE") {
     void router.push(`/combat`);
   }

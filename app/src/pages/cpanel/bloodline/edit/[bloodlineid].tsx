@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useSafePush } from "../../../../utils/routing";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "../../../../layout/ContentBox";
@@ -23,7 +23,7 @@ import type { FormEntry } from "../../../../layout/EditContent";
 import type { NextPage } from "next";
 
 const BloodlinePanel: NextPage = () => {
-  const router = useRouter();
+  const router = useSafePush();
   const bloodlineId = router.query.bloodlineid as string;
   const { data: userData } = useRequiredUserData();
   const [effects, setEffects] = useState<ZodAllTags[]>([]);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRouter } from "next/router";
+import { useSafePush } from "../../utils/routing";
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
 import NavTabs from "../../layout/NavTabs";
@@ -23,7 +23,7 @@ const ManualItems: NextPage = () => {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
-  const router = useRouter();
+  const router = useSafePush();
 
   // Data
   const {
