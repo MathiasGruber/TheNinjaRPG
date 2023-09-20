@@ -893,7 +893,7 @@ export const userReport = mysqlTable(
       .notNull(),
     system: varchar("system", { length: 191 }).notNull(),
     infraction: json("infraction").notNull(),
-    reason: varchar("reason", { length: 191 }).notNull(),
+    reason: text("reason").notNull(),
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),
     status: mysqlEnum("status", [
