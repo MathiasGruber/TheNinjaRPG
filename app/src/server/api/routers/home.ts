@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, gte, and } from "drizzle-orm";
 import { userData } from "../../../../drizzle/schema";
-import { fetchUser } from "./profile";
+import { fetchRegeneratedUser } from "./profile";
 import { getServerPusher } from "../../../libs/pusher";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 
@@ -10,7 +10,10 @@ export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      if (!user) {
+        return errorResponse("User not found");
+      }
       if (
         !calcIsInVillage({
           x: user.longitude,
@@ -18,6 +21,9 @@ export const homeRouter = createTRPCRouter({
         })
       ) {
         return errorResponse("You must be in a village to sleep");
+      }
+      if (user.sector !== user.village?.sector) {
+        return errorResponse("You are not in the right sector to sleep");
       }
       const newStatus = user.status === "ASLEEP" ? "AWAKE" : "ASLEEP";
       if (user.status === "ASLEEP") {

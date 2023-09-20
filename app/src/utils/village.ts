@@ -11,14 +11,15 @@ export const useRequireInVillage = () => {
   const { data: userData } = useRequiredUserData();
   const router = useSafePush();
   useEffect(() => {
-    if (
-      userData &&
-      !calcIsInVillage({
+    if (userData) {
+      const inVillage = calcIsInVillage({
         x: userData.longitude,
         y: userData.latitude,
-      })
-    ) {
-      void router.push("/");
+      });
+      const inSector = userData.sector === userData.village?.sector;
+      if (!inVillage || !inSector) {
+        void router.push("/");
+      }
     }
   }, [userData, router]);
 };
