@@ -15,7 +15,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
 
   // From database
   const { data: allEntries, isFetching } = api.combat.getBattleEntries.useQuery(
-    { battleId: battle.id },
+    { battleId: battle.id, refreshKey: battle.version },
     {
       enabled: battle.id !== undefined,
       keepPreviousData: true,

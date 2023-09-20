@@ -66,7 +66,7 @@ export const combatRouter = createTRPCRouter({
       return { battle: newMaskedBattle, result: result };
     }),
   getBattleEntries: protectedProcedure
-    .input(z.object({ battleId: z.string() }))
+    .input(z.object({ battleId: z.string(), refreshKey: z.number().optional() }))
     .query(async ({ ctx, input }) => {
       const entries = await ctx.drizzle.query.battleAction.findMany({
         limit: 10,
