@@ -11,24 +11,29 @@
     "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
   // Set *default* container specific settings.json values on container create.
-  "settings": {
-    "terminal.integrated.shell.linux": "/bin/bash"
-  },
   "forwardPorts": [],
   // Add the IDs of extensions you want installed when the container is created.
-  "extensions": [
-	"ms-azuretools.vscode-docker",
-	"esbenp.prettier-vscode",
-	"dbaeumer.vscode-eslint",
-	"GitHub.copilot",
-	"bradlc.vscode-tailwindcss",
-	"oderwat.indent-rainbow",
-	"ms-python.python",
-	"Gruntfuggly.todo-tree",
-	"yoavbls.pretty-ts-errors",
-	"ms-vscode.makefile-tools",
-	"ms-toolsai.jupyter"
-],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "GitHub.copilot",
+        "bradlc.vscode-tailwindcss",
+        "oderwat.indent-rainbow",
+        "ms-python.python",
+        "Gruntfuggly.todo-tree",
+        "yoavbls.pretty-ts-errors",
+        "ms-vscode.makefile-tools",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  },
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
   // Use 'postCreateCommand' to run commands after the container is created.

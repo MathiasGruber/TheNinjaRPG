@@ -222,7 +222,8 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [performAIAction, isLoadingUser, isLoadingAI, result, timeDiff]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingUser, isLoadingAI, result]);
 
   useEffect(() => {
     action.current = props.action;
