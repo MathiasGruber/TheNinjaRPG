@@ -47,9 +47,6 @@ const Travel: NextPage = () => {
 
   // Router for forwarding
   const router = useSafePush();
-  if (userData && userData.status === "BATTLE") {
-    void router.push(`/combat`);
-  }
 
   // Sector tab link
   const sectorLink = currentSector
@@ -73,6 +70,13 @@ const Travel: NextPage = () => {
   useEffect(() => {
     setActiveTab(sectorLink);
   }, [sectorLink]);
+
+  useEffect(() => {
+    if (userData?.status === "BATTLE") {
+      void router.push(`/combat`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.status]);
 
   const { mutate: startGlobalMove, isLoading: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({

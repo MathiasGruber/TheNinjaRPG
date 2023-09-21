@@ -164,7 +164,6 @@ const Sector: React.FC<SectorProps> = (props) => {
     onSuccess: async (data) => {
       if (data.success) {
         await refetchUser();
-        await router.push("/combat");
       } else {
         show_toast("Error attacking", data.message, "info");
       }
@@ -444,7 +443,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           }}
         />
       )}
-      {targetUser && isAttacking && (
+      {targetUser && (isAttacking || userData?.status === "BATTLE") && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black">
           <div className="m-auto text-center text-white">
             <p className="p-5  text-3xl">
