@@ -129,7 +129,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     setSorrounding(users.current || []);
   };
 
-  const { mutate: move } = api.travel.moveInSector.useMutation({
+  const { mutate: move, isLoading: isMoving } = api.travel.moveInSector.useMutation({
     onSuccess: async (res) => {
       if (res.success && res.data) {
         origin.current = findHex(grid.current, {
@@ -203,7 +203,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Get shortest path
       const path = pathFinder.current.getShortestPath(origin.current, targetHex);
       const next = path?.[1];
-      if (next) {
+      if (next && !isMoving) {
         document.body.style.cursor = "wait";
         move({
           longitude: next.col,
@@ -214,7 +214,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         });
       }
     }
-  }, [target, userData, moves, sector, move]);
+  }, [target, userData, moves, sector, isMoving, move]);
 
   useEffect(() => {
     if (mountRef.current && userData && fetchedUsers) {
