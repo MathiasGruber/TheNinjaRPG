@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+import { baseServerResponse, errorResponse } from "../trpc";
 import { updateAvatar, checkAvatar } from "../../../libs/replicate";
 import { fetchUser } from "./profile";
 import { userData, historicalAvatar } from "../../../../drizzle/schema";
@@ -61,14 +62,39 @@ export const avatarRouter = createTRPCRouter({
     }),
   updateAvatar: protectedProcedure
     .input(z.object({ avatar: z.number() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const avatar = await ctx.drizzle.query.historicalAvatar.findFirst({
         where: eq(historicalAvatar.id, input.avatar),
       });
-      if (!avatar) throw serverError("PRECONDITION_FAILED", "Avatar not found");
+      if (!avatar) {
+        return errorResponse("Avatar not found");
+      }
+      if (avatar.userId !== ctx.userId) {
+        return errorResponse("Not your avatar");
+      }
       await ctx.drizzle
         .update(userData)
         .set({ avatar: avatar.avatar })
         .where(eq(userData.userId, ctx.userId));
+      return { success: true, message: "Avatar updated" };
+    }),
+  deleteAvatar: protectedProcedure
+    .input(z.object({ avatar: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const avatar = await ctx.drizzle.query.historicalAvatar.findFirst({
+        where: eq(historicalAvatar.id, input.avatar),
+      });
+      if (!avatar) {
+        return errorResponse("Avatar not found");
+      }
+      if (avatar.userId !== ctx.userId) {
+        return errorResponse("Not your avatar");
+      }
+      await ctx.drizzle
+        .delete(historicalAvatar)
+        .where(eq(historicalAvatar.id, input.avatar));
+      return { success: true, message: "Avatar deleted" };
     }),
 });

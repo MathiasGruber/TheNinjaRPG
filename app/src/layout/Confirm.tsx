@@ -29,6 +29,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
       <div
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setShowModal(true);
         }}
       >

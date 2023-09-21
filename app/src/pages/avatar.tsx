@@ -5,6 +5,7 @@ import Button from "../layout/Button";
 import AvatarImage from "../layout/Avatar";
 import Loader from "../layout/Loader";
 import Confirm from "../layout/Confirm";
+import { TrashIcon } from "@heroicons/react/24/outline";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
 import { useRequiredUserData } from "../utils/UserContext";
@@ -45,8 +46,12 @@ const Avatar: NextPage = () => {
     onMutate: () => {
       setLoading(true);
     },
-    onSuccess: async () => {
-      await refetchUserData();
+    onSuccess: async (data) => {
+      if (data.success) {
+        await refetchUserData();
+      } else {
+        show_toast("Error changing avatar", data.message, "error");
+      }
     },
     onError: (error) => {
       show_toast("Error changing avatar", error.message, "error");
@@ -55,6 +60,27 @@ const Avatar: NextPage = () => {
       setLoading(false);
     },
   });
+
+  // Delete avatar mutation
+  const deleteAvatar = api.avatar.deleteAvatar.useMutation({
+    onMutate: () => {
+      setLoading(true);
+    },
+    onSuccess: async (data) => {
+      if (data.success) {
+        await refetchHistoricalAvatars();
+      } else {
+        show_toast("Error deleting avatar", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error deleting avatar", error.message, "error");
+    },
+    onSettled: () => {
+      setLoading(false);
+    },
+  });
+
   // Create new avatar mutation
   const createAvatar = api.avatar.createAvatar.useMutation({
     onMutate: () => {
@@ -75,7 +101,7 @@ const Avatar: NextPage = () => {
     staleTime: Infinity,
   });
   if (!userData || loading) {
-    return <Loader explanation="Creating avatar..." />;
+    return <Loader explanation="Processing avatar..." />;
   }
   return (
     <>
@@ -143,7 +169,7 @@ const Avatar: NextPage = () => {
               {pageAvatars.map((avatar, i) => (
                 <div
                   key={avatar.id}
-                  className=" my-2 basis-1/4"
+                  className=" my-2 basis-1/4 relative"
                   onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
                   ref={i === pageAvatars.length - 1 ? setLastElement : null}
                 >
@@ -153,6 +179,20 @@ const Avatar: NextPage = () => {
                     hover_effect={true}
                     size={200}
                   />
+                  <Confirm
+                    title="Confirm Deletion"
+                    button={
+                      <TrashIcon className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:fill-orange-500" />
+                    }
+                    onAccept={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      deleteAvatar.mutate({ avatar: avatar.id });
+                    }}
+                  >
+                    You are about to delete an avatar. Note that this action is
+                    permanent. Are you sure?
+                  </Confirm>
                 </div>
               ))}
             </div>

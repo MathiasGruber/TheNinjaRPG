@@ -21,6 +21,7 @@ const Modal: React.FC<ModalProps> = (props) => {
         className="fixed bottom-0 left-0 right-0 top-0 z-20 h-full w-full bg-black opacity-80"
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           props.setIsOpen(false);
         }}
       ></div>
@@ -32,6 +33,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             className="ml-auto inline-flex items-center rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               props.setIsOpen(false);
             }}
           >
@@ -60,6 +62,8 @@ const Modal: React.FC<ModalProps> = (props) => {
               type="submit"
               value={props.proceed_label}
               onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 props.onAccept && props.onAccept(e);
                 if (props.isValid === undefined || props.isValid) {
                   props.setIsOpen(false);
@@ -72,6 +76,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             type="button"
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               props.setIsOpen(false);
             }}
             className="z-30 rounded-lg border  border-gray-500 bg-gray-700 px-5 py-2.5  text-sm font-medium text-gray-300  hover:bg-gray-600 hover:text-white"
