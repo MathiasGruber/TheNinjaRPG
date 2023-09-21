@@ -67,7 +67,8 @@ const BloodlinePanel: NextPage = () => {
     if (data) {
       setEffects(data.effects);
     }
-  }, [userData, router, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, data]);
 
   // Form handling
   const {
