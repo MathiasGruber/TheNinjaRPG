@@ -45,6 +45,7 @@ export const useRequiredUserData = () => {
     if (isLoaded && status !== "loading" && (data === undefined || !isSignedIn)) {
       void router.push("/");
     }
-  }, [router, status, data, isLoaded, isSignedIn]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, data, isLoaded, isSignedIn]);
   return info;
 };

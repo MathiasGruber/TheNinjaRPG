@@ -48,7 +48,8 @@ const AIPanel: NextPage = () => {
     if (userData && !canChangeContent(userData.role)) {
       void router.push("/profile");
     }
-  }, [userData, router, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, data]);
 
   // Process data for form
   const processedData = data && {

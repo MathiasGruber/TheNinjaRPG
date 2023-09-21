@@ -21,7 +21,8 @@ const Home: NextPage = () => {
     if (userData && userId) {
       void router.push("/profile");
     }
-  }, [router, userData, userId, userStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, userId, userStatus]);
 
   if (isLoaded && !isSignedIn) {
     return <Welcome />;
