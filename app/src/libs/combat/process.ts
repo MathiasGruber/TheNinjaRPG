@@ -53,7 +53,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.level = level ?? 0;
   tag.isNew = true;
   tag.castThisRound = true;
-  return tag;
+  return structuredClone(tag);
 };
 
 /**
@@ -176,7 +176,6 @@ export const applyEffects = (battle: CompleteBattle) => {
         latitude = curTarget?.latitude;
         if (e.type === "absorb") {
           info = absorb(e, usersEffects, consequences, curTarget);
-          updateStatUsage(newTarget, e, true);
         } else if (e.type === "armoradjust") {
           info = adjustArmor(e, curTarget);
         } else if (e.type === "statadjust") {
@@ -189,7 +188,6 @@ export const applyEffects = (battle: CompleteBattle) => {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damage") {
           info = damage(e, curUser, curTarget, consequences, applyTimes);
-          updateStatUsage(newTarget, e, true);
         } else if (e.type === "heal") {
           info = heal(e, curTarget, consequences, applyTimes);
         } else if (e.type === "reflect") {
@@ -198,23 +196,18 @@ export const applyEffects = (battle: CompleteBattle) => {
           info = fleePrevent(e, curTarget);
         } else if (e.type === "flee") {
           info = flee(e, newUsersEffects, newTarget);
-        } else if (e.type === "move") {
-          // move command should never be here, for now at least
-          // info = move(e, newUsersState, newGroundEffects);
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
           info = clear(e, usersEffects, curTarget);
         } else if (e.type === "onehitkill") {
           info = onehitkill(e, newUsersEffects, newTarget);
-          updateStatUsage(newTarget, e, true);
         } else if (e.type === "onehitkillprevent") {
           info = onehitkillPrevent(e, curTarget);
         } else if (e.type === "robprevent") {
           info = robPrevent(e, curTarget);
         } else if (e.type === "rob") {
           info = rob(e, newUsersEffects, newUser, newTarget);
-          updateStatUsage(newTarget, e, true);
         } else if (e.type === "sealprevent") {
           info = sealPrevent(e, curTarget);
         } else if (e.type === "seal") {
@@ -223,12 +216,12 @@ export const applyEffects = (battle: CompleteBattle) => {
           info = stunPrevent(e, curTarget);
         } else if (e.type === "stun") {
           info = stun(e, newUsersEffects, curTarget);
-          updateStatUsage(newTarget, e, true);
         } else if (e.type === "summonprevent") {
           // TODO:
         } else if (e.type === "summon") {
           // TODO:
         }
+        updateStatUsage(newTarget, e, true);
       }
     }
 
