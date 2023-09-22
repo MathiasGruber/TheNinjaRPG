@@ -63,7 +63,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
 
   // Show component
   return (
-    <div className="relative flex flex-col border-b-2 border-l-2 border-r-2 bg-slate-100 max-h-48 overflow-auto">
+    <div className="relative flex flex-col border-b-2 border-l-2 border-r-2 bg-slate-100 max-h-80 overflow-auto">
       {isFetching && (
         <div className="absolute right-2 top-2">
           <Loader />
