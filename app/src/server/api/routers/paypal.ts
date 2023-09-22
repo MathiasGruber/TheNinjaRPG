@@ -199,20 +199,38 @@ export const paypalRouter = createTRPCRouter({
     .input(z.object({ subscriptionId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
-      const subscription = await getPaypalSubscription(input.subscriptionId, token);
-      if (subscription === undefined) {
-        throw serverError("INTERNAL_SERVER_ERROR", "Could not fetch subscription");
+      // Get subscription from paypal & database
+      const paypalSub = await getPaypalSubscription(input.subscriptionId, token);
+      const dbSub = await ctx.drizzle.query.paypalSubscription.findFirst({
+        where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
+      });
+      // If we could not find in paypal
+      if (paypalSub === undefined) {
+        throw serverError(
+          "INTERNAL_SERVER_ERROR",
+          `Subscription ${input.subscriptionId} not found in paypal`
+        );
       }
-      if (subscription.status !== "ACTIVE") {
-        throw serverError("INTERNAL_SERVER_ERROR", "Subscription is not active");
+      // If not found in local database
+      if (dbSub === undefined) {
+        throw serverError(
+          "INTERNAL_SERVER_ERROR",
+          `Subscription ${input.subscriptionId} not found in database`
+        );
       }
-      const users = subscription.custom_id?.split("-");
-      const createdByUserId = users?.[0];
-      const affectedUserId = users?.[1];
+      // Check that the user is related to this subscription
+      const createdByUserId = dbSub.createdById;
+      const affectedUserId = dbSub.affectedUserId;
+      const users = [createdByUserId, affectedUserId];
       if (!users.includes(ctx.userId) || !createdByUserId || !affectedUserId) {
         throw serverError("UNAUTHORIZED", "You are not related to this subscription");
       }
-      const status = await cancelPaypalSubscription(input.subscriptionId, token);
+      // If status is not active on paypal, let us just cancel. Otherwise assume success cancel already
+      let status = 204;
+      if (["ACTIVE", "CREATED"].includes(paypalSub.status)) {
+        status = await cancelPaypalSubscription(input.subscriptionId, token);
+      }
+      // If successfull cancel, update database subscription
       if (status === 204) {
         return await updateSubscription({
           client: ctx.drizzle,
@@ -220,7 +238,7 @@ export const paypalRouter = createTRPCRouter({
           affectedUserId: affectedUserId,
           federalStatus: "NONE",
           status: "CANCELLED",
-          subscriptionId: subscription.id,
+          subscriptionId: paypalSub.id,
         });
       } else {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not cancel subscription");
