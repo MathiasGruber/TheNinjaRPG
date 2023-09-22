@@ -37,35 +37,8 @@ export const checkFriendlyFire = (effect: BattleEffect, target: ReturnedUserStat
 export const realizeTag = <T extends BattleEffect>(
   tag: T,
   user: BattleUserState,
-  level: number | undefined,
-  isGround = false
+  level: number | undefined
 ): T => {
-  if (isGround && "statTypes" in tag && tag.statTypes) {
-    if (tag.statTypes.includes("Ninjutsu")) {
-      tag.ninjutsuOffence = user.ninjutsuOffence;
-    }
-    if (tag.statTypes.includes("Genjutsu")) {
-      tag.genjutsuOffence = user.genjutsuOffence;
-    }
-    if (tag.statTypes.includes("Taijutsu")) {
-      tag.taijutsuOffence = user.taijutsuOffence;
-    }
-    if (tag.statTypes.includes("Bukijutsu")) {
-      tag.bukijutsuOffence = user.bukijutsuOffence;
-    }
-    if (tag.statTypes.includes("Highest")) {
-      tag.highestOffence = user.highestOffence;
-    }
-  }
-  if (isGround) {
-    tag.experience = user.experience;
-  }
-  if (isGround && "generalTypes" in tag) {
-    tag.strength = user.strength;
-    tag.intelligence = user.intelligence;
-    tag.willpower = user.willpower;
-    tag.speed = user.speed;
-  }
   if ("rounds" in tag) {
     tag.timeTracker = {};
   }
@@ -178,8 +151,7 @@ export const applyEffects = (battle: CompleteBattle) => {
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
     e.castThisRound = startRound === curRound;
-    // Get the user && effect details
-    const newUser = newUsersState.find((u) => u.userId === e.creatorId);
+    // Bookkeeping
     let longitude: number | undefined = undefined;
     let latitude: number | undefined = undefined;
     let info: ActionEffect | undefined = undefined;
@@ -192,11 +164,14 @@ export const applyEffects = (battle: CompleteBattle) => {
         actionEffects.push(result.info);
       }
     } else if (e.targetType === "user") {
+      // Get the user && effect details
+      const curUser = usersState.find((u) => u.userId === e.creatorId);
+      const newUser = newUsersState.find((u) => u.userId === e.creatorId);
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
-      if (curTarget && newTarget && applyTimes > 0 && !isSealed) {
+      if (curUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
         if (e.type === "absorb") {
@@ -213,7 +188,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         } else if (e.type === "healadjust") {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damage") {
-          info = damage(e, newUser, curTarget, consequences, applyTimes);
+          info = damage(e, curUser, curTarget, consequences, applyTimes);
           updateStatUsage(newTarget, e, true);
         } else if (e.type === "heal") {
           info = heal(e, curTarget, consequences, applyTimes);

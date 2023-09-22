@@ -73,8 +73,10 @@ export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
   const affected: string[] = [];
-  if (!effect.isNew && !effect.castThisRound) {
-    if ("calculation" in effect && "statTypes" in effect) {
+  if ("calculation" in effect && ("statTypes" in effect || "generalTypes" in effect)) {
+    if (effect.statTypes) affected.push(...effect.statTypes);
+    if (effect.generalTypes) affected.push(...effect.generalTypes);
+    if (!effect.isNew && !effect.castThisRound) {
       effect.statTypes?.forEach((stat) => {
         if (stat === "Highest") {
           if (effect.calculation === "static") {
@@ -145,8 +147,6 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
           }
         }
       });
-      if (effect.statTypes) affected.push(...effect.statTypes);
-      if (effect.generalTypes) affected.push(...effect.generalTypes);
     }
   }
   return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
@@ -370,12 +370,7 @@ export const damage = (
       const lower = statType.toLowerCase();
       const a = `${lower}${dir ? "Offence" : "Defence"}`;
       const b = `${lower}${dir ? "Defence" : "Offence"}`;
-      if (effect.fromGround && a in effect && b in target && effect.experience) {
-        const left = effect[a as keyof typeof effect] as number;
-        const right = target[b as keyof typeof target] as number;
-        const avg_exp = (effect.experience + target.experience) / 2;
-        calcs.push(powerEffect(left, right, avg_exp));
-      } else if (origin && a in origin && b in target) {
+      if (origin && a in origin && b in target) {
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
         const avg_exp = (origin.experience + target.experience) / 2;
@@ -384,12 +379,7 @@ export const damage = (
     });
     effect.generalTypes?.forEach((generalType) => {
       const gen = generalType.toLowerCase();
-      if (effect.fromGround && gen in effect && gen in target && effect.experience) {
-        const left = effect[gen as keyof typeof effect] as number;
-        const right = target[gen as keyof typeof target] as number;
-        const avg_exp = (effect.experience + target.experience) / 2;
-        calcs.push(GEN_SCALING * powerEffect(left, right, avg_exp));
-      } else if (origin && gen in origin && gen in target) {
+      if (origin && gen in origin && gen in target) {
         const left = origin[gen as keyof typeof origin] as number;
         const right = target[gen as keyof typeof target] as number;
         const avg_exp = (origin.experience + target.experience) / 2;
