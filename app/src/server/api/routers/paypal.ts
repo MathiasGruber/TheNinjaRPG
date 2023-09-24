@@ -4,8 +4,12 @@ import { eq, or, and, sql, desc } from "drizzle-orm";
 import { paypalTransaction, paypalSubscription } from "../../../../drizzle/schema";
 import { userData } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { dollars2reps } from "../../../utils/paypal";
+import { baseServerResponse, errorResponse } from "../trpc";
+import { dollars2reps, calcFedUgradeCost } from "../../../utils/paypal";
+import { plan2FedStatus } from "../../../utils/paypal";
 import { serverError } from "../trpc";
+import { fetchUser } from "./profile";
+import { FederalStatuses } from "../../../../drizzle/constants";
 import type { FederalStatus } from "../../../../drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "../../../utils/typeutils";
@@ -34,22 +38,6 @@ type PaypalOrder =
       }[];
     }
   | undefined;
-
-// type PaypalTransaction = {
-//   transaction_details?: {
-//     transaction_info: {
-//       transaction_id: string;
-//       transaction_updated_date: string;
-//       transaction_amount: {
-//         currency_code: string;
-//         value: string;
-//       };
-//       transaction_status: string;
-//       custom_id: string;
-//       invoice_id: string;
-//     };
-//   }[];
-// };
 
 type PaypalSubscription = {
   id: string;
@@ -122,25 +110,12 @@ export const paypalRouter = createTRPCRouter({
       if (subscription === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not fetch subscription");
       }
-      console.log(subscription);
       const users = subscription.custom_id?.split("-");
       const createdByUserId = users?.[0];
       const affectedUserId = users?.[1];
       if (affectedUserId === undefined || createdByUserId === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not extract user ID");
       }
-      const plan2FedStatus = (planId: string) => {
-        switch (planId) {
-          case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL:
-            return "NORMAL";
-          case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER:
-            return "SILVER";
-          case process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD:
-            return "GOLD";
-          default:
-            return "NONE";
-        }
-      };
       const newStatus =
         subscription.status === "ACTIVE"
           ? plan2FedStatus(subscription.plan_id)
@@ -194,6 +169,49 @@ export const paypalRouter = createTRPCRouter({
       orderBy: desc(paypalSubscription.createdAt),
     });
   }),
+  // Upgrade a subscription for a user. Can only be done by the user who created the subscription
+  upgradeSubscription: protectedProcedure
+    .input(z.object({ userId: z.string(), plan: z.enum(FederalStatuses) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const subscription = await ctx.drizzle.query.paypalSubscription.findFirst({
+        where: and(
+          eq(paypalSubscription.status, "ACTIVE"),
+          eq(paypalSubscription.createdById, input.userId),
+          eq(paypalSubscription.affectedUserId, ctx.userId)
+        ),
+      });
+      // If we could not find in paypal
+      if (!subscription) {
+        return errorResponse("Could not find such a subscription");
+      }
+      // Get cost, and ensure that we are actually upgrading
+      const cost = calcFedUgradeCost(subscription.federalStatus, input.plan);
+      if (!cost || cost < 0) {
+        return errorResponse(`Invalid: ${subscription.federalStatus} to ${input.plan}`);
+      }
+      // Check that we have enough reputation points
+      if (user.reputationPoints < cost) {
+        return errorResponse(`Not enough reputation points`);
+      }
+      // Update the database
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            federalStatus: input.plan,
+            reputationPointsTotal: sql`${userData.reputationPointsTotal} - ${cost}`,
+            reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
+          })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(paypalSubscription)
+          .set({ federalStatus: input.plan, updatedAt: new Date() })
+          .where(eq(paypalSubscription.subscriptionId, subscription.subscriptionId)),
+      ]);
+      return { success: true, message: "OK" };
+    }),
   // Cancel paypal subscription
   cancelPaypalSubscription: protectedProcedure
     .input(z.object({ subscriptionId: z.string() }))
@@ -351,7 +369,7 @@ export const getPaypalSubscription = async (subscriptionId: string, token: strin
 };
 
 /**
- * Cancal a subscrioption from paypal
+ * Cancel a subscrioption from paypal
  */
 export const cancelPaypalSubscription = async (
   subscriptionId: string,
@@ -392,39 +410,6 @@ export const getPaypalAccessToken = async () => {
       return data["access_token"];
     });
 };
-
-/**
- * Fetch a paypal transaction by its ID. By default looks 10 days into the past and future.
- */
-// export const getPaypalTransaction = async (input: {
-//   transactionId: string;
-//   token: string;
-//   startDate?: Date;
-//   endDate?: Date;
-// }) => {
-//   const start = (input.startDate ?? secondsFromNow(-60 * 60 * 24 * 10))
-//     .toISOString()
-//     .split(".")[0];
-//   const end = (input.endDate ?? secondsFromNow(+60 * 60 * 24 * 10))
-//     .toISOString()
-//     .split(".")[0];
-//   const id = input.transactionId;
-//   const transaction = await fetch(
-//     `${process.env.NEXT_PUBLIC_PAYPAL_URL}/v1/oauth2/token/v1/reporting/transactions?start_date=${start}-0000&end_date=${end}-0000&transaction_id=${id}&fields=all`,
-//     {
-//       method: "GET",
-//       headers: {
-//         Authorization: "Bearer " + input.token,
-//         "Content-Type": "application/json",
-//       },
-//     }
-//   )
-//     .then((response) => response.json())
-//     .then((data: PaypalTransaction) => {
-//       return data;
-//     });
-//   return transaction;
-// };
 
 /**
  * Fetch a paypal order

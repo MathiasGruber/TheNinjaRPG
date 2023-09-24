@@ -11,9 +11,11 @@ export default authMiddleware({
     "/terms",
     "/policy",
     "/rules",
+    "/news",
     "/login(.*)",
     "/api/trpc/(.*)",
     "/api/uploadthing",
+    "/api/subscriptions",
   ],
 });
 
@@ -29,5 +31,6 @@ export const config = {
     "/(.*?trpc.*?|.*?api.*?|(?!static|.*\\..*|_next|favicon.ico).*)",
     "/",
     "/api/uploadthing(.*)",
+    "/api/subscriptions(.*)",
   ],
 };

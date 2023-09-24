@@ -1,4 +1,5 @@
 import { type z } from "zod";
+import Image from "next/image";
 import { type NextPage } from "next";
 import { useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
@@ -11,8 +12,11 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
+import { CheckIcon } from "@heroicons/react/24/outline";
+import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
 
 import SliderField from "../layout/SliderField";
+import Confirm from "../layout/Confirm";
 import ContentBox from "../layout/ContentBox";
 import Loader from "../layout/Loader";
 import UserSearchSelect from "../layout/UserSearchSelect";
@@ -22,11 +26,12 @@ import Table, { type ColumnDefinitionType } from "../layout/Table";
 import { api } from "../utils/api";
 import { useInfinitePagination } from "../libs/pagination";
 import { useRequiredUserData } from "../utils/UserContext";
-import { reps2dollars } from "../utils/paypal";
+import { reps2dollars, calcFedUgradeCost } from "../utils/paypal";
 import { show_toast } from "../libs/toast";
 import { type BuyRepsSchema, buyRepsSchema } from "../validators/points";
 import { getSearchValidator } from "../validators/register";
-import { type ArrayElement } from "../utils/typeutils";
+import { FederalStatuses } from "../../drizzle/constants";
+import type { ArrayElement } from "../utils/typeutils";
 
 const CURRENCY = "USD";
 const OPTIONS = {
@@ -211,48 +216,168 @@ const PayPalSubscriptionButton = (props: {
   subscriptionPlan: string;
   userId: string;
   buyerId: string;
+  imageSrc: string;
+  buttonStatus: typeof FederalStatuses[number];
+  currentUserStatus: typeof FederalStatuses[number];
   onSuccess?: () => void;
   onFailure?: () => void;
 }) => {
-  const subscribe = api.paypal.resolveSubscription.useMutation({
-    onSuccess: () => {
-      show_toast("Successfully started subscription", "Order finished", "success");
-      props.onSuccess && props.onSuccess();
-    },
-    onError: (error) => {
-      show_toast("Error on resolving subscription", error.message, "error");
-      props.onFailure && props.onFailure();
-    },
-  });
+  // User state
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+
+  // Mutation for starting subscription
+  const { mutate: subscribe, isLoading: isSubscribing } =
+    api.paypal.resolveSubscription.useMutation({
+      onSuccess: async () => {
+        show_toast("Successfully started subscription", "Order finished", "success");
+        await refetchUser();
+        props.onSuccess && props.onSuccess();
+      },
+      onError: (error) => {
+        show_toast("Error on resolving subscription", error.message, "error");
+        props.onFailure && props.onFailure();
+      },
+    });
+
+  // Mutation for upgrading subscription
+  const { mutate: upgrade, isLoading: isUpgrading } =
+    api.paypal.upgradeSubscription.useMutation({
+      onSuccess: async (data) => {
+        if (data.success) {
+          show_toast("Upgraded subscription", "Success", "success");
+          await refetchUser();
+          props.onSuccess && props.onSuccess();
+        } else {
+          show_toast("Error on upgrading subscription", data.message, "error");
+        }
+      },
+      onError: (error) => {
+        show_toast("Error on resolving subscription", error.message, "error");
+        props.onFailure && props.onFailure();
+      },
+    });
+
+  // Loading status
+  const isLoading = isUpgrading || isSubscribing;
+
+  // If not loaded yet, show loader
+  if (isLoading) return <Loader explanation="Processing..." />;
+
+  const normalBenefits = (
+    <>
+      <h2 className="font-bold">Normal Support</h2>
+      <ul className="m-2 ml-6 list-disc text-xs">
+        <li>Blue username in tavern</li>
+        <li>+2 Inventory space</li>
+        <li>Custom avatar (128kb)</li>
+        <li>One extra jutsu slot</li>
+      </ul>
+    </>
+  );
+
+  const silverBenefits = (
+    <>
+      <h2 className="font-bold">Silver Support</h2>
+      <ul className="m-2 ml-6 list-disc text-xs">
+        <li>Silver username in tavern</li>
+        <li>+5 Inventory space</li>
+        <li>Custom avatar (256kb)</li>
+        <li>Two extra jutsu slots</li>
+      </ul>
+    </>
+  );
+
+  const goldBenefits = (
+    <>
+      <h2 className="font-bold">Gold Support</h2>
+      <ul className="m-2 ml-6 list-disc text-xs">
+        <li>Gold username in tavern</li>
+        <li>+10 Inventory space</li>
+        <li>Custom avatar (512kb)</li>
+        <li>Three extra jutsu slots</li>
+      </ul>
+    </>
+  );
+
+  // Derived vars
+  const current = FederalStatuses.indexOf(props.currentUserStatus);
+  const next = FederalStatuses.indexOf(props.buttonStatus);
+  const canUpgrade = next > current && props.userId === userData?.userId;
+  const hasSubscription = props.currentUserStatus !== "NONE";
+  const upgradeCost = calcFedUgradeCost(props.currentUserStatus, props.buttonStatus);
 
   return (
-    <PayPalButtons
-      style={{ layout: "horizontal", label: "subscribe" }}
-      forceReRender={[props.userId]}
-      createSubscription={(data, actions) => {
-        return actions.subscription.create({
-          plan_id: props.subscriptionPlan,
-          custom_id: `${props.buyerId}-${props.userId}`,
-        });
-      }}
-      onApprove={(data) => {
-        if (data.subscriptionID) {
-          subscribe.mutate({
-            subscriptionId: data.subscriptionID,
-            orderId: data.orderID,
-          });
-        } else {
-          show_toast(
-            "No subscription",
-            "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-            "info"
-          );
-        }
-        return new Promise(() => {
-          return null;
-        });
-      }}
-    />
+    <>
+      <div className="relative">
+        <Image
+          className={`mb-3 ${
+            props.currentUserStatus === props.buttonStatus ? "" : "opacity-30"
+          }`}
+          src={props.imageSrc}
+          alt="Silver"
+          width={512}
+          height={512}
+        />
+        {props.currentUserStatus === props.buttonStatus && (
+          <CheckIcon className="absolute top-0 right-0 h-8 w-8 rounded-full bg-green-500 p-1" />
+        )}
+        {hasSubscription && canUpgrade && (
+          <Confirm
+            title="Confirm Deletion"
+            button={
+              <ChevronDoubleUpIcon className="absolute top-0 right-0 h-8 w-8 rounded-full bg-blue-500 p-1 cursor-pointer hover:bg-green-500" />
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              upgrade({ userId: props.userId, plan: props.buttonStatus });
+            }}
+          >
+            You are about to upgrade your federal subscription. This can only be done if
+            you own the paypal subscription in question, and only for your own
+            character. Note that this action is permanent and will cost {upgradeCost}{" "}
+            reputation points. You currently have {userData?.reputationPoints}{" "}
+            reputation points. Are you sure?
+          </Confirm>
+        )}
+      </div>
+      <div
+        className={props.currentUserStatus === props.buttonStatus ? "" : "opacity-30"}
+      >
+        {props.buttonStatus === "NORMAL" && normalBenefits}
+        {props.buttonStatus === "SILVER" && silverBenefits}
+        {props.buttonStatus === "GOLD" && goldBenefits}
+      </div>
+      {!hasSubscription && (
+        <PayPalButtons
+          style={{ layout: "horizontal", label: "subscribe" }}
+          forceReRender={[props.userId]}
+          createSubscription={(data, actions) => {
+            return actions.subscription.create({
+              plan_id: props.subscriptionPlan,
+              custom_id: `${props.buyerId}-${props.userId}`,
+            });
+          }}
+          onApprove={(data) => {
+            if (data.subscriptionID) {
+              subscribe({
+                subscriptionId: data.subscriptionID,
+                orderId: data.orderID,
+              });
+            } else {
+              show_toast(
+                "No subscription",
+                "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
+                "info"
+              );
+            }
+            return new Promise(() => {
+              return null;
+            });
+          }}
+        />
+      )}
+    </>
   );
 };
 
@@ -275,6 +400,8 @@ const FederalStore = () => {
     }
   }, [userData, userSearchMethods, watchedUsers]);
 
+  const status = selectedUser?.federalStatus;
+
   return (
     <>
       {userData && (
@@ -286,75 +413,7 @@ const FederalStore = () => {
           maxUsers={maxUsers}
         />
       )}
-      {selectedUser?.federalStatus === "NONE" ? (
-        <div className="flex flex-col lg:flex-row">
-          <div className="m-3 basis-1/3">
-            <h2 className="font-bold">Normal Support</h2>
-            <ul className="m-2 ml-6 list-disc">
-              <li>Blue username in tavern</li>
-              <li>+2 Inventory space</li>
-              <li>Custom avatar (128kb)</li>
-              <li>One extra jutsu slot</li>
-            </ul>
-            {selectedUser && userData ? (
-              <PayPalSubscriptionButton
-                subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
-                userId={selectedUser.userId}
-                buyerId={userData.userId}
-                onSuccess={() => {
-                  userSearchMethods.setValue("users", []);
-                }}
-              />
-            ) : (
-              <Loader />
-            )}
-          </div>
-
-          <div className="m-3 basis-1/3">
-            <h2 className="font-bold">Silver Support</h2>
-            <ul className="m-2 ml-6 list-disc">
-              <li>Silver username in tavern</li>
-              <li>+5 Inventory space</li>
-              <li>Custom avatar (256kb)</li>
-              <li>Two extra jutsu slots</li>
-            </ul>
-            {selectedUser && userData ? (
-              <PayPalSubscriptionButton
-                subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
-                userId={selectedUser.userId}
-                buyerId={userData.userId}
-                onSuccess={() => {
-                  userSearchMethods.setValue("users", []);
-                }}
-              />
-            ) : (
-              <Loader />
-            )}
-          </div>
-
-          <div className="m-3 basis-1/3">
-            <h2 className="font-bold">Gold Support</h2>
-            <ul className="m-2 ml-6 list-disc">
-              <li>Gold username in tavern</li>
-              <li>+10 Inventory space</li>
-              <li>Custom avatar (512kb)</li>
-              <li>Three extra jutsu slots</li>
-            </ul>
-            {selectedUser && userData ? (
-              <PayPalSubscriptionButton
-                subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}
-                userId={selectedUser.userId}
-                buyerId={userData.userId}
-                onSuccess={() => {
-                  userSearchMethods.setValue("users", []);
-                }}
-              />
-            ) : (
-              <Loader />
-            )}
-          </div>
-        </div>
-      ) : (
+      {status !== "NONE" && (
         <div className="my-3">
           This user already has federal support. If you are the creator of the
           subscription, you should be able to see it in a table below and cancel it.
@@ -362,6 +421,62 @@ const FederalStore = () => {
           subscription.
         </div>
       )}
+
+      <div className="flex flex-col lg:flex-row">
+        <div className="m-3 basis-1/3">
+          {selectedUser && userData ? (
+            <PayPalSubscriptionButton
+              subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
+              userId={selectedUser.userId}
+              buyerId={userData.userId}
+              imageSrc="/repshop/bronze_fed.webp"
+              buttonStatus="NORMAL"
+              currentUserStatus={selectedUser.federalStatus}
+              onSuccess={() => {
+                userSearchMethods.setValue("users", []);
+              }}
+            />
+          ) : (
+            <Loader />
+          )}
+        </div>
+
+        <div className="m-3 basis-1/3">
+          {selectedUser && userData ? (
+            <PayPalSubscriptionButton
+              subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
+              userId={selectedUser.userId}
+              buyerId={userData.userId}
+              imageSrc="/repshop/silver_fed.webp"
+              buttonStatus="SILVER"
+              currentUserStatus={selectedUser.federalStatus}
+              onSuccess={() => {
+                userSearchMethods.setValue("users", []);
+              }}
+            />
+          ) : (
+            <Loader />
+          )}
+        </div>
+
+        <div className="m-3 basis-1/3">
+          {selectedUser && userData ? (
+            <PayPalSubscriptionButton
+              subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}
+              userId={selectedUser.userId}
+              buyerId={userData.userId}
+              imageSrc="/repshop/gold_fed.webp"
+              buttonStatus="GOLD"
+              currentUserStatus={selectedUser.federalStatus}
+              onSuccess={() => {
+                userSearchMethods.setValue("users", []);
+              }}
+            />
+          ) : (
+            <Loader />
+          )}
+        </div>
+      </div>
     </>
   );
 };
