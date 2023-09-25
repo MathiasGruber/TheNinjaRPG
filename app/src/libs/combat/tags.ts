@@ -80,11 +80,63 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
       effect.statTypes?.forEach((stat) => {
         if (stat === "Highest") {
           if (effect.calculation === "static") {
-            target.highestOffence += power;
-            target.highestDefence += power;
+            switch (target.highestOffence) {
+              case "ninjutsuOffence":
+                target.ninjutsuOffence += power;
+                break;
+              case "genjutsuOffence":
+                target.genjutsuOffence += power;
+                break;
+              case "taijutsuOffence":
+                target.taijutsuOffence += power;
+                break;
+              case "bukijutsuOffence":
+                target.bukijutsuOffence += power;
+                break;
+            }
+            switch (target.highestDefence) {
+              case "ninjutsuDefence":
+                target.ninjutsuDefence += power;
+                break;
+              case "genjutsuDefence":
+                target.genjutsuDefence += power;
+                break;
+              case "taijutsuDefence":
+                target.taijutsuDefence += power;
+                break;
+              case "bukijutsuDefence":
+                target.bukijutsuDefence += power;
+                break;
+            }
           } else if (effect.calculation === "percentage") {
-            target.highestOffence *= (100 + power) / 100;
-            target.highestDefence *= (100 + power) / 100;
+            switch (target.highestOffence) {
+              case "ninjutsuOffence":
+                target.ninjutsuOffence *= (100 + power) / 100;
+                break;
+              case "genjutsuOffence":
+                target.genjutsuOffence *= (100 + power) / 100;
+                break;
+              case "taijutsuOffence":
+                target.taijutsuOffence *= (100 + power) / 100;
+                break;
+              case "bukijutsuOffence":
+                target.bukijutsuOffence *= (100 + power) / 100;
+                break;
+            }
+            switch (target.highestDefence) {
+              case "ninjutsuDefence":
+                target.ninjutsuDefence *= (100 + power) / 100;
+                break;
+              case "genjutsuDefence":
+                target.genjutsuDefence *= (100 + power) / 100;
+                break;
+              case "taijutsuDefence":
+                target.taijutsuDefence *= (100 + power) / 100;
+                break;
+              case "bukijutsuDefence":
+                target.bukijutsuDefence *= (100 + power) / 100;
+                break;
+            }
           }
         } else if (stat === "Ninjutsu") {
           if (effect.calculation === "static") {
@@ -273,8 +325,6 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
     user.taijutsuDefence = user.taijutsuDefence * perc;
     user.bukijutsuOffence = user.bukijutsuOffence * perc;
     user.bukijutsuDefence = user.bukijutsuDefence * perc;
-    user.highestOffence = user.highestOffence * perc;
-    user.highestDefence = user.highestDefence * perc;
     user.strength = user.strength * perc;
     user.intelligence = user.intelligence * perc;
     user.willpower = user.willpower * perc;
@@ -316,7 +366,7 @@ export const updateStatUsage = (
             user.usedStats.push("genjutsuOffence");
             break;
           case "Highest":
-            user.usedStats.push(user.highestOffence_type);
+            user.usedStats.push(user.highestOffence);
             break;
         }
       } else {
@@ -334,7 +384,7 @@ export const updateStatUsage = (
             user.usedStats.push("genjutsuDefence");
             break;
           case "Highest":
-            user.usedStats.push(user.highestDefence_type);
+            user.usedStats.push(user.highestDefence);
             break;
         }
       }

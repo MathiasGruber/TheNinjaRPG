@@ -422,19 +422,27 @@ export const initiateBattle = async (
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
 
-      // Add highest stats to user
-      user.highestOffence = Math.max(
-        user.ninjutsuOffence,
-        user.genjutsuOffence,
-        user.taijutsuOffence,
-        user.bukijutsuOffence
-      );
-      user.highestDefence = Math.max(
-        user.ninjutsuOffence,
-        user.genjutsuOffence,
-        user.taijutsuOffence,
-        user.bukijutsuOffence
-      );
+      // Add highest stat name to user
+      const offences = {
+        ninjutsuOffence: user.ninjutsuOffence,
+        genjutsuOffence: user.genjutsuOffence,
+        taijutsuOffence: user.taijutsuOffence,
+        bukijutsuOffence: user.bukijutsuOffence,
+      };
+      type offenceKey = keyof typeof offences;
+      user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
+        offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur
+      ) as offenceKey;
+      const defences = {
+        ninjutsuDefence: user.ninjutsuDefence,
+        genjutsuDefence: user.genjutsuDefence,
+        taijutsuDefence: user.taijutsuDefence,
+        bukijutsuDefence: user.bukijutsuDefence,
+      };
+      type defenceKey = keyof typeof defences;
+      user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
+        defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur
+      ) as defenceKey;
 
       // Remember how much money this user had
       user.originalMoney = user.money;

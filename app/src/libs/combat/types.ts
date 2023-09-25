@@ -23,10 +23,8 @@ export type BattleUserState = UserData & {
   })[];
   bloodline?: Bloodline | null;
   village?: Village | null;
-  highestOffence: number;
-  highestDefence: number;
-  highestOffence_type: typeof StatNames[number];
-  highestDefence_type: typeof StatNames[number];
+  highestOffence: typeof StatNames[number];
+  highestDefence: typeof StatNames[number];
   actionPoints: number;
   armor: number;
   hidden?: boolean;
