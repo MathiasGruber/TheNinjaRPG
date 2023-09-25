@@ -584,9 +584,12 @@ export const onehitkill = (
     info = { txt: `${target.username} was killed in one hit`, color: "red" };
   } else if (primaryCheck) {
     effect.rounds = 0;
-    info = { txt: `${target.username} resisted being killed`, color: "blue" };
+    info = { txt: `${target.username} resisted being instantly killed`, color: "blue" };
   } else {
-    info = { txt: `${target.username} was lucky not to get killed!`, color: "blue" };
+    info = {
+      txt: `${target.username} was lucky not to be instantly killed!`,
+      color: "blue",
+    };
   }
   return info;
 };
@@ -820,7 +823,7 @@ const preventCheck = (
   target: BattleUserState
 ) => {
   const prevent = usersEffects.find(
-    (e) => e.type == type && e.targetId === target.userId
+    (e) => e.type == type && e.targetId === target.userId && !e.castThisRound
   );
   if (prevent) {
     const power = prevent.power + prevent.level * prevent.powerPerLevel;
