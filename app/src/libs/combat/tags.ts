@@ -770,7 +770,7 @@ const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
 export const getPower = (effect: UserEffect) => {
   const power = effect.power + effect.level * effect.powerPerLevel;
   const adverb = power > 0 ? "increased" : "decreased";
-  const qualifier = effect.calculation === "percentage" ? `${power}%` : power;
+  const qualifier = effect.calculation === "percentage" ? `${power}%` : Math.abs(power);
   return { power, adverb, qualifier };
 };
 
