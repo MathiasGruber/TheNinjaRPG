@@ -54,6 +54,15 @@ export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
   return Math.floor(Math.pow(base, 1 + level / 20));
 };
 
+export const calcForgetReturn = (jutsu: Jutsu, level: number) => {
+  const discount = 0.9;
+  let result = 0;
+  for (let i = 0; i < level; i++) {
+    result += calcJutsuTrainCost(jutsu, i);
+  }
+  return result * discount;
+};
+
 export const calcJutsuEquipLimit = (userdata: UserData) => {
   const rankContrib = (rank: UserRank) => {
     switch (rank) {

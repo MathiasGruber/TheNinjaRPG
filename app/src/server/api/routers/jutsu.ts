@@ -6,7 +6,7 @@ import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
 import { canTrainJutsu } from "../../../libs/train";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
-import { calcJutsuEquipLimit } from "../../../libs/train";
+import { calcJutsuEquipLimit, calcForgetReturn } from "../../../libs/train";
 import { JutsuValidator } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
 import { callDiscordContent } from "../../../libs/discord";
@@ -101,6 +101,30 @@ export const jutsuRouter = createTRPCRouter({
       } else {
         return { success: false, message: `Not allowed to delete jutsu` };
       }
+    }),
+  // Forget a user jutsu
+  forget: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
+      const userjutsu = userjutsus.find((j) => j.id === input.id);
+      if (userjutsu) {
+        const res1 = await ctx.drizzle
+          .delete(userJutsu)
+          .where(eq(userJutsu.id, input.id));
+        if (res1.rowsAffected === 1) {
+          const cost = calcForgetReturn(userjutsu.jutsu, userjutsu.level);
+          const res2 = await ctx.drizzle
+            .update(userData)
+            .set({ money: sql`${userData.money} + ${cost}` })
+            .where(eq(userData.userId, ctx.userId));
+          if (res2.rowsAffected === 1) {
+            return { success: true, message: `Jutsu forgotten, ${cost} ryo restored` };
+          }
+        }
+      }
+      return { success: false, message: `Could not find jutsu to delete` };
     }),
   // Update a jutsu
   update: protectedProcedure

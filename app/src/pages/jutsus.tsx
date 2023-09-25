@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { ArchiveBoxXMarkIcon } from "@heroicons/react/24/solid";
 import ItemWithEffects from "../layout/ItemWithEffects";
 import ContentBox from "../layout/ContentBox";
 import Modal from "../layout/Modal";
 import Loader from "../layout/Loader";
+import Button from "../layout/Button";
 import { ActionSelector } from "../layout/CombatActions";
-import { calcJutsuEquipLimit } from "../libs/train";
+import { calcJutsuEquipLimit, calcForgetReturn } from "../libs/train";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
@@ -52,6 +54,26 @@ const MyJutsu: NextPage = () => {
     },
   });
 
+  const { mutate: forget, isLoading: isForgetting } = api.jutsu.forget.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Jutsu Forgotten", data.message, "success");
+        await refetch();
+      } else {
+        show_toast("Error during forget", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error during forget", error.message, "error");
+    },
+    onSettled: () => {
+      setIsOpen(false);
+      setUserJutsu(undefined);
+    },
+  });
+
+  const isLoading = isEquipping || isForgetting;
+
   // Collapse UserItem and Item
   const allJutsu = userJutsus?.map((userjutsu) => {
     return {
@@ -70,7 +92,16 @@ const MyJutsu: NextPage = () => {
       ? `Equipped ${curEquip}/${maxEquip}`
       : "Jutsus you want to use in combat";
 
-  if (!userData) return <Loader explanation="Loading userdata" />;
+  // Ryo from forgetting
+  const forgetRyo = userjutsu
+    ? calcForgetReturn(userjutsu, userjutsu.level).toFixed(0)
+    : 0;
+
+  if (!userData) {
+    return <Loader explanation="Loading userdata" />;
+  } else if (isFetching) {
+    return <Loader explanation="Loading jutsus" />;
+  }
 
   return (
     <ContentBox title="Jutsu Management" subtitle={subtitle}>
@@ -103,7 +134,6 @@ const MyJutsu: NextPage = () => {
           onAccept={() => {
             if (canEquip || userjutsu.equipped) {
               equip({ userJutsuId: userjutsu.id });
-              console.log("Test");
             } else {
               setIsOpen(false);
             }
@@ -115,15 +145,31 @@ const MyJutsu: NextPage = () => {
           }
         >
           <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-          {!isEquipping && (
+          {!isLoading && (
             <>
-              <ItemWithEffects item={userjutsu} key={userjutsu.id} showEdit="jutsu" />
+              <ItemWithEffects
+                item={userjutsu}
+                key={userjutsu.id}
+                showStatistic="jutsu"
+              />
+              <div className="flex flex-row">
+                <div className="grow"></div>
+                <Button
+                  id="return"
+                  label={`Forget [${forgetRyo} ryo]`}
+                  color="red"
+                  image={<ArchiveBoxXMarkIcon className="h-6 w-6 mr-2" />}
+                  onClick={() => {
+                    forget({ id: userjutsu.id });
+                  }}
+                />
+              </div>
             </>
           )}
-          {isEquipping && <Loader explanation={`Toggling ${userjutsu.name}`} />}
+          {isLoading && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {isFetching && <Loader explanation="Loading Jutsu" />}
+      {isLoading && <Loader explanation="Loading Jutsu" />}
     </ContentBox>
   );
 };

@@ -27,11 +27,12 @@ export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu | GenericObject;
   imageBorder?: boolean;
   showEdit?: "bloodline" | "item" | "jutsu" | "ai";
+  showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, onDelete } = props;
+  const { item, showEdit, showStatistic, onDelete } = props;
   const { data: userData } = useUserData();
   const effects = props.item.effects as ZodAllTags[];
 
@@ -66,32 +67,32 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               {item.updatedAt.toLocaleDateString()}
             </p>
 
-            {showEdit && (
-              <div className="absolute right-6 flex flex-row">
-                <Link href={`/cpanel/${showEdit}/${item.id}`} className="mr-1">
+            <div className="absolute right-6 flex flex-row">
+              {showStatistic && (
+                <Link href={`/cpanel/${showStatistic}/${item.id}`} className="mr-1">
                   <ChartBarIcon className="h-6 w-6 hover:fill-orange-500" />
                 </Link>
-                {userData && canChangeContent(userData.role) && (
-                  <>
-                    <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
-                      <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
-                    </Link>
-                    <Confirm
-                      title="Confirm Deletion"
-                      button={
-                        <TrashIcon className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
-                      }
-                      onAccept={(e) => {
-                        e.preventDefault();
-                        onDelete && onDelete(item.id);
-                      }}
-                    >
-                      You are about to delete this. Are you sure?
-                    </Confirm>
-                  </>
-                )}
-              </div>
-            )}
+              )}
+              {showEdit && userData && canChangeContent(userData.role) && (
+                <>
+                  <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
+                    <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
+                  </Link>
+                  <Confirm
+                    title="Confirm Deletion"
+                    button={
+                      <TrashIcon className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
+                    }
+                    onAccept={(e) => {
+                      e.preventDefault();
+                      onDelete && onDelete(item.id);
+                    }}
+                  >
+                    You are about to delete this. Are you sure?
+                  </Confirm>
+                </>
+              )}
+            </div>
 
             <hr className="py-1" />
             <div>{item.description}</div>

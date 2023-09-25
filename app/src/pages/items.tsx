@@ -119,7 +119,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         <Modal title="Item Details" setIsOpen={setIsOpen} isValid={false}>
           {!isMerging && !isDropping && (
             <>
-              <ItemWithEffects item={item} key={item.id} showEdit="item" />
+              <ItemWithEffects item={item} key={item.id} showStatistic="item" />
               <div className="flex flex-row">
                 {item.canStack && (
                   <>
