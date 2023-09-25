@@ -202,6 +202,12 @@ export const combatRouter = createTRPCRouter({
           newBattle.usersState.map((user) => {
             user.updatedAt = secondsFromDate(-remainSeconds, new Date(user.updatedAt));
           });
+          newBattle.usersEffects.map((effect) => {
+            effect.createdAt -= remainSeconds * 1000;
+          });
+          newBattle.groundEffects.map((effect) => {
+            effect.createdAt -= remainSeconds * 1000;
+          });
           description += `. Fast-forwarded ${remainSeconds}s to round ${round + 1}.`;
         }
 
@@ -543,6 +549,7 @@ export const initiateBattle = async (
       groundEffects: groundEffects,
       rewardScaling: rewardScaling,
       createdAt: startTime,
+      updatedAt: startTime,
     });
 
     // If not arena, create a history entry
