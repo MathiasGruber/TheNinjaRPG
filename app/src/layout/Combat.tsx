@@ -235,6 +235,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       };
       update().catch(console.error);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props]);
 
   useEffect(() => {
@@ -249,6 +250,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         pusher.unsubscribe(battleId);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battleId]);
 
   // Lobby for non-arena battles, letting both oppoenents join
@@ -499,40 +501,42 @@ const Combat: React.FC<CombatProps> = (props) => {
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
             <p className="p-5 pb-2 text-3xl">You {outcome}</p>
-            {result.experience > 0 && (
-              <p>Experience Points: {result.experience.toFixed(2)}</p>
-            )}
-            {result.ninjutsuOffence > 0 && (
-              <p>Offensive Ninjutsu: {result.ninjutsuOffence.toFixed(2)}</p>
-            )}
-            {result.ninjutsuDefence > 0 && (
-              <p>Defensive Ninjutsu: {result.ninjutsuDefence.toFixed(2)}</p>
-            )}
-            {result.taijutsuOffence > 0 && (
-              <p>Offensive Taijutsu: {result.taijutsuOffence.toFixed(2)}</p>
-            )}
-            {result.taijutsuDefence > 0 && (
-              <p>Defensive Taijutsu: {result.taijutsuDefence.toFixed(2)}</p>
-            )}
-            {result.genjutsuOffence > 0 && (
-              <p>Offensive Genjutsu: {result.genjutsuOffence.toFixed(2)}</p>
-            )}
-            {result.genjutsuDefence > 0 && (
-              <p>Defensive Genjutsu: {result.genjutsuDefence.toFixed(2)}</p>
-            )}
-            {result.bukijutsuOffence > 0 && (
-              <p>Offensive Bukijutsu: {result.bukijutsuOffence.toFixed(2)}</p>
-            )}
-            {result.bukijutsuDefence > 0 && (
-              <p>Defensive Bukijutsu: {result.bukijutsuDefence.toFixed(2)}</p>
-            )}
-            {result.intelligence > 0 && (
-              <p>Intelligence: {result.intelligence.toFixed(2)}</p>
-            )}
-            {result.money !== 0 && <p>Money: {result.money.toFixed(2)}</p>}
-            {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
-            {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
-            {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
+            <div className=" grid grid-cols-2">
+              {result.experience > 0 && (
+                <p>Experience Points: {result.experience.toFixed(2)}</p>
+              )}
+              {result.ninjutsuOffence > 0 && (
+                <p>Offensive Ninjutsu: {result.ninjutsuOffence.toFixed(2)}</p>
+              )}
+              {result.ninjutsuDefence > 0 && (
+                <p>Defensive Ninjutsu: {result.ninjutsuDefence.toFixed(2)}</p>
+              )}
+              {result.taijutsuOffence > 0 && (
+                <p>Offensive Taijutsu: {result.taijutsuOffence.toFixed(2)}</p>
+              )}
+              {result.taijutsuDefence > 0 && (
+                <p>Defensive Taijutsu: {result.taijutsuDefence.toFixed(2)}</p>
+              )}
+              {result.genjutsuOffence > 0 && (
+                <p>Offensive Genjutsu: {result.genjutsuOffence.toFixed(2)}</p>
+              )}
+              {result.genjutsuDefence > 0 && (
+                <p>Defensive Genjutsu: {result.genjutsuDefence.toFixed(2)}</p>
+              )}
+              {result.bukijutsuOffence > 0 && (
+                <p>Offensive Bukijutsu: {result.bukijutsuOffence.toFixed(2)}</p>
+              )}
+              {result.bukijutsuDefence > 0 && (
+                <p>Defensive Bukijutsu: {result.bukijutsuDefence.toFixed(2)}</p>
+              )}
+              {result.intelligence > 0 && (
+                <p>Intelligence: {result.intelligence.toFixed(2)}</p>
+              )}
+              {result.money !== 0 && <p>Money: {result.money.toFixed(2)}</p>}
+              {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
+              {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
+              {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
+            </div>
             <div className="p-5 flex flex-row justify-center">
               <Link
                 href={result.curHealth <= 0 ? "/hospital" : "/profile"}

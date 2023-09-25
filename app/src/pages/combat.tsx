@@ -29,7 +29,6 @@ const CombatPage: NextPage = () => {
   // Derived variables
   const results = battleState?.result;
   const battle = battleState?.battle;
-  const battleId = battle?.id;
   const versionId = battle?.version;
   const user = battle?.usersState.find((u) => u.userId === userId);
 
@@ -41,7 +40,8 @@ const CombatPage: NextPage = () => {
       const newResult = results ? results : data?.result;
       setBattleState({ battle: data?.battle, result: newResult, isLoading: false });
     }
-  }, [userData, results, data, setBattle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, data, setBattle]);
 
   // Collect all possible actions for action selector
   const actions = availableUserActions(battleState?.battle, userData?.userId);
@@ -62,6 +62,7 @@ const CombatPage: NextPage = () => {
         />
       )
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [versionId, actionId, userId, results]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -88,7 +89,7 @@ const CombatPage: NextPage = () => {
         {!isInitialLoading && combat}
         {!userData && <Loader explanation="Loading User Data" />}
         {isInitialLoading && <Loader explanation="Loading Battle Data" />}
-        {userData && !userData.battleId && (
+        {userData && !results && !userData.battleId && (
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>

@@ -581,7 +581,7 @@ export const onehitkill = (
   let info: ActionEffect | undefined = undefined;
   if (primaryCheck && secondaryCheck) {
     target.curHealth = 0;
-    info = { txt: `${target.username} was killed`, color: "red" };
+    info = { txt: `${target.username} was killed in one hit`, color: "red" };
   } else if (primaryCheck) {
     effect.rounds = 0;
     info = { txt: `${target.username} resisted being killed`, color: "blue" };
