@@ -647,6 +647,8 @@ export type BattleEffect = ZodAllTags & {
   villageId?: string | null;
   targetType?: "user" | "barrier";
   power?: number;
+  highestOffence?: typeof StatNames[number];
+  highestDefence?: typeof StatNames[number];
   longitude: number;
   latitude: number;
 };

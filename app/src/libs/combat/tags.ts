@@ -1,5 +1,6 @@
 import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
+import type { StatNames } from "./constants";
 import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
 import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
@@ -828,6 +829,29 @@ export const getPower = (effect: UserEffect) => {
   return { power, adverb, qualifier };
 };
 
+/** Convert from e.g. ninjutsuOffence -> Ninjutsu */
+export const getStatTypeFromStat = (stat: typeof StatNames[number]) => {
+  switch (stat) {
+    case "ninjutsuOffence":
+      return "Ninjutsu";
+    case "ninjutsuDefence":
+      return "Ninjutsu";
+    case "genjutsuOffence":
+      return "Genjutsu";
+    case "genjutsuDefence":
+      return "Genjutsu";
+    case "taijutsuOffence":
+      return "Taijutsu";
+    case "taijutsuDefence":
+      return "Taijutsu";
+    case "bukijutsuOffence":
+      return "Bukijutsu";
+    case "bukijutsuDefence":
+      return "Bukijutsu";
+    default:
+      throw Error("Invalid stat type");
+  }
+};
 /**
  * Calculate ratio of user stats & elements between one user effect to another
  * Returns a ratio between 0 to 1, 0 indicating e.g. that none of the stats in LHS are
@@ -837,10 +861,21 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
   let attacks = 0;
   let defended = 0;
   // Calculate how much damage to adjust based on stats.
-  if ("statTypes" in lhs) {
-    lhs.statTypes?.forEach((stat) => {
+  if ("statTypes" in lhs && "statTypes" in rhs) {
+    // Convert "Highest" -> "Ninjutsu" etc.
+    const left = lhs.statTypes?.map((e) =>
+      e === "Highest" && lhs.highestOffence
+        ? getStatTypeFromStat(lhs.highestOffence)
+        : e
+    );
+    const right = rhs.statTypes?.map((e) =>
+      e === "Highest" && lhs.highestOffence
+        ? getStatTypeFromStat(lhs.highestOffence)
+        : e
+    );
+    left?.forEach((stat) => {
       attacks += 1;
-      if ("statTypes" in rhs && rhs.statTypes?.includes(stat)) {
+      if (right?.includes(stat)) {
         defended += 1;
       }
     });
