@@ -356,6 +356,7 @@ export const DamageTag = z.object({
   type: type("damage"),
   description: msg("Deals damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  residualModifier: z.number().min(0.01).max(1).default(1),
 });
 
 export type DamageTagType = z.infer<typeof DamageTag>;
@@ -702,6 +703,13 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
         ctx,
         "CloneTag can only be set to 0 rounds, indicating a single clone creation"
       );
+    } else if (
+      e.type === "damage" &&
+      e.rounds === 0 &&
+      "residualModifier" in e &&
+      e.residualModifier < 1.0
+    ) {
+      addIssue(ctx, "residualModifier <1 not applicable, effect only applied 0 rounds");
     }
   });
 };
