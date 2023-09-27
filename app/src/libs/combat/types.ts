@@ -686,8 +686,8 @@ const addIssue = (ctx: z.RefinementCtx, message: string) => {
 
 const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
   effects.forEach((e) => {
-    if (e.type === "clear" && e.rounds !== 0) {
-      addIssue(ctx, "ClearTag can only be set to 0 rounds");
+    if (e.type === "clear" && e.rounds !== 1) {
+      addIssue(ctx, "ClearTag can only be set to 1 rounds");
     } else if (e.type === "absorb" && e.direction === "offence") {
       addIssue(ctx, "AbsorbTag should be set to defence");
     } else if (e.type === "armoradjust") {

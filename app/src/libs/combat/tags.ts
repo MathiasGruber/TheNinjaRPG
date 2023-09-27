@@ -291,7 +291,19 @@ export const clear = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   let info: ActionEffect | undefined = undefined;
-  if (mainCheck) {
+  if (effect.isNew) {
+    if (mainCheck) {
+      info = {
+        txt: `${target.username} will be cleared of status effects next round`,
+        color: "blue",
+      };
+    } else {
+      info = {
+        txt: `${target.username} prevented getting cleared of status effects`,
+        color: "blue",
+      };
+    }
+  } else if (!effect.castThisRound) {
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
       .forEach((e) => {
@@ -301,7 +313,6 @@ export const clear = (
       txt: `${target.username} was cleared of all status effects`,
       color: "blue",
     };
-  } else if (effect.isNew) {
     effect.rounds = 0;
   }
   return info;
