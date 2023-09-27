@@ -445,7 +445,7 @@ export const damage = (
   let dmg = calcSum > 0 ? base * calcMean * DMG_SCALING + DMG_BASE : power;
   // If residual
   if (!effect.castThisRound && "residualModifier" in effect) {
-    dmg *= effect.residualModifier;
+    if (effect.residualModifier) dmg *= effect.residualModifier;
   }
   // Add & return consequence
   consequences.set(effect.id, {
