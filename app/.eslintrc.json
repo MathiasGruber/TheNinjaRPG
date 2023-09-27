@@ -6,6 +6,25 @@
       "parserOptions": {
         "project": "tsconfig.json"
       }
+    },
+    {
+      "files": ["*.js", "*.ts", "*.tsx"],
+      "rules": {
+        "@typescript-eslint/consistent-type-imports": "warn",
+        "@typescript-eslint/no-unused-vars": "warn",
+        "@typescript-eslint/no-base-to-string": "warn",
+        "@typescript-eslint/no-this-alias": "warn",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-misused-promises": [
+          2,
+          {
+            "checksVoidReturn": {
+              "attributes": false,
+              "properties": false
+            }
+          }
+        ]
+      }
     }
   ],
   "parser": "@typescript-eslint/parser",
@@ -13,19 +32,5 @@
     "project": "./tsconfig.json"
   },
   "plugins": ["@typescript-eslint"],
-  "extends": ["next/core-web-vitals", "plugin:@typescript-eslint/recommended"],
-  "rules": {
-    "@typescript-eslint/consistent-type-imports": "warn",
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-this-alias": "off",
-    "@typescript-eslint/no-misused-promises": [
-      2,
-      {
-        "checksVoidReturn": {
-          "attributes": false,
-          "properties": false
-        }
-      }
-    ]
-  }
+  "extends": ["next/core-web-vitals", "plugin:@typescript-eslint/recommended"]
 }

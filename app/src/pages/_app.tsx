@@ -1,4 +1,4 @@
-export { reportWebVitals } from "next-axiom";
+import { AxiomWebVitals } from "next-axiom";
 import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
@@ -34,6 +34,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         </Link>{" "}
         before continuing.
       </CookieConsent>
+      <AxiomWebVitals />
       <HighlightInit
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
         serviceName="tnr-frontend"

@@ -16,10 +16,10 @@ import { calcGlobalTravelTime } from "../libs/travel/controls";
 import { useRequiredUserData } from "../utils/UserContext";
 import { show_toast } from "../libs/toast";
 import type { NextPage } from "next";
-import type { GlobalTile, SectorPoint } from "../libs/travel/types";
+import type { GlobalTile, SectorPoint, GlobalMapData } from "../libs/travel/types";
 
-const Map = dynamic(() => import("../layout/Map"));
-const Sector = dynamic(() => import("../layout/Sector"));
+const Map = dynamic(() => import("../layout/Map"), { ssr: false });
+const Sector = dynamic(() => import("../layout/Sector"), { ssr: false });
 
 const Travel: NextPage = () => {
   // What is shown on this page
@@ -29,7 +29,7 @@ const Travel: NextPage = () => {
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
-  const [globe, setGlobe] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
+  const [globe, setGlobe] = useState<GlobalMapData | null>(null);
 
   // Current and target sectors & positions
   const [currentSector, setCurrentSector] = useState<number | null>(null);
@@ -180,7 +180,7 @@ const Travel: NextPage = () => {
             tile={currentTile}
             sector={currentSector}
             target={targetPosition}
-            showVillage={villages.find((village) => village.sector == currentSector)}
+            showVillage={villages.find((village) => village.sector === currentSector)}
             showSorrounding={showSorrounding}
             showActive={showActive}
             setShowSorrounding={setShowSorrounding}
