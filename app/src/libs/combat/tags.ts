@@ -418,9 +418,21 @@ export const damage = (
   if ("calculation" in effect && effect.calculation === "formula") {
     const dir = "offensive";
     effect.statTypes?.forEach((statType) => {
-      const lower = statType.toLowerCase();
-      const a = `${lower}${dir ? "Offence" : "Defence"}`;
-      const b = `${lower}${dir ? "Defence" : "Offence"}`;
+      let a = "";
+      let b = "";
+      if (statType === "Highest" && effect.highestOffence && effect.highestDefence) {
+        if (dir === "offensive") {
+          a = effect.highestOffence;
+          b = effect.highestOffence.replace("Offence", "Defence");
+        } else {
+          a = effect.highestDefence;
+          b = effect.highestDefence.replace("Defence", "Offence");
+        }
+      } else {
+        const lower = statType.toLowerCase();
+        a = `${lower}${dir ? "Offence" : "Defence"}`;
+        b = `${lower}${dir ? "Defence" : "Offence"}`;
+      }
       if (origin && a in origin && b in target) {
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
