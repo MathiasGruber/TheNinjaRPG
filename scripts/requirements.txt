@@ -5,3 +5,5 @@ pyarrow==12.0.0
 seaborn==0.12.2
 ipykernel
 mysqlclient
+openai
+retry
