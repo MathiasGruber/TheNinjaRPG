@@ -544,6 +544,12 @@ export const initiateBattle = async (
       }
     }
 
+    // Figure out which user goes first. Default to attacker, but if defender in own village, they go first
+    let activeUserId = users[0].userId;
+    if (users[1].sector === users[1].village?.sector) {
+      activeUserId = users[1].userId;
+    }
+
     // Create combat entry
     const battleId = nanoid();
     const startTime =
@@ -558,6 +564,7 @@ export const initiateBattle = async (
       rewardScaling: rewardScaling,
       createdAt: startTime,
       updatedAt: startTime,
+      activeUserId: activeUserId,
     });
 
     // If not arena, create a history entry
