@@ -9,7 +9,7 @@ import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/constants";
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
-import { calcBattleResult, maskBattle, doFastForward } from "../../../libs/combat/util";
+import { calcBattleResult, maskBattle, alignBattle } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchUser } from "./profile";
@@ -19,7 +19,7 @@ import { battle, battleAction, battleHistory } from "../../../../drizzle/schema"
 import { performActionSchema } from "../../../libs/combat/types";
 import { performBattleAction } from "../../../libs/combat/actions";
 import { availableUserActions } from "../../../libs/combat/actions";
-import { getBattleRound } from "../../../libs/combat/actions";
+import { calcActiveUser } from "../../../libs/combat/actions";
 import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
@@ -31,6 +31,7 @@ import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import type { ActionEffect } from "../../../libs/combat/types";
 import type { CompleteBattle } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
+import { C } from "drizzle-orm/select.types.d-1d455120";
 
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
@@ -55,10 +56,10 @@ export const combatRouter = createTRPCRouter({
 
       // Update user & delete the battle if it's done
       if (result) {
-        await updateUser(result, userBattle, ctx.userId, ctx.drizzle);
+        await updateUser(ctx.drizzle, userBattle, result, ctx.userId);
         const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
         if (battleOver) {
-          await updateBattle(ctx.drizzle, result, userBattle);
+          await updateBattle(ctx.drizzle, result, userBattle, 1);
         }
       }
 
@@ -79,7 +80,7 @@ export const combatRouter = createTRPCRouter({
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
       // Short-form
-      const uid = ctx.userId;
+      const suid = ctx.userId;
       const db = ctx.drizzle;
 
       // Create the grid for the battle
@@ -95,149 +96,168 @@ export const combatRouter = createTRPCRouter({
       // Pusher instance
       const pusher = getServerPusher();
 
-      // Attempt to perform action untill success || error thrown
+      // OUTER LOOP: Attempt to perform action untill success || error thrown
       // The primary purpose here is that if the battle version was already updated, we retry the user's action
       let attempts = 0;
       while (true) {
-        // Fetch battle
+        // Fetch battle from database
         const battle = await fetchBattle(db, input.battleId);
-        if (!battle) {
-          return { updateClient: true, battle: null, result: null, notification: null };
-        }
+        if (!battle) return { updateClient: true };
 
         // Instantiate new state variables
-        const battleDescriptions: string[] = [];
-        let actionEffects: ActionEffect[] = [];
+        const history: {
+          battleRound: number;
+          appliedEffects: ActionEffect[];
+          description: string;
+          battleVersion: number;
+        }[] = [];
+
+        // Remember original values for round & activeUserId
+        const originalRound = battle.round;
+        const originalActiveUserId = battle.activeUserId;
+
+        // Battle state to update during inner loop
         let newBattle: CompleteBattle = battle;
+        let actionPerformed = false;
+        let nActions = 0;
 
-        // Get action
-        const actions = availableUserActions(battle, uid);
-        const action = actions.find((a) => a.id === input.actionId);
+        // INNER LOOP: Keep updating battle state until all actions have been performed
+        while (true) {
+          // Update the battle to the correct activeUserId & round. Default to current user
+          const { actor, actionRound } = alignBattle(battle, input.userId ?? suid);
 
-        // If userId, actionID, and position specified, perform user action
-        if (
-          input.userId &&
-          input.longitude !== undefined &&
-          input.latitude !== undefined &&
-          input.actionId
-        ) {
-          // Check if action is valid
-          if (!action) {
-            throw serverError("CONFLICT", `Invalid action`);
+          // Only allow action if it is the users turn
+          const isUserTurn = actor.controllerId === suid;
+          const isAITurn = actor.isAi && actor.controllerId === actor.userId;
+          if (!isUserTurn && !isAITurn) {
+            return { notification: `Not your turn. Wait for ${actor.username}` };
           }
 
-          // Attempt to perform action
-          let newState: { newBattle: CompleteBattle; actionEffects: ActionEffect[] };
-          try {
-            newState = performBattleAction({
-              battle,
-              action,
-              grid,
-              contextUserId: uid,
-              userId: input.userId,
-              longitude: input.longitude,
-              latitude: input.latitude,
-            });
-          } catch (error) {
-            let notification = "Unknown Error";
-            if (error instanceof Error) notification = error.message;
-            return { updateClient: false, battle: null, result: null, notification };
-          }
-          // Update state variables
-          ({ newBattle, actionEffects } = newState);
-
-          // Add description of battle action, which is used for showing battle log
-          battleDescriptions.push(action.battleDescription);
-        }
-
-        // Attempt to perform AI action
-        if (action?.id !== "wait") {
-          let aiState: {
-            nextBattle: CompleteBattle;
-            nextActionEffects: ActionEffect[];
-            aiDescriptions: string[];
-          };
-          try {
-            aiState = performAIaction(newBattle, grid);
-            newBattle = aiState.nextBattle;
-            actionEffects.push(...aiState.nextActionEffects);
-            battleDescriptions.push(...aiState.aiDescriptions);
-          } catch (error) {
-            let notification = "Unknown Error";
-            if (error instanceof Error) notification = error.message;
-            if (!notification.includes("Action no longer possible for")) {
-              battleDescriptions.push(notification);
+          // If userId, actionID, and position specified, perform user action
+          const battleDescriptions: string[] = [];
+          const actionEffects: ActionEffect[] = [];
+          if (
+            isUserTurn &&
+            input.longitude !== undefined &&
+            input.latitude !== undefined &&
+            input.actionId
+          ) {
+            /* PERFORM USER ACTION */
+            const actions = availableUserActions(battle, suid);
+            const action = actions.find((a) => a.id === input.actionId);
+            if (!action) throw serverError("CONFLICT", `Invalid action`);
+            try {
+              const newState = performBattleAction({
+                battle,
+                action,
+                grid,
+                contextUserId: suid,
+                userId: actor.userId,
+                longitude: input.longitude,
+                latitude: input.latitude,
+              });
+              newBattle = newState.newBattle;
+              actionPerformed = true;
+              actionEffects.push(...newState.actionEffects);
+              battleDescriptions.push(action.battleDescription);
+            } catch (error) {
+              let notification = "Unknown Error";
+              if (error instanceof Error) notification = error.message;
+              return { updateClient: false, notification };
+            }
+          } else if (isAITurn) {
+            /* PERFORM AI ACTION */
+            try {
+              const aiState = performAIaction(newBattle, grid);
+              newBattle = aiState.nextBattle;
+              actionPerformed = true;
+              actionEffects.push(...aiState.nextActionEffects);
+              battleDescriptions.push(...aiState.aiDescriptions);
+            } catch (error) {
+              let notification = "Unknown Error";
+              if (error instanceof Error) notification = error.message;
+              return { updateClient: false, notification };
             }
           }
-        }
 
-        // If no description, means no actions, just return now
-        let description = battleDescriptions.join(". ");
-        if (!description) {
-          return {
-            updateClient: false,
-            battle: null,
-            result: null,
-            notification: "Was not possible to create battle description",
-          };
-        }
-
-        // Calculate if the battle is over for this user, and if so update user DB
-        const result = calcBattleResult(newBattle, uid);
-
-        // Optimistic update for all other users before we process request. Also increment version
-        const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-        if (!battleOver) {
-          void pusher.trigger(battle.id, "event", {
-            version: battle.version + 1,
-          });
-        }
-
-        // Check if everybody finished their action, and if so, fast-forward the battle
-        const { latestRoundStartAt, round } = getBattleRound(newBattle, Date.now());
-        if (doFastForward(newBattle)) {
-          const secondsIntoRound = secondsPassed(latestRoundStartAt);
-          const remainSeconds = COMBAT_SECONDS - secondsIntoRound;
-          newBattle.createdAt = secondsFromDate(-remainSeconds, newBattle.createdAt);
-          newBattle.usersState.map((user) => {
-            user.updatedAt = secondsFromDate(-remainSeconds, new Date(user.updatedAt));
-          });
-          newBattle.usersEffects.map((effect) => {
-            effect.createdAt -= remainSeconds * 1000;
-          });
-          newBattle.groundEffects.map((effect) => {
-            effect.createdAt -= remainSeconds * 1000;
-          });
-          description += `. Fast-forwarded ${remainSeconds}s to round ${round + 1}.`;
-        }
-
-        /**
-         * DATABASE UPDATES in parallel transaction
-         */
-        try {
-          await updateBattle(db, result, newBattle);
-          const [logEntry] = await Promise.all([
-            createAction(description, newBattle, actionEffects, round, db),
-            saveUsage(db, newBattle, result, uid),
-            updateUser(result, newBattle, uid, db),
-          ]);
-          const newMaskedBattle = maskBattle(newBattle, uid);
-          newMaskedBattle.version = newBattle.version + 1;
-
-          // Return the new battle + result state if applicable
-          return {
-            updateClient: true,
-            battle: newMaskedBattle,
-            result: result,
-            notification: null,
-            logEntry: logEntry,
-          };
-        } catch (e) {
-          if (attempts > 2) {
-            throw e;
+          // If no description, means no actions, just return now
+          let description = battleDescriptions.join(". ");
+          if (!description && actionPerformed) {
+            return { updateClient: false, notification: "No battle description" };
           }
+
+          // Check if everybody finished their action, and if so, fast-forward the battle
+          const { actor: newActor, progressRound } = alignBattle(newBattle);
+          if (actionPerformed && progressRound) {
+            const dot = description.endsWith(".");
+            description += `${dot ? "" : ". "} It is now ${newActor.username}'s turn.`;
+          }
+
+          // Add history entry for what happened during this round
+          history.push({
+            battleRound: actionRound,
+            appliedEffects: actionEffects,
+            description: description,
+            battleVersion: newBattle.version + nActions,
+          });
+          nActions += 1;
+
+          // Calculate if the battle is over for this user, and if so update user DB
+          const result = calcBattleResult(newBattle, suid);
+
+          // Check if we should let the inner-loop continue
+          if (
+            newActor.isAi &&
+            newActor.controllerId === newActor.userId &&
+            nActions < 5 &&
+            !result
+          ) {
+            console.log("AI turn, continuing inner loop", nActions);
+            continue;
+          }
+
+          // If battle state didn't change, just return without updating battle version
+          if (
+            !actionPerformed &&
+            newBattle.round === originalRound &&
+            newBattle.activeUserId === originalActiveUserId
+          ) {
+            return { notification: `Battle state was not changed` };
+          }
+
+          // Optimistic update for all other users before we process request. Also increment version
+          const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+          if (!battleOver) {
+            void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+          }
+
+          /**
+           * DATABASE UPDATES in parallel transaction
+           */
+          try {
+            await updateBattle(db, result, newBattle, nActions);
+            const [logEntries] = await Promise.all([
+              createAction(db, newBattle, history),
+              saveUsage(db, newBattle, result, suid),
+              updateUser(db, newBattle, result, suid),
+            ]);
+            const newMaskedBattle = maskBattle(newBattle, suid);
+            newMaskedBattle.version = newBattle.version + 1;
+
+            // Return the new battle + result state if applicable
+            return {
+              updateClient: true,
+              battle: newMaskedBattle,
+              result: result,
+              logEntries: logEntries,
+            };
+          } catch (e) {
+            // If any of the above fails, retry the whole procedure
+            console.log("Error: ", e);
+            if (attempts > 1) throw e;
+          }
+          attempts += 1;
         }
-        attempts += 1;
       }
     }),
   startArenaBattle: protectedProcedure
@@ -326,6 +346,7 @@ export const initiateBattle = async (
   battleType: BattleType,
   background = "forest.webp"
 ): Promise<BaseServerResponse> => {
+  console.log("------------------------------------------");
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
@@ -528,7 +549,7 @@ export const initiateBattle = async (
               }),
               id: `initial-${col}-${row}`,
               creatorId: "ground",
-              createdAt: Date.now(),
+              createdRound: 0,
               level: 0,
               longitude: col,
               latitude: row,
@@ -564,6 +585,7 @@ export const initiateBattle = async (
       rewardScaling: rewardScaling,
       createdAt: startTime,
       updatedAt: startTime,
+      roundStartAt: startTime,
       activeUserId: activeUserId,
     });
 

@@ -130,7 +130,7 @@ export const availableUserActions = (
             id: "wait",
             name: "End Turn",
             image: "/combat/basicActions/wait.webp",
-            battleDescription: "%user stands and does nothing.",
+            battleDescription: "%user stands and does nothing",
             type: "basic" as const,
             target: "SELF" as const,
             method: "SINGLE" as const,
@@ -458,15 +458,12 @@ export const performBattleAction = (props: {
   const check = insertAction({ battle, grid, action, userId, longitude, latitude });
   if (!check) throw new Error(`Action no longer possible for ${user.username}`);
 
-  // Get battle round
-  const { latestRoundStartAt } = getBattleRound(battle, Date.now());
-
   // Update the action updatedAt state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {
     const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-    if (jutsu) jutsu.updatedAt = latestRoundStartAt;
+    if (jutsu) jutsu.updatedAt = battle.roundStartAt;
     const item = user.items.find((i) => i.item.id === action.id);
-    if (item) item.updatedAt = latestRoundStartAt;
+    if (item) item.updatedAt = battle.roundStartAt;
   }
 
   // Apply relevant effects, and get back new state + active effects
@@ -480,14 +477,17 @@ export const isInNewRound = (
   battle: ReturnedBattle,
   timeDiff = 0
 ) => {
-  // Calculate round
-  const { latestRoundStartAt } = getBattleRound(battle, Date.now(), timeDiff);
-  // Are we in a new round, or same round as previous database update
-  const lastUserUpdate = new Date(user.updatedAt);
+  // Did we pass to next round?
+  const syncedTime = Date.now() - timeDiff;
+  const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();
+  const secondsLeft = Math.floor(COMBAT_SECONDS - mseconds / 1000);
   // Return true if user is in new round
-  return lastUserUpdate < latestRoundStartAt;
+  return secondsLeft < 0;
 };
 
+/**
+ * Calculate how many action points the user has left after performing an action
+ */
 export const actionPointsAfterAction = (
   user: { updatedAt: string | Date; actionPoints: number },
   battle: ReturnedBattle,
@@ -501,16 +501,43 @@ export const actionPointsAfterAction = (
   }
 };
 
-/** Return current round of a given battle */
-export const getBattleRound = (
+/**
+ * Figure out if user is still live and well in battle (not fled, not dead, etc.)
+ // TODO: Use this across the site
+ */
+export const stillInBattle = (user: ReturnedUserState) => {
+  return user.curHealth > 0 && !user.fledBattle;
+};
+
+/**
+ * Calculate (based on current time), which user is currently the one to perform a move
+ */
+export const calcActiveUser = (
   battle: ReturnedBattle,
-  timestamp: number,
-  timeDiff = 0
+  userId?: string | null,
+  timeDiff: number = 0
 ) => {
-  const mseconds = timestamp - timeDiff - new Date(battle.createdAt).getTime();
-  const round = Math.floor(mseconds / 1000 / COMBAT_SECONDS);
-  const latestRoundStartAt = new Date(
-    battle.createdAt.getTime() + round * COMBAT_SECONDS * 1000
-  );
-  return { round, latestRoundStartAt };
+  const syncedTime = Date.now() - timeDiff;
+  const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();
+  const secondsLeft = COMBAT_SECONDS - mseconds / 1000;
+  const userIds = battle.usersState.filter(stillInBattle).map((u) => u.userId);
+  let activeUserId = battle.activeUserId ? battle.activeUserId : userId;
+  let progressRound = false;
+  // Check 1: We have an active user, but the round is up
+  const check1 = battle.activeUserId && secondsLeft <= 0;
+  // Check 2: We have an active user, but he/she does not have any more action points
+  const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
+  // Check 3: Current active userID is not in active user array
+  const check3 = activeUserId && !userIds.includes(activeUserId);
+  // Progress to next user in case of any checks went through
+  if (check1 || check2 || check3) {
+    const curIdx = userIds.indexOf(activeUserId ?? "");
+    const newIdx = (curIdx + 1) % userIds.length;
+    activeUserId = userIds[newIdx] || userId;
+    progressRound = true;
+  }
+  // Find the user in question, and return him
+  const actor = battle.usersState.find((u) => u.userId === activeUserId);
+  if (!actor) throw new Error("No active user");
+  return { actor, progressRound, mseconds, secondsLeft };
 };

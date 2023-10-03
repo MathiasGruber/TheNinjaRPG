@@ -45,11 +45,14 @@ export type CompleteBattle = {
   usersEffects: UserEffect[];
   groundEffects: GroundEffect[];
   id: string;
+  activeUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  roundStartAt: Date;
   background: string;
   battleType: BattleType;
   version: number;
+  round: number;
   rewardScaling: number;
 };
 
@@ -116,8 +119,8 @@ export type CombatAction = {
 };
 
 export interface BattleState {
-  battle?: ReturnedBattle | null;
-  result: CombatResult | null;
+  battle?: ReturnedBattle | null | undefined;
+  result: CombatResult | null | undefined;
   isLoading: boolean;
 }
 
@@ -644,7 +647,7 @@ export type BattleEffect = ZodAllTags & {
   level: number;
   isNew: boolean;
   castThisRound: boolean;
-  createdAt: number;
+  createdRound: number;
   villageId?: string | null;
   targetType?: "user" | "barrier";
   power?: number;

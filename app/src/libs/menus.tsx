@@ -108,7 +108,7 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
       icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
     },
   ];
-  // TODO: Add back in if needed, until then incorporate things closer in the game
+  // Add back in if needed, until then incorporate things closer in the game
   // if (userData && ["CONTENT", "ADMIN"].includes(userData.role)) {
   //   systems.push({
   //     href: "/cpanel",

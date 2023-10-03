@@ -24,9 +24,31 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");
 
+  // Fill in missing entries
+  for (let i = 1; i < battle.round; i++) {
+    if (!groups?.has(i)) {
+      groups?.set(i, [
+        {
+          id: "0",
+          description: "Nothing happened during this round.",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          battleId: battle.id,
+          battleVersion: 0,
+          battleRound: i,
+          appliedEffects: [],
+        },
+      ]);
+    }
+  }
+
+  // Get keys of the groups map, and reverse sort them
+  const sortedGroups =
+    groups && new Map([...groups.entries()].sort((a, b) => b[0] - a[0]));
+
   // Create the history
   const history: React.ReactNode[] = [];
-  groups?.forEach((entries, round) => {
+  sortedGroups?.forEach((entries, round) => {
     history.push(
       <li key={`r-${round}`} className=" ml-4">
         <div className="absolute w-3 h-3 rounded-full mt-1.5 -left-1.5 border border-gray-900 bg-gray-700"></div>

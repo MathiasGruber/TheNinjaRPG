@@ -1,8 +1,9 @@
 import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
 import { randomInt } from "../../utils/math";
-import { getBattleRound } from "./actions";
 import { availableUserActions } from "./actions";
+import { calcActiveUser } from "./actions";
+import { stillInBattle } from "./actions";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
@@ -72,9 +73,7 @@ export const shouldApplyEffectTimes = (
   if (effect.rounds !== undefined && effect.timeTracker) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
-      const { round: prevRound } = getBattleRound(battle, prevApply);
-      const { round: curRound } = getBattleRound(battle, Date.now());
-      applyTimes = curRound - prevRound;
+      applyTimes = battle.round - prevApply;
       if (applyTimes > 0) {
         effect.timeTracker[targetId] = Date.now();
       }
@@ -91,14 +90,11 @@ export const shouldApplyEffectTimes = (
  */
 export const calcEffectRoundInfo = (
   effect: UserEffect | GroundEffect,
-  battle: ReturnedBattle,
-  timeDiff = 0
+  battle: ReturnedBattle
 ) => {
-  if (effect.rounds !== undefined && effect.createdAt) {
-    const { round: startRound } = getBattleRound(battle, effect.createdAt, timeDiff);
-    const { round: curRound } = getBattleRound(battle, Date.now(), timeDiff);
-    const endRound = startRound + effect.rounds;
-    return { startRound, endRound, curRound };
+  if (effect.rounds !== undefined && effect.createdRound) {
+    const endRound = effect.createdRound + effect.rounds;
+    return { startRound: effect.createdRound, endRound, curRound: battle.round };
   }
   return { startRound: -1, curRound: 0, endRound: 1337 };
 };
@@ -108,10 +104,9 @@ export const calcEffectRoundInfo = (
  */
 export const isEffectStillActive = (
   effect: UserEffect | GroundEffect,
-  battle: ReturnedBattle,
-  timeDiff = 0
+  battle: ReturnedBattle
 ) => {
-  const { endRound, curRound } = calcEffectRoundInfo(effect, battle, timeDiff);
+  const { endRound, curRound } = calcEffectRoundInfo(effect, battle);
   return endRound > curRound;
 };
 
@@ -279,7 +274,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       friends = originals.filter((u) => u.villageId === user.villageId);
     }
     const survivingTargets = targets.filter((t) => t.curHealth > 0 && !t.fledBattle);
-    if (user.curHealth <= 0 || user.fledBattle || survivingTargets.length === 0) {
+    if (!stillInBattle(user) || survivingTargets.length === 0) {
       // Update the user left
       user.leftBattle = true;
 
@@ -303,7 +298,6 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const moneyDelta = newMoney - user.originalMoney;
 
       // Result object
-      // TODO: distribute elo_points among stats used during battle
       const result: CombatResult = {
         experience: experience,
         eloPvp: 0,
@@ -370,36 +364,62 @@ const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolea
 };
 
 /**
- * Evaluate whether we should fast-forward the battle
+ * Evaluate whether we should forward battle to next round
  */
-export const doFastForward = (battle: CompleteBattle) => {
-  //   console.log("=======", battle.createdAt);
-  const { latestRoundStartAt } = getBattleRound(battle, Date.now());
-  for (let i = 0; i < battle.usersState.length; i++) {
-    // console.log(i);
-    const user = battle.usersState[i];
-    if (user) {
-      const actionInRound = new Date(user.updatedAt) > latestRoundStartAt;
-      const actionPerc = actionInRound ? user.actionPoints : 100;
-      // console.log(user.updatedAt, latestRoundStartAt, actionInRound, actionPerc);
-      if (actionPerc > 0) {
-        // console.log(user.username);
-        const actions = availableUserActions(battle, user.userId);
-        for (let j = 0; j < actions.length; j++) {
-          const action = actions[j];
-          if (action) {
-            const notWait = action.id !== "wait";
-            const hasPoints = action.actionCostPerc <= user.actionPoints;
-            const aiMove = user.isAi === 1 && action.id === "move";
-            // console.log(action.name, action.actionCostPerc, user.actionPoints);
-            if (hasPoints && notWait && !aiMove) {
-              // console.log(hasPoints, aiMove, notWait);
-              return false;
-            }
+export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) => {
+  const actor = battle.usersState.find((u) => u.userId === actorId);
+  if (actor) {
+    const done = actor.curHealth <= 0 || actor.fledBattle || actor.leftBattle;
+    if (!done) {
+      const actions = availableUserActions(battle, actorId);
+      for (let j = 0; j < actions.length; j++) {
+        const action = actions[j];
+        if (action) {
+          const notWait = action.id !== "wait";
+          const hasPoints = action.actionCostPerc <= actor.actionPoints;
+          const aiMove = actor.isAi === 1 && action.id === "move";
+          if (hasPoints && notWait && !aiMove) {
+            return false;
           }
         }
       }
     }
   }
   return true;
+};
+
+/**
+ * Refill action points for all users in the battle
+ */
+export const refillActionPoints = (battle: ReturnedBattle) => {
+  battle.usersState.forEach((u) => {
+    u.actionPoints = 100;
+  });
+};
+
+/** Align battle based on timestamp to update:
+ * - The proper round & activeUserId
+ * - The action points of all users, in case of next round */
+export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
+  const { actor, progressRound } = calcActiveUser(battle, userId);
+  // A variable for the current round to be used in the battle
+  const actionRound = progressRound ? battle.round + 1 : battle.round;
+  // If we progress the battle round, refill action points + update round info on battle object
+  if (progressRound) {
+    refillActionPoints(battle);
+    battle.roundStartAt = new Date();
+    battle.round = actionRound;
+  }
+  // Update the active user on the battle
+  battle.activeUserId = actor.userId;
+  // Debug
+  if (progressRound) console.log("==================");
+  console.log(
+    actor.username,
+    battle.roundStartAt,
+    battle.round,
+    battle.version,
+    Date.now()
+  );
+  return { actor, progressRound, actionRound };
 };

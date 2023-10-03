@@ -4,6 +4,7 @@ import Loader from "./Loader";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { useUserData } from "../utils/UserContext";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
+import { calcActiveUser } from "../libs/combat/actions";
 import type { CombatAction } from "../libs/combat/types";
 import type { ReturnedUserState } from "../libs/combat/types";
 import type { ReturnedBattle } from "../libs/combat/types";
@@ -23,19 +24,15 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   const { timeDiff } = useUserData();
 
   // State
-  const [state, setState] = useState<{ label: string; actionPerc: number }>({
-    label: "",
-    actionPerc: user.actionPoints,
-  });
+  const [state, setState] = useState<{ label: string }>({ label: "" });
 
   // Derived values
   const cost = action?.actionCostPerc ?? 0;
-  const actionPerc = state.actionPerc;
-  const actionAfter = actionPerc - cost;
+  const actionNow = user.actionPoints;
+  const actionAfter = actionNow - cost;
 
   // Calculate label and color
   const yellow = "/combat/actionTimer/yellow.webp";
-  // const green = "/combat/actionTimer/green.webp";
   const red = "/combat/actionTimer/red.webp";
   const blue = "/combat/actionTimer/blue.webp";
 
@@ -43,21 +40,13 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       // Set label
-      const mseconds = Date.now() - timeDiff - new Date(battle.createdAt).getTime();
-      const round = Math.floor(mseconds / 1000 / COMBAT_SECONDS);
-      const left = (1 + round) * 1000 * COMBAT_SECONDS - mseconds;
-      const [, , , seconds] = getDaysHoursMinutesSeconds(left);
-      // Are we in a new round, or same round as previous database update
-      const lastUserUpdate = new Date(user.updatedAt);
-      const latestRoundAt = new Date(
-        battle.createdAt.getTime() + round * COMBAT_SECONDS * 1000
-      );
-      const actionPerc = lastUserUpdate < latestRoundAt ? 100 : user.actionPoints;
+      const { mseconds, secondsLeft } = calcActiveUser(battle, user.userId, timeDiff);
       // Update state
-      if (round >= 0) {
-        setState({ label: `Round: ${round} - Next: ${seconds}s`, actionPerc });
+      if (mseconds >= 0) {
+        const info = secondsLeft > 0 ? `Next: ${secondsLeft.toFixed(1)}s` : "Finished!";
+        setState({ label: `Round: ${battle.round} - ${info}` });
       } else {
-        setState({ label: `Waiting in Lobby`, actionPerc });
+        setState({ label: `Waiting in Lobby` });
       }
       // Set action points
     }, 100);
@@ -74,12 +63,12 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
           width={768}
           height={62}
         />
-        {actionPerc > 0 && (
+        {actionNow > 0 && (
           <>
             <Image
               className="absolute"
               style={{
-                clipPath: `polygon(0 0%, ${actionPerc}% 0%, ${actionPerc}% 100%, 0% 100%)`,
+                clipPath: `polygon(0 0%, ${actionNow}% 0%, ${actionNow}% 100%, 0% 100%)`,
               }}
               src={actionAfter >= 0 ? yellow : red}
               alt="Action Timer"

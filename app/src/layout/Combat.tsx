@@ -12,6 +12,7 @@ import { highlightTiles } from "../libs/combat/drawing";
 import { highlightTooltips } from "../libs/combat/drawing";
 import { highlightUsers } from "../libs/combat/drawing";
 import { availableUserActions } from "../libs/combat/actions";
+import { calcActiveUser } from "../libs/combat/actions";
 import { actionPointsAfterAction } from "../libs/combat/actions";
 import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
@@ -58,6 +59,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     refetch: refetchUser,
     setBattle,
   } = useRequiredUserData();
+  const suid = userData?.userId;
 
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
@@ -93,14 +95,18 @@ const Combat: React.FC<CombatProps> = (props) => {
           show_toast("Notification", data.notification, "info");
         }
         // Update battle history
-        if (battleId && data.logEntry) {
+        if (battleId && data.logEntries) {
           const prevData = utils.combat.getBattleEntries.getData({
             battleId,
             refreshKey: battle.current?.version,
           });
           utils.combat.getBattleEntries.setData(
             { battleId, refreshKey: data.battle.version },
-            () => (prevData ? [data.logEntry, ...prevData] : [data.logEntry])
+            () => {
+              if (data.logEntries) {
+                return prevData ? [...data.logEntries, ...prevData] : data.logEntries;
+              }
+            }
           );
         }
         // Update battle state
@@ -121,46 +127,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       },
     });
 
-  // AI actions
-  const { mutate: performAIAction, isLoading: isLoadingAI } =
-    api.combat.performAction.useMutation({
-      onSuccess: (data) => {
-        // Update battle history
-        if (battleId && data.logEntry) {
-          const prevData = utils.combat.getBattleEntries.getData({
-            battleId,
-            refreshKey: battle.current?.version,
-          });
-          utils.combat.getBattleEntries.setData(
-            { battleId, refreshKey: data.battle.version },
-            () => (prevData ? [data.logEntry, ...prevData] : [data.logEntry])
-          );
-        }
-        // Update battle stats
-        if (data.updateClient) {
-          battle.current = data.battle;
-          setBattleState({
-            battle: data.battle,
-            result: data.result,
-            isLoading: false,
-          });
-        }
-        // Check if user has actions left, if not, then perform another AI action
-        if (battle.current?.usersState) {
-          const { aiHasActions, userHasActions } = getAvailableActions(
-            battle.current.usersState
-          );
-          if (!userHasActions && aiHasActions) {
-            console.log("User has no actions, performing AI action");
-            performAIAction({
-              battleId: battle.current.id,
-              version: battle.current.version,
-            });
-          }
-        }
-      },
-    });
-
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -176,7 +142,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   };
 
-  const getAvailableActions = (usersState: ReturnedUserState[]) => {
+  const whoHasActions = (usersState: ReturnedUserState[]) => {
     let aiHasActions: CombatAction | undefined = undefined;
     let userHasActions: CombatAction | undefined = undefined;
     // Get user & AI
@@ -203,27 +169,34 @@ const Combat: React.FC<CombatProps> = (props) => {
     return { aiHasActions, userHasActions };
   };
 
+  // If user has no actions left / round is over, propagate battle & potentially perform AI actions
   useEffect(() => {
     const interval = setInterval(() => {
-      if (
-        battle.current &&
-        userId.current &&
-        !isLoadingUser &&
-        !isLoadingAI &&
-        !result
-      ) {
-        const { aiHasActions } = getAvailableActions(battle.current.usersState);
-        if (aiHasActions) {
-          performAIAction({
+      if (suid && battle.current && userId.current && !isLoadingUser && !result) {
+        const { aiHasActions, userHasActions } = whoHasActions(
+          battle.current.usersState
+        );
+        const { actor } = calcActiveUser(battle.current, suid);
+        // Scenario 1: It is no longer the turn of the person who is set as active
+        const scenario1 = battle.current.activeUserId !== suid;
+        // Scenario 2: It is user round, but no more user actions
+        const scenario2 = actor.userId === suid && !userHasActions;
+        // Scenario 3: The current actor is not the session user
+        const scenario3 = actor.userId !== suid;
+        console.log(scenario1, scenario2, scenario3, actor.username);
+        // Send off action from active user, with no specified action ID
+        if (scenario1 || scenario2 || scenario3) {
+          console.log("Perform AI action: ", scenario1, scenario2, scenario3);
+          performAction({
             battleId: battle.current.id,
             version: battle.current.version,
           });
         }
       }
-    }, 5000);
+    }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingUser, isLoadingAI, result]);
+  }, [isLoadingUser, result, suid]);
 
   useEffect(() => {
     action.current = props.action;
@@ -389,7 +362,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         raycaster.setFromCamera(mouse, camera);
 
         // Assume we have battle and a grid
-        if (battle.current && grid.current) {
+        if (userData && battle.current && grid.current) {
           // Get the selected user
           const user = battle.current.usersState.find(
             (u) => u.userId === userId.current
@@ -398,7 +371,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           // If selected user is dead, select another user controlled by the same player
           if (user && user.curHealth <= 0) {
             const another = battle.current.usersState.find(
-              (u) => u.controllerId === userData?.userId && u.curHealth > 0
+              (u) => u.controllerId === userData.userId && u.curHealth > 0
             );
             if (another) setUserId(another.userId);
           }

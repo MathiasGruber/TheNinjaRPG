@@ -193,7 +193,6 @@ export const profileRouter = createTRPCRouter({
       const notifications: NavBarDropdownLink[] = [];
       if (user) {
         // Get number of un-resolved user reports
-        // TODO: Get number of records from KV store to speed up
         if (user.role === "MODERATOR" || user.role === "ADMIN") {
           const reportCounts = await ctx.drizzle
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
