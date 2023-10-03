@@ -37,7 +37,8 @@ export const checkFriendlyFire = (effect: BattleEffect, target: ReturnedUserStat
 export const realizeTag = <T extends BattleEffect>(
   tag: T,
   user: BattleUserState,
-  level: number | undefined
+  level: number | undefined,
+  round: number = 0 // TODO: Remove the default here
 ): T => {
   if ("rounds" in tag) {
     tag.timeTracker = {};
@@ -46,7 +47,7 @@ export const realizeTag = <T extends BattleEffect>(
     tag.power = tag.power;
   }
   tag.id = nanoid();
-  tag.createdAt = Date.now();
+  tag.createdRound = round;
   tag.creatorId = user.userId;
   tag.villageId = user.villageId;
   tag.targetType = "user";
@@ -64,7 +65,8 @@ export const realizeTag = <T extends BattleEffect>(
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: keyof typeof AnimationNames
+  animation?: keyof typeof AnimationNames,
+  round: number = 0 // TODO: Remove the default here
 ): GroundEffect => {
   return {
     ...VisualTag.parse({
@@ -75,7 +77,7 @@ const getVisual = (
       createdAt: Date.now(),
     }),
     id: nanoid(),
-    createdAt: Date.now(),
+    createdRound: round,
     creatorId: nanoid(),
     level: 0,
     isNew: true,
@@ -218,10 +220,10 @@ export const applyEffects = (battle: CompleteBattle) => {
           info = stunPrevent(e, curTarget);
         } else if (e.type === "stun") {
           info = stun(e, newUsersEffects, curTarget);
-        } else if (e.type === "summonprevent") {
-          // TODO:
-        } else if (e.type === "summon") {
-          // TODO:
+          // } else if (e.type === "summonprevent") {
+          //
+          // } else if (e.type === "summon") {
+          //
         }
         updateStatUsage(newTarget, e, true);
       }

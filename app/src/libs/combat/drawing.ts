@@ -21,6 +21,8 @@ import { Animations } from "./types";
 import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
 import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
+import { calcActiveUser } from "./actions";
+import { stillInBattle } from "./actions";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
@@ -212,7 +214,6 @@ export const drawCombatEffects = (info: {
             );
             if (actionSprite) asset.add(actionSprite);
           }
-          // TODO: static animation with LoopInfinite
           // Status bar
           if (effect.type === "barrier") {
             const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
@@ -529,10 +530,7 @@ export const drawCombatUsers = (info: {
         }
         userMesh.position.set(targetX, targetY, 0);
         // Handle remove users from combat.
-        if (
-          (user.curHealth <= 0 || user.fledBattle === true) &&
-          user.hidden === undefined
-        ) {
+        if (!stillInBattle(user) && user.hidden === undefined) {
           setVisible(userMesh, false);
           if (user.isOriginal) {
             const tombstone = userMesh.getObjectByName("tombstone") as Sprite;
@@ -601,9 +599,15 @@ export const highlightTiles = (info: {
     });
   }
 
+  // Make sure the proper round & activeUser is reflected in how we draw combat
+  const { actor } = calcActiveUser(battle, user.userId);
+
   // Check if we have enough action points to perform action
   const canAct =
-    user && action && actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
+    user &&
+    action &&
+    actor.userId === user.userId &&
+    actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
   const hit = intersects.length > 0 && intersects[0];
 
   // Check if cooldown for action has expired
@@ -663,7 +667,6 @@ export const highlightTiles = (info: {
       green.size > 0 &&
       isAvailable
     ) {
-      console.log("set pointer");
       document.body.style.cursor = "pointer";
     } else if (
       document.body.style.cursor === "pointer" &&

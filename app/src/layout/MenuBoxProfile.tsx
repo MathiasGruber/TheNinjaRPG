@@ -194,16 +194,7 @@ const MenuBoxProfile: React.FC = () => {
                   let cooldown = <></>;
                   if (effect.rounds) {
                     const totalSeconds = effect.rounds * COMBAT_SECONDS;
-                    cooldown = (
-                      <Cooldown
-                        createdAt={effect.createdAt}
-                        totalSeconds={totalSeconds}
-                        initialSecondsLeft={
-                          effect.createdAt + totalSeconds * 1000 - Date.now()
-                        }
-                        setState={setState}
-                      />
-                    );
+                    cooldown = <span>X rounds</span>;
                   }
                   const isSealed = sealEffects && sealCheck(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;
