@@ -6,19 +6,18 @@ import Button from "./Button";
 import Countdown from "./Countdown";
 import { drawCombatBackground, drawCombatEffects } from "../libs/combat/drawing";
 import { OrbitControls } from "../libs/threejs/OrbitControls";
+import { COMBAT_SECONDS, COMBAT_LOBBY_SECONDS } from "../libs/combat/constants";
 import { SpriteMixer } from "../libs/threejs/SpriteMixer";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { highlightTiles } from "../libs/combat/drawing";
 import { highlightTooltips } from "../libs/combat/drawing";
 import { highlightUsers } from "../libs/combat/drawing";
-import { availableUserActions } from "../libs/combat/actions";
 import { calcActiveUser } from "../libs/combat/actions";
-import { actionPointsAfterAction } from "../libs/combat/actions";
 import { drawCombatUsers } from "../libs/combat/drawing";
 import { useRequiredUserData } from "../utils/UserContext";
 import { api } from "../utils/api";
 import { show_toast } from "../libs/toast";
-import type { ReturnedBattle, ReturnedUserState } from "../libs/combat/types";
+import type { ReturnedBattle } from "../libs/combat/types";
 import type { CombatAction } from "../libs/combat/types";
 import type { BattleState } from "../libs/combat/types";
 import type { TerrainHex } from "../libs/hexgrid";
@@ -68,6 +67,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     },
     onSuccess: async (data) => {
       if (data.success) {
+        setBattle(undefined);
         setBattleState({ battle: undefined, result: null, isLoading: true });
         refetchBattle();
         await refetchUser();
@@ -112,6 +112,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         // Update battle state
         if (data.updateClient) {
           battle.current = data.battle;
+          setBattle(battle.current);
           setBattleState({
             battle: data.battle,
             result: data.result,
@@ -142,55 +143,26 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   };
 
-  const whoHasActions = (usersState: ReturnedUserState[]) => {
-    let aiHasActions: CombatAction | undefined = undefined;
-    let userHasActions: CombatAction | undefined = undefined;
-    // Get user & AI
-    const user = usersState.find((u) => u.userId === userId.current);
-    const ai = usersState.find(
-      (u) => u.isAi && u.curHealth > 0 && u.controllerId === u.userId
-    );
-    // If user & AI exists, return their actions availability (note: may need updating once multi-combat becomes a thing)
-    if (user && ai && user.curHealth > 0 && !user.leftBattle) {
-      // Check AI actions
-      const aiActions = availableUserActions(battle.current, ai.userId, false);
-      aiHasActions = aiActions.find(
-        (a) =>
-          battle.current && actionPointsAfterAction(ai, battle.current, a, timeDiff) > 0
-      );
-      // Check user actions
-      const userActions = availableUserActions(battle.current, user.userId);
-      userHasActions = userActions.find(
-        (a) =>
-          battle.current &&
-          actionPointsAfterAction(user, battle.current, a, timeDiff) > 0
-      );
-    }
-    return { aiHasActions, userHasActions };
-  };
-
-  // If user has no actions left / round is over, propagate battle & potentially perform AI actions
+  // If user has no actions left / round is over, propagate battle & potentially - perform AI actions
   useEffect(() => {
     const interval = setInterval(() => {
       if (suid && battle.current && userId.current && !isLoadingUser && !result) {
-        const { aiHasActions, userHasActions } = whoHasActions(
-          battle.current.usersState
-        );
         const { actor } = calcActiveUser(battle.current, suid);
-        // Scenario 1: It is no longer the turn of the person who is set as active
-        const scenario1 = battle.current.activeUserId !== suid;
-        // Scenario 2: It is user round, but no more user actions
-        const scenario2 = actor.userId === suid && !userHasActions;
-        // Scenario 3: The current actor is not the session user
-        const scenario3 = actor.userId !== suid;
-        console.log(scenario1, scenario2, scenario3, actor.username);
-        // Send off action from active user, with no specified action ID
-        if (scenario1 || scenario2 || scenario3) {
-          console.log("Perform AI action: ", scenario1, scenario2, scenario3);
+        // Scenario 1: it is now AIs turn, perform action
+        if (actor.isAi && actor.controllerId === actor.userId) {
           performAction({
             battleId: battle.current.id,
             version: battle.current.version,
           });
+        }
+        // Scenario 2: more than 10 seconds passed, or actor is no longer the same as active user - refetch
+        const updatePassed = Date.now() - timeDiff - battle.current.updatedAt.getTime();
+        const createPassed = Date.now() - timeDiff - battle.current.createdAt.getTime();
+        const check1 = updatePassed > COMBAT_SECONDS * 1000;
+        const check2 = createPassed > (COMBAT_LOBBY_SECONDS + COMBAT_SECONDS) * 1000;
+        const newActor = actor.userId !== battle.current.activeUserId;
+        if ((check1 && check2) || newActor) {
+          refetchBattle();
         }
       }
     }, 1000);

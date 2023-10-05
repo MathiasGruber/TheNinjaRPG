@@ -31,7 +31,6 @@ import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
 import type { ActionEffect } from "../../../libs/combat/types";
 import type { CompleteBattle } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
-import { C } from "drizzle-orm/select.types.d-1d455120";
 
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
@@ -42,38 +41,71 @@ export const combatRouter = createTRPCRouter({
         return { battle: null, result: null };
       }
 
-      // Distinguish between public and non-public user state
-      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
-      if (!userBattle) {
-        return { battle: null, result: null };
-      }
+      // OUTER LOOP: Attempt to perform action untill success || error thrown
+      // The primary purpose here is that if the battle version was already updated, we retry the user's action
+      let attempts = 0;
+      while (true) {
+        try {
+          // Increment attempts
+          attempts += 1;
 
-      // Calculate if the battle is over for this user, and if so update user DB
-      const result = calcBattleResult(userBattle, ctx.userId);
+          // Distinguish between public and non-public user state
+          const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+          if (!userBattle) {
+            return { battle: null, result: null };
+          }
 
-      // Hide private state of non-session user
-      const newMaskedBattle = maskBattle(userBattle, ctx.userId);
+          // Update the battle to the correct activeUserId & round. Default to current user
+          const fetchedVersion = userBattle.version;
+          const { progressRound } = alignBattle(userBattle, ctx.userId);
+          if (progressRound) userBattle.version = userBattle.version + 1;
 
-      // Update user & delete the battle if it's done
-      if (result) {
-        await updateUser(ctx.drizzle, userBattle, result, ctx.userId);
-        const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
-        if (battleOver) {
-          await updateBattle(ctx.drizzle, result, userBattle, 1);
+          // Calculate if the battle is over for this user, and if so update user DB
+          const result = calcBattleResult(userBattle, ctx.userId);
+
+          // Hide private state of non-session user
+          const newMaskedBattle = maskBattle(userBattle, ctx.userId);
+
+          // Check if the battle is over, or state was updated
+          const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
+          if (battleOver || progressRound) {
+            await updateBattle(ctx.drizzle, result, userBattle, fetchedVersion);
+          }
+
+          // Update user & delete the battle if it's done
+          if (result) {
+            await updateUser(ctx.drizzle, userBattle, result, ctx.userId);
+          }
+
+          // Return the new battle + result state if applicable
+          return { battle: newMaskedBattle, result: result };
+        } catch (e) {
+          // If any of the above fails, retry the whole procedure
+          if (attempts > 2) throw e;
         }
       }
-
-      // Return the new battle + result state if applicable
-      return { battle: newMaskedBattle, result: result };
     }),
   getBattleEntries: protectedProcedure
-    .input(z.object({ battleId: z.string(), refreshKey: z.number().optional() }))
+    .input(
+      z.object({
+        battleId: z.string(),
+        refreshKey: z.number().optional(),
+        checkBattle: z.boolean().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const entries = await ctx.drizzle.query.battleAction.findMany({
         limit: 10,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
+      // If battle no longer exists, delete all the battle action entries.
+      // This allows a user to retrieve the battle history one last time, even after the battle is deleted
+      if (input.checkBattle) {
+        const result = await ctx.drizzle.execute(
+          sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = ${input.battleId})`
+        );
+      }
       return entries;
     }),
   performAction: protectedProcedure
@@ -235,14 +267,14 @@ export const combatRouter = createTRPCRouter({
            * DATABASE UPDATES in parallel transaction
            */
           try {
-            await updateBattle(db, result, newBattle, nActions);
+            newBattle.version = newBattle.version + nActions;
+            await updateBattle(db, result, newBattle, battle.version);
             const [logEntries] = await Promise.all([
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),
               updateUser(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
-            newMaskedBattle.version = newBattle.version + 1;
 
             // Return the new battle + result state if applicable
             return {

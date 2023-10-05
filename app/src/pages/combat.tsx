@@ -108,7 +108,7 @@ const CombatPage: NextPage = () => {
           }}
         />
       )}
-      {battle && <CombatHistory battle={battle} />}
+      {battle && <CombatHistory battle={battle} results={results} />}
       {battle && !results && actionId && (
         <div className="pt-2 text-xs">
           <p className="text-red-500">Red: tile not affected</p>

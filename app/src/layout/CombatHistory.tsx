@@ -2,20 +2,26 @@ import React from "react";
 import Loader from "./Loader";
 import { api } from "../utils/api";
 import { groupBy } from "../utils/grouping";
+import type { CombatResult } from "../libs/combat/types";
 import type { ActionEffect } from "../libs/combat/types";
 import type { ReturnedBattle } from "../libs/combat/types";
 
 interface CombatHistoryProps {
   battle: ReturnedBattle;
+  results: CombatResult | null | undefined;
 }
 
 const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   // State
-  const { battle } = props;
+  const { battle, results } = props;
 
   // From database
   const { data: allEntries, isFetching } = api.combat.getBattleEntries.useQuery(
-    { battleId: battle.id, refreshKey: battle.version },
+    {
+      battleId: battle.id,
+      refreshKey: battle.version,
+      checkBattle: results ? true : false,
+    },
     {
       enabled: battle.id !== undefined,
       keepPreviousData: true,
@@ -30,7 +36,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
       groups?.set(i, [
         {
           id: "0",
-          description: "Nothing happened during this round.",
+          description: "No information on what happened during this round.",
           createdAt: new Date(),
           updatedAt: new Date(),
           battleId: battle.id,

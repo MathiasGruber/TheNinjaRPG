@@ -8,11 +8,10 @@ import { useUserData } from "../utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
 import { SunIcon } from "@heroicons/react/24/solid";
-import { BugAntIcon } from "@heroicons/react/24/solid";
+import { HeartIcon } from "@heroicons/react/24/solid";
 import { sealCheck } from "../libs/combat/tags";
 import { isEffectStillActive } from "../libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
-import { COMBAT_SECONDS } from "../libs/combat/constants";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "../libs/combat/types";
 
@@ -189,12 +188,14 @@ const MenuBoxProfile: React.FC = () => {
             <hr className="my-2" />
             <ul className="italic">
               {active
-                .filter((u) => u.targetId === userData.userId)
+                .filter((e) => e.targetId === userData.userId)
+                .filter((e) => e.rounds)
                 .map((effect, i) => {
+                  console.log("Effect: ", effect.type, effect.rounds);
                   let cooldown = <></>;
-                  if (effect.rounds) {
-                    const totalSeconds = effect.rounds * COMBAT_SECONDS;
-                    cooldown = <span>X rounds</span>;
+                  if (effect.rounds && battle) {
+                    const left = effect.createdRound + effect.rounds - battle.round;
+                    if (left) cooldown = <> [{left} rounds]</>;
                   }
                   const isSealed = sealEffects && sealCheck(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;
@@ -222,7 +223,15 @@ const MenuBoxProfile: React.FC = () => {
                     return (
                       <li key={i} className={className}>
                         <div className="flex flex-row">
-                          <BugAntIcon className="h-6 w-6 mr-2" /> Dmg {cooldown}
+                          <HeartIcon className="h-6 w-6 mr-2" /> Dmg {cooldown}
+                        </div>
+                      </li>
+                    );
+                  } else if (effect.type === "heal") {
+                    return (
+                      <li key={i} className={className}>
+                        <div className="flex flex-row">
+                          <HeartIcon className="h-6 w-6 mr-2" /> Heal {cooldown}
                         </div>
                       </li>
                     );

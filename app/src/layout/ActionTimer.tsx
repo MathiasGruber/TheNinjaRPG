@@ -3,7 +3,6 @@ import Image from "next/image";
 import Loader from "./Loader";
 import { COMBAT_SECONDS } from "../libs/combat/constants";
 import { useUserData } from "../utils/UserContext";
-import { getDaysHoursMinutesSeconds } from "../utils/time";
 import { calcActiveUser } from "../libs/combat/actions";
 import type { CombatAction } from "../libs/combat/types";
 import type { ReturnedUserState } from "../libs/combat/types";
@@ -24,7 +23,15 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   const { timeDiff } = useUserData();
 
   // State
-  const [state, setState] = useState<{ label: string }>({ label: "" });
+  const [state, setState] = useState<{
+    label: string;
+    canAct: boolean;
+    waiting: boolean;
+  }>({
+    label: "",
+    canAct: false,
+    waiting: false,
+  });
 
   // Derived values
   const cost = action?.actionCostPerc ?? 0;
@@ -40,22 +47,30 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       // Set label
-      const { mseconds, secondsLeft } = calcActiveUser(battle, user.userId, timeDiff);
+      const {
+        actor,
+        mseconds,
+        secondsLeft: left,
+      } = calcActiveUser(battle, user.userId, timeDiff);
+      // Is it the user in question
+      const canAct = actor.userId === user.userId;
+      const waiting = user.userId !== actor.userId;
       // Update state
       if (mseconds >= 0) {
-        const info = secondsLeft > 0 ? `Next: ${secondsLeft.toFixed(1)}s` : "Finished!";
-        setState({ label: `Round: ${battle.round} - ${info}` });
+        const inform = !waiting ? "Your turn" : `${actor.username}'s turn`;
+        const info = left > 0 ? `${inform}: ${left.toFixed(1)}s` : "Finished!";
+        setState({ label: `Round: ${battle.round} - ${info}`, canAct, waiting });
       } else {
-        setState({ label: `Waiting in Lobby` });
+        setState({ label: `Waiting in Lobby`, canAct, waiting });
       }
       // Set action points
     }, 100);
     return () => clearInterval(interval);
-  }, [battle, user, timeDiff, state, setState]);
+  }, [isLoading, battle, user, timeDiff, state, setState]);
 
   return (
     <div className="pl-5">
-      <div className="relative flex flex-row justify-center pt-1">
+      <div className="relative flex flex-row justify-center pt-2">
         <Image
           className="relative"
           src="/combat/actionTimer/background.webp"
@@ -66,7 +81,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
         {actionNow > 0 && (
           <>
             <Image
-              className="absolute"
+              className={`absolute ${!state.canAct ? "grayscale" : ""}`}
               style={{
                 clipPath: `polygon(0 0%, ${actionNow}% 0%, ${actionNow}% 100%, 0% 100%)`,
               }}
@@ -76,7 +91,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
               height={62}
             />
             <Image
-              className="absolute"
+              className={`absolute ${!state.canAct ? "grayscale" : ""}`}
               style={{
                 clipPath: `polygon(0 0%, ${actionAfter}% 0%, ${actionAfter}% 100%, 0% 100%)`,
               }}
@@ -88,7 +103,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
           </>
         )}
         <Image
-          className="absolute "
+          className="absolute"
           src="/combat/actionTimer/overlay.webp"
           alt="Action Timer"
           width={768}
@@ -100,7 +115,11 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
           </div>
         )}
         {state.label && !isLoading && (
-          <p className="absolute bottom-0 left-0 right-0 top-0 flex justify-center text-xs font-bold text-black">
+          <p
+            className={`absolute bottom-0 left-0 right-0 top-0 flex justify-center text-sm font-bold ${
+              state.waiting ? "text-red-800" : "text-green-800 "
+            }`}
+          >
             {state.label}
           </p>
         )}

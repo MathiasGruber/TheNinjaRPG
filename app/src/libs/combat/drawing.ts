@@ -577,14 +577,25 @@ export const highlightTiles = (info: {
   // Definitions
   const { group_tiles, user, battle, currentHighlights, action, grid, timeDiff } = info;
   const intersects = info.raycaster.intersectObjects(group_tiles.children);
+  const hit = intersects.length > 0 && intersects[0];
   const users = battle.usersState;
   const origin = user && grid.getHex({ col: user.longitude, row: user.latitude });
+
+  // Make sure the proper round & activeUser is reflected in how we draw combat
+  const { actor } = calcActiveUser(battle, user.userId);
+
+  // Check if we have enough action points to perform action
+  const canAct =
+    user &&
+    action &&
+    actor.userId === user.userId &&
+    actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
 
   // Highlight fields on the map where action can be applied
   const newHighlights = new Set<string>();
   const highlights = getPossibleActionTiles(action, origin, grid);
 
-  if (highlights) {
+  if (highlights && canAct) {
     highlights.forEach((tile) => {
       if (tile) {
         const mesh = group_tiles.getObjectByName(
@@ -598,17 +609,6 @@ export const highlightTiles = (info: {
       }
     });
   }
-
-  // Make sure the proper round & activeUser is reflected in how we draw combat
-  const { actor } = calcActiveUser(battle, user.userId);
-
-  // Check if we have enough action points to perform action
-  const canAct =
-    user &&
-    action &&
-    actor.userId === user.userId &&
-    actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
-  const hit = intersects.length > 0 && intersects[0];
 
   // Check if cooldown for action has expired
   const syncedTime = Date.now() - timeDiff;

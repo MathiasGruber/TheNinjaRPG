@@ -17,23 +17,21 @@ export const updateBattle = async (
   client: DrizzleClient,
   result: CombatResult | null,
   newBattle: CompleteBattle,
-  nActions: number
+  fetchedVersion: number
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
 
   // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
-    await Promise.all([
-      client.delete(battle).where(eq(battle.id, newBattle.id)),
-      client.delete(battleAction).where(eq(battleAction.battleId, newBattle.id)),
-    ]);
+    await client.delete(battle).where(eq(battle.id, newBattle.id));
   } else {
     const result = await client
       .update(battle)
       .set({
-        version: newBattle.version + nActions,
+        version: newBattle.version,
         createdAt: newBattle.createdAt,
+        updatedAt: newBattle.updatedAt,
         usersState: newBattle.usersState,
         usersEffects: newBattle.usersEffects,
         groundEffects: newBattle.groundEffects,
@@ -41,7 +39,7 @@ export const updateBattle = async (
         roundStartAt: newBattle.roundStartAt,
         round: newBattle.round,
       })
-      .where(and(eq(battle.id, newBattle.id), eq(battle.version, newBattle.version)));
+      .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion)));
     if (result.rowsAffected === 0) {
       throw new Error("Failed to update battle");
     }
