@@ -261,7 +261,12 @@ export const insertAction = (info: {
         const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
         action.effects.forEach((tag) => {
           if (!tag.target || tag.target === "INHERIT") {
-            const effect = realizeTag(tag as GroundEffect, user, action.level);
+            const effect = realizeTag(
+              tag as GroundEffect,
+              user,
+              action.level,
+              battle.round
+            );
             if (effect) {
               effect.longitude = tile.col;
               effect.latitude = tile.row;
@@ -281,7 +286,12 @@ export const insertAction = (info: {
         // Apply effects
         const target = getTargetUser(alive, action.target, tile, user.userId);
         action.effects.forEach((tag) => {
-          const effect = realizeTag(tag as UserEffect, user, action.level);
+          const effect = realizeTag(
+            tag as UserEffect,
+            user,
+            action.level,
+            battle.round
+          );
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;

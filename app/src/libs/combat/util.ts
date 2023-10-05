@@ -92,7 +92,7 @@ export const calcEffectRoundInfo = (
   effect: UserEffect | GroundEffect,
   battle: ReturnedBattle
 ) => {
-  if (effect.rounds !== undefined && effect.createdRound) {
+  if (effect.rounds !== undefined && effect.createdRound !== undefined) {
     const endRound = effect.createdRound + effect.rounds;
     return { startRound: effect.createdRound, endRound, curRound: battle.round };
   }
@@ -412,14 +412,17 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   }
   // Update the active user on the battle
   battle.activeUserId = actor.userId;
-  // Debug
-  if (progressRound) console.log("==================");
-  console.log(
-    actor.username,
-    battle.roundStartAt,
-    battle.round,
-    battle.version,
-    Date.now()
-  );
+  battle.updatedAt = new Date();
+  // TOOD: Debug
+  // if (progressRound) console.log("==================");
+  // console.log(
+  //   battle.activeUserId,
+  //   actor.userId,
+  //   actor.username,
+  //   battle.roundStartAt,
+  //   battle.round,
+  //   battle.version,
+  //   Date.now()
+  // );
   return { actor, progressRound, actionRound };
 };

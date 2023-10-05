@@ -38,7 +38,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag: T,
   user: BattleUserState,
   level: number | undefined,
-  round: number = 0 // TODO: Remove the default here
+  round: number = 0
 ): T => {
   if ("rounds" in tag) {
     tag.timeTracker = {};
@@ -66,7 +66,7 @@ const getVisual = (
   longitude: number,
   latitude: number,
   animation?: keyof typeof AnimationNames,
-  round: number = 0 // TODO: Remove the default here
+  round: number = 0
 ): GroundEffect => {
   return {
     ...VisualTag.parse({
