@@ -1,5 +1,4 @@
 import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
-import { isEffectStillActive } from "./util";
 import { getAffectedTiles } from "./movement";
 import { COMBAT_SECONDS } from "./constants";
 import { realizeTag, checkFriendlyFire } from "./process";
