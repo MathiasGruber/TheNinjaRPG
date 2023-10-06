@@ -706,14 +706,6 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
         ctx,
         "CloneTag can only be set to 0 rounds, indicating a single clone creation"
       );
-    } else if (
-      e.type === "damage" &&
-      e.rounds === 0 &&
-      "residualModifier" in e &&
-      e.residualModifier &&
-      e.residualModifier < 1.0
-    ) {
-      addIssue(ctx, "residualModifier <1 not applicable, effect only applied 0 rounds");
     }
   });
 };
