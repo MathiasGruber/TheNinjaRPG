@@ -128,6 +128,36 @@ const Combat: React.FC<CombatProps> = (props) => {
       },
     });
 
+  // Handle key-presses
+  const onDocumentKeyDown = (event: KeyboardEvent) => {
+    if (battle.current) {
+      const { actor } = calcActiveUser(battle.current, suid);
+      switch (event.key) {
+        case "w":
+          if (actor.userId === suid) {
+            document.body.style.cursor = "wait";
+            performAction({
+              battleId: battle.current.id,
+              userId: userId.current,
+              actionId: "wait",
+              longitude: actor.longitude,
+              latitude: actor.latitude,
+              version: battle.current.version,
+            });
+          } else {
+            show_toast("Not your turn", "Please wait your turn", "info");
+          }
+          break;
+      }
+    }
+  };
+  useEffect(() => {
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+    };
+  }, []);
+
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {

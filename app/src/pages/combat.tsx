@@ -65,6 +65,21 @@ const CombatPage: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [versionId, actionId, userId, results]);
 
+  // Handle key-presses
+  useEffect(() => {
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case "m":
+          actionId === "move" ? setActionId(undefined) : setActionId("move");
+          break;
+      }
+    };
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+    };
+  }, [actionId]);
+
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
@@ -109,13 +124,20 @@ const CombatPage: NextPage = () => {
         />
       )}
       {battle && <CombatHistory battle={battle} results={results} />}
-      {battle && !results && actionId && (
+      <div className="flex flex-row">
+        {battle && !results && actionId && (
+          <div className="pt-2 text-xs">
+            <p className="text-red-500">Red: tile not affected</p>
+            <p className="text-green-700">Green: tile affected by attack</p>
+            <p className="text-blue-500">Blue: move character</p>
+          </div>
+        )}
+        <div className="grow"></div>
         <div className="pt-2 text-xs">
-          <p className="text-red-500">Red: tile not affected</p>
-          <p className="text-green-700">Green: tile affected by attack</p>
-          <p className="text-blue-500">Blue: move character</p>
+          <p className="text-orange-700">Hotkey "W": End turn</p>
+          <p className="text-orange-700">Hotkey "M": Move</p>
         </div>
-      )}
+      </div>
     </div>
   );
 };
