@@ -134,8 +134,8 @@ const CombatPage: NextPage = () => {
         )}
         <div className="grow"></div>
         <div className="pt-2 text-xs">
-          <p className="text-orange-700">Hotkey "W": End turn</p>
-          <p className="text-orange-700">Hotkey "M": Move</p>
+          <p className="text-orange-700">Hotkey &quot;W&quot;: End turn</p>
+          <p className="text-orange-700">Hotkey &quot;M&quot;: Move</p>
         </div>
       </div>
     </div>
