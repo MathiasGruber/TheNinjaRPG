@@ -10,7 +10,7 @@ import { ShieldCheckIcon } from "@heroicons/react/24/solid";
 import { SunIcon } from "@heroicons/react/24/solid";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { sealCheck } from "../libs/combat/tags";
-import { isEffectStillActive } from "../libs/combat/util";
+import { isEffectActive } from "../libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "../utils/time";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "../libs/combat/types";
@@ -62,12 +62,8 @@ const MenuBoxProfile: React.FC = () => {
   }
 
   // Derived data
-  const active = battle?.usersEffects.filter((e) => isEffectStillActive(e, battle));
-  const sealEffects =
-    battle &&
-    active?.filter(
-      (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e, battle)
-    );
+  const active = battle?.usersEffects.filter(isEffectActive);
+  const sealEffects = battle && active?.filter((e) => e.type === "seal" && !e.isNew);
   const immunitySecondsLeft = (userData.immunityUntil.getTime() - Date.now()) / 1000;
 
   // Status link
@@ -191,11 +187,9 @@ const MenuBoxProfile: React.FC = () => {
                 .filter((e) => e.targetId === userData.userId)
                 .filter((e) => e.rounds)
                 .map((effect, i) => {
-                  console.log("Effect: ", effect.type, effect.rounds);
                   let cooldown = <></>;
                   if (effect.rounds && battle) {
-                    const left = effect.createdRound + effect.rounds - battle.round;
-                    if (left) cooldown = <> [{left} rounds]</>;
+                    cooldown = <> [{effect.rounds} rounds]</>;
                   }
                   const isSealed = sealEffects && sealCheck(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;

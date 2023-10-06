@@ -2,7 +2,7 @@ import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes } from "./util";
-import { calcEffectRoundInfo, isEffectStillActive } from "./util";
+import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
@@ -98,7 +98,7 @@ const getVisual = (
   };
 };
 
-export const applyEffects = (battle: CompleteBattle) => {
+export const applyEffects = (battle: CompleteBattle, userId: string) => {
   // Destructure
   const { usersState, usersEffects, groundEffects } = battle;
   // Things we wish to return
@@ -144,7 +144,8 @@ export const applyEffects = (battle: CompleteBattle) => {
         }
       }
       // Let ground effect continue, or is it done?
-      if (isEffectStillActive(e, battle)) {
+      const groundActive = !e.rounds || battle.round < e.createdRound + e.rounds;
+      if (groundActive && isEffectActive(e)) {
         e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
@@ -158,7 +159,7 @@ export const applyEffects = (battle: CompleteBattle) => {
 
   // Fetch any active sealing effects
   const sealEffects = usersEffects.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectStillActive(e, battle)
+    (e) => e.type === "seal" && !e.isNew && isEffectActive(e)
   );
 
   // Apply all user effects to their target users
@@ -178,7 +179,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         latitude = result.barrier.latitude;
         actionEffects.push(result.info);
       }
-    } else if (e.targetType === "user") {
+    } else if (e.targetType === "user" && (e.targetId === userId || e.isNew)) {
       // Get the user && effect details
       const curUser = usersState.find((u) => u.userId === e.creatorId);
       const newUser = newUsersState.find((u) => u.userId === e.creatorId);
@@ -251,7 +252,7 @@ export const applyEffects = (battle: CompleteBattle) => {
     }
 
     // Process round reduction & tag removal
-    if (isEffectStillActive(e, battle) && !e.fromGround) {
+    if (isEffectActive(e) && !e.fromGround) {
       e.isNew = false;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {

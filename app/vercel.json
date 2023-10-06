@@ -3,6 +3,10 @@
     {
       "path": "/api/subscriptions",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cleaner",
+      "schedule": "0 1 * * *"
     }
   ]
 }

@@ -31,26 +31,34 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
   aiUsers.forEach((user) => {
     // Possible actions
     const actions = availableUserActions(nextBattle, user.userId, false);
+    // console.log(
+    //   "Action costs: ",
+    //   actions.map((a) => {
+    //     return { name: a.name, cost: a.actionCostPerc };
+    //   })
+    // );
     // Get a list of all possible actions from this origin and 2 steps forward
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action
     const bestAction = getBestAction(searchTree);
+    // console.log("bestAction", user.actionPoints, bestAction.action?.name);
     // From the search tree find the best action
     // const bestAction = searchTree.reduce(
     // If there is a best action, perform it
+    // console.log("---------- AI ACTION ----------");
     if (
       bestAction.action &&
       bestAction.longitude !== undefined &&
       bestAction.latitude !== undefined
     ) {
       const originalAction = actions.find((a) => a.id === bestAction.action?.id);
-      if (originalAction) {
+      if (originalAction && user.actionPoints >= originalAction.actionCostPerc) {
         const result = performBattleAction({
           battle: nextBattle,
           action: originalAction,
           grid,
           contextUserId: user.userId,
-          userId: user.userId,
+          actorId: user.userId,
           longitude: bestAction.longitude,
           latitude: bestAction.latitude,
         });
@@ -86,7 +94,7 @@ const getHighestFitness = (searchTree: SearchAction, depth: number) => {
   //     searchTree.latitude
   //   );
   // }
-  if (searchTree.nextActions) {
+  if (searchTree.nextActions && searchTree.nextActions?.length > 0) {
     fitness += Math.max(
       ...searchTree.nextActions.map((action) => getHighestFitness(action, depth + 1))
     );
@@ -150,7 +158,7 @@ const getActionTree = (
   const availableActions = structuredClone(actions);
   // Go through all possible actions for this AI
   availableActions.forEach((action) => {
-    const canAct = actionPointsAfterAction(user, battle, action) > 0;
+    const canAct = actionPointsAfterAction(user, battle, action) >= 0;
     if (canAct) {
       // Go through all the possible tiles where action can be performed
       const possibleTiles = getPossibleActionTiles(action, origin, grid);
@@ -161,7 +169,7 @@ const getActionTree = (
             action: structuredClone(action),
             grid,
             contextUserId: user.userId,
-            userId: user.userId,
+            actorId: user.userId,
             longitude: tile.col,
             latitude: tile.row,
           });
@@ -170,8 +178,13 @@ const getActionTree = (
           }
           const { newBattle } = newState;
 
-          // Update all future actions to have zero cost
-          availableActions.forEach((a) => (a.actionCostPerc = 0));
+          // Update all future actions to have zero cost -
+          // This is a hack to lets the AI plan more carefully,
+          // considering actions it may have next round as well
+          // ERROR: This will cause a constant-attack from AI from frontend,
+          //        since it will think it can still use actions
+          // availableActions.forEach((a) => (a.actionCostPerc = 0));
+
           // Calculate the fitness
           const fitness =
             evaluateFitness(battle, newBattle, user.userId, grid, astar, action) +
@@ -239,7 +252,7 @@ export const evaluateFitness = (
 
   // Waiting is penalized
   if (action.id === "wait") {
-    fitness -= 1;
+    fitness -= 10;
   }
 
   // Go through each user in the battle
@@ -251,7 +264,7 @@ export const evaluateFitness = (
 
       // The distance to each enemy is subtracted from the fitness
       // This will make the AI gravitate towards its enemies
-      const origin = findHex(grid, curUser);
+      const origin = findHex(grid, newUser);
       const target = findHex(grid, newEnemy);
       if (origin && target) {
         const path = astar.getShortestPath(origin, target);

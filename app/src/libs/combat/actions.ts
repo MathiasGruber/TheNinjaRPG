@@ -201,18 +201,18 @@ export const insertAction = (info: {
   battle: CompleteBattle;
   grid: Grid<TerrainHex>;
   action: CombatAction;
-  userId: string;
+  actorId: string;
   longitude: number;
   latitude: number;
 }) => {
   // Destruct
-  const { battle, grid, action, userId, longitude, latitude } = info;
+  const { battle, grid, action, actorId, longitude, latitude } = info;
   const { usersState, usersEffects, groundEffects } = battle;
 
   // Convenience
   usersState.map((u) => (u.hex = grid.getHex({ col: u.longitude, row: u.latitude })));
   const alive = usersState.filter((u) => u.curHealth > 0);
-  const user = alive.find((u) => u.userId === userId);
+  const user = alive.find((u) => u.userId === actorId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
   // Can only perform action if battle started
@@ -221,8 +221,8 @@ export const insertAction = (info: {
   }
 
   // Check for stun effects
-  const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === userId);
-  if (stunned && isEffectStillActive(stunned, battle)) {
+  const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === actorId);
+  if (stunned && isEffectActive(stunned)) {
     throw new Error("User is stunned");
   }
 
@@ -247,7 +247,7 @@ export const insertAction = (info: {
       restrictGrid: highlights,
       users: alive,
       ground: groundEffects,
-      userId,
+      userId: actorId,
     });
     // Bookkeeping
     let targetUsernames: string[] = [];
@@ -453,21 +453,21 @@ export const performBattleAction = (props: {
   action: CombatAction;
   grid: Grid<TerrainHex>;
   contextUserId: string;
-  userId: string;
+  actorId: string;
   longitude: number;
   latitude: number;
 }) => {
   // Destructure
-  const { battle, grid, action, contextUserId, userId, longitude, latitude } = props;
+  const { battle, grid, action, contextUserId, actorId, longitude, latitude } = props;
   // Ensure that the userId we're trying to move is valid
   const user = battle.usersState.find(
-    (u) => u.controllerId === contextUserId && u.userId === userId
+    (u) => u.controllerId === contextUserId && u.userId === actorId
   );
   if (!user) throw new Error("This is not your user");
 
   // Perform action, get latest status effects
   // Note: this mutates usersEffects, groundEffects in place
-  const check = insertAction({ battle, grid, action, userId, longitude, latitude });
+  const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
   if (!check) throw new Error(`Action no longer possible for ${user.username}`);
 
   // Update the action updatedAt state, so as keep state for technique cooldowns
@@ -479,7 +479,7 @@ export const performBattleAction = (props: {
   }
 
   // Apply relevant effects, and get back new state + active effects
-  const { newBattle, actionEffects } = applyEffects(battle);
+  const { newBattle, actionEffects } = applyEffects(battle, actorId);
 
   return { newBattle, actionEffects };
 };

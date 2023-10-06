@@ -73,12 +73,13 @@ export const shouldApplyEffectTimes = (
   if (effect.rounds !== undefined && effect.timeTracker) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
-      applyTimes = battle.round - prevApply;
-      if (applyTimes > 0) {
-        effect.timeTracker[targetId] = Date.now();
+      if (battle.round !== prevApply) {
+        effect.timeTracker[targetId] = battle.round;
+      } else {
+        applyTimes = 0;
       }
     } else {
-      effect.timeTracker[targetId] = Date.now();
+      effect.timeTracker[targetId] = battle.round;
     }
   }
   // If no rounds, or no previous applies, then apply 1 time
@@ -93,21 +94,21 @@ export const calcEffectRoundInfo = (
   battle: ReturnedBattle
 ) => {
   if (effect.rounds !== undefined && effect.createdRound !== undefined) {
-    const endRound = effect.createdRound + effect.rounds;
-    return { startRound: effect.createdRound, endRound, curRound: battle.round };
+    return { startRound: effect.createdRound, curRound: battle.round };
   }
-  return { startRound: -1, curRound: 0, endRound: 1337 };
+  return { startRound: -1, curRound: battle.round };
 };
 
 /**
  * Filter for effects based on their duration
  */
-export const isEffectStillActive = (
-  effect: UserEffect | GroundEffect,
-  battle: ReturnedBattle
-) => {
-  const { endRound, curRound } = calcEffectRoundInfo(effect, battle);
-  return endRound > curRound;
+export const isEffectActive = (effect: UserEffect | GroundEffect) => {
+  // Check1: If rounds not specified on tag, then yes, still active
+  if (effect.rounds === undefined) return true;
+  // Check2: If rounds > 0 then still active
+  if (effect.rounds > 1) return true;
+  // If none of the above, then no longer active
+  return false;
 };
 
 /**
@@ -404,11 +405,19 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
-  // If we progress the battle round, refill action points + update round info on battle object
+  // If we progress the battle round;
+  // 1. refill action points
+  // 2. update round info on battle
+  // 3. update all user effect rounds
   if (progressRound) {
     refillActionPoints(battle);
     battle.roundStartAt = new Date();
     battle.round = actionRound;
+    battle.usersEffects.forEach((e) => {
+      if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
+        e.rounds = e.rounds - 1;
+      }
+    });
   }
   // Update the active user on the battle
   battle.activeUserId = actor.userId;

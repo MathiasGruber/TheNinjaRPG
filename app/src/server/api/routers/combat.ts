@@ -95,17 +95,10 @@ export const combatRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        limit: 10,
+        limit: 30,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
-      // If battle no longer exists, delete all the battle action entries.
-      // This allows a user to retrieve the battle history one last time, even after the battle is deleted
-      if (input.checkBattle) {
-        const result = await ctx.drizzle.execute(
-          sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = ${input.battleId})`
-        );
-      }
       return entries;
     }),
   performAction: protectedProcedure
@@ -184,7 +177,7 @@ export const combatRouter = createTRPCRouter({
                 action,
                 grid,
                 contextUserId: suid,
-                userId: actor.userId,
+                actorId: actor.userId,
                 longitude: input.longitude,
                 latitude: input.latitude,
               });
@@ -214,7 +207,7 @@ export const combatRouter = createTRPCRouter({
 
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
-          if (!description && actionPerformed && !history) {
+          if (!description && actionPerformed && history.length === 0) {
             return { updateClient: false, notification: "No battle description" };
           }
 
@@ -235,19 +228,27 @@ export const combatRouter = createTRPCRouter({
             });
             nActions += 1;
           }
+          if (description) {
+            history.push({
+              battleRound: actionRound,
+              appliedEffects: actionEffects,
+              description: description,
+              battleVersion: newBattle.version + nActions,
+            });
+            nActions += 1;
+          }
 
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(newBattle, suid);
 
           // Check if we should let the inner-loop continue
           if (
-            newActor.isAi &&
-            newActor.controllerId === newActor.userId &&
-            nActions < 5 &&
-            description &&
-            !result
+            newActor.isAi && // Continue new loop if it's an AI
+            newActor.controllerId === newActor.userId && // ... which is not controlled by a user
+            nActions < 5 && // and we haven't performed 5 actions yet
+            !result && // and the battle is not over for the user
+            (newActor.userId !== actor.userId || description) // and new actor, or successful attack
           ) {
-            console.log("AI turn, continuing inner loop", nActions);
             continue;
           }
 
@@ -288,7 +289,6 @@ export const combatRouter = createTRPCRouter({
             };
           } catch (e) {
             // If any of the above fails, retry the whole procedure
-            console.log("Error: ", e);
             if (attempts > 1) throw e;
           }
           attempts += 1;
@@ -396,7 +396,6 @@ export const initiateBattle = async (
   battleType: BattleType,
   background = "forest.webp"
 ): Promise<BaseServerResponse> => {
-  console.log("------------------------------------------");
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
