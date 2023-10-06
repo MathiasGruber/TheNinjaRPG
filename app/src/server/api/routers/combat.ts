@@ -12,14 +12,14 @@ import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
-import { fetchUser } from "./profile";
+import { fetchRegeneratedUser } from "./profile";
 import { performAIaction } from "../../../libs/combat/ai_v1";
 import { userData } from "../../../../drizzle/schema";
 import { battle, battleAction, battleHistory } from "../../../../drizzle/schema";
 import { performActionSchema } from "../../../libs/combat/types";
 import { performBattleAction } from "../../../libs/combat/actions";
 import { availableUserActions } from "../../../libs/combat/actions";
-import { calcActiveUser } from "../../../libs/combat/actions";
+import { calcIsInVillage } from "../../../libs/travel/controls";
 import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
@@ -295,7 +295,8 @@ export const combatRouter = createTRPCRouter({
   startArenaBattle: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Get information
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
       const ais = await ctx.drizzle.query.userData.findMany({
         where: eq(userData.isAi, 1),
         columns: {
@@ -303,7 +304,24 @@ export const combatRouter = createTRPCRouter({
           level: true,
         },
       });
-
+      // Check that user was found
+      if (!user) {
+        return { success: false, message: "Attacking user not found" };
+      }
+      // Check if location is OK
+      if (
+        !calcIsInVillage({
+          x: user.longitude,
+          y: user.latitude,
+        }) ||
+        user.sector !== user.village?.sector
+      ) {
+        return {
+          success: false,
+          message: "Must be in your own village to go to arena",
+        };
+      }
+      // Find closest AI and attack it
       const closestAIs = ais.sort((a, b) => {
         return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
       });
