@@ -634,7 +634,7 @@ export const move = (
         g.longitude === effect.longitude &&
         g.latitude === effect.latitude
       ) {
-        g.timeTracker[user.userId] = Date.now();
+        g.timeTracker[user.userId] = effect.createdRound;
       }
     });
     // Update user location. If someone else is already standing on the spot,
