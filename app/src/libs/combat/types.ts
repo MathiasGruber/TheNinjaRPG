@@ -359,7 +359,7 @@ export const DamageTag = z.object({
   type: type("damage"),
   description: msg("Deals damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
-  residualModifier: z.number().min(0.01).max(1).default(1).optional(),
+  residualModifier: z.number().min(0.0).max(1).default(1).optional(),
 });
 
 export type DamageTagType = z.infer<typeof DamageTag>;
