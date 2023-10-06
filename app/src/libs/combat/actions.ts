@@ -6,6 +6,7 @@ import { realizeTag, checkFriendlyFire } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { hasNoAvailableActions } from "./util";
+import { isEffectStillActive } from "./util";
 import { updateStatUsage } from "./tags";
 import { getPossibleActionTiles } from "../hexgrid";
 import type { AttackTargets } from "../../../drizzle/constants";
@@ -274,7 +275,7 @@ export const insertAction = (info: {
               if (
                 target &&
                 effect.type !== "move" &&
-                checkFriendlyFire(effect, target)
+                checkFriendlyFire(effect, target, alive)
               ) {
                 targetUsernames.push(target.username);
                 targetGenders.push(target.gender);
@@ -297,7 +298,7 @@ export const insertAction = (info: {
             effect.latitude = tile.row;
             if (target && (!tag.target || tag.target === "INHERIT")) {
               // Apply UserEffect to target
-              if (checkFriendlyFire(effect, target)) {
+              if (checkFriendlyFire(effect, target, alive)) {
                 targetUsernames.push(target.username);
                 targetGenders.push(target.gender);
                 effect.targetId = target.userId;
@@ -305,7 +306,7 @@ export const insertAction = (info: {
               }
             } else if (tag.target === "SELF") {
               // Overwrite: apply UserEffect to self
-              if (checkFriendlyFire(effect, user)) {
+              if (checkFriendlyFire(effect, user, alive)) {
                 effect.targetId = user.userId;
                 usersEffects.push(effect);
               }

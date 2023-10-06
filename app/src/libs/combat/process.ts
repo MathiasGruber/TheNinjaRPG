@@ -19,12 +19,23 @@ import type { CompleteBattle, Consequence } from "./types";
 /**
  * Check whether to apply given effect to a user, based on friendly fire settings
  */
-export const checkFriendlyFire = (effect: BattleEffect, target: ReturnedUserState) => {
+export const checkFriendlyFire = (
+  effect: BattleEffect,
+  target: ReturnedUserState,
+  usersState: BattleUserState[]
+) => {
+  // In case of multiple villages in the battle; friendly based on villageId, otherwise based on controllerId
+  const villageIds = [...new Set(usersState.map((u) => u.villageId))];
+  const isFriendly =
+    villageIds.length > 1
+      ? target.villageId === effect.villageId
+      : target.controllerId === effect.creatorId;
+  // Check if effect is friendly fire
   if (
     !effect.friendlyFire ||
     effect.friendlyFire === "ALL" ||
-    (effect.friendlyFire === "FRIENDLY" && target.villageId === effect.villageId) ||
-    (effect.friendlyFire === "ENEMIES" && target.villageId !== effect.villageId)
+    (effect.friendlyFire === "FRIENDLY" && isFriendly) ||
+    (effect.friendlyFire === "ENEMIES" && !isFriendly)
   ) {
     return true;
   }
@@ -112,7 +123,7 @@ export const applyEffects = (battle: CompleteBattle) => {
       // Apply ground effect to user
       const user = findUser(newUsersState, e.longitude, e.latitude);
       if (user && e.type !== "visual") {
-        if (checkFriendlyFire(e, user)) {
+        if (checkFriendlyFire(e, user, newUsersState)) {
           usersEffects.push({
             ...e,
             targetId: user.userId,
