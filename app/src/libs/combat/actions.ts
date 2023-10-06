@@ -122,7 +122,7 @@ export const availableUserActions = (
             chakraCostPerc: 0,
             staminaCostPerc: 0,
             actionCostPerc: 100,
-            effects: [FleeTag.parse({ power: 30, rounds: 0 })],
+            effects: [FleeTag.parse({ power: 20, rounds: 0 })],
           },
         ]
       : []),
