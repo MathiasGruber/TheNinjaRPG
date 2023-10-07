@@ -228,15 +228,6 @@ export const combatRouter = createTRPCRouter({
             });
             nActions += 1;
           }
-          if (description) {
-            history.push({
-              battleRound: actionRound,
-              appliedEffects: actionEffects,
-              description: description,
-              battleVersion: newBattle.version + nActions,
-            });
-            nActions += 1;
-          }
 
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(newBattle, suid);
