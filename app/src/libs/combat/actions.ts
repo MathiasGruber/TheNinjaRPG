@@ -5,7 +5,7 @@ import { realizeTag, checkFriendlyFire } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { hasNoAvailableActions } from "./util";
-import { isEffectStillActive } from "./util";
+import { isEffectActive } from "./util";
 import { updateStatUsage } from "./tags";
 import { getPossibleActionTiles } from "../hexgrid";
 import type { AttackTargets } from "../../../drizzle/constants";
