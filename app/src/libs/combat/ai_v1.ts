@@ -45,7 +45,6 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
     // From the search tree find the best action
     // const bestAction = searchTree.reduce(
     // If there is a best action, perform it
-    // console.log("---------- AI ACTION ----------");
     if (
       bestAction.action &&
       bestAction.longitude !== undefined &&

@@ -144,8 +144,6 @@ const Combat: React.FC<CombatProps> = (props) => {
               latitude: actor.latitude,
               version: battle.current.version,
             });
-          } else {
-            show_toast("Not your turn", "Please wait your turn", "info");
           }
           break;
       }

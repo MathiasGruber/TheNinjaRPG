@@ -514,16 +514,20 @@ export const flee = (
   const primaryCheck = Math.random() < power / 100;
   const secondaryCheck = preventCheck(usersEffects, "fleeprevent", target);
 
-  let info: ActionEffect | undefined = undefined;
+  let text =
+    effect.isNew && effect.rounds && effect.rounds > 0
+      ? `${target.username} will attempt fleeing for the next ${effect.rounds} rounds`
+      : "";
   if (primaryCheck && secondaryCheck) {
     target.fledBattle = true;
-    info = { txt: `${target.username} manages to flee the battle!`, color: "blue" };
+    text = `. ${target.username} manages to flee the battle!`;
   } else if (primaryCheck) {
-    info = { txt: `${target.username} is prevented from fleeing`, color: "blue" };
+    text += `. ${target.username} is prevented from fleeing`;
   } else {
-    info = { txt: `${target.username} fails to flee the battle!`, color: "blue" };
+    text += `. ${target.username} fails to flee the battle!`;
   }
-  return info;
+
+  return { txt: text, color: "blue" };
 };
 
 /** Check if flee prevent is successful depending on static chance calculation */
