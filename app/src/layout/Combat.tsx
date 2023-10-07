@@ -184,15 +184,18 @@ const Combat: React.FC<CombatProps> = (props) => {
             battleId: battle.current.id,
             version: battle.current.version,
           });
-        }
-        // Scenario 2: more than 10 seconds passed, or actor is no longer the same as active user - refetch
-        const updatePassed = Date.now() - timeDiff - battle.current.updatedAt.getTime();
-        const createPassed = Date.now() - timeDiff - battle.current.createdAt.getTime();
-        const check1 = updatePassed > COMBAT_SECONDS * 1000;
-        const check2 = createPassed > (COMBAT_LOBBY_SECONDS + COMBAT_SECONDS) * 1000;
-        const newActor = actor.userId !== battle.current.activeUserId;
-        if ((check1 && check2) || newActor) {
-          refetchBattle();
+        } else {
+          // Scenario 2: more than 10 seconds passed, or actor is no longer the same as active user - refetch
+          const updatePassed =
+            Date.now() - timeDiff - battle.current.updatedAt.getTime();
+          const createPassed =
+            Date.now() - timeDiff - battle.current.createdAt.getTime();
+          const check1 = updatePassed > COMBAT_SECONDS * 1000;
+          const check2 = createPassed > (COMBAT_LOBBY_SECONDS + COMBAT_SECONDS) * 1000;
+          const newActor = actor.userId !== battle.current.activeUserId;
+          if ((check1 && check2) || newActor) {
+            refetchBattle();
+          }
         }
       }
     }, 1000);

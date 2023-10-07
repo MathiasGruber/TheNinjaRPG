@@ -214,7 +214,7 @@ export const applyEffects = (battle: CompleteBattle) => {
         } else if (e.type === "poolcostadjust") {
           info = pooladjust(e, curTarget);
         } else if (e.type === "clear") {
-          info = clear(e, usersEffects, curTarget);
+          info = clear(e, newUsersEffects, curTarget);
         } else if (e.type === "onehitkill") {
           info = onehitkill(e, newUsersEffects, newTarget);
         } else if (e.type === "onehitkillprevent") {

@@ -214,7 +214,7 @@ export const combatRouter = createTRPCRouter({
 
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
-          if (!description && actionPerformed) {
+          if (!description && actionPerformed && !history) {
             return { updateClient: false, notification: "No battle description" };
           }
 
@@ -226,13 +226,15 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Add history entry for what happened during this round
-          history.push({
-            battleRound: actionRound,
-            appliedEffects: actionEffects,
-            description: description,
-            battleVersion: newBattle.version + nActions,
-          });
-          nActions += 1;
+          if (description) {
+            history.push({
+              battleRound: actionRound,
+              appliedEffects: actionEffects,
+              description: description,
+              battleVersion: newBattle.version + nActions,
+            });
+            nActions += 1;
+          }
 
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(newBattle, suid);
@@ -242,6 +244,7 @@ export const combatRouter = createTRPCRouter({
             newActor.isAi &&
             newActor.controllerId === newActor.userId &&
             nActions < 5 &&
+            description &&
             !result
           ) {
             console.log("AI turn, continuing inner loop", nActions);
