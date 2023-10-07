@@ -310,10 +310,7 @@ export const combatRouter = createTRPCRouter({
       }
       // Check if location is OK
       if (
-        !calcIsInVillage({
-          x: user.longitude,
-          y: user.latitude,
-        }) ||
+        !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
         user.sector !== user.village?.sector
       ) {
         return {

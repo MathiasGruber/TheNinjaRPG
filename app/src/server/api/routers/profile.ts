@@ -35,6 +35,7 @@ import { calcHP, calcSP, calcCP } from "../../../libs/profile";
 import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../../libs/profile";
 import { MAX_ATTRIBUTES } from "../../../libs/profile";
 import { statSchema } from "../../../libs/combat/types";
+import { calcIsInVillage } from "../../../libs/travel/controls";
 import { UserStatNames } from "../../../../drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData } from "../../../../drizzle/schema";
@@ -58,6 +59,12 @@ export const profileRouter = createTRPCRouter({
       }
       if (user.status !== "AWAKE") {
         return { success: false, message: "Must be awake to start training" };
+      }
+      if (
+        !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
+        user.sector !== user.village?.sector
+      ) {
+        return { success: false, message: "Must be in your own village" };
       }
       const result = await ctx.drizzle
         .update(userData)
