@@ -106,7 +106,7 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
   // Check1: If rounds not specified on tag, then yes, still active
   if (effect.rounds === undefined) return true;
   // Check2: If rounds > 0 then still active
-  if (effect.rounds > 1) return true;
+  if (effect.rounds > 0) return true;
   // If none of the above, then no longer active
   return false;
 };
@@ -415,6 +415,7 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
     battle.round = actionRound;
     battle.usersEffects.forEach((e) => {
       if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
+        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
         e.rounds = e.rounds - 1;
       }
     });

@@ -185,7 +185,7 @@ const MenuBoxProfile: React.FC = () => {
             <ul className="italic">
               {active
                 .filter((e) => e.targetId === userData.userId)
-                .filter((e) => e.rounds)
+                .filter((e) => e.rounds === undefined || e.rounds > 0)
                 .map((effect, i) => {
                   let cooldown = <></>;
                   if (effect.rounds && battle) {

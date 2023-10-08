@@ -290,32 +290,30 @@ export const clear = (
 ) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
-  let info: ActionEffect | undefined = undefined;
-  if (effect.isNew) {
-    if (mainCheck) {
-      info = {
-        txt: `${target.username} will be cleared of status effects next round`,
-        color: "blue",
-      };
-    } else {
-      info = {
-        txt: `${target.username} prevented getting cleared of status effects`,
-        color: "blue",
-      };
-    }
-  } else if (!effect.castThisRound) {
+
+  let text =
+    effect.isNew && effect.rounds && effect.rounds > 0
+      ? `All status effects may be cleared from ${target.username} during the next ${effect.rounds} rounds. `
+      : "";
+
+  if (mainCheck) {
+    text = `${target.username} will be cleared of status effects on their next round. `;
+    effect.rounds = 2;
+    effect.power = 100;
+  } else {
+    text += `${target.username} could not be cleared of status effects this round. `;
+  }
+
+  if (!effect.castThisRound && effect.power === 100) {
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
-      .forEach((e) => {
+      .map((e) => {
         e.rounds = 0;
       });
-    info = {
-      txt: `${target.username} was cleared of all status effects`,
-      color: "blue",
-    };
+    text = `${target.username} was cleared of all status effects. `;
     effect.rounds = 0;
   }
-  return info;
+  return { txt: text, color: "blue" } as ActionEffect;
 };
 
 /** Clone user on the battlefield */
@@ -527,7 +525,7 @@ export const flee = (
     text += `. ${target.username} fails to flee the battle!`;
   }
 
-  return { txt: text, color: "blue" };
+  return { txt: text, color: "blue" } as ActionEffect;
 };
 
 /** Check if flee prevent is successful depending on static chance calculation */
