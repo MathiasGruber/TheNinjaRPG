@@ -460,22 +460,27 @@ export const performBattleAction = (props: {
   // Destructure
   const { battle, grid, action, contextUserId, actorId, longitude, latitude } = props;
   // Ensure that the userId we're trying to move is valid
-  const user = battle.usersState.find(
-    (u) => u.controllerId === contextUserId && u.userId === actorId
-  );
+  const user = battle.usersState.find((u) => u.userId === actorId);
   if (!user) throw new Error("This is not your user");
 
-  // Perform action, get latest status effects
-  // Note: this mutates usersEffects, groundEffects in place
-  const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
-  if (!check) throw new Error(`Action no longer possible for ${user.username}`);
+  // Check if actor is stunned
+  const isStunned = calcIsStunned(battle, actorId);
+  if (isStunned) {
+    user.actionPoints = 0;
+    action.battleDescription = `${user.username} is stunned and cannot move.`;
+  } else {
+    // Perform action, get latest status effects
+    // Note: this mutates usersEffects, groundEffects in place
+    const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
+    if (!check) throw new Error(`Action no longer possible for ${user.username}`);
 
-  // Update the action updatedAt state, so as keep state for technique cooldowns
-  if (action.cooldown && action.cooldown > 0) {
-    const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-    if (jutsu) jutsu.updatedAt = battle.roundStartAt;
-    const item = user.items.find((i) => i.item.id === action.id);
-    if (item) item.updatedAt = battle.roundStartAt;
+    // Update the action updatedAt state, so as keep state for technique cooldowns
+    if (action.cooldown && action.cooldown > 0) {
+      const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
+      if (jutsu) jutsu.updatedAt = battle.roundStartAt;
+      const item = user.items.find((i) => i.item.id === action.id);
+      if (item) item.updatedAt = battle.roundStartAt;
+    }
   }
 
   // Apply relevant effects, and get back new state + active effects

@@ -149,12 +149,12 @@ export const combatRouter = createTRPCRouter({
         // INNER LOOP: Keep updating battle state until all actions have been performed
         while (true) {
           // Update the battle to the correct activeUserId & round. Default to current user
-          const { actor, actionRound } = alignBattle(battle, input.userId ?? suid);
+          const { actor, actionRound, isStunned } = alignBattle(battle, suid);
 
           // Only allow action if it is the users turn
           const isUserTurn = actor.controllerId === suid;
           const isAITurn = actor.isAi && actor.controllerId === actor.userId;
-          if (!isUserTurn && !isAITurn) {
+          if (!isStunned && !isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
 
@@ -162,7 +162,8 @@ export const combatRouter = createTRPCRouter({
           const battleDescriptions: string[] = [];
           const actionEffects: ActionEffect[] = [];
           if (
-            isUserTurn &&
+            !isAITurn &&
+            (isUserTurn || isStunned) &&
             input.longitude !== undefined &&
             input.latitude !== undefined &&
             input.actionId
@@ -231,6 +232,15 @@ export const combatRouter = createTRPCRouter({
 
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(newBattle, suid);
+
+          // If newActor is stunned, go through another round
+          if (calcIsStunned(newBattle, newActor.userId)) {
+            console.log(`New user is ${newActor.username} and is stunned`);
+            input.actionId = "move";
+            input.longitude = 1;
+            input.latitude = 1;
+            continue;
+          }
 
           // Check if we should let the inner-loop continue
           if (

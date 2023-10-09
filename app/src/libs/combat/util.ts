@@ -423,6 +423,8 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   // Update the active user on the battle
   battle.activeUserId = actor.userId;
   battle.updatedAt = new Date();
+  // Is the new actor stunned?
+  const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug
   // if (progressRound) console.log("==================");
   // console.log(
@@ -434,5 +436,12 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   //   battle.version,
   //   Date.now()
   // );
-  return { actor, progressRound, actionRound };
+  return { actor, progressRound, actionRound, isStunned };
+};
+
+export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
+  const stunned = battle.usersEffects.find(
+    (e) => e.type === "stun" && e.targetId === userId
+  );
+  return stunned ? true : false;
 };
