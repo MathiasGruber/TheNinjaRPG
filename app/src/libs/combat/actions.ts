@@ -5,6 +5,7 @@ import { realizeTag, checkFriendlyFire } from "./process";
 import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { hasNoAvailableActions } from "./util";
+import { calcIsStunned } from "./util";
 import { isEffectActive } from "./util";
 import { updateStatUsage } from "./tags";
 import { getPossibleActionTiles } from "../hexgrid";

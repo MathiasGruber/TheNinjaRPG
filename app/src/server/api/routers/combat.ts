@@ -10,6 +10,7 @@ import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/const
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "../../../libs/combat/util";
+import { calcIsStunned } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchRegeneratedUser } from "./profile";

@@ -514,15 +514,15 @@ export const flee = (
 
   let text =
     effect.isNew && effect.rounds && effect.rounds > 0
-      ? `${target.username} will attempt fleeing for the next ${effect.rounds} rounds`
+      ? `${target.username} will attempt fleeing for the next ${effect.rounds} rounds. `
       : "";
   if (primaryCheck && secondaryCheck) {
     target.fledBattle = true;
-    text = `. ${target.username} manages to flee the battle!`;
+    text = `${target.username} manages to flee the battle!`;
   } else if (primaryCheck) {
-    text += `. ${target.username} is prevented from fleeing`;
+    text += `${target.username} is prevented from fleeing`;
   } else {
-    text += `. ${target.username} fails to flee the battle!`;
+    text += `${target.username} fails to flee the battle!`;
   }
 
   return { txt: text, color: "blue" } as ActionEffect;

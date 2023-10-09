@@ -179,7 +179,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         latitude = result.barrier.latitude;
         actionEffects.push(result.info);
       }
-    } else if (e.targetType === "user" && (e.targetId === userId || e.isNew)) {
+    } else if (e.targetType === "user") {
       // Get the user && effect details
       const curUser = usersState.find((u) => u.userId === e.creatorId);
       const newUser = newUsersState.find((u) => u.userId === e.creatorId);
@@ -187,55 +187,62 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
+      const isTargetOrNew = e.targetId === userId || e.isNew;
       if (curUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
+
+        // Tags only applied when target is user or new
+        if (isTargetOrNew) {
+          if (e.type === "damage" && isTargetOrNew) {
+            info = damage(e, curUser, curTarget, consequences, applyTimes);
+          } else if (e.type === "heal" && isTargetOrNew) {
+            info = heal(e, curTarget, consequences, applyTimes);
+          } else if (e.type === "flee" && isTargetOrNew) {
+            info = flee(e, newUsersEffects, newTarget);
+          } else if (e.type === "poolcostadjust" && isTargetOrNew) {
+            info = pooladjust(e, curTarget);
+          } else if (e.type === "clear" && isTargetOrNew) {
+            info = clear(e, usersEffects, curTarget);
+          } else if (e.type === "damagegivenadjust") {
+            info = adjustDamageGiven(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "onehitkill") {
+            info = onehitkill(e, newUsersEffects, newTarget);
+          } else if (e.type === "rob") {
+            info = rob(e, newUsersEffects, newUser, newTarget);
+          } else if (e.type === "seal") {
+            info = seal(e, newUsersEffects, curTarget);
+          } else if (e.type === "stun") {
+            info = stun(e, newUsersEffects, curTarget);
+          } // } else if (e.type === "summonprevent") {
+          //
+          // } else if (e.type === "summon") {
+          //
+        }
+
+        // Tags to apply always
         if (e.type === "absorb") {
           info = absorb(e, usersEffects, consequences, curTarget);
         } else if (e.type === "armoradjust") {
           info = adjustArmor(e, curTarget);
         } else if (e.type === "statadjust") {
           info = adjustStats(e, curTarget);
-        } else if (e.type === "damagegivenadjust") {
-          info = adjustDamageGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "damagetakenadjust") {
           info = adjustDamageTaken(e, usersEffects, consequences, curTarget);
         } else if (e.type === "healadjust") {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "damage") {
-          info = damage(e, curUser, curTarget, consequences, applyTimes);
-        } else if (e.type === "heal") {
-          info = heal(e, curTarget, consequences, applyTimes);
         } else if (e.type === "reflect") {
           info = reflect(e, usersEffects, consequences, curTarget);
         } else if (e.type === "fleeprevent") {
           info = fleePrevent(e, curTarget);
-        } else if (e.type === "flee") {
-          info = flee(e, newUsersEffects, newTarget);
-        } else if (e.type === "poolcostadjust") {
-          info = pooladjust(e, curTarget);
-        } else if (e.type === "clear") {
-          info = clear(e, usersEffects, curTarget);
-        } else if (e.type === "onehitkill") {
-          info = onehitkill(e, newUsersEffects, newTarget);
         } else if (e.type === "onehitkillprevent") {
           info = onehitkillPrevent(e, curTarget);
         } else if (e.type === "robprevent") {
           info = robPrevent(e, curTarget);
-        } else if (e.type === "rob") {
-          info = rob(e, newUsersEffects, newUser, newTarget);
         } else if (e.type === "sealprevent") {
           info = sealPrevent(e, curTarget);
-        } else if (e.type === "seal") {
-          info = seal(e, newUsersEffects, curTarget);
         } else if (e.type === "stunprevent") {
           info = stunPrevent(e, curTarget);
-        } else if (e.type === "stun") {
-          info = stun(e, newUsersEffects, curTarget);
-          // } else if (e.type === "summonprevent") {
-          //
-          // } else if (e.type === "summon") {
-          //
         }
         updateStatUsage(newTarget, e, true);
       }
