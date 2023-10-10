@@ -90,7 +90,7 @@ const EditProfile: NextPage = () => {
           title="Reset Stats"
           selectedTitle={activeElement}
           unselectedSubtitle="Redistribute your experience points"
-          selectedSubtitle={`You can redistribute your stats for ${COST_CHANGE_USERNAME} reputation points. You
+          selectedSubtitle={`You can redistribute your stats for ${COST_RESET_STATS} reputation points. You
           have ${userData.reputationPoints} reputation points. You have ${
             userData.experience + 120
           } experience points to distribute.`}
