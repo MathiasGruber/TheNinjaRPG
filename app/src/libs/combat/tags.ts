@@ -816,7 +816,8 @@ export const stun = (
     effect.rounds = 0;
     info = { txt: `${target.username} resisted being stunned`, color: "blue" };
   } else {
-    info = { txt: `${target.username} manages not to be stunned!`, color: "blue" };
+    effect.rounds = 0;
+    info = { txt: `${target.username} manages not to get stunned!`, color: "blue" };
   }
   return info;
 };
