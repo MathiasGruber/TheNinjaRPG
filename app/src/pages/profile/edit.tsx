@@ -11,6 +11,9 @@ import SelectField from "../../layout/SelectField";
 import Button from "../../layout/Button";
 import AvatarImage from "../../layout/Avatar";
 import InputField from "../../layout/InputField";
+import Modal from "../../layout/Modal";
+import ItemWithEffects from "../../layout/ItemWithEffects";
+import { ActionSelector } from "../../layout/CombatActions";
 import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
 import { attributes } from "../../validators/register";
@@ -20,9 +23,12 @@ import { useRequiredUserData } from "../../utils/UserContext";
 import { api } from "../../utils/api";
 import { useUserSearch } from "../../utils/search";
 import { show_toast } from "../../libs/toast";
-import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../libs/profile";
+import { COST_CHANGE_USERNAME } from "../../libs/profile";
+import { COST_RESET_STATS } from "../../libs/profile";
+import { COST_SWAP_BLOODLINE } from "../../libs/profile";
 import { UploadButton } from "../../utils/uploadthing";
 import { statSchema } from "../../libs/combat/types";
+import type { Bloodline } from "../../../drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "../../validators/comments";
@@ -92,12 +98,126 @@ const EditProfile: NextPage = () => {
         >
           <ResetStats />
         </Accordion>
+        <Accordion
+          title="Swap Bloodline"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Change your bloodline of choice"
+          selectedSubtitle={`You can swap your current bloodline for another of similar rank for ${COST_SWAP_BLOODLINE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+          onClick={setActiveElement}
+        >
+          <SwapBloodline />
+        </Accordion>
       </div>
     </ContentBox>
   );
 };
 
 export default EditProfile;
+
+/**
+ * Swap bloodline
+ */
+const SwapBloodline: React.FC = () => {
+  // State
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  // Fetch data
+  const { data: bloodlines, isFetching } = api.bloodline.getAll.useInfiniteQuery(
+    { rank: userData?.bloodline?.rank ?? "D", limit: 50 },
+    {
+      enabled: !!userData,
+      keepPreviousData: true,
+      staleTime: Infinity,
+    }
+  );
+  const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
+
+  // Mutations
+  const { mutate: swap, isLoading: isSwapping } =
+    api.bloodline.swapBloodline.useMutation({
+      onSuccess: async () => {
+        await refetchUser();
+      },
+      onError: (error) => {
+        show_toast("Error rolling", error.message, "error");
+      },
+      onSettled: () => {
+        setIsOpen(false);
+      },
+    });
+
+  // Only show if we have userData
+  if (!userData) {
+    return <Loader explanation="Loading profile page..." />;
+  }
+
+  // Derived data
+  const isDisabled = userData.bloodline ? false : true;
+  const canAfford = userData && userData.reputationPoints >= COST_SWAP_BLOODLINE;
+
+  // Show component
+  return (
+    <div className="mt-2">
+      {!isDisabled && !isFetching && (
+        <ActionSelector
+          items={allBloodlines}
+          showBgColor={false}
+          showLabels={true}
+          onClick={(id) => {
+            if (id == bloodline?.id) {
+              setBloodline(undefined);
+              setIsOpen(false);
+            } else {
+              setBloodline(allBloodlines?.find((b) => b.id === id));
+              setIsOpen(true);
+            }
+          }}
+        />
+      )}
+      {isFetching && <Loader explanation="Loading bloodlines" />}
+      {isDisabled && (
+        <div>
+          You do not have a bloodline currently. Go to{" "}
+          <Link className="font-bold" href="/hospital">
+            the hospital
+          </Link>{" "}
+          to get one.
+        </div>
+      )}
+      {isOpen && userData && bloodline && (
+        <Modal
+          title="Confirm Purchase"
+          proceed_label={
+            isSwapping
+              ? undefined
+              : canAfford
+              ? `Swap for ${COST_SWAP_BLOODLINE} reps`
+              : `Need ${COST_SWAP_BLOODLINE - userData.reputationPoints} reps`
+          }
+          setIsOpen={setIsOpen}
+          isValid={false}
+          onAccept={() => {
+            if (canAfford) {
+              swap({ bloodlineId: bloodline.id });
+            } else {
+              setIsOpen(false);
+            }
+          }}
+          confirmClassName={
+            canAfford
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }
+        >
+          {!isSwapping && <ItemWithEffects item={bloodline} key={bloodline.id} />}
+          {isSwapping && <Loader explanation={`Purchasing ${bloodline.name}`} />}
+        </Modal>
+      )}
+    </div>
+  );
+};
 
 /**
  * Reset stats component

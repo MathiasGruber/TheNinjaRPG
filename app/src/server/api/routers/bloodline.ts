@@ -7,12 +7,13 @@ import { bloodline, bloodlineRolls, actionLog } from "../../../../drizzle/schema
 import { userJutsu, jutsu } from "../../../../drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
-import { fetchUser } from "./profile";
+import { fetchUser, fetchRegeneratedUser } from "./profile";
 import { BloodlineValidator } from "../../../libs/combat/types";
 import { getRandomElement } from "../../../utils/array";
 import { canChangeContent } from "../../../utils/permissions";
 import { callDiscordContent } from "../../../libs/discord";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "../../../libs/bloodline";
+import { COST_SWAP_BLOODLINE } from "../../../libs/profile";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { BloodlineRank } from "../../../../drizzle/schema";
@@ -262,6 +263,33 @@ export const bloodlineRouter = createTRPCRouter({
         .update(userData)
         .set({
           reputationPoints: user.reputationPoints - BLOODLINE_COST[line.rank],
+          bloodlineId: line.id,
+        })
+        .where(eq(userData.userId, ctx.userId));
+    }),
+  // Swap a bloodline for another of similar rank
+  swapBloodline: protectedProcedure
+    .input(z.object({ bloodlineId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      if (!user || !user.bloodline) {
+        throw serverError("PRECONDITION_FAILED", "User does not exist");
+      }
+      const line = await fetchBloodline(ctx.drizzle, input.bloodlineId);
+      if (!line) {
+        throw serverError("PRECONDITION_FAILED", "Bloodline does not exist");
+      }
+      if (line.rank !== user.bloodline.rank) {
+        throw serverError("PRECONDITION_FAILED", "Bloodline ranks are not the same");
+      }
+      const cost = COST_SWAP_BLOODLINE;
+      if (cost > user.reputationPoints) {
+        throw serverError("FORBIDDEN", "You do not have enough reputation points");
+      }
+      return await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: user.reputationPoints - cost,
           bloodlineId: line.id,
         })
         .where(eq(userData.userId, ctx.userId));
