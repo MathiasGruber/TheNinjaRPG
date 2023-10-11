@@ -467,7 +467,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
-      {isInLobby && battle.current && (
+      {isInLobby && battle.current && battle.current.battleType !== "ARENA" && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="flex flex-col items-center justify-center text-white h-full">
             <p className="p-5 text-5xl">Waiting for opponent</p>
