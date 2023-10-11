@@ -737,6 +737,7 @@ export const userData = mysqlTable(
     pveFights: int("pveFights").default(0).notNull(),
     eloPve: int("eloPve").default(1).notNull(),
     eloPvp: int("eloPvp").default(1).notNull(),
+    pvpStreak: int("pvpStreak").default(0).notNull(),
     inboxNews: int("inboxNews").default(0).notNull(),
     regenAt: datetime("regenAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)

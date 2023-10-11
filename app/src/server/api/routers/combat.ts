@@ -10,6 +10,7 @@ import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/const
 import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "../../../libs/combat/util";
+import { rollInitiative } from "../../../libs/combat/util";
 import { calcIsStunned } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
@@ -578,6 +579,8 @@ export const initiateBattle = async (
       user.armor = 0;
       user.fledBattle = false;
       user.leftBattle = false;
+      // Roll initiative
+      user.initiative = rollInitiative(user, users as BattleUserState[]);
       return user;
     });
 
@@ -616,16 +619,18 @@ export const initiateBattle = async (
       }
     }
 
-    // Figure out which user goes first. Default to attacker, but if defender in own village, they go first
-    let activeUserId = users[0].userId;
-    if (users[1].sector === users[1].village?.sector) {
-      activeUserId = users[1].userId;
-    }
+    // Figure out who starts in the battle
+    const attRoll = (users[0] as BattleUserState).initiative;
+    const defRoll = (users[1] as BattleUserState).initiative;
+    const attackerFirst = attRoll >= defRoll || battleType === "ARENA";
+    const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
 
-    // Create combat entry
-    const battleId = nanoid();
+    // When to start the battle
     const startTime =
       battleType === "ARENA" ? new Date() : secondsFromNow(COMBAT_LOBBY_SECONDS);
+
+    // Insert battle entry into DB
+    const battleId = nanoid();
     await tx.insert(battle).values({
       id: battleId,
       battleType: battleType,

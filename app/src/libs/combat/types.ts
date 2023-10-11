@@ -32,6 +32,7 @@ export type BattleUserState = UserData & {
   controllerId: string;
   leftBattle: boolean;
   fledBattle: boolean;
+  initiative: number;
   hex?: TerrainHex;
   originalMoney: number;
   usedGenerals: typeof GeneralType[number][];
@@ -74,6 +75,7 @@ export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
  */
 export type CombatResult = {
   experience: number;
+  pvpStreak: number;
   eloPvp: number;
   eloPve: number;
   curHealth: number;

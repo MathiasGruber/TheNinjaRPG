@@ -213,6 +213,7 @@ const Profile: NextPage = () => {
           <p>Experience for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
           <p>PVP Fights: {userData.pvpFights}</p>
           <p>PvE Fights: {userData.pveFights}</p>
+          <p>PvP Streak: {userData.pvpStreak}</p>
           <br />
           <b>Special</b>
           <p>Reputation points: {userData.reputationPoints}</p>

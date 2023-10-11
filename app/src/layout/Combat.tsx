@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
 import type { Grid } from "honeycomb-grid";
 import Button from "./Button";
 import Countdown from "./Countdown";
+import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 import { drawCombatBackground, drawCombatEffects } from "../libs/combat/drawing";
 import { OrbitControls } from "../libs/threejs/OrbitControls";
 import { COMBAT_SECONDS, COMBAT_LOBBY_SECONDS } from "../libs/combat/constants";
@@ -459,7 +461,9 @@ const Combat: React.FC<CombatProps> = (props) => {
       : "Fled"
     : "Unknown";
   const showNextMatch = outcome === "Won" && battle.current?.battleType === "ARENA";
-
+  const initiveWinner = battle.current?.usersState.find(
+    (u) => u.userId === battle.current?.activeUserId
+  );
   return (
     <>
       <div ref={mountRef}></div>
@@ -470,6 +474,33 @@ const Combat: React.FC<CombatProps> = (props) => {
             <p className="text-3xl">
               Time Left: <Countdown targetDate={battle.current.createdAt} />
             </p>
+            <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
+              Initiative Winner: {initiveWinner?.username}{" "}
+              <Link href="/manual/combat">
+                <QuestionMarkCircleIcon className="ml-2 h6 w-6 hover:fill-orange-500" />
+              </Link>
+            </p>
+            <div className="flex flex-row gap-4">
+              {battle.current.usersState.map((u, i) => {
+                return (
+                  <div
+                    key={i}
+                    className="flex flex-col items-center relative font-bold"
+                  >
+                    <Image
+                      alt={`roll-${u.userId}`}
+                      src="/combat/d20.webp"
+                      height={80}
+                      width={80}
+                    ></Image>
+                    <p className="absolute text-lg top-10">
+                      {Math.floor(u.initiative)}
+                    </p>
+                    <p>{u.username}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -284,6 +284,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const oExp = targets.reduce((a, b) => a + b.experience, 0) / targets.length;
       const didWin = user.curHealth > 0 && !user.fledBattle;
       const maxGain = 32 * battle.rewardScaling;
+
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
       const experience = !user.fledBattle ? (didWin ? eloDiff : eloDiff / 2) : 0.01;
@@ -303,6 +304,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         experience: experience,
         eloPvp: 0,
         eloPve: 0,
+        pvpStreak: didWin && battle.battleType === "COMBAT" ? user.pvpStreak + 1 : 0,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
@@ -444,4 +446,50 @@ export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
     (e) => e.type === "stun" && e.targetId === userId
   );
   return stunned ? true : false;
+};
+
+export const rollInitiative = (
+  user: BattleUserState,
+  opponents?: BattleUserState[]
+) => {
+  // Get a random number between 1 and 20
+  let roll = randomInt(1, 20);
+  // Calculate level bonus
+  if (opponents) {
+    const avgLevel = opponents.reduce((a, b) => a + b.level, 0) / opponents.length;
+    const levelBonus = Math.max((user.level - avgLevel) * 0.03, 0);
+    roll = roll * (1 + levelBonus);
+  }
+  // Calculate territory bonus
+  const ownTerritory = user.sector === user.village?.sector;
+  const territoryBonus = ownTerritory ? 0.1 : -0.1;
+  roll = roll * (1 + territoryBonus);
+  // PvP bonus
+  if (user.pvpStreak > 0) {
+    let pvpBonus = 0;
+    for (let i = 1; i <= user.pvpStreak; i++) {
+      switch (i) {
+        case 1:
+          pvpBonus += 0.02;
+          break;
+        case 2:
+          pvpBonus += 0.015;
+          break;
+        case 3:
+          pvpBonus += 0.01;
+          break;
+        case 4:
+          pvpBonus += 0.005;
+          break;
+        case 5:
+          pvpBonus += 0.0025;
+          break;
+        default:
+          pvpBonus += 0.0025;
+          break;
+      }
+    }
+    roll = roll * (1 + pvpBonus);
+  }
+  return roll;
 };

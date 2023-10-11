@@ -27,6 +27,7 @@ export const publicState = [
   "location",
   "sector",
   "updatedAt",
+  "initiative",
   "eloPvp",
   "eloPve",
   "regeneration",
@@ -69,7 +70,21 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
-export const Element = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
+export const Element = [
+  "Fire",
+  "Water",
+  "Wind",
+  "Earth",
+  "Lightning",
+  "Ice",
+  "Crystal",
+  "Dust",
+  "Shadow",
+  "Wood",
+  "Scorch",
+  "Magnet",
+  "None",
+] as const;
 export const StatType = [
   "Highest",
   "Ninjutsu",
