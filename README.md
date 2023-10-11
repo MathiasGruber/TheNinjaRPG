@@ -1,8 +1,8 @@
-# TheNinja-RPG - Core 4
+# :tada: TheNinja-RPG - Core 4 :tada:
 
 This is the official source code for the game [www.TheNinja-RPG.com](www.TheNinja-RPG.com).
 
-# Setting up locally
+# :computer: Setting up locally
 
 The codebase relies on a variety of external services for e.g. auth, websockets, database, etc - all of these have free tiers more than capable of sustaining local development. To get up and running, it is therefore required to sign up for free accounts on the following services:
 
@@ -23,7 +23,7 @@ Using information from these services, copy `app/.env.example` to `app/.env` and
 - Run `make seed` to seed database.
 - Go to `http://localhost:3000` to view.
 
-# Local Development Guide
+# :bookmark: Local Development Guide
 
 Various `make` commands are available; type `make help` at the root directory for list of available commands. Most importantly:
 
@@ -31,6 +31,6 @@ Various `make` commands are available; type `make help` at the root directory fo
 - Use `make dbpush` to push schema changes to database witout creating migration file
 - Use `make makemigrations` to create migrations file for new database changes
 
-# Licensing
+# :lock: Licensing
 
 This source code is released with [no license](https://choosealicense.com/no-permission/), meaning that the work is under exclusive copyright. We do not wish for countless of online copies to be released and float around.
