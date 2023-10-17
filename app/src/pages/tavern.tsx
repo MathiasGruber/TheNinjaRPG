@@ -19,7 +19,11 @@ const Tavern: NextPage = () => {
         refreshKey={0}
         convo_title={activeTab}
         title={activeTab + " Tavern"}
-        subtitle="Broadcast across all villages."
+        subtitle={
+          activeTab === "Global"
+            ? "Broadcast across all villages"
+            : "Chat with your fellow villagers"
+        }
         chatbox_options={
           <>
             <div className="grow"></div>
