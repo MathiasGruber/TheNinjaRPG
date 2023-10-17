@@ -504,7 +504,6 @@ export const processUsersForBattle = (
   const usersState = users.map((user, i) => {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
-    user.isOriginal = true;
 
     // Set direction
     user.direction = i % 2 === 0 ? "right" : "left";
@@ -553,6 +552,9 @@ export const processUsersForBattle = (
       user.longitude = 1;
       user.latitude = 1;
       user.curHealth = 0;
+      user.isOriginal = false;
+    } else {
+      user.isOriginal = true;
     }
 
     // Set the history lists to record actions during battle

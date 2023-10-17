@@ -481,25 +481,27 @@ const Combat: React.FC<CombatProps> = (props) => {
               </Link>
             </p>
             <div className="flex flex-row gap-4">
-              {battle.current.usersState.map((u, i) => {
-                return (
-                  <div
-                    key={i}
-                    className="flex flex-col items-center relative font-bold"
-                  >
-                    <Image
-                      alt={`roll-${u.userId}`}
-                      src="/combat/d20.webp"
-                      height={80}
-                      width={80}
-                    ></Image>
-                    <p className="absolute text-lg top-10">
-                      {Math.floor(u.initiative)}
-                    </p>
-                    <p>{u.username}</p>
-                  </div>
-                );
-              })}
+              {battle.current.usersState
+                .filter((u) => u.isOriginal)
+                .map((u, i) => {
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center relative font-bold"
+                    >
+                      <Image
+                        alt={`roll-${u.userId}`}
+                        src="/combat/d20.webp"
+                        height={80}
+                        width={80}
+                      ></Image>
+                      <p className="absolute text-lg top-10">
+                        {Math.floor(u.initiative)}
+                      </p>
+                      <p>{u.username}</p>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </div>
