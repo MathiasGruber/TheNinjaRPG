@@ -5,6 +5,7 @@ import Confirm from "./Confirm";
 import { canChangeContent } from "../utils/permissions";
 import { useUserData } from "../utils/UserContext";
 import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import { getTagSchema } from "../libs/combat/types";
 import type { ItemRarity } from "../../drizzle/schema";
 import type { Bloodline, Item, Jutsu } from "../../drizzle/schema";
 import type { ZodAllTags } from "../libs/combat/types";
@@ -34,7 +35,7 @@ export interface ItemWithEffectsProps {
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item, showEdit, showStatistic, onDelete } = props;
   const { data: userData } = useUserData();
-  const effects = props.item.effects as ZodAllTags[];
+  const effects = props.item.effects as Omit<ZodAllTags, "description">[];
 
   // Define image
   let image = (
@@ -162,58 +163,65 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             )}
           </div>
           {effects.map((effect, i) => {
+            // Get schema for parsing effect
+            const schema = getTagSchema(effect.type);
+            // Delete description, so that we get the default one
+            if ("description" in effect) delete effect["description"];
+            const parsedEffect = schema.parse(effect);
             return (
               <div
-                key={effect.type + i.toString()}
+                key={parsedEffect.type + i.toString()}
                 className="my-2 rounded-lg bg-orange-100 p-2"
               >
-                <b>Effect {i + 1}: </b> {effect.description}
+                <div className="pb-1">
+                  <b>Effect {i + 1}: </b> <i>{parsedEffect.description}</i>
+                </div>
                 <div className="grid grid-cols-2">
-                  {effect.rounds !== undefined && (
+                  {parsedEffect.rounds !== undefined && (
                     <span>
-                      <b>Rounds: </b> {effect.rounds}
+                      <b>Rounds: </b> {parsedEffect.rounds}
                     </span>
                   )}
-                  {effect.calculation && (
+                  {parsedEffect.calculation && (
                     <span>
                       <b>Calculation: </b>
-                      {effect.calculation}
+                      {parsedEffect.calculation}
                     </span>
                   )}
-                  {"power" in effect && (
+                  {"power" in parsedEffect && (
                     <span>
                       <b>Effect Power: </b>
-                      {effect.power}
+                      {parsedEffect.power}
                     </span>
                   )}
-                  {"aiHp" in effect && (
+                  {"aiHp" in parsedEffect && (
                     <span>
                       <b>Health Points: </b>
-                      {effect.aiHp}
+                      {parsedEffect.aiHp}
                     </span>
                   )}
-                  {"powerPerLevel" in effect && (
+                  {"powerPerLevel" in parsedEffect && (
                     <span>
                       <b>Effect Power / Lvl: </b>
-                      {effect.powerPerLevel}
+                      {parsedEffect.powerPerLevel}
                     </span>
                   )}
-                  {"generalTypes" in effect && effect.generalTypes && (
+                  {"generalTypes" in parsedEffect && parsedEffect.generalTypes && (
                     <span>
                       <b>Generals: </b>
-                      {effect.generalTypes.join(", ")}
+                      {parsedEffect.generalTypes.join(", ")}
                     </span>
                   )}
-                  {"statTypes" in effect && effect.statTypes && (
+                  {"statTypes" in parsedEffect && parsedEffect.statTypes && (
                     <span>
                       <b>Stats: </b>
-                      {effect.statTypes.join(", ")}
+                      {parsedEffect.statTypes.join(", ")}
                     </span>
                   )}
-                  {"elements" in effect && effect.elements && (
+                  {"elements" in parsedEffect && parsedEffect.elements && (
                     <span>
                       <b>Elements: </b>
-                      {effect.elements.join(", ")}
+                      {parsedEffect.elements.join(", ")}
                     </span>
                   )}
                 </div>
