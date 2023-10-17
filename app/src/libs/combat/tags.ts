@@ -840,7 +840,8 @@ export const summon = (
   effect: GroundEffect,
   isActive: boolean
 ) => {
-  const { power: perc } = getPower(effect);
+  const { power } = getPower(effect);
+  const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
   if (!("aiId" in effect)) {
     throw new Error("Summon effect must have aiId");
@@ -867,18 +868,18 @@ export const summon = (
         newAi.maxHealth = effect.aiHp;
         newAi.curHealth = newAi.maxHealth;
         // Set stats
-        user.ninjutsuOffence = user.ninjutsuOffence * perc;
-        user.ninjutsuDefence = user.ninjutsuDefence * perc;
-        user.genjutsuOffence = user.genjutsuOffence * perc;
-        user.genjutsuDefence = user.genjutsuDefence * perc;
-        user.taijutsuOffence = user.taijutsuOffence * perc;
-        user.taijutsuDefence = user.taijutsuDefence * perc;
-        user.bukijutsuOffence = user.bukijutsuOffence * perc;
-        user.bukijutsuDefence = user.bukijutsuDefence * perc;
-        user.strength = user.strength * perc;
-        user.intelligence = user.intelligence * perc;
-        user.willpower = user.willpower * perc;
-        user.speed = user.speed * perc;
+        newAi.ninjutsuOffence = newAi.ninjutsuOffence * perc;
+        newAi.ninjutsuDefence = newAi.ninjutsuDefence * perc;
+        newAi.genjutsuOffence = newAi.genjutsuOffence * perc;
+        newAi.genjutsuDefence = newAi.genjutsuDefence * perc;
+        newAi.taijutsuOffence = newAi.taijutsuOffence * perc;
+        newAi.taijutsuDefence = newAi.taijutsuDefence * perc;
+        newAi.bukijutsuOffence = newAi.bukijutsuOffence * perc;
+        newAi.bukijutsuDefence = newAi.bukijutsuDefence * perc;
+        newAi.strength = newAi.strength * perc;
+        newAi.intelligence = newAi.intelligence * perc;
+        newAi.willpower = newAi.willpower * perc;
+        newAi.speed = newAi.speed * perc;
         // Push to userState
         usersState.push(newAi);
         // ActionEffect to be shown
