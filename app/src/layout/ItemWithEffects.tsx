@@ -186,6 +186,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {effect.power}
                     </span>
                   )}
+                  {"aiHp" in effect && (
+                    <span>
+                      <b>Health Points: </b>
+                      {effect.aiHp}
+                    </span>
+                  )}
                   {"powerPerLevel" in effect && (
                     <span>
                       <b>Effect Power / Lvl: </b>

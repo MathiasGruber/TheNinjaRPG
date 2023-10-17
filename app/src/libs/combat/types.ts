@@ -489,7 +489,9 @@ export const SummonTag = z.object({
   ...BaseAttributes,
   ...PositivePowerAttributes,
   type: type("summon"),
-  description: msg("Summon an ally"),
+  description: msg(
+    "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage."
+  ),
   rounds: z.number().int().min(2).max(20).default(2),
   aiId: z.string().default(""),
   aiHp: z.number().min(100).max(100000).default(100),
