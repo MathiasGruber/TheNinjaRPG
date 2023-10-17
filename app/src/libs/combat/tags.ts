@@ -1,10 +1,11 @@
-import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
-import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import type { StatNames } from "./constants";
 import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
 import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
 import { shouldApplyEffectTimes } from "./util";
+import { scaleUserStats } from "../../../drizzle/seeds/ai";
 import { nanoid } from "nanoid";
+import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
+import type { GroundEffect, UserEffect, ActionEffect } from "./types";
+import type { StatNames } from "./constants";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -833,6 +834,84 @@ export const stunPrevent = (effect: UserEffect, target: BattleUserState) => {
   }
 };
 
+/** Clone user on the battlefield */
+export const summon = (
+  usersState: BattleUserState[],
+  effect: GroundEffect,
+  isActive: boolean
+) => {
+  const { power: perc } = getPower(effect);
+  const user = usersState.find((u) => u.userId === effect.creatorId);
+  if (!("aiId" in effect)) {
+    throw new Error("Summon effect must have aiId");
+  }
+  if (effect.isNew) {
+    if (user && "aiHp" in effect) {
+      const ai = usersState.find((u) => u.userId === effect.aiId);
+      if (ai) {
+        const newAi = structuredClone(ai);
+        // Place on battlefield
+        newAi.userId = nanoid();
+        effect.aiId = newAi.userId;
+        newAi.controllerId = newAi.userId;
+        newAi.hidden = undefined;
+        newAi.longitude = effect.longitude;
+        newAi.latitude = effect.latitude;
+        newAi.villageId = user.villageId;
+        newAi.direction = user.direction;
+        // Set level to summoner level
+        newAi.level = user.level;
+        // Scale to level
+        scaleUserStats(newAi);
+        // Set pools
+        newAi.maxHealth = effect.aiHp;
+        newAi.curHealth = newAi.maxHealth;
+        // Set stats
+        user.ninjutsuOffence = user.ninjutsuOffence * perc;
+        user.ninjutsuDefence = user.ninjutsuDefence * perc;
+        user.genjutsuOffence = user.genjutsuOffence * perc;
+        user.genjutsuDefence = user.genjutsuDefence * perc;
+        user.taijutsuOffence = user.taijutsuOffence * perc;
+        user.taijutsuDefence = user.taijutsuDefence * perc;
+        user.bukijutsuOffence = user.bukijutsuOffence * perc;
+        user.bukijutsuDefence = user.bukijutsuDefence * perc;
+        user.strength = user.strength * perc;
+        user.intelligence = user.intelligence * perc;
+        user.willpower = user.willpower * perc;
+        user.speed = user.speed * perc;
+        // Push to userState
+        usersState.push(newAi);
+        // ActionEffect to be shown
+        return {
+          txt: `${newAi.username} was summoned for ${effect.rounds} rounds!`,
+          color: "blue",
+        } as ActionEffect;
+      }
+    }
+    // If return from here, summon failed
+    effect.rounds = 0;
+    return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
+  } else if (!isActive) {
+    const ai = usersState.find((u) => u.userId === effect.aiId);
+    const idx = usersState.findIndex((u) => u.userId === effect.aiId);
+    if (ai && idx > -1) {
+      usersState.splice(idx, 1);
+      return { txt: `${ai.username} was unsummoned!`, color: "red" } as ActionEffect;
+    }
+  }
+};
+
+/** Prevent target from being stunned */
+export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot summon companions");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /**
  * ***********************************************
  *              UTILITY METHODS
@@ -851,7 +930,7 @@ const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
 };
 
 /** Convenience method used by a lot of tags */
-export const getPower = (effect: UserEffect) => {
+export const getPower = (effect: UserEffect | GroundEffect) => {
   const power = effect.power + effect.level * effect.powerPerLevel;
   const adverb = power > 0 ? "increased" : "decreased";
   const value = Math.abs(power);

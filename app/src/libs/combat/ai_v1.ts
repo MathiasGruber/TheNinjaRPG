@@ -1,6 +1,7 @@
 import { availableUserActions } from "../../libs/combat/actions";
 import { performBattleAction } from "../../libs/combat/actions";
 import { actionPointsAfterAction } from "../../libs/combat/actions";
+import { stillInBattle } from "../../libs/combat/actions";
 import { getPossibleActionTiles, PathCalculator, findHex } from "../../libs/hexgrid";
 import type { ActionEffect } from "../../libs/combat/types";
 import type { CombatAction } from "../../libs/combat/types";
@@ -8,7 +9,11 @@ import type { CompleteBattle } from "../../libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { Grid } from "honeycomb-grid";
 
-export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) => {
+export const performAIaction = (
+  battle: CompleteBattle,
+  grid: Grid<TerrainHex>,
+  aiUserId: string
+) => {
   // New stats to return
   const nextActionEffects: ActionEffect[] = [];
   const aiDescriptions: string[] = [];
@@ -27,8 +32,9 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
   // Path finder on grid
   const aStar = new PathCalculator(grid);
 
-  // If AI users, check all possible actions to calculate a fitness function
-  aiUsers.forEach((user) => {
+  // Find the AI user
+  const user = aiUsers.find((user) => user.userId === aiUserId);
+  if (user) {
     // Possible actions
     const actions = availableUserActions(nextBattle, user.userId, false);
     // console.log(
@@ -68,7 +74,8 @@ export const performAIaction = (battle: CompleteBattle, grid: Grid<TerrainHex>) 
         }
       }
     }
-  });
+  }
+
   // Return the new state
   return { nextBattle, nextActionEffects, aiDescriptions };
 };
@@ -257,6 +264,7 @@ export const evaluateFitness = (
   // Go through each user in the battle
   newUsersState
     .filter((u) => u.villageId !== newUser.villageId)
+    .filter((u) => stillInBattle(u))
     .forEach((newEnemy) => {
       // Find the enemy in the previous state
       const curEnemy = curUsersState.find((u) => u.userId === newEnemy.userId);

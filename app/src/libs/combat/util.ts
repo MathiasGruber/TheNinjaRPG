@@ -4,11 +4,15 @@ import { randomInt } from "../../utils/math";
 import { availableUserActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
+import { secondsPassed, secondsFromNow } from "../../utils/time";
+import { realizeTag } from "./process";
+import { COMBAT_SECONDS } from "./constants";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { GroundEffect, UserEffect } from "../../libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
+import type { Item, UserItem } from "../../../drizzle/schema";
 
 /**
  * Finds a user in the battle state based on location
@@ -19,11 +23,7 @@ export const findUser = (
   latitude: number
 ) => {
   return users.find(
-    (u) =>
-      u.longitude === longitude &&
-      u.latitude === latitude &&
-      u.curHealth > 0 &&
-      !u.fledBattle
+    (u) => u.longitude === longitude && u.latitude === latitude && stillInBattle(u)
   );
 };
 
@@ -492,4 +492,137 @@ export const rollInitiative = (
     roll = roll * (1 + pvpBonus);
   }
   return roll;
+};
+
+export const processUsersForBattle = (
+  users: BattleUserState[],
+  hide: boolean = false
+) => {
+  // Collect user effects here
+  const allSummons: string[] = [];
+  const userEffects: UserEffect[] = [];
+  const usersState = users.map((user, i) => {
+    // Set controllerID and mark this user as the original
+    user.controllerId = user.userId;
+    user.isOriginal = true;
+
+    // Set direction
+    user.direction = i % 2 === 0 ? "right" : "left";
+
+    // Set the updated at to now, so that action bar starts at 0
+    user.updatedAt = new Date();
+
+    // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
+    // Therefore we need to calculate the current pools here, before inserting the user into battle
+    const regen =
+      (user.bloodline?.regenIncrease
+        ? user.regeneration + user.bloodline.regenIncrease
+        : user.regeneration) * secondsPassed(user.regenAt);
+    user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
+    user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
+    user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
+
+    // Add highest stat name to user
+    const offences = {
+      ninjutsuOffence: user.ninjutsuOffence,
+      genjutsuOffence: user.genjutsuOffence,
+      taijutsuOffence: user.taijutsuOffence,
+      bukijutsuOffence: user.bukijutsuOffence,
+    };
+    type offenceKey = keyof typeof offences;
+    user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
+      offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur
+    ) as offenceKey;
+    const defences = {
+      ninjutsuDefence: user.ninjutsuDefence,
+      genjutsuDefence: user.genjutsuDefence,
+      taijutsuDefence: user.taijutsuDefence,
+      bukijutsuDefence: user.bukijutsuDefence,
+    };
+    type defenceKey = keyof typeof defences;
+    user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
+      defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur
+    ) as defenceKey;
+
+    // Remember how much money this user had
+    user.originalMoney = user.money;
+    user.actionPoints = 100;
+
+    // Default locaton
+    if (hide) {
+      user.longitude = 1;
+      user.latitude = 1;
+      user.curHealth = 0;
+    }
+
+    // Set the history lists to record actions during battle
+    user.usedGenerals = [];
+    user.usedStats = [];
+    user.usedActions = [];
+
+    // Add bloodline efects
+    if (user.bloodline?.effects) {
+      const effects = user.bloodline.effects as unknown as UserEffect[];
+      effects.forEach((effect) => {
+        const realized = realizeTag(effect, user, user.level);
+        realized.isNew = false;
+        realized.castThisRound = false;
+        realized.targetId = user.userId;
+        realized.fromBloodline = true;
+        userEffects.push(realized);
+      });
+    }
+
+    // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
+    user.jutsus = user.jutsus
+      .filter((userjutsu) => {
+        const effects = userjutsu.jutsu.effects as UserEffect[];
+        effects
+          .filter((e) => e.type === "summon")
+          .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
+        return (
+          userjutsu.jutsu.bloodlineId === "" ||
+          user.bloodlineId === userjutsu.jutsu.bloodlineId
+        );
+      })
+      .map((userjutsu) => {
+        userjutsu.updatedAt = secondsFromNow(
+          -userjutsu.jutsu.cooldown * COMBAT_SECONDS
+        );
+        return userjutsu;
+      });
+
+    // Add item effects
+    const items: (UserItem & { item: Item })[] = [];
+    user.items.forEach((useritem) => {
+      const itemType = useritem.item.itemType;
+      const effects = useritem.item.effects as UserEffect[];
+      effects
+        .filter((e) => e.type === "summon")
+        .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
+      if (itemType === "ARMOR" || itemType === "ACCESSORY") {
+        if (useritem.item.effects && useritem.equipped !== "NONE") {
+          effects.forEach((effect) => {
+            const realized = realizeTag(effect, user, user.level);
+            realized.isNew = false;
+            realized.castThisRound = false;
+            realized.targetId = user.userId;
+            userEffects.push(realized);
+          });
+        }
+      } else {
+        useritem.updatedAt = secondsFromNow(-useritem.item.cooldown * COMBAT_SECONDS);
+        items.push(useritem);
+      }
+    });
+    user.items = items;
+    // Base values
+    user.armor = 0;
+    user.fledBattle = false;
+    user.leftBattle = false;
+    // Roll initiative
+    user.initiative = rollInitiative(user, users);
+    return user;
+  });
+  return { userEffects, usersState, allSummons };
 };

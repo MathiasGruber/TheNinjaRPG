@@ -9,6 +9,7 @@ import { getTagSchema } from "../libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { show_toast, show_errors } from "../libs/toast";
 import { UploadButton } from "../utils/uploadthing";
+import { api } from "../utils/api";
 import type { ZodAllTags } from "../libs/combat/types";
 import type { FieldErrors } from "react-hook-form";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
@@ -162,6 +163,15 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   const parsedTag = tagSchema.safeParse(tag);
   const shownTag = parsedTag.success ? parsedTag.data : tag;
 
+  // Queries
+  const { data: aiData, isLoading: l1 } = api.profile.getAllAiNames.useQuery(
+    undefined,
+    {
+      staleTime: Infinity,
+      enabled: Object.keys(shownTag).includes("aiId"),
+    }
+  );
+
   // Form for handling the specific tag
   const {
     register,
@@ -235,7 +245,22 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
     )
     .map((value) => {
       const innerType = getInner(tagSchema.shape[value]);
-      if (innerType instanceof z.ZodLiteral || innerType instanceof z.ZodString) {
+      if ((value as string) === "aiId" && aiData) {
+        return {
+          id: value,
+          label: "AI",
+          values: aiData
+            .sort((a, b) => a.level - b.level)
+            .map((ai) => ({
+              id: ai.userId,
+              name: `lvl ${ai.level}: ${ai.username}`,
+            })),
+          type: "db_values",
+        };
+      } else if (
+        innerType instanceof z.ZodLiteral ||
+        innerType instanceof z.ZodString
+      ) {
         return { id: value, label: value, type: "text" };
       } else if (innerType instanceof z.ZodNumber) {
         return { id: value, label: value, type: "number" };

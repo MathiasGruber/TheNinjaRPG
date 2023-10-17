@@ -45,6 +45,13 @@ import type { NavBarDropdownLink } from "../../../libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
 
 export const profileRouter = createTRPCRouter({
+  // Get all AI names
+  getAllAiNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.userData.findMany({
+      where: eq(userData.isAi, 1),
+      columns: { userId: true, username: true, level: true },
+    });
+  }),
   // Start training of a specific attribute
   startTraining: protectedProcedure
     .input(z.object({ stat: z.enum(UserStatNames) }))

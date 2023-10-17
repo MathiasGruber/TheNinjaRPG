@@ -35,6 +35,7 @@ export type BattleUserState = UserData & {
   initiative: number;
   hex?: TerrainHex;
   originalMoney: number;
+  direction: "left" | "right";
   usedGenerals: typeof GeneralType[number][];
   usedStats: typeof StatNames[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
@@ -489,7 +490,10 @@ export const SummonTag = z.object({
   ...PositivePowerAttributes,
   type: type("summon"),
   description: msg("Summon an ally"),
-  calculation: z.enum(["static"]).default("static"),
+  rounds: z.number().int().min(2).max(20).default(2),
+  aiId: z.string().default(""),
+  aiHp: z.number().min(100).max(100000).default(100),
+  calculation: z.enum(["percentage"]).default("percentage"),
 });
 
 export const VisualTag = z.object({
@@ -691,9 +695,7 @@ const addIssue = (ctx: z.RefinementCtx, message: string) => {
 
 const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
   effects.forEach((e) => {
-    if (e.type === "clear" && e.rounds !== 1) {
-      addIssue(ctx, "ClearTag can only be set to 1 rounds");
-    } else if (e.type === "absorb" && e.direction === "offence") {
+    if (e.type === "absorb" && e.direction === "offence") {
       addIssue(ctx, "AbsorbTag should be set to defence");
     } else if (e.type === "armoradjust") {
       if (
@@ -716,6 +718,7 @@ const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
   // Pick out various effect types
   const hasMove = data.effects.find((e) => e.type === "move");
   const hasClone = data.effects.find((e) => e.type === "clone");
+  const hasSummon = data.effects.find((e) => e.type === "summon");
   const hasBarrier = data.effects.find((e) => e.type === "barrier");
   const hasDamage = data.effects.find((e) => e.type === "damage");
   const isAOE = data.method.includes("AOE");
@@ -728,8 +731,8 @@ const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
     if (hasBarrier) {
       addIssue(ctx, "For barrier tag 'target' needs to be empty ground");
     }
-    if (hasClone) {
-      addIssue(ctx, "For clone tag 'target' needs to be empty ground");
+    if (hasClone || hasSummon) {
+      addIssue(ctx, "For clone/summon tag 'target' needs to be empty ground");
     }
     if (hasMove) {
       addIssue(ctx, "For move tag 'target' needs to be empty ground");

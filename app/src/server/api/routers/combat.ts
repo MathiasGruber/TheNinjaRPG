@@ -2,16 +2,16 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
-import { eq, or, and, sql, gt, isNotNull, desc } from "drizzle-orm";
+import { eq, or, and, sql, gt, isNotNull, desc, inArray } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "../../../libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
-import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "../../../libs/combat/constants";
-import { secondsPassed, secondsFromDate, secondsFromNow } from "../../../utils/time";
+import { COMBAT_LOBBY_SECONDS } from "../../../libs/combat/constants";
+import { secondsFromDate, secondsFromNow } from "../../../utils/time";
 import { defineHex } from "../../../libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "../../../libs/combat/util";
-import { rollInitiative } from "../../../libs/combat/util";
 import { calcIsStunned } from "../../../libs/combat/util";
+import { processUsersForBattle } from "../../../libs/combat/util";
 import { createAction, saveUsage } from "../../../libs/combat/database";
 import { updateUser, updateBattle } from "../../../libs/combat/database";
 import { fetchRegeneratedUser } from "./profile";
@@ -22,14 +22,13 @@ import { performActionSchema } from "../../../libs/combat/types";
 import { performBattleAction } from "../../../libs/combat/actions";
 import { availableUserActions } from "../../../libs/combat/actions";
 import { calcIsInVillage } from "../../../libs/travel/controls";
-import { realizeTag } from "../../../libs/combat/process";
 import { BarrierTag } from "../../../libs/combat/types";
 import { combatAssets } from "../../../libs/travel/constants";
 import { getServerPusher } from "../../../libs/pusher";
 import type { BaseServerResponse } from "../trpc";
-import type { Item, UserItem, BattleType } from "../../../../drizzle/schema";
+import type { BattleType } from "../../../../drizzle/schema";
 import type { BattleUserState } from "../../../libs/combat/types";
-import type { UserEffect, GroundEffect } from "../../../libs/combat/types";
+import type { GroundEffect } from "../../../libs/combat/types";
 import type { ActionEffect } from "../../../libs/combat/types";
 import type { CompleteBattle } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
@@ -151,7 +150,7 @@ export const combatRouter = createTRPCRouter({
         // INNER LOOP: Keep updating battle state until all actions have been performed
         while (true) {
           // Update the battle to the correct activeUserId & round. Default to current user
-          const { actor, actionRound, isStunned } = alignBattle(battle, suid);
+          const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
 
           // Only allow action if it is the users turn
           const isUserTurn = actor.controllerId === suid;
@@ -171,12 +170,12 @@ export const combatRouter = createTRPCRouter({
             input.actionId
           ) {
             /* PERFORM USER ACTION */
-            const actions = availableUserActions(battle, suid);
+            const actions = availableUserActions(newBattle, suid);
             const action = actions.find((a) => a.id === input.actionId);
             if (!action) throw serverError("CONFLICT", `Invalid action`);
             try {
               const newState = performBattleAction({
-                battle,
+                battle: newBattle,
                 action,
                 grid,
                 contextUserId: suid,
@@ -196,7 +195,7 @@ export const combatRouter = createTRPCRouter({
           } else if (isAITurn) {
             /* PERFORM AI ACTION */
             try {
-              const aiState = performAIaction(newBattle, grid);
+              const aiState = performAIaction(newBattle, grid, actor.userId);
               newBattle = aiState.nextBattle;
               actionPerformed = true;
               actionEffects.push(...aiState.nextActionEffects);
@@ -475,114 +474,33 @@ export const initiateBattle = async (
     }
 
     // Create the users array to be inserted into the battle
-    const userEffects: UserEffect[] = [];
-    const usersState = users.map((raw) => {
-      // Add basics
-      const user = raw as BattleUserState;
-      user.controllerId = user.userId;
-      user.isOriginal = true;
+    const { userEffects, usersState, allSummons } = processUsersForBattle(
+      users as BattleUserState[]
+    );
 
-      // Set the updated at to now, so that action bar starts at 0
-      user.updatedAt = new Date();
-
-      // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
-      // Therefore we need to calculate the current pools here, before inserting the user into battle
-      const regen =
-        (user.bloodline?.regenIncrease
-          ? user.regeneration + user.bloodline.regenIncrease
-          : user.regeneration) * secondsPassed(user.regenAt);
-      user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
-      user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
-      user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
-
-      // Add highest stat name to user
-      const offences = {
-        ninjutsuOffence: user.ninjutsuOffence,
-        genjutsuOffence: user.genjutsuOffence,
-        taijutsuOffence: user.taijutsuOffence,
-        bukijutsuOffence: user.bukijutsuOffence,
-      };
-      type offenceKey = keyof typeof offences;
-      user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
-        offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur
-      ) as offenceKey;
-      const defences = {
-        ninjutsuDefence: user.ninjutsuDefence,
-        genjutsuDefence: user.genjutsuDefence,
-        taijutsuDefence: user.taijutsuDefence,
-        bukijutsuDefence: user.bukijutsuDefence,
-      };
-      type defenceKey = keyof typeof defences;
-      user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
-        defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur
-      ) as defenceKey;
-
-      // Remember how much money this user had
-      user.originalMoney = user.money;
-      user.actionPoints = 100;
-
-      // Set the history lists to record actions during battle
-      user.usedGenerals = [];
-      user.usedStats = [];
-      user.usedActions = [];
-
-      // Add bloodline efects
-      if (user.bloodline?.effects) {
-        const effects = user.bloodline.effects as unknown as UserEffect[];
-        effects.forEach((effect) => {
-          const realized = realizeTag(effect, user, user.level);
-          realized.isNew = false;
-          realized.castThisRound = false;
-          realized.targetId = user.userId;
-          realized.fromBloodline = true;
-          userEffects.push(realized);
-        });
-      }
-
-      // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
-      user.jutsus = user.jutsus
-        .filter((userjutsu) => {
-          return (
-            userjutsu.jutsu.bloodlineId === "" ||
-            user.bloodlineId === userjutsu.jutsu.bloodlineId
-          );
-        })
-        .map((userjutsu) => {
-          userjutsu.updatedAt = secondsFromNow(
-            -userjutsu.jutsu.cooldown * COMBAT_SECONDS
-          );
-          return userjutsu;
-        });
-
-      // Add item effects
-      const items: (UserItem & { item: Item })[] = [];
-      user.items.forEach((useritem) => {
-        const itemType = useritem.item.itemType;
-        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
-          if (useritem.item.effects && useritem.equipped !== "NONE") {
-            const effects = useritem.item.effects as unknown as UserEffect[];
-            effects.forEach((effect) => {
-              const realized = realizeTag(effect, user, user.level);
-              realized.isNew = false;
-              realized.castThisRound = false;
-              realized.targetId = user.userId;
-              userEffects.push(realized);
-            });
-          }
-        } else {
-          useritem.updatedAt = secondsFromNow(-useritem.item.cooldown * COMBAT_SECONDS);
-          items.push(useritem);
-        }
+    // If there are any summonAIs defined, then add them to usersState, but disable them
+    if (allSummons.length > 0) {
+      const uniqueSummons = [...new Set(allSummons)];
+      const summons = await tx.query.userData.findMany({
+        with: {
+          bloodline: true,
+          village: true,
+          items: {
+            with: { item: true },
+            where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+          },
+          jutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+          },
+        },
+        where: inArray(userData.userId, uniqueSummons),
       });
-      user.items = items;
-      // Base values
-      user.armor = 0;
-      user.fledBattle = false;
-      user.leftBattle = false;
-      // Roll initiative
-      user.initiative = rollInitiative(user, users as BattleUserState[]);
-      return user;
-    });
+      const { userEffects: summonEffects, usersState: summonState } =
+        processUsersForBattle(summons as BattleUserState[], true);
+      userEffects.push(...summonEffects);
+      usersState.push(...summonState);
+    }
 
     // Starting ground effects
     const groundEffects: GroundEffect[] = [];

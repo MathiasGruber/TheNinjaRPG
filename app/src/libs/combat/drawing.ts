@@ -2,6 +2,7 @@ import {
   BufferGeometry,
   BufferAttribute,
   Color,
+  DoubleSide,
   EdgesGeometry,
   Group,
   LineBasicMaterial,
@@ -349,9 +350,14 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     );
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
+    if (userData.direction === "right") {
+      map.repeat.set(-1, 1);
+      map.offset.set(1, 0);
+    }
     const material = new SpriteMaterial({ map: map });
+    material.side = DoubleSide;
     const sprite = new Sprite(material);
-    sprite.scale.set(h * 0.8, h * 0.8, 1);
+    sprite.scale.set(-1 * h * 0.8, h * 0.8, 1);
     sprite.position.set(w / 2, h * 0.6, -6);
     group.add(sprite);
   } else {

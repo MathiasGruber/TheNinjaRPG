@@ -9,8 +9,8 @@ import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
+import { clear, summon, summonPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
-import { clear } from "./tags";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
 import type { AnimationNames } from "./types";
@@ -108,43 +108,55 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
   const actionEffects: ActionEffect[] = [];
 
   // Convert all ground effects to user effects on the users standing on the tile
+  // console.log(
+  //   "Ground effects: ",
+  //   groundEffects.length,
+  //   groundEffects.map((e) => e.type)
+  // );
   groundEffects.sort(sortEffects).forEach((e) => {
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
     e.castThisRound = startRound === curRound;
     // Process special effects
+    let info: ActionEffect | undefined = undefined;
     if (e.type === "move") {
       move(e, newUsersState, newGroundEffects);
-    } else if (e.type === "clone") {
-      if (clone(newUsersState, e) && e.appearAnimation) {
-        newGroundEffects.push(getVisual(e.longitude, e.latitude, e.appearAnimation));
-      }
     } else {
-      // Apply ground effect to user
-      const user = findUser(newUsersState, e.longitude, e.latitude);
-      if (user && e.type !== "visual") {
-        if (checkFriendlyFire(e, user, newUsersState)) {
-          usersEffects.push({
-            ...e,
-            targetId: user.userId,
-            fromGround: true,
-          } as UserEffect);
+      // Calculate whether the effect is still active
+      const groundActive =
+        e.rounds === undefined || battle.round < e.createdRound + e.rounds;
+      // Special handling of clone & summon ground-effects
+      if (e.type === "clone") {
+        // clone(newUsersState, e);
+      } else if (e.type === "summon") {
+        console.log("clone", battle.round, e.createdRound, e.rounds);
+        info = summon(newUsersState, e, groundActive);
+      } else {
+        // Apply all other ground effects to user
+        const user = findUser(newUsersState, e.longitude, e.latitude);
+        if (user && e.type !== "visual") {
+          if (checkFriendlyFire(e, user, newUsersState)) {
+            usersEffects.push({
+              ...e,
+              targetId: user.userId,
+              fromGround: true,
+            } as UserEffect);
+          }
         }
-      }
-      // Forward any damage effects, which should be applied to barriers as well
-      if (!user && e.type === "damage") {
-        const barrier = findBarrier(groundEffects, e.longitude, e.latitude);
-        if (barrier) {
-          usersEffects.push({
-            ...e,
-            targetType: "barrier",
-            targetId: barrier.id,
-            fromGround: true,
-          } as UserEffect);
+        // Forward any damage effects, which should be applied to barriers as well
+        if (!user && e.type === "damage") {
+          const barrier = findBarrier(groundEffects, e.longitude, e.latitude);
+          if (barrier) {
+            usersEffects.push({
+              ...e,
+              targetType: "barrier",
+              targetId: barrier.id,
+              fromGround: true,
+            } as UserEffect);
+          }
         }
       }
       // Let ground effect continue, or is it done?
-      const groundActive = !e.rounds || battle.round < e.createdRound + e.rounds;
       if (groundActive && isEffectActive(e)) {
         e.isNew = false;
         newGroundEffects.push(e);
@@ -152,6 +164,10 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         newGroundEffects.push(getVisual(e.longitude, e.latitude, e.disappearAnimation));
       }
     }
+    if (e.appearAnimation && e.isNew && e.type !== "visual") {
+      newGroundEffects.push(getVisual(e.longitude, e.latitude, e.appearAnimation));
+    }
+    if (info) actionEffects.push(info);
   });
 
   // Book-keeping for damage and heal effects
@@ -214,10 +230,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
             info = seal(e, newUsersEffects, curTarget);
           } else if (e.type === "stun") {
             info = stun(e, newUsersEffects, curTarget);
-          } // } else if (e.type === "summonprevent") {
-          //
-          // } else if (e.type === "summon") {
-          //
+          }
         }
 
         // Tags to apply always
@@ -243,6 +256,8 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           info = sealPrevent(e, curTarget);
         } else if (e.type === "stunprevent") {
           info = stunPrevent(e, curTarget);
+        } else if (e.type === "summonprevent") {
+          info = summonPrevent(e, curTarget);
         }
         updateStatUsage(newTarget, e, true);
       }
