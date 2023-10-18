@@ -264,12 +264,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
   const user = users.find((u) => u.userId === userId);
   const originals = users.filter((u) => u.isOriginal);
   if (user && !user.leftBattle) {
-    // If 1v1, then friends/targets are the opposing team. If MPvP, separate by village
+    // If single village, then friends/targets are the opposing team. If MPvP, separate by village
+    const villageIds = [
+      ...new Set(users.filter(stillInBattle).map((u) => u.villageId)),
+    ];
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
-    if (originals.length === 2) {
-      targets = originals.filter((u) => u.userId !== userId);
-      friends = originals.filter((u) => u.userId === userId);
+    if (villageIds.length === 1) {
+      targets = originals.filter((u) => u.controllerId !== userId);
+      friends = originals.filter((u) => u.controllerId === userId);
     } else {
       targets = originals.filter((u) => u.villageId !== user.villageId);
       friends = originals.filter((u) => u.villageId === user.villageId);

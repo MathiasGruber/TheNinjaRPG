@@ -466,7 +466,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             </p>
             <div className="flex flex-row gap-4">
               {battle.current.usersState
-                .filter((u) => u.isOriginal)
+                .filter((u) => u.isOriginal && !u.isAi)
                 .map((u, i) => {
                   return (
                     <div
