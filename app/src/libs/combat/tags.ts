@@ -318,38 +318,65 @@ export const clear = (
 };
 
 /** Clone user on the battlefield */
-export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
+export const clone = (
+  usersState: BattleUserState[],
+  effect: GroundEffect,
+  isActive: boolean
+) => {
+  const { power } = getPower(effect);
+  const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
-  if (user && effect.power) {
-    const perc = effect.power / 100;
-    user.maxHealth = user.maxHealth * perc;
-    user.maxChakra = user.maxChakra * perc;
-    user.maxStamina = user.maxStamina * perc;
-    user.curHealth = user.curHealth * perc;
-    user.curChakra = user.curChakra * perc;
-    user.curStamina = user.curStamina * perc;
-    user.ninjutsuOffence = user.ninjutsuOffence * perc;
-    user.ninjutsuDefence = user.ninjutsuDefence * perc;
-    user.genjutsuOffence = user.genjutsuOffence * perc;
-    user.genjutsuDefence = user.genjutsuDefence * perc;
-    user.taijutsuOffence = user.taijutsuOffence * perc;
-    user.taijutsuDefence = user.taijutsuDefence * perc;
-    user.bukijutsuOffence = user.bukijutsuOffence * perc;
-    user.bukijutsuDefence = user.bukijutsuDefence * perc;
-    user.strength = user.strength * perc;
-    user.intelligence = user.intelligence * perc;
-    user.willpower = user.willpower * perc;
-    user.speed = user.speed * perc;
-    usersState.push({
-      ...user,
-      userId: nanoid(),
-      longitude: effect.longitude,
-      latitude: effect.latitude,
-      isOriginal: false,
-    });
-    return true;
+  if (!user) {
+    throw new Error("Summoner not found");
   }
-  return false;
+  if (effect.isNew) {
+    const newAi = structuredClone(user);
+    // Place on battlefield
+    newAi.userId = nanoid();
+    effect.creatorId = newAi.userId;
+    newAi.username = `${user.username} clone`;
+    newAi.controllerId = user.userId;
+    newAi.isOriginal = false;
+    newAi.isAi = 1;
+    newAi.hidden = undefined;
+    newAi.longitude = effect.longitude;
+    newAi.latitude = effect.latitude;
+    newAi.villageId = user.villageId;
+    newAi.direction = user.direction;
+    // Set level to summoner level
+    newAi.level = user.level;
+    // Scale to level
+    scaleUserStats(newAi);
+    // Set stats
+    newAi.ninjutsuOffence = newAi.ninjutsuOffence * perc;
+    newAi.ninjutsuDefence = newAi.ninjutsuDefence * perc;
+    newAi.genjutsuOffence = newAi.genjutsuOffence * perc;
+    newAi.genjutsuDefence = newAi.genjutsuDefence * perc;
+    newAi.taijutsuOffence = newAi.taijutsuOffence * perc;
+    newAi.taijutsuDefence = newAi.taijutsuDefence * perc;
+    newAi.bukijutsuOffence = newAi.bukijutsuOffence * perc;
+    newAi.bukijutsuDefence = newAi.bukijutsuDefence * perc;
+    newAi.strength = newAi.strength * perc;
+    newAi.intelligence = newAi.intelligence * perc;
+    newAi.willpower = newAi.willpower * perc;
+    newAi.speed = newAi.speed * perc;
+    // Push to userState
+    usersState.push(newAi);
+    // ActionEffect to be shown
+    return {
+      txt: `${newAi.username} created a clone for ${effect.rounds} rounds!`,
+      color: "blue",
+    } as ActionEffect;
+  } else if (!isActive) {
+    const idx = usersState.findIndex((u) => u.userId === effect.creatorId);
+    if (idx > -1) {
+      usersState.splice(idx, 1);
+      return {
+        txt: `${user.username} disappears!`,
+        color: "red",
+      } as ActionEffect;
+    }
+  }
 };
 
 export const updateStatUsage = (

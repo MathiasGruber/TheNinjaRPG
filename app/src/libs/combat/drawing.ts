@@ -343,7 +343,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   group.add(shadow_sprite);
 
   // User marker background or raw image
-  const noMarker = userData.isAi;
+  const noMarker = userData.isAi && userData.isOriginal;
   if (noMarker) {
     const map = new TextureLoader().load(
       userData.avatar ? `${userData.avatar}?1=1` : ""
@@ -404,7 +404,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // If this is the original and our user (we have SP/CP), then show a star
-  if ("curStamina" in userData && userData.isOriginal) {
+  if ("curStamina" in userData && userData.isOriginal && !userData.isAi) {
     const marker = new TextureLoader().load("combat/star.webp");
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);

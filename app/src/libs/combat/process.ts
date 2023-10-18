@@ -127,7 +127,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         e.rounds === undefined || battle.round < e.createdRound + e.rounds;
       // Special handling of clone & summon ground-effects
       if (e.type === "clone") {
-        // clone(newUsersState, e);
+        info = clone(newUsersState, e, groundActive);
       } else if (e.type === "summon") {
         info = summon(newUsersState, e, groundActive);
       } else {

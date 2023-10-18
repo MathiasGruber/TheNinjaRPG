@@ -35,12 +35,12 @@ export const performAIaction = (
   if (user) {
     // Possible actions
     const actions = availableUserActions(nextBattle, user.userId, false);
-    console.log(
-      "Action costs: ",
-      actions.map((a) => {
-        return { name: a.name, cost: a.actionCostPerc };
-      })
-    );
+    // console.log(
+    //   "Action costs: ",
+    //   actions.map((a) => {
+    //     return { name: a.name, cost: a.actionCostPerc };
+    //   })
+    // );
     // Get a list of all possible actions from this origin and 2 steps forward
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action
@@ -112,12 +112,12 @@ const getBestAction = (searchTree: SearchAction[]) => {
   const bestAction = searchTree.reduce(
     (bestAction, branch) => {
       branch.futureFitness = getHighestFitness(branch, 0);
-      console.log(
-        "Test action: ",
-        branch.action?.name,
-        branch.fitness,
-        branch.futureFitness
-      );
+      // console.log(
+      //   "Test action: ",
+      //   branch.action?.name,
+      //   branch.fitness,
+      //   branch.futureFitness
+      // );
       // console.log("best future fitness: ", branch.futureFitness);
       if (branch.futureFitness > bestAction.futureFitness) {
         return branch;

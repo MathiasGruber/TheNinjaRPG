@@ -348,10 +348,11 @@ export const ClearTag = z.object({
 
 export const CloneTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PositivePowerAttributes,
   type: type("clone"),
-  description: msg("Create a temporary clone to fight alongside you"),
+  description: msg(
+    "Create a temporary clone to fight alongside you for a given number of rounds."
+  ),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 

@@ -543,10 +543,10 @@ export const processUsersForBattle = (
       user.longitude = 1;
       user.latitude = 1;
       user.curHealth = 0;
-      user.isOriginal = false;
-    } else {
-      user.isOriginal = true;
     }
+
+    // By default the ones inserted initially are original
+    user.isOriginal = true;
 
     // Set the history lists to record actions during battle
     user.usedGenerals = [];
