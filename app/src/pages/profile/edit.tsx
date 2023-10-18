@@ -269,7 +269,7 @@ const ResetStats: React.FC = () => {
   }
 
   // Derived data
-  const availableStats = userData.experience + 120;
+  const availableStats = Math.round((userData.experience + 120) * 100) / 100;
   const misalignment = Math.round((formSum - availableStats) * 100) / 100;
   const canBuy = userData.reputationPoints >= COST_RESET_STATS;
 

@@ -493,8 +493,9 @@ export const profileRouter = createTRPCRouter({
         return { success: false, message: "Not enough reputation points" };
       }
       const inputSum = Object.values(input).reduce((a, b) => a + b, 0);
-      if (inputSum !== user.experience + 120) {
-        const message = `Requested points ${inputSum} for not match experience points ${user.experience}`;
+      const availableStats = Math.round((user.experience + 120) * 100) / 100;
+      if (inputSum !== availableStats) {
+        const message = `Requested points ${inputSum} for not match experience points ${availableStats}`;
         return { success: false, message };
       }
       const result = await ctx.drizzle
