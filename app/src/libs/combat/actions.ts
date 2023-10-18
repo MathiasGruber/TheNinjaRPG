@@ -29,104 +29,101 @@ export const availableUserActions = (
   const user = usersState?.find((u) => u.userId === userId);
   const actionPoints =
     battle && user && (isInNewRound(user, battle) ? 100 : user.actionPoints);
-  return [
-    ...(basicMoves
-      ? [
-          {
-            id: "sp",
-            name: "Basic Attack",
-            image: "/combat/basicActions/stamina.webp",
-            battleDescription: "%user perform a basic physical strike against %target",
-            type: "basic" as const,
-            target: "OTHER_USER" as const,
-            method: "SINGLE" as const,
-            healthCostPerc: 0,
-            chakraCostPerc: 0,
-            staminaCostPerc: 10,
-            actionCostPerc: 60,
-            range: 1,
-            updatedAt: Date.now(),
-            cooldown: 0,
-            level: user?.level,
-            effects: [
-              DamageTag.parse({
-                power: 1,
-                powerPerLevel: 0.1,
-                statTypes: [],
-                generalTypes: ["Strength"],
-                rounds: 0,
-                appearAnimation: "hit",
-              }),
-            ],
-          },
-          {
-            id: "cp",
-            name: "Basic Heal",
-            image: "/combat/basicActions/heal.webp",
-            battleDescription: "%user perform basic healing of %target",
-            type: "basic" as const,
-            target: "CHARACTER" as const,
-            method: "SINGLE" as const,
-            healthCostPerc: 0,
-            chakraCostPerc: 1,
-            staminaCostPerc: 0,
-            actionCostPerc: 50,
-            range: 1,
-            updatedAt: Date.now(),
-            cooldown: 0,
-            level: user?.level,
-            effects: [
-              HealTag.parse({
-                power: 5,
-                powerPerLevel: 0.1,
-                calculation: "static",
-                statTypes: ["Ninjutsu", "Genjutsu"],
-                generalTypes: ["Willpower", "Intelligence"],
-                rounds: 0,
-                appearAnimation: "heal",
-              }),
-            ],
-          },
-        ]
-      : []),
-    {
-      id: "move",
-      name: "Move",
-      image: "/combat/basicActions/move.webp",
-      battleDescription: "%user moves on the battlefield",
-      type: "basic" as const,
-      target: "EMPTY_GROUND" as const,
-      method: "SINGLE" as const,
-      range: 1,
-      updatedAt: Date.now(),
-      cooldown: 0,
-      healthCostPerc: 0,
-      chakraCostPerc: 0,
-      staminaCostPerc: 0,
-      actionCostPerc: 30,
-      effects: [MoveTag.parse({ power: 100 })],
-    },
-    ...(basicMoves
-      ? [
-          {
-            id: "flee",
-            name: "Flee",
-            image: "/combat/basicActions/flee.webp",
-            battleDescription: "%user attempts to flee the battle",
-            type: "basic" as const,
-            target: "SELF" as const,
-            method: "SINGLE" as const,
-            range: 0,
-            updatedAt: Date.now(),
-            cooldown: 0,
-            healthCostPerc: 0.1,
-            chakraCostPerc: 0,
-            staminaCostPerc: 0,
-            actionCostPerc: 100,
-            effects: [FleeTag.parse({ power: 20, rounds: 0 })],
-          },
-        ]
-      : []),
+  // Basic attack & heal
+  const basicAttack: CombatAction = {
+    id: "sp",
+    name: "Basic Attack",
+    image: "/combat/basicActions/stamina.webp",
+    battleDescription: "%user perform a basic physical strike against %target",
+    type: "basic" as const,
+    target: "OTHER_USER" as const,
+    method: "SINGLE" as const,
+    healthCostPerc: 0,
+    chakraCostPerc: 0,
+    staminaCostPerc: 10,
+    actionCostPerc: 60,
+    range: 1,
+    updatedAt: Date.now(),
+    cooldown: 0,
+    level: user?.level,
+    effects: [
+      DamageTag.parse({
+        power: 1,
+        powerPerLevel: 0.1,
+        statTypes: [],
+        generalTypes: ["Strength"],
+        rounds: 0,
+        appearAnimation: "hit",
+      }),
+    ],
+  };
+  const basicHeal: CombatAction = {
+    id: "cp",
+    name: "Basic Heal",
+    image: "/combat/basicActions/heal.webp",
+    battleDescription: "%user perform basic healing of %target",
+    type: "basic" as const,
+    target: "CHARACTER" as const,
+    method: "SINGLE" as const,
+    healthCostPerc: 0,
+    chakraCostPerc: 1,
+    staminaCostPerc: 0,
+    actionCostPerc: 60,
+    range: 1,
+    updatedAt: Date.now(),
+    cooldown: 0,
+    level: user?.level,
+    effects: [
+      HealTag.parse({
+        power: 5,
+        powerPerLevel: 0.1,
+        calculation: "static",
+        statTypes: ["Ninjutsu", "Genjutsu"],
+        generalTypes: ["Willpower", "Intelligence"],
+        rounds: 0,
+        appearAnimation: "heal",
+      }),
+    ],
+  };
+  const basicMove: CombatAction = {
+    id: "move",
+    name: "Move",
+    image: "/combat/basicActions/move.webp",
+    battleDescription: "%user moves on the battlefield",
+    type: "basic" as const,
+    target: "EMPTY_GROUND" as const,
+    method: "SINGLE" as const,
+    range: 1,
+    updatedAt: Date.now(),
+    cooldown: 0,
+    healthCostPerc: 0,
+    chakraCostPerc: 0,
+    staminaCostPerc: 0,
+    actionCostPerc: 30,
+    effects: [MoveTag.parse({ power: 100 })],
+  };
+  const basicFlee: CombatAction = {
+    id: "flee",
+    name: "Flee",
+    image: "/combat/basicActions/flee.webp",
+    battleDescription: "%user attempts to flee the battle",
+    type: "basic" as const,
+    target: "SELF" as const,
+    method: "SINGLE" as const,
+    range: 0,
+    updatedAt: Date.now(),
+    cooldown: 0,
+    healthCostPerc: 0.1,
+    chakraCostPerc: 0,
+    staminaCostPerc: 0,
+    actionCostPerc: 100,
+    effects: [FleeTag.parse({ power: 20, rounds: 0 })],
+  };
+  // Concatenate all actions
+  const availableActions = [
+    ...(basicMoves ? [basicAttack, basicHeal] : []),
+    basicMove,
+    ...(basicMoves ? [basicFlee] : []),
     ...(actionPoints && actionPoints > 0
       ? [
           {
@@ -196,6 +193,12 @@ export const availableUserActions = (
         })
       : []),
   ];
+  // If we only have move & end turn action, also add basic attack
+  if (availableActions.length === 2) {
+    availableActions.push(basicAttack);
+  }
+  // Return all the actions
+  return availableActions;
 };
 
 export const insertAction = (info: {
