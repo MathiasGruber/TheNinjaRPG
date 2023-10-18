@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cleaner",
-      "schedule": "0 1 * * *"
+      "schedule": "5 * * * *"
     }
   ]
 }
