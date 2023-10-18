@@ -421,6 +421,12 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
         e.rounds = e.rounds - 1;
       }
     });
+    battle.groundEffects.forEach((e) => {
+      if (e.rounds !== undefined && e.creatorId === battle.activeUserId && !e.isNew) {
+        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+        e.rounds = e.rounds - 1;
+      }
+    });
   }
   // Update the active user on the battle
   battle.activeUserId = actor.userId;
@@ -428,7 +434,7 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   // Is the new actor stunned?
   const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug
-  // console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
+  console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
   return { actor, progressRound, actionRound, isStunned };
 };
 

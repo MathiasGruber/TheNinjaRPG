@@ -318,11 +318,7 @@ export const clear = (
 };
 
 /** Clone user on the battlefield */
-export const clone = (
-  usersState: BattleUserState[],
-  effect: GroundEffect,
-  isActive: boolean
-) => {
+export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
   const { power } = getPower(effect);
   const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
@@ -367,7 +363,7 @@ export const clone = (
       txt: `${newAi.username} created a clone for ${effect.rounds} rounds!`,
       color: "blue",
     } as ActionEffect;
-  } else if (!isActive) {
+  } else if (effect?.rounds === 0) {
     const idx = usersState.findIndex((u) => u.userId === effect.creatorId);
     if (idx > -1) {
       usersState.splice(idx, 1);
@@ -862,11 +858,7 @@ export const stunPrevent = (effect: UserEffect, target: BattleUserState) => {
 };
 
 /** Clone user on the battlefield */
-export const summon = (
-  usersState: BattleUserState[],
-  effect: GroundEffect,
-  isActive: boolean
-) => {
+export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
   const { power } = getPower(effect);
   const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
@@ -919,7 +911,7 @@ export const summon = (
     // If return from here, summon failed
     effect.rounds = 0;
     return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
-  } else if (!isActive) {
+  } else if (effect?.rounds === 0) {
     const ai = usersState.find((u) => u.userId === effect.aiId);
     const idx = usersState.findIndex((u) => u.userId === effect.aiId);
     if (ai && idx > -1) {

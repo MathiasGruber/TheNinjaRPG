@@ -122,14 +122,11 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
     if (e.type === "move") {
       move(e, newUsersState, newGroundEffects);
     } else {
-      // Calculate whether the effect is still active
-      const groundActive =
-        e.rounds === undefined || battle.round < e.createdRound + e.rounds;
       // Special handling of clone & summon ground-effects
       if (e.type === "clone") {
-        info = clone(newUsersState, e, groundActive);
+        info = clone(newUsersState, e);
       } else if (e.type === "summon") {
-        info = summon(newUsersState, e, groundActive);
+        info = summon(newUsersState, e);
       } else {
         // Apply all other ground effects to user
         const user = findUser(newUsersState, e.longitude, e.latitude);
@@ -156,7 +153,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         }
       }
       // Let ground effect continue, or is it done?
-      if (groundActive && isEffectActive(e)) {
+      if (isEffectActive(e)) {
         e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
