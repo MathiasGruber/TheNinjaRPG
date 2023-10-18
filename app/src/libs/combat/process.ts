@@ -129,7 +129,6 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       if (e.type === "clone") {
         // clone(newUsersState, e);
       } else if (e.type === "summon") {
-        console.log("clone", battle.round, e.createdRound, e.rounds);
         info = summon(newUsersState, e, groundActive);
       } else {
         // Apply all other ground effects to user

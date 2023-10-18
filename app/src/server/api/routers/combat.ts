@@ -153,8 +153,8 @@ export const combatRouter = createTRPCRouter({
           const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
 
           // Only allow action if it is the users turn
-          const isUserTurn = actor.controllerId === suid;
-          const isAITurn = actor.isAi && actor.controllerId === actor.userId;
+          const isUserTurn = !actor.isAi && actor.controllerId === suid;
+          const isAITurn = actor.isAi;
           if (!isStunned && !isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
@@ -246,7 +246,6 @@ export const combatRouter = createTRPCRouter({
           // Check if we should let the inner-loop continue
           if (
             newActor.isAi && // Continue new loop if it's an AI
-            newActor.controllerId === newActor.userId && // ... which is not controlled by a user
             nActions < 5 && // and we haven't performed 5 actions yet
             !result && // and the battle is not over for the user
             (newActor.userId !== actor.userId || description) // and new actor, or successful attack

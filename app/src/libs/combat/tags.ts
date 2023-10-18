@@ -854,7 +854,7 @@ export const summon = (
         // Place on battlefield
         newAi.userId = nanoid();
         effect.aiId = newAi.userId;
-        newAi.controllerId = newAi.userId;
+        newAi.controllerId = user.userId;
         newAi.hidden = undefined;
         newAi.longitude = effect.longitude;
         newAi.latitude = effect.latitude;

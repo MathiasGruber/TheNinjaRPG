@@ -343,7 +343,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   group.add(shadow_sprite);
 
   // User marker background or raw image
-  const noMarker = userData.isAi && userData.isOriginal;
+  const noMarker = userData.isAi;
   if (noMarker) {
     const map = new TextureLoader().load(
       userData.avatar ? `${userData.avatar}?1=1` : ""

@@ -179,7 +179,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       if (suid && battle.current && userId.current && !isLoadingUser && !result) {
         const { actor } = calcActiveUser(battle.current, suid);
         // Scenario 1: it is now AIs turn, perform action
-        if (actor.isAi && actor.controllerId === actor.userId) {
+        if (actor.isAi) {
           performAction({
             battleId: battle.current.id,
             version: battle.current.version,
@@ -335,14 +335,6 @@ const Combat: React.FC<CombatProps> = (props) => {
                 });
                 return false;
               }
-            } else if (i.object.userData.type === "userMarker" && battle.current) {
-              const target = battle.current.usersState.find(
-                (u) =>
-                  u.userId === i.object.userData.userId &&
-                  u.curHealth > 0 &&
-                  u.controllerId === userData.userId
-              );
-              if (target) setUserId(target.userId);
             }
             return true;
           });
@@ -372,14 +364,6 @@ const Combat: React.FC<CombatProps> = (props) => {
           const user = battle.current.usersState.find(
             (u) => u.userId === userId.current
           );
-
-          // If selected user is dead, select another user controlled by the same player
-          if (user && user.curHealth <= 0) {
-            const another = battle.current.usersState.find(
-              (u) => u.controllerId === userData.userId && u.curHealth > 0
-            );
-            if (another) setUserId(another.userId);
-          }
 
           // Draw all users on the map + indicators for positions with multiple users
           drawCombatUsers({
