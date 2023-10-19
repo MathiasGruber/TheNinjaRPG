@@ -1026,7 +1026,11 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
       }
     });
   }
-  return defended / attacks;
+  // Return an overlap of attacks vs. defends
+  // return defended / attacks;
+
+  // As long as one of the attacks is defended, return 1 (full ratio)
+  return defended > 0 ? 1 : 0;
 };
 
 /**
