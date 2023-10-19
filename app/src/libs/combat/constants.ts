@@ -84,6 +84,8 @@ export const Element = [
   "Wood",
   "Scorch",
   "Magnet",
+  "Ying",
+  "Yang",
   "None",
 ] as const;
 export const StatType = [
