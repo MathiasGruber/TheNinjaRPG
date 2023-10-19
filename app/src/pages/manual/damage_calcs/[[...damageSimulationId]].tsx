@@ -13,7 +13,7 @@ import Button from "../../../layout/Button";
 import InputField from "../../../layout/InputField";
 import SelectField from "../../../layout/SelectField";
 import { damage } from "../../../libs/combat/tags";
-import { calcLevel } from "../../../libs/profile";
+import { calcLevel, calcHP } from "../../../libs/profile";
 import { StatType, GeneralType } from "../../../libs/combat/constants";
 import { statSchema, actSchema } from "../../../libs/combat/types";
 import { api } from "../../../utils/api";
@@ -136,8 +136,10 @@ const ManualDamageSimulator: NextPage = () => {
   // Extract information from schema to use for showing forms
   const attExp = calcExperience(attValues);
   const attLevel = calcLevel(attExp);
+  const attHp = calcHP(attLevel);
   const defExp = calcExperience(defValues);
   const defLevel = calcLevel(defExp);
+  const defHp = calcHP(defLevel);
 
   // Monkey-wrap the damage function
   const getDamage = (
@@ -300,6 +302,7 @@ const ManualDamageSimulator: NextPage = () => {
             </div>
             <p className="px-3 italic text-sm">Experience: {attExp}</p>
             <p className="px-3 pb-1 italic text-sm">Level: {attLevel}</p>
+            <p className="px-3 pb-1 italic text-sm">Health: {attHp}</p>
             <hr />
             <UserInput
               id="u1"
@@ -319,6 +322,7 @@ const ManualDamageSimulator: NextPage = () => {
             </div>
             <p className="px-3 italic text-sm">Experience: {defExp}</p>
             <p className="px-3 pb-1 italic text-sm">Level: {defLevel}</p>
+            <p className="px-3 pb-1 italic text-sm">Health: {defHp}</p>
             <hr />
             <UserInput
               id="u2"
@@ -369,7 +373,17 @@ const ManualDamageSimulator: NextPage = () => {
         </div>
         <hr />
         <div className="grid grid-cols-2 my-2">
-          <p className="text-2xl text-center my-3 font-bold">Damage: {selectedDmg}</p>
+          {selectedDmg && (
+            <div>
+              <p className="text-2xl text-center mt-3 font-bold">
+                Damage: {selectedDmg}
+              </p>
+              <p className="text-base text-center mb-3 italic">
+                [{((100 * selectedDmg) / defHp)?.toFixed(1)}% of Defender HP]
+              </p>
+            </div>
+          )}
+
           <Button
             id="return"
             label="Save Calculation"
