@@ -29,6 +29,7 @@ export type BattleUserState = UserData & {
   armor: number;
   hidden?: boolean;
   isOriginal: boolean;
+  isSummon: boolean;
   controllerId: string;
   leftBattle: boolean;
   fledBattle: boolean;

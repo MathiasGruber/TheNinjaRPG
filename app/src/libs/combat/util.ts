@@ -262,7 +262,6 @@ export const maskBattle = (battle: Battle, userId: string) => {
 export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
-  const originals = users.filter((u) => u.isOriginal);
   if (user && !user.leftBattle) {
     // If single village, then friends/targets are the opposing team. If MPvP, separate by village
     const villageIds = [
@@ -271,13 +270,13 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
     if (villageIds.length === 1) {
-      targets = originals.filter((u) => u.controllerId !== userId);
-      friends = originals.filter((u) => u.controllerId === userId);
+      targets = users.filter((u) => u.controllerId !== userId && !u.isSummon);
+      friends = users.filter((u) => u.controllerId === userId && !u.isSummon);
     } else {
-      targets = originals.filter((u) => u.villageId !== user.villageId);
-      friends = originals.filter((u) => u.villageId === user.villageId);
+      targets = users.filter((u) => u.villageId !== user.villageId && !u.isSummon);
+      friends = users.filter((u) => u.villageId === user.villageId && !u.isSummon);
     }
-    const survivingTargets = targets.filter((t) => t.curHealth > 0 && !t.fledBattle);
+    const survivingTargets = targets.filter(stillInBattle);
     if (!stillInBattle(user) || survivingTargets.length === 0) {
       // Update the user left
       user.leftBattle = true;
@@ -549,13 +548,14 @@ export const processUsersForBattle = (
 
     // Default locaton
     if (hide) {
-      user.longitude = 1;
-      user.latitude = 1;
+      user.longitude = 0;
+      user.latitude = 0;
       user.curHealth = 0;
     }
 
     // By default the ones inserted initially are original
     user.isOriginal = true;
+    user.isSummon = false;
 
     // Set the history lists to record actions during battle
     user.usedGenerals = [];
