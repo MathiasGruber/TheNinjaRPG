@@ -436,7 +436,7 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   // Is the new actor stunned?
   const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug
-  console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
+  // console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
   return { actor, progressRound, actionRound, isStunned };
 };
 

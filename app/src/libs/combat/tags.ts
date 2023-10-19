@@ -281,7 +281,7 @@ export const adjustHealGiven = (
       }
     });
   }
-  return getInfo(target, effect, `healing capacity is ${adverb} by ${qualifier}`);
+  return getInfo(target, effect, `healing ability is ${adverb} by ${qualifier}`);
 };
 
 export const clear = (
