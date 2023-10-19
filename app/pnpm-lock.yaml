@@ -3218,7 +3218,7 @@ packages:
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
-      tinymce: 6.5.1
+      tinymce: 6.7.1
     dev: false
 
   /@trpc/client@10.38.4(@trpc/server@10.38.4):
@@ -7584,8 +7584,8 @@ packages:
       next-tick: 1.1.0
     dev: true
 
-  /tinymce@6.5.1:
-    resolution: {integrity: sha512-J67fxJiX3tjvVqer1dg1+cOxMeE2P55ESGhaakvqGPbAUU45HnCMLSioaOsxV1KfcXustw9WJo0rtn1SNQlVKQ==}
+  /tinymce@6.7.1:
+    resolution: {integrity: sha512-SIGJgWk2d/X59VbO+i81QfNx2EP1P5t+sza2/1So3OLGtmMBhEJMag7sN/Mo8sq4s0niwb65Z51yLju32jP11g==}
     dev: false
 
   /titleize@2.1.0:
