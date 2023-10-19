@@ -11,9 +11,7 @@ const f = createUploadthing();
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req))
-    .onUploadComplete(async ({ metadata, file }) => {
-      await uploadHistoricalAvatar(file, metadata.userId);
-    }),
+    .onUploadComplete(() => {}),
   avatarNormalUploader: f({ image: { maxFileSize: "128KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {
