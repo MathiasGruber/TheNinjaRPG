@@ -809,13 +809,16 @@ export const seal = (
   const secondaryCheck = preventCheck(usersEffects, "sealprevent", target);
 
   let info: ActionEffect | undefined = undefined;
-  if (primaryCheck && secondaryCheck) {
-    info = getInfo(target, effect, "bloodline is sealed");
-  } else if (primaryCheck) {
-    effect.rounds = 0;
-    info = { txt: `${target.username} resisted bloodline sealing`, color: "blue" };
-  } else {
-    info = { txt: `${target.username} bloodline was not sealed`, color: "blue" };
+  if (effect.isNew) {
+    if (primaryCheck && secondaryCheck) {
+      info = getInfo(target, effect, "bloodline is sealed");
+    } else if (primaryCheck) {
+      effect.rounds = 0;
+      info = { txt: `${target.username} resisted bloodline sealing`, color: "blue" };
+    } else {
+      effect.rounds = 0;
+      info = { txt: `${target.username} bloodline was not sealed`, color: "blue" };
+    }
   }
   return info;
 };
