@@ -84,7 +84,7 @@ export const Element = [
   "Wood",
   "Scorch",
   "Magnet",
-  "Ying",
+  "Yin",
   "Yang",
   "None",
 ] as const;
