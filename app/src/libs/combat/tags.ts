@@ -853,14 +853,16 @@ export const stun = (
   const secondaryCheck = preventCheck(usersEffects, "stunprevent", target);
 
   let info: ActionEffect | undefined = undefined;
-  if (primaryCheck && secondaryCheck) {
-    info = getInfo(target, effect, "is stunned");
-  } else if (primaryCheck) {
-    effect.rounds = 0;
-    info = { txt: `${target.username} resisted being stunned`, color: "blue" };
-  } else {
-    effect.rounds = 0;
-    info = { txt: `${target.username} manages not to get stunned!`, color: "blue" };
+  if (effect.isNew) {
+    if (primaryCheck && secondaryCheck) {
+      info = getInfo(target, effect, "is stunned");
+    } else if (primaryCheck) {
+      effect.rounds = 0;
+      info = { txt: `${target.username} resisted being stunned`, color: "blue" };
+    } else {
+      effect.rounds = 0;
+      info = { txt: `${target.username} manages not to get stunned!`, color: "blue" };
+    }
   }
   return info;
 };
