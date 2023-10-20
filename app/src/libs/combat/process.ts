@@ -200,7 +200,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
       const isTargetOrNew = e.targetId === userId || e.isNew;
-      if (curUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
+      if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
 

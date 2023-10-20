@@ -714,55 +714,73 @@ export const onehitkillPrevent = (effect: UserEffect, target: BattleUserState) =
 export const rob = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  origin: BattleUserState | undefined,
+  origin: BattleUserState,
   target: BattleUserState
 ) => {
   let stolen = 0;
   let info: ActionEffect | undefined = undefined;
-  const check = preventCheck(usersEffects, "robprevent", target);
-  if (!check) {
-    info = { txt: `${target.username} resists being robbed`, color: "blue" };
-  } else if (origin) {
-    const { power } = getPower(effect);
-    if ("calculation" in effect && effect.calculation === "formula") {
-      let ratio = power;
-      effect.statTypes?.forEach((statType) => {
-        const lower = statType.toLowerCase();
-        const a = `${lower}Offence`;
-        const b = `${lower}Defence`;
-        if (effect.fromGround && a in effect && b in target) {
-          const left = effect[a as keyof typeof effect] as number;
-          const right = target[b as keyof typeof target] as number;
-          ratio *= left / right;
-        } else if (origin && a in origin && b in target) {
-          const left = origin[a as keyof typeof origin] as number;
-          const right = target[b as keyof typeof target] as number;
-          ratio *= left / right;
-        }
-      });
-      effect.generalTypes?.forEach((generalType) => {
-        const lower = generalType.toLowerCase();
-        if (effect.fromGround && lower in effect && lower in target) {
-          const left = effect[lower as keyof typeof effect] as number;
-          const right = target[lower as keyof typeof target] as number;
-          ratio *= left / right;
-        } else if (origin && lower in origin && lower in target) {
-          const left = origin[lower as keyof typeof origin] as number;
-          const right = target[lower as keyof typeof target] as number;
-          ratio *= left / right;
-        }
-      });
-      stolen = target.money * (ratio / 100);
-    } else if (effect.calculation === "static") {
-      stolen = power;
-    } else if (effect.calculation === "percentage") {
-      stolen = target.money * (power / 100);
+  // No stealing from AIs
+  if (target.isAi) {
+    info = { txt: `${target.username} is an AI and cannot be robbed`, color: "blue" };
+    effect.rounds = 0;
+    return info;
+  }
+  // When just created, check if target can resist
+  if (effect.isNew) {
+    const check = preventCheck(usersEffects, "robprevent", target);
+    if (!check) {
+      info = { txt: `${target.username} resists being robbed`, color: "blue" };
+      effect.rounds = 0;
     }
-    stolen = stolen > target.money ? target.money : stolen;
+    return info;
+  }
+  // Attempt robbing
+  const { power } = getPower(effect);
+  if ("calculation" in effect && effect.calculation === "formula") {
+    let ratio = power;
+    effect.statTypes?.forEach((statType) => {
+      const lower = statType.toLowerCase();
+      const a = `${lower}Offence`;
+      const b = `${lower}Defence`;
+      if (effect.fromGround && a in effect && b in target) {
+        const left = effect[a as keyof typeof effect] as number;
+        const right = target[b as keyof typeof target] as number;
+        ratio *= left / right;
+      } else if (origin && a in origin && b in target) {
+        const left = origin[a as keyof typeof origin] as number;
+        const right = target[b as keyof typeof target] as number;
+        ratio *= left / right;
+      }
+    });
+    effect.generalTypes?.forEach((generalType) => {
+      const lower = generalType.toLowerCase();
+      if (effect.fromGround && lower in effect && lower in target) {
+        const left = effect[lower as keyof typeof effect] as number;
+        const right = target[lower as keyof typeof target] as number;
+        ratio *= left / right;
+      } else if (origin && lower in origin && lower in target) {
+        const left = origin[lower as keyof typeof origin] as number;
+        const right = target[lower as keyof typeof target] as number;
+        ratio *= left / right;
+      }
+    });
+    stolen = target.money * (ratio / 100);
+  } else if (effect.calculation === "static") {
+    stolen = power;
+  } else if (effect.calculation === "percentage") {
+    stolen = target.money * (power / 100);
+  }
+  stolen = Math.floor(stolen > target.money ? target.money : stolen);
+  if (stolen > 0) {
     origin.money += stolen;
     target.money -= stolen;
     info = {
       txt: `${origin.username} stole ${stolen} ryo from ${target.username}`,
+      color: "blue",
+    };
+  } else {
+    info = {
+      txt: `${origin.username} failed to steal ryo from ${target.username}`,
       color: "blue",
     };
   }
