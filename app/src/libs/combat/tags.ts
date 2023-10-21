@@ -606,7 +606,7 @@ export const reflect = (
   consequences: Map<string, Consequence>,
   target: BattleUserState
 ) => {
-  const { power } = getPower(effect);
+  const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId && consequence.damage) {
@@ -627,7 +627,7 @@ export const reflect = (
       }
     });
   }
-  return getInfo(target, effect, "will reflect damage");
+  return getInfo(target, effect, `will reflect ${qualifier} damage`);
 };
 
 /**
@@ -807,7 +807,6 @@ export const seal = (
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
   const secondaryCheck = preventCheck(usersEffects, "sealprevent", target);
-
   let info: ActionEffect | undefined = undefined;
   if (effect.isNew) {
     if (primaryCheck && secondaryCheck) {
