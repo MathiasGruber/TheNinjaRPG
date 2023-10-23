@@ -153,10 +153,8 @@ const jutsus: ZodJutsuType[] = [
       BarrierTag.parse({
         rounds: 10,
         power: 2,
-        originalPower: 2,
         direction: "defence",
-        calculation: "static",
-        staticAssetPath: "craftpix-377140/PNG/Objects_separately/Rock6_2.png",
+        staticAssetPath: "Rock6_2",
         appearAnimation: "smoke",
         disappearAnimation: "smoke",
       }),

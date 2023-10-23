@@ -3,6 +3,7 @@ import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/con
 import { ItemSlotTypes, ItemTypes, JutsuTypes } from "../../../drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/constants";
 import { Element } from "./constants";
+import { combatAssetsNames } from "../travel/constants";
 import { StatType, GeneralType, PoolType } from "./constants";
 import type { publicState } from "./constants";
 import type { StatNames } from "./constants";
@@ -165,14 +166,16 @@ Animations.set("fire", { frames: 6, speed: 50 });
 Animations.set("heal", { frames: 20, speed: 50 });
 Animations.set("explosion", { frames: 10, speed: 50 });
 Animations.set("rising_smoke", { frames: 14, speed: 50 });
-export enum AnimationNames {
-  hit = "hit",
-  smoke = "smoke",
-  fire = "fire",
-  heal = "heal",
-  explosion = "explosion",
-  rising_smoke = "rising_smoke",
-}
+
+export const animationNames = [
+  "",
+  "hit",
+  "smoke",
+  "fire",
+  "heal",
+  "explosion",
+  "rising_smoke",
+] as const;
 
 /**
  * Convenience method for a string with a default value
@@ -213,12 +216,12 @@ const type = (defaultString: string) => {
 const BaseTagTargets = ["INHERIT", "SELF"] as const;
 const BaseAttributes = {
   // Visual controls
-  staticAssetPath: z.string().optional(),
-  staticAnimation: z.nativeEnum(AnimationNames).optional(),
-  appearAnimation: z.nativeEnum(AnimationNames).optional(),
-  disappearAnimation: z.nativeEnum(AnimationNames).optional(),
+  staticAssetPath: z.enum(combatAssetsNames).default(""),
+  staticAnimation: z.enum(animationNames).default(""),
+  appearAnimation: z.enum(animationNames).default(""),
+  disappearAnimation: z.enum(animationNames).default(""),
   // Timing controls
-  rounds: z.number().int().min(0).max(20).optional(),
+  rounds: z.number().int().min(0).max(100).optional(),
   timeTracker: z.record(z.string(), z.number()).optional(),
   // Power controls. Has different meanings depending on calculation
   power: z.number().min(-100).max(100).default(1),
@@ -229,6 +232,8 @@ const BaseAttributes = {
   target: z.enum(BaseTagTargets).optional().default("INHERIT"),
   // Enable / disables applying to friendlies. Default is to apply to all users
   friendlyFire: z.enum(["ALL", "FRIENDLY", "ENEMIES"]).optional(),
+  // Default is for calculation to be static
+  calculation: z.enum(["static"]).default("static"),
 };
 
 const PowerAttributes = {
@@ -278,7 +283,6 @@ export const AdjustArmorTag = z.object({
   ...PowerAttributes,
   type: type("armoradjust"),
   description: msg("Adjust armor rating of target"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const AdjustDamageGivenTag = z.object({
@@ -329,12 +333,12 @@ export const AdjustStatTag = z.object({
 
 export const BarrierTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PositivePowerAttributes,
   type: type("barrier"),
-  description: msg("Creates a barrier which offers cover"),
-  originalPower: z.number().int().min(1).default(1),
-  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  curHealth: z.number().int().min(1).max(100000).default(100),
+  maxHealth: z.number().int().min(1).max(100000).default(100),
+  direction: z.enum(["defence"]).default("defence"),
+  description: msg("Creates a barrier with level corresponding to power"),
 });
 
 export type BarrierTagType = z.infer<typeof BarrierTag>;
@@ -344,7 +348,6 @@ export const ClearTag = z.object({
   ...PositivePowerAttributes,
   type: type("clear"),
   description: msg("Clears all effects from the target"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const CloneTag = z.object({
@@ -374,7 +377,6 @@ export const FleeTag = z.object({
   ...PositivePowerAttributes,
   type: type("flee"),
   description: msg("Flee the battle"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const FleePreventTag = z.object({
@@ -382,7 +384,6 @@ export const FleePreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("fleeprevent"),
   description: msg("Prevents fleeing"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const HealTag = z.object({
@@ -399,7 +400,6 @@ export const MoveTag = z.object({
   ...PositivePowerAttributes,
   type: type("move"),
   description: msg("Move on the battlefield"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export type MoveTagType = z.infer<typeof MoveTag>;
@@ -409,7 +409,6 @@ export const OneHitKillTag = z.object({
   ...PositivePowerAttributes,
   type: type("onehitkill"),
   description: msg("Instantly kills the target"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const OneHitKillPreventTag = z.object({
@@ -417,7 +416,6 @@ export const OneHitKillPreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("onehitkillprevent"),
   description: msg("Prevents instant kill effects"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const ReflectTag = z.object({
@@ -435,7 +433,6 @@ export const RobPreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("robprevent"),
   description: msg("Prevents robbing of the target"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const RobTag = z.object({
@@ -452,7 +449,6 @@ export const SealPreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("sealprevent"),
   description: msg("Prevents bloodline from being sealed"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const SealTag = z.object({
@@ -460,7 +456,6 @@ export const SealTag = z.object({
   ...PositivePowerAttributes,
   type: type("seal"),
   description: msg("Seals the target's bloodline effects"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const StunPreventTag = z.object({
@@ -468,7 +463,6 @@ export const StunPreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("stunprevent"),
   description: msg("Prevents being stunned"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const StunTag = z.object({
@@ -476,7 +470,6 @@ export const StunTag = z.object({
   ...PositivePowerAttributes,
   type: type("stun"),
   description: msg("Stuns the target"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const SummonPreventTag = z.object({
@@ -484,7 +477,6 @@ export const SummonPreventTag = z.object({
   ...PositivePowerAttributes,
   type: type("summonprevent"),
   description: msg("Prevents summoning"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 export const SummonTag = z.object({
@@ -504,7 +496,6 @@ export const VisualTag = z.object({
   ...BaseAttributes,
   type: type("visual"),
   description: msg("A battlefield visual effect"),
-  calculation: z.enum(["static"]).default("static"),
 });
 
 // All the possible tags
@@ -665,6 +656,7 @@ export type BattleEffect = ZodAllTags & {
   highestDefence?: typeof StatNames[number];
   longitude: number;
   latitude: number;
+  barriersCrossed: number;
 };
 
 export type GroundEffect = BattleEffect;
@@ -701,14 +693,14 @@ const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
   effects.forEach((e) => {
     if (e.type === "absorb" && e.direction === "offence") {
       addIssue(ctx, "AbsorbTag should be set to defence");
+    } else if (e.type === "barrier" && e.staticAssetPath === "") {
+      addIssue(ctx, "BarrierTag needs a staticAssetPath");
     } else if (e.type === "armoradjust") {
       if (
         (e.direction === "offence" && e.power > 0) ||
         (e.direction === "defence" && e.power < 0)
       )
         addIssue(ctx, "ArmorTag power & direction mismatch");
-    } else if (e.type === "barrier" && e.direction === "offence") {
-      addIssue(ctx, "BarrierTag power & direction mismatch");
     } else if (e.type === "clone" && e.rounds === 0) {
       addIssue(
         ctx,

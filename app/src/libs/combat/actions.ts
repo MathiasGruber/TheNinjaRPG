@@ -6,16 +6,17 @@ import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { hasNoAvailableActions } from "./util";
 import { calcIsStunned } from "./util";
-import { isEffectActive } from "./util";
+import { isEffectActive, findBarrier } from "./util";
 import { updateStatUsage } from "./tags";
 import { getPossibleActionTiles } from "../hexgrid";
+import { PathCalculator } from "../hexgrid";
 import type { AttackTargets } from "../../../drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CompleteBattle, ReturnedBattle } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatAction, ZodAllTags } from "./types";
-import type { GroundEffect, UserEffect } from "./types";
+import type { GroundEffect, UserEffect, BattleEffect } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -256,9 +257,18 @@ export const insertAction = (info: {
     // Bookkeeping
     let targetUsernames: string[] = [];
     let targetGenders: string[] = [];
-
+    const barrierAttacks: string[] = [];
+    // Path finder on grid
+    const aStar = new PathCalculator(grid);
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
+      // Calculate how many barriers are between origin & target
+      const barriers = ((user.hex &&
+        aStar
+          .getShortestPath(user.hex, tile)
+          ?.map((t) => findBarrier(groundEffects, t.col, t.row))
+          .filter((b) => b !== undefined)) ??
+        []) as BattleEffect[];
       // ADD USER EFFECTS
       if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
@@ -269,7 +279,8 @@ export const insertAction = (info: {
               tag as GroundEffect,
               user,
               action.level,
-              battle.round
+              battle.round,
+              barriers.length
             );
             if (effect) {
               effect.longitude = tile.col;
@@ -294,7 +305,8 @@ export const insertAction = (info: {
             tag as UserEffect,
             user,
             action.level,
-            battle.round
+            battle.round,
+            barriers.length
           );
           if (effect) {
             effect.longitude = tile.col;
@@ -313,21 +325,23 @@ export const insertAction = (info: {
                 effect.targetId = user.userId;
                 usersEffects.push(effect);
               }
-            } else if (!target && tag.type === "damage") {
-              // Extra: If no target, check if there is a barrier & apply damage only
-              const barrier = groundEffects.find(
-                (e) =>
-                  e.longitude === tile.col &&
-                  e.latitude === tile.row &&
-                  e.type === "barrier"
-              );
-              if (barrier) {
-                targetUsernames.push("barrier");
-                targetGenders.push("it");
-                effect.targetType = "barrier";
-                effect.targetId = barrier.id;
-                usersEffects.push(effect);
-              }
+            }
+            // Extra: If no target, check if there is a barrier & apply damage only
+            if (tag.type === "damage") {
+              barriers.forEach((barrier) => {
+                const idx = `${barrier.id}-${effect.id}`;
+                if (!barrierAttacks.includes(idx)) {
+                  barrierAttacks.push(idx);
+                  targetUsernames.push("barrier");
+                  targetGenders.push("it");
+                  const barrierEffect = structuredClone(effect);
+                  barrierEffect.targetType = "barrier";
+                  barrierEffect.targetId = barrier.id;
+                  barrierEffect.id = nanoid();
+                  console.log("Adding damage to barrier", barrier.id);
+                  usersEffects.push(barrierEffect);
+                }
+              });
             }
           }
         });

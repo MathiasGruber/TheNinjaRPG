@@ -188,7 +188,9 @@ export const drawCombatEffects = (info: {
           asset.userData.type = effect.type; // e.g. "barrier"
           // Sprite to show
           if (effect.staticAssetPath) {
-            const texture = new TextureLoader().load(effect.staticAssetPath);
+            const texture = new TextureLoader().load(
+              `/combat/staticAssets/${effect.staticAssetPath}.png`
+            );
             const material = new SpriteMaterial({ map: texture });
             const sprite = new Sprite(material);
             sprite.scale.set(w, h, 1);
@@ -806,7 +808,7 @@ export const highlightTooltips = (info: {
       updateStatusBar(
         "hp_current",
         barrier as Group,
-        typedEffect.power / typedEffect.originalPower
+        typedEffect.curHealth / typedEffect.maxHealth
       );
     }
     // Remember that we drew this

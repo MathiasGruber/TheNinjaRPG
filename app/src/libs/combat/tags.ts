@@ -1,9 +1,8 @@
 import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
 import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
-import { shouldApplyEffectTimes } from "./util";
 import { scaleUserStats } from "../../../drizzle/seeds/ai";
 import { nanoid } from "nanoid";
-import type { BattleUserState, Consequence, ReturnedBattle } from "./types";
+import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames } from "./constants";
 
@@ -75,7 +74,7 @@ export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
   const affected: string[] = [];
-  if ("calculation" in effect && ("statTypes" in effect || "generalTypes" in effect)) {
+  if ("statTypes" in effect || "generalTypes" in effect) {
     if (effect.statTypes) affected.push(...effect.statTypes);
     if (effect.generalTypes) affected.push(...effect.generalTypes);
     if (!effect.isNew && !effect.castThisRound) {
@@ -438,18 +437,16 @@ const powerEffect = (attack: number, defence: number, avg_exp: number) => {
   return DMG_BASE + statRatio * Math.pow(avg_exp, EXP_SCALING);
 };
 
-/** Calculate damage effect on target */
-export const damage = (
+/** Base damage calculation formula */
+export const damageCalc = (
   effect: UserEffect,
   origin: BattleUserState | undefined,
-  target: BattleUserState,
-  consequences: Map<string, Consequence>,
-  applyTimes: number
+  target: BattleUserState
 ) => {
   const { power } = getPower(effect);
   const calcs: number[] = [];
   // Run battle formula to get list of calculations for each stat
-  if ("calculation" in effect && effect.calculation === "formula") {
+  if (effect.calculation === "formula") {
     const dir = "offensive";
     effect.statTypes?.forEach((statType) => {
       let a = "";
@@ -493,38 +490,56 @@ export const damage = (
   if (!effect.castThisRound && "residualModifier" in effect) {
     if (effect.residualModifier) dmg *= effect.residualModifier;
   }
-  // Add & return consequence
+  return dmg / (effect.barriersCrossed + 1);
+};
+
+/** Calculate damage effect on target */
+export const damageUser = (
+  effect: UserEffect,
+  origin: BattleUserState | undefined,
+  target: BattleUserState,
+  consequences: Map<string, Consequence>,
+  applyTimes: number
+) => {
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
-    damage: dmg * applyTimes,
+    damage: damageCalc(effect, origin, target) * applyTimes,
   });
   return getInfo(target, effect, "will take damage");
 };
 
 /** Apply damage effect to barrier */
-export const damageBarrier = (battle: ReturnedBattle, effect: UserEffect) => {
-  const { groundEffects } = battle;
+export const damageBarrier = (
+  groundEffects: GroundEffect[],
+  origin: BattleUserState,
+  effect: UserEffect
+) => {
+  // Get the barrier
   const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
   const barrier = groundEffects[idx];
-  if (barrier && barrier.power && effect.power) {
-    const applyTimes = shouldApplyEffectTimes(effect, battle, barrier.id);
-    if (applyTimes > 0) {
-      barrier.power -= effect.power * applyTimes;
-      if (barrier.power <= 0) {
-        groundEffects.splice(idx, 1);
-      }
-      const info: ActionEffect = {
-        txt: `Barrier takes ${effect.power} damage ${
-          barrier.power <= 0
-            ? "and is destroyed."
-            : `and has ${barrier.power} power left.`
-        }`,
-        color: "red",
-      };
-      return { info, barrier };
-    }
+  if (!barrier || !("curHealth" in barrier)) return undefined;
+  const { power } = getPower(barrier);
+  // Create barrier target user stats
+  const target = structuredClone(origin);
+  target.level = power;
+  scaleUserStats(target);
+  // Calculate damage
+  const dmg = damageCalc(effect, origin, target);
+  barrier.curHealth -= dmg;
+  // Information
+  if (barrier.curHealth <= 0) {
+    groundEffects.splice(idx, 1);
   }
+  const info: ActionEffect = {
+    txt: `Barrier takes ${dmg.toFixed(2)} damage ${
+      barrier.curHealth <= 0
+        ? "and is destroyed."
+        : `and has ${barrier.curHealth.toFixed(2)} health left.`
+    }`,
+    color: "red",
+  };
+  return { info, barrier };
 };
 
 /** Flee from the battlefield with a given chance */
@@ -736,7 +751,7 @@ export const rob = (
   }
   // Attempt robbing
   const { power } = getPower(effect);
-  if ("calculation" in effect && effect.calculation === "formula") {
+  if (effect.calculation === "formula") {
     let ratio = power;
     effect.statTypes?.forEach((statType) => {
       const lower = statType.toLowerCase();

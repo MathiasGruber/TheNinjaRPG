@@ -23,8 +23,9 @@ import { performBattleAction } from "../../../libs/combat/actions";
 import { availableUserActions } from "../../../libs/combat/actions";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { BarrierTag } from "../../../libs/combat/types";
-import { combatAssets } from "../../../libs/travel/constants";
+import { combatAssetsNames } from "../../../libs/travel/constants";
 import { getServerPusher } from "../../../libs/pusher";
+import { getRandomElement } from "../../../utils/array";
 import type { BaseServerResponse } from "../trpc";
 import type { BattleType } from "../../../../drizzle/schema";
 import type { BattleUserState } from "../../../libs/combat/types";
@@ -268,6 +269,11 @@ export const combatRouter = createTRPCRouter({
             void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
           }
 
+          // Only keep visual tags that are newer than original round
+          newBattle.groundEffects = newBattle.groundEffects.filter(
+            (e) => e.type !== "visual" || e.createdRound >= originalRound
+          );
+
           /**
            * DATABASE UPDATES in parallel transaction
            */
@@ -504,20 +510,21 @@ export const initiateBattle = async (
 
     // Starting ground effects
     const groundEffects: GroundEffect[] = [];
+    const assets = Object.values(combatAssetsNames);
     for (let col = 0; col < COMBAT_WIDTH; col++) {
       for (let row = 0; row < COMBAT_HEIGHT; row++) {
         // Ignore the spots where we placed users
         const foundUser = usersState.find(
           (u) => u.longitude === col && u.latitude === row
         );
-        const rand = Math.random();
-        combatAssets.every((asset) => {
-          if (rand < asset.chance && !foundUser) {
+        if (!foundUser) {
+          const rand = Math.random();
+          if (rand < 0.1) {
+            const asset = getRandomElement(assets);
             const tag: GroundEffect = {
               ...BarrierTag.parse({
                 power: 2,
-                originalPower: 2,
-                calculation: "static",
+                staticAssetPath: asset,
               }),
               id: `initial-${col}-${row}`,
               creatorId: "ground",
@@ -527,13 +534,10 @@ export const initiateBattle = async (
               latitude: row,
               isNew: false,
               castThisRound: false,
-              staticAssetPath: asset.filepath + asset.filename,
             };
             groundEffects.push(tag);
-            return false;
           }
-          return true;
-        });
+        }
       }
     }
 

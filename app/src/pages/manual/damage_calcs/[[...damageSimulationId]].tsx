@@ -12,7 +12,7 @@ import ContentBox from "../../../layout/ContentBox";
 import Button from "../../../layout/Button";
 import InputField from "../../../layout/InputField";
 import SelectField from "../../../layout/SelectField";
-import { damage } from "../../../libs/combat/tags";
+import { damageUser } from "../../../libs/combat/tags";
 import { calcLevel, calcHP } from "../../../libs/profile";
 import { StatType, GeneralType } from "../../../libs/combat/constants";
 import { statSchema, actSchema } from "../../../libs/combat/types";
@@ -166,7 +166,7 @@ const ManualDamageSimulator: NextPage = () => {
       fromGround: false,
     } as UserEffect;
     const consequences = new Map<string, Consequence>();
-    damage(effect, attacker, defender, consequences, 1);
+    damageUser(effect, attacker, defender, consequences, 1);
     const result = consequences.get(effect.id)?.damage as number;
     return parseFloat(result.toFixed(2));
   };

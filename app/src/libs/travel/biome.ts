@@ -5,7 +5,7 @@ import {
   TextureLoader,
   SpriteMaterial,
 } from "three";
-import { groundAssets, oceanAssets, dessertAssets, combatAssets } from "./constants";
+import { groundAssets, oceanAssets, dessertAssets } from "./constants";
 import type { TerrainHex } from "../hexgrid";
 import type { GlobalTile } from "./types";
 
@@ -66,9 +66,6 @@ export const getMapSprites = (
     } else if (asset === "dessert") {
       assets = dessertAssets;
       cost += 1;
-    } else if (asset === "combat") {
-      assets = combatAssets;
-      cost += 5;
     } else {
       assets = oceanAssets;
       cost += 5;

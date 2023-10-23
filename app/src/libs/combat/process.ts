@@ -4,7 +4,7 @@ import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damage, absorb, reflect } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
 import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
@@ -13,7 +13,7 @@ import { clear, summon, summonPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { AnimationNames } from "./types";
+import type { animationNames } from "./types";
 import type { CompleteBattle, Consequence } from "./types";
 
 /**
@@ -49,7 +49,8 @@ export const realizeTag = <T extends BattleEffect>(
   tag: T,
   user: BattleUserState,
   level: number | undefined,
-  round: number = 0
+  round: number = 0,
+  barriersCrossed: number = 0
 ): T => {
   if ("rounds" in tag) {
     tag.timeTracker = {};
@@ -67,6 +68,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.castThisRound = true;
   tag.highestOffence = user.highestOffence;
   tag.highestDefence = user.highestDefence;
+  tag.barriersCrossed = barriersCrossed;
   return structuredClone(tag);
 };
 
@@ -76,7 +78,7 @@ export const realizeTag = <T extends BattleEffect>(
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: keyof typeof AnimationNames,
+  animation?: typeof animationNames[number],
   round: number = 0
 ): GroundEffect => {
   return {
@@ -100,7 +102,7 @@ const getVisual = (
 
 export const applyEffects = (battle: CompleteBattle, userId: string) => {
   // Destructure
-  const { usersState, usersEffects, groundEffects } = battle;
+  const { usersState, usersEffects, groundEffects, round } = battle;
   // Things we wish to return
   const newUsersState = structuredClone(usersState);
   const newGroundEffects: GroundEffect[] = [];
@@ -153,15 +155,19 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         }
       }
       // Let ground effect continue, or is it done?
-      if (isEffectActive(e)) {
+      if (isEffectActive(e) || e.type === "visual") {
         e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
-        newGroundEffects.push(getVisual(e.longitude, e.latitude, e.disappearAnimation));
+        newGroundEffects.push(
+          getVisual(e.longitude, e.latitude, e.disappearAnimation, round)
+        );
       }
     }
     if (e.appearAnimation && e.isNew && e.type !== "visual") {
-      newGroundEffects.push(getVisual(e.longitude, e.latitude, e.appearAnimation));
+      newGroundEffects.push(
+        getVisual(e.longitude, e.latitude, e.appearAnimation, round)
+      );
     }
     if (info) actionEffects.push(info);
   });
@@ -183,9 +189,12 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
     let longitude: number | undefined = undefined;
     let latitude: number | undefined = undefined;
     let info: ActionEffect | undefined = undefined;
+    // Get user now and next
+    const curUser = usersState.find((u) => u.userId === e.creatorId);
+    const newUser = newUsersState.find((u) => u.userId === e.creatorId);
     // Special cases
-    if (e.type === "damage" && e.targetType === "barrier") {
-      const result = damageBarrier(battle, e);
+    if (e.type === "damage" && e.targetType === "barrier" && curUser) {
+      const result = damageBarrier(newGroundEffects, curUser, e);
       if (result) {
         longitude = result.barrier.longitude;
         latitude = result.barrier.latitude;
@@ -193,8 +202,6 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       }
     } else if (e.targetType === "user") {
       // Get the user && effect details
-      const curUser = usersState.find((u) => u.userId === e.creatorId);
-      const newUser = newUsersState.find((u) => u.userId === e.creatorId);
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
@@ -207,7 +214,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         // Tags only applied when target is user or new
         if (isTargetOrNew) {
           if (e.type === "damage" && isTargetOrNew) {
-            info = damage(e, curUser, curTarget, consequences, applyTimes);
+            info = damageUser(e, curUser, curTarget, consequences, applyTimes);
           } else if (e.type === "heal" && isTargetOrNew) {
             info = heal(e, curTarget, consequences, applyTimes);
           } else if (e.type === "flee" && isTargetOrNew) {
@@ -266,15 +273,19 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
 
     // Show once appearing animation
     if (e.appearAnimation && longitude && latitude) {
-      newGroundEffects.push(getVisual(longitude, latitude, e.appearAnimation));
+      newGroundEffects.push(
+        getVisual(longitude, latitude, e.appearAnimation, battle.round)
+      );
     }
 
     // Process round reduction & tag removal
-    if (isEffectActive(e) && !e.fromGround) {
+    if ((isEffectActive(e) && !e.fromGround) || e.type === "visual") {
       e.isNew = false;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
-      newGroundEffects.push(getVisual(longitude, latitude, e.disappearAnimation));
+      newGroundEffects.push(
+        getVisual(longitude, latitude, e.disappearAnimation, round)
+      );
     }
   });
 
@@ -341,10 +352,14 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         }
         // Process disappear animation of characters
         if (target.curHealth <= 0 && !target.isOriginal) {
-          newGroundEffects.push(getVisual(target.longitude, target.latitude, "smoke"));
+          newGroundEffects.push(
+            getVisual(target.longitude, target.latitude, "smoke", round)
+          );
         }
         if (user.curHealth <= 0 && !user.isOriginal) {
-          newGroundEffects.push(getVisual(user.longitude, user.latitude, "smoke"));
+          newGroundEffects.push(
+            getVisual(user.longitude, user.latitude, "smoke", round)
+          );
         }
       }
     });
