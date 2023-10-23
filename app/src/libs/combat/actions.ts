@@ -1,3 +1,4 @@
+import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "./movement";
 import { COMBAT_SECONDS } from "./constants";
