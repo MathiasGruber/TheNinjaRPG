@@ -93,6 +93,7 @@ const getVisual = (
     createdRound: round,
     creatorId: nanoid(),
     level: 0,
+    barriersCrossed: 0,
     isNew: true,
     castThisRound: true,
     longitude,
