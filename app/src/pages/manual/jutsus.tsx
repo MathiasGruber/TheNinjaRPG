@@ -2,32 +2,29 @@ import { useState } from "react";
 import { useSafePush } from "../../utils/routing";
 import ItemWithEffects from "../../layout/ItemWithEffects";
 import ContentBox from "../../layout/ContentBox";
-import NavTabs from "../../layout/NavTabs";
 import Loader from "../../layout/Loader";
 import Button from "../../layout/Button";
-import SelectField from "../../layout/SelectField";
+import JutsuFiltering, { useFiltering, getFilter } from "../../layout/JutsuFiltering";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "../../libs/pagination";
 import { api } from "../../utils/api";
 import { show_toast } from "../../libs/toast";
 import { canChangeContent } from "../../utils/permissions";
 import { useUserData } from "../../utils/UserContext";
-import { Filters } from "../../libs/train";
-import type { FilterType } from "../../libs/train";
-import type { LetterRanks } from "../../../drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualJutsus: NextPage = () => {
   // Settings
   const { data: userData } = useUserData();
-  const [rarity, setRarity] = useState<typeof LetterRanks[number]>("D");
-  const [filter, setFilter] = useState<FilterType>(Filters[0]);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Router for forwarding
   const router = useSafePush();
 
-  // Data
+  // Get jutsus
   const {
     data: jutsus,
     isFetching,
@@ -35,7 +32,7 @@ const ManualJutsus: NextPage = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 50, filter: filter },
+    { limit: 50, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -98,30 +95,12 @@ const ManualJutsus: NextPage = () => {
               <Button
                 id="create-jutsu"
                 className="sm:mr-5"
-                label="New Jutsu"
+                label="New"
                 image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
                 onClick={() => create()}
               />
             )}
-            <div className="flex flex-col">
-              <SelectField
-                id="filter"
-                onChange={(e) => setFilter(e.target.value as FilterType)}
-              >
-                {Filters.map((filter) => {
-                  return (
-                    <option key={filter} value={filter}>
-                      {filter}
-                    </option>
-                  );
-                })}
-              </SelectField>
-              <NavTabs
-                current={rarity}
-                options={["D", "C", "B", "A", "S"]}
-                setValue={setRarity}
-              />
-            </div>
+            <JutsuFiltering state={state} />
           </div>
         }
       >
@@ -140,6 +119,9 @@ const ManualJutsus: NextPage = () => {
               />
             </div>
           ))}
+        {!totalLoading && alljutsus?.length === 0 && (
+          <div>No jutsus found given the search criteria.</div>
+        )}
       </ContentBox>
     </>
   );

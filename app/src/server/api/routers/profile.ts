@@ -364,8 +364,6 @@ export const profileRouter = createTRPCRouter({
           });
           const s1 = { jutsus: olds.map((id) => data.find((j) => j.id === id)?.name) };
           const s2 = { jutsus: news.map((id) => data.find((j) => j.id === id)?.name) };
-          console.log("Old Jutsus: ", s1);
-          console.log("New Jutsus: ", s2);
           jutsuChanges = new HumanDiff({ objectName: "jutsu" }).diff(s1, s2);
         }
 

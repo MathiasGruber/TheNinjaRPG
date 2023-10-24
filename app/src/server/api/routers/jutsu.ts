@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, gte } from "drizzle-orm";
+import { eq, isNotNull, sql, and, gte } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "../../../../drizzle/schema";
 import { LetterRanks } from "../../../../drizzle/constants";
 import { fetchUser } from "./profile";
@@ -12,7 +12,7 @@ import { canChangeContent } from "../../../utils/permissions";
 import { callDiscordContent } from "../../../libs/discord";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
-import { Filters } from "../../../libs/train";
+import { statFilters, effectFilters } from "../../../libs/train";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
@@ -37,28 +37,33 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        rarity: z.enum(LetterRanks),
-        filter: z.enum(Filters).optional().default("No Filter"),
+        rarity: z.enum(LetterRanks).optional(),
+        bloodline: z.string().optional(),
+        stat: z.enum(statFilters).optional(),
+        effect: z.enum(effectFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      let results = await ctx.drizzle.query.jutsu.findMany({
-        where: eq(jutsu.jutsuRank, input.rarity),
+      const results = await ctx.drizzle.query.jutsu.findMany({
+        where: and(
+          ...[
+            input.rarity
+              ? eq(jutsu.jutsuRank, input.rarity)
+              : isNotNull(jutsu.jutsuRank),
+          ],
+          ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+          ...(input.stat
+            ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.stat}) IS NOT NULL`]
+            : []),
+          ...(input.effect
+            ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.effect}) IS NOT NULL`]
+            : [])
+        ),
         offset: skip,
         limit: input.limit,
       });
-      if (!["No Filter", "Bloodline"].includes(input.filter)) {
-        results = results.filter((jutsu) => {
-          return JSON.stringify(jutsu.effects).includes(input.filter);
-        });
-      }
-      if (input.filter === "Bloodline") {
-        results = results.filter((jutsu) => {
-          return jutsu.bloodlineId !== "";
-        });
-      }
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
         data: results,

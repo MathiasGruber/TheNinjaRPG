@@ -3,12 +3,11 @@ import Image from "next/image";
 import ItemWithEffects from "../layout/ItemWithEffects";
 import Modal from "../layout/Modal";
 import ContentBox from "../layout/ContentBox";
-import NavTabs from "../layout/NavTabs";
 import Loader from "../layout/Loader";
 import Countdown from "../layout/Countdown";
 import StatusBar from "../layout/StatusBar";
 import Button from "../layout/Button";
-import SelectField from "../layout/SelectField";
+import JutsuFiltering, { useFiltering, getFilter } from "../layout/JutsuFiltering";
 import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
 import { ActionSelector } from "../layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
@@ -22,9 +21,7 @@ import { BoltIcon } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
 import { UserStatNames } from "../../drizzle/constants";
-import { Filters } from "../libs/train";
-import type { FilterType } from "../libs/train";
-import type { JutsuRank, Jutsu } from "../../drizzle/schema";
+import type { Jutsu } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
 const Training: NextPage = () => {
@@ -174,10 +171,11 @@ const JutsuTraining: React.FC = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
-  const [rarity, setRarity] = useState<JutsuRank>("D");
-  const [filter, setFilter] = useState<FilterType>(Filters[0]);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const now = new Date();
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Jutsus
   const {
@@ -186,7 +184,7 @@ const JutsuTraining: React.FC = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { rarity: rarity, limit: 100, filter: filter },
+    { limit: 100, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -197,13 +195,8 @@ const JutsuTraining: React.FC = () => {
   const alljutsus = jutsus?.pages
     .map((page) => page.data)
     .flat()
-    .filter((jutsu) => !jutsu.villageId || userData?.villageId === jutsu.villageId)
-    .filter(
-      (jutsu) =>
-        !userData ||
-        filter !== "Bloodline" ||
-        (jutsu.bloodlineId === userData.bloodlineId && userData.bloodlineId !== "")
-    );
+    .filter((j) => !j.villageId || userData?.villageId === j.villageId)
+    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId);
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
@@ -262,25 +255,7 @@ const JutsuTraining: React.FC = () => {
         back_href="/village"
         initialBreak={true}
         topRightContent={
-          <div className="flex flex-col">
-            <SelectField
-              id="filter"
-              onChange={(e) => setFilter(e.target.value as FilterType)}
-            >
-              {Filters.map((filter) => {
-                return (
-                  <option key={filter} value={filter}>
-                    {filter}
-                  </option>
-                );
-              })}
-            </SelectField>
-            <NavTabs
-              current={rarity}
-              options={["D", "C", "B", "A", "S"]}
-              setValue={setRarity}
-            />
-          </div>
+          <JutsuFiltering state={state} fixedBloodline={userData.bloodlineId} />
         }
       >
         {!isFetching && userData && (
