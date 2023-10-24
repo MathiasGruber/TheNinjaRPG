@@ -356,6 +356,11 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
     newAi.intelligence = newAi.intelligence * perc;
     newAi.willpower = newAi.willpower * perc;
     newAi.speed = newAi.speed * perc;
+    // Remove all jutsus with summon/clone
+    newAi.jutsus = newAi.jutsus.filter((j) => {
+      const effects = JSON.stringify(j.jutsu.effects);
+      return !effects.includes("summon") && !effects.includes("clone");
+    });
     // Push to userState
     usersState.push(newAi);
     // ActionEffect to be shown
@@ -490,7 +495,7 @@ export const damageCalc = (
   if (!effect.castThisRound && "residualModifier" in effect) {
     if (effect.residualModifier) dmg *= effect.residualModifier;
   }
-  return dmg / (effect.barriersCrossed + 1);
+  return dmg;
 };
 
 /** Calculate damage effect on target */
@@ -501,10 +506,12 @@ export const damageUser = (
   consequences: Map<string, Consequence>,
   applyTimes: number
 ) => {
+  const damage =
+    damageCalc(effect, origin, target) * applyTimes * (1 - effect.barrierAbsorb);
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
-    damage: damageCalc(effect, origin, target) * applyTimes,
+    damage: damage,
   });
   return getInfo(target, effect, "will take damage");
 };
@@ -525,14 +532,14 @@ export const damageBarrier = (
   target.level = power;
   scaleUserStats(target);
   // Calculate damage
-  const dmg = damageCalc(effect, origin, target);
-  barrier.curHealth -= dmg;
+  const damage = damageCalc(effect, origin, target) * effect.barrierAbsorb;
+  barrier.curHealth -= damage;
   // Information
   if (barrier.curHealth <= 0) {
     groundEffects.splice(idx, 1);
   }
   const info: ActionEffect = {
-    txt: `Barrier takes ${dmg.toFixed(2)} damage ${
+    txt: `Barrier takes ${damage.toFixed(2)} damage ${
       barrier.curHealth <= 0
         ? "and is destroyed."
         : `and has ${barrier.curHealth.toFixed(2)} health left.`

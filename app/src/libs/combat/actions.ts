@@ -7,7 +7,7 @@ import { applyEffects } from "./process";
 import { calcPoolCost } from "./util";
 import { hasNoAvailableActions } from "./util";
 import { calcIsStunned } from "./util";
-import { isEffectActive, findBarrier } from "./util";
+import { isEffectActive, getBarriersBetween } from "./util";
 import { updateStatUsage } from "./tags";
 import { getPossibleActionTiles } from "../hexgrid";
 import { PathCalculator } from "../hexgrid";
@@ -221,6 +221,11 @@ export const insertAction = (info: {
   const user = alive.find((u) => u.userId === actorId);
   const targetTile = grid.getHex({ col: longitude, row: latitude });
 
+  // Check if user was found
+  if (!user) {
+    throw new Error("User performing action not found");
+  }
+
   // Can only perform action if battle started
   if (battle.createdAt.getTime() > Date.now()) {
     throw new Error("Battle has not started yet");
@@ -233,7 +238,8 @@ export const insertAction = (info: {
   }
 
   // Check if the user can perform the action
-  if (user?.hex && targetTile) {
+  const userHex = user.hex;
+  if (userHex && targetTile) {
     // Check pools cost
     const { hpCost, cpCost, spCost } = calcPoolCost(action, usersEffects, user);
     if (user.curHealth < hpCost) throw new Error("Not enough health");
@@ -243,10 +249,10 @@ export const insertAction = (info: {
     const newPoints = actionPointsAfterAction(user, battle, action);
     if (newPoints < 0) return false;
     // Get the possible action squares
-    const highlights = getPossibleActionTiles(action, user.hex, grid);
+    const highlights = getPossibleActionTiles(action, userHex, grid);
     // Given this action, get the affected tiles
     const { green: affectedTiles } = getAffectedTiles({
-      a: user.hex,
+      a: userHex,
       b: targetTile,
       action,
       grid: grid,
@@ -264,12 +270,13 @@ export const insertAction = (info: {
     // For each affected tile, apply the effects
     affectedTiles.forEach((tile) => {
       // Calculate how many barriers are between origin & target
-      const barriers = ((user.hex &&
-        aStar
-          .getShortestPath(user.hex, tile)
-          ?.map((t) => findBarrier(groundEffects, t.col, t.row))
-          .filter((b) => b !== undefined)) ??
-        []) as BattleEffect[];
+      const { barriers, totalAbsorb } = getBarriersBetween(
+        aStar,
+        groundEffects,
+        userHex,
+        tile
+      );
+
       // ADD USER EFFECTS
       if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
@@ -281,7 +288,7 @@ export const insertAction = (info: {
               user,
               action.level,
               battle.round,
-              barriers.length
+              totalAbsorb
             );
             if (effect) {
               effect.longitude = tile.col;
@@ -307,7 +314,7 @@ export const insertAction = (info: {
             user,
             action.level,
             battle.round,
-            barriers.length
+            totalAbsorb
           );
           if (effect) {
             effect.longitude = tile.col;
@@ -339,7 +346,9 @@ export const insertAction = (info: {
                   barrierEffect.targetType = "barrier";
                   barrierEffect.targetId = barrier.id;
                   barrierEffect.id = nanoid();
-                  console.log("Adding damage to barrier", barrier.id);
+                  if ("absorbPercentage" in barrier) {
+                    barrierEffect.barrierAbsorb = barrier.absorbPercentage;
+                  }
                   usersEffects.push(barrierEffect);
                 }
               });

@@ -271,7 +271,6 @@ export const AbsorbTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
   direction: type("defence"),
   description: msg("Absorb damage taken & convert to health, chakra or stamina"),
-  elementalOnly: z.number().int().min(0).max(1).default(0),
   elements: z.array(z.enum(Element)).optional(),
   poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
   target: z.enum(BaseTagTargets).optional().default("SELF"),
@@ -337,6 +336,7 @@ export const BarrierTag = z.object({
   type: type("barrier"),
   curHealth: z.number().int().min(1).max(100000).default(100),
   maxHealth: z.number().int().min(1).max(100000).default(100),
+  absorbPercentage: z.number().int().min(1).max(100).default(50),
   direction: z.enum(["defence"]).default("defence"),
   description: msg("Creates a barrier with level corresponding to power"),
 });
@@ -424,7 +424,6 @@ export const ReflectTag = z.object({
   ...PositivePowerAttributes,
   type: type("reflect"),
   description: msg("Reflect damage taken"),
-  elementalOnly: z.boolean().default(false).optional(),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -656,7 +655,7 @@ export type BattleEffect = ZodAllTags & {
   highestDefence?: typeof StatNames[number];
   longitude: number;
   latitude: number;
-  barriersCrossed: number;
+  barrierAbsorb: number;
 };
 
 export type GroundEffect = BattleEffect;

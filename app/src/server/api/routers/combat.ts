@@ -533,7 +533,7 @@ export const initiateBattle = async (
               longitude: col,
               latitude: row,
               isNew: false,
-              barriersCrossed: 0,
+              barrierAbsorb: 0,
               castThisRound: false,
             };
             groundEffects.push(tag);

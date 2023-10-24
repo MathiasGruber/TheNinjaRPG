@@ -7,10 +7,12 @@ import { stillInBattle } from "./actions";
 import { secondsPassed, secondsFromNow } from "../../utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
+import type { PathCalculator } from "../hexgrid";
+import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
-import type { GroundEffect, UserEffect } from "../../libs/combat/types";
+import type { GroundEffect, UserEffect, BattleEffect } from "../../libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
 import type { Item, UserItem } from "../../../drizzle/schema";
 
@@ -38,6 +40,31 @@ export const findBarrier = (
   return groundEffects.find(
     (b) => b.longitude === longitude && b.latitude === latitude && b.type === "barrier"
   );
+};
+
+/** Get a copy of the barriers between two tiles on the grid, as well as the total absorbtion along that path */
+export const getBarriersBetween = (
+  aStar: PathCalculator,
+  groundEffects: GroundEffect[],
+  origin: TerrainHex,
+  target: TerrainHex
+) => {
+  // Get all the barriers
+  const barriers = (aStar
+    .getShortestPath(origin, target)
+    ?.map((t) => structuredClone(findBarrier(groundEffects, t.col, t.row)))
+    .filter((b) => b !== undefined) ?? []) as BattleEffect[];
+  // Calculate how much total is absorbed by the barriers
+  const totalAbsorb = barriers.reduce((acc, b) => {
+    if ("absorbPercentage" in b) {
+      const remainder = 1 - acc;
+      const absorb = remainder * (b.absorbPercentage / 100);
+      b.absorbPercentage = absorb;
+      return acc + absorb;
+    }
+    return acc;
+  }, 0);
+  return { barriers, totalAbsorb };
 };
 
 /**

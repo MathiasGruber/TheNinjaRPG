@@ -50,7 +50,7 @@ export const realizeTag = <T extends BattleEffect>(
   user: BattleUserState,
   level: number | undefined,
   round: number = 0,
-  barriersCrossed: number = 0
+  barrierAbsorb: number = 0
 ): T => {
   if ("rounds" in tag) {
     tag.timeTracker = {};
@@ -68,7 +68,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.castThisRound = true;
   tag.highestOffence = user.highestOffence;
   tag.highestDefence = user.highestDefence;
-  tag.barriersCrossed = barriersCrossed;
+  tag.barrierAbsorb = barrierAbsorb;
   return structuredClone(tag);
 };
 
@@ -93,7 +93,7 @@ const getVisual = (
     createdRound: round,
     creatorId: nanoid(),
     level: 0,
-    barriersCrossed: 0,
+    barrierAbsorb: 0,
     isNew: true,
     castThisRound: true,
     longitude,
