@@ -66,8 +66,9 @@
     "simplex-noise": "4.0.1",
     "superjson": "1.13.1",
     "three": "0.149.0",
+    "tinymce": "^6.7.1",
     "uploadthing": "5.5.3",
-    "zod": "3.20.2"
+    "zod": "3.22.4"
   },
   "devDependencies": {
     "@highlight-run/sourcemap-uploader": "^0.5.2",
@@ -85,7 +86,7 @@
     "drizzle-kit": "0.19.2",
     "eslint": "^8.50.0",
     "eslint-config-next": "13.5.3",
-    "postcss": "8.4.14",
+    "postcss": "8.4.31",
     "prettier": "2.8.1",
     "prettier-plugin-tailwindcss": "0.2.1",
     "tailwindcss": "3.2.0",
