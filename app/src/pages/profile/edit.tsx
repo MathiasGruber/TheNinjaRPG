@@ -26,6 +26,7 @@ import { show_toast } from "../../libs/toast";
 import { COST_CHANGE_USERNAME } from "../../libs/profile";
 import { COST_RESET_STATS } from "../../libs/profile";
 import { COST_SWAP_BLOODLINE } from "../../libs/profile";
+import { round } from "../../utils/math";
 import { UploadButton } from "../../utils/uploadthing";
 import { statSchema } from "../../libs/combat/types";
 import type { Bloodline } from "../../../drizzle/schema";
@@ -269,8 +270,8 @@ const ResetStats: React.FC = () => {
   }
 
   // Derived data
-  const availableStats = Math.round((userData.experience + 120) * 100) / 100;
-  const misalignment = Math.round((formSum - availableStats) * 100) / 100;
+  const availableStats = round(userData.experience + 120);
+  const misalignment = round(formSum - availableStats);
   const canBuy = userData.reputationPoints >= COST_RESET_STATS;
 
   // Input filds

@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { eq, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "../../../utils/time";
+import { round } from "../../../utils/math";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import {
@@ -490,8 +491,8 @@ export const profileRouter = createTRPCRouter({
       if (user.reputationPoints < COST_RESET_STATS) {
         return { success: false, message: "Not enough reputation points" };
       }
-      const inputSum = Object.values(input).reduce((a, b) => a + b, 0);
-      const availableStats = Math.round((user.experience + 120) * 100) / 100;
+      const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
+      const availableStats = round(user.experience + 120);
       if (inputSum !== availableStats) {
         const message = `Requested points ${inputSum} for not match experience points ${availableStats}`;
         return { success: false, message };
