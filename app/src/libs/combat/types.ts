@@ -313,11 +313,12 @@ export const AdjustHealGivenTag = z.object({
 
 export const AdjustPoolCostTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PowerAttributes,
   ...PoolAttributes,
   type: type("poolcostadjust"),
   description: msg("Adjust cost of taking actions"),
+  rounds: z.number().int().min(2).max(20).default(2),
+  direction: z.enum(["defence"]).default("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -357,6 +358,7 @@ export const CloneTag = z.object({
   description: msg(
     "Create a temporary clone to fight alongside you for a given number of rounds."
   ),
+  rounds: z.number().int().min(2).max(100).default(2),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 
@@ -485,7 +487,7 @@ export const SummonTag = z.object({
   description: msg(
     "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage."
   ),
-  rounds: z.number().int().min(2).max(20).default(2),
+  rounds: z.number().int().min(2).max(100).default(2),
   aiId: z.string().default(""),
   aiHp: z.number().min(100).max(100000).default(100),
   calculation: z.enum(["percentage"]).default("percentage"),
