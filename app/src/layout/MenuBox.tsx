@@ -8,7 +8,7 @@ interface MenuBoxProps {
 
 const MenuBox: React.FC<MenuBoxProps> = (props) => {
   return (
-    <div className="mx-2 mb-5 rounded-md bg-orange-100">
+    <div className="mx-2 mb-2 rounded-md bg-orange-100">
       <div className="flex rounded-t-md bg-gradient-to-t from-orange-800 to-orange-600 p-3 font-bold">
         <div>{props.title}</div>
         <div className="grow"></div> <div>{props.link}</div>

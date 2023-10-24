@@ -17,9 +17,7 @@ const Footer: React.FC = () => {
           Game Rules
         </Link>
       </p>
-      <p className="mb-7 text-sm">
-        TheNinja-RPG © by Studie-Tech ApS - 2005-2023
-      </p>
+      <p className="mb-7 text-sm">TheNinja-RPG © by Studie-Tech ApS - 2005-2023</p>
     </div>
   );
 };
