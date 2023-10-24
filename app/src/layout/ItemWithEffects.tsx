@@ -101,6 +101,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
         </div>
         <div>
           <div className="my-2 grid grid-cols-2 rounded-lg bg-orange-100 p-2">
+            {"bloodline" in item && item.bloodline !== null && (
+              <p className="col-span-2">
+                <b>Bloodline</b>: {(item?.bloodline as Bloodline)?.name}
+              </p>
+            )}
             {"attacks" in item && (
               <p className="col-span-2">
                 <b>Attacks</b>: {item.attacks.join(", ")}

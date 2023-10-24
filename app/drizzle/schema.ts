@@ -488,6 +488,13 @@ export const jutsu = mysqlTable(
   }
 );
 
+export const jutsuRelations = relations(jutsu, ({ one }) => ({
+  bloodline: one(bloodline, {
+    fields: [jutsu.bloodlineId],
+    references: [bloodline.id],
+  }),
+}));
+
 export type Jutsu = InferModel<typeof jutsu>;
 export type JutsuRank = Jutsu["jutsuRank"];
 

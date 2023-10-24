@@ -62,6 +62,13 @@ export const jutsuRouter = createTRPCRouter({
             : [])
         ),
         offset: skip,
+        with: {
+          bloodline: {
+            columns: {
+              name: true,
+            },
+          },
+        },
         limit: input.limit,
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
@@ -269,7 +276,13 @@ export const fetchJutsu = async (client: DrizzleClient, id: string) => {
 
 export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => {
   return await client.query.userJutsu.findMany({
-    with: { jutsu: true },
+    with: {
+      jutsu: {
+        with: {
+          bloodline: true,
+        },
+      },
+    },
     where: eq(userJutsu.userId, userId),
   });
 };
