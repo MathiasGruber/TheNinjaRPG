@@ -121,6 +121,7 @@ const ManualBloodlines: NextPage = () => {
                 key={bloodline.id}
                 onDelete={(id: string) => remove({ id })}
                 showEdit="bloodline"
+                showStatistic="bloodline"
               />
             </div>
           ))}

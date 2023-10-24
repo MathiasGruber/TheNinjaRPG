@@ -117,6 +117,7 @@ const ManualAI: NextPage = () => {
                 item={user}
                 onDelete={(id: string) => remove({ id })}
                 showEdit="ai"
+                showStatistic="ai"
               />
             </div>
           ))}

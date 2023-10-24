@@ -167,64 +167,77 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             const schema = getTagSchema(effect.type);
             // Delete description, so that we get the default one
             if ("description" in effect) delete effect["description"];
-            const parsedEffect = schema.parse(effect);
+            const result = schema.safeParse(effect);
+            const parsedEffect = result.success ? result.data : undefined;
+
             return (
               <div
-                key={parsedEffect.type + i.toString()}
-                className="my-2 rounded-lg bg-orange-100 p-2"
+                key={effect.type + i.toString()}
+                className={`my-2 rounded-lg ${
+                  parsedEffect ? "bg-orange-100" : "bg-red-100"
+                } p-2`}
               >
-                <div className="pb-1">
-                  <b>Effect {i + 1}: </b> <i>{parsedEffect.description}</i>
-                </div>
-                <div className="grid grid-cols-2">
-                  {parsedEffect.rounds !== undefined && (
-                    <span>
-                      <b>Rounds: </b> {parsedEffect.rounds}
-                    </span>
-                  )}
-                  {parsedEffect.calculation && (
-                    <span>
-                      <b>Calculation: </b>
-                      {parsedEffect.calculation}
-                    </span>
-                  )}
-                  {"power" in parsedEffect && (
-                    <span>
-                      <b>Effect Power: </b>
-                      {parsedEffect.power}
-                    </span>
-                  )}
-                  {"aiHp" in parsedEffect && (
-                    <span>
-                      <b>Health Points: </b>
-                      {parsedEffect.aiHp as number}
-                    </span>
-                  )}
-                  {"powerPerLevel" in parsedEffect && (
-                    <span>
-                      <b>Effect Power / Lvl: </b>
-                      {parsedEffect.powerPerLevel}
-                    </span>
-                  )}
-                  {"generalTypes" in parsedEffect && parsedEffect.generalTypes && (
-                    <span>
-                      <b>Generals: </b>
-                      {parsedEffect.generalTypes.join(", ")}
-                    </span>
-                  )}
-                  {"statTypes" in parsedEffect && parsedEffect.statTypes && (
-                    <span>
-                      <b>Stats: </b>
-                      {parsedEffect.statTypes.join(", ")}
-                    </span>
-                  )}
-                  {"elements" in parsedEffect && parsedEffect.elements && (
-                    <span>
-                      <b>Elements: </b>
-                      {parsedEffect.elements.join(", ")}
-                    </span>
-                  )}
-                </div>
+                {!parsedEffect && (
+                  <div className="pb-1">
+                    <b>Effect {i + 1}: </b> <i>{effect.type}</i> - PLEASE REPORT!
+                  </div>
+                )}
+                {parsedEffect && (
+                  <>
+                    <div className="pb-1">
+                      <b>Effect {i + 1}: </b> <i>{parsedEffect.description}</i>
+                    </div>
+                    <div className="grid grid-cols-2">
+                      {parsedEffect.rounds !== undefined && (
+                        <span>
+                          <b>Rounds: </b> {parsedEffect.rounds}
+                        </span>
+                      )}
+                      {parsedEffect.calculation && (
+                        <span>
+                          <b>Calculation: </b>
+                          {parsedEffect.calculation}
+                        </span>
+                      )}
+                      {"power" in parsedEffect && (
+                        <span>
+                          <b>Effect Power: </b>
+                          {parsedEffect.power}
+                        </span>
+                      )}
+                      {"aiHp" in parsedEffect && (
+                        <span>
+                          <b>Health Points: </b>
+                          {parsedEffect.aiHp as number}
+                        </span>
+                      )}
+                      {"powerPerLevel" in parsedEffect && (
+                        <span>
+                          <b>Effect Power / Lvl: </b>
+                          {parsedEffect.powerPerLevel}
+                        </span>
+                      )}
+                      {"generalTypes" in parsedEffect && parsedEffect.generalTypes && (
+                        <span>
+                          <b>Generals: </b>
+                          {parsedEffect.generalTypes.join(", ")}
+                        </span>
+                      )}
+                      {"statTypes" in parsedEffect && parsedEffect.statTypes && (
+                        <span>
+                          <b>Stats: </b>
+                          {parsedEffect.statTypes.join(", ")}
+                        </span>
+                      )}
+                      {"elements" in parsedEffect && parsedEffect.elements && (
+                        <span>
+                          <b>Elements: </b>
+                          {parsedEffect.elements.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}

@@ -116,6 +116,7 @@ const ManualJutsus: NextPage = () => {
                 key={jutsu.id}
                 onDelete={(id: string) => remove({ id })}
                 showEdit="jutsu"
+                showStatistic="jutsu"
               />
             </div>
           ))}

@@ -135,6 +135,7 @@ const ManualItems: NextPage = () => {
                 key={item.id}
                 onDelete={(id: string) => remove({ id })}
                 showEdit="item"
+                showStatistic="item"
               />
             </div>
           ))}
