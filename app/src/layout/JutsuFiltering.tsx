@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { api } from "../utils/api";
 import { useState } from "react";
-import SelectField from "./SelectField";
-import NavTabs from "./NavTabs";
-import { mainFilters, statFilters, effectFilters, rarities } from "../libs/train";
-import type { FilterType, StatType, EffectType, RarityType } from "../libs/train";
+import { api } from "@/utils/api";
+import SelectField from "@/layout/SelectField";
+import NavTabs from "@/layout/NavTabs";
+import { mainFilters, statFilters, effectFilters, rarities } from "@/libs/train";
+import type { FilterType, StatType, EffectType, RarityType } from "@/libs/train";
 
 interface JutsuFilteringProps {
   state: JutsuFilteringState;

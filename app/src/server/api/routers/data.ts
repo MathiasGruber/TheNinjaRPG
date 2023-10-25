@@ -1,14 +1,36 @@
 import { z } from "zod";
-import { eq, sql, asc } from "drizzle-orm";
+import { and, eq, sql, asc, isNotNull } from "drizzle-orm";
 import { userJutsu, userItem, userData } from "../../../../drizzle/schema";
-import { dataBattleAction } from "../../../../drizzle/schema";
+import { dataBattleAction, jutsu } from "../../../../drizzle/schema";
 import { createTRPCRouter, publicProcedure, serverError } from "../trpc";
 import { fetchJutsu } from "./jutsu";
 import { fetchBloodline } from "./bloodline";
 import { fetchItem } from "./item";
 import { fetchUser } from "./profile";
+import { BattleTypes } from "@/drizzle/constants";
 
 export const dataRouter = createTRPCRouter({
+  getJutsuBalanceStatistics: publicProcedure
+    .input(z.object({ battleType: z.enum(BattleTypes) }))
+    .query(async ({ ctx, input }) => {
+      const usage = await ctx.drizzle
+        .select({
+          name: jutsu.name,
+          battleWon: dataBattleAction.battleWon,
+          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+        })
+        .from(dataBattleAction)
+        .leftJoin(jutsu, eq(dataBattleAction.contentId, jutsu.id))
+        .groupBy(jutsu.name, dataBattleAction.battleWon, dataBattleAction.battleType)
+        .where(
+          and(
+            eq(dataBattleAction.type, "jutsu"),
+            isNotNull(jutsu.name),
+            eq(dataBattleAction.battleType, input.battleType)
+          )
+        );
+      return usage;
+    }),
   getStatistics: publicProcedure
     .input(
       z.object({

@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { useSafePush } from "../../utils/routing";
-import ItemWithEffects from "../../layout/ItemWithEffects";
-import ContentBox from "../../layout/ContentBox";
-import Loader from "../../layout/Loader";
-import Button from "../../layout/Button";
-import JutsuFiltering, { useFiltering, getFilter } from "../../layout/JutsuFiltering";
+import { useSafePush } from "@/utils/routing";
+import Link from "next/link";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { useInfinitePagination } from "../../libs/pagination";
-import { api } from "../../utils/api";
-import { show_toast } from "../../libs/toast";
-import { canChangeContent } from "../../utils/permissions";
-import { useUserData } from "../../utils/UserContext";
+import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
+import { useInfinitePagination } from "@/libs/pagination";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
 import type { NextPage } from "next";
 
 const ManualJutsus: NextPage = () => {
@@ -69,7 +71,20 @@ const ManualJutsus: NextPage = () => {
 
   return (
     <>
-      <ContentBox title="Jutsus" subtitle="What are they?" back_href="/manual">
+      <ContentBox
+        title="Jutsus"
+        subtitle="What are they?"
+        back_href="/manual"
+        topRightContent={
+          <Link href="/manual/jutsus/balance">
+            <Button
+              id="jutsu-statistics"
+              label="Balance Statistics"
+              image={<PresentationChartBarIcon className="mr-2 h-6 w-6" />}
+            />
+          </Link>
+        }
+      >
         <p>
           In the world of ninja battles, jutsu refers to the mystical skills and
           techniques that a ninja can use. These techniques require the ninja to harness
@@ -96,7 +111,7 @@ const ManualJutsus: NextPage = () => {
                 id="create-jutsu"
                 className="sm:mr-5"
                 label="New"
-                image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+                image={<DocumentPlusIcon className="mr-2 h-6 w-6" />}
                 onClick={() => create()}
               />
             )}

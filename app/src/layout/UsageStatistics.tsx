@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Chart as ChartJS } from "chart.js/auto";
-import { groupBy } from "../utils/grouping";
+import { groupBy } from "@/utils/grouping";
 
 interface LevelStatsProps {
   levelDistribution: {
@@ -52,7 +52,7 @@ export const LevelStats: React.FC<LevelStatsProps> = (props) => {
         myChart.destroy();
       };
     }
-  }, [levelDistribution]);
+  }, [levelDistribution, title, xaxis]);
 
   return (
     <div className="relative w-[99%]">
@@ -69,6 +69,8 @@ interface UsageStatsProps {
   }[];
 }
 type UsageDataset = { data: number[]; label: string };
+type Label = string | null | (string | null)[];
+type Groups = Map<Label, { battleWon: number; count: number }[]>;
 
 export const UsageStats: React.FC<UsageStatsProps> = (props) => {
   const { usage } = props;
@@ -79,42 +81,7 @@ export const UsageStats: React.FC<UsageStatsProps> = (props) => {
     if (ctx) {
       const groups = groupBy(usage, "battleType");
       const labels = Array.from(groups.keys());
-
-      // Calculate the statistics
-      const won: UsageDataset = { data: [], label: "Won" };
-      const lost: UsageDataset = { data: [], label: "Lost" };
-      const fled: UsageDataset = { data: [], label: "Fled" };
-      groups.forEach((group) => {
-        const wins = group.find((x) => x.battleWon === 1)?.count ?? 0;
-        const losses = group.find((x) => x.battleWon === 0)?.count ?? 0;
-        const flees = group.find((x) => x.battleWon === 2)?.count ?? 0;
-        const total = wins + losses + flees ? wins + losses + flees : 1;
-        won.data.push((100 * wins) / total);
-        lost.data.push((100 * losses) / total);
-        fled.data.push((100 * flees) / total);
-      });
-
-      const myChart = new ChartJS(ctx, {
-        type: "bar",
-        options: {
-          responsive: true,
-          indexAxis: "y",
-          scales: {
-            x: {
-              stacked: true,
-              title: { display: true, text: "Change of Outcome [%]" },
-            },
-            y: {
-              stacked: true,
-              title: { display: false },
-            },
-          },
-        },
-        data: {
-          labels: labels,
-          datasets: [won, lost, fled],
-        },
-      });
+      const myChart = getUsageChart(ctx, groups, labels);
       return () => {
         myChart.destroy();
       };
@@ -126,4 +93,47 @@ export const UsageStats: React.FC<UsageStatsProps> = (props) => {
       <canvas ref={chartRef} id="baseUsage"></canvas>
     </div>
   );
+};
+
+export const getUsageChart = (
+  ctx: CanvasRenderingContext2D,
+  groups: Groups,
+  labels: Label[]
+) => {
+  // Calculate the statistics
+  const won: UsageDataset = { data: [], label: "Won" };
+  const lost: UsageDataset = { data: [], label: "Lost" };
+  const fled: UsageDataset = { data: [], label: "Fled" };
+  groups.forEach((group) => {
+    const wins = group.find((x) => x.battleWon === 1)?.count ?? 0;
+    const losses = group.find((x) => x.battleWon === 0)?.count ?? 0;
+    const flees = group.find((x) => x.battleWon === 2)?.count ?? 0;
+    const total = wins + losses + flees ? wins + losses + flees : 1;
+    won.data.push((100 * wins) / total);
+    lost.data.push((100 * losses) / total);
+    fled.data.push((100 * flees) / total);
+  });
+
+  const myChart = new ChartJS(ctx, {
+    type: "bar",
+    options: {
+      responsive: true,
+      indexAxis: "y",
+      scales: {
+        x: {
+          stacked: true,
+          title: { display: true, text: "Change of Outcome [%]" },
+        },
+        y: {
+          stacked: true,
+          title: { display: false },
+        },
+      },
+    },
+    data: {
+      labels: labels,
+      datasets: [won, lost, fled],
+    },
+  });
+  return myChart;
 };

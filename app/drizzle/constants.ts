@@ -122,3 +122,5 @@ export const UserStatNames = [
   "intelligence",
   "willpower",
 ] as const;
+
+export const BattleTypes = ["ARENA", "COMBAT", "SPARRING"] as const;

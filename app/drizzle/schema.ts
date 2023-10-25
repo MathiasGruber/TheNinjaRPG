@@ -33,7 +33,7 @@ export const battle = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     background: varchar("background", { length: 191 }).notNull(),
-    battleType: mysqlEnum("battleType", ["ARENA", "COMBAT", "SPARRING"]).notNull(),
+    battleType: mysqlEnum("battleType", consts.BattleTypes).notNull(),
     usersState: json("usersState").notNull(),
     usersEffects: json("usersEffects").notNull(),
     groundEffects: json("groundEffects").notNull(),
@@ -1034,7 +1034,7 @@ export const dataBattleAction = mysqlTable(
     id: int("id").autoincrement().primaryKey().notNull(),
     type: mysqlEnum("type", ["jutsu", "item", "bloodline", "basic", "ai"]).notNull(),
     contentId: varchar("contentId", { length: 191 }).notNull(),
-    battleType: mysqlEnum("battleType", ["ARENA", "COMBAT", "SPARRING"]).notNull(),
+    battleType: mysqlEnum("battleType", consts.BattleTypes).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

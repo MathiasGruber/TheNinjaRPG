@@ -15,7 +15,14 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/layout/*": ["src/layout/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/libs/*": ["src/libs/*"],
+      "@/drizzle/*": ["drizzle/*"]
+    }
   },
   "include": [
     "next-env.d.ts",
