@@ -55,9 +55,10 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Data from db
   const { data: userData, pusher, refetch: refetchUser } = useRequiredUserData();
-  const { data: fetchedUsers } = api.travel.getSectorData.useQuery({
-    sector: props.sector,
-  });
+  const { data: fetchedUsers } = api.travel.getSectorData.useQuery(
+    { sector: sector },
+    { enabled: sector !== undefined }
+  );
 
   // Router for forwarding
   const router = useSafePush();
@@ -217,7 +218,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && fetchedUsers) {
-      console.log("SETTING UP SCENE");
       // Update the state containing sorrounding users on first load
       setSorrounding(fetchedUsers || []);
       users.current = fetchedUsers;

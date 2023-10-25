@@ -77,6 +77,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
           alt="Action Timer"
           width={768}
           height={62}
+          priority={true}
         />
         {actionNow > 0 && (
           <>
