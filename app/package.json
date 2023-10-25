@@ -65,7 +65,7 @@
     "sanitize-html": "2.10.0",
     "simplex-noise": "4.0.1",
     "superjson": "1.13.1",
-    "three": "0.149.0",
+    "three": "0.157.0",
     "tinymce": "^6.7.1",
     "uploadthing": "5.5.3",
     "zod": "3.22.4"
@@ -78,7 +78,7 @@
     "@types/react-dom": "18.0.10",
     "@types/react-html-parser": "2.0.2",
     "@types/sanitize-html": "2.8.0",
-    "@types/three": "0.149.0",
+    "@types/three": "0.157.2",
     "@types/tweenjs": "^1.0.4",
     "@typescript-eslint/eslint-plugin": "^6.7.3",
     "@typescript-eslint/parser": "^6.7.3",

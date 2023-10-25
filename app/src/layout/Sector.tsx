@@ -3,24 +3,24 @@ import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import alea from "alea";
-import AvatarImage from "./Avatar";
-import Modal from "./Modal";
+import AvatarImage from "@/layout/Avatar";
+import Modal from "@/layout/Modal";
 import { Vector2, OrthographicCamera, Group } from "three";
-import { api } from "../utils/api";
-import { useSafePush } from "../utils/routing";
-import { PathCalculator, findHex } from "../libs/hexgrid";
-import { OrbitControls } from "../libs/threejs/OrbitControls";
-import { getBackgroundColor } from "../libs/travel/biome";
-import { cleanUp, setupScene } from "../libs/travel/util";
-import { drawSectorBasics, drawVillage, drawUsers } from "../libs/travel/sector";
-import { intersectUsers } from "../libs/travel/sector";
-import { intersectTiles } from "../libs/travel/sector";
-import { useRequiredUserData } from "../utils/UserContext";
-import { show_toast } from "../libs/toast";
-import type { Village, UserData } from "../../drizzle/schema";
+import { api } from "@/utils/api";
+import { useSafePush } from "@/utils/routing";
+import { PathCalculator, findHex } from "@/libs/hexgrid";
+import { OrbitControls } from "@/libs/threejs/OrbitControls";
+import { getBackgroundColor } from "@/libs/travel/biome";
+import { cleanUp, setupScene } from "@/libs/travel/util";
+import { drawSectorBasics, drawVillage, drawUsers } from "@/libs/travel/sector";
+import { intersectUsers } from "@/libs/travel/sector";
+import { intersectTiles } from "@/libs/travel/sector";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { show_toast } from "@/libs/toast";
+import type { Village, UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
-import type { GlobalTile, SectorPoint, SectorUser } from "../libs/travel/types";
-import type { TerrainHex } from "../libs/hexgrid";
+import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
+import type { TerrainHex } from "@/libs/hexgrid";
 import type { SectorUsers } from "../server/api/routers/travel";
 
 interface SectorProps {
@@ -217,6 +217,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (mountRef.current && userData && fetchedUsers) {
+      console.log("SETTING UP SCENE");
       // Update the state containing sorrounding users on first load
       setSorrounding(fetchedUsers || []);
       users.current = fetchedUsers;

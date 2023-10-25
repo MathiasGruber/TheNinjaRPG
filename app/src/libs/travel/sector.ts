@@ -3,9 +3,7 @@ import {
   LineBasicMaterial,
   EdgesGeometry,
   Line,
-  TextureLoader,
   LinearFilter,
-  Texture,
   SpriteMaterial,
   Sprite,
   Group,
@@ -14,6 +12,7 @@ import {
   Mesh,
   type Raycaster,
 } from "three";
+import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { createNoise2D } from "simplex-noise";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
@@ -118,7 +117,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   const { height: h, width: w } = hex;
 
   // Marker
-  const marker = new TextureLoader().load("map/userMarker.webp");
+  const marker = loadTexture("map/userMarker.webp");
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
@@ -127,8 +126,8 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(markerSprite);
 
   // Avatar Sprite
-  const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
-  const map = new TextureLoader().load(userData.avatar ? `${userData.avatar}?1=1` : "");
+  const alphaMap = loadTexture("map/userSpriteMask.webp");
+  const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
@@ -138,7 +137,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(sprite);
 
   // Attack button
-  const attack = new TextureLoader().load("map/attack.png");
+  const attack = loadTexture("map/attack.png");
   const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
   const attackSprite = new Sprite(attackMat);
   attackSprite.visible = false;
@@ -149,7 +148,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(attackSprite);
 
   // Info button
-  const info = new TextureLoader().load("map/info.png");
+  const info = loadTexture("map/info.png");
   const infoMat = new SpriteMaterial({ map: info, depthTest: false });
   const infoSprite = new Sprite(infoMat);
   infoSprite.visible = false;
@@ -210,7 +209,7 @@ export const createMultipleUserSprite = (
     context.fillStyle = "white";
     context.fillText(`${nUsers}`, (r * h) / 2, (r * h) / 2);
   }
-  const texture = new Texture(canvas);
+  const texture = createTexture(canvas);
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   texture.needsUpdate = true;
@@ -247,24 +246,25 @@ export const drawVillage = (villageName: string, grid: Grid<TerrainHex>) => {
       context.arc(2 * h, 2 * h, 2 * h, 0, 2 * Math.PI);
       context.fill();
     }
-    const texture = new Texture(canvas);
+    const texture = createTexture(canvas);
     texture.generateMipmaps = false;
     texture.minFilter = LinearFilter;
-    texture.needsUpdate = true;
     const shadow_material = new SpriteMaterial({ map: texture });
+    shadow_material.needsUpdate = true;
     const shadow_sprite = new Sprite(shadow_material);
     shadow_sprite.scale.set(h * 2.4, h * 1.5, 1);
     shadow_sprite.position.set(x, y - h / 3, -7);
     group.add(shadow_sprite);
     // Village graphic
-    const graphic = new TextureLoader().load(`map/${villageName}.webp`);
+    const graphic = loadTexture(`map/${villageName}.webp`);
+    // graphic.encoding = sRGBEncoding;
     const graphicMat = new SpriteMaterial({ map: graphic });
     const graphicSprite = new Sprite(graphicMat);
     graphicSprite.scale.set(h * 2.2, h * 2.2, 1);
     graphicSprite.position.set(x, y, -7);
     group.add(graphicSprite);
     // Village text
-    const text = new TextureLoader().load(`villages/${villageName}Marker.png`);
+    const text = loadTexture(`villages/${villageName}Marker.png`);
     const textMat = new SpriteMaterial({ map: text });
     const textSprite = new Sprite(textMat);
     textSprite.scale.set(h * 1.5, h * 0.5, 1);

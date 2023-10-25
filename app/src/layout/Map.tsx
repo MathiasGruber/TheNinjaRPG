@@ -4,7 +4,6 @@ import {
   Vector3,
   LineBasicMaterial,
   LineSegments,
-  TextureLoader,
   PerspectiveCamera,
   SpriteMaterial,
   Sprite,
@@ -15,6 +14,7 @@ import {
 } from "three";
 import alea from "alea";
 //import * as TWEEN from "@tweenjs/tween.js";
+import { loadTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "../libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
 import { TrackballControls } from "../libs/threejs/TrackBallControls";
@@ -159,9 +159,7 @@ const Map: React.FC<MapProps> = (props) => {
             const line = new LineSegments(geometry, lineMaterial);
             group_highlights.add(line);
             // Label
-            const map = new TextureLoader().load(
-              `/villages/${highlight.name}Marker.png`
-            );
+            const map = loadTexture(`/villages/${highlight.name}Marker.png`);
             const material = new SpriteMaterial({ map: map });
             const labelSprite = new Sprite(material);
 

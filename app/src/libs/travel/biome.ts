@@ -1,10 +1,5 @@
-import {
-  Vector3,
-  MeshBasicMaterial,
-  Sprite,
-  TextureLoader,
-  SpriteMaterial,
-} from "three";
+import { Vector3, MeshBasicMaterial, Sprite, SpriteMaterial } from "three";
+import { loadTexture } from "@/libs/threejs/util";
 import { groundAssets, oceanAssets, dessertAssets } from "./constants";
 import type { TerrainHex } from "../hexgrid";
 import type { GlobalTile } from "./types";
@@ -96,7 +91,7 @@ export const getMapSprites = (
 };
 
 const loadAsset = (filepath: string) => {
-  const texture = new TextureLoader().load(filepath);
+  const texture = loadTexture(filepath);
   const material = new SpriteMaterial({ map: texture });
   const sprite = new Sprite(material);
   return sprite;

@@ -12,10 +12,8 @@ import {
   Mesh,
   SpriteMaterial,
   Sprite,
-  TextureLoader,
-  Texture,
 } from "three";
-import type { Scene, Object3D, Event, Raycaster } from "three";
+import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { getPossibleActionTiles, findHex, defineHex } from "../hexgrid";
 import { Animations } from "./types";
@@ -24,6 +22,7 @@ import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
+import type { Scene, Object3D, Event, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
@@ -42,7 +41,7 @@ export const showAnimation = (
   const info = Animations.get(appearAnimation);
   if (info) {
     const { height: h, width: w } = hex;
-    const texture = new TextureLoader().load(`/animations/${appearAnimation}.png`);
+    const texture = loadTexture(`/animations/${appearAnimation}.png`);
     const actionSprite = spriteMixer.ActionSprite(texture, 1, info.frames);
     const action = spriteMixer.Action(actionSprite, 0, info.frames, info.speed);
     if (action) {
@@ -71,7 +70,7 @@ export const drawCombatBackground = (
   background: string
 ) => {
   // Set scene background
-  const bg_texture = new TextureLoader().load(`/locations/${background}`);
+  const bg_texture = loadTexture(`/locations/${background}`);
   const bg_material = new SpriteMaterial({ map: bg_texture });
   const bg_sprite = new Sprite(bg_material);
   bg_sprite.scale.set(width, height, 1);
@@ -188,7 +187,7 @@ export const drawCombatEffects = (info: {
           asset.userData.type = effect.type; // e.g. "barrier"
           // Sprite to show
           if (effect.staticAssetPath) {
-            const texture = new TextureLoader().load(
+            const texture = loadTexture(
               `/combat/staticAssets/${effect.staticAssetPath}.png`
             );
             const material = new SpriteMaterial({ map: texture });
@@ -282,7 +281,7 @@ export const drawStatusBar = (
       context.fillRect(2, 2, canvas.width - 4, canvas.height - 4);
     }
   }
-  const texture = new Texture(canvas);
+  const texture = createTexture(canvas);
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   texture.needsUpdate = true;
@@ -334,7 +333,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     context.arc(w / 2, h / 2, h / 2, 0, 2 * Math.PI);
     context.fill();
   }
-  const texture = new Texture(canvas);
+  const texture = createTexture(canvas);
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   texture.needsUpdate = true;
@@ -347,9 +346,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   // User marker background or raw image
   const noMarker = userData.isAi && userData.isOriginal;
   if (noMarker) {
-    const map = new TextureLoader().load(
-      userData.avatar ? `${userData.avatar}?1=1` : ""
-    );
+    const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
     if (userData.direction === "right") {
@@ -364,7 +361,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(sprite);
   } else {
     // Highlight background in village color
-    const highlightTexture = new TextureLoader().load("map/userMarker.webp");
+    const highlightTexture = loadTexture("map/userMarker.webp");
     const highlightMaterial = new SpriteMaterial({
       map: highlightTexture,
       alphaMap: highlightTexture,
@@ -383,7 +380,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(highlightSprite);
 
     // Marker background in white
-    const marker = new TextureLoader().load("map/userMarker.webp");
+    const marker = loadTexture("map/userMarker.webp");
     const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.userData.type = "marker";
@@ -392,10 +389,8 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(markerSprite);
 
     // Avatar Sprite
-    const alphaMap = new TextureLoader().load("map/userSpriteMask.webp");
-    const map = new TextureLoader().load(
-      userData.avatar ? `${userData.avatar}?1=1` : ""
-    );
+    const alphaMap = loadTexture("map/userSpriteMask.webp");
+    const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
     const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
@@ -407,7 +402,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 
   // If this is the original and our user (we have SP/CP), then show a star
   if ("curStamina" in userData && userData.isOriginal && !userData.isAi) {
-    const marker = new TextureLoader().load("combat/star.webp");
+    const marker = loadTexture("combat/star.webp");
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.scale.set(h / 2.5, h / 2.5, 1);
@@ -439,7 +434,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Create tombstone but hide it for now
-  const tomb_texture = new TextureLoader().load("combat/tombstone.webp");
+  const tomb_texture = loadTexture("combat/tombstone.webp");
   const tomb_material = new SpriteMaterial({ map: tomb_texture });
   const tomb_sprite = new Sprite(tomb_material);
   tomb_sprite.name = "tombstone";
@@ -460,7 +455,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 /**
  * Sets the opacity of all children of an object
  */
-export const setOpacity = (obj: Object3D<Event> | Group | Sprite, opacity: number) => {
+export const setOpacity = (obj: Object3D | Group | Sprite, opacity: number) => {
   obj?.children.forEach((child) => {
     setOpacity(child, opacity);
   });
@@ -472,7 +467,7 @@ export const setOpacity = (obj: Object3D<Event> | Group | Sprite, opacity: numbe
 /**
  * Sets the opacity of all children of an object
  */
-export const setVisible = (obj: Object3D<Event> | Group | Sprite, visible: boolean) => {
+export const setVisible = (obj: Object3D | Group | Sprite, visible: boolean) => {
   obj?.children.forEach((child) => {
     setVisible(child, visible);
   });
