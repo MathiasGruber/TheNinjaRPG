@@ -332,8 +332,8 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           });
         }
         if (c.absorb_sp && c.absorb_sp > 0) {
-          target.curHealth += c.absorb_sp;
-          target.curHealth = Math.min(target.maxHealth, target.curHealth);
+          target.curStamina += c.absorb_sp;
+          target.curStamina = Math.min(target.maxHealth, target.curStamina);
           actionEffects.push({
             txt: `${target.username} absorbs ${c.absorb_sp.toFixed(
               2
@@ -342,8 +342,8 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           });
         }
         if (c.absorb_cp && c.absorb_cp > 0) {
-          target.curHealth += c.absorb_cp;
-          target.curHealth = Math.min(target.maxHealth, target.curHealth);
+          target.curChakra += c.absorb_cp;
+          target.curChakra = Math.min(target.maxHealth, target.curChakra);
           actionEffects.push({
             txt: `${target.username} absorbs ${c.absorb_cp.toFixed(
               2

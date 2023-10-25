@@ -35,7 +35,7 @@ interface CombatProps {
 
 const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
-  const { setBattleState, setUserId, refetchBattle } = props;
+  const { setBattleState, refetchBattle } = props;
   const { battleState } = props;
   const result = battleState.result;
   const utils = api.useContext();
@@ -273,7 +273,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Setup camara
       const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
-      camera.zoom = 1.75;
+      camera.zoom = 1.5;
       camera.updateProjectionMatrix();
 
       // Draw the background

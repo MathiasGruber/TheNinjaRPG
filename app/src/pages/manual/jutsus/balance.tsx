@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { Chart as ChartJS } from "chart.js/auto";
 import { groupBy } from "@/utils/grouping";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import { getUsageChart } from "@/layout/UsageStatistics";
 import { api } from "@/utils/api";
-import { BattleTypes } from "@/drizzle/constants";
+import type { BattleTypes } from "@/drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualJutsus: NextPage = () => {
   // State
-  const [filter, setFilter] = useState<typeof BattleTypes[number]>(BattleTypes[0]);
+  const [filter, setFilter] = useState<typeof BattleTypes[number]>("COMBAT");
 
   // Reference for the chart
   const chartRef = useRef<HTMLCanvasElement>(null);
