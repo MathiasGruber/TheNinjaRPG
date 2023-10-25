@@ -117,6 +117,7 @@ export const getUsageChart = (
   const myChart = new ChartJS(ctx, {
     type: "bar",
     options: {
+      maintainAspectRatio: false,
       responsive: true,
       indexAxis: "y",
       scales: {

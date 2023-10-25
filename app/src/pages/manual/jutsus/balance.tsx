@@ -32,7 +32,7 @@ const ManualJutsus: NextPage = () => {
       ]);
       // const labels = Array.from(groups.keys());
       const myChart = getUsageChart(ctx, groups, labels);
-      myChart.resize(1000, groups.size * 100);
+      myChart.resize(1000, groups.size * 60);
       return () => {
         myChart.destroy();
       };
