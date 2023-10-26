@@ -333,6 +333,7 @@ export const combatRouter = createTRPCRouter({
         return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
       });
       const selectedAI = closestAIs[0];
+      // Determine battle background
       if (selectedAI) {
         return await initiateBattle(
           {
@@ -342,7 +343,7 @@ export const combatRouter = createTRPCRouter({
             client: ctx.drizzle,
           },
           "ARENA",
-          "coliseum.webp"
+          determineArenaBackground(user.village?.name || "Unknown")
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -363,6 +364,7 @@ export const combatRouter = createTRPCRouter({
           .max(SECTOR_HEIGHT - 1),
         sector: z.number().int(),
         userId: z.string(),
+        asset: z.enum(["ocean", "ground", "dessert"]).optional(),
       })
     )
     .output(baseServerResponse)
@@ -376,7 +378,8 @@ export const combatRouter = createTRPCRouter({
           targetId: input.userId,
           client: ctx.drizzle,
         },
-        "COMBAT"
+        "COMBAT",
+        determineCombatBackground(input.asset || "ground")
       );
     }),
 });
@@ -389,6 +392,28 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
     return null;
   }
   return result as CompleteBattle;
+};
+
+export const determineArenaBackground = (villageName: string) => {
+  switch (villageName) {
+    case "Konoki":
+      return "midjourney_konoki_arena.webp";
+    case "Silence":
+      return "midjourney_silence_arena.webp";
+    default:
+      return "coliseum.webp";
+  }
+};
+
+export const determineCombatBackground = (asset: "ocean" | "ground" | "dessert") => {
+  switch (asset) {
+    case "ocean":
+      return "midjourney_ocean.webp";
+    case "ground":
+      return "midjourney_forest.webp";
+    default:
+      return "midjourney_dessert.webp";
+  }
 };
 
 export const initiateBattle = async (

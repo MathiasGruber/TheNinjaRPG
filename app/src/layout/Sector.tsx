@@ -332,6 +332,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                     longitude: target.longitude,
                     latitude: target.latitude,
                     sector: sector,
+                    asset: origin.current?.asset,
                   });
                 } else {
                   setTarget({ x: target.longitude, y: target.latitude });
@@ -430,12 +431,14 @@ const Sector: React.FC<SectorProps> = (props) => {
           hex={origin.current}
           attackUser={(userId) => {
             const target = sorrounding.find((u) => u.userId === userId);
+
             if (target) {
               attack({
                 userId: target.userId,
                 longitude: target.longitude,
                 latitude: target.latitude,
                 sector: sector,
+                asset: origin.current?.asset,
               });
             }
           }}

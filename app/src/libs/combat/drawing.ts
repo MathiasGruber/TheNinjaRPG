@@ -78,12 +78,12 @@ export const drawCombatBackground = (
   scene.add(bg_sprite);
 
   // Padding for the tiles [in % of width/height]
-  const leftPadding = 0.025 * width;
-  const bottomPadding = 0.05 * height;
+  const leftPadding = 0.11 * width;
+  const bottomPadding = 0.1 * height;
 
   // Calculate hex size
   const stackingDisplacement = 1.31;
-  const hexsize = (width / COMBAT_WIDTH / 2.1) * stackingDisplacement;
+  const hexsize = (width / COMBAT_WIDTH / 2.6) * stackingDisplacement;
 
   // Groups for organizing objects
   const group_tiles = new Group();

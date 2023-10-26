@@ -72,7 +72,8 @@ export const drawSectorBasics = (
   // Draw the tiles
   honeycombGrid.forEach((tile) => {
     if (tile) {
-      const { material, sprites } = getTileInfo(prng, tile, globalTile);
+      const { material, sprites, asset } = getTileInfo(prng, tile, globalTile);
+      tile.asset = asset;
       if (!hasVillage || !calcIsInVillage({ x: tile.col, y: tile.row })) {
         sprites.map((sprite) => group_assets.add(sprite));
       }

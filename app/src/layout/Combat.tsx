@@ -156,6 +156,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     return () => {
       document.removeEventListener("keydown", onDocumentKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update mouse position on mouse move
