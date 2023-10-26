@@ -42,7 +42,7 @@ const ManualJutsus: NextPage = () => {
     <>
       <ContentBox
         title="Jutsu Balance"
-        subtitle="Win Statistics Overview"
+        subtitle="Data from last 7 days"
         back_href="/manual/jutsus"
         topRightContent={
           <NavTabs
