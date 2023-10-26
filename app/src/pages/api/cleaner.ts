@@ -1,7 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { lte, sql } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { userData, battle, battleAction, dataBattleAction } from "@/drizzle/schema";
+import { userData, battle, dataBattleAction } from "@/drizzle/schema";
+import { battleHistory, battleAction } from "@/drizzle/schema";
+import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -28,6 +30,30 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       .where(
         lte(dataBattleAction.createdAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
       );
+
+    // Step 5: Delete battle history older than 7 days
+    await drizzleDB
+      .delete(battleHistory)
+      .where(
+        lte(battleHistory.createdAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
+      );
+
+    // Step 6: Delete conversations older than 14 days
+    await drizzleDB
+      .delete(conversation)
+      .where(
+        lte(conversation.updatedAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 14))
+      );
+
+    // Step 7: Conversation comments where the conversation does not exist anymore
+    await drizzleDB.execute(
+      sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
+    );
+
+    // Step 8: Delete user2conversation where the conversation does not exist anymore
+    await drizzleDB.execute(
+      sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
+    );
 
     res.status(200).json("OK");
   } catch (cause) {
