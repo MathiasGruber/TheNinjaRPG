@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { lte, sql } from "drizzle-orm";
+import { and, lte, sql, eq } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userData, battle, dataBattleAction } from "@/drizzle/schema";
 import { battleHistory, battleAction } from "@/drizzle/schema";
@@ -42,7 +42,10 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     await drizzleDB
       .delete(conversation)
       .where(
-        lte(conversation.updatedAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 14))
+        and(
+          lte(conversation.updatedAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 14)),
+          eq(conversation.isPublic, 0)
+        )
       );
 
     // Step 7: Conversation comments where the conversation does not exist anymore
