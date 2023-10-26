@@ -53,7 +53,17 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
     );
 
-    // Step 8: Delete user2conversation where the conversation does not exist anymore
+    // Step 8: Delete conversation comments older than 14 days
+    await drizzleDB
+      .delete(conversationComment)
+      .where(
+        lte(
+          conversationComment.createdAt,
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 14)
+        )
+      );
+
+    // Step 9: Delete user2conversation where the conversation does not exist anymore
     await drizzleDB.execute(
       sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
     );
