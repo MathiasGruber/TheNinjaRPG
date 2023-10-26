@@ -24,26 +24,25 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId)`
     );
 
+    // One day in mseconds
+    const oneDay = 1000 * 60 * 60 * 24;
+
     // Step 4: Delete battle actions older than 7 days
     await drizzleDB
       .delete(dataBattleAction)
-      .where(
-        lte(dataBattleAction.createdAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
-      );
+      .where(lte(dataBattleAction.createdAt, new Date(Date.now() - oneDay * 7)));
 
     // Step 5: Delete battle history older than 7 days
     await drizzleDB
       .delete(battleHistory)
-      .where(
-        lte(battleHistory.createdAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
-      );
+      .where(lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 7)));
 
     // Step 6: Delete conversations older than 14 days
     await drizzleDB
       .delete(conversation)
       .where(
         and(
-          lte(conversation.updatedAt, new Date(Date.now() - 1000 * 60 * 60 * 24 * 14)),
+          lte(conversation.updatedAt, new Date(Date.now() - oneDay * 14)),
           eq(conversation.isPublic, 0)
         )
       );
@@ -56,12 +55,7 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     // Step 8: Delete conversation comments older than 14 days
     await drizzleDB
       .delete(conversationComment)
-      .where(
-        lte(
-          conversationComment.createdAt,
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 14)
-        )
-      );
+      .where(lte(conversationComment.createdAt, new Date(Date.now() - oneDay * 14)));
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore
     await drizzleDB.execute(
