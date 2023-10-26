@@ -21,7 +21,8 @@
       "@/layout/*": ["src/layout/*"],
       "@/utils/*": ["src/utils/*"],
       "@/libs/*": ["src/libs/*"],
-      "@/drizzle/*": ["drizzle/*"]
+      "@/drizzle/*": ["drizzle/*"],
+      "@/server/*": ["src/server/*"]
     }
   },
   "include": [

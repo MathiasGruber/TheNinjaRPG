@@ -17,7 +17,7 @@
  *
  */
 import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
-import { drizzleDB } from "../db";
+import { drizzleDB } from "@/server/db";
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request
