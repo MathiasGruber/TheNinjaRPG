@@ -16,7 +16,7 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Step 2: Update users who are in battle where the battle no longer exists to be awake and not in battle
     await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.battleId=NULL, a.status="AWAKE", a.travelFinishAt=NULL WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId)`
+      sql`UPDATE ${userData} a SET a.battleId=NULL, a.status="AWAKE", a.travelFinishAt=NULL WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`
     );
 
     // Step 3: Delete from battle action where battles have been deleted
