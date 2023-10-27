@@ -232,9 +232,6 @@ export const combatRouter = createTRPCRouter({
             nActions += 1;
           }
 
-          // Calculate if the battle is over for this user, and if so update user DB
-          const result = calcBattleResult(newBattle, suid);
-
           // If newActor is stunned, go through another round
           if (calcIsStunned(newBattle, newActor.userId)) {
             console.log(`New user is ${newActor.username} and is stunned`);
@@ -243,6 +240,9 @@ export const combatRouter = createTRPCRouter({
             input.latitude = 1;
             continue;
           }
+
+          // Calculate if the battle is over for this user, and if so update user DB
+          const result = calcBattleResult(newBattle, suid);
 
           // Check if we should let the inner-loop continue
           if (
