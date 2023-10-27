@@ -575,7 +575,7 @@ export const calcActiveUser = (
   // Check 3: Current active userID is not in active user array
   const check3 = activeUserId && !userIds.includes(activeUserId);
   // Progress to next user in case of any checks went through
-  if (check1 || check2 || check3) {
+  if (userIds.length > 0 && (check1 || check2 || check3)) {
     const curIdx = userIds.indexOf(activeUserId ?? "");
     const newIdx = (curIdx + 1) % userIds.length;
     activeUserId = userIds[newIdx] || userId;
