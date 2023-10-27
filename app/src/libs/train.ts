@@ -94,7 +94,15 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
 };
 
 // For categorizing jutsu
-export const mainFilters = ["No Filter", "Bloodline", "Stat", "Effect"] as const;
+export const mainFilters = [
+  "No Filter",
+  "Bloodline",
+  "Stat",
+  "Effect",
+  "AppearAnimation",
+  "StaticAnimation",
+  "DisappearAnimation",
+] as const;
 export const statFilters = [...StatType, ...GeneralType] as const;
 export const effectFilters = tagTypes;
 export const rarities = ["ALL", ...LetterRanks] as const;

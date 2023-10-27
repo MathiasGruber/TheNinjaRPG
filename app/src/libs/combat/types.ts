@@ -177,6 +177,8 @@ export const animationNames = [
   "rising_smoke",
 ] as const;
 
+export type AnimationName = typeof animationNames[number];
+
 /**
  * Convenience method for a string with a default value
  */

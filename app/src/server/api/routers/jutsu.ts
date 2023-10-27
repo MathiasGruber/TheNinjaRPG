@@ -7,7 +7,7 @@ import { fetchUser } from "./profile";
 import { canTrainJutsu } from "../../../libs/train";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
 import { calcJutsuEquipLimit, calcForgetReturn } from "../../../libs/train";
-import { JutsuValidator } from "../../../libs/combat/types";
+import { JutsuValidator, animationNames } from "../../../libs/combat/types";
 import { canChangeContent } from "../../../utils/permissions";
 import { callDiscordContent } from "../../../libs/discord";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -41,6 +41,9 @@ export const jutsuRouter = createTRPCRouter({
         bloodline: z.string().optional(),
         stat: z.enum(statFilters).optional(),
         effect: z.enum(effectFilters).optional(),
+        appear: z.enum(animationNames).optional(),
+        static: z.enum(animationNames).optional(),
+        disappear: z.enum(animationNames).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -59,6 +62,21 @@ export const jutsuRouter = createTRPCRouter({
             : []),
           ...(input.effect
             ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.effect}) IS NOT NULL`]
+            : []),
+          ...(input.appear
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
+              ]
+            : []),
+          ...(input.static
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
+              ]
+            : []),
+          ...(input.disappear
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
+              ]
             : [])
         ),
         offset: skip,

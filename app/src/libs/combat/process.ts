@@ -13,7 +13,7 @@ import { clear, summon, summonPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { animationNames } from "./types";
+import type { AnimationName } from "./types";
 import type { CompleteBattle, Consequence } from "./types";
 
 /**
@@ -78,7 +78,7 @@ export const realizeTag = <T extends BattleEffect>(
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: typeof animationNames[number],
+  animation?: AnimationName,
   round: number = 0
 ): GroundEffect => {
   return {
