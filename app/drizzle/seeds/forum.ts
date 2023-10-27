@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { forumBoard } from "../schema";
 import { eq } from "drizzle-orm";
-import type { DrizzleClient } from "../../src/server/db";
+import type { DrizzleClient } from "@/server/db";
 
 const boards = [
   {
@@ -92,5 +92,7 @@ export const seedForum = async (client: DrizzleClient) => {
   for (const board of boards) {
     promises.push(upsertBoard(client, board));
   }
-  await Promise.all(promises);
+  await Promise.all(promises).then(() => {
+    console.log("Done syncing boards!");
+  });
 };

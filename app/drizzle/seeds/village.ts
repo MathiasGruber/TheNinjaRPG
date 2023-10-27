@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { village, villageStructure, conversation } from "../schema";
 import { userData, userAttribute } from "../schema";
 import { eq, and } from "drizzle-orm";
-import type { DrizzleClient } from "../../src/server/db";
+import type { DrizzleClient } from "@/server/db";
 
 export const seedVillages = async (client: DrizzleClient) => {
   // Default villages

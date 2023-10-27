@@ -2,18 +2,22 @@
 
 This document describes how to download all game content from live environment, and how to restore it into your local environment.
 
-## Download [Requires TNR developer access]
+## Download [Requires TNR prod access]
 
-Install the `pscale` CLI tool from planetscale, and run following command:
+Use the tool TablePlus to export `.sql` dumps of tables `UserData`, `Bloodline`, `Item`, `Jutsu`, and `UserJutsu`. For `UserData` and `UserJutsu` we limit it to the AIs with following SQL statements:
 
-```bash
-pscale database dump tnr main --tables Bloodline,Item,Jutsu --output ./content_snapshot
+```sql
+SELECT * FROM UserData WHERE UserData.isAi = 1
+```
+
+```sql
+SELECT UserJutsu.* FROM UserJutsu INNER JOIN UserData ON UserData.userId = UserJutsu.userId WHERE UserData.isAi = 1
 ```
 
 ## Insert data into local database
 
-Install the `pscale` CLI tool from planetscale, and run the following command:
+Run the seed command
 
 ```bash
-pscale database restore-dump tnr [BRANCH_NAME] --dir ./content_snapshot --overwrite-tables
+make seed
 ```

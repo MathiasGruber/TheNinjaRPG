@@ -1,6 +1,6 @@
 import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
 import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
-import { scaleUserStats } from "../../../drizzle/seeds/ai";
+import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";

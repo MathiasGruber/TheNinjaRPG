@@ -21,14 +21,14 @@ import {
   jutsu,
   actionLog,
   notification,
-} from "../../../../drizzle/schema";
+} from "@/drizzle/schema";
 import { usernameSchema } from "../../../validators/register";
 import { mutateContentSchema } from "../../../validators/comments";
 import { attributes } from "../../../validators/register";
 import { colors, skin_colors } from "../../../validators/register";
 import { callDiscordContent } from "../../../libs/discord";
-import { scaleUserStats } from "../../../../drizzle/seeds/ai";
-import { insertUserDataSchema } from "../../../../drizzle/schema";
+import { scaleUserStats } from "@/libs/profile";
+import { insertUserDataSchema } from "@/drizzle/schema";
 import { canChangeContent } from "../../../utils/permissions";
 import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
@@ -37,9 +37,9 @@ import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../../libs/profile";
 import { MAX_ATTRIBUTES } from "../../../libs/profile";
 import { statSchema } from "../../../libs/combat/types";
 import { calcIsInVillage } from "../../../libs/travel/controls";
-import { UserStatNames } from "../../../../drizzle/constants";
+import { UserStatNames } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
-import type { UserData } from "../../../../drizzle/schema";
+import type { UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";

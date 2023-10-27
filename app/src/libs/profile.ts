@@ -1,3 +1,5 @@
+import type { UserData } from "@/drizzle/schema";
+
 export const HP_PER_LVL = 50;
 export const SP_PER_LVL = 50;
 export const CP_PER_LVL = 50;
@@ -36,3 +38,61 @@ export const calcSP = (level: number) => {
 export const calcCP = (level: number) => {
   return 100 + CP_PER_LVL * (level - 1);
 };
+
+type StatDistribution = {
+  ninjutsuOffence: number;
+  ninjutsuDefence: number;
+  genjutsuOffence: number;
+  genjutsuDefence: number;
+  taijutsuOffence: number;
+  taijutsuDefence: number;
+  bukijutsuOffence: number;
+  bukijutsuDefence: number;
+  strength: number;
+  intelligence: number;
+  willpower: number;
+  speed: number;
+};
+
+/** Scale stats of user, and return total number of experience / stat points */
+export function scaleUserStats(user: UserData) {
+  // Pools
+  user["curHealth"] = calcHP(user.level);
+  user["maxHealth"] = calcHP(user.level);
+  user["curStamina"] = calcSP(user.level);
+  user["maxStamina"] = calcSP(user.level);
+  user["curChakra"] = calcCP(user.level);
+  user["maxChakra"] = calcCP(user.level);
+  // Stats
+  const exp = calcLevelRequirements(user.level) - 500;
+  user["experience"] = exp;
+  const sum = [
+    user.ninjutsuOffence ?? 0,
+    user.ninjutsuDefence ?? 0,
+    user.genjutsuOffence ?? 0,
+    user.genjutsuDefence ?? 0,
+    user.taijutsuOffence ?? 0,
+    user.taijutsuDefence ?? 0,
+    user.bukijutsuOffence ?? 0,
+    user.bukijutsuDefence ?? 0,
+    user.strength ?? 0,
+    user.intelligence ?? 0,
+    user.willpower ?? 0,
+    user.speed ?? 0,
+  ].reduce((a, b) => a + b, 0);
+  const calcStat = (stat: keyof StatDistribution) => {
+    return 10 + Math.floor(((user[stat] ?? 0) / sum) * exp * 100) / 100;
+  };
+  user["ninjutsuOffence"] = calcStat("ninjutsuOffence");
+  user["ninjutsuDefence"] = calcStat("ninjutsuDefence");
+  user["genjutsuOffence"] = calcStat("genjutsuOffence");
+  user["genjutsuDefence"] = calcStat("genjutsuDefence");
+  user["taijutsuOffence"] = calcStat("taijutsuOffence");
+  user["taijutsuDefence"] = calcStat("taijutsuDefence");
+  user["bukijutsuOffence"] = calcStat("bukijutsuOffence");
+  user["bukijutsuDefence"] = calcStat("bukijutsuDefence");
+  user["strength"] = calcStat("strength");
+  user["intelligence"] = calcStat("intelligence");
+  user["willpower"] = calcStat("willpower");
+  user["speed"] = calcStat("speed");
+}
