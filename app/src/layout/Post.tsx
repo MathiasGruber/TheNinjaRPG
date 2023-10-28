@@ -1,7 +1,7 @@
 import React from "react";
 import AvatarImage from "./Avatar";
 import Link from "next/link";
-import { capitalizeFirstLetter } from "../utils/sanitize";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export interface PostProps {
   user?: {

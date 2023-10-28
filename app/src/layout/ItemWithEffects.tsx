@@ -1,14 +1,15 @@
 import React from "react";
 import Link from "next/link";
-import ContentImage from "./ContentImage";
-import Confirm from "./Confirm";
-import { canChangeContent } from "../utils/permissions";
-import { useUserData } from "../utils/UserContext";
+import ContentImage from "@/layout/ContentImage";
+import Confirm from "@/layout/Confirm";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
 import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
-import { getTagSchema } from "../libs/combat/types";
-import type { ItemRarity } from "../../drizzle/schema";
-import type { Bloodline, Item, Jutsu } from "../../drizzle/schema";
-import type { ZodAllTags } from "../libs/combat/types";
+import { getTagSchema } from "@/libs/combat/types";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
+import type { ItemRarity } from "@/drizzle/schema";
+import type { Bloodline, Item, Jutsu } from "@/drizzle/schema";
+import type { ZodAllTags } from "@/libs/combat/types";
 
 export type GenericObject = {
   id: string;
@@ -109,6 +110,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             {"attacks" in item && (
               <p className="col-span-2">
                 <b>Attacks</b>: {item.attacks.join(", ")}
+              </p>
+            )}
+            {"jutsuType" in item && (
+              <p>
+                <b>Jutsu Type</b>: {capitalizeFirstLetter(item?.jutsuType)}
               </p>
             )}
             {"rarity" in item && (

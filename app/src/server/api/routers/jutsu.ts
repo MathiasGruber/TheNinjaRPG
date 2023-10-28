@@ -1,21 +1,22 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, isNotNull, sql, and, gte } from "drizzle-orm";
-import { jutsu, userJutsu, userData, actionLog } from "../../../../drizzle/schema";
-import { LetterRanks } from "../../../../drizzle/constants";
+import { eq, inArray, isNotNull, sql, and, gte, ne } from "drizzle-orm";
+import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
+import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser } from "./profile";
-import { canTrainJutsu } from "../../../libs/train";
-import { calcJutsuTrainTime, calcJutsuTrainCost } from "../../../libs/train";
-import { calcJutsuEquipLimit, calcForgetReturn } from "../../../libs/train";
-import { JutsuValidator, animationNames } from "../../../libs/combat/types";
-import { canChangeContent } from "../../../utils/permissions";
-import { callDiscordContent } from "../../../libs/discord";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse } from "../trpc";
-import { statFilters, effectFilters } from "../../../libs/train";
+import { canTrainJutsu } from "@/libs/train";
+import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
+import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
+import { JutsuValidator, animationNames } from "@/libs/combat/types";
+import { canChangeContent } from "@/utils/permissions";
+import { callDiscordContent } from "@/libs/discord";
+import { createTRPCRouter } from "@/server/api/trpc";
+import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
+import { serverError, baseServerResponse } from "@/server/api/trpc";
+import { statFilters, effectFilters } from "@/libs/train";
 import HumanDiff from "human-object-diff";
-import type { ZodAllTags } from "../../../libs/combat/types";
-import type { DrizzleClient } from "../../db";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { DrizzleClient } from "@/server/db";
 
 export const jutsuRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
@@ -37,6 +38,7 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
+        hideAi: z.boolean().optional(),
         rarity: z.enum(LetterRanks).optional(),
         bloodline: z.string().optional(),
         stat: z.enum(statFilters).optional(),
@@ -57,6 +59,7 @@ export const jutsuRouter = createTRPCRouter({
               : isNotNull(jutsu.jutsuRank),
           ],
           ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+          ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
           ...(input.stat
             ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.stat}) IS NOT NULL`]
             : []),
@@ -293,7 +296,7 @@ export const fetchJutsu = async (client: DrizzleClient, id: string) => {
 };
 
 export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => {
-  return await client.query.userJutsu.findMany({
+  const userjutsus = await client.query.userJutsu.findMany({
     with: {
       jutsu: {
         with: {
@@ -303,4 +306,18 @@ export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => 
     },
     where: eq(userJutsu.userId, userId),
   });
+  // CORRECTOR START: This code fixes if anyone has an AI jutsu equipped
+  const equippedAiJutsus = userjutsus
+    .filter((j) => j.jutsu?.jutsuType === "AI" && j.equipped === 1)
+    .map((j) => j.jutsuId);
+  if (equippedAiJutsus.length > 0) {
+    await client
+      .update(userJutsu)
+      .set({ equipped: 0 })
+      .where(
+        and(eq(userJutsu.userId, userId), inArray(userJutsu.jutsuId, equippedAiJutsus))
+      );
+  }
+  // CORRECTOR END: This code fixes if anyone has an AI jutsu equipped
+  return userjutsus.filter((userjutsu) => userjutsu.jutsu?.jutsuType !== "AI");
 };
