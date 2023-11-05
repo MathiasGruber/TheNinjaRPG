@@ -6,22 +6,22 @@ import type { NextPage } from "next";
 import Link from "next/link";
 import Image from "next/image";
 
-import Loader from "../../layout/Loader";
-import InputField from "../../layout/InputField";
-import Button from "../../layout/Button";
-import ContentBox from "../../layout/ContentBox";
-import RichInput from "../../layout/RichInput";
-import Post from "../../layout/Post";
-import Confirm from "../../layout/Confirm";
+import Loader from "@/layout/Loader";
+import InputField from "@/layout/InputField";
+import Button from "@/layout/Button";
+import ContentBox from "@/layout/ContentBox";
+import RichInput from "@/layout/RichInput";
+import Post from "@/layout/Post";
+import Confirm from "@/layout/Confirm";
 import { BookmarkIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/solid";
 import { TrashIcon } from "@heroicons/react/24/solid";
 
-import { api } from "../../utils/api";
+import { api } from "@/utils/api";
 import { forumBoardSchema } from "../../validators/forum";
-import { show_toast } from "../../libs/toast";
-import { useUserData } from "../../utils/UserContext";
-import { secondsPassed } from "../../utils/time";
-import { useInfinitePagination } from "../../libs/pagination";
+import { show_toast } from "@/libs/toast";
+import { useUserData } from "@/utils/UserContext";
+import { secondsPassed } from "@/utils/time";
+import { useInfinitePagination } from "@/libs/pagination";
 import { canModerate } from "../../validators/forum";
 import type { ForumBoardSchema } from "../../validators/forum";
 

@@ -11,25 +11,25 @@ import {
   RocketLaunchIcon,
 } from "@heroicons/react/24/solid";
 
-import Button from "../../layout/Button";
-import ContentBox from "../../layout/ContentBox";
-import Confirm from "../../layout/Confirm";
-import Countdown from "../../layout/Countdown";
-import RichInput from "../../layout/RichInput";
-import SliderField from "../../layout/SliderField";
-import Post from "../../layout/Post";
-import ParsedReportJson from "../../layout/ReportReason";
-import Loader from "../../layout/Loader";
+import Button from "@/layout/Button";
+import ContentBox from "@/layout/ContentBox";
+import Confirm from "@/layout/Confirm";
+import Countdown from "@/layout/Countdown";
+import RichInput from "@/layout/RichInput";
+import SliderField from "@/layout/SliderField";
+import Post from "@/layout/Post";
+import ParsedReportJson from "@/layout/ReportReason";
+import Loader from "@/layout/Loader";
 
-import { CommentOnReport } from "../../layout/Comment";
-import { api } from "../../utils/api";
+import { CommentOnReport } from "@/layout/Comment";
+import { api } from "@/utils/api";
 import { type ReportCommentSchema } from "../../validators/reports";
 import { reportCommentSchema } from "../../validators/reports";
-import { show_toast } from "../../libs/toast";
-import { useInfinitePagination } from "../../libs/pagination";
-import { useRequiredUserData } from "../../utils/UserContext";
-import { reportCommentColor } from "../../utils/reports";
-import { reportCommentExplain } from "../../utils/reports";
+import { show_toast } from "@/libs/toast";
+import { useInfinitePagination } from "@/libs/pagination";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { reportCommentColor } from "@/utils/reports";
+import { reportCommentExplain } from "@/utils/reports";
 
 import { canPostReportComment } from "../../validators/reports";
 import { canModerateReports } from "../../validators/reports";

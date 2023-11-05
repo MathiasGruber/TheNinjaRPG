@@ -1,19 +1,19 @@
 import { useEffect } from "react";
-import { useSafePush } from "../../../../utils/routing";
+import { useSafePush } from "@/utils/routing";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ContentBox from "../../../../layout/ContentBox";
-import Loader from "../../../../layout/Loader";
-import { EditContent } from "../../../../layout/EditContent";
-import { api } from "../../../../utils/api";
-import { useRequiredUserData } from "../../../../utils/UserContext";
-import { UserRanks } from "../../../../../drizzle/constants";
-import { setNullsToEmptyStrings } from "../../../../../src/utils/typeutils";
-import { show_toast } from "../../../../libs/toast";
-import { canChangeContent } from "../../../../utils/permissions";
-import { insertUserDataSchema } from "../../../../../drizzle/schema";
-import type { InsertUserDataSchema } from "../../../../../drizzle/schema";
-import type { FormEntry } from "../../../../layout/EditContent";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { EditContent } from "@/layout/EditContent";
+import { api } from "@/utils/api";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { UserRanks } from "@/drizzle/constants";
+import { setNullsToEmptyStrings } from "@/utils/typeutils";
+import { show_toast } from "@/libs/toast";
+import { canChangeContent } from "@/utils/permissions";
+import { insertUserDataSchema } from "@/drizzle/schema";
+import type { InsertUserDataSchema } from "@/drizzle/schema";
+import type { FormEntry } from "@/layout/EditContent";
 import type { NextPage } from "next";
 
 const AIPanel: NextPage = () => {

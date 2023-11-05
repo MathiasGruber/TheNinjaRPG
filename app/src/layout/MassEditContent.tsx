@@ -68,7 +68,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-      enabled: props.type === "bloodline" && showModal,
+      enabled: props.type === "item" && showModal,
     }
   );
 
@@ -142,9 +142,9 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
                     />
                   )}
                   {props.type === "item" && (
-                    <MassEditJutsuRow
+                    <MassEditItemRow
                       tagType={tagType}
-                      jutsu={entry as Item}
+                      item={entry as Item}
                       idx={i}
                       refetch={refetch}
                     />
@@ -288,6 +288,67 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
           limitSelectHeight={true}
           availableTags={tagTypes}
           hideRounds={true}
+          effects={effects}
+          setEffects={setEffects}
+        />
+      )}
+    </div>
+  );
+};
+
+interface MassEditItemRowProps {
+  tagType: EffectType;
+  item: Item;
+  idx: number;
+  refetch: () => void;
+}
+
+const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
+  // Form handling
+  const {
+    effects,
+    form: {
+      setValue,
+      register,
+      formState: { errors },
+    },
+    formData,
+    setEffects,
+    handleItemSubmit,
+  } = useItemEditForm(props.item, props.refetch);
+
+  // Fetch the tag in question
+  const idx = effects.findIndex((e) => e.type === props.tagType);
+  const tag = effects[idx];
+
+  // Background color for this row
+  const bgColor = props.idx % 2 == 0 ? "bg-slate-600" : "";
+
+  // Show the form
+  return (
+    <div className={`flex items-center`}>
+      <EditContent
+        schema={ItemValidator._def.schema}
+        showSubmit={false}
+        buttonTxt="Save to Database"
+        allowImageUpload={false}
+        fixedWidths="basis-32"
+        bgColor={bgColor}
+        setValue={setValue}
+        register={register}
+        errors={errors}
+        formData={formData}
+        onEnter={handleItemSubmit}
+      />
+      {tag && (
+        <TagFormWrapper
+          idx={idx}
+          tag={tag}
+          hideTagType={true}
+          fixedWidths="basis-32"
+          bgColor={bgColor}
+          limitSelectHeight={true}
+          availableTags={tagTypes}
           effects={effects}
           setEffects={setEffects}
         />

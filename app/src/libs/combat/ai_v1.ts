@@ -1,11 +1,11 @@
-import { availableUserActions } from "../../libs/combat/actions";
-import { performBattleAction } from "../../libs/combat/actions";
-import { actionPointsAfterAction } from "../../libs/combat/actions";
-import { stillInBattle } from "../../libs/combat/actions";
-import { getPossibleActionTiles, PathCalculator, findHex } from "../../libs/hexgrid";
-import type { ActionEffect } from "../../libs/combat/types";
-import type { CombatAction } from "../../libs/combat/types";
-import type { CompleteBattle } from "../../libs/combat/types";
+import { availableUserActions } from "@/libs/combat/actions";
+import { performBattleAction } from "@/libs/combat/actions";
+import { actionPointsAfterAction } from "@/libs/combat/actions";
+import { stillInBattle } from "@/libs/combat/actions";
+import { getPossibleActionTiles, PathCalculator, findHex } from "@/libs/hexgrid";
+import type { ActionEffect } from "@/libs/combat/types";
+import type { CombatAction } from "@/libs/combat/types";
+import type { CompleteBattle } from "@/libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { Grid } from "honeycomb-grid";
 

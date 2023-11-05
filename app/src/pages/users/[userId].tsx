@@ -3,19 +3,19 @@ import { useRouter } from "next/router";
 import { type NextPage } from "next";
 import ReactHtmlParser from "react-html-parser";
 
-import StatusBar from "../../layout/StatusBar";
-import AvatarImage from "../../layout/Avatar";
-import ContentBox from "../../layout/ContentBox";
-import Confirm from "../../layout/Confirm";
-import Loader from "../../layout/Loader";
-import ReportUser from "../../layout/Report";
+import StatusBar from "@/layout/StatusBar";
+import AvatarImage from "@/layout/Avatar";
+import ContentBox from "@/layout/ContentBox";
+import Confirm from "@/layout/Confirm";
+import Loader from "@/layout/Loader";
+import ReportUser from "@/layout/Report";
 import { FlagIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
 
-import { api } from "../../utils/api";
-import { show_toast } from "../../libs/toast";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
 import { canChangeAvatar } from "../../validators/reports";
-import { useUserData } from "../../utils/UserContext";
+import { useUserData } from "@/utils/UserContext";
 
 const PublicProfile: NextPage = () => {
   const { isSignedIn } = useAuth();

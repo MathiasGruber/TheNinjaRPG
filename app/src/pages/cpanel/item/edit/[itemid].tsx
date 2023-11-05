@@ -1,37 +1,26 @@
-import { useEffect, useState } from "react";
-import { useSafePush } from "../../../../utils/routing";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import ContentBox from "../../../../layout/ContentBox";
-import Loader from "../../../../layout/Loader";
-import { EditContent } from "../../../../layout/EditContent";
-import { TagFormWrapper } from "../../../../layout/EditContent";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { api } from "@/utils/api";
+import { useEffect } from "react";
+import { useSafePush } from "@/utils/routing";
+import { EditContent } from "@/layout/EditContent";
+import { TagFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
-import { api } from "../../../../utils/api";
-import { useRequiredUserData } from "../../../../utils/UserContext";
-import { WeaponTypes } from "../../../../../drizzle/constants";
-import { AttackTargets } from "../../../../../drizzle/constants";
-import { AttackMethods } from "../../../../../drizzle/constants";
-import { ItemTypes } from "../../../../../drizzle/constants";
-import { ItemRarities } from "../../../../../drizzle/constants";
-import { ItemSlotTypes } from "../../../../../drizzle/constants";
-import { setNullsToEmptyStrings } from "../../../../../src/utils/typeutils";
-import { DamageTag } from "../../../../libs/combat/types";
-import { ItemValidator } from "../../../../libs/combat/types";
-import { show_toast, show_errors } from "../../../../libs/toast";
-import { canChangeContent } from "../../../../utils/permissions";
-import { tagTypes } from "../../../../libs/combat/types";
-import type { ZodItemType } from "../../../../libs/combat/types";
-import type { ZodAllTags } from "../../../../libs/combat/types";
-import type { FormEntry } from "../../../../layout/EditContent";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { setNullsToEmptyStrings } from "@/utils/typeutils";
+import { DamageTag } from "@/libs/combat/types";
+import { ItemValidator } from "@/libs/combat/types";
+import { canChangeContent } from "@/utils/permissions";
+import { tagTypes } from "@/libs/combat/types";
+import { useItemEditForm } from "@/libs/item";
+import type { Item } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
 const ItemPanel: NextPage = () => {
   const router = useSafePush();
   const itemId = router.query.itemid as string;
   const { data: userData } = useRequiredUserData();
-  const [effects, setEffects] = useState<ZodAllTags[]>([]);
 
   // Queries
   const { data, isLoading, refetch } = api.item.get.useQuery(
@@ -42,92 +31,57 @@ const ItemPanel: NextPage = () => {
   // Convert key null values to empty strings, preparing data for form
   setNullsToEmptyStrings(data);
 
-  const { mutate: updateItem } = api.item.update.useMutation({
-    onSuccess: async (data) => {
-      await refetch();
-      show_toast("Updated Item", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
-    },
-  });
-
   // Redirect to profile if not content or admin
   useEffect(() => {
     if (userData && !canChangeContent(userData.role)) {
       void router.push("/profile");
     }
-    if (data) {
-      setEffects(data.effects);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, data]);
-
-  // Form handling
-  const {
-    register,
-    setValue,
-    handleSubmit,
-    watch,
-    formState: { errors, isDirty },
-  } = useForm<ZodItemType>({
-    mode: "all",
-    criteriaMode: "all",
-    values: data,
-    defaultValues: data,
-    resolver: zodResolver(ItemValidator),
-  });
-
-  // Whenever effects are updated, update the value of the form state
-  useEffect(() => {
-    setValue("effects", effects, { shouldDirty: true });
-  }, [effects, setValue]);
-
-  // Form submission
-  const handleItemSubmit = handleSubmit(
-    (data) => updateItem({ id: itemId, data: { ...data, effects: effects } }),
-    (errors) => show_errors(errors)
-  );
+  }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role)) {
+  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
-  // Watch for changes to avatar
-  const imageUrl = watch("image");
+  return <SingleEditItem item={data} refetch={refetch} />;
+};
 
-  // Object for form values
-  const formData: FormEntry<keyof ZodItemType>[] = [
-    { id: "name", label: "Item Name", type: "text" },
-    { id: "image", type: "avatar", href: imageUrl },
-    { id: "description", type: "text" },
-    { id: "battleDescription", type: "text" },
-    { id: "itemType", type: "str_array", values: ItemTypes },
-    { id: "rarity", type: "str_array", values: ItemRarities },
-    { id: "slot", type: "str_array", values: ItemSlotTypes },
-    { id: "weaponType", type: "str_array", values: WeaponTypes },
-    { id: "target", type: "str_array", values: AttackTargets },
-    { id: "method", type: "str_array", values: AttackMethods },
-    { id: "cost", type: "number" },
-    { id: "cooldown", label: "cooldown [rounds]", type: "number" },
-    { id: "canStack", type: "number" },
-    { id: "stackSize", type: "number" },
-    { id: "destroyOnUse", type: "number" },
-    { id: "range", type: "number" },
-    { id: "chakraCostPerc", type: "number" },
-    { id: "staminaCostPerc", type: "number" },
-    { id: "actionCostPerc", type: "number" },
-    { id: "healthCostPerc", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden [hide AI item]" },
-  ];
+export default ItemPanel;
+
+interface SingleEditItemProps {
+  item: Item;
+  refetch: () => void;
+}
+
+const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
+  // Form handling
+  const {
+    item,
+    effects,
+    form: {
+      setValue,
+      register,
+      formState: { isDirty, errors },
+    },
+    formData,
+    setEffects,
+    handleItemSubmit,
+  } = useItemEditForm(props.item, props.refetch);
 
   // Icon for adding tag
   const AddTagIcon = (
     <DocumentPlusIcon
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
-        setEffects([...effects, DamageTag.parse({ description: "placeholder" })]);
+        setEffects([
+          ...effects,
+          DamageTag.parse({
+            description: "placeholder",
+            rounds: 0,
+            residualModifier: 0,
+          }),
+        ]);
       }}
     />
   );
@@ -140,8 +94,8 @@ const ItemPanel: NextPage = () => {
         subtitle="Item Management"
         back_href="/manual/items"
       >
-        {!data && <p>Could not find this item</p>}
-        {data && (
+        {!item && <p>Could not find this item</p>}
+        {item && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
               schema={ItemValidator._def.schema}
@@ -192,6 +146,7 @@ const ItemPanel: NextPage = () => {
                 idx={i}
                 tag={tag}
                 availableTags={tagTypes}
+                effects={effects}
                 setEffects={setEffects}
               />
             </div>
@@ -201,5 +156,3 @@ const ItemPanel: NextPage = () => {
     </>
   );
 };
-
-export default ItemPanel;

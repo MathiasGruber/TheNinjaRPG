@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import ContentBox from "../../layout/ContentBox";
+import ContentBox from "@/layout/ContentBox";
 
 const ManualMain: NextPage = () => {
   return (

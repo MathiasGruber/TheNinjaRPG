@@ -19,7 +19,7 @@ import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
 import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
-import { groupBy } from "../../utils/grouping";
+import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import type { UserData } from "../../../drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";

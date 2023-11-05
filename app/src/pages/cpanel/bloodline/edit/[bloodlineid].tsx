@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -15,7 +15,6 @@ import { canChangeContent } from "@/utils/permissions";
 import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/libs/bloodline";
 import type { Bloodline } from "@/drizzle/schema";
-import type { ZodAllTags } from "@/libs/combat/types";
 import type { NextPage } from "next";
 
 const BloodlinePanel: NextPage = () => {

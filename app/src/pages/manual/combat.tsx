@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
-import ContentBox from "../../layout/ContentBox";
-import { COMBAT_SECONDS } from "../../libs/combat/constants";
+import ContentBox from "@/layout/ContentBox";
+import { COMBAT_SECONDS } from "@/libs/combat/constants";
 
 const ManualCombat: NextPage = () => {
   return (

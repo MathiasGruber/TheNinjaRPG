@@ -79,7 +79,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "target", type: "str_array", values: AttackTargets },
     { id: "method", type: "str_array", values: AttackMethods },
     { id: "cost", type: "number" },
-    { id: "cooldown", label: "cooldown [rounds]", type: "number" },
+    { id: "cooldown", label: "cooldown", type: "number" },
     { id: "canStack", type: "number" },
     { id: "stackSize", type: "number" },
     { id: "destroyOnUse", type: "number" },
@@ -88,7 +88,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "staminaCostPerc", type: "number" },
     { id: "actionCostPerc", type: "number" },
     { id: "healthCostPerc", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden [hide AI item]" },
+    { id: "hidden", type: "number", label: "Hidden" },
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };

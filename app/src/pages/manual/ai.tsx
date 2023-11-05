@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { useSafePush } from "../../utils/routing";
-import ItemWithEffects from "../../layout/ItemWithEffects";
-import ContentBox from "../../layout/ContentBox";
-import Loader from "../../layout/Loader";
-import Button from "../../layout/Button";
+import { useSafePush } from "@/utils/routing";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { useInfinitePagination } from "../../libs/pagination";
-import { api } from "../../utils/api";
-import { show_toast } from "../../libs/toast";
-import { canChangeContent } from "../../utils/permissions";
-import { useUserData } from "../../utils/UserContext";
-import type { GenericObject } from "../../layout/ItemWithEffects";
+import { useInfinitePagination } from "@/libs/pagination";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
+import type { GenericObject } from "@/layout/ItemWithEffects";
 import type { NextPage } from "next";
 
 const ManualAI: NextPage = () => {

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { type NextPage } from "next";
 
-import ContentBox from "../../layout/ContentBox";
-import Table, { type ColumnDefinitionType } from "../../layout/Table";
-import NavTabs from "../../layout/NavTabs";
-import Loader from "../../layout/Loader";
+import ContentBox from "@/layout/ContentBox";
+import Table, { type ColumnDefinitionType } from "@/layout/Table";
+import NavTabs from "@/layout/NavTabs";
+import Loader from "@/layout/Loader";
 
-import { api } from "../../utils/api";
-import { useInfinitePagination } from "../../libs/pagination";
-import { type ArrayElement } from "../../utils/typeutils";
+import { api } from "@/utils/api";
+import { useInfinitePagination } from "@/libs/pagination";
+import { type ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
   const tabNames = ["ai", "jutsu", "bloodline", "item"] as const;

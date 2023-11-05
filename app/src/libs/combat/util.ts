@@ -1,10 +1,10 @@
 import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
-import { randomInt } from "../../utils/math";
+import { randomInt } from "@/utils/math";
 import { availableUserActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
-import { secondsPassed, secondsFromNow } from "../../utils/time";
+import { secondsPassed, secondsFromNow } from "@/utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
 import type { PathCalculator } from "../hexgrid";
@@ -12,7 +12,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
-import type { GroundEffect, UserEffect, BattleEffect } from "../../libs/combat/types";
+import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
 import type { Item, UserItem } from "../../../drizzle/schema";
 

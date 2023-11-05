@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSafePush } from "../../utils/routing";
-import Confirm from "../../layout/Confirm";
-import ContentBox from "../../layout/ContentBox";
-import Loader from "../../layout/Loader";
-import Button from "../../layout/Button";
-import Countdown from "../../layout/Countdown";
-import Modal from "../../layout/Modal";
+import { useSafePush } from "@/utils/routing";
+import Confirm from "@/layout/Confirm";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import Countdown from "@/layout/Countdown";
+import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
 import { TrashIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 // import { useClerk } from "@clerk/clerk-react";
-import { useRequiredUserData } from "../../utils/UserContext";
-import { api } from "../../utils/api";
-import { show_toast } from "../../libs/toast";
-import { calcLevelRequirements } from "../../libs/profile";
-import { calcHP, calcSP, calcCP } from "../../libs/profile";
-import { capitalizeFirstLetter } from "../../utils/sanitize";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { calcLevelRequirements } from "@/libs/profile";
+import { calcHP, calcSP, calcCP } from "@/libs/profile";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 const Profile: NextPage = () => {
   // State

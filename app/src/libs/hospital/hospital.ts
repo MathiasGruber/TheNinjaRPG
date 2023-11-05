@@ -1,4 +1,4 @@
-import { secondsPassed, secondsFromNow } from "../../utils/time";
+import { secondsPassed, secondsFromNow } from "@/utils/time";
 import type { UserData } from "../../../drizzle/schema";
 
 export const calcHealCost = (user: UserData) => {
