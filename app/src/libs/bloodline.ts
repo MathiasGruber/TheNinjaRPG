@@ -63,7 +63,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
 
   // Mutation for updating bloodline
   const { mutate: updateBloodline, isLoading: l2 } = api.bloodline.update.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       refetch();
       show_toast("Updated Bloodline", data.message, "info");
     },

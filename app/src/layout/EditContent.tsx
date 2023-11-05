@@ -65,7 +65,7 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
     if (props.onEnter) {
       switch (event.key) {
         case "Enter":
-          props.onEnter();
+          void props.onEnter();
           break;
       }
     }
@@ -298,7 +298,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Automatically update the effects whenever dirty
   useEffect(() => {
     if (isDirty) {
-      handleTagupdate();
+      void handleTagupdate();
     }
   }, [isDirty]);
 
@@ -349,6 +349,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
           type: "db_values",
         };
       } else if (
+        innerType instanceof z.ZodEnum &&
         ["appearAnimation", "staticAnimation", "disappearAnimation"].includes(value)
       ) {
         return {
@@ -362,7 +363,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
               ? watchStatic
               : watchDisappear,
         };
-      } else if (value === "staticAssetPath") {
+      } else if (innerType instanceof z.ZodEnum && value === "staticAssetPath") {
         return {
           id: value,
           type: "statics_array",

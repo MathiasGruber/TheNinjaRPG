@@ -40,7 +40,7 @@ export const useAiEditForm = (
 
   // Mutation for updating item
   const { mutate: updateAi, isLoading: l2 } = api.profile.updateAi.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       refetch();
       show_toast("Updated AI", data.message, "info");
     },

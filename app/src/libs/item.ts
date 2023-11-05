@@ -34,7 +34,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
 
   // Mutation for updating item
   const { mutate: updateItem } = api.item.update.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       refetch();
       show_toast("Updated Item", data.message, "info");
     },

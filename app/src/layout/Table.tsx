@@ -1,6 +1,5 @@
 import AvatarImage from "@/layout/Avatar";
 import Button from "@/layout/Button";
-import InputField from "@/layout/InputField";
 import { useSafePush } from "../utils/routing";
 import { secondsPassed } from "../utils/time";
 import { capitalizeFirstLetter } from "../utils/sanitize";

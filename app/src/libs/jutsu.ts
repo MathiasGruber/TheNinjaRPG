@@ -43,7 +43,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
 
   // Mutation for updating jutsu
   const { mutate: updateJutsu, isLoading: l3 } = api.jutsu.update.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       refetch();
       show_toast("Updated Jutsu", data.message, "info");
     },
