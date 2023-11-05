@@ -13,6 +13,7 @@ import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
 import { useJutsuEditForm } from "@/libs/jutsu";
+import type { ZodAllTags } from "../libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -56,18 +57,20 @@ interface SingleEditJutsuProps {
 
 const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   // State for forcing re-render
-  const [, setRender] = useState<number>(0);
+  //const [, setRender] = useState<number>(0);
 
   // Form handling
   const {
     jutsu,
-    refEffects,
+    effects,
     form: {
       setValue,
       register,
+      watch,
       formState: { isDirty, errors },
     },
     formData,
+    setEffects,
     handleJutsuSubmit,
   } = useJutsuEditForm(props.jutsu, props.refetch);
 
@@ -76,8 +79,14 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     <DocumentPlusIcon
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
-        refEffects.current.push(DamageTag.parse({ description: "placeholder" }));
-        setRender((r) => r + 1);
+        setEffects([
+          ...effects,
+          DamageTag.parse({
+            description: "placeholder",
+            rounds: 0,
+            residualModifier: 0,
+          }),
+        ]);
       }}
     />
   );
@@ -107,7 +116,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
         )}
       </ContentBox>
 
-      {refEffects.current.length === 0 && (
+      {effects.length === 0 && (
         <ContentBox
           title={`Jutsu Tags`}
           initialBreak={true}
@@ -116,7 +125,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
           Please add effects to this jutsu
         </ContentBox>
       )}
-      {refEffects.current.map((tag, i) => {
+      {effects.map((tag, i) => {
         return (
           <ContentBox
             key={i}
@@ -129,10 +138,9 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                 <DocumentMinusIcon
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
-                    const newEffects = [...refEffects.current];
+                    const newEffects = [...effects];
                     newEffects.splice(i, 1);
-                    refEffects.current = newEffects;
-                    setRender((r) => r + 1);
+                    setEffects(newEffects);
                   }}
                 />
               </div>
@@ -143,7 +151,8 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                 idx={i}
                 tag={tag}
                 availableTags={tagTypes}
-                refEffects={refEffects}
+                effects={effects}
+                setEffects={setEffects}
               />
             </div>
           </ContentBox>

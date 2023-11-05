@@ -25,12 +25,12 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const jutsu = { ...data, effects: data.effects as ZodAllTags[] };
 
   // Effects for the jutsu
-  const refEffects = useRef<ZodAllTags[]>(jutsu.effects);
+  // const refEffects = useRef<ZodAllTags[]>(jutsu.effects);
 
   // Set effects as data changes
-  useEffect(() => {
-    refEffects.current = jutsu.effects;
-  }, [jutsu]);
+  // useEffect(() => {
+  //   refEffects.current = jutsu.effects;
+  // }, [jutsu]);
 
   // Form handling
   const form = useForm<ZodJutsuType>({
@@ -62,19 +62,24 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   });
 
   // Form submission
-  const handleJutsuSubmit = useCallback(
-    form.handleSubmit(
-      (data: ZodJutsuType) => {
-        const newJutsu = { ...jutsu, ...data, effects: refEffects.current };
-        const diff = new HumanDiff({}).diff(jutsu, newJutsu);
-        if (diff.length > 0) {
-          updateJutsu({ id: jutsu.id, data: newJutsu });
-        }
-      },
-      (errors) => show_errors(errors)
-    ),
-    [refEffects, jutsu]
+  const handleJutsuSubmit = form.handleSubmit(
+    (data: ZodJutsuType) => {
+      const newJutsu = { ...jutsu, ...data };
+      const diff = new HumanDiff({}).diff(jutsu, newJutsu);
+      if (diff.length > 0) {
+        updateJutsu({ id: jutsu.id, data: newJutsu });
+      }
+    },
+    (errors) => show_errors(errors)
   );
+
+  // Watch the effects
+  const effects = form.watch("effects");
+
+  // Handle updating of effects
+  const setEffects = (newEffects: ZodAllTags[]) => {
+    form.setValue("effects", newEffects, { shouldDirty: true });
+  };
 
   // Are we loading data
   const loading = load1 || load2;
@@ -105,5 +110,5 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "target", type: "str_array", values: AttackTargets },
   ];
 
-  return { jutsu, refEffects, form, formData, loading, handleJutsuSubmit };
+  return { jutsu, effects, form, formData, loading, setEffects, handleJutsuSubmit };
 };

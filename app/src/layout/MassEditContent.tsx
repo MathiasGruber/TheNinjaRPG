@@ -121,19 +121,20 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
   // Form handling
   const {
     jutsu,
-    refEffects,
+    effects,
     form: {
       setValue,
       register,
       formState: { errors },
     },
     formData,
+    setEffects,
     handleJutsuSubmit,
   } = useJutsuEditForm(props.jutsu, props.refetch);
 
   // Fetch the tag in question
-  const idx = refEffects.current.findIndex((e) => e.type === props.tagType);
-  const tag = refEffects.current[idx];
+  const idx = effects.findIndex((e) => e.type === props.tagType);
+  const tag = effects[idx];
 
   // Background color for this row
   const bgColor = props.idx % 2 == 0 ? "bg-slate-600" : "";
@@ -163,7 +164,8 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
           bgColor={bgColor}
           limitSelectHeight={true}
           availableTags={tagTypes}
-          refEffects={refEffects}
+          effects={effects}
+          setEffects={setEffects}
         />
       )}
     </div>

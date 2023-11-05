@@ -228,7 +228,8 @@ interface TagFormWrapperProps {
   tag: ZodAllTags;
   fixedWidths?: "basis-32";
   bgColor?: "bg-slate-600" | "";
-  refEffects: React.MutableRefObject<ZodAllTags[]>;
+  effects: ZodAllTags[];
+  setEffects: (effects: ZodAllTags[]) => void;
 }
 
 /**
@@ -237,7 +238,7 @@ interface TagFormWrapperProps {
  */
 export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Destructure props
-  const { tag, idx, refEffects } = props;
+  const { tag, idx, effects, setEffects } = props;
 
   // Get the schema & parse the tag
   const tagSchema = getTagSchema(tag.type);
@@ -277,7 +278,7 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
     if (watchType && watchType !== tag.type) {
-      const newEffects = [...refEffects.current];
+      const newEffects = [...effects];
       const curTag = newEffects?.[idx];
       if (curTag) {
         const tagSchema = getTagSchema(watchType);
@@ -285,9 +286,9 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
         const shownTag = parsedTag.success ? parsedTag.data : tag;
         newEffects[idx] = shownTag;
       }
-      refEffects.current = newEffects;
+      setEffects(newEffects);
     }
-  }, [tag, watchType, idx, refEffects, trigger]);
+  }, [tag, watchType, idx, effects, trigger]);
 
   // Trigger re-validation after type changes
   useEffect(() => {
@@ -302,9 +303,9 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Form submission
   const handleTagupdate = handleSubmit(
     (data) => {
-      const newEffects = [...refEffects.current];
+      const newEffects = [...effects];
       newEffects[idx] = data;
-      refEffects.current = newEffects;
+      setEffects(newEffects);
     },
     (errors) => show_errors(errors)
   );
