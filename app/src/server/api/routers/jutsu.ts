@@ -37,7 +37,7 @@ export const jutsuRouter = createTRPCRouter({
     .input(
       z.object({
         cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
+        limit: z.number().min(1).max(500),
         hideAi: z.boolean().optional(),
         rarity: z.enum(LetterRanks).optional(),
         bloodline: z.string().optional(),

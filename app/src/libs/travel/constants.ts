@@ -19,6 +19,8 @@ export const combatAssetsNames = [
   "Rock6_2",
 ] as const;
 
+export type CombatAssetName = typeof combatAssetsNames[number];
+
 export const groundAssets = [
   { filepath: TREES_PATH, filename: "Moss_tree1.png", chance: 0.05 },
   { filepath: TREES_PATH, filename: "Moss_tree2.png", chance: 0.1 },

@@ -5,8 +5,10 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
+import MassEditContent from "@/layout/MassEditContent";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
+import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
@@ -107,13 +109,33 @@ const ManualJutsus: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <Button
-                id="create-jutsu"
-                className="sm:mr-5"
-                label="New"
-                image={<DocumentPlusIcon className="mr-2 h-6 w-6" />}
-                onClick={() => create()}
-              />
+              <div className="flex flex-col">
+                <Button
+                  id="create-jutsu"
+                  className="sm:mr-5"
+                  label="New"
+                  image={<DocumentPlusIcon className="mr-2 h-6 w-6" />}
+                  onClick={() => create()}
+                  marginClass=""
+                  noJustify={true}
+                  borderClass="rounded-t-md border-b-2 border-orange-900"
+                />
+                <MassEditContent
+                  title="Mass Edit Jutsus"
+                  type="jutsu"
+                  button={
+                    <Button
+                      id="create-jutsu"
+                      className="sm:mr-5"
+                      label="Mass Edit"
+                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      marginClass="mb-1"
+                      noJustify={true}
+                      borderClass="rounded-b-md"
+                    />
+                  }
+                />
+              </div>
             )}
             <JutsuFiltering state={state} />
           </div>

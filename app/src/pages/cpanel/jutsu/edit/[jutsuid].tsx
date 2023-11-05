@@ -1,37 +1,26 @@
 import { useEffect, useState } from "react";
-import { useSafePush } from "../../../../utils/routing";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import ContentBox from "../../../../layout/ContentBox";
-import Loader from "../../../../layout/Loader";
-import { EditContent } from "../../../../layout/EditContent";
-import { TagFormWrapper } from "../../../../layout/EditContent";
+import { useSafePush } from "@/utils/routing";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { EditContent } from "@/layout/EditContent";
+import { TagFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
-import { api } from "../../../../utils/api";
-import { useRequiredUserData } from "../../../../utils/UserContext";
-import { AttackTargets } from "../../../../../drizzle/constants";
-import { AttackMethods } from "../../../../../drizzle/constants";
-import { LetterRanks } from "../../../../../drizzle/constants";
-import { WeaponTypes } from "../../../../../drizzle/constants";
-import { JutsuTypes } from "../../../../../drizzle/constants";
-import { UserRanks } from "../../../../../drizzle/constants";
-import { setNullsToEmptyStrings } from "../../../../../src/utils/typeutils";
-import { DamageTag } from "../../../../libs/combat/types";
-import { JutsuValidator } from "../../../../libs/combat/types";
-import { show_toast, show_errors } from "../../../../libs/toast";
-import { canChangeContent } from "../../../../utils/permissions";
-import { tagTypes } from "../../../../libs/combat/types";
-import type { ZodJutsuType } from "../../../../libs/combat/types";
-import type { ZodAllTags } from "../../../../libs/combat/types";
-import type { FormEntry } from "../../../../layout/EditContent";
+import { api } from "@/utils/api";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { DamageTag } from "@/libs/combat/types";
+import { JutsuValidator } from "@/libs/combat/types";
+import { canChangeContent } from "@/utils/permissions";
+import { tagTypes } from "@/libs/combat/types";
+import { useJutsuEditForm } from "@/libs/jutsu";
+import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
 const JutsuPanel: NextPage = () => {
+  // State
   const router = useSafePush();
   const jutsuId = router.query.jutsuid as string;
   const { data: userData } = useRequiredUserData();
-  const [effects, setEffects] = useState<ZodAllTags[]>([]);
 
   // Queries
   const { data, isLoading, refetch } = api.jutsu.get.useQuery(
@@ -40,104 +29,55 @@ const JutsuPanel: NextPage = () => {
   );
 
   // Convert key null values to empty strings, preparing data for form
-  setNullsToEmptyStrings(data);
-
-  const { data: bloodlines, isLoading: load1 } = api.bloodline.getAllNames.useQuery(
-    undefined,
-    { staleTime: Infinity }
-  );
-
-  const { data: villages, isLoading: load2 } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-
-  const { mutate: updateJutsu } = api.jutsu.update.useMutation({
-    onSuccess: async (data) => {
-      await refetch();
-      show_toast("Updated Jutsu", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
-    },
-  });
-
-  // Total loading state for all queries
-  const totalLoading = isLoading || load1 || load2;
+  // setNullsToEmptyStrings(data);
 
   // Redirect to profile if not content or admin
   useEffect(() => {
     if (userData && !canChangeContent(userData.role)) {
       void router.push("/profile");
     }
-    if (data) {
-      setEffects(data.effects);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, data]);
-
-  // Form handling
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isDirty },
-  } = useForm<ZodJutsuType>({
-    mode: "all",
-    criteriaMode: "all",
-    values: data,
-    defaultValues: data,
-    resolver: zodResolver(JutsuValidator),
-  });
-
-  // Whenever effects are updated, update the value of the form state
-  useEffect(() => {
-    setValue("effects", effects, { shouldDirty: true });
-  }, [effects, setValue]);
-
-  // Form submission
-  const handleJutsuSubmit = handleSubmit(
-    (data) => updateJutsu({ id: jutsuId, data: { ...data, effects: effects } }),
-    (errors) => show_errors(errors)
-  );
+  }, [userData]);
 
   // Prevent unauthorized access
-  if (totalLoading || !userData || !canChangeContent(userData.role)) {
+  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
-  // Watch for changes to avatar
-  const imageUrl = watch("image");
+  return <SingleEditJutsu jutsu={data} refetch={refetch} />;
+};
 
-  // Object for form values
-  const formData: FormEntry<keyof ZodJutsuType>[] = [
-    { id: "name", label: "Jutsu Name", type: "text" },
-    { id: "image", label: "Image", type: "avatar", href: imageUrl },
-    { id: "description", label: "Description", type: "text" },
-    { id: "battleDescription", label: "Battle Description", type: "text" },
-    { id: "range", label: "Range [hexagons]", type: "number" },
-    { id: "cooldown", label: "Cooldown [rounds]", type: "number" },
-    { id: "actionCostPerc", label: "Action Cost [%]", type: "number" },
-    { id: "staminaCostPerc", label: "Stamina Cost [%]", type: "number" },
-    { id: "chakraCostPerc", label: "Chakra Cost [%]", type: "number" },
-    { id: "healthCostPerc", label: "Health Cost [%]", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden [hide AI jutsu]" },
-    { id: "jutsuType", type: "str_array", values: JutsuTypes },
-    { id: "bloodlineId", label: "Bloodline", type: "db_values", values: bloodlines },
-    { id: "villageId", label: "Village", type: "db_values", values: villages },
-    { id: "jutsuWeapon", type: "str_array", values: WeaponTypes },
-    { id: "method", type: "str_array", values: AttackMethods },
-    { id: "jutsuRank", type: "str_array", values: LetterRanks },
-    { id: "requiredRank", type: "str_array", values: UserRanks },
-    { id: "target", type: "str_array", values: AttackTargets },
-  ];
+export default JutsuPanel;
+
+interface SingleEditJutsuProps {
+  jutsu: Jutsu;
+  refetch: () => void;
+}
+
+const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
+  // State for forcing re-render
+  const [, setRender] = useState<number>(0);
+
+  // Form handling
+  const {
+    jutsu,
+    refEffects,
+    form: {
+      setValue,
+      register,
+      formState: { isDirty, errors },
+    },
+    formData,
+    handleJutsuSubmit,
+  } = useJutsuEditForm(props.jutsu, props.refetch);
 
   // Icon for adding tag
   const AddTagIcon = (
     <DocumentPlusIcon
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
-        setEffects([...effects, DamageTag.parse({ description: "placeholder" })]);
+        refEffects.current.push(DamageTag.parse({ description: "placeholder" }));
+        setRender((r) => r + 1);
       }}
     />
   );
@@ -150,22 +90,24 @@ const JutsuPanel: NextPage = () => {
         subtitle="Jutsu Management"
         back_href="/manual/jutsus"
       >
-        {!data && <p>Could not find this jutsu</p>}
-        {data && (
-          <EditContent
-            schema={JutsuValidator._def.schema}
-            showSubmit={isDirty}
-            buttonTxt="Save to Database"
-            setValue={setValue}
-            register={register}
-            errors={errors}
-            formData={formData}
-            onAccept={handleJutsuSubmit}
-          />
+        {!jutsu && <p>Could not find this jutsu</p>}
+        {jutsu && (
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+            <EditContent
+              schema={JutsuValidator._def.schema}
+              showSubmit={isDirty}
+              buttonTxt="Save to Database"
+              setValue={setValue}
+              register={register}
+              errors={errors}
+              formData={formData}
+              onAccept={handleJutsuSubmit}
+            />
+          </div>
         )}
       </ContentBox>
 
-      {effects.length === 0 && (
+      {refEffects.current.length === 0 && (
         <ContentBox
           title={`Jutsu Tags`}
           initialBreak={true}
@@ -174,7 +116,7 @@ const JutsuPanel: NextPage = () => {
           Please add effects to this jutsu
         </ContentBox>
       )}
-      {effects.map((tag, i) => {
+      {refEffects.current.map((tag, i) => {
         return (
           <ContentBox
             key={i}
@@ -187,25 +129,26 @@ const JutsuPanel: NextPage = () => {
                 <DocumentMinusIcon
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
-                    const newEffects = [...effects];
+                    const newEffects = [...refEffects.current];
                     newEffects.splice(i, 1);
-                    setEffects(newEffects);
+                    refEffects.current = newEffects;
+                    setRender((r) => r + 1);
                   }}
                 />
               </div>
             }
           >
-            <TagFormWrapper
-              idx={i}
-              tag={tag}
-              availableTags={tagTypes}
-              setEffects={setEffects}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+              <TagFormWrapper
+                idx={i}
+                tag={tag}
+                availableTags={tagTypes}
+                refEffects={refEffects}
+              />
+            </div>
           </ContentBox>
         );
       })}
     </>
   );
 };
-
-export default JutsuPanel;

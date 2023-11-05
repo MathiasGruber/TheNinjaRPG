@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
+import Image from "next/image";
 import React, { useEffect } from "react";
 import Button from "./Button";
 import InputField from "./InputField";
@@ -10,6 +11,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { show_toast, show_errors } from "../libs/toast";
 import { UploadButton } from "../utils/uploadthing";
 import { api } from "../utils/api";
+import { combatAssetsNames } from "@/libs//travel/constants";
+import type { CombatAssetName } from "@/libs//travel/constants";
+import type { AnimationName } from "@/libs/combat/types";
 import type { ZodAllTags } from "../libs/combat/types";
 import type { FieldErrors } from "react-hook-form";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
@@ -24,6 +28,8 @@ export type FormEntry<K> = {
   | { type: "number" }
   | { type: "db_values"; values: FormDbValue[] | undefined; multiple?: boolean }
   | { type: "str_array"; values: readonly string[]; multiple?: boolean }
+  | { type: "animation_array"; values: readonly string[]; current: AnimationName }
+  | { type: "statics_array"; values: readonly string[]; current: CombatAssetName }
   | { type: "avatar"; href?: string | null }
 );
 
@@ -33,11 +39,16 @@ interface EditContentProps<T, K> {
   errors: FieldErrors;
   showSubmit: boolean;
   buttonTxt?: string;
+  allowImageUpload?: boolean;
+  limitSelectHeight?: boolean;
+  fixedWidths?: "basis-32";
+  bgColor?: "bg-slate-600" | "";
   setValue: UseFormSetValue<any>;
   register: UseFormRegister<any>;
-  onAccept: (
+  onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined
   ) => Promise<void>;
+  onEnter?: () => Promise<void>;
 }
 
 /**
@@ -49,8 +60,26 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
 ) => {
   const { formData, errors, showSubmit, buttonTxt, register, setValue } = props;
 
+  // Event listener for submitting on enter click
+  const onDocumentKeyDown = (event: KeyboardEvent) => {
+    if (props.onEnter) {
+      switch (event.key) {
+        case "Enter":
+          props.onEnter();
+          break;
+      }
+    }
+  };
+  useEffect(() => {
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+    <>
       {formData.map((formEntry) => {
         const id = formEntry.id as string;
         return (
@@ -58,7 +87,9 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
             key={id}
             className={`${formEntry.type === "avatar" ? "row-span-5" : ""} ${
               formEntry.doubleWidth ? "col-span-2" : ""
-            }`}
+            } ${
+              props.fixedWidths ? `grow-0 shrink-0 pt-3 h-32 ${props.fixedWidths}` : ""
+            } ${props.bgColor ? props.bgColor : ""}`}
           >
             {formEntry.type === "text" && (
               <InputField
@@ -86,6 +117,7 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
                 register={register}
                 error={errors[id]?.message as string}
                 multiple={formEntry.multiple}
+                limitSelectHeight={props.limitSelectHeight}
               >
                 {formEntry.type === "str_array" &&
                   formEntry.values.map((target) => (
@@ -106,7 +138,43 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
                 )}
               </SelectField>
             )}
-            {formEntry.type === "avatar" && (
+            {(formEntry.type === "animation_array" ||
+              formEntry.type === "statics_array") && (
+              <div className="flex flex-row">
+                <div className="grow">
+                  <SelectField
+                    key={id}
+                    id={id}
+                    label={formEntry.label ? formEntry.label : id}
+                    register={register}
+                    error={errors[id]?.message as string}
+                    limitSelectHeight={props.limitSelectHeight}
+                  >
+                    {formEntry.values.map((target) => (
+                      <option key={target} value={target}>
+                        {target}
+                      </option>
+                    ))}
+                  </SelectField>
+                </div>
+                <div className="w-20">
+                  {formEntry.current && (
+                    <Image
+                      src={
+                        formEntry.type === "animation_array"
+                          ? `/animations/${formEntry.current}.gif`
+                          : `/combat/staticAssets/${formEntry.current}.png`
+                      }
+                      alt={id}
+                      width={100}
+                      height={100}
+                      priority
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+            {formEntry.type === "avatar" && props.allowImageUpload && (
               <>
                 <AvatarImage
                   href={formEntry.href}
@@ -130,24 +198,37 @@ export const EditContent = <T extends z.AnyZodObject, K extends keyof T["shape"]
                 />
               </>
             )}
+            {formEntry.type === "avatar" && !props.allowImageUpload && (
+              <AvatarImage
+                href={formEntry.href}
+                alt={id}
+                size={100}
+                hover_effect={true}
+                priority
+              />
+            )}
           </div>
         );
       })}
-      {showSubmit && (
+      {showSubmit && props.onAccept && (
         <div className="col-span-2 items-center mt-3">
           <Button id="create" label={buttonTxt ?? "Save"} onClick={props.onAccept} />
         </div>
       )}
-    </div>
+    </>
   );
 };
 
 interface TagFormWrapperProps {
   idx: number;
   availableTags: readonly string[];
+  hideTagType?: boolean;
   hideRounds?: boolean;
+  limitSelectHeight?: boolean;
   tag: ZodAllTags;
-  setEffects: React.Dispatch<React.SetStateAction<ZodAllTags[]>>;
+  fixedWidths?: "basis-32";
+  bgColor?: "bg-slate-600" | "";
+  refEffects: React.MutableRefObject<ZodAllTags[]>;
 }
 
 /**
@@ -156,7 +237,7 @@ interface TagFormWrapperProps {
  */
 export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
   // Destructure props
-  const { tag, idx, setEffects } = props;
+  const { tag, idx, refEffects } = props;
 
   // Get the schema & parse the tag
   const tagSchema = getTagSchema(tag.type);
@@ -186,37 +267,44 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
     mode: "all",
   });
 
-  // When user changes type, we need to update the effects array to re-render form
+  // A few fields we need to watch
   const watchType = watch("type");
+  const watchStaticPath = watch("staticAssetPath");
+  const watchAppear = watch("appearAnimation");
+  const watchStatic = watch("staticAnimation");
+  const watchDisappear = watch("disappearAnimation");
+
+  // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
     if (watchType && watchType !== tag.type) {
-      setEffects((effects) => {
-        const newEffects = [...effects];
-        const curTag = newEffects?.[idx];
-        if (curTag) {
-          const tagSchema = getTagSchema(watchType);
-          const parsedTag = tagSchema.safeParse({ type: watchType });
-          const shownTag = parsedTag.success ? parsedTag.data : tag;
-          newEffects[idx] = shownTag;
-        }
-        return newEffects;
-      });
+      const newEffects = [...refEffects.current];
+      const curTag = newEffects?.[idx];
+      if (curTag) {
+        const tagSchema = getTagSchema(watchType);
+        const parsedTag = tagSchema.safeParse({ type: watchType });
+        const shownTag = parsedTag.success ? parsedTag.data : tag;
+        newEffects[idx] = shownTag;
+      }
+      refEffects.current = newEffects;
     }
-  }, [tag, watchType, idx, setEffects, trigger]);
+  }, [tag, watchType, idx, refEffects, trigger]);
 
   // Trigger re-validation after type changes
   useEffect(() => {
     void trigger(undefined, { shouldFocus: true });
   }, [tag.type, trigger]);
 
+  // Automatically update the effects whenever dirty
+  useEffect(() => {
+    handleTagupdate();
+  }, [isDirty]);
+
   // Form submission
   const handleTagupdate = handleSubmit(
     (data) => {
-      setEffects((effects) => {
-        const newEffects = [...effects];
-        newEffects[idx] = data;
-        return newEffects;
-      });
+      const newEffects = [...refEffects.current];
+      newEffects[idx] = data;
+      refEffects.current = newEffects;
     },
     (errors) => show_errors(errors)
   );
@@ -258,6 +346,27 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
           type: "db_values",
         };
       } else if (
+        ["appearAnimation", "staticAnimation", "disappearAnimation"].includes(value)
+      ) {
+        return {
+          id: value,
+          type: "animation_array",
+          values: innerType._def.values as string[],
+          current:
+            value === "appearAnimation"
+              ? watchAppear
+              : value === "staticAnimation"
+              ? watchStatic
+              : watchDisappear,
+        };
+      } else if (value === "staticAssetPath") {
+        return {
+          id: value,
+          type: "statics_array",
+          values: innerType._def.values as string[],
+          current: watchStaticPath,
+        };
+      } else if (
         innerType instanceof z.ZodLiteral ||
         innerType instanceof z.ZodString
       ) {
@@ -288,18 +397,23 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
     });
 
   // Add tag type as first entry
-  formData.unshift({
-    id: "type",
-    type: "str_array",
-    values: props.availableTags,
-  });
+  if (!props.hideTagType) {
+    formData.unshift({
+      id: "type",
+      type: "str_array",
+      values: props.availableTags,
+    });
+  }
 
   // Re-used EditContent component for actually showing the form
   return (
     <EditContent
       schema={tagSchema}
-      showSubmit={isDirty}
+      showSubmit={false}
       buttonTxt="Confirm Changes (No database sync)"
+      fixedWidths={props.fixedWidths}
+      bgColor={props.bgColor}
+      limitSelectHeight={props.limitSelectHeight}
       setValue={setValue}
       register={register}
       errors={errors}

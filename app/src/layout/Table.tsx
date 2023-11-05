@@ -1,5 +1,6 @@
-import AvatarImage from "./Avatar";
-import Button from "./Button";
+import AvatarImage from "@/layout/Avatar";
+import Button from "@/layout/Button";
+import InputField from "@/layout/InputField";
 import { useSafePush } from "../utils/routing";
 import { secondsPassed } from "../utils/time";
 import { capitalizeFirstLetter } from "../utils/sanitize";
@@ -8,7 +9,8 @@ export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;
   header: string;
   width?: number;
-  type: "avatar" | "string" | "capitalized" | "time_passed" | "date" | "jsx";
+  onChange?: (id: string, column: string, value: string) => void;
+  type: "avatar" | "string" | "capitalized" | "time_passed" | "date" | "jsx" | "input";
 };
 
 type TableProps<T, K extends keyof T> = {
@@ -71,6 +73,15 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                   }}
                 >
                   {column.type === "avatar" && (
+                    <AvatarImage
+                      href={row[column.key] as string}
+                      alt={row[column.key] as string}
+                      size={100}
+                      hover_effect={true}
+                      priority
+                    />
+                  )}
+                  {column.type === "input" && (
                     <AvatarImage
                       href={row[column.key] as string}
                       alt={row[column.key] as string}

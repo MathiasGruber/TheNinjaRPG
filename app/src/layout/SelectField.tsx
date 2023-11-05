@@ -8,6 +8,7 @@ interface SelectFieldProps {
   children: React.ReactNode;
   error?: string;
   multiple?: boolean;
+  limitSelectHeight?: boolean;
   register?: UseFormRegister<any>;
   onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onButtonClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -38,6 +39,7 @@ const SelectField: React.FC<SelectFieldProps> = (props) => {
         <select
           {...(props.onChange && { onChange: props.onChange })}
           {...(props.register && props.register(props.id))}
+          {...(props.limitSelectHeight && { size: 1 })}
           multiple={props.multiple}
           id={props.id}
           className={`text-sm ${border_color} block w-full ${

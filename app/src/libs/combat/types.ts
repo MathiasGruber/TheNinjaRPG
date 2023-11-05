@@ -1,16 +1,16 @@
 import { z } from "zod";
-import { AttackMethods, AttackTargets, ItemRarities } from "../../../drizzle/constants";
-import { ItemSlotTypes, ItemTypes, JutsuTypes } from "../../../drizzle/constants";
-import { LetterRanks, UserRanks, WeaponTypes } from "../../../drizzle/constants";
-import { Element } from "./constants";
-import { combatAssetsNames } from "../travel/constants";
-import { StatType, GeneralType, PoolType } from "./constants";
-import type { publicState } from "./constants";
-import type { StatNames } from "./constants";
-import type { Jutsu, Item, Bloodline } from "../../../drizzle/schema";
-import type { UserData, UserJutsu, UserItem, Village } from "../../../drizzle/schema";
-import type { TerrainHex } from "../hexgrid";
-import type { BattleType } from "../../../drizzle/schema";
+import { AttackMethods, AttackTargets, ItemRarities } from "@/drizzle/constants";
+import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
+import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
+import { Element } from "@/libs/combat/constants";
+import { combatAssetsNames } from "@/libs//travel/constants";
+import { StatType, GeneralType, PoolType } from "@/libs/combat/constants";
+import type { publicState } from "@/libs/combat/constants";
+import type { StatNames } from "@/libs/combat/constants";
+import type { Jutsu, Item, Bloodline } from "@/drizzle/schema";
+import type { UserData, UserJutsu, UserItem, Village } from "@/drizzle/schema";
+import type { TerrainHex } from "@/libs/hexgrid";
+import type { BattleType } from "@/drizzle/schema";
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user

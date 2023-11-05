@@ -142,16 +142,18 @@ const ItemPanel: NextPage = () => {
       >
         {!data && <p>Could not find this item</p>}
         {data && (
-          <EditContent
-            schema={ItemValidator._def.schema}
-            showSubmit={isDirty}
-            buttonTxt="Save to Database"
-            setValue={setValue}
-            register={register}
-            errors={errors}
-            formData={formData}
-            onAccept={handleItemSubmit}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+            <EditContent
+              schema={ItemValidator._def.schema}
+              showSubmit={isDirty}
+              buttonTxt="Save to Database"
+              setValue={setValue}
+              register={register}
+              errors={errors}
+              formData={formData}
+              onAccept={handleItemSubmit}
+            />
+          </div>
         )}
       </ContentBox>
 
@@ -185,12 +187,14 @@ const ItemPanel: NextPage = () => {
               </div>
             }
           >
-            <TagFormWrapper
-              idx={i}
-              tag={tag}
-              availableTags={tagTypes}
-              setEffects={setEffects}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+              <TagFormWrapper
+                idx={i}
+                tag={tag}
+                availableTags={tagTypes}
+                setEffects={setEffects}
+              />
+            </div>
           </ContentBox>
         );
       })}

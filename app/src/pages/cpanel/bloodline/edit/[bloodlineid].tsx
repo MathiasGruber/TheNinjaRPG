@@ -135,16 +135,18 @@ const BloodlinePanel: NextPage = () => {
       >
         {!data && <p>Could not find this bloodline</p>}
         {data && (
-          <EditContent
-            schema={BloodlineValidator}
-            showSubmit={isDirty}
-            buttonTxt="Save to Database"
-            setValue={setValue}
-            register={register}
-            errors={errors}
-            formData={formData}
-            onAccept={handleBloodlineSubmit}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+            <EditContent
+              schema={BloodlineValidator}
+              showSubmit={isDirty}
+              buttonTxt="Save to Database"
+              setValue={setValue}
+              register={register}
+              errors={errors}
+              formData={formData}
+              onAccept={handleBloodlineSubmit}
+            />
+          </div>
         )}
       </ContentBox>
 
@@ -178,13 +180,15 @@ const BloodlinePanel: NextPage = () => {
               </div>
             }
           >
-            <TagFormWrapper
-              idx={i}
-              tag={tag}
-              availableTags={bloodlineTypes}
-              hideRounds={true}
-              setEffects={setEffects}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+              <TagFormWrapper
+                idx={i}
+                tag={tag}
+                availableTags={bloodlineTypes}
+                hideRounds={true}
+                setEffects={setEffects}
+              />
+            </div>
           </ContentBox>
         );
       })}

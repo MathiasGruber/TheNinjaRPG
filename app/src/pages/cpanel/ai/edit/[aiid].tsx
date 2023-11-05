@@ -129,16 +129,18 @@ const AIPanel: NextPage = () => {
       >
         {!data && <p>Could not find this AI</p>}
         {data && (
-          <EditContent
-            schema={insertUserDataSchema}
-            showSubmit={isDirty}
-            buttonTxt="Save to Database"
-            setValue={setValue}
-            register={register}
-            errors={errors}
-            formData={formData}
-            onAccept={handleAiSubmit}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
+            <EditContent
+              schema={insertUserDataSchema}
+              showSubmit={isDirty}
+              buttonTxt="Save to Database"
+              setValue={setValue}
+              register={register}
+              errors={errors}
+              formData={formData}
+              onAccept={handleAiSubmit}
+            />
+          </div>
         )}
       </ContentBox>
     </>
