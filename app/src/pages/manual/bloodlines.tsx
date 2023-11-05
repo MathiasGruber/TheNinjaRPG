@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { useSafePush } from "../../utils/routing";
-import ItemWithEffects from "../../layout/ItemWithEffects";
-import ContentBox from "../../layout/ContentBox";
-import NavTabs from "../../layout/NavTabs";
-import Loader from "../../layout/Loader";
-import Button from "../../layout/Button";
+import { useSafePush } from "@/utils/routing";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import ContentBox from "@/layout/ContentBox";
+import NavTabs from "@/layout/NavTabs";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import MassEditContent from "@/layout/MassEditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { useInfinitePagination } from "../../libs/pagination";
-import { api } from "../../utils/api";
-import { show_toast } from "../../libs/toast";
-import { canChangeContent } from "../../utils/permissions";
-import { useUserData } from "../../utils/UserContext";
-import type { LetterRanks } from "../../../drizzle/constants";
+import { PencilSquareIcon } from "@heroicons/react/24/outline";
+import { useInfinitePagination } from "@/libs/pagination";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
+import type { LetterRanks } from "@/drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualBloodlines: NextPage = () => {
@@ -92,13 +94,32 @@ const ManualBloodlines: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row">
             {userData && canChangeContent(userData.role) && (
-              <Button
-                id="create-bloodline"
-                className="sm:mr-5"
-                label="New Bloodline"
-                image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
-                onClick={() => create()}
-              />
+              <div className="flex flex-row">
+                <Button
+                  id="create-bloodline"
+                  label="New"
+                  image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+                  onClick={() => create()}
+                  marginClass=""
+                  noJustify={true}
+                  borderClass="rounded-l-md border-r-2 border-orange-900"
+                />
+                <MassEditContent
+                  title="Mass Edit Bloodlines"
+                  type="bloodline"
+                  button={
+                    <Button
+                      id="create-bloodline"
+                      className="sm:mr-5"
+                      label="Edit"
+                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      marginClass="mb-1"
+                      noJustify={true}
+                      borderClass="rounded-r-md"
+                    />
+                  }
+                />
+              </div>
             )}
             <div className="grow"></div>
             <NavTabs

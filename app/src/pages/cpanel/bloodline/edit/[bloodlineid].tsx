@@ -1,126 +1,88 @@
 import { useEffect, useState } from "react";
-import { useSafePush } from "../../../../utils/routing";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import ContentBox from "../../../../layout/ContentBox";
-import Loader from "../../../../layout/Loader";
-import { EditContent } from "../../../../layout/EditContent";
-import { TagFormWrapper } from "../../../../layout/EditContent";
+import { useSafePush } from "@/utils/routing";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { api } from "@/utils/api";
+import { DamageTag } from "@/libs/combat/types";
+import { EditContent } from "@/layout/EditContent";
+import { TagFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
-import { api } from "../../../../utils/api";
-import { useRequiredUserData } from "../../../../utils/UserContext";
-import { LetterRanks } from "../../../../../drizzle/constants";
-import { setNullsToEmptyStrings } from "../../../../../src/utils/typeutils";
-import { DamageTag } from "../../../../libs/combat/types";
-import { BloodlineValidator } from "../../../../libs/combat/types";
-import { show_toast, show_errors } from "../../../../libs/toast";
-import { canChangeContent } from "../../../../utils/permissions";
-import { bloodlineTypes } from "../../../../libs/combat/types";
-import type { ZodBloodlineType } from "../../../../libs/combat/types";
-import type { ZodAllTags } from "../../../../libs/combat/types";
-import type { FormEntry } from "../../../../layout/EditContent";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { setNullsToEmptyStrings } from "@/utils/typeutils";
+import { BloodlineValidator } from "@/libs/combat/types";
+import { canChangeContent } from "@/utils/permissions";
+import { bloodlineTypes } from "@/libs/combat/types";
+import { useBloodlineEditForm } from "@/libs/bloodline";
+import type { Bloodline } from "@/drizzle/schema";
+import type { ZodAllTags } from "@/libs/combat/types";
 import type { NextPage } from "next";
 
 const BloodlinePanel: NextPage = () => {
   const router = useSafePush();
   const bloodlineId = router.query.bloodlineid as string;
   const { data: userData } = useRequiredUserData();
-  const [effects, setEffects] = useState<ZodAllTags[]>([]);
 
   // Queries
   const { data, isLoading, refetch } = api.bloodline.get.useQuery(
     { id: bloodlineId },
-    {
-      staleTime: Infinity,
-      retry: false,
-      enabled: bloodlineId !== undefined,
-    }
+    { staleTime: Infinity, retry: false, enabled: bloodlineId !== undefined }
   );
 
   // Convert key null values to empty strings, preparing data for form
   setNullsToEmptyStrings(data);
-
-  const { data: villages, isLoading: load1 } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-
-  const { mutate: updateBloodline, isLoading: load2 } =
-    api.bloodline.update.useMutation({
-      onSuccess: async (data) => {
-        await refetch();
-        show_toast("Updated Bloodline", data.message, "info");
-      },
-      onError: (error) => {
-        show_toast("Error updating", error.message, "error");
-      },
-    });
-
-  // Total loading state for all queries
-  const totalLoading = isLoading || load1 || load2;
 
   // Redirect to profile if not content or admin
   useEffect(() => {
     if (userData && !canChangeContent(userData.role)) {
       void router.push("/profile");
     }
-    if (data) {
-      setEffects(data.effects);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, data]);
-
-  // Form handling
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isDirty },
-  } = useForm<ZodBloodlineType>({
-    mode: "all",
-    criteriaMode: "all",
-    values: data,
-    defaultValues: data,
-    resolver: zodResolver(BloodlineValidator),
-  });
-
-  // Whenever effects are updated, update the value of the form state
-  useEffect(() => {
-    setValue("effects", effects, { shouldDirty: true });
-  }, [effects, setValue]);
-
-  // Form submission
-  const handleBloodlineSubmit = handleSubmit(
-    (data) => updateBloodline({ id: bloodlineId, data: { ...data, effects: effects } }),
-    (errors) => show_errors(errors)
-  );
+  }, [userData]);
 
   // Prevent unauthorized access
-  if (totalLoading || !userData || !canChangeContent(userData.role)) {
+  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
-  // Watch for changes to avatar
-  const imageUrl = watch("image");
+  return <SingleEditBloodline bloodline={data} refetch={refetch} />;
+};
 
-  // Object for form values
-  const formData: FormEntry<keyof ZodBloodlineType>[] = [
-    { id: "name", label: "Bloodline Name", type: "text" },
-    { id: "image", label: "Image", type: "avatar", href: imageUrl },
-    { id: "description", label: "Description", type: "text" },
-    { id: "regenIncrease", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden [hide AI bloodline]" },
-    { id: "village", label: "Village", type: "db_values", values: villages },
-    { id: "rank", type: "str_array", values: LetterRanks },
-  ];
+export default BloodlinePanel;
+
+interface SingleEditBloodlineProps {
+  bloodline: Bloodline;
+  refetch: () => void;
+}
+
+const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
+  // Form handling
+  const {
+    bloodline,
+    effects,
+    form: {
+      setValue,
+      register,
+      formState: { isDirty, errors },
+    },
+    formData,
+    setEffects,
+    handleBloodlineSubmit,
+  } = useBloodlineEditForm(props.bloodline, props.refetch);
 
   // Icon for adding tag
   const AddTagIcon = (
     <DocumentPlusIcon
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
-        setEffects([...effects, DamageTag.parse({ description: "placeholder" })]);
+        setEffects([
+          ...effects,
+          DamageTag.parse({
+            description: "placeholder",
+            rounds: 0,
+            residualModifier: 0,
+          }),
+        ]);
       }}
     />
   );
@@ -133,8 +95,8 @@ const BloodlinePanel: NextPage = () => {
         subtitle="Bloodline Management"
         back_href="/manual/bloodlines"
       >
-        {!data && <p>Could not find this bloodline</p>}
-        {data && (
+        {!bloodline && <p>Could not find this bloodline</p>}
+        {bloodline && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
               schema={BloodlineValidator}
@@ -186,6 +148,7 @@ const BloodlinePanel: NextPage = () => {
                 tag={tag}
                 availableTags={bloodlineTypes}
                 hideRounds={true}
+                effects={effects}
                 setEffects={setEffects}
               />
             </div>
@@ -195,5 +158,3 @@ const BloodlinePanel: NextPage = () => {
     </>
   );
 };
-
-export default BloodlinePanel;

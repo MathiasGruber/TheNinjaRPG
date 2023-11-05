@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -13,7 +13,7 @@ import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
 import { useJutsuEditForm } from "@/libs/jutsu";
-import type { ZodAllTags } from "../libs/combat/types";
+import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -26,11 +26,11 @@ const JutsuPanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.jutsu.get.useQuery(
     { id: jutsuId },
-    { staleTime: Infinity, enabled: jutsuId !== undefined }
+    { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined }
   );
 
   // Convert key null values to empty strings, preparing data for form
-  // setNullsToEmptyStrings(data);
+  setNullsToEmptyStrings(data);
 
   // Redirect to profile if not content or admin
   useEffect(() => {
@@ -56,9 +56,6 @@ interface SingleEditJutsuProps {
 }
 
 const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
-  // State for forcing re-render
-  //const [, setRender] = useState<number>(0);
-
   // Form handling
   const {
     jutsu,
@@ -66,7 +63,6 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     form: {
       setValue,
       register,
-      watch,
       formState: { isDirty, errors },
     },
     formData,

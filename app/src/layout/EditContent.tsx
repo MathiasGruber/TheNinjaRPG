@@ -297,7 +297,9 @@ export const TagFormWrapper: React.FC<TagFormWrapperProps> = (props) => {
 
   // Automatically update the effects whenever dirty
   useEffect(() => {
-    handleTagupdate();
+    if (isDirty) {
+      handleTagupdate();
+    }
   }, [isDirty]);
 
   // Form submission

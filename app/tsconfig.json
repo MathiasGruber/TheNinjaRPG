@@ -22,7 +22,9 @@
       "@/utils/*": ["src/utils/*"],
       "@/libs/*": ["src/libs/*"],
       "@/drizzle/*": ["drizzle/*"],
-      "@/server/*": ["src/server/*"]
+      "@/server/*": ["src/server/*"],
+      "@/api/*": ["src/server/api/*"],
+      "@/routers/*": ["src/server/api/routers/*"]
     }
   },
   "include": [

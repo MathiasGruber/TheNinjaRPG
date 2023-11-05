@@ -1,23 +1,24 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, gte, and, inArray } from "drizzle-orm";
-import { LetterRanks } from "../../../../drizzle/constants";
-import { userData } from "../../../../drizzle/schema";
-import { bloodline, bloodlineRolls, actionLog } from "../../../../drizzle/schema";
-import { userJutsu, jutsu } from "../../../../drizzle/schema";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse } from "../trpc";
-import { fetchUser, fetchRegeneratedUser } from "./profile";
-import { BloodlineValidator } from "../../../libs/combat/types";
-import { getRandomElement } from "../../../utils/array";
-import { canChangeContent } from "../../../utils/permissions";
-import { callDiscordContent } from "../../../libs/discord";
-import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "../../../libs/bloodline";
-import { COST_SWAP_BLOODLINE } from "../../../libs/profile";
+import { eq, sql, gte, and, inArray, isNotNull } from "drizzle-orm";
+import { LetterRanks } from "@/drizzle/constants";
+import { userData } from "@/drizzle/schema";
+import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
+import { userJutsu, jutsu } from "@/drizzle/schema";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
+import { serverError, baseServerResponse } from "@/api/trpc";
+import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
+import { BloodlineValidator } from "@/libs/combat/types";
+import { getRandomElement } from "@/utils/array";
+import { canChangeContent } from "@/utils/permissions";
+import { callDiscordContent } from "@/libs/discord";
+import { effectFilters } from "@/libs/train";
+import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
+import { COST_SWAP_BLOODLINE } from "@/libs/profile";
 import HumanDiff from "human-object-diff";
-import type { ZodAllTags } from "../../../libs/combat/types";
-import type { BloodlineRank } from "../../../../drizzle/schema";
-import type { DrizzleClient } from "../../db";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { BloodlineRank } from "@/drizzle/schema";
+import type { DrizzleClient } from "@/server/db";
 
 export const bloodlineRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
@@ -29,9 +30,10 @@ export const bloodlineRouter = createTRPCRouter({
     .input(
       z.object({
         cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
-        rank: z.enum(LetterRanks),
+        limit: z.number().min(1).max(500),
+        rank: z.enum(LetterRanks).optional(),
         showHidden: z.boolean().optional().nullable(),
+        effect: z.enum(effectFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -39,8 +41,11 @@ export const bloodlineRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
         where: and(
-          eq(bloodline.rank, input.rank),
-          ...(input.showHidden ? [] : [eq(bloodline.hidden, 0)])
+          ...[input.rank ? eq(bloodline.rank, input.rank) : isNotNull(bloodline.rank)],
+          ...(input.showHidden ? [] : [eq(bloodline.hidden, 0)]),
+          ...(input.effect
+            ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.effect}) IS NOT NULL`]
+            : [])
         ),
         offset: skip,
         limit: input.limit,

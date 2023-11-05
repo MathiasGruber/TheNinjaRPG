@@ -641,6 +641,23 @@ const AllTags = z.union([
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 
+const BloodlineTags = z.union([
+  AbsorbTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustArmorTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustDamageGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustDamageTakenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustHealGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustPoolCostTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  AdjustStatTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  DamageTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  HealTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  ReflectTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  RobPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  SealPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
+  StunPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
+]);
+export type ZodBloodlineTags = z.infer<typeof BloodlineTags>;
+
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with
  * reference information added to the tag (i.e. how powerful was the effect)
@@ -782,25 +799,7 @@ export const BloodlineValidator = z.object({
   regenIncrease: z.number().int().min(1).max(100),
   village: z.string(),
   hidden: z.number().int().min(0).max(1).optional(),
-  effects: z
-    .array(
-      z.union([
-        AbsorbTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustArmorTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustDamageGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustDamageTakenTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustHealGivenTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustPoolCostTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        AdjustStatTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        DamageTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        HealTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        ReflectTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        RobPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        SealPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
-        StunPreventTag.omit({ rounds: true, friendlyFire: true }).default({}),
-      ])
-    )
-    .superRefine(SuperRefineEffects),
+  effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 

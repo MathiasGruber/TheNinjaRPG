@@ -1,4 +1,3 @@
-import { useEffect, useRef, useCallback } from "react";
 import HumanDiff from "human-object-diff";
 import { useForm } from "react-hook-form";
 import { api } from "@/utils/api";
@@ -17,20 +16,12 @@ import type { FormEntry } from "@/layout/EditContent";
 import type { Jutsu } from "@/drizzle/schema";
 
 /**
- * Hook used when creating forms for editing jutsus
+ * Hook used when creating frontend forms for editing jutsus
  * @param data
  */
 export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Case type
   const jutsu = { ...data, effects: data.effects as ZodAllTags[] };
-
-  // Effects for the jutsu
-  // const refEffects = useRef<ZodAllTags[]>(jutsu.effects);
-
-  // Set effects as data changes
-  // useEffect(() => {
-  //   refEffects.current = jutsu.effects;
-  // }, [jutsu]);
 
   // Form handling
   const form = useForm<ZodJutsuType>({

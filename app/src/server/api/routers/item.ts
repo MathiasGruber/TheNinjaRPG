@@ -1,17 +1,18 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
-import { item, userItem, userData, actionLog } from "../../../../drizzle/schema";
-import { ItemTypes, ItemSlots, ItemRarities } from "../../../../drizzle/constants";
+import { item, userItem, userData, actionLog } from "@/drizzle/schema";
+import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
 import { fetchUser } from "./profile";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse } from "../trpc";
-import { ItemValidator } from "../../../libs/combat/types";
-import { canChangeContent } from "../../../utils/permissions";
-import { callDiscordContent } from "../../../libs/discord";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
+import { serverError, baseServerResponse } from "@/api/trpc";
+import { ItemValidator } from "@/libs/combat/types";
+import { canChangeContent } from "@/utils/permissions";
+import { callDiscordContent } from "@/libs/discord";
+import { effectFilters } from "@/libs/train";
 import HumanDiff from "human-object-diff";
-import type { ZodAllTags } from "../../../libs/combat/types";
-import type { DrizzleClient } from "../../db";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { DrizzleClient } from "@/server/db";
 
 const calcMaxItems = () => {
   const base = 20;
@@ -111,9 +112,10 @@ export const itemRouter = createTRPCRouter({
     .input(
       z.object({
         cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
+        limit: z.number().min(1).max(500),
         itemType: z.enum(ItemTypes).optional(),
         itemRarity: z.enum(ItemRarities).optional(),
+        effect: z.enum(effectFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -124,7 +126,10 @@ export const itemRouter = createTRPCRouter({
         limit: input.limit,
         where: and(
           ...(input.itemRarity ? [eq(item.rarity, input.itemRarity)] : []),
-          ...(input.itemType ? [eq(item.itemType, input.itemType)] : [])
+          ...(input.itemType ? [eq(item.itemType, input.itemType)] : []),
+          ...(input.effect
+            ? [sql`JSON_SEARCH(${item.effects},'one',${input.effect}) IS NOT NULL`]
+            : [])
         ),
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
