@@ -1,19 +1,16 @@
-import { useEffect } from "react";
-import { useSafePush } from "@/utils/routing";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import { useEffect } from "react";
+import { useSafePush } from "@/utils/routing";
 import { EditContent } from "@/layout/EditContent";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { UserRanks } from "@/drizzle/constants";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
-import { show_toast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { insertUserDataSchema } from "@/drizzle/schema";
-import type { InsertUserDataSchema } from "@/drizzle/schema";
-import type { FormEntry } from "@/layout/EditContent";
+import { useAiEditForm } from "@/libs/ais";
+import type { UserData } from "@/drizzle/schema";
+import type { UserJutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
 const AIPanel: NextPage = () => {
@@ -27,21 +24,8 @@ const AIPanel: NextPage = () => {
     { staleTime: Infinity, enabled: aiId !== undefined }
   );
 
-  const { data: jutsus, isLoading: l2 } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
   // Convert key null values to empty strings, preparing data for form
   setNullsToEmptyStrings(data);
-
-  const { mutate: updateAi, isLoading: l3 } = api.profile.updateAi.useMutation({
-    onSuccess: async (data) => {
-      await refetch();
-      show_toast("Updated AI", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
-    },
-  });
 
   // Redirect to profile if not content or admin
   useEffect(() => {
@@ -49,75 +33,36 @@ const AIPanel: NextPage = () => {
       void router.push("/profile");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, data]);
-
-  // Process data for form
-  const processedData = data && {
-    ...data,
-    jutsus: data?.jutsus?.map((jutsu) => jutsu.jutsuId),
-  };
-
-  // Form handling
-  const {
-    register,
-    setValue,
-    handleSubmit,
-    watch,
-    formState: { errors, isDirty },
-  } = useForm<InsertUserDataSchema>({
-    mode: "all",
-    criteriaMode: "all",
-    values: processedData,
-    defaultValues: processedData,
-    resolver: zodResolver(insertUserDataSchema),
-  });
-
-  // Form submission
-  const handleAiSubmit = handleSubmit(
-    (data) => updateAi({ id: aiId, data: data }),
-    (errors) => console.error(errors)
-  );
-
-  // Total loading state for all queries
-  const totalLoading = isLoading || l2 || l3;
+  }, [userData]);
 
   // Prevent unauthorized access
-  if (totalLoading || !userData || !canChangeContent(userData.role)) {
+  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
-  // Watch for changes to avatar
-  const avatarUrl = watch("avatar");
+  return <SingleEditUser user={data} refetch={refetch} />;
+};
 
-  // Object for form values
-  const formData: FormEntry<keyof InsertUserDataSchema>[] = [
-    { id: "username", type: "text" },
-    { id: "avatar", type: "avatar", href: avatarUrl },
-    { id: "gender", type: "text" },
-    { id: "level", type: "number" },
-    { id: "regeneration", type: "number" },
-    { id: "rank", type: "str_array", values: UserRanks },
-    { id: "ninjutsuOffence", label: "Nin Off Focus", type: "number" },
-    { id: "ninjutsuDefence", label: "Nin Def Focus", type: "number" },
-    { id: "genjutsuOffence", label: "Gen Off Focus", type: "number" },
-    { id: "genjutsuDefence", label: "Gen Def Focus", type: "number" },
-    { id: "taijutsuOffence", label: "Tai Off Focus", type: "number" },
-    { id: "taijutsuDefence", label: "Tai Def Focus", type: "number" },
-    { id: "bukijutsuOffence", label: "Buku Off Focus", type: "number" },
-    { id: "bukijutsuDefence", label: "Buki Def Focus", type: "number" },
-    { id: "strength", label: "Strength Focus", type: "number" },
-    { id: "intelligence", label: "Intelligence Focus", type: "number" },
-    { id: "willpower", label: "Willpower Focus", type: "number" },
-    { id: "speed", label: "Speed Focus", type: "number" },
-    {
-      id: "jutsus",
-      label: "Jutsus",
-      type: "db_values",
-      values: jutsus,
-      multiple: true,
-      doubleWidth: true,
+export default AIPanel;
+
+interface SingleEditUserProps {
+  user: UserData & { jutsus: UserJutsu[] };
+  refetch: () => void;
+}
+
+const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
+  // Form handling
+  const {
+    loading,
+    processedUser,
+    form: {
+      setValue,
+      register,
+      formState: { isDirty, errors },
     },
-  ];
+    formData,
+    handleUserSubmit,
+  } = useAiEditForm(props.user, props.refetch);
 
   // Show panel controls
   return (
@@ -127,8 +72,8 @@ const AIPanel: NextPage = () => {
         subtitle="Note: stats scaled by level!"
         back_href="/manual/ai"
       >
-        {!data && <p>Could not find this AI</p>}
-        {data && (
+        {!processedUser && <p>Could not find this AI</p>}
+        {!loading && processedUser && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
               schema={insertUserDataSchema}
@@ -138,7 +83,7 @@ const AIPanel: NextPage = () => {
               register={register}
               errors={errors}
               formData={formData}
-              onAccept={handleAiSubmit}
+              onAccept={handleUserSubmit}
             />
           </div>
         )}
@@ -146,5 +91,3 @@ const AIPanel: NextPage = () => {
     </>
   );
 };
-
-export default AIPanel;

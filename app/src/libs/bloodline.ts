@@ -57,12 +57,12 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   console.log("isDirty", form.formState.isDirty, form.formState.dirtyFields);
 
   // Query for bloodlines and villages
-  const { data: villages, isLoading: load2 } = api.village.getAll.useQuery(undefined, {
+  const { data: villages, isLoading: l1 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Mutation for updating bloodline
-  const { mutate: updateBloodline } = api.bloodline.update.useMutation({
+  const { mutate: updateBloodline, isLoading: l2 } = api.bloodline.update.useMutation({
     onSuccess: async (data) => {
       refetch();
       show_toast("Updated Bloodline", data.message, "info");
@@ -95,7 +95,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = load2;
+  const loading = l1 || l2;
 
   // Watch for changes to avatar
   const imageUrl = form.watch("image");

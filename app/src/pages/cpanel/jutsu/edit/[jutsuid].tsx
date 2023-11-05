@@ -58,6 +58,7 @@ interface SingleEditJutsuProps {
 const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   // Form handling
   const {
+    loading,
     jutsu,
     effects,
     form: {
@@ -96,7 +97,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
         back_href="/manual/jutsus"
       >
         {!jutsu && <p>Could not find this jutsu</p>}
-        {jutsu && (
+        {!loading && jutsu && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
               schema={JutsuValidator._def.schema}

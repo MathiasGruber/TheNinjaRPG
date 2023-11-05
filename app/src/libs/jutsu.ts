@@ -33,16 +33,16 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: bloodlines, isLoading: load1 } = api.bloodline.getAllNames.useQuery(
+  const { data: bloodlines, isLoading: l1 } = api.bloodline.getAllNames.useQuery(
     undefined,
     { staleTime: Infinity }
   );
-  const { data: villages, isLoading: load2 } = api.village.getAll.useQuery(undefined, {
+  const { data: villages, isLoading: l2 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Mutation for updating jutsu
-  const { mutate: updateJutsu } = api.jutsu.update.useMutation({
+  const { mutate: updateJutsu, isLoading: l3 } = api.jutsu.update.useMutation({
     onSuccess: async (data) => {
       refetch();
       show_toast("Updated Jutsu", data.message, "info");
@@ -73,7 +73,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = load1 || load2;
+  const loading = l1 || l2 || l3;
 
   // Watch for changes to avatar
   const imageUrl = form.watch("image");

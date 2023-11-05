@@ -57,6 +57,7 @@ interface SingleEditBloodlineProps {
 const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
   // Form handling
   const {
+    loading,
     bloodline,
     effects,
     form: {
@@ -95,7 +96,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
         back_href="/manual/bloodlines"
       >
         {!bloodline && <p>Could not find this bloodline</p>}
-        {bloodline && (
+        {!loading && bloodline && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
               schema={BloodlineValidator}
