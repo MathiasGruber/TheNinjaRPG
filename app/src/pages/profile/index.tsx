@@ -160,7 +160,7 @@ const Profile: NextPage = () => {
           >
             <span>
               This feature is intended for marking the character for deletion. Toggling
-              this feature enables a timer of 48 hours, after which you will be able to
+              this feature enables a timer of 7 days, after which you will be able to
               delete the character - this is to ensure no un-intentional character
               deletion.
               {userData.deletionAt && (

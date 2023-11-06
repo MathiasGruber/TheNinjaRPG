@@ -764,7 +764,7 @@ export const profileRouter = createTRPCRouter({
       .set({
         deletionAt: currentUser.deletionAt
           ? null
-          : new Date(new Date().getTime() + 2 * 86400000),
+          : new Date(new Date().getTime() + 7 * 86400000),
       })
       .where(eq(userData.userId, ctx.userId));
   }),

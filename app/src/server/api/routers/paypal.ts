@@ -255,8 +255,6 @@ export const paypalRouter = createTRPCRouter({
         status = await cancelPaypalSubscription(input.subscriptionId, token);
       }
       // If successfull cancel, update database subscription
-      // TODO: Add baseresponse
-      // TODO: Do not remove current subscription. This will happen with CRON job
       if (status === 204) {
         return await updateSubscription({
           client: ctx.drizzle,
