@@ -104,6 +104,7 @@ export const paypalRouter = createTRPCRouter({
         orderId: z.string().optional(),
       })
     )
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
       const subscription = await getPaypalSubscription(input.subscriptionId, token);
@@ -121,7 +122,7 @@ export const paypalRouter = createTRPCRouter({
           ? plan2FedStatus(subscription.plan_id)
           : "NONE";
 
-      await updateSubscription({
+      const result = await updateSubscription({
         client: ctx.drizzle,
         createdById: createdByUserId,
         orderId: input.orderId,
@@ -130,6 +131,11 @@ export const paypalRouter = createTRPCRouter({
         status: subscription.status,
         subscriptionId: subscription.id,
       });
+
+      return {
+        success: result.rowsAffected !== 0,
+        message: `Synced with data from Paypal. UsedID ${affectedUserId} set to have ${newStatus} federal subscription.`,
+      };
     }),
   // Get all paypal transactions by this user
   getPaypalTransactions: protectedProcedure
@@ -249,12 +255,14 @@ export const paypalRouter = createTRPCRouter({
         status = await cancelPaypalSubscription(input.subscriptionId, token);
       }
       // If successfull cancel, update database subscription
+      // TODO: Add baseresponse
+      // TODO: Do not remove current subscription. This will happen with CRON job
       if (status === 204) {
         return await updateSubscription({
           client: ctx.drizzle,
           createdById: createdByUserId,
           affectedUserId: affectedUserId,
-          federalStatus: "NONE",
+          federalStatus: dbSub.federalStatus,
           status: "CANCELLED",
           subscriptionId: paypalSub.id,
         });

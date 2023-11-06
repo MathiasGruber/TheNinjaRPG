@@ -1,37 +1,39 @@
-import { type z } from "zod";
 import Image from "next/image";
-import { type NextPage } from "next";
+import Table from "@/layout/Table";
+import SliderField from "@/layout/SliderField";
+import Confirm from "@/layout/Confirm";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import NavTabs from "@/layout/NavTabs";
+import InputField from "@/layout/InputField";
+import Button from "@/layout/Button";
 import { useAuth } from "@clerk/nextjs";
+import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import {
-  usePayPalScriptReducer,
-  getScriptID,
-  destroySDKScript,
-} from "@paypal/react-paypal-js";
-import { useForm } from "react-hook-form";
+import { getScriptID, destroySDKScript } from "@paypal/react-paypal-js";
+import { usePayPalScriptReducer } from "@paypal/react-paypal-js";
+import { api } from "@/utils/api";
+import { useInfinitePagination } from "@/libs/pagination";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { reps2dollars, calcFedUgradeCost } from "@/utils/paypal";
+import { show_toast } from "@/libs/toast";
+import { getSearchValidator } from "@/validators/register";
+import { FederalStatuses } from "@/drizzle/constants";
+import { buyRepsSchema } from "@/validators/points";
+import { searchPaypalSchema } from "@/validators/points";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
-
-import SliderField from "../layout/SliderField";
-import Confirm from "../layout/Confirm";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import UserSearchSelect from "../layout/UserSearchSelect";
-import NavTabs from "../layout/NavTabs";
-import Table, { type ColumnDefinitionType } from "../layout/Table";
-
-import { api } from "../utils/api";
-import { useInfinitePagination } from "../libs/pagination";
-import { useRequiredUserData } from "../utils/UserContext";
-import { reps2dollars, calcFedUgradeCost } from "../utils/paypal";
-import { show_toast } from "../libs/toast";
-import { type BuyRepsSchema, buyRepsSchema } from "../validators/points";
-import { getSearchValidator } from "../validators/register";
-import { FederalStatuses } from "../../drizzle/constants";
-import type { ArrayElement } from "../utils/typeutils";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import type { ColumnDefinitionType } from "@/layout/Table";
+import type { z } from "zod";
+import type { NextPage } from "next";
+import type { BuyRepsSchema } from "@/validators/points";
+import type { SearchPaypalSchema } from "@/validators/points";
+import type { ArrayElement } from "@/utils/typeutils";
 
 const CURRENCY = "USD";
 const OPTIONS = {
@@ -83,6 +85,7 @@ const PaypalShop: NextPage = () => {
             {activeTab === "History" && <TransactionHistory />}
           </ContentBox>
           {activeTab === "Federal" && <SubscriptionsOverview />}
+          {activeTab === "Federal" && <LookupSubscription />}
         </PayPalScriptProvider>
       )}
     </>
@@ -593,5 +596,67 @@ const TransactionHistory = () => {
       linkPrefix="/users/"
       setLastElement={setLastElement}
     />
+  );
+};
+
+/**
+ * Lookup paypal subscription
+ */
+const LookupSubscription = () => {
+  // User state
+  const { refetch: refetchUser } = useRequiredUserData();
+
+  // Form
+  const searchForm = useForm<SearchPaypalSchema>({
+    resolver: zodResolver(searchPaypalSchema),
+  });
+
+  // Sync subscription
+  const { mutate, isLoading } = api.paypal.resolveSubscription.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Synced with paypal", data.message, "success");
+        await refetchUser();
+      } else {
+        show_toast("Error on Sync", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error on Lookup", error.message, "error");
+    },
+  });
+
+  // Submit handler
+  const handleSubmitRequest = searchForm.handleSubmit(
+    (data) => mutate({ subscriptionId: data.text }),
+    (errors) => console.error(errors)
+  );
+
+  // Render input form
+  return (
+    <ContentBox
+      title="Lookup Subscription"
+      subtitle="Missing federal support? Check subscription status here!"
+      initialBreak={true}
+    >
+      {isLoading && <Loader explanation="Searching..." />}
+      {!isLoading && (
+        <>
+          <InputField
+            id="text"
+            label="Search for Subscription ID"
+            placeholder="Subscription ID"
+            register={searchForm.register}
+            error={searchForm.formState.errors.text?.message}
+          />
+          <Button
+            id="submit"
+            label="Search"
+            image={<MagnifyingGlassIcon className="mr-1 h-5 w-5" />}
+            onClick={handleSubmitRequest}
+          />
+        </>
+      )}
+    </ContentBox>
   );
 };
