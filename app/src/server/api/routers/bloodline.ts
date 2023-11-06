@@ -12,7 +12,7 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { effectFilters } from "@/libs/train";
+import { effectFilters, statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/libs/profile";
 import HumanDiff from "human-object-diff";
@@ -34,6 +34,7 @@ export const bloodlineRouter = createTRPCRouter({
         rank: z.enum(LetterRanks).optional(),
         showHidden: z.boolean().optional().nullable(),
         effect: z.enum(effectFilters).optional(),
+        stat: z.enum(statFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -45,6 +46,9 @@ export const bloodlineRouter = createTRPCRouter({
           ...(input.showHidden ? [] : [eq(bloodline.hidden, 0)]),
           ...(input.effect
             ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.effect}) IS NOT NULL`]
+            : []),
+          ...(input.stat
+            ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.stat}) IS NOT NULL`]
             : [])
         ),
         offset: skip,

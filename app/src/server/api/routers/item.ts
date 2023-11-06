@@ -9,7 +9,7 @@ import { serverError, baseServerResponse } from "@/api/trpc";
 import { ItemValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { effectFilters } from "@/libs/train";
+import { effectFilters, statFilters } from "@/libs/train";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -116,6 +116,7 @@ export const itemRouter = createTRPCRouter({
         itemType: z.enum(ItemTypes).optional(),
         itemRarity: z.enum(ItemRarities).optional(),
         effect: z.enum(effectFilters).optional(),
+        stat: z.enum(statFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -129,6 +130,9 @@ export const itemRouter = createTRPCRouter({
           ...(input.itemType ? [eq(item.itemType, input.itemType)] : []),
           ...(input.effect
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.effect}) IS NOT NULL`]
+            : []),
+          ...(input.stat
+            ? [sql`JSON_SEARCH(${item.effects},'one',${input.stat}) IS NOT NULL`]
             : [])
         ),
       });

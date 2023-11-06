@@ -13,6 +13,9 @@ import { useJutsuEditForm } from "@/libs/jutsu";
 import { useBloodlineEditForm } from "@/libs/bloodline";
 import { useItemEditForm } from "@/libs/item";
 import { tagTypes } from "@/libs/combat/types";
+import { statFilters } from "@/libs/train";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { StatType } from "@/libs/train";
 import type { EffectType } from "@/libs/train";
 import type { Jutsu } from "@/drizzle/schema";
 import type { Bloodline } from "@/drizzle/schema";
@@ -28,6 +31,10 @@ interface MassEditContentProps {
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [tagType, setTagType] = useState<EffectType>(effectFilters[0]);
+  const [stat, setStat] = useState<StatType | undefined>(undefined);
+
+  // Stat filter
+  const statFilter = stat ? stat : undefined;
 
   // Data queries
   const {
@@ -35,7 +42,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchJutsus,
     isFetching: isFetchingJutsu,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType },
+    { limit: 500, effect: tagType, stat: statFilter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -49,7 +56,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchBloodlines,
     isFetching: isFetchingBloodlines,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType, showHidden: true },
+    { limit: 500, effect: tagType, stat: statFilter, showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -63,7 +70,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchItems,
     isFetching: isFetchingItems,
   } = api.item.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType },
+    { limit: 500, effect: tagType, stat: statFilter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -96,6 +103,25 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   // Get all the data
   const { data, refetch } = getTableData(props.type);
 
+  // Post-filter, in case we're filtering by stat, since we need to account for the fact that
+  // it may have found the entries based on stats from other tags
+  const postFiltered = data?.filter((entry) => {
+    if (!stat) return true;
+    const effect = (entry.effects as ZodAllTags[]).find((e) => e.type === tagType);
+    if (effect) {
+      const c1 =
+        "statTypes" in effect &&
+        effect.statTypes &&
+        (effect.statTypes as string[]).includes(stat);
+      const c2 =
+        "generalTypes" in effect &&
+        effect.generalTypes &&
+        (effect.generalTypes as string[]).includes(stat);
+      return c1 || c2;
+    }
+    return false;
+  });
+
   // Loader
   const loading = isFetchingJutsu || isFetchingBloodlines || isFetchingItems;
 
@@ -103,7 +129,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     return (
       <Modal title={props.title} setIsOpen={setShowModal} onAccept={props.onAccept}>
         <SelectField
-          id="filter"
+          id="filter_tag"
           label="Select Tag"
           onChange={(e) => setTagType(e.target.value as EffectType)}
         >
@@ -115,14 +141,36 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
             );
           })}
         </SelectField>
+        <SelectField
+          id="filter_stat"
+          label="Select Stat"
+          onChange={(e) => setStat(e.target.value as StatType)}
+        >
+          <option key="" value="">
+            None
+          </option>
+          {statFilters.map((stat) => {
+            return (
+              <option key={stat} value={stat}>
+                {stat}
+              </option>
+            );
+          })}
+        </SelectField>
+
         <p className="font-bold py-3">
-          NOTE: Push Enter button after changing a field to submit ALL changes!
+          {postFiltered?.length === 0 && (
+            <>-- No entries found for this filter. Please adjust filters! --</>
+          )}
+          {postFiltered?.length !== 0 && (
+            <>NOTE: Push Enter button after changing a field to submit ALL changes!</>
+          )}
         </p>
         {loading ? (
           <Loader explanation="Loading data..." />
         ) : (
           <div className="overflow-auto">
-            {data?.map((entry, i) => {
+            {postFiltered?.map((entry, i) => {
               return (
                 <div key={i}>
                   {props.type === "jutsu" && (
