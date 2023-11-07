@@ -29,9 +29,11 @@ export const createTRPCContext = (opts: CreateNextContextOptions) => {
   const { req } = opts;
   const sesh = getAuth(req);
   const userId = sesh.userId;
+  const ip = req.headers["x-forwarded-for"];
+  const userIp = typeof ip === "string" ? ip.split(/, /)[0] : req.socket.remoteAddress;
   return {
     drizzle: drizzleDB,
-    userIp: req.socket.remoteAddress,
+    userIp,
     userId,
   };
 };
