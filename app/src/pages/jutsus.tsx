@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { ArchiveBoxXMarkIcon } from "@heroicons/react/24/solid";
-import ItemWithEffects from "../layout/ItemWithEffects";
-import ContentBox from "../layout/ContentBox";
-import Modal from "../layout/Modal";
-import Loader from "../layout/Loader";
-import Button from "../layout/Button";
-import { ActionSelector } from "../layout/CombatActions";
-import { calcJutsuEquipLimit, calcForgetReturn } from "../libs/train";
-import { useRequiredUserData } from "../utils/UserContext";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import ContentBox from "@/layout/ContentBox";
+import Modal from "@/layout/Modal";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import { ActionSelector } from "@/layout/CombatActions";
+import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
 import type { NextPage } from "next";
 import type { Jutsu, UserJutsu } from "../../drizzle/schema";
 

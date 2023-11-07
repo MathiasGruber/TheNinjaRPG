@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { ArrowsPointingInIcon, TrashIcon } from "@heroicons/react/24/solid";
 import Image from "next/image";
-import NavTabs from "../layout/NavTabs";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import ItemWithEffects from "../layout/ItemWithEffects";
-import Modal from "../layout/Modal";
-import ContentImage from "../layout/ContentImage";
-import Button from "../layout/Button";
-import { ActionSelector } from "../layout/CombatActions";
-import { useRequiredUserData } from "../utils/UserContext";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
+import NavTabs from "@/layout/NavTabs";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import Modal from "@/layout/Modal";
+import ContentImage from "@/layout/ContentImage";
+import Button from "@/layout/Button";
+import { ActionSelector } from "@/layout/CombatActions";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
 import type { Item, UserItem, ItemSlot } from "../../drizzle/schema";
 import type { NextPage } from "next";
 

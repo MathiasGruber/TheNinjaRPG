@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useSafePush } from "../utils/routing";
-import { useUserData } from "../utils/UserContext";
-import Loader from "../layout/Loader";
+import { useSafePush } from "@/utils/routing";
+import { useUserData } from "@/utils/UserContext";
+import Loader from "@/layout/Loader";
 import Welcome from "./welcome";
 import type { NextPage } from "next";
 

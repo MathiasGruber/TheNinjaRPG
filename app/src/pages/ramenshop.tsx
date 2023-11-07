@@ -1,12 +1,12 @@
 import { type NextPage } from "next";
 import Image from "next/image";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import { api } from "../utils/api";
-import { getRamenHealPercentage, calcRamenCost } from "../utils/ramen";
-import { show_toast } from "../libs/toast";
-import { useRequiredUserData } from "../utils/UserContext";
-import { useRequireInVillage } from "../utils/village";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { api } from "@/utils/api";
+import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
+import { show_toast } from "@/libs/toast";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
 
 const RamenShop: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();

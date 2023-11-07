@@ -3,17 +3,17 @@ import Link from "next/link";
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
-import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
-import { useUserData } from "../utils/UserContext";
+import { ENERGY_SPENT_PER_SECOND } from "@/libs/train";
+import { useUserData } from "@/utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
 import { SunIcon } from "@heroicons/react/24/solid";
 import { HeartIcon } from "@heroicons/react/24/solid";
-import { sealCheck } from "../libs/combat/tags";
-import { isEffectActive } from "../libs/combat/util";
-import { getDaysHoursMinutesSeconds } from "../utils/time";
+import { sealCheck } from "@/libs/combat/tags";
+import { isEffectActive } from "@/libs/combat/util";
+import { getDaysHoursMinutesSeconds } from "@/utils/time";
 import type { UserStatuses } from "../../drizzle/constants";
-import type { UserEffect } from "../libs/combat/types";
+import type { UserEffect } from "@/libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();

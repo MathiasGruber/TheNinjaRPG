@@ -1,15 +1,15 @@
 import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import ActionTimer from "../layout/ActionTimer";
-import CombatHistory from "../layout/CombatHistory";
-import { availableUserActions } from "../libs/combat/actions";
-import { ActionSelector } from "../layout/CombatActions";
-import { api } from "../utils/api";
-import { useRequiredUserData } from "../utils/UserContext";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import ActionTimer from "@/layout/ActionTimer";
+import CombatHistory from "@/layout/CombatHistory";
+import { availableUserActions } from "@/libs/combat/actions";
+import { ActionSelector } from "@/layout/CombatActions";
+import { api } from "@/utils/api";
+import { useRequiredUserData } from "@/utils/UserContext";
 import type { NextPage } from "next";
-import type { BattleState } from "../libs/combat/types";
+import type { BattleState } from "@/libs/combat/types";
 
 const Combat = dynamic(() => import("../layout/Combat"));
 

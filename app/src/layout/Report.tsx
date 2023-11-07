@@ -9,9 +9,9 @@ import Post from "./Post";
 
 import { type UserReportSchema, type systems } from "../validators/reports";
 import { userReportSchema } from "../validators/reports";
-import { useRequiredUserData } from "../utils/UserContext";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
 
 interface ReportUserProps {
   button: React.ReactNode;

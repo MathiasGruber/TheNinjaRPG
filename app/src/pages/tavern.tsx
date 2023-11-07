@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { type NextPage } from "next";
-import Loader from "../layout/Loader";
-import Conversation from "../layout/Conversation";
-import NavTabs from "../layout/NavTabs";
+import Loader from "@/layout/Loader";
+import Conversation from "@/layout/Conversation";
+import NavTabs from "@/layout/NavTabs";
 
-import { useRequiredUserData } from "../utils/UserContext";
+import { useRequiredUserData } from "@/utils/UserContext";
 
 const Tavern: NextPage = () => {
   const [activeTab, setActiveTab] = useState<string>("Global");

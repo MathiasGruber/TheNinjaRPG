@@ -1,30 +1,30 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSafePush } from "../utils/routing";
+import { useSafePush } from "@/utils/routing";
 import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
 import type { NextPage } from "next";
 import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
 import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";
 import { HandRaisedIcon } from "@heroicons/react/24/solid";
 
-import Countdown from "../layout/Countdown";
-import Confirm from "../layout/Confirm";
-import Button from "../layout/Button";
-import Loader from "../layout/Loader";
-import ContentBox from "../layout/ContentBox";
-import NavTabs from "../layout/NavTabs";
-import ItemWithEffects from "../layout/ItemWithEffects";
-import Modal from "../layout/Modal";
-import { ActionSelector } from "../layout/CombatActions";
+import Countdown from "@/layout/Countdown";
+import Confirm from "@/layout/Confirm";
+import Button from "@/layout/Button";
+import Loader from "@/layout/Loader";
+import ContentBox from "@/layout/ContentBox";
+import NavTabs from "@/layout/NavTabs";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import Modal from "@/layout/Modal";
+import { ActionSelector } from "@/layout/CombatActions";
 
-import { useRequiredUserData } from "../utils/UserContext";
-import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "../libs/bloodline";
-import { api } from "../utils/api";
-import { useInfinitePagination } from "../libs/pagination";
-import { show_toast } from "../libs/toast";
-import { calcHealFinish } from "../libs/hospital/hospital";
-import { calcHealCost } from "../libs/hospital/hospital";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
+import { api } from "@/utils/api";
+import { useInfinitePagination } from "@/libs/pagination";
+import { show_toast } from "@/libs/toast";
+import { calcHealFinish } from "@/libs/hospital/hospital";
+import { calcHealCost } from "@/libs/hospital/hospital";
 
 const Hospital: NextPage = () => {
   // Settings

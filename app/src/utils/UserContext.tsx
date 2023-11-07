@@ -1,10 +1,10 @@
 import { createContext, useEffect } from "react";
 import { useContext } from "react";
-import { useSafePush } from "../utils/routing";
+import { useSafePush } from "@/utils/routing";
 import { useAuth } from "@clerk/nextjs";
 import type Pusher from "pusher-js";
 import type { UserWithRelations } from "../server/api/routers/profile";
-import type { ReturnedBattle } from "../libs/combat/types";
+import type { ReturnedBattle } from "@/libs/combat/types";
 
 // Events sent to the user from websockets
 export type UserEvent = {

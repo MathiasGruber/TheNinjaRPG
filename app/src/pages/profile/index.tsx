@@ -67,7 +67,10 @@ const Profile: NextPage = () => {
   });
 
   const canDelete =
-    userData && userData.deletionAt && new Date(userData.deletionAt) < new Date();
+    userData &&
+    !userData.isBanned &&
+    userData.deletionAt &&
+    new Date(userData.deletionAt) < new Date();
   const expRequired =
     userData &&
     Math.max(calcLevelRequirements(userData.level) - userData.experience, 0);
@@ -160,14 +163,20 @@ const Profile: NextPage = () => {
           >
             <span>
               This feature is intended for marking the character for deletion. Toggling
-              this feature enables a timer of 7 days, after which you will be able to
+              this feature enables a timer of 2 days, after which you will be able to
               delete the character - this is to ensure no un-intentional character
               deletion.
+              {userData.isBanned === 1 && (
+                <p className="font-bold py-3">
+                  NOTE: You are banned, and cannot delete your account until the ban is
+                  over!
+                </p>
+              )}
               {userData.deletionAt && (
                 <Button
                   id="create"
                   color="red"
-                  disabled={userData.deletionAt > new Date()}
+                  disabled={userData.deletionAt > new Date() || userData.isBanned === 1}
                   label={
                     userData.deletionAt < new Date() ? (
                       "Disable Deletion Timer"

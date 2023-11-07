@@ -3,13 +3,13 @@ import { type NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import ContentBox from "../layout/ContentBox";
-import Post from "../layout/Post";
-import Loader from "../layout/Loader";
+import ContentBox from "@/layout/ContentBox";
+import Post from "@/layout/Post";
+import Loader from "@/layout/Loader";
 
-import { api } from "../utils/api";
-import { secondsPassed } from "../utils/time";
-import { groupBy } from "../utils/grouping";
+import { api } from "@/utils/api";
+import { secondsPassed } from "@/utils/time";
+import { groupBy } from "@/utils/grouping";
 
 const Forum: NextPage = () => {
   const { data: boards } = api.forum.getAll.useQuery();

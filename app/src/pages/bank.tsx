@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import { useRequiredUserData } from "../utils/UserContext";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { useRequiredUserData } from "@/utils/UserContext";
 
 const Bank: NextPage = () => {
   const { data: userData } = useRequiredUserData();

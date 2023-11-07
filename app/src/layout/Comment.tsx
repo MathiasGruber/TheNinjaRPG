@@ -5,13 +5,13 @@ import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outli
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Button from "./Button";
-import Confirm from "../layout/Confirm";
-import ReportUser from "../layout/Report";
+import Confirm from "@/layout/Confirm";
+import ReportUser from "@/layout/Report";
 import { canDeleteComment } from "../validators/reports";
 import { mutateCommentSchema } from "../validators/comments";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
-import { useUserData } from "../utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { useUserData } from "@/utils/UserContext";
 import type { systems } from "../validators/reports";
 import type { ConversationComment } from "../../drizzle/schema";
 import type { ForumPost } from "../../drizzle/schema";

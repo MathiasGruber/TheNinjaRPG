@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { show_toast } from "../libs/toast";
+import { show_toast } from "@/libs/toast";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
 /**

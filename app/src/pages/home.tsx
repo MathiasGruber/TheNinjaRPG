@@ -1,12 +1,12 @@
 import { type NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
-import { useRequiredUserData } from "../utils/UserContext";
-import { useRequireInVillage } from "../utils/village";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
 
 const Home: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();

@@ -1,16 +1,16 @@
 import { type NextPage } from "next";
 import { useState, useEffect } from "react";
-import ContentBox from "../layout/ContentBox";
-import Button from "../layout/Button";
-import Loader from "../layout/Loader";
+import ContentBox from "@/layout/ContentBox";
+import Button from "@/layout/Button";
+import Loader from "@/layout/Loader";
 import Link from "next/link";
 import Image from "next/image";
 import ReactHtmlParser from "react-html-parser";
 import { PencilSquareIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/solid";
-import { api } from "../utils/api";
-import { useUserData } from "../utils/UserContext";
+import { api } from "@/utils/api";
+import { useUserData } from "@/utils/UserContext";
 import { canCreateNews } from "../validators/forum";
-import { useInfinitePagination } from "../libs/pagination";
+import { useInfinitePagination } from "@/libs/pagination";
 
 const News: NextPage = () => {
   const { data: userData, refetch } = useUserData();

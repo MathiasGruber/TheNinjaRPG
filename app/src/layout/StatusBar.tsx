@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { secondsPassed } from "../utils/time";
+import { secondsPassed } from "@/utils/time";
 import type { UserStatus } from "../../drizzle/schema";
 
 interface StatusBarProps {

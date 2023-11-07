@@ -7,13 +7,13 @@ import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown from "./NavBarDropdown";
 
-import { ENERGY_SPENT_PER_SECOND } from "../libs/train";
+import { ENERGY_SPENT_PER_SECOND } from "@/libs/train";
 import { UserButton } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
-import { useUserData } from "../utils/UserContext";
-import { getMainNavbarLinks } from "../libs/menus";
-import { getMainGameLinks } from "../libs/menus";
-import type { NavBarDropdownLink } from "../libs/menus";
+import { useUserData } from "@/utils/UserContext";
+import { getMainNavbarLinks } from "@/libs/menus";
+import { getMainGameLinks } from "@/libs/menus";
+import type { NavBarDropdownLink } from "@/libs/menus";
 
 interface NavBarProps {
   notifications: NavBarDropdownLink[] | undefined;

@@ -2,20 +2,21 @@ import { useState } from "react";
 import { type NextPage } from "next";
 
 import Link from "next/link";
-import ContentBox from "../layout/ContentBox";
-import Toggle from "../layout/Toggle";
-import Post from "../layout/Post";
-import Countdown from "../layout/Countdown";
-import InputField from "../layout/InputField";
-import Loader from "../layout/Loader";
-import ParsedReportJson from "../layout/ReportReason";
+import ContentBox from "@/layout/ContentBox";
+import Toggle from "@/layout/Toggle";
+import Post from "@/layout/Post";
+import Countdown from "@/layout/Countdown";
+import InputField from "@/layout/InputField";
+import Loader from "@/layout/Loader";
+import ParsedReportJson from "@/layout/ReportReason";
 
-import { api } from "../utils/api";
-import { useInfinitePagination } from "../libs/pagination";
-import { useRequiredUserData } from "../utils/UserContext";
-import { reportCommentExplain } from "../utils/reports";
-import { reportCommentColor } from "../utils/reports";
-import { useUserSearch } from "../utils/search";
+import { api } from "@/utils/api";
+import { FingerPrintIcon } from "@heroicons/react/24/outline";
+import { useInfinitePagination } from "@/libs/pagination";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { reportCommentExplain } from "@/utils/reports";
+import { reportCommentColor } from "@/utils/reports";
+import { useUserSearch } from "@/utils/search";
 
 const Reports: NextPage = () => {
   const { data: userData } = useRequiredUserData();
@@ -58,26 +59,30 @@ const Reports: NextPage = () => {
   return (
     <ContentBox
       title="Reports"
-      subtitle={userData?.role === "USER" ? "View your reports" : "Overall Overview"}
+      subtitle={userData?.role === "USER" ? "Your reports" : "Overview"}
       topRightContent={
         userData?.role !== "USER" && (
-          <div className="flex flex-row items-center">
-            <InputField
-              id="username"
-              placeholder="Search Username"
-              register={register}
-              error={errors.username?.message}
-            />
-            <div className="px-2"></div>
-            <Toggle value={showUnhandled} setShowActive={setShowUnhandled} />
-            {!showUnhandled && (
-              <Toggle
-                value={showAll}
-                setShowActive={setShowAll}
-                labelActive="All"
-                labelInactive="Banned"
+          <div className="flex flex-col items-start">
+            <div className="w-full">
+              <InputField
+                id="username"
+                placeholder="Search Username"
+                register={register}
+                error={errors.username?.message}
               />
-            )}
+            </div>
+            <div className="pb-2"></div>
+            <div className="w-full flex flex-row pb-2 m-1">
+              <Toggle value={showUnhandled} setShowActive={setShowUnhandled} />
+              {!showUnhandled && (
+                <Toggle
+                  value={showAll}
+                  setShowActive={setShowAll}
+                  labelActive="All"
+                  labelInactive="Banned"
+                />
+              )}
+            </div>
           </div>
         )
       }

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { show_toast } from "../libs/toast";
+import { show_toast } from "@/libs/toast";
 
 interface Pagination {
   fetchNextPage: () => Promise<any>;

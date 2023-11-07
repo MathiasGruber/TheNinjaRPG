@@ -1,7 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import Button from "../layout/Button";
+import Button from "@/layout/Button";
 
 const Welcome: React.FC = () => {
   return (

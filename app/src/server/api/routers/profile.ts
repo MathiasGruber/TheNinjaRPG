@@ -776,7 +776,7 @@ export const profileRouter = createTRPCRouter({
       .set({
         deletionAt: currentUser.deletionAt
           ? null
-          : new Date(new Date().getTime() + 7 * 86400000),
+          : new Date(new Date().getTime() + 2 * 86400000),
       })
       .where(eq(userData.userId, ctx.userId));
   }),
@@ -785,6 +785,9 @@ export const profileRouter = createTRPCRouter({
     const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
     if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
+    }
+    if (currentUser.isBanned) {
+      throw serverError("PRECONDITION_FAILED", "You have to serve your ban first");
     }
     await deleteUser(ctx.drizzle, ctx.userId);
   }),

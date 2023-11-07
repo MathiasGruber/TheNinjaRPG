@@ -1,8 +1,8 @@
 import AvatarImage from "@/layout/Avatar";
 import Button from "@/layout/Button";
-import { useSafePush } from "../utils/routing";
-import { secondsPassed } from "../utils/time";
-import { capitalizeFirstLetter } from "../utils/sanitize";
+import { useSafePush } from "@/utils/routing";
+import { secondsPassed } from "@/utils/time";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;

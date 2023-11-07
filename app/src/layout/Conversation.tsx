@@ -3,16 +3,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import ReactHtmlParser from "react-html-parser";
-import { CommentOnConversation } from "../layout/Comment";
-import ContentBox from "../layout/ContentBox";
-import RichInput from "../layout/RichInput";
-import Button from "../layout/Button";
-import Loader from "../layout/Loader";
-import { useUserData } from "../utils/UserContext";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
+import { CommentOnConversation } from "@/layout/Comment";
+import ContentBox from "@/layout/ContentBox";
+import RichInput from "@/layout/RichInput";
+import Button from "@/layout/Button";
+import Loader from "@/layout/Loader";
+import { useUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
 import { mutateCommentSchema } from "../validators/comments";
-import { useInfinitePagination } from "../libs/pagination";
+import { useInfinitePagination } from "@/libs/pagination";
 import type { MutateCommentSchema } from "../validators/comments";
 
 interface ConversationProps {

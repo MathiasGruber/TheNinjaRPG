@@ -3,13 +3,13 @@ import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
 import Link from "next/link";
-import Header from "../layout/Header";
+import Header from "@/layout/Header";
 import CookieConsent from "react-cookie-consent";
 import { ToastContainer } from "react-toastify";
 import { type AppType } from "next/app";
 
-import { api } from "../utils/api";
-import Layout from "../layout/Layout";
+import { api } from "@/utils/api";
+import Layout from "@/layout/Layout";
 
 import "@uploadthing/react/styles.css";
 import "../styles/globals.css";

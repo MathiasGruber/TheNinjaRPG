@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSafePush } from "./routing";
 import { useRequiredUserData } from "./UserContext";
-import { calcIsInVillage } from "../libs/travel/controls";
+import { calcIsInVillage } from "@/libs/travel/controls";
 
 /**
  * A hook which requires the user to be in their village,

@@ -1,5 +1,5 @@
 import React from "react";
-import ContentBox from "../layout/ContentBox";
+import ContentBox from "@/layout/ContentBox";
 import Image from "next/image";
 import Link from "next/link";
 import type { NextPage } from "next";

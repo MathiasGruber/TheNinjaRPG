@@ -25,7 +25,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
               : "flex-row items-center"
           }`}
         >
-          <div>
+          <div className="self-end">
             <h2 className="text-2xl font-bold text-orange-900">
               {props.back_href ? (
                 <Link

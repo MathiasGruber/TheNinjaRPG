@@ -3,10 +3,10 @@ import Link from "next/link";
 import { ShieldExclamationIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { InformationCircleIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
 import MenuBox from "./MenuBox";
-import { canSubmitNotification } from "../utils/permissions";
-import { getMainGameLinks } from "../libs/menus";
-import { useUserData } from "../utils/UserContext";
-import type { NavBarDropdownLink } from "../libs/menus";
+import { canSubmitNotification } from "@/utils/permissions";
+import { getMainGameLinks } from "@/libs/menus";
+import { useUserData } from "@/utils/UserContext";
+import type { NavBarDropdownLink } from "@/libs/menus";
 
 interface MenuBoxGameProps {
   notifications: NavBarDropdownLink[] | undefined;

@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-import ContentBox from "../layout/ContentBox";
+import ContentBox from "@/layout/ContentBox";
 
 import { SignUp } from "@clerk/nextjs";
 

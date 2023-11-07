@@ -1,10 +1,10 @@
 import React from "react";
 import Loader from "./Loader";
-import { api } from "../utils/api";
-import { groupBy } from "../utils/grouping";
-import type { CombatResult } from "../libs/combat/types";
-import type { ActionEffect } from "../libs/combat/types";
-import type { ReturnedBattle } from "../libs/combat/types";
+import { api } from "@/utils/api";
+import { groupBy } from "@/utils/grouping";
+import type { CombatResult } from "@/libs/combat/types";
+import type { ActionEffect } from "@/libs/combat/types";
+import type { ReturnedBattle } from "@/libs/combat/types";
 
 interface CombatHistoryProps {
   battle: ReturnedBattle;

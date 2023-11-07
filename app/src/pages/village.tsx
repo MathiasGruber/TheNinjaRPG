@@ -1,11 +1,11 @@
 import { type NextPage } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import ContentBox from "../layout/ContentBox";
-import StatusBar from "../layout/StatusBar";
-import Loader from "../layout/Loader";
-import { useRequiredUserData } from "../utils/UserContext";
-import { api } from "../utils/api";
+import ContentBox from "@/layout/ContentBox";
+import StatusBar from "@/layout/StatusBar";
+import Loader from "@/layout/Loader";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
 import type { VillageStructure } from "../../drizzle/schema";
 
 const VillageOverview: NextPage = () => {

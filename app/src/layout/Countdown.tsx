@@ -1,6 +1,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "../utils/time";
+import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 
 interface CountdownProps {
   targetDate: Date;

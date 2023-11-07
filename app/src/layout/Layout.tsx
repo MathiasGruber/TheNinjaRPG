@@ -11,13 +11,13 @@ import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
 
-import { UserContext } from "../utils/UserContext";
+import { UserContext } from "@/utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
-import { api } from "../utils/api";
-import { secondsFromDate } from "../utils/time";
-import { show_toast } from "../libs/toast";
-import type { UserEvent } from "../utils/UserContext";
-import type { ReturnedBattle } from "../libs/combat/types";
+import { api } from "@/utils/api";
+import { secondsFromDate } from "@/utils/time";
+import { show_toast } from "@/libs/toast";
+import type { UserEvent } from "@/utils/UserContext";
+import type { ReturnedBattle } from "@/libs/combat/types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Clerk token

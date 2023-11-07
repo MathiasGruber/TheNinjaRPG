@@ -1,11 +1,11 @@
 import type { NextPage } from "next";
-import { useSafePush } from "../utils/routing";
-import { useRequiredUserData } from "../utils/UserContext";
-import { useRequireInVillage } from "../utils/village";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
-import ContentBox from "../layout/ContentBox";
-import Loader from "../layout/Loader";
+import { useSafePush } from "@/utils/routing";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
 
 const Arena: NextPage = () => {
   // Data from database

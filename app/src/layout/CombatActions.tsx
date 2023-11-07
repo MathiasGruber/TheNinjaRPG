@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ContentImage from "./ContentImage";
-import { useUserData } from "../utils/UserContext";
-import { COMBAT_SECONDS } from "../libs/combat/constants";
+import { useUserData } from "@/utils/UserContext";
+import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ActionSelectorProps {

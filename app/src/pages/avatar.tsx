@@ -1,16 +1,16 @@
 import { type NextPage } from "next";
 import { useState } from "react";
-import ContentBox from "../layout/ContentBox";
-import Button from "../layout/Button";
-import AvatarImage from "../layout/Avatar";
-import Loader from "../layout/Loader";
-import Confirm from "../layout/Confirm";
+import ContentBox from "@/layout/ContentBox";
+import Button from "@/layout/Button";
+import AvatarImage from "@/layout/Avatar";
+import Loader from "@/layout/Loader";
+import Confirm from "@/layout/Confirm";
 import { TrashIcon } from "@heroicons/react/24/outline";
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
-import { useRequiredUserData } from "../utils/UserContext";
-import { useInfinitePagination } from "../libs/pagination";
-import { capitalizeFirstLetter } from "../utils/sanitize";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { useInfinitePagination } from "@/libs/pagination";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 const Avatar: NextPage = () => {
   // Queries & mutations

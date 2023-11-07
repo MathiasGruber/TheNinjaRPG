@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Loader from "./Loader";
 
-import { api } from "../utils/api";
-import { show_toast } from "../libs/toast";
-import { sleep } from "../utils/time";
+import { api } from "@/utils/api";
+import { show_toast } from "@/libs/toast";
+import { sleep } from "@/utils/time";
 
 interface AvatarImageProps {
   href?: string | null;

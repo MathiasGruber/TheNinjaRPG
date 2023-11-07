@@ -15,15 +15,15 @@ import {
 import alea from "alea";
 //import * as TWEEN from "@tweenjs/tween.js";
 import { loadTexture } from "@/libs/threejs/util";
-import { cleanUp, setupScene } from "../libs/travel/util";
-import { groundMats, oceanMats, dessertMats } from "../libs/travel/biome";
-import { TrackballControls } from "../libs/threejs/TrackBallControls";
-import { useUserData } from "../utils/UserContext";
+import { cleanUp, setupScene } from "@/libs/travel/util";
+import { groundMats, oceanMats, dessertMats } from "@/libs/travel/biome";
+import { TrackballControls } from "@/libs/threejs/TrackBallControls";
+import { useUserData } from "@/utils/UserContext";
 import type { Village } from "../../drizzle/schema";
-import type { GlobalTile } from "../libs/travel/types";
-import type { GlobalMapData } from "../libs/travel/types";
-import type { GlobalPoint } from "../libs/travel/types";
-import type { HexagonalFaceMesh } from "../libs/hexgrid";
+import type { GlobalTile } from "@/libs/travel/types";
+import type { GlobalMapData } from "@/libs/travel/types";
+import type { GlobalPoint } from "@/libs/travel/types";
+import type { HexagonalFaceMesh } from "@/libs/hexgrid";
 
 interface MapProps {
   highlights?: Village[];
