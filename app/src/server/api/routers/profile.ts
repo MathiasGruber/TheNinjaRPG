@@ -830,7 +830,7 @@ export const fetchRegeneratedUser = async (props: {
 }) => {
   // Destructure
   const { client, userId, userIp, forceRegen } = props;
-  console.log("UPDATE USER: ", userIp);
+
   // Ensure we can fetch the user
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),

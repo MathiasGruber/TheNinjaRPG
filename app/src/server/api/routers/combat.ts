@@ -34,6 +34,9 @@ import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 
+// Debug flag when testing battle
+const debug = false;
+
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
     .input(z.object({ battleId: z.string().optional().nullable() }))
@@ -106,6 +109,8 @@ export const combatRouter = createTRPCRouter({
   performAction: protectedProcedure
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
+      if (debug) console.log("============ Performing action ============");
+
       // Short-form
       const suid = ctx.userId;
       const db = ctx.drizzle;
@@ -152,6 +157,8 @@ export const combatRouter = createTRPCRouter({
         while (true) {
           // Update the battle to the correct activeUserId & round. Default to current user
           const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
+          if (debug)
+            console.log(`============ 1. Actor: ${actor.username} ============`);
 
           // Only allow action if it is the users turn
           const isUserTurn = !actor.isAi && actor.controllerId === suid;

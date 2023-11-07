@@ -9,6 +9,9 @@ import type { CompleteBattle } from "@/libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { Grid } from "honeycomb-grid";
 
+// Debug flag when testing AI
+const debug = false;
+
 export const performAIaction = (
   battle: CompleteBattle,
   grid: Grid<TerrainHex>,
@@ -45,6 +48,14 @@ export const performAIaction = (
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action
     const bestAction = getBestAction(searchTree);
+
+    // Debug statement
+    if (debug) {
+      const searchSize = getSearchSpaceSize(searchTree);
+      console.log(`>> Best action: ${bestAction?.action?.name}`);
+      console.log(`>> Search space size: ${searchSize}`);
+    }
+
     // console.log("bestAction", user.actionPoints, bestAction.action?.name);
     // From the search tree find the best action
     // const bestAction = searchTree.reduce(
@@ -87,23 +98,29 @@ type SearchAction = {
   futureFitness: number;
 };
 
-const getHighestFitness = (searchTree: SearchAction, depth: number) => {
+const getSearchSpaceSize = (searchTree: SearchAction[]) => {
+  let size = 0;
+  searchTree.forEach((branch) => {
+    size += 1;
+    if (branch.nextActions) {
+      size += getSearchSpaceSize(branch.nextActions);
+    }
+  });
+  return size;
+};
+
+const getHighestFitness = (searchTree: SearchAction, depth: number = 0) => {
+  let moves = searchTree.action?.name;
   let fitness = searchTree.fitness;
-  // if (searchTree.action?.name === "Scratch" || searchTree.action?.name === "Wait") {
-  //   console.log(
-  //     `Calculating depth-${depth} highest fitness for: `,
-  //     searchTree.action?.name,
-  //     searchTree.fitness,
-  //     searchTree.longitude,
-  //     searchTree.latitude
-  //   );
-  // }
   if (searchTree.nextActions && searchTree.nextActions?.length > 0) {
-    fitness += Math.max(
-      ...searchTree.nextActions.map((action) => getHighestFitness(action, depth + 1))
+    const nexts = searchTree.nextActions.map((action) =>
+      getHighestFitness(action, depth + 1)
     );
+    const bestNext = nexts.reduce((a, b) => (a.fitness > b.fitness ? a : b));
+    moves += ` > ${bestNext.moves}`;
+    fitness = bestNext.fitness;
   }
-  return fitness;
+  return { fitness, moves };
 };
 
 const getBestAction = (searchTree: SearchAction[]) => {
@@ -111,13 +128,14 @@ const getBestAction = (searchTree: SearchAction[]) => {
   // console.log("Search tree:", searchTree.length);
   const bestAction = searchTree.reduce(
     (bestAction, branch) => {
-      branch.futureFitness = getHighestFitness(branch, 0);
-      // console.log(
-      //   "Test action: ",
-      //   branch.action?.name,
-      //   branch.fitness,
-      //   branch.futureFitness
-      // );
+      const { fitness, moves } = getHighestFitness(branch);
+      branch.futureFitness = fitness;
+      if (debug) {
+        const a = branch.action?.name;
+        const b = branch.fitness.toFixed(1);
+        const c = branch.futureFitness.toFixed(1);
+        console.log(`${a}\t Fitness: ${b}\t Future fitness: ${c}\t Moves: ${moves}`);
+      }
       // console.log("best future fitness: ", branch.futureFitness);
       if (branch.futureFitness > bestAction.futureFitness) {
         return branch;
@@ -191,13 +209,15 @@ const getActionTree = (
 
           // Calculate the fitness
           const fitness =
-            evaluateFitness(battle, newBattle, user.userId, grid, astar, action) +
-            initialFitness;
-          // if (action.name === "Scratch" && curDepth === 2 && origin) {
-          //   console.log(
-          //     `action: ${action.name}, depth:${curDepth},  fitness: ${fitness}, location: ${origin.col}, ${origin.row}`
-          //   );
-          // }
+            evaluateFitness(
+              battle,
+              newBattle,
+              user.userId,
+              grid,
+              astar,
+              action,
+              curDepth
+            ) + initialFitness;
 
           // If we are not at the end of the depth, calculate the next actions
           const nextActions =
@@ -238,7 +258,8 @@ export const evaluateFitness = (
   userId: string,
   grid: Grid<TerrainHex>,
   astar: PathCalculator,
-  action: CombatAction
+  action: CombatAction,
+  depth: number
 ) => {
   const curUsersState = curBattle.usersState;
   const newUsersState = newBattle.usersState;
@@ -282,7 +303,7 @@ export const evaluateFitness = (
       // This will make the AI gravitate towards its enemies
       const origin = findHex(grid, newUser);
       const target = findHex(grid, newEnemy);
-      if (origin && target) {
+      if (origin && target && depth === 0) {
         const path = astar.getShortestPath(origin, target);
         if (path) {
           // console.log(
