@@ -58,7 +58,12 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ stat: z.enum(UserStatNames) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId, true);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+        userIp: ctx.userIp,
+        forceRegen: true,
+      });
       if (!user) {
         throw serverError("NOT_FOUND", "User not found");
       }
@@ -94,7 +99,11 @@ export const profileRouter = createTRPCRouter({
   stopTraining: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId, true);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+        forceRegen: true,
+      });
       if (!user) {
         throw serverError("NOT_FOUND", "User not found");
       }
@@ -204,7 +213,10 @@ export const profileRouter = createTRPCRouter({
   getUser: protectedProcedure
     .input(z.object({ token: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
       const notifications: NavBarDropdownLink[] = [];
       if (user) {
         // Get number of un-resolved user reports
@@ -807,11 +819,15 @@ export const fetchUser = async (client: DrizzleClient, userId: string) => {
  * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
  * of pools, or optionally forces regeneration with forceRegen=true
  */
-export const fetchRegeneratedUser = async (
-  client: DrizzleClient,
-  userId: string,
-  forceRegen = false
-) => {
+export const fetchRegeneratedUser = async (props: {
+  client: DrizzleClient;
+  userId: string;
+  userIp?: string;
+  forceRegen?: boolean;
+}) => {
+  // Destructure
+  const { client, userId, userIp, forceRegen } = props;
+  console.log("UPDATE USER: ", userIp);
   // Ensure we can fetch the user
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
@@ -847,6 +863,7 @@ export const fetchRegeneratedUser = async (
           curEnergy: user.curEnergy,
           updatedAt: user.updatedAt,
           regenAt: user.regenAt,
+          ...(userIp ? { lastIp: userIp } : {}),
         })
         .where(eq(userData.userId, userId));
     }

@@ -16,8 +16,8 @@
  * processing a request
  *
  */
-import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import { drizzleDB } from "@/server/db";
+import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request
@@ -29,9 +29,9 @@ export const createTRPCContext = (opts: CreateNextContextOptions) => {
   const { req } = opts;
   const sesh = getAuth(req);
   const userId = sesh.userId;
-
   return {
     drizzle: drizzleDB,
+    userIp: req.socket.remoteAddress,
     userId,
   };
 };

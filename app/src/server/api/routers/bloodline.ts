@@ -280,7 +280,10 @@ export const bloodlineRouter = createTRPCRouter({
   swapBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
       if (!user || !user.bloodline) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }

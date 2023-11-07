@@ -306,7 +306,10 @@ export const combatRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
       // Get information
-      const user = await fetchRegeneratedUser(ctx.drizzle, ctx.userId);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
       const ais = await ctx.drizzle.query.userData.findMany({
         where: eq(userData.isAi, 1),
         columns: {

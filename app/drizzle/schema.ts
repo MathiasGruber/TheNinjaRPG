@@ -686,6 +686,7 @@ export const userData = mysqlTable(
   "UserData",
   {
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
+    lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
     gender: varchar("gender", { length: 191 }).notNull(),
     curHealth: int("curHealth").default(100).notNull(),
