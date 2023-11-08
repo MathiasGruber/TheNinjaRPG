@@ -29,7 +29,7 @@ const NotifyUsers: NextPage = () => {
     hasNextPage,
     isLoading: isLoadingPrevious,
   } = api.misc.getPreviousNotifications.useInfiniteQuery(
-    { limit: 2 },
+    { limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
