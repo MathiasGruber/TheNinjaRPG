@@ -14,11 +14,11 @@ import ContentBox from "../../../layout/ContentBox";
 import RichInput from "../../../layout/RichInput";
 import { CommentOnForum } from "../../../layout/Comment";
 
-import { useUserData } from "../../../utils/UserContext";
-import { api } from "../../../utils/api";
+import { useUserData } from "@/utils/UserContext";
+import { api } from "@/utils/api";
 import { show_toast } from "../../../libs/toast";
-import { mutateCommentSchema } from "../../../validators/comments";
-import { type MutateCommentSchema } from "../../../validators/comments";
+import { mutateCommentSchema } from "@/validators/comments";
+import { type MutateCommentSchema } from "@/validators/comments";
 
 const Thread: NextPage = () => {
   const limit = 10;

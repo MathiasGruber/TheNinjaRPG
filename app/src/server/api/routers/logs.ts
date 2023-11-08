@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { eq } from "drizzle-orm";
-import { actionLog } from "../../../../drizzle/schema";
+import { actionLog } from "@/drizzle/schema";
 
 export const logsRouter = createTRPCRouter({
   getContentChanges: protectedProcedure

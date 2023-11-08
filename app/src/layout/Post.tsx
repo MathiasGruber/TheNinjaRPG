@@ -1,5 +1,5 @@
 import React from "react";
-import AvatarImage from "./Avatar";
+import AvatarImage from "@/layout/Avatar";
 import Link from "next/link";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
@@ -86,10 +86,10 @@ const Post: React.FC<PostProps> = (props) => {
             />
           </Link>
           <div className="hidden sm:block">
-            <p className={userColor}>{props.user.username}</p>
-            <p>
+            <div className={userColor}>{props.user.username}</div>
+            <div>
               Lvl. {props.user.level} {capitalizeFirstLetter(props.user.rank)}
-            </p>
+            </div>
           </div>
         </div>
       )}

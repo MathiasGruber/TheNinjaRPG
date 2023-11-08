@@ -2,10 +2,10 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { eq } from "drizzle-orm";
 import { baseServerResponse } from "../trpc";
-import { registrationSchema } from "../../../validators/register";
+import { registrationSchema } from "@/validators/register";
 import { fetchVillage } from "./village";
-import { secondsFromNow } from "../../../utils/time";
-import { userData, userAttribute } from "../../../../drizzle/schema";
+import { secondsFromNow } from "@/utils/time";
+import { userData, userAttribute } from "@/drizzle/schema";
 
 export const registerRouter = createTRPCRouter({
   // Create Character

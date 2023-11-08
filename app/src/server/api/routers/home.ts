@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, gte, and } from "drizzle-orm";
-import { userData } from "../../../../drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import { fetchRegeneratedUser } from "./profile";
 import { getServerPusher } from "../../../libs/pusher";
 import { calcIsInVillage } from "../../../libs/travel/controls";

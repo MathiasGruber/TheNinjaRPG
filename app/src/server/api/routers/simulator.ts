@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { eq, and, gt, desc } from "drizzle-orm";
-import { damageSimulation } from "../../../../drizzle/schema";
+import { damageSimulation } from "@/drizzle/schema";
 import { statSchema, actSchema } from "../../../libs/combat/types";
 import type { DrizzleClient } from "../../db";
 

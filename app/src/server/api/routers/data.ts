@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, sql, asc, isNotNull } from "drizzle-orm";
-import { userJutsu, userItem, userData } from "../../../../drizzle/schema";
-import { dataBattleAction, jutsu } from "../../../../drizzle/schema";
+import { userJutsu, userItem, userData } from "@/drizzle/schema";
+import { dataBattleAction, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, publicProcedure, serverError } from "../trpc";
 import { fetchJutsu } from "./jutsu";
 import { fetchBloodline } from "./bloodline";

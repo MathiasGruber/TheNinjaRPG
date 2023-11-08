@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import { sql, eq, gte, and } from "drizzle-orm";
-import { userData } from "../../../../drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import { calcHealFinish } from "../../../libs/hospital/hospital";
 import { calcHealCost } from "../../../libs/hospital/hospital";
 import { fetchUser } from "./profile";

@@ -83,7 +83,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         )}
       />
 
-      {props.error && <p className="text-xs italic text-red-500"> {props.error}</p>}
+      {props.error && <div className="text-xs italic text-red-500"> {props.error}</div>}
     </div>
   );
 };

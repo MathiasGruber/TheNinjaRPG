@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import ContentBox from "../../../layout/ContentBox";
 import Loader from "../../../layout/Loader";
-import { api } from "../../../utils/api";
+import { api } from "@/utils/api";
 import { UsageStats } from "../../../layout/UsageStatistics";
 import type { NextPage } from "next";
 

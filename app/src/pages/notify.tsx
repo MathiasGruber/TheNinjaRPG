@@ -1,38 +1,57 @@
 import { type NextPage } from "next";
-import { useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
+import Post from "@/layout/Post";
+import AvatarImage from "@/layout/Avatar";
+import ReactHtmlParser from "react-html-parser";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canSubmitNotification } from "@/utils/permissions";
 import { mutateContentSchema } from "../validators/comments";
+import { useInfinitePagination } from "@/libs/pagination";
 import type { MutateContentSchema } from "../validators/comments";
 
 const NotifyUsers: NextPage = () => {
   // User state
-  const { data: userData, refetch } = useRequiredUserData();
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
-  // Router for forwarding
-  const router = useSafePush();
+  // Fetch historical notifications
+  const {
+    data,
+    refetch: refetchNotifications,
+    fetchNextPage,
+    hasNextPage,
+    isLoading: isLoadingPrevious,
+  } = api.misc.getPreviousNotifications.useInfiniteQuery(
+    { limit: 2 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+      staleTime: Infinity,
+    }
+  );
+  const notifications = data?.pages.map((page) => page.data).flat();
 
   // Mutations
   const { mutate, isLoading } = api.misc.submitNotification.useMutation({
     onSuccess: async () => {
-      await refetch();
+      await refetchUser();
+      await refetchNotifications();
     },
   });
 
-  // Redirect if no access to this page
-  useEffect(() => {
-    if (userData && !canSubmitNotification(userData.role)) {
-      void router.push("/");
-    }
-  }, [userData, router]);
+  // Pagination
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
 
   // Form control
   const {
@@ -55,24 +74,69 @@ const NotifyUsers: NextPage = () => {
     return <Loader explanation="Loading user data" />;
   }
 
+  const canSubmit = canSubmitNotification(userData.role);
+
   return (
-    <ContentBox title="Notification" subtitle="Push notifications to all users">
-      {isLoading && <Loader explanation="Submitting notification" />}
-      {!isLoading && (
-        <div className="grid grid-cols-1">
-          <form onSubmit={onSubmit}>
-            <RichInput
-              id="content"
-              height="200"
-              control={control}
-              onSubmit={onSubmit}
-              error={errors.content?.message}
-            />
-            <Button id="create" label="Send Notification" />
-          </form>
-        </div>
+    <>
+      {canSubmit && (
+        <ContentBox title="Submit New" subtitle="Push notifications to all users">
+          {isLoading && <Loader explanation="Submitting notification" />}
+          {!isLoading && (
+            <div className="grid grid-cols-1">
+              <form onSubmit={onSubmit}>
+                <RichInput
+                  id="content"
+                  height="200"
+                  control={control}
+                  onSubmit={onSubmit}
+                  error={errors.content?.message}
+                />
+                <Button id="create" label="Send Notification" />
+              </form>
+            </div>
+          )}
+        </ContentBox>
       )}
-    </ContentBox>
+      <ContentBox
+        title="Notifications"
+        subtitle="All Previous Notifications"
+        initialBreak={true}
+      >
+        {isLoadingPrevious && <Loader explanation="Submitting notification" />}
+        {!isLoadingPrevious && (
+          <div className="grid grid-cols-1">
+            {notifications?.map((entry, i) => {
+              return (
+                <div
+                  key={i}
+                  ref={i === notifications.length - 1 ? setLastElement : null}
+                >
+                  <Post align_middle={true}>
+                    <div className="flex flex-row">
+                      <div className="w-20 grow-0 shrink-0">
+                        <AvatarImage
+                          href={entry.user.avatar}
+                          userId={entry.user.userId}
+                          alt={entry.user.username}
+                          size={100}
+                        />
+                      </div>
+                      <div className="ml-2">
+                        {ReactHtmlParser(entry.content)}
+                        <div className="mt-2 italic">
+                          By {entry.user.username} on{" "}
+                          {entry.createdAt.toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </Post>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ContentBox>
+    </>
   );
 };
 

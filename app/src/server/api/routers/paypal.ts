@@ -1,18 +1,18 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, or, and, sql, desc } from "drizzle-orm";
-import { paypalTransaction, paypalSubscription } from "../../../../drizzle/schema";
-import { userData } from "../../../../drizzle/schema";
+import { paypalTransaction, paypalSubscription } from "@/drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
-import { dollars2reps, calcFedUgradeCost } from "../../../utils/paypal";
-import { plan2FedStatus } from "../../../utils/paypal";
+import { dollars2reps, calcFedUgradeCost } from "@/utils/paypal";
+import { plan2FedStatus } from "@/utils/paypal";
 import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
-import { FederalStatuses } from "../../../../drizzle/constants";
-import type { FederalStatus } from "../../../../drizzle/schema";
+import { FederalStatuses } from "@/drizzle/constants";
+import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
-import type { JsonData } from "../../../utils/typeutils";
+import type { JsonData } from "@/utils/typeutils";
 
 type PaypalAmount = {
   currency_code?: string;

@@ -1,9 +1,8 @@
 import React from "react";
 import Link from "next/link";
+import MenuBox from "./MenuBox";
 import { ShieldExclamationIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { InformationCircleIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
-import MenuBox from "./MenuBox";
-import { canSubmitNotification } from "@/utils/permissions";
 import { getMainGameLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import type { NavBarDropdownLink } from "@/libs/menus";
@@ -29,11 +28,9 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
       <MenuBox
         title="Main Menu"
         link={
-          canSubmitNotification(userData.role) && (
-            <Link href="/notify">
-              <MegaphoneIcon className="h-6 w-6 hover:fill-black" />
-            </Link>
-          )
+          <Link href="/notify">
+            <MegaphoneIcon className="h-6 w-6 hover:fill-black" />
+          </Link>
         }
       >
         {props.notifications && props.notifications.length > 0 && (

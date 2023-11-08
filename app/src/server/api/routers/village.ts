@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { baseServerResponse, serverError } from "../trpc";
-import { village, userData } from "../../../../drizzle/schema";
+import { village, userData } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
-import { ramenOptions } from "../../../utils/ramen";
-import { getRamenHealPercentage, calcRamenCost } from "../../../utils/ramen";
+import { ramenOptions } from "@/utils/ramen";
+import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUser } from "./profile";
 import type { DrizzleClient } from "../../db";
 

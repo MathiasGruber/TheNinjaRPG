@@ -2,21 +2,21 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { eq, or, and, gte, ne, like, notInArray, inArray } from "drizzle-orm";
-import { reportLog } from "../../../../drizzle/schema";
-import { forumPost, conversationComment } from "../../../../drizzle/schema";
-import { userReport, userReportComment, userData } from "../../../../drizzle/schema";
+import { reportLog } from "@/drizzle/schema";
+import { forumPost, conversationComment } from "@/drizzle/schema";
+import { userReport, userReportComment, userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
-import { userReportSchema } from "../../../validators/reports";
-import { reportCommentSchema } from "../../../validators/reports";
+import { userReportSchema } from "@/validators/reports";
+import { reportCommentSchema } from "@/validators/reports";
 import { updateAvatar } from "../../../libs/replicate";
-import { canModerateReports } from "../../../validators/reports";
-import { canSeeReport } from "../../../validators/reports";
-import { canClearReport } from "../../../validators/reports";
-import { canEscalateBan } from "../../../validators/reports";
-import { canChangeAvatar } from "../../../validators/reports";
+import { canModerateReports } from "@/validators/reports";
+import { canSeeReport } from "@/validators/reports";
+import { canClearReport } from "@/validators/reports";
+import { canEscalateBan } from "@/validators/reports";
+import { canChangeAvatar } from "@/validators/reports";
 import { fetchUser } from "./profile";
 import type { DrizzleClient } from "../../db";
-import sanitize from "../../../utils/sanitize";
+import sanitize from "@/utils/sanitize";
 
 export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them

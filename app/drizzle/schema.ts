@@ -518,6 +518,13 @@ export const notification = mysqlTable(
   }
 );
 
+export const notificationRelations = relations(notification, ({ one }) => ({
+  user: one(userData, {
+    fields: [notification.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const paypalSubscription = mysqlTable(
   "PaypalSubscription",
   {

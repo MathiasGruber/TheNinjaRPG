@@ -2,8 +2,8 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
-import { secondsPassed } from "../../../utils/time";
-import { round } from "../../../utils/math";
+import { secondsPassed } from "@/utils/time";
+import { round } from "@/utils/math";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import {
@@ -22,14 +22,14 @@ import {
   actionLog,
   notification,
 } from "@/drizzle/schema";
-import { usernameSchema } from "../../../validators/register";
-import { mutateContentSchema } from "../../../validators/comments";
-import { attributes } from "../../../validators/register";
-import { colors, skin_colors } from "../../../validators/register";
+import { usernameSchema } from "@/validators/register";
+import { mutateContentSchema } from "@/validators/comments";
+import { attributes } from "@/validators/register";
+import { colors, skin_colors } from "@/validators/register";
 import { callDiscordContent } from "../../../libs/discord";
 import { scaleUserStats } from "@/libs/profile";
 import { insertUserDataSchema } from "@/drizzle/schema";
-import { canChangeContent } from "../../../utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
 import { calcLevelRequirements } from "../../../libs/profile";
 import { calcHP, calcSP, calcCP } from "../../../libs/profile";

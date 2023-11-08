@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { updateAvatar, checkAvatar } from "../../../libs/replicate";
 import { fetchUser } from "./profile";
-import { userData, historicalAvatar } from "../../../../drizzle/schema";
+import { userData, historicalAvatar } from "@/drizzle/schema";
 
 export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {

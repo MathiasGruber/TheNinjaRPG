@@ -9,22 +9,22 @@ import {
   forumPost,
   forumThread,
   userData,
-} from "../../../../drizzle/schema";
-import { user2conversation, conversationComment } from "../../../../drizzle/schema";
+} from "@/drizzle/schema";
+import { user2conversation, conversationComment } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError } from "../trpc";
-import { mutateCommentSchema } from "../../../validators/comments";
-import { reportCommentSchema } from "../../../validators/reports";
-import { deleteCommentSchema } from "../../../validators/comments";
-import { canPostReportComment } from "../../../validators/reports";
-import { canSeeReport } from "../../../validators/reports";
-import { canDeleteComment } from "../../../validators/reports";
-import { createConversationSchema } from "../../../validators/comments";
+import { mutateCommentSchema } from "@/validators/comments";
+import { reportCommentSchema } from "@/validators/reports";
+import { deleteCommentSchema } from "@/validators/comments";
+import { canPostReportComment } from "@/validators/reports";
+import { canSeeReport } from "@/validators/reports";
+import { canDeleteComment } from "@/validators/reports";
+import { createConversationSchema } from "@/validators/comments";
 import { getServerPusher } from "../../../libs/pusher";
 import { fetchUserReport } from "./reports";
 import { fetchThread } from "./forum";
 import { fetchUser } from "./profile";
-import sanitize from "../../../utils/sanitize";
+import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
 const ratelimit = new Ratelimit({
