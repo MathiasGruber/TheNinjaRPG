@@ -17,7 +17,7 @@ import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/libs/profile";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
-import type { BloodlineRank } from "@/drizzle/schema";
+import type { BloodlineRank, UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 export const bloodlineRouter = createTRPCRouter({
@@ -214,42 +214,7 @@ export const bloodlineRouter = createTRPCRouter({
       if (user.reputationPoints < REMOVAL_COST) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
-      const bloodlineJutsus = (
-        await ctx.drizzle.query.jutsu.findMany({
-          columns: { id: true },
-          where: eq(jutsu.bloodlineId, user.bloodlineId),
-        })
-      ).map((j) => j.id);
-      // Run queries in parallel
-      await Promise.all([
-        // Update bloodline jutsus currently being trained
-        ...(bloodlineJutsus.length > 0
-          ? [
-              ctx.drizzle
-                .update(userJutsu)
-                .set({ finishTraining: null, equipped: 0 })
-                .where(
-                  and(
-                    eq(userJutsu.userId, ctx.userId),
-                    inArray(userJutsu.jutsuId, bloodlineJutsus)
-                  )
-                ),
-            ]
-          : []),
-        // Update user to remove bloodline
-        ctx.drizzle
-          .update(userData)
-          .set({
-            bloodlineId: null,
-            reputationPoints: user.reputationPoints - REMOVAL_COST,
-          })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              gte(userData.reputationPoints, REMOVAL_COST)
-            )
-          ),
-      ]);
+      await updateBloodline(ctx.drizzle, user, null, REMOVAL_COST);
     }
   }),
   // Purchase a bloodline for session user
@@ -298,16 +263,57 @@ export const bloodlineRouter = createTRPCRouter({
       if (cost > user.reputationPoints) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
-      return await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: user.reputationPoints - cost,
-          bloodlineId: line.id,
-        })
-        .where(eq(userData.userId, ctx.userId));
+      await updateBloodline(ctx.drizzle, user, line.id, cost);
     }),
 });
 
+/**
+ * Update bloodline of user, ensuring the current blooline jutsus are unequipped
+ */
+
+export const updateBloodline = async (
+  client: DrizzleClient,
+  user: UserData,
+  bloodlineId: string | null,
+  repCost: number
+) => {
+  // Get current bloodline jutsus
+  const bloodlineJutsus = user.bloodlineId
+    ? (
+        await client.query.jutsu.findMany({
+          columns: { id: true },
+          where: eq(jutsu.bloodlineId, user.bloodlineId),
+        })
+      ).map((j) => j.id)
+    : [];
+  // Run queries in parallel
+  await Promise.all([
+    // Update bloodline jutsus currently being trained
+    ...(bloodlineJutsus.length > 0
+      ? [
+          client
+            .update(userJutsu)
+            .set({ finishTraining: null, equipped: 0 })
+            .where(
+              and(
+                eq(userJutsu.userId, user.userId),
+                inArray(userJutsu.jutsuId, bloodlineJutsus)
+              )
+            ),
+        ]
+      : []),
+    // Update user to remove bloodline
+    client
+      .update(userData)
+      .set({
+        bloodlineId: bloodlineId,
+        reputationPoints: user.reputationPoints - repCost,
+      })
+      .where(
+        and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost))
+      ),
+  ]);
+};
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */

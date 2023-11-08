@@ -266,9 +266,15 @@ export const jutsuRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const userjutsu = userjutsus.find((j) => j.id === input.userJutsuId);
+      const filteredJutsus = userjutsus.filter((userjutsu) => {
+        return (
+          userjutsu.jutsu.bloodlineId === "" ||
+          user.bloodlineId === userjutsu.jutsu.bloodlineId
+        );
+      });
+      const userjutsu = filteredJutsus.find((j) => j.id === input.userJutsuId);
       const isEquipped = userjutsu?.equipped || false;
-      const curEquip = userjutsus?.filter((j) => j.equipped).length || 0;
+      const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
       const maxEquip = userData && calcJutsuEquipLimit(user);
       if (!userjutsu) {
         throw serverError("NOT_FOUND", "Jutsu not found");
