@@ -114,8 +114,8 @@ dependencies:
     specifier: 13.5.3
     version: 13.5.3(@opentelemetry/api@1.4.1)(react-dom@18.2.0)(react@18.2.0)
   next-axiom:
-    specifier: 1.0.0
-    version: 1.0.0(next@13.5.3)(react@18.2.0)
+    specifier: 1.1.0
+    version: 1.1.0(next@13.5.3)(react@18.2.0)
   next-build-id:
     specifier: ^3.0.0
     version: 3.0.0
@@ -6444,8 +6444,8 @@ packages:
   /natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
-  /next-axiom@1.0.0(next@13.5.3)(react@18.2.0):
-    resolution: {integrity: sha512-bgXtPWJHLB9Rm64WgWMLQLPtgf+zlnpZmFqkveRyZRN/ZBKhnyptiSbBizxEiZ2TEJj2fcxcqEfzPDJVN2JF9Q==}
+  /next-axiom@1.1.0(next@13.5.3)(react@18.2.0):
+    resolution: {integrity: sha512-/Fh8MOM7gzeR58SA0HfF2ZyNp4WY3cv0hbH3XW3e0u3FG4IGPfFoRuNtpWx3qv4YCqm3jmoR3CVP/dc0VF6xMQ==}
     engines: {node: '>=18'}
     peerDependencies:
       next: '>=13.4'

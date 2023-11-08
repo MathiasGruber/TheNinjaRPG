@@ -26,6 +26,7 @@ import { BarrierTag } from "@/libs/combat/types";
 import { combatAssetsNames } from "@/libs/travel/constants";
 import { getServerPusher } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
+import { Logger } from "next-axiom";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/schema";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -110,6 +111,9 @@ export const combatRouter = createTRPCRouter({
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
       if (debug) console.log("============ Performing action ============");
+
+      // Logger for battle metrics
+      const log = new Logger();
 
       // Short-form
       const suid = ctx.userId;
@@ -208,6 +212,7 @@ export const combatRouter = createTRPCRouter({
               actionPerformed = true;
               actionEffects.push(...aiState.nextActionEffects);
               battleDescriptions.push(...aiState.aiDescriptions);
+              log.info("AIv1-Search", { actions: aiState.searchSize });
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;

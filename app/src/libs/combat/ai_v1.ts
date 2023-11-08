@@ -18,6 +18,7 @@ export const performAIaction = (
   aiUserId: string
 ) => {
   // New stats to return
+  let searchSize = 0;
   const nextActionEffects: ActionEffect[] = [];
   const aiDescriptions: string[] = [];
   let nextBattle = {
@@ -48,10 +49,11 @@ export const performAIaction = (
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
     // In the search tree, find the first action which leads to the best possible fitness in the final action
     const bestAction = getBestAction(searchTree);
+    // Search space size
+    searchSize = getSearchSpaceSize(searchTree);
 
     // Debug statement
     if (debug) {
-      const searchSize = getSearchSpaceSize(searchTree);
       console.log(`>> Best action: ${bestAction?.action?.name}`);
       console.log(`>> Search space size: ${searchSize}`);
     }
@@ -86,7 +88,7 @@ export const performAIaction = (
   }
 
   // Return the new state
-  return { nextBattle, nextActionEffects, aiDescriptions };
+  return { nextBattle, nextActionEffects, aiDescriptions, searchSize };
 };
 
 type SearchAction = {
