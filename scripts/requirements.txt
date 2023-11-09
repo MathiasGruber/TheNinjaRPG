@@ -1,7 +1,7 @@
 Pillow==10.0.1
 numpy==1.24.1
 pandas==2.0.0
-pyarrow==12.0.0
+pyarrow==14.0.1
 seaborn==0.12.2
 ipykernel
 mysqlclient
