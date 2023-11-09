@@ -846,6 +846,8 @@ export const userItem = mysqlTable(
     return {
       userIdIdx: index("UserItem_userId_idx").on(table.userId),
       itemIdIdx: index("UserItem_itemId_idx").on(table.itemId),
+      quantityIdx: index("UserItem_quantity_idx").on(table.quantity),
+      equippedIdx: index("UserItem_equipped_idx").on(table.equipped),
     };
   }
 );
@@ -887,6 +889,7 @@ export const userJutsu = mysqlTable(
       ),
       userIdIdx: index("UserJutsu_userId_idx").on(table.userId),
       jutsuIdIdx: index("UserJutsu_jutsuId_idx").on(table.jutsuId),
+      equippedIdx: index("Jutsu_equipped_idx").on(table.equipped),
     };
   }
 );
