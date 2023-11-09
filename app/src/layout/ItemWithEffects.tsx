@@ -162,6 +162,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Target</b>: {item.target.toLowerCase()}
               </p>
             )}
+            {"method" in item && (
+              <p>
+                <b>Method</b>: {item.method.toLowerCase()}
+              </p>
+            )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}

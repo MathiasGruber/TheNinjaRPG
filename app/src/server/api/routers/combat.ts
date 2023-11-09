@@ -161,8 +161,9 @@ export const combatRouter = createTRPCRouter({
         while (true) {
           // Update the battle to the correct activeUserId & round. Default to current user
           const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
-          if (debug)
+          if (debug) {
             console.log(`============ 1. Actor: ${actor.username} ============`);
+          }
 
           // Only allow action if it is the users turn
           const isUserTurn = !actor.isAi && actor.controllerId === suid;
@@ -561,22 +562,24 @@ export const initiateBattle = async (
           const rand = Math.random();
           if (rand < 0.1) {
             const asset = getRandomElement(assets);
-            const tag: GroundEffect = {
-              ...BarrierTag.parse({
-                power: 2,
-                staticAssetPath: asset,
-              }),
-              id: `initial-${col}-${row}`,
-              creatorId: "ground",
-              createdRound: 0,
-              level: 0,
-              longitude: col,
-              latitude: row,
-              isNew: false,
-              barrierAbsorb: 0,
-              castThisRound: false,
-            };
-            groundEffects.push(tag);
+            if (asset) {
+              const tag: GroundEffect = {
+                ...BarrierTag.parse({
+                  power: 2,
+                  staticAssetPath: asset,
+                }),
+                id: `initial-${col}-${row}`,
+                creatorId: "ground",
+                createdRound: 0,
+                level: 0,
+                longitude: col,
+                latitude: row,
+                isNew: false,
+                barrierAbsorb: 0,
+                castThisRound: false,
+              };
+              groundEffects.push(tag);
+            }
           }
         }
       }

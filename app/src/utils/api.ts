@@ -28,6 +28,9 @@ export const api = createTRPCNext<AppRouter>({
        */
       transformer: superjson,
 
+      // Abort on onmount, see: https://trpc.io/docs/client/react/aborting-procedure-calls
+      abortOnUnmount: true,
+
       /**
        * Links used to determine request flow from client to server.
        *
