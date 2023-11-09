@@ -373,10 +373,10 @@ const Combat: React.FC<CombatProps> = (props) => {
             grid: grid.current,
           });
 
-          // Draw all effects on the map
+          // Draw all ground effects on the map
           drawCombatEffects({
-            group_ground: group_ground,
-            effects: battle.current.groundEffects,
+            groupGround: group_ground,
+            battle: battle.current,
             grid: grid.current,
             animationId,
             spriteMixer,

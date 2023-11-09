@@ -22,9 +22,9 @@ import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
-import type { Scene, Object3D, Event, Raycaster } from "three";
+import type { Scene, Object3D, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
-import type { GroundEffect, BarrierTagType } from "./types";
+import type { GroundEffect, UserEffect, BarrierTagType } from "./types";
 import type { ReturnedUserState, CombatAction } from "./types";
 import type { ReturnedBattle } from "./types";
 import type { SpriteMixer } from "../threejs/SpriteMixer";
@@ -157,101 +157,136 @@ export const drawCombatBackground = (
  * Draw/update the users on the map. Should be called on every render
  */
 export const drawCombatEffects = (info: {
-  group_ground: Group;
-  effects: GroundEffect[];
+  groupGround: Group;
+  battle: ReturnedBattle;
   grid: Grid<TerrainHex>;
   animationId: number;
   spriteMixer: ReturnType<typeof SpriteMixer>;
 }) => {
   // Destructure
-  const { effects, group_ground, spriteMixer, animationId } = info;
-  // Draw the users
+  const { battle, groupGround, spriteMixer, animationId } = info;
+  const { groundEffects, usersEffects, usersState } = battle;
+
+  // Record of drawn IDs
   const drawnIds = new Set<string>();
-  effects.forEach((effect) => {
+
+  // Draw the ground effects
+  groundEffects.forEach((effect) => {
     const hex = findHex(info.grid, {
       x: effect.longitude,
       y: effect.latitude,
     });
-    if (hex) {
-      if (
-        effect.staticAssetPath ||
-        effect.appearAnimation ||
-        effect.disappearAnimation
-      ) {
-        const { height: h, width: w } = hex;
-        let asset = group_ground.getObjectByName(effect.id) as Group;
-        if (!asset) {
-          // Group for the asset
-          asset = new Group();
-          asset.name = effect.id;
-          asset.userData.type = effect.type; // e.g. "barrier"
-          // Sprite to show
-          if (effect.staticAssetPath) {
-            const texture = loadTexture(
-              `/combat/staticAssets/${effect.staticAssetPath}.png`
-            );
-            const material = new SpriteMaterial({ map: texture });
-            const sprite = new Sprite(material);
-            sprite.scale.set(w, h, 1);
-            sprite.position.set(w / 2, h / 2, 0);
-            asset.add(sprite);
-          }
-          // If there is an appear animation, show it. Mark it for hiding,
-          // which we catch and use to remove it
-          if (effect.appearAnimation && animationId !== 0) {
-            const actionSprite = showAnimation(
-              effect.appearAnimation,
-              hex,
-              spriteMixer
-            );
-            if (actionSprite) asset.add(actionSprite);
-          }
-          // If there is a static animation, show it.
-          if (effect.staticAnimation) {
-            const actionSprite = showAnimation(
-              effect.staticAnimation,
-              hex,
-              spriteMixer,
-              true
-            );
-            if (actionSprite) asset.add(actionSprite);
-          }
-          // Status bar
-          if (effect.type === "barrier") {
-            const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
-            const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
-            asset.add(hp_background);
-            asset.add(hp_bar);
-            hp_bar.position.set(w / 2, h, 0);
-            hp_background.position.set(w / 2, h, 0);
-            hp_bar.visible = false;
-            hp_background.visible = false;
-          }
-          // Add to group
-          group_ground.add(asset);
-        }
-
-        // Set visibility
-        if (asset) {
-          if (effect.power !== undefined && effect.power <= 0) {
-            asset.visible = false;
-          } else {
-            asset.visible = true;
-            asset.userData.tile = hex;
-            const { x, y } = hex.center;
-            asset.position.set(-x, -y, -8);
-            drawnIds.add(asset.name);
-          }
-        }
-      }
+    drawCombatEffect({
+      groupGround,
+      effect,
+      animationId,
+      hex,
+      spriteMixer,
+      drawnIds,
+    });
+  });
+  // Draw all user effects
+  usersEffects.forEach((effect) => {
+    const user = usersState.find((u) => u.userId === effect.targetId);
+    if (user && stillInBattle(user)) {
+      const hex = findHex(info.grid, {
+        x: user.longitude,
+        y: user.latitude,
+      });
+      drawCombatEffect({
+        groupGround,
+        effect,
+        animationId,
+        hex,
+        spriteMixer,
+        drawnIds,
+      });
     }
   });
+
   // Hide all which are not used anymore
-  group_ground.children.forEach((object) => {
+  groupGround.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
     }
   });
+};
+
+export const drawCombatEffect = (info: {
+  groupGround: Group;
+  effect: GroundEffect | UserEffect;
+  animationId: number;
+  hex?: TerrainHex;
+  spriteMixer: ReturnType<typeof SpriteMixer>;
+  drawnIds: Set<string>;
+}) => {
+  // Destructure
+  const { effect, groupGround, animationId, hex, spriteMixer, drawnIds } = info;
+  if (hex) {
+    if (effect.staticAssetPath || effect.appearAnimation || effect.disappearAnimation) {
+      const { height: h, width: w } = hex;
+      let asset = groupGround.getObjectByName(effect.id) as Group;
+      if (!asset) {
+        // Group for the asset
+        asset = new Group();
+        asset.name = effect.id;
+        asset.userData.type = effect.type; // e.g. "barrier"
+        // Sprite to show
+        if (effect.staticAssetPath) {
+          const texture = loadTexture(
+            `/combat/staticAssets/${effect.staticAssetPath}.png`
+          );
+          const material = new SpriteMaterial({ map: texture });
+          const sprite = new Sprite(material);
+          sprite.scale.set(w, h, 1);
+          sprite.position.set(w / 2, h / 2, 0);
+          asset.add(sprite);
+        }
+        // If there is an appear animation, show it. Mark it for hiding,
+        // which we catch and use to remove it
+        if (effect.appearAnimation && animationId !== 0) {
+          const actionSprite = showAnimation(effect.appearAnimation, hex, spriteMixer);
+          if (actionSprite) asset.add(actionSprite);
+        }
+        // If there is a static animation, show it.
+        if (effect.staticAnimation) {
+          const actionSprite = showAnimation(
+            effect.staticAnimation,
+            hex,
+            spriteMixer,
+            true
+          );
+          if (actionSprite) asset.add(actionSprite);
+        }
+        // Status bar
+        if (effect.type === "barrier") {
+          const hp_background = drawStatusBar(w, h, "gray", true, "hp_background", 0);
+          const hp_bar = drawStatusBar(w, h, "firebrick", true, "hp_current", 0);
+          asset.add(hp_background);
+          asset.add(hp_bar);
+          hp_bar.position.set(w / 2, h, 0);
+          hp_background.position.set(w / 2, h, 0);
+          hp_bar.visible = false;
+          hp_background.visible = false;
+        }
+        // Add to group
+        groupGround.add(asset);
+      }
+
+      // Set visibility
+      if (asset) {
+        if (effect.power !== undefined && effect.power <= 0) {
+          asset.visible = false;
+        } else {
+          asset.visible = true;
+          asset.userData.tile = hex;
+          const { x, y } = hex.center;
+          asset.position.set(-x, -y, -8);
+          drawnIds.add(asset.name);
+        }
+      }
+    }
+  }
 };
 
 /**
