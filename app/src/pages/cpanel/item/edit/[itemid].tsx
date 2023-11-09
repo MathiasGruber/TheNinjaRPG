@@ -105,6 +105,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              allowImageUpload={true}
               onAccept={handleItemSubmit}
             />
           </div>

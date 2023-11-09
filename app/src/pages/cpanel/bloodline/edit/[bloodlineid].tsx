@@ -106,6 +106,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              allowImageUpload={true}
               onAccept={handleBloodlineSubmit}
             />
           </div>

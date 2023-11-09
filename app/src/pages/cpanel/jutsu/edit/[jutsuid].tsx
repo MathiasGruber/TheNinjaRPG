@@ -107,6 +107,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              allowImageUpload={true}
               onAccept={handleJutsuSubmit}
             />
           </div>

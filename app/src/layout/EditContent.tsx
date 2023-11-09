@@ -11,7 +11,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { show_toast, show_errors } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/utils/api";
-import { combatAssetsNames } from "@/libs//travel/constants";
 import type { CombatAssetName } from "@/libs//travel/constants";
 import type { AnimationName } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/libs/combat/types";

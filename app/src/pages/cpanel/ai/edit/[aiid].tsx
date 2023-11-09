@@ -83,6 +83,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              allowImageUpload={true}
               onAccept={handleUserSubmit}
             />
           </div>
