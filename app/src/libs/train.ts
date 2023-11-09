@@ -96,6 +96,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
 // For categorizing jutsu
 export const mainFilters = [
   "No Filter",
+  "Name",
   "Bloodline",
   "Stat",
   "Effect",

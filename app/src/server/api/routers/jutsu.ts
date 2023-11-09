@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, inArray, isNotNull, sql, and, gte, ne } from "drizzle-orm";
+import { eq, inArray, isNotNull, sql, and, gte, ne, like } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser } from "./profile";
@@ -46,6 +46,7 @@ export const jutsuRouter = createTRPCRouter({
         appear: z.enum(animationNames).optional(),
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
+        name: z.string().min(0).max(256).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -59,6 +60,7 @@ export const jutsuRouter = createTRPCRouter({
               : isNotNull(jutsu.jutsuRank),
           ],
           ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+          ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
           ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
           ...(input.stat
             ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.stat}) IS NOT NULL`]

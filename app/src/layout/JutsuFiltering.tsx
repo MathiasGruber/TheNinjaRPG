@@ -2,9 +2,14 @@ import { useEffect } from "react";
 import { useState } from "react";
 import { api } from "@/utils/api";
 import SelectField from "@/layout/SelectField";
+import InputField from "@/layout/InputField";
 import NavTabs from "@/layout/NavTabs";
 import { animationNames } from "@/libs/combat/types";
 import { mainFilters, statFilters, effectFilters, rarities } from "@/libs/train";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { searchNameSchema } from "@/validators/jutsu";
+import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { FilterType, StatType, EffectType, RarityType } from "@/libs/train";
 
@@ -16,25 +21,43 @@ interface JutsuFilteringProps {
 const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity, setAnimation } = props.state;
-  const { setFilter, filter, rarity } = props.state;
+  const { setFilter, setName, name, filter, rarity } = props.state;
   const { fixedBloodline } = props;
+
   // Get all bloodlines
   const { data } = api.bloodline.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
+
   // Filter shown bloodlines
   const bloodlines = fixedBloodline
     ? data?.filter((b) => b.id === fixedBloodline)
     : data;
+
   // If fixed bloodline, set the bloodline state to that
   useEffect(() => {
     if (fixedBloodline) setBloodline(fixedBloodline);
   }, [fixedBloodline, setBloodline]);
+
+  // Name search schema
+  const searchSchema = useForm<SearchNameSchema>({
+    resolver: zodResolver(searchNameSchema),
+  });
+  const watchName = searchSchema.watch("name", "");
+
+  // Update the state
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setName(watchName);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [watchName, setName]);
+
   // Show filtering widget
   return (
     <div className="flex flex-col">
       <SelectField
-        id="filter"
+        id={filter}
         onChange={(e) => setFilter(e.target.value as FilterType)}
       >
         {mainFilters.map((filter) => {
@@ -45,8 +68,16 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
           );
         })}
       </SelectField>
+      {filter === "Name" && (
+        <InputField
+          id="name"
+          register={searchSchema.register}
+          error={searchSchema.formState.errors.name?.message}
+          placeholder="Search for jutsu"
+        />
+      )}
       {filter === "Bloodline" && bloodlines && (
-        <SelectField id="filter" onChange={(e) => setBloodline(e.target.value)}>
+        <SelectField id={filter} onChange={(e) => setBloodline(e.target.value)}>
           {!fixedBloodline && (
             <option key="None" value="None">
               None
@@ -64,7 +95,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         </SelectField>
       )}
       {filter === "Stat" && (
-        <SelectField id="filter" onChange={(e) => setStat(e.target.value as StatType)}>
+        <SelectField id={filter} onChange={(e) => setStat(e.target.value as StatType)}>
           {statFilters.map((stat) => {
             return (
               <option key={stat} value={stat}>
@@ -76,7 +107,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
       )}
       {filter === "Effect" && (
         <SelectField
-          id="filter"
+          id={filter}
           onChange={(e) => setEffect(e.target.value as EffectType)}
         >
           {effectFilters.map((effect) => {
@@ -92,7 +123,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         filter
       ) && (
         <SelectField
-          id="filter"
+          id={filter}
           onChange={(e) => setAnimation(e.target.value as AnimationName)}
         >
           {animationNames.map((animation) => {
@@ -125,6 +156,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     appear: state.filter === "AppearAnimation" ? state.animation : undefined,
     static: state.filter === "StaticAnimation" ? state.animation : undefined,
     disappear: state.filter === "DisappearAnimation" ? state.animation : undefined,
+    name: state.filter === "Name" ? state.name : undefined,
   };
 };
 
@@ -132,6 +164,7 @@ export const getFilter = (state: JutsuFilteringState) => {
 export const useFiltering = () => {
   // State variables
   const [filter, setFilter] = useState<FilterType>(mainFilters[0]);
+  const [name, setName] = useState<string>("");
   const [bloodline, setBloodline] = useState<string | undefined>(undefined);
   const [stat, setStat] = useState<StatType>(statFilters[0]);
   const [animation, setAnimation] = useState<AnimationName>(animationNames[0]);
@@ -139,12 +172,14 @@ export const useFiltering = () => {
   const [rarity, setRarity] = useState<RarityType>(rarities[0]);
   // Return all
   return {
+    name,
     filter,
     bloodline,
     stat,
     effect,
     rarity,
     animation,
+    setName,
     setFilter,
     setBloodline,
     setStat,
