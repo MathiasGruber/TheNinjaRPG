@@ -1,9 +1,8 @@
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
+import { drizzleDB } from "@/server/db";
 import { paypalWebhookMessage } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
-import { appRouter } from "@/server/api/root";
-import { createTRPCContext } from "@/server/api/trpc";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 type IBody = {
@@ -20,12 +19,9 @@ type IBody = {
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   // Create context
-  const ctx = createTRPCContext({ req, res });
-  const caller = appRouter.createCaller(ctx);
   const body = req.body as IBody;
 
   try {
-    let handled = false;
     switch (body.event_type) {
       case "PAYMENT.SALE.COMPLETED":
         break;
@@ -37,19 +33,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       case "BILLING.SUBSCRIPTION.CANCELLED":
       case "BILLING.SUBSCRIPTION.ACTIVATED":
       case "BILLING.SUBSCRIPTION.UPDATED":
-        handled = true;
-        await caller.paypal.resolveSubscription({
-          subscriptionId: body.resource.id,
-        });
-        break;
       default:
         break;
     }
-    await ctx.drizzle.insert(paypalWebhookMessage).values({
+    await drizzleDB.insert(paypalWebhookMessage).values({
       id: nanoid(),
       rawData: body,
       eventType: body.event_type,
-      handled: handled ? 1 : 0,
+      handled: 0,
     });
     res.status(200);
   } catch (cause) {
