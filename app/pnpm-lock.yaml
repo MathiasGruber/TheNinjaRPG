@@ -87,11 +87,11 @@ dependencies:
     specifier: ^16.1.4
     version: 16.1.4
   drizzle-orm:
-    specifier: 0.27.0
-    version: 0.27.0(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5)
+    specifier: 0.28.6
+    version: 0.28.6(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5)
   drizzle-zod:
-    specifier: ^0.4.4
-    version: 0.4.4(drizzle-orm@0.27.0)(zod@3.22.4)
+    specifier: 0.5.1
+    version: 0.5.1(drizzle-orm@0.28.6)(zod@3.22.4)
   highlight.run:
     specifier: 7.5.1
     version: 7.5.1
@@ -209,8 +209,8 @@ devDependencies:
     specifier: ^10.4.7
     version: 10.4.7(postcss@8.4.31)
   drizzle-kit:
-    specifier: 0.19.2
-    version: 0.19.2
+    specifier: 0.19.13
+    version: 0.19.13
   eslint:
     specifier: ^8.50.0
     version: 8.50.0
@@ -892,6 +892,10 @@ packages:
     dependencies:
       csstype: 3.1.1
     dev: false
+
+  /@drizzle-team/studio@0.0.5:
+    resolution: {integrity: sha512-ps5qF0tMxWRVu+V5gvCRrQNqlY92aTnIKdq27gm9LZMSdaKYZt6AVvSK1dlUMzs6Rt0Jm80b+eWct6xShBKhIw==}
+    dev: true
 
   /@esbuild-kit/cjs-loader@2.4.2:
     resolution: {integrity: sha512-BDXFbYOJzT/NBEtp71cvsrGPwGAMGRB/349rwKuoxNSiKjPraNNnlK6MIIabViCjqZugu6j+xeMDlEkWdHHJSg==}
@@ -4596,10 +4600,11 @@ packages:
       wordwrap: 1.0.0
     dev: true
 
-  /drizzle-kit@0.19.2:
-    resolution: {integrity: sha512-o+T/+Xc6hlLj2ocvGEo3kyWgTIAFjmsVK/HdBjU7gmbolmFZHv6T3lhaAsAD4mWfOX69uC7IggCmIqLq+zcM4Q==}
+  /drizzle-kit@0.19.13:
+    resolution: {integrity: sha512-Rba5VW1O2JfJlwVBeZ8Zwt2E2us5oZ08PQBDiVSGlug53TOc8hzXjblZFuF+dnll9/RQEHrkzBmJFgqTvn5Rxg==}
     hasBin: true
     dependencies:
+      '@drizzle-team/studio': 0.0.5
       '@esbuild-kit/esm-loader': 2.5.5
       camelcase: 7.0.1
       chalk: 5.2.0
@@ -4615,8 +4620,8 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.27.0(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5):
-    resolution: {integrity: sha512-LGiJ0icB+wQwgbSCOvAjONY8Ec6G/EDzQQP5PmUaQYeI9OqgpVKHC2T1fFIbvk5dabWsbokJ5NOciVAxriStig==}
+  /drizzle-orm@0.28.6(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5):
+    resolution: {integrity: sha512-yBe+F9htrlYER7uXgDJUQsTHFoIrI5yMm5A0bg0GiZ/kY5jNXTWoEy4KQtg35cE27sw1VbgzoMWHAgCckUUUww==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=3'
@@ -4682,13 +4687,13 @@ packages:
       mysql2: 3.3.5
     dev: false
 
-  /drizzle-zod@0.4.4(drizzle-orm@0.27.0)(zod@3.22.4):
-    resolution: {integrity: sha512-XNn0mjQ306Hvg+CuyKV98wnsWBWeTqv+kgE/N79Zj0EdCvjD2kaoN5sFDGFkMVqPQuP7IB1IPs0lEcOij1RvBA==}
+  /drizzle-zod@0.5.1(drizzle-orm@0.28.6)(zod@3.22.4):
+    resolution: {integrity: sha512-C/8bvzUH/zSnVfwdSibOgFjLhtDtbKYmkbPbUCq46QZyZCH6kODIMSOgZ8R7rVjoI+tCj3k06MRJMDqsIeoS4A==}
     peerDependencies:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.27.0(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5)
+      drizzle-orm: 0.28.6(@opentelemetry/api@1.4.1)(@planetscale/database@1.7.0)(mysql2@3.3.5)
       zod: 3.22.4
     dev: false
 

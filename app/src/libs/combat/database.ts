@@ -1,14 +1,21 @@
 import { nanoid } from "nanoid";
 import { eq, and, sql } from "drizzle-orm";
-import { VILLAGE_LONG, VILLAGE_LAT } from "../travel/constants";
-import { battle, battleAction, userData } from "../../../drizzle/schema";
-import { dataBattleAction } from "../../../drizzle/schema";
-import type { DrizzleClient } from "../../server/db";
-import type { Battle } from "../../../drizzle/schema";
-import type { InsertDataBattleActionsSchema } from "../../../drizzle/schema";
-import type { CombatResult } from "./types";
-import type { ActionEffect } from "./types";
-import type { CompleteBattle } from "./types";
+import { VILLAGE_LONG, VILLAGE_LAT } from "@/libs//travel/constants";
+import { battle, battleAction, userData } from "@/drizzle/schema";
+import { dataBattleAction } from "@/drizzle/schema";
+import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
+import type { DrizzleClient } from "@/server/db";
+import type { Battle } from "@/drizzle/schema";
+import type { CombatResult } from "@/libs/combat/types";
+import type { ActionEffect } from "@/libs/combat/types";
+import type { CompleteBattle } from "@/libs/combat/types";
+
+type DataBattleAction = {
+  type: typeof BattleDataEntryType[number];
+  contentId: string;
+  battleType: typeof BattleTypes[number];
+  battleWon: number;
+};
 
 /**
  * Update the battle state with raw queries for speed
@@ -60,7 +67,7 @@ export const saveUsage = async (
   if (result && user) {
     const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
     // Basic actions from this user
-    const data: InsertDataBattleActionsSchema[] = [];
+    const data: DataBattleAction[] = [];
     user.usedActions?.map((action) => {
       data.push({ type: action.type, contentId: action.id, battleType, battleWon });
     });
@@ -82,7 +89,7 @@ export const saveUsage = async (
       } else {
         return a;
       }
-    }, [] as InsertDataBattleActionsSchema[]);
+    }, [] as DataBattleAction[]);
     if (uniqueData.length > 0) {
       await client.insert(dataBattleAction).values(uniqueData);
     }

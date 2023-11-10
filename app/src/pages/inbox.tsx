@@ -17,7 +17,6 @@ import { PencilSquareIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { useInfinitePagination } from "@/libs/pagination";
 import { createConversationSchema } from "../validators/comments";
 import { type CreateConversationSchema } from "../validators/comments";
 import { getSearchValidator } from "../validators/register";
@@ -67,42 +66,26 @@ interface ShowConversationsProps {
   setSelectedConvo: React.Dispatch<React.SetStateAction<string | null>>;
 }
 const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { selectedConvo, setSelectedConvo } = props;
 
+  // Fetch conversations. Note we pass the selected convo to automatically re-fetch when it changes
   const {
-    data: conversations,
-    fetchNextPage,
-    hasNextPage,
+    data: allConversations,
     refetch,
     isLoading,
-  } = api.comments.getUserConversations.useInfiniteQuery(
-    {
-      limit: 10,
-      selectedConvo: props.selectedConvo,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
-    }
-  );
-  const allConversations = conversations?.pages.map((page) => page.data).flat();
+  } = api.comments.getUserConversations.useQuery({ selectedConvo: selectedConvo });
 
   useEffect(() => {
-    const firstConvo = allConversations?.[0];
-    if (selectedConvo && !allConversations?.find((c) => c.id === selectedConvo)) {
-      setSelectedConvo(firstConvo ? firstConvo.id : null);
+    if (!isLoading) {
+      const firstConvo = allConversations?.[0];
+      if (selectedConvo && !allConversations?.find((c) => c.id === selectedConvo)) {
+        setSelectedConvo(firstConvo ? firstConvo.id : null);
+      }
+      if (selectedConvo === null && firstConvo) {
+        setSelectedConvo(firstConvo.id);
+      }
     }
-    if (selectedConvo === null && firstConvo) {
-      setSelectedConvo(firstConvo.id);
-    }
-  }, [selectedConvo, setSelectedConvo, allConversations]);
-
-  useInfinitePagination({
-    fetchNextPage,
-    hasNextPage,
-    lastElement,
-  });
+  }, [isLoading, selectedConvo, allConversations, setSelectedConvo]);
 
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({
     onSuccess: async () => {
@@ -139,7 +122,6 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                   className={`my-3 flex h-12 flex-row items-center rounded-lg p-1 hover:bg-orange-200 ${
                     selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
                   }`}
-                  ref={i === allConversations.length - 1 ? setLastElement : null}
                   key={convo.id}
                   onClick={() => setSelectedConvo(convo.id)}
                 >

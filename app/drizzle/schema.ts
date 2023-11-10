@@ -1043,13 +1043,13 @@ export const dataBattleAction = mysqlTable(
   "DataBattleAction",
   {
     id: int("id").autoincrement().primaryKey().notNull(),
-    type: mysqlEnum("type", ["jutsu", "item", "bloodline", "basic", "ai"]).notNull(),
+    type: mysqlEnum("type", consts.BattleDataEntryType).notNull(),
     contentId: varchar("contentId", { length: 191 }).notNull(),
     battleType: mysqlEnum("battleType", consts.BattleTypes).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    battleWon: tinyint("battleWon").default(0).notNull(),
+    battleWon: tinyint("battleWon").notNull(),
   },
   (table) => {
     return {
@@ -1058,5 +1058,3 @@ export const dataBattleAction = mysqlTable(
     };
   }
 );
-export const insertDataBattleActions = createInsertSchema(dataBattleAction);
-export type InsertDataBattleActionsSchema = z.infer<typeof insertDataBattleActions>;

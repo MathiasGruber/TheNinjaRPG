@@ -124,3 +124,11 @@ export const UserStatNames = [
 ] as const;
 
 export const BattleTypes = ["ARENA", "COMBAT", "SPARRING"] as const;
+
+export const BattleDataEntryType = [
+  "jutsu",
+  "item",
+  "bloodline",
+  "basic",
+  "ai",
+] as const;

@@ -213,48 +213,39 @@ export const commentsRouter = createTRPCRouter({
    * Creating, editing, deleting and getting comments on forum threads
    */
   getUserConversations: protectedProcedure
-    .input(
-      z.object({
-        cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
-        selectedConvo: z.string().nullish().optional(),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const currentCursor = input.cursor ? input.cursor : 0;
-      const skip = currentCursor * input.limit;
-      const conversations = await ctx.drizzle.query.conversation.findMany({
-        offset: skip,
-        limit: input.limit,
-        where: (table, { sql }) =>
-          and(
-            eq(conversation.isPublic, 0),
-            sql`JSON_SEARCH(${table.users},'one',${ctx.userId}) IS NOT NULL`
-          ),
+    .input(z.object({ selectedConvo: z.string().nullish().optional() }))
+    .query(async ({ ctx }) => {
+      const userConvos = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
         with: {
-          users: {
+          conversations: {
             with: {
-              userData: {
-                columns: {
-                  userId: true,
-                  username: true,
-                  avatar: true,
+              conversation: {
+                with: {
+                  users: {
+                    with: {
+                      userData: {
+                        columns: {
+                          userId: true,
+                          username: true,
+                          avatar: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
           },
         },
-        orderBy: [desc(conversation.updatedAt)],
       });
-      const nextCursor = conversations.length < input.limit ? null : currentCursor + 1;
       await ctx.drizzle
         .update(userData)
         .set({ inboxNews: 0 })
         .where(eq(userData.userId, ctx.userId));
-      return {
-        data: conversations,
-        nextCursor: nextCursor,
-      };
+      return userConvos?.conversations
+        .map((c) => c.conversation)
+        .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1));
     }),
   createConversation: protectedProcedure
     .input(createConversationSchema)
