@@ -1,10 +1,10 @@
-import { type NextApiRequest, type NextApiResponse } from "next";
 import { nanoid } from "nanoid";
-import { paypalWebhookMessage } from "../../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
+import { paypalWebhookMessage } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
-import { appRouter } from "../../server/api/root";
-import { createTRPCContext } from "../../server/api/trpc";
+import { appRouter } from "@/server/api/root";
+import { createTRPCContext } from "@/server/api/trpc";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 type IBody = {
   event_type: string;
