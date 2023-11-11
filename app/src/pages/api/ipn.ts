@@ -36,8 +36,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   const verified = await verifyWebhookEvent({ body: verification, token: token });
   if (verified.verification_status !== "SUCCESS") {
     console.error(verified);
-    res.status(500).json({ message: "Error with verification of event" });
-    return;
+    return res.status(500).json({ message: "Error with verification of event" });
   }
 
   // Handle the different events
@@ -62,14 +61,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       eventType: body.event_type,
       handled: 0,
     });
-    res.status(200);
+    return res.status(200);
   } catch (cause) {
     if (cause instanceof TRPCError) {
       const httpCode = getHTTPStatusCodeFromError(cause);
       return res.status(httpCode).json(cause);
     }
     console.error(cause);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
