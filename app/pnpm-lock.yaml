@@ -162,8 +162,8 @@ dependencies:
     specifier: 0.157.0
     version: 0.157.0
   tinymce:
-    specifier: ^6.7.1
-    version: 6.7.1
+    specifier: ^6.7.3
+    version: 6.7.3
   uploadthing:
     specifier: 5.5.3
     version: 5.5.3(zod@3.22.4)
@@ -3225,7 +3225,7 @@ packages:
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
-      tinymce: 6.7.1
+      tinymce: 6.7.3
     dev: false
 
   /@trpc/client@10.38.4(@trpc/server@10.38.4):
@@ -7616,8 +7616,8 @@ packages:
       next-tick: 1.1.0
     dev: true
 
-  /tinymce@6.7.1:
-    resolution: {integrity: sha512-SIGJgWk2d/X59VbO+i81QfNx2EP1P5t+sza2/1So3OLGtmMBhEJMag7sN/Mo8sq4s0niwb65Z51yLju32jP11g==}
+  /tinymce@6.7.3:
+    resolution: {integrity: sha512-J7WmYIi/gt1RvZ6Ap2oQiUjzAoiS9pfV+d4GnKuZuPu8agmlAEAInNmMvMjfCNBzHv4JnZXY7qlHUAI0IuYQVA==}
     dev: false
 
   /titleize@2.1.0:

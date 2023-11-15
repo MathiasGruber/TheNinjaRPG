@@ -66,7 +66,7 @@
     "simplex-noise": "4.0.1",
     "superjson": "1.13.1",
     "three": "0.157.0",
-    "tinymce": "^6.7.1",
+    "tinymce": "^6.7.3",
     "uploadthing": "5.5.3",
     "zod": "3.22.4"
   },
