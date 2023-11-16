@@ -11,7 +11,6 @@ import Loader from "@/layout/Loader";
 import ParsedReportJson from "@/layout/ReportReason";
 
 import { api } from "@/utils/api";
-import { FingerPrintIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentExplain } from "@/utils/reports";
