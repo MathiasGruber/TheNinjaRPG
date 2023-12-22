@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, lte, sql, eq } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { userData, battle, dataBattleAction } from "@/drizzle/schema";
+import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
 import { battleHistory, battleAction } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -60,6 +60,11 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     // Step 9: Delete user2conversation where the conversation does not exist anymore
     await drizzleDB.execute(
       sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
+    );
+
+    // Step 10: Remove user jutsus where the jutsu ID no longer exists
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${jutsu} b WHERE b.id = a.jutsuId)`
     );
 
     res.status(200).json("OK");

@@ -23,7 +23,7 @@ import type { DrizzleClient } from "@/server/db";
 export const bloodlineRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.bloodline.findMany({
-      columns: { id: true, name: true },
+      columns: { id: true, name: true, image: true },
     });
   }),
   getAll: publicProcedure

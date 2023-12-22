@@ -22,7 +22,7 @@ const calcMaxItems = () => {
 export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.item.findMany({
-      columns: { id: true, name: true },
+      columns: { id: true, name: true, image: true },
     });
   }),
   get: publicProcedure

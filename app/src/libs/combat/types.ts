@@ -11,19 +11,18 @@ import type { Jutsu, Item, Bloodline } from "@/drizzle/schema";
 import type { UserData, UserJutsu, UserItem, Village } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/schema";
+import type { UserWithRelations } from "@/routers/profile";
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user
  */
-export type BattleUserState = UserData & {
+export type BattleUserState = UserWithRelations & {
   jutsus: (UserJutsu & {
     jutsu: Jutsu;
   })[];
   items: (UserItem & {
     item: Item;
   })[];
-  bloodline?: Bloodline | null;
-  village?: Village | null;
   highestOffence: typeof StatNames[number];
   highestDefence: typeof StatNames[number];
   actionPoints: number;
@@ -77,6 +76,7 @@ export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
  * Result type for users when battle is ended
  */
 export type CombatResult = {
+  didWin: number;
   experience: number;
   pvpStreak: number;
   eloPvp: number;
@@ -550,6 +550,7 @@ export const bloodlineTypes = [
 
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: string) => {
+  // Combat
   switch (type) {
     case "absorb":
       return AbsorbTag;

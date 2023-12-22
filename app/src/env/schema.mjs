@@ -6,6 +6,7 @@ import { z } from "zod";
  * This way you can ensure the app isn't built with invalid env vars.
  */
 export const serverSchema = z.object({
+  OPENAI_API_KEY: z.string(),
   PUSHER_APP_ID: z.string(),
   PUSHER_APP_SECRET: z.string(),
   DATABASE_URL: z.string().url(),
@@ -20,6 +21,7 @@ export const serverSchema = z.object({
  * @type {{ [k in keyof z.infer<typeof serverSchema>]: z.infer<typeof serverSchema>[k] | undefined }}
  */
 export const serverEnv = {
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   PUSHER_APP_ID: process.env.PUSHER_APP_ID,
   PUSHER_APP_SECRET: process.env.PUSHER_APP_SECRET,
   DATABASE_URL: process.env.DATABASE_URL,

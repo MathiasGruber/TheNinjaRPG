@@ -16,7 +16,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 const config = {
   generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
   reactStrictMode: false,
-  swcMinify: false,
   transpilePackages: ["@pusher/push-notifications-web"],
   experimental: {
     esmExternals: false, // Must be disabled for UploadThing

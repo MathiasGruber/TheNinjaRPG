@@ -3,33 +3,41 @@ import Modal from "@/layout/Modal";
 import SelectField from "@/layout/SelectField";
 import Loader from "@/layout/Loader";
 import { EditContent } from "@/layout/EditContent";
-import { TagFormWrapper } from "@/layout/EditContent";
+import { EffectFormWrapper } from "@/layout/EditContent";
 import { api } from "@/utils/api";
 import { effectFilters } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { ItemValidator } from "@/libs/combat/types";
 import { useJutsuEditForm } from "@/libs/jutsu";
+import { useQuestEditForm } from "@/libs/quest";
 import { useBloodlineEditForm } from "@/libs/bloodline";
 import { useItemEditForm } from "@/libs/item";
 import { tagTypes } from "@/libs/combat/types";
 import { statFilters } from "@/libs/train";
+import { QuestTypes } from "@/drizzle/constants";
+import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
+import type { QuestType } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { StatType } from "@/libs/train";
 import type { EffectType } from "@/libs/train";
 import type { Jutsu } from "@/drizzle/schema";
 import type { Bloodline } from "@/drizzle/schema";
 import type { Item } from "@/drizzle/schema";
+import type { Quest } from "@/drizzle/schema";
 
 interface MassEditContentProps {
   title: string;
-  type: "jutsu" | "bloodline" | "item";
+  type: "jutsu" | "bloodline" | "item" | "quest";
   button: React.ReactNode;
   onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
 }
 
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
+  // For quests
+  const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
+  // For AI, item, jutsus
   const [tagType, setTagType] = useState<EffectType>(effectFilters[0]);
   const [stat, setStat] = useState<StatType | undefined>(undefined);
 
@@ -40,7 +48,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const {
     data: jutsus,
     refetch: refetchJutsus,
-    isFetching: isFetchingJutsu,
+    isFetching: fetchingJutsu,
   } = api.jutsu.getAll.useInfiniteQuery(
     { limit: 500, effect: tagType, stat: statFilter },
     {
@@ -54,7 +62,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const {
     data: bloodlines,
     refetch: refetchBloodlines,
-    isFetching: isFetchingBloodlines,
+    isFetching: fetchingBloodline,
   } = api.bloodline.getAll.useInfiniteQuery(
     { limit: 500, effect: tagType, stat: statFilter, showHidden: true },
     {
@@ -68,7 +76,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const {
     data: items,
     refetch: refetchItems,
-    isFetching: isFetchingItems,
+    isFetching: fetchingItem,
   } = api.item.getAll.useInfiniteQuery(
     { limit: 500, effect: tagType, stat: statFilter },
     {
@@ -79,8 +87,22 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     }
   );
 
+  const {
+    data: quests,
+    refetch: refetchQuests,
+    isFetching: fetchingQuest,
+  } = api.quests.getAll.useInfiniteQuery(
+    { limit: 500, questType: questType },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+      staleTime: Infinity,
+      enabled: props.type === "quest" && showModal,
+    }
+  );
+
   // Get the data
-  const getTableData = (type: "jutsu" | "bloodline" | "item") => {
+  const getTableData = (type: "jutsu" | "bloodline" | "item" | "quest") => {
     switch (type) {
       case "jutsu":
         return {
@@ -97,6 +119,11 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
           data: items?.pages.map((page) => page.data).flat(),
           refetch: () => refetchItems(),
         };
+      case "quest":
+        return {
+          data: quests?.pages.map((page) => page.data).flat(),
+          refetch: () => refetchQuests(),
+        };
     }
   };
 
@@ -106,7 +133,10 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   // Post-filter, in case we're filtering by stat, since we need to account for the fact that
   // it may have found the entries based on stats from other tags
   const postFiltered = data?.filter((entry) => {
+    // Situations where we do not need this
     if (!stat) return true;
+    if (!("effects" in entry)) return true;
+    // Filter on effects
     const effect = (entry.effects as ZodAllTags[]).find((e) => e.type === tagType);
     if (effect) {
       const c1 =
@@ -123,40 +153,63 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   });
 
   // Loader
-  const loading = isFetchingJutsu || isFetchingBloodlines || isFetchingItems;
+  const loading = fetchingJutsu || fetchingBloodline || fetchingItem || fetchingQuest;
 
   if (showModal) {
     return (
       <Modal title={props.title} setIsOpen={setShowModal} onAccept={props.onAccept}>
-        <SelectField
-          id="filter_tag"
-          label="Select Tag"
-          onChange={(e) => setTagType(e.target.value as EffectType)}
-        >
-          {effectFilters.map((effect) => {
-            return (
-              <option key={effect} value={effect}>
-                {effect}
+        {["jutsu", "bloodline", "item"].includes(props.type) && (
+          <>
+            <SelectField
+              id="filter_tag"
+              label="Select Tag"
+              onChange={(e) => setTagType(e.target.value as EffectType)}
+            >
+              {effectFilters.map((effect) => {
+                return (
+                  <option key={effect} value={effect}>
+                    {effect}
+                  </option>
+                );
+              })}
+            </SelectField>
+            <SelectField
+              id="filter_stat"
+              label="Select Stat"
+              onChange={(e) => setStat(e.target.value as StatType)}
+            >
+              <option key="" value="">
+                None
               </option>
-            );
-          })}
-        </SelectField>
-        <SelectField
-          id="filter_stat"
-          label="Select Stat"
-          onChange={(e) => setStat(e.target.value as StatType)}
-        >
-          <option key="" value="">
-            None
-          </option>
-          {statFilters.map((stat) => {
-            return (
-              <option key={stat} value={stat}>
-                {stat}
-              </option>
-            );
-          })}
-        </SelectField>
+              {statFilters.map((stat) => {
+                return (
+                  <option key={stat} value={stat}>
+                    {stat}
+                  </option>
+                );
+              })}
+            </SelectField>
+          </>
+        )}
+        {props.type === "quest" && (
+          <SelectField
+            id="filter_quest"
+            label="Quest Type"
+            placeholder={questType}
+            onChange={(e) => setQuestType(e.target.value as QuestType)}
+          >
+            <option key="" value="">
+              None
+            </option>
+            {QuestTypes.map((type) => {
+              return (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              );
+            })}
+          </SelectField>
+        )}
 
         <p className="font-bold py-3">
           {postFiltered?.length === 0 && (
@@ -197,6 +250,13 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
                       refetch={refetch}
                     />
                   )}
+                  {props.type === "quest" && (
+                    <MassEditQuestRow
+                      quest={entry as Quest}
+                      idx={i}
+                      refetch={refetch}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -220,6 +280,47 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
 };
 
 export default MassEditContent;
+
+interface MassEditQuestRowProps {
+  quest: Quest;
+  idx: number;
+  refetch: () => void;
+}
+
+const MassEditQuestRow: React.FC<MassEditQuestRowProps> = (props) => {
+  // Form handling
+  const {
+    form: {
+      setValue,
+      register,
+      formState: { errors },
+    },
+    formData,
+    handleQuestSubmit,
+  } = useQuestEditForm(props.quest, props.refetch);
+
+  // Background color for this row
+  const bgColor = props.idx % 2 == 0 ? "bg-slate-600" : "";
+
+  // Show the form
+  return (
+    <div className={`flex items-center`}>
+      <EditContent
+        schema={QuestValidator._def.schema.merge(ObjectiveReward)}
+        showSubmit={false}
+        buttonTxt="Save to Database"
+        allowImageUpload={false}
+        fixedWidths="basis-32"
+        bgColor={bgColor}
+        setValue={setValue}
+        register={register}
+        errors={errors}
+        formData={formData}
+        onEnter={handleQuestSubmit}
+      />
+    </div>
+  );
+};
 
 interface MassEditJutsuRowProps {
   tagType: EffectType;
@@ -266,7 +367,7 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
         onEnter={handleJutsuSubmit}
       />
       {tag && (
-        <TagFormWrapper
+        <EffectFormWrapper
           idx={idx}
           tag={tag}
           hideTagType={true}
@@ -327,7 +428,7 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
         onEnter={handleBloodlineSubmit}
       />
       {tag && (
-        <TagFormWrapper
+        <EffectFormWrapper
           idx={idx}
           tag={tag}
           hideTagType={true}
@@ -389,7 +490,7 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
         onEnter={handleItemSubmit}
       />
       {tag && (
-        <TagFormWrapper
+        <EffectFormWrapper
           idx={idx}
           tag={tag}
           hideTagType={true}

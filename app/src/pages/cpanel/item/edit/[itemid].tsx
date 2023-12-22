@@ -4,7 +4,7 @@ import { api } from "@/utils/api";
 import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import { EditContent } from "@/layout/EditContent";
-import { TagFormWrapper } from "@/layout/EditContent";
+import { EffectFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -60,6 +60,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
     item,
     effects,
     form: {
+      getValues,
       setValue,
       register,
       formState: { isDirty, errors },
@@ -86,6 +87,9 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
     />
   );
 
+  // Get current form values
+  const currentValues = getValues();
+
   // Show panel controls
   return (
     <>
@@ -98,6 +102,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
         {item && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
+              currentValues={currentValues}
               schema={ItemValidator._def.schema}
               showSubmit={isDirty}
               buttonTxt="Save to Database"
@@ -105,6 +110,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              type="item"
               allowImageUpload={true}
               onAccept={handleItemSubmit}
             />
@@ -143,7 +149,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             }
           >
             <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <TagFormWrapper
+              <EffectFormWrapper
                 idx={i}
                 tag={tag}
                 availableTags={tagTypes}

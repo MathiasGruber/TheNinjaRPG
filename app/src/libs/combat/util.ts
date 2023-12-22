@@ -330,6 +330,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Result object
       const result: CombatResult = {
+        didWin: didWin ? 1 : 0,
         experience: experience,
         eloPvp: 0,
         eloPve: 0,
@@ -605,6 +606,7 @@ export const processUsersForBattle = (
     // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
     user.jutsus = user.jutsus
       .filter((userjutsu) => {
+        if (!userjutsu.jutsu) return false;
         const effects = userjutsu.jutsu.effects as UserEffect[];
         effects
           .filter((e) => e.type === "summon")

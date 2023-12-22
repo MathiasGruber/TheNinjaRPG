@@ -11,6 +11,7 @@ import { EyeIcon } from "@heroicons/react/24/solid";
 import { EyeSlashIcon } from "@heroicons/react/24/solid";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
+import { getUserQuests, isLocationObjective } from "@/libs/quest";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -34,6 +35,7 @@ const Travel: NextPage = () => {
   // Current and target sectors & positions
   const [currentSector, setCurrentSector] = useState<number | null>(null);
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<SectorPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
   const [targetPosition, setTargetPosition] = useState<SectorPoint | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
@@ -115,11 +117,76 @@ const Travel: NextPage = () => {
       },
     });
 
+  const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        data.notifications.forEach((notification) => {
+          show_toast("Quest Update", notification, "info");
+        });
+        await refetchUser();
+      }
+    },
+    onError: (error) => {
+      show_toast("Quest Error", error.message, "error");
+    },
+  });
+
+  useEffect(() => {
+    if (userData && currentSector && currentPosition) {
+      getUserQuests(userData).forEach((quest) => {
+        quest.content.objectives.forEach((objective) => {
+          if (
+            isLocationObjective(
+              {
+                sector: currentSector,
+                latitude: currentPosition.y,
+                longitude: currentPosition.x,
+              },
+              objective
+            )
+          ) {
+            checkQuest();
+          }
+        });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPosition]);
+
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === "Global";
   const showGlobal = villages && globe && isGlobal;
   const showSector = villages && currentSector && currentTile && !isGlobal;
+
+  // Battle scene
+  const SectorComponent = useMemo(() => {
+    return (
+      currentTile &&
+      currentSector && (
+        <Sector
+          tile={currentTile}
+          sector={currentSector}
+          target={targetPosition}
+          showVillage={villages?.find((village) => village.sector === currentSector)}
+          showSorrounding={showSorrounding}
+          showActive={showActive}
+          setShowSorrounding={setShowSorrounding}
+          setTarget={setTargetPosition}
+          setPosition={setCurrentPosition}
+          setHoverPosition={setHoverPosition}
+        />
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentTile,
+    currentSector,
+    targetPosition,
+    showSorrounding,
+    showActive,
+    villages,
+  ]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
@@ -175,19 +242,7 @@ const Travel: NextPage = () => {
             hexasphere={globe}
           />
         )}
-        {showSector && (
-          <Sector
-            tile={currentTile}
-            sector={currentSector}
-            target={targetPosition}
-            showVillage={villages.find((village) => village.sector === currentSector)}
-            showSorrounding={showSorrounding}
-            showActive={showActive}
-            setShowSorrounding={setShowSorrounding}
-            setTarget={setTargetPosition}
-            setPosition={setCurrentPosition}
-          />
-        )}
+        {showSector && SectorComponent}
         {!villages && <Loader explanation="Loading data" />}
         {showModal && globe && userData && targetSector && (
           <Modal
@@ -249,7 +304,17 @@ const Travel: NextPage = () => {
           </div>
         )}
       </ContentBox>
-      {showSector && <p>Movement Hotkeys: Q-W-E-A-S-D</p>}
+      <div className="flex flex-row">
+        {showSector && <p>Movement Hotkeys: Q-W-E-A-S-D</p>}
+        {hoverPosition && (
+          <>
+            <p className="grow"></p>
+            <p>
+              Target: ({hoverPosition.x}, {hoverPosition.y})
+            </p>
+          </>
+        )}
+      </div>
     </>
   );
 };

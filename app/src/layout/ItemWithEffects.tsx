@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
 import Confirm from "@/layout/Confirm";
 import { canChangeContent } from "@/utils/permissions";
@@ -7,8 +8,9 @@ import { useUserData } from "@/utils/UserContext";
 import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { getTagSchema } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { getObjectiveImage } from "@/libs/objectives";
 import type { ItemRarity } from "@/drizzle/schema";
-import type { Bloodline, Item, Jutsu } from "@/drizzle/schema";
+import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 
 export type GenericObject = {
@@ -21,14 +23,14 @@ export type GenericObject = {
   createdAt: Date;
   updatedAt: Date;
   attacks: string[];
-  effects: ZodAllTags[];
+  effects?: ZodAllTags[];
   href?: string;
 };
 
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu | GenericObject;
+  item: Bloodline | Item | Jutsu | Quest | GenericObject;
   imageBorder?: boolean;
-  showEdit?: "bloodline" | "item" | "jutsu" | "ai";
+  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   onDelete?: (id: string) => void;
 }
@@ -36,7 +38,15 @@ export interface ItemWithEffectsProps {
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const { item, showEdit, showStatistic, onDelete } = props;
   const { data: userData } = useUserData();
-  const effects = props.item.effects as Omit<ZodAllTags, "description">[];
+
+  // Extract effects if they exist
+  const effects =
+    "effects" in props.item
+      ? (props.item.effects as Omit<ZodAllTags, "description">[])
+      : [];
+
+  // Extract objectives if they exist
+  const objectives = "content" in props.item ? props.item.content.objectives : [];
 
   // Define image
   let image = (
@@ -53,6 +63,26 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     image = <Link href={item.href}>{image}</Link>;
   }
 
+  // Define rewards from quests if they are there
+  const rewards: string[] = [];
+  if ("content" in item) {
+    if (item.content?.reward?.reward_items.length > 0) {
+      rewards.push(`${item.content.reward.reward_items.length} items`);
+    }
+    if (item.content?.reward?.reward_jutsus.length > 0) {
+      rewards.push(`${item.content.reward.reward_jutsus.length} jutsus`);
+    }
+    if (
+      item.content?.reward?.reward_rank &&
+      item.content?.reward?.reward_rank !== "NONE"
+    ) {
+      rewards.push(`rank of ${item.content.reward.reward_rank.toLowerCase()}`);
+    }
+    if (item.content?.reward?.reward_money) {
+      rewards.push(`${item.content.reward.reward_money} ryo`);
+    }
+  }
+
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-orange-50 p-2 align-middle shadow ">
       <div className="mx-3 hidden basis-1/3  md:block">{image}</div>
@@ -63,12 +93,20 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             <h3 className="text-xl font-bold tracking-tight text-gray-900">
               {item.name}
             </h3>
-            <p>
-              <b>Created: </b>
-              {item.createdAt.toLocaleDateString()},<b>Updated: </b>
-              {item.updatedAt.toLocaleDateString()}
-            </p>
-
+            <div className="flex flex-row gap-2">
+              {item.createdAt && (
+                <div>
+                  <b>Created: </b>
+                  {item.createdAt.toLocaleDateString()}
+                </div>
+              )}
+              {item.updatedAt && (
+                <div>
+                  <b>Updated: </b>
+                  {item.updatedAt.toLocaleDateString()}
+                </div>
+              )}
+            </div>
             <div className="absolute right-6 flex flex-row">
               {showStatistic && (
                 <Link href={`/cpanel/${showStatistic}/${item.id}`} className="mr-1">
@@ -177,8 +215,64 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Equip</b>: {item.slot.toLowerCase()}
               </p>
             )}
+            {"requiredRank" in item && item.requiredRank && (
+              <p>
+                <b>Required Rank</b>: {item.requiredRank}
+              </p>
+            )}
+            {"requiredLevel" in item && item.requiredLevel && (
+              <p>
+                <b>Required Level</b>: {item.requiredLevel}
+              </p>
+            )}
+            {"timeFrame" in item && item.timeFrame && (
+              <p>
+                <b>Time Frame</b>: {item.timeFrame}
+              </p>
+            )}
+            {"questType" in item && item.questType && (
+              <p>
+                <b>Quest Type</b>: {item.questType}
+              </p>
+            )}
+            {"expiresAt" in item && item.expiresAt && (
+              <p>
+                <b>Expires At</b>: {item.expiresAt}
+              </p>
+            )}
+            {"content" in item && item.content && (
+              <div className="col-span-2">
+                <b>Reward:</b> {rewards.join(", ")}
+              </div>
+            )}
           </div>
-          {effects.map((effect, i) => {
+          {objectives && (
+            <div className={`my-2 rounded-lg bg-orange-100 p-2`}>
+              <p className="font-bold">Objectives</p>
+              <div className="flex flex-row gap-3 p-2">
+                {objectives.map((objective, i) => {
+                  const { image, title } = getObjectiveImage(objective);
+                  return (
+                    <div
+                      key={objective.task + i.toString()}
+                      className={`flex flex-col items-center`}
+                    >
+                      <Image
+                        className="basis-1/4"
+                        alt={objective.task}
+                        src={image}
+                        width={60}
+                        height={60}
+                      />
+                      {title}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {effects?.map((effect, i) => {
             // Get schema for parsing effect
             const schema = getTagSchema(effect.type);
             // Delete description, so that we get the default one

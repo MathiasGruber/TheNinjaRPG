@@ -459,6 +459,11 @@ export const initiateBattle = async (
           with: { jutsu: true },
           where: (jutsus) => eq(jutsus.equipped, 1),
         },
+        userQuests: {
+          with: {
+            quest: true,
+          },
+        },
       },
       where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
     });

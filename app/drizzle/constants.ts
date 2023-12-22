@@ -1,4 +1,5 @@
 export const LetterRanks = ["D", "C", "B", "A", "S"] as const;
+export type LetterRank = typeof LetterRanks[number];
 
 export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 
@@ -132,3 +133,16 @@ export const BattleDataEntryType = [
   "basic",
   "ai",
 ] as const;
+
+export const TimeFrames = ["daily", "weekly", "monthly", "all_time"] as const;
+
+export const QuestTypes = [
+  "mission",
+  "crime",
+  "event",
+  "exam",
+  "errand",
+  "tier",
+  "daily",
+] as const;
+export type QuestType = typeof QuestTypes[number];

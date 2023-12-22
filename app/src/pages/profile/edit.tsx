@@ -355,7 +355,7 @@ const AvatarChange: React.FC = () => {
               : "avatarGoldUploader"
           }
           onClientUploadComplete={(res) => {
-            if (res?.[0]?.fileUrl) {
+            if (res?.[0]?.url) {
               setTimeout(() => void refetchUser(), 1000);
             }
           }}
@@ -384,40 +384,37 @@ const AttributeChange: React.FC = () => {
   const [skinColor, setSkinColor] = useState<typeof skin_colors[number]>("Light");
 
   // Queries
-  const { data, refetch, isLoading } = api.profile.getUserAttributes.useQuery(
-    undefined,
-    { staleTime: Infinity }
-  );
+  const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined, {
+    staleTime: Infinity,
+  });
   const selectedAttributes = data
     ? data.map((a) => a.attribute as typeof attributes[number])
     : [];
 
   // Mutations
-  const { mutate: insertAttr, isLoading: isInserting } =
-    api.profile.insertAttribute.useMutation({
-      onSuccess: async (data) => {
-        if (data.success) {
-          show_toast("Success", "Attribute inserted", "success");
-          await refetch();
-        } else {
-          show_toast("Error on insert", data.message, "error");
-        }
-      },
-      onError: (error) => show_toast("Error on insert", error.message, "error"),
-    });
+  const { mutate: insertAttr } = api.profile.insertAttribute.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Success", "Attribute inserted", "success");
+        await refetch();
+      } else {
+        show_toast("Error on insert", data.message, "error");
+      }
+    },
+    onError: (error) => show_toast("Error on insert", error.message, "error"),
+  });
 
-  const { mutate: deleteAttr, isLoading: isDeleting } =
-    api.profile.deleteAttribute.useMutation({
-      onSuccess: async (data) => {
-        if (data.success) {
-          show_toast("Success", "Attribute deleted", "success");
-          await refetch();
-        } else {
-          show_toast("Error on delete", data.message, "error");
-        }
-      },
-      onError: (error) => show_toast("Error on delete", error.message, "error"),
-    });
+  const { mutate: deleteAttr } = api.profile.deleteAttribute.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Success", "Attribute deleted", "success");
+        await refetch();
+      } else {
+        show_toast("Error on delete", data.message, "error");
+      }
+    },
+    onError: (error) => show_toast("Error on delete", error.message, "error"),
+  });
 
   return (
     <div className="grid grid-cols-2 pt-2">
@@ -461,7 +458,7 @@ const AttributeChange: React.FC = () => {
             label="Eye Color"
             placeholder={eyeColor}
             onChange={(e) => setEyeColor(e.target.value as typeof colors[number])}
-            onButtonClick={(e) => insertAttr({ attribute: "Eyes", color: eyeColor })}
+            onButtonClick={() => insertAttr({ attribute: "Eyes", color: eyeColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
             {colors.map((color, i) => (
@@ -476,7 +473,7 @@ const AttributeChange: React.FC = () => {
             id="skincolor"
             label="Skin Color"
             onChange={(e) => setSkinColor(e.target.value as typeof skin_colors[number])}
-            onButtonClick={(e) => insertAttr({ attribute: "Skin", color: skinColor })}
+            onButtonClick={() => insertAttr({ attribute: "Skin", color: skinColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
             {skin_colors.map((color, i) => (
@@ -491,7 +488,7 @@ const AttributeChange: React.FC = () => {
             id="haircolor"
             label="Hair Color"
             onChange={(e) => setHairColor(e.target.value as typeof colors[number])}
-            onButtonClick={(e) => insertAttr({ attribute: "Hair", color: hairColor })}
+            onButtonClick={() => insertAttr({ attribute: "Hair", color: hairColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
             {colors.map((color, i) => (

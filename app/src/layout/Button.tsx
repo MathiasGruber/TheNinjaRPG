@@ -8,6 +8,7 @@ interface ButtonProps {
   noJustify?: boolean;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   marginClass?: string;
+  paddingClass?: string;
   borderClass?: string;
 }
 
@@ -40,9 +41,9 @@ const Button: React.FC<ButtonProps> = (props) => {
         id={props.id}
         className={`relative flex w-full flex-row items-center ${
           props.noJustify ? "" : "justify-center"
-        } ${
-          props.borderClass ?? "rounded-md"
-        } p-3 px-5 font-bold text-white ${color} ${hover} ${
+        } ${props.borderClass ?? "rounded-md"} ${
+          props.paddingClass !== undefined ? props.paddingClass : "p-3"
+        } px-5 font-bold text-white ${color} ${hover} ${
           props.disabled ? "cursor-not-allowed opacity-50" : ""
         }`}
         onClick={props.onClick}

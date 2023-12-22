@@ -3,8 +3,9 @@ import { nanoid } from "nanoid";
 import { eq, inArray, isNotNull, sql, and, gte, ne, like } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
-import { fetchUser } from "./profile";
+import { fetchUser, fetchRegeneratedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
+import { getNewTrackers } from "@/libs/quest";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { JutsuValidator, animationNames } from "@/libs/combat/types";
@@ -21,7 +22,7 @@ import type { DrizzleClient } from "@/server/db";
 export const jutsuRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.jutsu.findMany({
-      columns: { id: true, name: true },
+      columns: { id: true, name: true, image: true },
     });
   }),
   get: publicProcedure
@@ -213,10 +214,16 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
       const info = await fetchJutsu(ctx.drizzle, input.jutsuId);
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      if (!user) {
+        return { success: false, message: "User not found" };
+      }
       if (!info) {
         return { success: false, message: "Jutsu not found" };
       }
@@ -232,13 +239,21 @@ export const jutsuRouter = createTRPCRouter({
       if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
         return { success: false, message: "You are already training a jutsu" };
       }
-
       const level = userjutsu ? userjutsu.level : 0;
       const trainTime = calcJutsuTrainTime(info, level);
       const trainCost = calcJutsuTrainCost(info, level);
+
+      let questData = user.questData;
+      if (!userjutsu) {
+        const { trackers } = getNewTrackers(user, [
+          { task: "jutsus_mastered", increment: 1 },
+        ]);
+        questData = trackers;
+      }
+
       const moneyUpdate = await ctx.drizzle
         .update(userData)
-        .set({ money: sql`${userData.money} - ${trainCost}` })
+        .set({ money: sql`${userData.money} - ${trainCost}`, questData: questData })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.money, trainCost)));
       if (moneyUpdate.rowsAffected !== 1) {
         return { success: false, message: "You don't have enough money" };

@@ -12,7 +12,7 @@ import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import { getBackgroundColor } from "@/libs/travel/biome";
 import { cleanUp, setupScene } from "@/libs/travel/util";
-import { drawSectorBasics, drawVillage, drawUsers } from "@/libs/travel/sector";
+import { drawSector, drawVillage, drawUsers, drawQuest } from "@/libs/travel/sector";
 import { intersectUsers } from "@/libs/travel/sector";
 import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -33,11 +33,13 @@ interface SectorProps {
   setShowSorrounding: React.Dispatch<React.SetStateAction<boolean>>;
   setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
   setPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
+  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }
 
 const Sector: React.FC<SectorProps> = (props) => {
   // Incoming props
-  const { sector, target, showActive, setTarget, setPosition } = props;
+  const { sector, target, showActive } = props;
+  const { setTarget, setPosition, setHoverPosition } = props;
 
   // State pertaining to the sector
   const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
@@ -187,6 +189,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         pusher.unsubscribe(props.sector.toString());
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -258,8 +261,12 @@ const Sector: React.FC<SectorProps> = (props) => {
       camera.updateProjectionMatrix();
 
       // Draw the map
-      const { group_tiles, group_edges, group_assets, honeycombGrid } =
-        drawSectorBasics(WIDTH, prng, props.showVillage !== undefined, props.tile);
+      const { group_tiles, group_edges, group_assets, honeycombGrid } = drawSector(
+        WIDTH,
+        prng,
+        props.showVillage !== undefined,
+        props.tile
+      );
       grid.current = honeycombGrid;
 
       // Draw any village in this sector
@@ -277,6 +284,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // js groups for organization
       const group_users = new Group();
+      const group_quest = new Group();
 
       // Set the origin
       if (!origin.current) {
@@ -300,10 +308,14 @@ const Sector: React.FC<SectorProps> = (props) => {
         camera.position.copy(controls.target);
       }
 
+      // Draw quest data on the map
+      drawQuest({ group_quest, user: userData, grid: grid.current });
+
       // Add the group to the scene
       scene.add(group_tiles);
       scene.add(group_edges);
       scene.add(group_assets);
+      scene.add(group_quest);
       scene.add(group_users);
 
       // Capture clicks to update move direction
@@ -392,6 +404,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             pathFinder: pathFinder.current,
             origin: origin.current,
             currentHighlights: highlights,
+            setHoverPosition: setHoverPosition,
           });
         }
 
@@ -418,7 +431,8 @@ const Sector: React.FC<SectorProps> = (props) => {
         void refetchUser();
       };
     }
-  }, [props.sector, fetchedUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.sector, userData?.questData, fetchedUsers]);
 
   return (
     <>

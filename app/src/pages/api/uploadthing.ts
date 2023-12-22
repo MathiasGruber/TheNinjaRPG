@@ -13,7 +13,11 @@ export default async function uploadthing(req: NextApiRequest, res: NextApiRespo
   const { userId } = getAuth(req);
   if (userId) {
     // eslint-disable-next-line
-    const body: any = req.body ? JSON.parse(req.body) : {};
+    const body: any = req.body
+      ? typeof req.body === "string"
+        ? JSON.parse(req.body)
+        : req.body
+      : {};
     req.body = JSON.stringify({ ...body, userId });
   }
   await handler(req, res);

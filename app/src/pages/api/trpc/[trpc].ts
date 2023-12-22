@@ -23,7 +23,11 @@ export default createNextApiHandler({
   createContext: createTRPCContext,
   onError: ({ path, error, req }) => {
     // Console.error
-    console.error(`❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`);
+    console.error(
+      `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
+        error.stack
+      }`
+    );
     // Highlight.io
     void Handlers.trpcOnError(
       { error, req },

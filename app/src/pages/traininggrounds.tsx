@@ -45,7 +45,6 @@ export default Training;
 
 const StatsTraining: React.FC = () => {
   // Settings
-  const [isOpen, setIsOpen] = useState<boolean>(false);
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
   // Mutations
@@ -59,9 +58,6 @@ const StatsTraining: React.FC = () => {
       },
       onError: (error) => {
         show_toast("Error training", error.message, "error");
-      },
-      onSettled: () => {
-        setIsOpen(false);
       },
     });
 
@@ -78,9 +74,6 @@ const StatsTraining: React.FC = () => {
       onError: (error) => {
         show_toast("Error training", error.message, "error");
       },
-      onSettled: () => {
-        setIsOpen(false);
-      },
     });
 
   const isLoading = isStarting || isStopping;
@@ -90,6 +83,7 @@ const StatsTraining: React.FC = () => {
   const iconClassName = "w-5 h-5 absolute top-1 right-1 fill-blue-500";
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isLoading) return <Loader explanation="Processing..." />;
 
   return (
     <ContentBox title="Training" subtitle="Character Training" back_href="/village">
@@ -126,14 +120,6 @@ const StatsTraining: React.FC = () => {
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-95">
           <div className="m-auto text-center text-white flex flex-col items-center">
             <p className="p-5  text-2xl">Training {userData.currentlyTraining}</p>
-            <p className="text-2xl">
-              {/* <Countdown
-                targetDate={finishTrainingAt.finishTraining}
-                onFinish={async () => {
-                  await refetchUserJutsu();
-                }}
-              /> */}
-            </p>
             <Image
               src={`/training/${userData.currentlyTraining}.png`}
               alt={userData.currentlyTraining}
@@ -276,6 +262,8 @@ const JutsuTraining: React.FC = () => {
               }}
               showBgColor={false}
               showLabels={true}
+              lastElement={lastElement}
+              setLastElement={setLastElement}
             />
             {isOpen && jutsu && (
               <Modal

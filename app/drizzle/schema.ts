@@ -4,6 +4,7 @@ import {
   uniqueIndex,
   varchar,
   datetime,
+  date,
   mysqlEnum,
   json,
   int,
@@ -12,11 +13,15 @@ import {
   tinyint,
   double,
   primaryKey,
+  unique,
 } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
-import type { InferModel } from "drizzle-orm";
+import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import type { QuestContentType } from "@/validators/objectives";
+import type { QuestTrackerType } from "@/validators/objectives";
+
 import * as consts from "./constants";
 
 export const battle = mysqlTable(
@@ -48,7 +53,7 @@ export const battle = mysqlTable(
     };
   }
 );
-export type Battle = InferModel<typeof battle>;
+export type Battle = InferSelectModel<typeof battle>;
 export type BattleType = Battle["battleType"];
 
 export const battleAction = mysqlTable(
@@ -126,7 +131,7 @@ export const bloodline = mysqlTable(
     };
   }
 );
-export type Bloodline = InferModel<typeof bloodline>;
+export type Bloodline = InferSelectModel<typeof bloodline>;
 export type BloodlineRank = Bloodline["rank"];
 
 export const bloodlineRelations = relations(bloodline, ({ many }) => ({
@@ -247,7 +252,7 @@ export const conversationComment = mysqlTable(
     };
   }
 );
-export type ConversationComment = InferModel<typeof conversationComment>;
+export type ConversationComment = InferSelectModel<typeof conversationComment>;
 
 export const conversationCommentRelations = relations(
   conversationComment,
@@ -281,7 +286,7 @@ export const damageSimulation = mysqlTable(
     };
   }
 );
-export type DamageSimulation = InferModel<typeof damageSimulation>;
+export type DamageSimulation = InferSelectModel<typeof damageSimulation>;
 
 export const forumBoard = mysqlTable(
   "ForumBoard",
@@ -324,7 +329,7 @@ export const forumPost = mysqlTable(
     };
   }
 );
-export type ForumPost = InferModel<typeof forumPost>;
+export type ForumPost = InferSelectModel<typeof forumPost>;
 
 export const forumPostRelations = relations(forumPost, ({ one }) => ({
   user: one(userData, {
@@ -442,7 +447,7 @@ export const item = mysqlTable(
     };
   }
 );
-export type Item = InferModel<typeof item>;
+export type Item = InferSelectModel<typeof item>;
 export type ItemType = Item["itemType"];
 export type ItemSlotType = Item["slot"];
 export type ItemRarity = Item["rarity"];
@@ -495,7 +500,7 @@ export const jutsuRelations = relations(jutsu, ({ one }) => ({
   }),
 }));
 
-export type Jutsu = InferModel<typeof jutsu>;
+export type Jutsu = InferSelectModel<typeof jutsu>;
 export type JutsuRank = Jutsu["jutsuRank"];
 
 export const notification = mysqlTable(
@@ -736,6 +741,9 @@ export const userData = mysqlTable(
     longitude: int("longitude").default(10).notNull(),
     latitude: int("latitude").default(7).notNull(),
     location: varchar("location", { length: 191 }).default("").notNull(),
+    joinedVillageAt: datetime("joinedVillageAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -766,6 +774,7 @@ export const userData = mysqlTable(
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
     unreadNotifications: int("unreadNotifications").default(0).notNull(),
     unreadNews: int("unreadNews").default(0).notNull(),
+    questData: json("questData").$type<QuestTrackerType[]>(),
   },
   (table) => {
     return {
@@ -783,10 +792,24 @@ export const insertUserDataSchema = createInsertSchema(userData)
     currentlyTraining: true,
     deletionAt: true,
     travelFinishAt: true,
+    questTier: true,
+    questDaily: true,
+    questMission: true,
+    questData: true,
   })
   .merge(z.object({ jutsus: z.array(z.string()).optional() }));
-export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
-export type UserData = InferModel<typeof userData>;
+export type InsertUserDataSchema = Omit<
+  InferInsertModel<typeof userData>,
+  | "trainingStartedAt"
+  | "currentlyTraining"
+  | "deletionAt"
+  | "travelFinishAt"
+  | "questTier"
+  | "questDaily"
+  | "questMission"
+  | "questData"
+>;
+export type UserData = InferSelectModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
@@ -804,6 +827,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userNindo.userId],
   }),
+  userQuests: many(questHistory),
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
@@ -851,7 +875,7 @@ export const userItem = mysqlTable(
     };
   }
 );
-export type UserItem = InferModel<typeof userItem>;
+export type UserItem = InferSelectModel<typeof userItem>;
 export type ItemSlot = UserItem["equipped"];
 
 export const userItemRelations = relations(userItem, ({ one }) => ({
@@ -893,7 +917,7 @@ export const userJutsu = mysqlTable(
     };
   }
 );
-export type UserJutsu = InferModel<typeof userJutsu>;
+export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
 export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
   jutsu: one(jutsu, {
@@ -940,7 +964,7 @@ export const userReport = mysqlTable(
     };
   }
 );
-export type UserReport = InferModel<typeof userReport>;
+export type UserReport = InferSelectModel<typeof userReport>;
 export type ReportAction = UserReport["status"];
 
 export const userReportRelations = relations(userReport, ({ one }) => ({
@@ -978,7 +1002,7 @@ export const userReportComment = mysqlTable(
     };
   }
 );
-export type UserReportComment = InferModel<typeof userReportComment>;
+export type UserReportComment = InferSelectModel<typeof userReportComment>;
 
 export const userReportCommentRelations = relations(userReportComment, ({ one }) => ({
   user: one(userData, {
@@ -1002,7 +1026,7 @@ export const village = mysqlTable(
     };
   }
 );
-export type Village = InferModel<typeof village>;
+export type Village = InferSelectModel<typeof village>;
 
 export const villageRelations = relations(village, ({ many }) => ({
   structures: many(villageStructure),
@@ -1030,7 +1054,7 @@ export const villageStructure = mysqlTable(
     };
   }
 );
-export type VillageStructure = InferModel<typeof villageStructure>;
+export type VillageStructure = InferSelectModel<typeof villageStructure>;
 
 export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
   village: one(village, {
@@ -1056,5 +1080,73 @@ export const dataBattleAction = mysqlTable(
       idKey: uniqueIndex("DataBattleActions_id").on(table.id),
       typeIdx: index("DataBattleActions_type").on(table.type),
     };
+  }
+);
+
+export const quest = mysqlTable(
+  "Quest",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }),
+    description: varchar("description", { length: 512 }),
+    successDescription: varchar("successDescription", { length: 512 }),
+    requiredRank: mysqlEnum("requiredRank", consts.LetterRanks).default("D").notNull(),
+    requiredLevel: int("requiredLevel").default(1).notNull(),
+    tierLevel: int("tierLevel"),
+    timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
+    questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
+    content: json("content").$type<QuestContentType>().notNull(),
+    hidden: tinyint("hidden").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    expiresAt: date("expiresAt", { mode: "string" }),
+  },
+  (table) => {
+    return {
+      idKey: uniqueIndex("Quest_id").on(table.id),
+      tierLevel: unique("tierLevel").on(table.tierLevel),
+    };
+  }
+);
+export type Quest = InferSelectModel<typeof quest>;
+
+export const questHistory = mysqlTable("QuestHistory", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  questId: varchar("questId", { length: 191 }).notNull(),
+  questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
+  startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  endAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+  completed: tinyint("completed").default(0).notNull(),
+});
+export type QuestHistory = InferInsertModel<typeof questHistory>;
+
+export const questHistoryRelations = relations(questHistory, ({ one }) => ({
+  user: one(userData, {
+    fields: [questHistory.userId],
+    references: [userData.userId],
+  }),
+  quest: one(quest, {
+    fields: [questHistory.questId],
+    references: [quest.id],
+  }),
+}));
+
+export const gameTimers = mysqlTable(
+  "GameTimers",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    time: datetime("time", { mode: "date", fsp: 3 }).notNull(),
+  },
+  (table) => {
+    return { name: index("name").on(table.name) };
   }
 );

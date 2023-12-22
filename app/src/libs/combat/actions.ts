@@ -17,7 +17,7 @@ import type { CompleteBattle, ReturnedBattle } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatAction, ZodAllTags } from "./types";
-import type { GroundEffect, UserEffect, BattleEffect } from "./types";
+import type { GroundEffect, UserEffect } from "./types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -486,7 +486,7 @@ export const performBattleAction = (props: {
   latitude: number;
 }) => {
   // Destructure
-  const { battle, grid, action, contextUserId, actorId, longitude, latitude } = props;
+  const { battle, grid, action, actorId, longitude, latitude } = props;
   // Ensure that the userId we're trying to move is valid
   const user = battle.usersState.find((u) => u.userId === actorId);
   if (!user) throw new Error("This is not your user");
