@@ -3,6 +3,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { VILLAGE_LONG, VILLAGE_LAT } from "@/libs//travel/constants";
 import { battle, battleAction, userData } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
+import { getNewTrackers } from "@/libs/quest";
+import { stillInBattle } from "./actions";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { Battle } from "@/drizzle/schema";
@@ -140,6 +142,32 @@ export const updateUser = async (
 ) => {
   const user = curBattle.usersState.find((user) => user.userId === userId);
   if (result && user) {
+    // Update quest tracker with battle result
+    if (result.didWin > 0) {
+      if (curBattle.battleType === "COMBAT") {
+        const { trackers } = getNewTrackers(user, [
+          { task: "pvp_kills", increment: 1 },
+        ]);
+        user.questData = trackers;
+      }
+      if (curBattle.battleType === "ARENA") {
+        const { trackers } = getNewTrackers(user, [
+          { task: "arena_kills", increment: 1 },
+        ]);
+        user.questData = trackers;
+      }
+      const { trackers } = getNewTrackers(
+        user,
+        curBattle.usersState
+          .filter((u) => !stillInBattle(u))
+          .map((u) => ({
+            task: "defeat_opponents",
+            contentId: u.userId,
+          }))
+      );
+      user.questData = trackers;
+    }
+    // Update user
     return await client
       .update(userData)
       .set({
@@ -163,6 +191,7 @@ export const updateUser = async (
         genjutsuDefence: sql`genjutsuDefence + ${result.genjutsuDefence}`,
         taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
         bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
+        questData: user.questData,
         battleId: null,
         regenAt: new Date(),
         ...(result.curHealth <= 0

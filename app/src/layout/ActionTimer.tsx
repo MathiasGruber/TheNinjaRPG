@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Loader from "./Loader";
-import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { useUserData } from "@/utils/UserContext";
 import { calcActiveUser } from "@/libs/combat/actions";
 import type { CombatAction } from "@/libs/combat/types";

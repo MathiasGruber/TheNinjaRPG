@@ -1,4 +1,4 @@
-import { uploadAvatar } from "./aws";
+import { copyImageToStorage } from "./aws";
 import { fetchAttributes } from "../server/api/routers/profile";
 import { userData, historicalAvatar } from "../../drizzle/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
@@ -84,7 +84,7 @@ export const getPrompt = async (client: DrizzleClient, user: UserData) => {
  */
 interface ReplicateReturn {
   id: string;
-  output: string[] | null;
+  output: string[] | string | null;
   status: string;
 }
 export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> => {
@@ -109,10 +109,64 @@ export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> =>
     }),
   }).then((response) => response.json() as Promise<ReplicateReturn>);
 };
+
+/**
+ * Request new content image
+ */
+export const requestContentImage = async (prompt: string): Promise<ReplicateReturn> => {
+  return fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+    },
+    body: JSON.stringify({
+      version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      input: {
+        prompt: prompt,
+        width: 512,
+        height: 512,
+        refine: "expert_ensemble_refiner",
+        scheduler: "K_EULER",
+        lora_scale: 0.6,
+        num_outputs: 1,
+        guidance_scale: 7.0,
+        apply_watermark: false,
+        high_noise_frac: 0.8,
+        negative_prompt:
+          "deformed,weird,bad resolution,bad depiction,weird,worst quality,worst resolution,too blurry,not relevant,text",
+        prompt_strength: 0.8,
+        num_inference_steps: 25,
+      },
+    }),
+  }).then((response) => response.json() as Promise<ReplicateReturn>);
+};
+
+/**
+ * Remove background
+ */
+export const requestBgRemoval = async (url: string): Promise<ReplicateReturn> => {
+  return fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+    },
+    body: JSON.stringify({
+      version: "fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+      input: { image: url },
+    }),
+  }).then((response) => response.json() as Promise<ReplicateReturn>);
+};
+
 /**
  * Fetches result from Replicate API
  */
-export const fetchAvatar = async (replicateId: string): Promise<ReplicateReturn> => {
+export const fetchReplicateResult = async (
+  replicateId: string
+): Promise<ReplicateReturn> => {
   return fetch(`https://api.replicate.com/v1/predictions/${replicateId}`, {
     method: "GET",
     headers: {
@@ -127,7 +181,6 @@ export const fetchAvatar = async (replicateId: string): Promise<ReplicateReturn>
  * Send a request to update the avatar for a user
  */
 export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
-  console.log("Update avatar for user", user.userId);
   const currentProcessing = await client.query.historicalAvatar.findFirst({
     where: and(
       eq(historicalAvatar.userId, user.userId),
@@ -171,17 +224,17 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
   let url = user.avatar;
   for (const avatar of avatars) {
     if (avatar.replicateId) {
-      const result = await fetchAvatar(avatar.replicateId);
+      const result = await fetchReplicateResult(avatar.replicateId);
       // If failed or canceled, rerun
       let isDone = true;
       if (
-        result.status == "failed" ||
-        result.status == "canceled" ||
-        (result.status == "succeeded" && !result.output)
+        result.status === "failed" ||
+        result.status === "canceled" ||
+        (result.status === "succeeded" && !result.output)
       ) {
         await updateAvatar(client, user);
       } else if (result.status == "succeeded" && result.output?.[0]) {
-        url = await uploadAvatar(result.output[0], result.id);
+        url = await copyImageToStorage(result.output[0], result.id);
         if (url) {
           await client
             .update(userData)

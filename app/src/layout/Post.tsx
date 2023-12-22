@@ -13,6 +13,7 @@ export interface PostProps {
     role: string;
     federalStatus: string;
   };
+  className?: string;
   image?: React.ReactNode;
   title?: string;
   color?: "default" | "green" | "red" | "blue";
@@ -72,7 +73,9 @@ const Post: React.FC<PostProps> = (props) => {
     <div
       className={`mb-3 flex flex-row ${
         props.align_middle ? "items-center" : ""
-      } rounded-lg border ${color} p-6 shadow ${props.hover_effect ? hover : ""}`}
+      } rounded-lg border ${color} p-6 shadow ${props.hover_effect ? hover : ""} ${
+        props.className ? props.className : ""
+      }`}
     >
       {props.image}
       {props.user && (

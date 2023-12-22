@@ -435,6 +435,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         cancelAnimationFrame(animationId);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battleId]);
 
   // Derived variables

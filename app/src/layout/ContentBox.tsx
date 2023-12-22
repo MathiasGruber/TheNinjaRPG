@@ -11,6 +11,7 @@ interface ContentBoxProps {
   topRightContent?: React.ReactNode;
   padding?: boolean;
   initialBreak?: boolean;
+  noRightAlign?: boolean;
 }
 
 const ContentBox: React.FC<ContentBoxProps> = (props) => {
@@ -42,8 +43,10 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
 
             {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
           </div>
-          <div className="grow"></div>
-          <div>{props.topRightContent}</div>
+          {!props.noRightAlign && <div className="grow"></div>}
+          <div className={props.noRightAlign ? "grow" : ""}>
+            {props.topRightContent}
+          </div>
         </div>
 
         <div

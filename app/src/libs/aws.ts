@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
  * Uploads a given remote image URL to S3 under a given key
  * @param url - URL of image to upload to S3
  */
-export const uploadAvatar = async (url: string, key: string) => {
+export const copyImageToStorage = async (url: string, key: string) => {
   // Get image from AI service (will expire within 1 hour)
   const res = await fetch(url);
   const blob = await res.arrayBuffer();

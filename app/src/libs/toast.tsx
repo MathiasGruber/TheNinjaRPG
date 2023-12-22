@@ -55,7 +55,7 @@ export const show_toast = (
   const msg = ({}) => (
     <div>
       <p className="font-bold">{title}</p>
-      <p>{message}</p>
+      <div>{message}</div>
     </div>
   );
   // Show different types

@@ -21,8 +21,11 @@ import {
   jutsu,
   actionLog,
   notification,
+  questHistory,
 } from "@/drizzle/schema";
 import { usernameSchema } from "@/validators/register";
+import { insertNextQuest } from "@/routers/quests";
+import { getNewTrackers } from "@/libs/quest";
 import { mutateContentSchema } from "@/validators/comments";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -39,9 +42,9 @@ import { statSchema } from "../../../libs/combat/types";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
-import type { UserData } from "@/drizzle/schema";
+import type { UserData, Bloodline, Village } from "@/drizzle/schema";
+import type { QuestHistory, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
-import type { inferRouterOutputs } from "@trpc/server";
 import type { NavBarDropdownLink } from "../../../libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
 
@@ -50,7 +53,7 @@ export const profileRouter = createTRPCRouter({
   getAllAiNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userData.findMany({
       where: eq(userData.isAi, 1),
-      columns: { userId: true, username: true, level: true },
+      columns: { userId: true, username: true, level: true, avatar: true },
     });
   }),
   // Start training of a specific attribute
@@ -113,11 +116,17 @@ export const profileRouter = createTRPCRouter({
       if (!user.trainingStartedAt || !user.currentlyTraining) {
         return { success: false, message: "You are not currently training anything" };
       }
-      const secondsPassed = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
+      const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
+      const minutes = seconds / 60;
       const trainingAmount = Math.min(
-        Math.floor(ENERGY_SPENT_PER_SECOND * secondsPassed),
+        Math.floor(ENERGY_SPENT_PER_SECOND * seconds),
         user.curEnergy
       );
+      const { trackers } = getNewTrackers(user, [
+        { task: "stats_trained", increment: trainingAmount },
+        { task: "minutes_training", increment: minutes },
+      ]);
+      user.questData = trackers;
       const result = await ctx.drizzle
         .update(userData)
         .set({
@@ -173,6 +182,7 @@ export const profileRouter = createTRPCRouter({
             user.currentlyTraining === "bukijutsuOffence"
               ? sql`bukijutsuOffence + ${trainingAmount}`
               : sql`bukijutsuOffence`,
+          questData: user.questData,
         })
         .where(
           and(
@@ -192,12 +202,21 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update user with new level
   levelUp: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    const user = await fetchRegeneratedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+    });
+    if (!user) {
+      throw serverError("NOT_FOUND", "User not found");
+    }
     const expRequired = calcLevelRequirements(user.level) - user.experience;
     if (expRequired > 0) {
       throw serverError("PRECONDITION_FAILED", "Not enough experience to level up");
     }
     const newLevel = user.level + 1;
+    const { trackers } = getNewTrackers(user, [
+      { task: "user_level", value: newLevel },
+    ]);
     const result = await ctx.drizzle
       .update(userData)
       .set({
@@ -205,6 +224,7 @@ export const profileRouter = createTRPCRouter({
         maxHealth: calcHP(newLevel),
         maxStamina: calcSP(newLevel),
         maxChakra: calcCP(newLevel),
+        questData: trackers,
       })
       .where(and(eq(userData.userId, ctx.userId), eq(userData.level, user.level)));
     return result.rowsAffected === 0 ? user.level : newLevel;
@@ -216,6 +236,7 @@ export const profileRouter = createTRPCRouter({
       const user = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
+        // forceRegen: true, // This should be disabled in prod to save on DB calls
       });
       const notifications: NavBarDropdownLink[] = [];
       if (user) {
@@ -385,7 +406,7 @@ export const profileRouter = createTRPCRouter({
         input.data.jutsus = [];
 
         // Update input data based on level
-        const newAi = { ...ai, ...input.data };
+        const newAi = { ...ai, ...input.data } as UserData;
 
         // Level-based stats / pools
         scaleUserStats(newAi);
@@ -832,10 +853,20 @@ export const fetchRegeneratedUser = async (props: {
   const { client, userId, userIp, forceRegen } = props;
 
   // Ensure we can fetch the user
-  const user = await client.query.userData.findFirst({
+  const user = (await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
-    with: { bloodline: true, village: true },
-  });
+    with: {
+      bloodline: true,
+      village: true,
+      userQuests: {
+        where: and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+        with: {
+          quest: true,
+        },
+        orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
+      },
+    },
+  })) as UserWithRelations;
 
   // Add bloodline regen to regeneration
   // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
@@ -857,6 +888,33 @@ export const fetchRegeneratedUser = async (props: {
       }
       user.updatedAt = new Date();
       user.regenAt = new Date();
+      // Ensure that we have a tier quest
+      let questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
+      if (!questTier) {
+        questTier = await insertNextQuest(client, user, "tier");
+        if (questTier) {
+          user.userQuests.push(questTier);
+        }
+      }
+      // Ensure that we have an exam quest
+      let questExam = user.userQuests?.find((q) => q.quest.questType === "exam");
+      if (!questExam) {
+        questExam = await insertNextQuest(client, user, "exam");
+        if (questExam) {
+          user.userQuests.push(questExam);
+        }
+      }
+      // Update the quest tracking data for the user
+      const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+      user.questData = trackers;
+      if (user.joinedVillageAt) {
+        const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
+        const { trackers } = getNewTrackers(user, [
+          { task: "days_in_village", increment: days },
+        ]);
+        user.questData = trackers;
+      }
+      // Update database
       await client
         .update(userData)
         .set({
@@ -866,10 +924,15 @@ export const fetchRegeneratedUser = async (props: {
           curEnergy: user.curEnergy,
           updatedAt: user.updatedAt,
           regenAt: user.regenAt,
+          questData: user.questData,
           ...(userIp ? { lastIp: userIp } : {}),
         })
         .where(eq(userData.userId, userId));
     }
+  }
+  if (user) {
+    const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+    user.questData = trackers;
   }
   return user;
 };
@@ -880,5 +943,10 @@ export const fetchAttributes = async (client: DrizzleClient, userId: string) => 
   });
 };
 
-type RouterOutput = inferRouterOutputs<typeof profileRouter>;
-export type UserWithRelations = RouterOutput["getUser"]["userData"];
+export type UserWithRelations =
+  | (UserData & {
+      bloodline?: Bloodline;
+      village?: Village;
+      userQuests: (QuestHistory & { quest: Quest })[];
+    })
+  | undefined;

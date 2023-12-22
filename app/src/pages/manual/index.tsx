@@ -17,6 +17,7 @@ const ManualMain: NextPage = () => {
           "jutsus",
           "items",
           "ai",
+          "quests",
           "logs",
           "damage_calcs",
         ].map((page) => (

@@ -1,24 +1,30 @@
 import { StatType, GeneralType } from "./combat/constants";
 import { tagTypes } from "./combat/types";
 import { LetterRanks } from "../../drizzle/constants";
+import type { LetterRank } from "../../drizzle/constants";
 import type { Jutsu, JutsuRank } from "../../drizzle/schema";
 import type { UserData, UserRank, FederalStatus } from "../../drizzle/schema";
 
 export const ENERGY_SPENT_PER_SECOND = 0.1;
 
-const sufficientJutsuRank = (rank: JutsuRank, userrank: UserRank) => {
+export const availableRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
     case "STUDENT":
-      return rank === "D";
+      return ["D"];
     case "GENIN":
-      return "DC".includes(rank);
+      return ["D", "C"];
     case "CHUNIN":
-      return "DCB".includes(rank);
+      return ["D", "C", "B"];
     case "JONIN":
-      return "DCBA".includes(rank);
+      return ["D", "C", "B", "A"];
     case "COMMANDER":
-      return "DCBAS".includes(rank);
+      return ["D", "C", "B", "A", "S"];
   }
+  return [];
+};
+
+const sufficientJutsuRank = (rank: JutsuRank, userrank: UserRank) => {
+  return availableRanks(userrank).includes(rank);
 };
 
 export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {

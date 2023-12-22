@@ -5,7 +5,7 @@ import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { DamageTag } from "@/libs/combat/types";
 import { EditContent } from "@/layout/EditContent";
-import { TagFormWrapper } from "@/layout/EditContent";
+import { EffectFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -61,6 +61,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     bloodline,
     effects,
     form: {
+      getValues,
       setValue,
       register,
       formState: { isDirty, errors },
@@ -87,6 +88,9 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     />
   );
 
+  // Get current form values
+  const currentValues = getValues();
+
   // Show panel controls
   return (
     <>
@@ -99,6 +103,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
         {!loading && bloodline && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
+              currentValues={currentValues}
               schema={BloodlineValidator}
               showSubmit={isDirty}
               buttonTxt="Save to Database"
@@ -106,6 +111,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              type="bloodline"
               allowImageUpload={true}
               onAccept={handleBloodlineSubmit}
             />
@@ -144,7 +150,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             }
           >
             <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <TagFormWrapper
+              <EffectFormWrapper
                 idx={i}
                 tag={tag}
                 availableTags={bloodlineTypes}

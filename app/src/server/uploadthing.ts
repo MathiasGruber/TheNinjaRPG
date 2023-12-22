@@ -6,12 +6,22 @@ import type { FileRouter } from "uploadthing/next-legacy";
 import type { NextApiRequest } from "next";
 import type { FederalStatuses } from "../../drizzle/constants";
 
-const f = createUploadthing();
+const f = createUploadthing({
+  errorFormatter: (err) => {
+    console.log("error", err);
+    console.log("cause", err.cause);
+    return {
+      message: err.message,
+    };
+  },
+});
 
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req))
-    .onUploadComplete(() => {}),
+    .onUploadComplete(({ file }) => {
+      return { fileUrl: file.url };
+    }),
   avatarNormalUploader: f({ image: { maxFileSize: "128KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {

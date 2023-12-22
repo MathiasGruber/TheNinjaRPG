@@ -54,8 +54,6 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
     resolver: zodResolver(BloodlineValidator),
   });
 
-  console.log("isDirty", form.formState.isDirty, form.formState.dirtyFields);
-
   // Query for bloodlines and villages
   const { data: villages, isLoading: l1 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
@@ -77,7 +75,6 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
     (data: ZodBloodlineType) => {
       const newBloodline = { ...bloodline, ...data };
       const diff = new HumanDiff({}).diff(bloodline, newBloodline);
-      console.log("WHAT", diff);
       if (diff.length > 0) {
         updateBloodline({ id: bloodline.id, data: newBloodline });
       }
@@ -90,7 +87,6 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
 
   // Handle updating of effects
   const setEffects = (newEffects: ZodBloodlineTags[]) => {
-    console.log("SETTING EFFECTS");
     form.setValue("effects", newEffects, { shouldDirty: true });
   };
 

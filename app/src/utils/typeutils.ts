@@ -25,3 +25,16 @@ export const setNullsToEmptyStrings = (obj: { [key: string]: any } | undefined) 
     }
   }
 };
+
+/**
+ * Reset all fields on an object that are null to empty strings. Convenient
+ * for forms, where null does not exist, but needs to be empty strings instead
+ */
+export const setEmptyStringsToNulls = (obj: { [key: string]: any } | undefined) => {
+  if (obj) {
+    let k: keyof typeof obj;
+    for (k in obj) {
+      if (obj[k] === "") setValueOnObj(obj, k, null);
+    }
+  }
+};

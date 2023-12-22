@@ -56,6 +56,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
     loading,
     processedUser,
     form: {
+      getValues,
       setValue,
       register,
       formState: { isDirty, errors },
@@ -63,6 +64,9 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
     formData,
     handleUserSubmit,
   } = useAiEditForm(props.user, props.refetch);
+
+  // Get current form values
+  const currentValues = getValues();
 
   // Show panel controls
   return (
@@ -76,6 +80,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
         {!loading && processedUser && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
+              currentValues={currentValues}
               schema={insertUserDataSchema}
               showSubmit={isDirty}
               buttonTxt="Save to Database"
@@ -83,6 +88,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              type="ai"
               allowImageUpload={true}
               onAccept={handleUserSubmit}
             />

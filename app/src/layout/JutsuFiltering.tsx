@@ -21,7 +21,7 @@ interface JutsuFilteringProps {
 const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity, setAnimation } = props.state;
-  const { setFilter, setName, name, filter, rarity } = props.state;
+  const { setFilter, setName, filter, rarity } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines

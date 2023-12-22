@@ -18,6 +18,8 @@ import { logsRouter } from "./routers/logs";
 import { dataRouter } from "./routers/data";
 import { simulatorRouter } from "./routers/simulator";
 import { miscRouter } from "./routers/misc";
+import { questsRouter } from "./routers/quests";
+import { openaiRouter } from "./routers/openai";
 
 /**
  * This is the primary router for your server.
@@ -44,6 +46,8 @@ export const appRouter = createTRPCRouter({
   data: dataRouter,
   simulator: simulatorRouter,
   misc: miscRouter,
+  quests: questsRouter,
+  openai: openaiRouter,
 });
 
 // export type definition of API

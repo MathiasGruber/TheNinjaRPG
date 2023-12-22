@@ -88,15 +88,14 @@ const ManualDamageSimulator: NextPage = () => {
   const actValues = actForm.watch();
 
   // Query for fetching previous entries
-  const { data, isLoading, refetch } = api.simulator.getDamageSimulations.useQuery(
-    undefined,
-    { enabled: !!userData, staleTime: Infinity }
+  const { data, refetch } = api.simulator.getDamageSimulations.useQuery(undefined, {
+    enabled: !!userData,
+    staleTime: Infinity,
+  });
+  const { data: previous } = api.simulator.getDamageSimulation.useQuery(
+    { id: damageSimulationId ? damageSimulationId : "" },
+    { enabled: !!damageSimulationId, staleTime: Infinity }
   );
-  const { data: previous, isLoading: isFetchingSingle } =
-    api.simulator.getDamageSimulation.useQuery(
-      { id: damageSimulationId ? damageSimulationId : "" },
-      { enabled: !!damageSimulationId, staleTime: Infinity }
-    );
 
   // Mutation for creating new entry
   const { mutate: saveEntry, isLoading: isSaving } =
@@ -126,7 +125,9 @@ const ManualDamageSimulator: NextPage = () => {
     });
 
   // Total mutation loading state
+  // TODO: USE THIS FOR UX
   const isMutating = isSaving || isUpdating || isDeleting;
+  console.log(isMutating);
 
   // Calculate experience from stats
   const calcExperience = (values: StatSchema) => {
@@ -221,16 +222,19 @@ const ManualDamageSimulator: NextPage = () => {
         myChart.destroy();
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   // Handle updating current form values whenever retrieve entry changes
   useEffect(() => {
     if (previous?.state) activateEntry(previous);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previous]);
 
   // Handle updating damage whenever form changes
   useEffect(() => {
     setSelectedDmg(getDamage(attValues, defValues, actValues));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attValues, defValues, actValues]);
 
   // Handle simulation

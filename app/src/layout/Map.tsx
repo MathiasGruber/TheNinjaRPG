@@ -298,6 +298,7 @@ const Map: React.FC<MapProps> = (props) => {
         cancelAnimationFrame(animationId);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.highlights, props.intersection]);
 
   return (

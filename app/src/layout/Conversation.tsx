@@ -92,6 +92,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         pusher.unsubscribe(conversation.id);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation]);
 
   const handleSubmitComment = handleSubmit(

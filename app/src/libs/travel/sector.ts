@@ -21,14 +21,75 @@ import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
 import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
+import { getActiveObjectives } from "@/libs/quest";
+import { LocationTasks } from "@/validators/objectives";
+import type { ComplexObjectiveFields } from "@/validators/objectives";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "../../../drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
-import type { SectorUser, GlobalTile } from "./types";
+import type { SectorUser, SectorPoint, GlobalTile } from "./types";
+
+export const drawQuest = (info: {
+  group_quest: Group;
+  grid: Grid<TerrainHex>;
+  user: NonNullable<UserWithRelations>;
+}) => {
+  const { user, grid, group_quest } = info;
+  const activeObjectives = getActiveObjectives(user);
+  activeObjectives
+    .filter((o) => LocationTasks.find((t) => t === o.task))
+    .map((objective) => {
+      if (!("image" in objective) || !objective.image) return null;
+      const { latitude: y, longitude: x } = objective as ComplexObjectiveFields;
+      const hex = findHex(grid, { x, y });
+      if (!hex) return null;
+      const { height: h, width: w } = hex;
+      let mesh = group_quest.getObjectByName(objective.id);
+      if (!mesh) {
+        mesh = new Group();
+        mesh.name = objective.id;
+        // Marker
+        const marker = loadTexture("map/userMarker.webp");
+        const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
+        const markerSprite = new Sprite(markerMat);
+        markerSprite.userData.type = "marker";
+        if (objective.task === "move_to_location") {
+          markerSprite.material.color.setHex(0xf4e365);
+        } else if (objective.task === "collect_item") {
+          markerSprite.material.color.setHex(0x6666a3);
+        } else if (objective.task === "defeat_opponents") {
+          markerSprite.material.color.setHex(0x9c273a);
+        }
+        Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 1));
+        Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
+        mesh.add(markerSprite);
+        // White background for items
+        const alphaMap = loadTexture("map/userSpriteMask.webp");
+        const alphaMaterial = new SpriteMaterial({ map: alphaMap, alphaMap: alphaMap });
+        const alphaSprite = new Sprite(alphaMaterial);
+        alphaSprite.material.color.setHex(0xd3d9ea);
+        Object.assign(alphaSprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
+        Object.assign(alphaSprite.position, new Vector3(w / 2, h * 1.0, -6));
+        mesh.add(alphaSprite);
+        // Image Sprite
+        const map = loadTexture(objective.image ? `${objective.image}?1=1` : "");
+        map.generateMipmaps = false;
+        map.minFilter = LinearFilter;
+        const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
+        const sprite = new Sprite(material);
+        Object.assign(sprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
+        Object.assign(sprite.position, new Vector3(w / 2, h * 1.0, -6));
+        mesh.add(sprite);
+        group_quest.add(mesh);
+      }
+      mesh.position.set(-hex.center.x, -hex.center.y, 0);
+    });
+};
 
 /**
  * Creates heaxognal grid & draw it using js. Return groups of objects drawn
  */
-export const drawSectorBasics = (
+export const drawSector = (
   width: number,
   prng: () => number,
   hasVillage: boolean,
@@ -425,6 +486,7 @@ export const intersectTiles = (info: {
   pathFinder: PathCalculator;
   origin: TerrainHex;
   currentHighlights: Set<string>;
+  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }) => {
   const { group_tiles, raycaster, origin, pathFinder, currentHighlights } = info;
   const intersects = raycaster.intersectObjects(group_tiles.children);
@@ -434,6 +496,8 @@ export const intersectTiles = (info: {
     // Fetch the shortest path on the map using A*
     const target = intersected.userData.tile;
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
+    // Update hover position
+    info.setHoverPosition({ x: target.col, y: target.row });
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(

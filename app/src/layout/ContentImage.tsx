@@ -5,7 +5,7 @@ import { ItemRarities } from "../../drizzle/constants";
 import type { ItemRarity } from "../../drizzle/schema";
 
 interface ContentImageProps {
-  image?: string;
+  image?: string | null;
   alt: string;
   rarity?: ItemRarity;
   className: string;

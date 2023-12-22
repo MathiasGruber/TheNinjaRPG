@@ -3,7 +3,7 @@ import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { EditContent } from "@/layout/EditContent";
-import { TagFormWrapper } from "@/layout/EditContent";
+import { EffectFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
 import { api } from "@/utils/api";
@@ -62,6 +62,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     jutsu,
     effects,
     form: {
+      getValues,
       setValue,
       register,
       formState: { isDirty, errors },
@@ -88,6 +89,9 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     />
   );
 
+  // Get current form values
+  const currentValues = getValues();
+
   // Show panel controls
   return (
     <>
@@ -100,6 +104,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
         {!loading && jutsu && (
           <div className="grid grid-cols-1 md:grid-cols-2 items-center">
             <EditContent
+              currentValues={currentValues}
               schema={JutsuValidator._def.schema}
               showSubmit={isDirty}
               buttonTxt="Save to Database"
@@ -107,6 +112,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
               register={register}
               errors={errors}
               formData={formData}
+              type="jutsu"
               allowImageUpload={true}
               onAccept={handleJutsuSubmit}
             />
@@ -145,7 +151,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             }
           >
             <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <TagFormWrapper
+              <EffectFormWrapper
                 idx={i}
                 tag={tag}
                 availableTags={tagTypes}
