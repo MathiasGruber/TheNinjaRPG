@@ -19,6 +19,7 @@ const client = new OpenAI({
 type ReturnQuest = {
   title?: string;
   description?: string;
+  successDescription?: string;
   objectives?: string[];
 };
 
