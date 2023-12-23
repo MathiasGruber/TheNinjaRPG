@@ -6,10 +6,10 @@ export const COMBAT_LOBBY_SECONDS = 20;
 export const ATK_SCALING = 0.5;
 export const DEF_SCALING = 0.5;
 export const EXP_SCALING = 0.5;
-export const DMG_SCALING = 0.3;
+export const DMG_SCALING = 0.1;
 export const GEN_SCALING = 0.3;
 export const POWER_SCALING = 0.05;
-export const DMG_BASE = 10;
+export const DMG_BASE = 30;
 
 /**
  * Which user state is public
