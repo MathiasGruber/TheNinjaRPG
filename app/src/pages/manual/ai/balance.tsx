@@ -10,7 +10,7 @@ import type { NextPage } from "next";
 
 const ManualAIs: NextPage = () => {
   // State
-  const [filter, setFilter] = useState<typeof BattleTypes[number]>("COMBAT");
+  const [filter, setFilter] = useState<typeof BattleTypes[number]>("ARENA");
 
   // Reference for the chart
   const chartRef = useRef<HTMLCanvasElement>(null);
