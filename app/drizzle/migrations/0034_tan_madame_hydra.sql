@@ -3,7 +3,9 @@ CREATE TABLE `GameTimers` (
 	`name` varchar(191) NOT NULL,
 	`time` datetime(3) NOT NULL,
 	CONSTRAINT `GameTimers_id` PRIMARY KEY(`id`)
-);
+) ENGINE InnoDB,
+  CHARSET utf8mb4,
+  COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `Quest` (
 	`id` varchar(191) NOT NULL,
@@ -24,7 +26,9 @@ CREATE TABLE `Quest` (
 	CONSTRAINT `Quest_id` PRIMARY KEY(`id`),
 	CONSTRAINT `tierLevel` UNIQUE(`tierLevel`),
 	CONSTRAINT `Quest_id` UNIQUE(`id`)
-);
+) ENGINE InnoDB,
+  CHARSET utf8mb4,
+  COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `QuestHistory` (
 	`id` varchar(191) NOT NULL,
@@ -35,7 +39,9 @@ CREATE TABLE `QuestHistory` (
 	`endedAt` datetime(3),
 	`completed` tinyint NOT NULL DEFAULT 0,
 	CONSTRAINT `QuestHistory_id` PRIMARY KEY(`id`)
-);
+) ENGINE InnoDB,
+  CHARSET utf8mb4,
+  COLLATE utf8mb4_unicode_ci;
 
 ALTER TABLE `UserData` ADD `joinedVillageAt` datetime(3) DEFAULT (CURRENT_TIMESTAMP(3)) NOT NULL;
 ALTER TABLE `UserData` ADD `questData` json;
