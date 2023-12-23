@@ -28,7 +28,7 @@
     "@pusher/push-notifications-server": "^1.2.6",
     "@pusher/push-notifications-web": "^1.1.0",
     "@tanstack/react-query": "4.28.0",
-    "@tinymce/tinymce-react": "4.3.0",
+    "@tinymce/tinymce-react": "4.3.2",
     "@trpc/client": "10.38.4",
     "@trpc/next": "10.38.4",
     "@trpc/react-query": "10.38.4",
@@ -68,7 +68,7 @@
     "simplex-noise": "4.0.1",
     "superjson": "1.13.1",
     "three": "0.157.0",
-    "tinymce": "^6.7.1",
+    "tinymce": "^6.8.2",
     "zod": "3.22.4"
   },
   "devDependencies": {

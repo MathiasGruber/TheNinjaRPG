@@ -48,8 +48,8 @@ dependencies:
     specifier: 4.28.0
     version: 4.28.0(react-dom@18.2.0)(react@18.2.0)
   '@tinymce/tinymce-react':
-    specifier: 4.3.0
-    version: 4.3.0(react-dom@18.2.0)(react@18.2.0)
+    specifier: 4.3.2
+    version: 4.3.2(react-dom@18.2.0)(react@18.2.0)
   '@trpc/client':
     specifier: 10.38.4
     version: 10.38.4(@trpc/server@10.38.4)
@@ -165,8 +165,8 @@ dependencies:
     specifier: 0.157.0
     version: 0.157.0
   tinymce:
-    specifier: ^6.7.1
-    version: 6.7.1
+    specifier: ^6.8.2
+    version: 6.8.2
   uploadthing:
     specifier: 6.0.4
     version: 6.0.4
@@ -3229,8 +3229,8 @@ packages:
       use-sync-external-store: 1.2.0(react@18.2.0)
     dev: false
 
-  /@tinymce/tinymce-react@4.3.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-iB4cUsYfcJL4NGuKhqCGYuTmFTje3nPxyPv1HxprTsp/YMGuuiiSNWrv3zwI31QX5Cn8qeq9MrMDnbxuRugHyg==}
+  /@tinymce/tinymce-react@4.3.2(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-wJHZhPf2Mk3yTtdVC/uIGh+kvDgKuTw/qV13uzdChTNo68JI1l7jYMrSQOpyimDyn5LHAw0E1zFByrm1WHAVeA==}
     peerDependencies:
       react: ^18.0.0 || ^17.0.1 || ^16.7.0
       react-dom: ^18.0.0 || ^17.0.1 || ^16.7.0
@@ -3238,7 +3238,7 @@ packages:
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
-      tinymce: 6.7.1
+      tinymce: 6.8.2
     dev: false
 
   /@trpc/client@10.38.4(@trpc/server@10.38.4):
@@ -7624,8 +7624,8 @@ packages:
       next-tick: 1.1.0
     dev: true
 
-  /tinymce@6.7.1:
-    resolution: {integrity: sha512-SIGJgWk2d/X59VbO+i81QfNx2EP1P5t+sza2/1So3OLGtmMBhEJMag7sN/Mo8sq4s0niwb65Z51yLju32jP11g==}
+  /tinymce@6.8.2:
+    resolution: {integrity: sha512-Lho79o2Y1Yn+XdlTEkHTEkEmzwYWTXz7IUsvPwxJF3VTtgHUIAAuBab29kik+f2KED3rZvQavr9D7sHVMJ9x4A==}
     dev: false
 
   /titleize@2.1.0:
