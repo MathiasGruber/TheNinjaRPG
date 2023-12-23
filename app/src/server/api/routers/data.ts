@@ -36,7 +36,7 @@ export const dataRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const usage = await ctx.drizzle
         .select({
-          name: userData.username,
+          name: sql`CONCAT(${userData.username}, ' - lvl', ${userData.level})`,
           battleWon: dataBattleAction.battleWon,
           count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
         })
