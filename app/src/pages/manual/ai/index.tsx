@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
+import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
+import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
@@ -84,7 +86,20 @@ const ManualAI: NextPage = () => {
 
   return (
     <>
-      <ContentBox title="AI" subtitle="NPC Opponents" back_href="/manual">
+      <ContentBox
+        title="AI"
+        subtitle="NPC Opponents"
+        back_href="/manual"
+        topRightContent={
+          <Link href="/manual/ai/balance">
+            <Button
+              id="jutsu-statistics"
+              label="Balance Statistics"
+              image={<PresentationChartBarIcon className="mr-2 h-6 w-6" />}
+            />
+          </Link>
+        }
+      >
         <p>
           As you progress through the game, the AI opponents will grow more formidable,
           pushing you to continuously improve your ninja abilities and develop new

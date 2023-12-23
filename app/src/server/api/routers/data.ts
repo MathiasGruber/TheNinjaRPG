@@ -31,6 +31,31 @@ export const dataRouter = createTRPCRouter({
         );
       return usage;
     }),
+  getAiBalanceStatistics: publicProcedure
+    .input(z.object({ battleType: z.enum(BattleTypes) }))
+    .query(async ({ ctx, input }) => {
+      const usage = await ctx.drizzle
+        .select({
+          name: userData.username,
+          battleWon: dataBattleAction.battleWon,
+          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+        })
+        .from(dataBattleAction)
+        .leftJoin(userData, eq(dataBattleAction.contentId, userData.userId))
+        .groupBy(
+          userData.userId,
+          dataBattleAction.battleWon,
+          dataBattleAction.battleType
+        )
+        .where(
+          and(
+            eq(dataBattleAction.type, "ai"),
+            isNotNull(userData.userId),
+            eq(dataBattleAction.battleType, input.battleType)
+          )
+        );
+      return usage;
+    }),
   getStatistics: publicProcedure
     .input(
       z.object({
