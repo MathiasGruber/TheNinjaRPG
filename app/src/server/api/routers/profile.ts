@@ -53,7 +53,13 @@ export const profileRouter = createTRPCRouter({
   getAllAiNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userData.findMany({
       where: eq(userData.isAi, 1),
-      columns: { userId: true, username: true, level: true, avatar: true },
+      columns: {
+        userId: true,
+        username: true,
+        level: true,
+        avatar: true,
+        isSummon: true,
+      },
     });
   }),
   // Start training of a specific attribute
@@ -333,6 +339,7 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
         with: { jutsus: true },
       });
+      console.log(user);
       if (!user) {
         throw serverError("NOT_FOUND", "AI not found");
       }
@@ -747,7 +754,8 @@ export const profileRouter = createTRPCRouter({
             ? [like(userData.username, `%${input.username}%`)]
             : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-          ...(input.isAi === 1 ? [eq(userData.isAi, 1)] : [eq(userData.approvedTos, 1)])
+          ...(input.isAi === 1 ? [eq(userData.isAi, 1)] : [eq(userData.isAi, 0)]),
+          eq(userData.isSummon, 0)
         ),
         columns: {
           userId: true,

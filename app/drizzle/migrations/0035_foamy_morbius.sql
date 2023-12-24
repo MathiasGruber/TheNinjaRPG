@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `isSummon` tinyint DEFAULT 0 NOT NULL;

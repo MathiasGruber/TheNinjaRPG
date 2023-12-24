@@ -756,6 +756,7 @@ export const userData = mysqlTable(
     role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: tinyint("isAI").default(0).notNull(),
+    isSummon: tinyint("isSummon").default(0).notNull(),
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
     eloPve: int("eloPve").default(1).notNull(),

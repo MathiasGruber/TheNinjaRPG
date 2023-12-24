@@ -246,7 +246,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               </div>
             )}
           </div>
-          {objectives && (
+          {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-orange-100 p-2`}>
               <p className="font-bold">Objectives</p>
               <div className="flex flex-row gap-3 p-2">

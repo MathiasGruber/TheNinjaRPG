@@ -28,6 +28,7 @@ const Users: NextPage = () => {
       limit: 30,
       orderBy: activeTab,
       username: searchTerm,
+      isAi: 0,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,

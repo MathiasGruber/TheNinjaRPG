@@ -478,6 +478,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           id: value,
           label: "AI",
           values: aiData
+            .filter((ai) => ai.isSummon)
             .sort((a, b) => a.level - b.level)
             .map((ai) => ({
               id: ai.userId,

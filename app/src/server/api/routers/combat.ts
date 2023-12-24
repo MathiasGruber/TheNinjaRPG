@@ -324,7 +324,7 @@ export const combatRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       const ais = await ctx.drizzle.query.userData.findMany({
-        where: eq(userData.isAi, 1),
+        where: and(eq(userData.isAi, 1), eq(userData.isSummon, 0)),
         columns: {
           userId: true,
           level: true,

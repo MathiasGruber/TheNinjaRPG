@@ -86,6 +86,7 @@ export const useAiEditForm = (
     { id: "intelligence", label: "Intelligence Focus", type: "number" },
     { id: "willpower", label: "Willpower Focus", type: "number" },
     { id: "speed", label: "Speed Focus", type: "number" },
+    { id: "isSummon", type: "number" },
     {
       id: "jutsus",
       label: "Jutsus",
