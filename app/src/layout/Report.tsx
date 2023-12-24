@@ -12,6 +12,7 @@ import { userReportSchema } from "../validators/reports";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
+import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 interface ReportUserProps {
   button: React.ReactNode;
@@ -21,9 +22,9 @@ interface ReportUserProps {
     username: string;
     avatar: string | null;
     level: number;
-    rank: string;
-    role: string;
-    federalStatus: string;
+    rank: UserRank;
+    role: UserRole;
+    federalStatus: FederalStatus;
   };
   content: {
     id: string;
