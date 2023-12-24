@@ -31,6 +31,7 @@ export const ItemSlots = [
 ] as const;
 
 export const UserRoles = ["USER", "MODERATOR", "CONTENT", "EVENT", "ADMIN"] as const;
+export type UserRole = typeof UserRoles[number];
 
 export const UserStatuses = [
   "AWAKE",
@@ -41,6 +42,7 @@ export const UserStatuses = [
 ] as const;
 
 export const FederalStatuses = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
+export type FederalStatus = typeof FederalStatuses[number];
 
 export const UserRanks = [
   "STUDENT",
@@ -51,6 +53,7 @@ export const UserRanks = [
   "ELDER",
   "NONE",
 ] as const;
+export type UserRank = typeof UserRanks[number];
 
 export const ItemTypes = [
   "WEAPON",

@@ -2,6 +2,7 @@ import React from "react";
 import AvatarImage from "@/layout/Avatar";
 import Link from "next/link";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 export interface PostProps {
   user?: {
@@ -9,9 +10,9 @@ export interface PostProps {
     username: string;
     avatar: string | null;
     level: number;
-    rank: string;
-    role: string;
-    federalStatus: string;
+    rank: UserRank;
+    role: UserRole;
+    federalStatus: FederalStatus;
   };
   className?: string;
   image?: React.ReactNode;
@@ -62,6 +63,10 @@ const Post: React.FC<PostProps> = (props) => {
     case "MODERATOR":
       userColor =
         "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent font-black";
+      break;
+    case "CONTENT":
+      userColor =
+        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent font-black";
       break;
     case "ADMIN":
       userColor =
