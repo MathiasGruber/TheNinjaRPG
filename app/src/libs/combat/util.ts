@@ -583,7 +583,7 @@ export const processUsersForBattle = (
 
     // By default the ones inserted initially are original
     user.isOriginal = true;
-    user.isSummon = false;
+    user.isSummon = 0;
 
     // Set the history lists to record actions during battle
     user.usedGenerals = [];

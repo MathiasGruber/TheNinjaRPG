@@ -549,7 +549,7 @@ export const initiateBattle = async (
       });
       const { userEffects: summonEffects, usersState: summonState } =
         processUsersForBattle(summons as BattleUserState[], true);
-      summonState.map((u) => (u.isSummon = true));
+      summonState.map((u) => (u.isSummon = 1));
       userEffects.push(...summonEffects);
       usersState.push(...summonState);
     }

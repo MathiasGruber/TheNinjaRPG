@@ -329,7 +329,7 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
     // Place on battlefield
     newAi.userId = nanoid();
     effect.creatorId = newAi.userId;
-    newAi.isSummon = true;
+    newAi.isSummon = 1;
     newAi.username = `${user.username} clone`;
     newAi.controllerId = user.userId;
     newAi.isOriginal = false;
