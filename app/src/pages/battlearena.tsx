@@ -86,6 +86,7 @@ const Arena: NextPage = () => {
             <SelectField id="ai_id" onChange={(e) => setAiId(e.target.value)}>
               {aiData
                 ?.filter((ai) => !ai.isSummon)
+                .sort((a, b) => a.level - b.level)
                 .map((ai) => (
                   <option
                     key={ai.userId}
