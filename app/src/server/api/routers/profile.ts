@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
+import { eq, ne, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "@/utils/time";
 import { round } from "@/utils/math";
@@ -52,7 +52,7 @@ export const profileRouter = createTRPCRouter({
   // Get all AI names
   getAllAiNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userData.findMany({
-      where: eq(userData.isAi, 1),
+      where: and(eq(userData.isAi, 1), ne(userData.rank, "ELDER")),
       columns: {
         userId: true,
         username: true,
@@ -60,6 +60,7 @@ export const profileRouter = createTRPCRouter({
         avatar: true,
         isSummon: true,
       },
+      orderBy: asc(userData.level),
     });
   }),
   // Start training of a specific attribute
@@ -337,7 +338,7 @@ export const profileRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const user = await ctx.drizzle.query.userData.findFirst({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
-        with: { jutsus: true },
+        with: { jutsus: { with: { jutsu: true } } },
       });
       console.log(user);
       if (!user) {

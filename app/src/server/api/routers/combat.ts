@@ -316,19 +316,20 @@ export const combatRouter = createTRPCRouter({
       }
     }),
   startArenaBattle: protectedProcedure
+    .input(z.object({ aiId: z.string() }))
     .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
+    .mutation(async ({ ctx, input }) => {
       // Get information
       const user = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
-      const ais = await ctx.drizzle.query.userData.findMany({
-        where: and(eq(userData.isAi, 1), eq(userData.isSummon, 0)),
-        columns: {
-          userId: true,
-          level: true,
-        },
+      const selectedAI = await ctx.drizzle.query.userData.findFirst({
+        where: and(
+          eq(userData.userId, input.aiId),
+          eq(userData.isAi, 1),
+          eq(userData.isSummon, 0)
+        ),
       });
       // Check that user was found
       if (!user) {
@@ -344,11 +345,6 @@ export const combatRouter = createTRPCRouter({
           message: "Must be in your own village to go to arena",
         };
       }
-      // Find closest AI and attack it
-      const closestAIs = ais.sort((a, b) => {
-        return Math.abs(a.level - user.level) - Math.abs(b.level - user.level);
-      });
-      const selectedAI = closestAIs[0];
       // Determine battle background
       if (selectedAI) {
         return await initiateBattle(

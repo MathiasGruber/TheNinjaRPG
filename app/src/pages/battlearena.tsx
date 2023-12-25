@@ -1,4 +1,6 @@
-import type { NextPage } from "next";
+import { useState, useEffect } from "react";
+import SelectField from "@/layout/SelectField";
+import ItemWithEffects from "@/layout/ItemWithEffects";
 import { useSafePush } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
@@ -6,16 +8,29 @@ import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import type { GenericObject } from "@/layout/ItemWithEffects";
+import type { NextPage } from "next";
 
 const Arena: NextPage = () => {
   // Data from database
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const [aiId, setAiId] = useState<string | undefined>(undefined);
 
   // Ensure user is in village
   useRequireInVillage();
 
   // Router for forwarding
   const router = useSafePush();
+
+  // Queries
+  const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
+  const { data: ai } = api.profile.getAi.useQuery(
+    { userId: aiId ?? "" },
+    { staleTime: Infinity, enabled: !!aiId }
+  );
 
   // Mutation for starting a fight
   const { mutate: attack, isLoading: isAttacking } =
@@ -39,6 +54,19 @@ const Arena: NextPage = () => {
       },
     });
 
+  // Set initially selected AI
+  useEffect(() => {
+    if (!aiId && aiData && userData) {
+      const closestAIs = aiData.sort((a, b) => {
+        return Math.abs(a.level - userData.level) - Math.abs(b.level - userData.level);
+      });
+      const selectedAI = closestAIs[0];
+      if (selectedAI) {
+        setAiId(selectedAI.userId);
+      }
+    }
+  }, [aiData, aiId, userData]);
+
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
@@ -46,12 +74,51 @@ const Arena: NextPage = () => {
       The arena is a fairly basic circular and raw battleground, where you can train &
       test your skills as a ninja. Opponents are various creatures or ninja deemed to be
       at your level.
-      <h1
-        className="cursor-pointer pb-3 pt-5 text-center font-fontasia text-8xl hover:text-orange-800"
-        onClick={() => attack()}
-      >
-        Enter The Arena
-      </h1>
+      {!isAttacking && (
+        <>
+          <h1
+            className="cursor-pointer pb-3 pt-5 text-center font-fontasia text-8xl hover:text-orange-800"
+            onClick={() => ai && attack({ aiId: ai.userId })}
+          >
+            Enter The Arena
+          </h1>
+          <div className="rounded-2xl bg-slate-200 mt-3">
+            <SelectField id="ai_id" onChange={(e) => setAiId(e.target.value)}>
+              {aiData
+                ?.filter((ai) => !ai.isSummon)
+                .map((ai) => (
+                  <option
+                    key={ai.userId}
+                    value={ai.userId}
+                    selected={ai.userId === aiId}
+                  >
+                    {ai.username} (lvl {ai.level})
+                  </option>
+                ))}
+            </SelectField>
+            {ai && (
+              <ItemWithEffects
+                item={
+                  {
+                    id: ai.userId,
+                    name: ai.username,
+                    image: ai.avatar,
+                    description: "",
+                    rarity: "COMMON",
+                    effects: [],
+                    href: `/users/${ai.userId}`,
+                    attacks: ai.jutsus?.map((jutsu) =>
+                      "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown"
+                    ),
+                    ...ai,
+                  } as GenericObject
+                }
+                showStatistic="ai"
+              />
+            )}
+          </div>
+        </>
+      )}
       {isAttacking && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
           <div className="m-auto text-center text-white">
