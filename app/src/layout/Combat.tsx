@@ -447,6 +447,9 @@ const Combat: React.FC<CombatProps> = (props) => {
       : "Fled"
     : "Unknown";
   const showNextMatch = outcome === "Won" && battle.current?.battleType === "ARENA";
+  const arenaOpponentId = battle.current?.usersState.find(
+    (u) => u.userId !== suid && !u.isSummon && u.isAi
+  )?.userId;
   const initiveWinner = battle.current?.usersState.find(
     (u) => u.userId === battle.current?.activeUserId
   );
@@ -542,12 +545,12 @@ const Combat: React.FC<CombatProps> = (props) => {
                   label={`Return to ${result.curHealth <= 0 ? "Hospital" : "Profile"}`}
                 />
               </Link>
-              {showNextMatch && (
+              {showNextMatch && arenaOpponentId && (
                 <Button
                   className="basis-1/2"
                   id="return"
                   label={`Go Again`}
-                  onClick={() => startArenaBattle()}
+                  onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
                 />
               )}
             </div>
