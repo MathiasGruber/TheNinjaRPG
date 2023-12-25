@@ -135,6 +135,7 @@ const Travel: NextPage = () => {
     if (userData && currentSector && currentPosition) {
       getUserQuests(userData).forEach((quest) => {
         quest.content.objectives.forEach((objective) => {
+          // If an objective is a location objective, then check quest
           if (
             isLocationObjective(
               {
@@ -145,6 +146,9 @@ const Travel: NextPage = () => {
               objective
             )
           ) {
+            checkQuest();
+          } else if (objective.attackers.length > 0 && objective.attackers_chance > 0) {
+            // If an objective is an attacker objective, then check quest, which will also check for attacks
             checkQuest();
           }
         });

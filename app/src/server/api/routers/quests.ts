@@ -16,6 +16,7 @@ import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
 import { availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
+import { getActiveObjectives } from "@/libs/quest";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -279,7 +280,23 @@ export const questsRouter = createTRPCRouter({
       user.questData = trackers;
       // Items collected & opponents to attack
       const collected = consequences.filter((c) => c.type === "item");
-      const opponent = consequences.find((c) => c.type === "combat");
+      let opponent = consequences.find((c) => c.type === "combat");
+      // If no opponent set, check if any objectives have attackers set
+      const activeObjectives = getActiveObjectives(user);
+      if (!opponent) {
+        activeObjectives.forEach((objective) => {
+          if (objective.attackers.length > 0 && objective.attackers_chance > 0) {
+            const random = Math.random();
+            if (random * 100 < objective.attackers_chance) {
+              const idx = Math.floor(Math.random() * objective.attackers.length);
+              const randomOpponent = objective.attackers[idx] as string;
+              opponent = { type: "combat", id: randomOpponent };
+              notifications.push("You have been attacked!");
+            }
+          }
+          if (opponent) return;
+        });
+      }
       // Database updates
       if (notifications.length > 0) {
         await Promise.all([
