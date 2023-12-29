@@ -70,6 +70,16 @@ export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
   return getInfo(target, effect, `armor is ${adverb} by ${qualifier}`);
 };
 
+export const increaseArmor = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return adjustArmor(effect, target);
+};
+
+export const decreaseArmor = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return adjustArmor(effect, target);
+};
+
 /** Adjust stats of target based on effect */
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
@@ -205,6 +215,16 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
 };
 
+export const increaseStats = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return adjustStats(effect, target);
+};
+
+export const decreaseStats = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return adjustStats(effect, target);
+};
+
 /** Adjust damage given by target */
 export const adjustDamageGiven = (
   effect: UserEffect,
@@ -229,6 +249,26 @@ export const adjustDamageGiven = (
     });
   }
   return getInfo(target, effect, `damage given is ${adverb} by up to ${qualifier}`);
+};
+
+export const increaseDamageGiven = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return adjustDamageGiven(effect, usersEffects, consequences, target);
+};
+
+export const decreaseDamageGiven = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return adjustDamageGiven(effect, usersEffects, consequences, target);
 };
 
 /** Adjust damage taken by user */
@@ -257,6 +297,26 @@ export const adjustDamageTaken = (
   return getInfo(target, effect, `damage taken is ${adverb} by up to ${qualifier}`);
 };
 
+export const increaseDamageTaken = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return adjustDamageTaken(effect, usersEffects, consequences, target);
+};
+
+export const decreaseDamageTaken = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return adjustDamageTaken(effect, usersEffects, consequences, target);
+};
+
 /** Adjust ability to heal other of target */
 export const adjustHealGiven = (
   effect: UserEffect,
@@ -281,6 +341,26 @@ export const adjustHealGiven = (
     });
   }
   return getInfo(target, effect, `healing ability is ${adverb} by ${qualifier}`);
+};
+
+export const increaseHealGiven = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return adjustHealGiven(effect, usersEffects, consequences, target);
+};
+
+export const decreaseHealGiven = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
 export const clear = (
@@ -619,6 +699,16 @@ export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
       `${affected.join(", ")} cost is ${adverb} by ${qualifier}`
     );
   }
+};
+
+export const increasepoolcost = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power > 0 ? effect.power : -effect.power;
+  return pooladjust(effect, target);
+};
+
+export const decreasepoolcost = (effect: UserEffect, target: BattleUserState) => {
+  effect.power = effect.power < 0 ? effect.power : -effect.power;
+  return pooladjust(effect, target);
 };
 
 /** Reflect damage back to the opponent */

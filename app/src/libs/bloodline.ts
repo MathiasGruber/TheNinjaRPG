@@ -6,7 +6,7 @@ import { api } from "@/utils/api";
 import { show_toast, show_errors } from "@/libs/toast";
 import { LetterRanks } from "@/drizzle/constants";
 import type { Bloodline } from "@/drizzle/schema";
-import type { ZodBloodlineTags } from "@/libs/combat/types";
+import type { ZodBloodlineTags, ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
 import type { ZodBloodlineType } from "@/libs/combat/types";
 
@@ -85,9 +85,9 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   // Watch the effects
   const effects = form.watch("effects");
 
-  // Handle updating of effects
-  const setEffects = (newEffects: ZodBloodlineTags[]) => {
-    form.setValue("effects", newEffects, { shouldDirty: true });
+  // Handle updating of effects. This casting should be safe, and is a hack to make it work with MassEdit functionality types
+  const setEffects = (newEffects: ZodAllTags[] | ZodBloodlineTags[]) => {
+    form.setValue("effects", newEffects as ZodBloodlineTags[], { shouldDirty: true });
   };
 
   // Are we loading data

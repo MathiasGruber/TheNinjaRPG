@@ -33,11 +33,14 @@ export const bloodlineRouter = createTRPCRouter({
         limit: z.number().min(1).max(500),
         rank: z.enum(LetterRanks).optional(),
         showHidden: z.boolean().optional().nullable(),
-        effect: z.enum(effectFilters).optional(),
+        effect: z.string().optional(),
         stat: z.enum(statFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
+      if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
+        throw serverError("PRECONDITION_FAILED", `Invalid filter: ${input.effect}`);
+      }
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
@@ -117,16 +120,24 @@ export const bloodlineRouter = createTRPCRouter({
       const entry = await fetchBloodline(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
         // Calculate diff
+        const newData = {
+          ...input.data,
+          effects: input.data.effects.map((e) => {
+            delete e.rounds;
+            delete e.friendlyFire;
+            return e;
+          }),
+        };
         const diff = new HumanDiff({ objectName: "bloodline" }).diff(entry, {
           id: entry.id,
           updatedAt: entry.updatedAt,
           createdAt: entry.createdAt,
-          ...input.data,
+          ...newData,
         });
         // Update database
         await ctx.drizzle
           .update(bloodline)
-          .set(input.data)
+          .set(newData)
           .where(eq(bloodline.id, input.id));
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),

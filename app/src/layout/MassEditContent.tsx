@@ -36,9 +36,9 @@ interface MassEditContentProps {
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
   // For quests
-  const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
+  const [questType, setQuestType] = useState(QuestTypes[0] as QuestType);
   // For AI, item, jutsus
-  const [tagType, setTagType] = useState<EffectType>(effectFilters[0]);
+  const [tagType, setTagType] = useState(effectFilters[0] as EffectType);
   const [stat, setStat] = useState<StatType | undefined>(undefined);
 
   // Stat filter
@@ -369,6 +369,7 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
       {tag && (
         <EffectFormWrapper
           idx={idx}
+          type="jutsu"
           tag={tag}
           hideTagType={true}
           fixedWidths="basis-32"
@@ -430,13 +431,13 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
       {tag && (
         <EffectFormWrapper
           idx={idx}
+          type="bloodline"
           tag={tag}
           hideTagType={true}
           fixedWidths="basis-32"
           bgColor={bgColor}
           limitSelectHeight={true}
           availableTags={tagTypes}
-          hideRounds={true}
           effects={effects}
           setEffects={setEffects}
         />
@@ -492,6 +493,7 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
       {tag && (
         <EffectFormWrapper
           idx={idx}
+          type="item"
           tag={tag}
           hideTagType={true}
           fixedWidths="basis-32"

@@ -19,8 +19,8 @@ const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();
   const [, setState] = useState<number>(0);
 
-  /** Convenience method for showing effects based on stats */
-  const showStatAffects = (
+  /** Convenience methods for showing effects */
+  const showStat = (
     effect: UserEffect,
     qualifier: string,
     key: number,
@@ -55,6 +55,21 @@ const MenuBoxProfile: React.FC = () => {
       );
     }
     return <div key={key}></div>;
+  };
+
+  const show = (
+    i: number,
+    txt: string,
+    color: string,
+    qualifier: string | React.ReactNode
+  ) => {
+    return (
+      <li key={i} className={`${color}`}>
+        <div className="flex flex-row">
+          {qualifier} {txt}
+        </div>
+      </li>
+    );
   };
 
   if (!userData) {
@@ -187,9 +202,9 @@ const MenuBoxProfile: React.FC = () => {
                 .filter((e) => e.targetId === userData.userId)
                 .filter((e) => e.rounds === undefined || e.rounds > 0)
                 .map((effect, i) => {
-                  let cooldown = <></>;
+                  let cooldown = "";
                   if (effect.rounds && battle) {
-                    cooldown = <> [{effect.rounds} rounds]</>;
+                    cooldown = `[${effect.rounds} rounds]`;
                   }
                   const isSealed = sealEffects && sealCheck(effect, sealEffects);
                   const positive = effect.power && effect.power > 0;
@@ -202,87 +217,65 @@ const MenuBoxProfile: React.FC = () => {
                     className = positive ? "text-green-500" : "text-red-500";
                   }
                   if (effect.type === "statadjust") {
-                    return showStatAffects(effect, direction, i, className, arrow);
+                    return showStat(effect, direction, i, className, arrow);
+                  } else if (effect.type === "increasestat") {
+                    return showStat(effect, "increased", i, "text-green-500", "↑");
+                  } else if (effect.type === "decreasestat") {
+                    return showStat(effect, "decreased", i, "text-red-500", "↓");
                   } else if (effect.type === "damagegivenadjust") {
-                    return showStatAffects(effect, "damage", i, className, arrow);
+                    return showStat(effect, "damage", i, className, arrow);
+                  } else if (effect.type === "increasedamagegiven") {
+                    return showStat(effect, "damage", i, "text-green-500", "↑");
+                  } else if (effect.type === "decreasedamagegiven") {
+                    return showStat(effect, "damage", i, "text-red-500", "↓");
                   } else if (effect.type === "damagetakenadjust") {
-                    return showStatAffects(effect, "protection", i, className, arrow);
+                    return showStat(effect, "protection", i, className, arrow);
+                  } else if (effect.type === "increasedamagetaken") {
+                    return showStat(effect, "protection", i, "text-green-500", "↑");
+                  } else if (effect.type === "decreasedamagetaken") {
+                    return showStat(effect, "protection", i, "text-red-500", "↓");
                   } else if (effect.type === "healadjust") {
-                    return showStatAffects(effect, "healing", i, className, arrow);
+                    return showStat(effect, "healing", i, className, arrow);
+                  } else if (effect.type === "increaseheal") {
+                    return showStat(effect, "healing", i, "text-green-500", "↑");
+                  } else if (effect.type === "decreaseheal") {
+                    return showStat(effect, "healing", i, "text-red-500", "↓");
                   } else if (effect.type === "absorb") {
-                    return showStatAffects(effect, "absorb", i, className, arrow);
+                    return showStat(effect, "absorb", i, className, arrow);
                   } else if (effect.type === "reflect") {
-                    return showStatAffects(effect, "reflect", i, className, arrow);
+                    return showStat(effect, "reflect", i, className, arrow);
                   } else if (effect.type === "damage") {
-                    return (
-                      <li key={i} className={className}>
-                        <div className="flex flex-row">
-                          <HeartIcon className="h-6 w-6 mr-2" /> Dmg {cooldown}
-                        </div>
-                      </li>
-                    );
+                    const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                    return show(i, `Dmg ${cooldown}`, className, icon);
                   } else if (effect.type === "heal") {
-                    return (
-                      <li key={i} className={className}>
-                        <div className="flex flex-row">
-                          <HeartIcon className="h-6 w-6 mr-2" /> Heal {cooldown}
-                        </div>
-                      </li>
-                    );
+                    const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                    return show(i, `Heal ${cooldown}`, className, icon);
                   } else if (effect.type === "armoradjust") {
-                    return (
-                      <li key={i} className={className}>
-                        {arrow} Armor {cooldown}
-                      </li>
-                    );
+                    return show(i, `Armor ${cooldown}`, className, arrow);
+                  } else if (effect.type === "increasearmor") {
+                    return showStat(effect, "protection", i, "text-green-500", "↑");
+                  } else if (effect.type === "decreasearmor") {
+                    return showStat(effect, "protection", i, "text-red-500", "↓");
                   } else if (effect.type === "poolcostadjust") {
-                    return (
-                      <li key={i} className={className}>
-                        {arrow} Action cost {cooldown}
-                      </li>
-                    );
+                    return show(i, `Action cost ${cooldown}`, className, arrow);
+                  } else if (effect.type === "increasepoolcost") {
+                    return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
+                  } else if (effect.type === "decreasepoolcost") {
+                    return show(i, `Action cost ${cooldown}`, "text-green-500", "↓");
                   } else if (effect.type === "fleeprevent") {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Cannot flee {cooldown}
-                      </li>
-                    );
+                    return show(i, `Cannot flee ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "robprevent") {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Rob Immunity {cooldown}
-                      </li>
-                    );
+                    return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "stunprevent") {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Stun Resistance {cooldown}
-                      </li>
-                    );
+                    return show(i, `Stun Resistance ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "stun" && effect.rounds) {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Stunned {cooldown}
-                      </li>
-                    );
+                    return show(i, `Stunned ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "onehitkillprevent" && effect.rounds) {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - OHKO immunity {cooldown}
-                      </li>
-                    );
+                    return show(i, `OHKO immunity ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "sealprevent" && effect.rounds) {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Sealing immunity {cooldown}
-                      </li>
-                    );
+                    return show(i, `Seal immunity ${cooldown}`, "text-blue-500", "-");
                   } else if (effect.type === "seal" && effect.rounds) {
-                    return (
-                      <li key={i} className="text-blue-500">
-                        - Bloodline Sealed {cooldown}
-                      </li>
-                    );
+                    return show(i, `BL Sealed ${cooldown}`, "text-blue-500", "-");
                   } else {
                     return <div key={i}>Unparsed: {effect.type}</div>;
                   }

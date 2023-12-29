@@ -43,7 +43,7 @@ export const jutsuRouter = createTRPCRouter({
         rarity: z.enum(LetterRanks).optional(),
         bloodline: z.string().optional(),
         stat: z.enum(statFilters).optional(),
-        effect: z.enum(effectFilters).optional(),
+        effect: z.string().optional(),
         appear: z.enum(animationNames).optional(),
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
@@ -51,6 +51,9 @@ export const jutsuRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
+        throw serverError("PRECONDITION_FAILED", `Invalid filter: ${input.effect}`);
+      }
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.jutsu.findMany({

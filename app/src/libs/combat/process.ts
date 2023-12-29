@@ -6,7 +6,14 @@ import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, absorb, reflect } from "./tags";
 import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
-import { adjustHealGiven, adjustArmor, flee, fleePrevent } from "./tags";
+import { adjustArmor, adjustHealGiven } from "./tags";
+import { increaseStats, decreaseStats } from "./tags";
+import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
+import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
+import { increaseHealGiven, decreaseHealGiven } from "./tags";
+import { increaseArmor, decreaseArmor } from "./tags";
+import { increasepoolcost, decreasepoolcost } from "./tags";
+import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
 import { clear, summon, summonPrevent } from "./tags";
@@ -222,10 +229,18 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
             info = flee(e, newUsersEffects, newTarget);
           } else if (e.type === "poolcostadjust" && isTargetOrNew) {
             info = pooladjust(e, curTarget);
+          } else if (e.type === "increasepoolcost" && isTargetOrNew) {
+            info = increasepoolcost(e, curTarget);
+          } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
+            info = decreasepoolcost(e, curTarget);
           } else if (e.type === "clear" && isTargetOrNew) {
             info = clear(e, usersEffects, curTarget);
           } else if (e.type === "damagegivenadjust") {
             info = adjustDamageGiven(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "increasedamagegiven") {
+            info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "decreasedamagegiven") {
+            info = decreaseDamageGiven(e, usersEffects, consequences, curTarget);
           } else if (e.type === "onehitkill") {
             info = onehitkill(e, newUsersEffects, newTarget);
           } else if (e.type === "rob") {
@@ -242,12 +257,28 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           info = absorb(e, usersEffects, consequences, curTarget);
         } else if (e.type === "armoradjust") {
           info = adjustArmor(e, curTarget);
+        } else if (e.type === "increasearmor") {
+          info = increaseArmor(e, curTarget);
+        } else if (e.type === "decreasearmor") {
+          info = decreaseArmor(e, curTarget);
         } else if (e.type === "statadjust") {
           info = adjustStats(e, curTarget);
+        } else if (e.type === "increasestat") {
+          info = increaseStats(e, curTarget);
+        } else if (e.type === "decreasestat") {
+          info = decreaseStats(e, curTarget);
         } else if (e.type === "damagetakenadjust") {
           info = adjustDamageTaken(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "increasedamagetaken") {
+          info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "decreasedamagetaken") {
+          info = decreaseDamageTaken(e, usersEffects, consequences, curTarget);
         } else if (e.type === "healadjust") {
           info = adjustHealGiven(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "increaseheal") {
+          info = increaseHealGiven(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "decreaseheal") {
+          info = decreaseHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "reflect") {
           info = reflect(e, usersEffects, consequences, curTarget);
         } else if (e.type === "fleeprevent") {

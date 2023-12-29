@@ -8,10 +8,11 @@ import SelectField from "@/layout/SelectField";
 import AvatarImage from "@/layout/Avatar";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
+import { objectKeys } from "@/utils/typeutils";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { show_toast, show_errors } from "@/libs/toast";
+import { show_toast } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/utils/api";
 import { getObjectiveSchema } from "@/validators/objectives";
@@ -358,9 +359,9 @@ export const EditContent = <
 
 interface EffectFormWrapperProps {
   idx: number;
+  type: "jutsu" | "bloodline" | "item";
   availableTags: readonly string[];
   hideTagType?: boolean;
-  hideRounds?: boolean;
   limitSelectHeight?: boolean;
   tag: ZodAllTags;
   fixedWidths?: "basis-32";
@@ -418,6 +419,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         const tagSchema = getTagSchema(watchType);
         const parsedTag = tagSchema.safeParse({ type: watchType });
         const shownTag = parsedTag.success ? parsedTag.data : tag;
+        // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
+        objectKeys(shownTag).map((key) => {
+          if (key !== "type" && key in curTag) {
+            // @ts-ignore
+            shownTag[key] = curTag[key];
+          }
+        });
         newEffects[idx] = shownTag;
       }
       setEffects(newEffects);
@@ -440,14 +448,11 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   }, [isDirty]);
 
   // Form submission
-  const handleTagupdate = handleSubmit(
-    (data) => {
-      const newEffects = [...effects];
-      newEffects[idx] = data;
-      setEffects(newEffects);
-    },
-    (errors) => show_errors(errors)
-  );
+  const handleTagupdate = handleSubmit((data) => {
+    const newEffects = [...effects];
+    newEffects[idx] = data;
+    setEffects(newEffects);
+  });
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof typeof tag;
@@ -466,11 +471,12 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   };
 
   // Parse how to present the tag form
+  const ignore = ["timeTracker", "type"];
+  if (props.type === "bloodline") {
+    ignore.push(...["rounds", "friendlyFire"]);
+  }
   const formData: FormEntry<Attribute>[] = attributes
-    .filter(
-      (value) =>
-        !["timeTracker", "type", props.hideRounds ? "rounds" : ""].includes(value)
-    )
+    .filter((value) => !ignore.includes(value))
     .map((value) => {
       const innerType = getInner(tagSchema.shape[value]);
       if ((value as string) === "aiId" && aiData) {

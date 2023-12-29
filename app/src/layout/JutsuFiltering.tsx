@@ -163,13 +163,13 @@ export const getFilter = (state: JutsuFilteringState) => {
 /** State for the Jutsu Filtering component */
 export const useFiltering = () => {
   // State variables
-  const [filter, setFilter] = useState<FilterType>(mainFilters[0]);
   const [name, setName] = useState<string>("");
   const [bloodline, setBloodline] = useState<string | undefined>(undefined);
-  const [stat, setStat] = useState<StatType>(statFilters[0]);
-  const [animation, setAnimation] = useState<AnimationName>(animationNames[0]);
-  const [effect, setEffect] = useState<EffectType>(effectFilters[0]);
-  const [rarity, setRarity] = useState<RarityType>(rarities[0]);
+  const [filter, setFilter] = useState(mainFilters[0] as FilterType);
+  const [stat, setStat] = useState(statFilters[0] as StatType);
+  const [animation, setAnimation] = useState(animationNames[0] as AnimationName);
+  const [effect, setEffect] = useState(effectFilters[0] as EffectType);
+  const [rarity, setRarity] = useState(rarities[0] as RarityType);
   // Return all
   return {
     name,

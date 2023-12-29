@@ -12,6 +12,7 @@ import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
 import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
+import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle } from "../../../drizzle/schema";
 import type { Item, UserItem } from "../../../drizzle/schema";
@@ -78,14 +79,26 @@ export const shouldApplyEffectTimes = (
   targetId: string
 ) => {
   // Certain buff/debuffs are applied always (e.g. resolving against each attack)
-  const alwaysApply = [
+  const alwaysApply: ZodAllTags["type"][] = [
     "absorb",
     "armoradjust",
+    "increasearmor",
+    "decreasearmor",
     "damagegivenadjust",
+    "increasedamagegiven",
+    "decreasedamagegiven",
     "damagetakenadjust",
+    "increasedamagetaken",
+    "decreasedamagetaken",
     "healadjust",
+    "increaseheal",
+    "decreaseheal",
     "poolcostadjust",
+    "increasepoolcost",
+    "decreasepoolcost",
     "statadjust",
+    "increasestat",
+    "decreasestat",
     "fleeprevent",
     "onehitkillprevent",
     "reflect",
@@ -145,13 +158,18 @@ export const sortEffects = (
   a: UserEffect | GroundEffect,
   b: UserEffect | GroundEffect
 ) => {
-  const ordered = [
+  const ordered: ZodAllTags["type"][] = [
     // Pre-modifiers
     "clear",
     "armoradjust",
+    "increasearmor",
+    "decreasearmor",
     "poolcostadjust",
+    "increasepoolcost",
+    "decreasepoolcost",
     "statadjust",
-    "poolcostadjust",
+    "increasestat",
+    "decreasestat",
     // Mid-modifiers
     "barrier",
     "clone",
@@ -172,8 +190,14 @@ export const sortEffects = (
     // Post-moodifiers
     "absorb",
     "damagegivenadjust",
+    "increasedamagegiven",
+    "decreasedamagegiven",
     "damagetakenadjust",
+    "increasedamagetaken",
+    "decreasedamagetaken",
     "healadjust",
+    "increaseheal",
+    "decreaseheal",
     "reflect",
     // End-modifiers
     "move",
@@ -197,9 +221,17 @@ export const calcPoolCost = (
   let cpCost = (action.chakraCostPerc * target.maxChakra) / 100;
   let spCost = (action.staminaCostPerc * target.maxStamina) / 100;
   usersEffects
-    .filter((e) => e.type === "poolcostadjust" && e.targetId === target.userId)
+    .filter(
+      (e) =>
+        ["poolcostadjust", "increasepoolcost", "decreasepoolcost"].includes(e.type) &&
+        e.targetId === target.userId
+    )
     .forEach((e) => {
-      const { power } = getPower(e);
+      // Get the power to apply (positive or negative)
+      let { power } = getPower(e);
+      if (e.type === "increasepoolcost" && power < 0) power *= -1;
+      if (e.type === "decreasepoolcost" && power > 0) power *= -1;
+      // Apply the power to the pools affected
       if ("poolsAffected" in e) {
         e.poolsAffected?.forEach((pool) => {
           if (pool === "Health") {

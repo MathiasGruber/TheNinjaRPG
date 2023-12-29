@@ -80,7 +80,6 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
           ...effects,
           DamageTag.parse({
             description: "placeholder",
-            rounds: 0,
             residualModifier: 0,
           }),
         ]);
@@ -152,9 +151,9 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             <div className="grid grid-cols-1 md:grid-cols-2 items-center">
               <EffectFormWrapper
                 idx={i}
+                type="bloodline"
                 tag={tag}
                 availableTags={bloodlineTypes}
-                hideRounds={true}
                 effects={effects}
                 setEffects={setEffects}
               />

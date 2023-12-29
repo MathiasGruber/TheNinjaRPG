@@ -115,11 +115,14 @@ export const itemRouter = createTRPCRouter({
         limit: z.number().min(1).max(500),
         itemType: z.enum(ItemTypes).optional(),
         itemRarity: z.enum(ItemRarities).optional(),
-        effect: z.enum(effectFilters).optional(),
+        effect: z.string().optional(),
         stat: z.enum(statFilters).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
+      if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
+        throw serverError("PRECONDITION_FAILED", `Invalid filter: ${input.effect}`);
+      }
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.item.findMany({

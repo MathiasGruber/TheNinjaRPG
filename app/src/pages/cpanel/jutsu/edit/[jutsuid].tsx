@@ -153,6 +153,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             <div className="grid grid-cols-1 md:grid-cols-2 items-center">
               <EffectFormWrapper
                 idx={i}
+                type="jutsu"
                 tag={tag}
                 availableTags={tagTypes}
                 effects={effects}

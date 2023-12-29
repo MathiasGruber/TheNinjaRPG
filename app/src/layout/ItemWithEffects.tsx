@@ -318,33 +318,48 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {"aiHp" in parsedEffect && (
                         <span>
                           <b>Health Points: </b>
-                          {parsedEffect.aiHp as number}
+                          {parsedEffect.aiHp}
                         </span>
                       )}
+                      {"target" in parsedEffect &&
+                        parsedEffect.target &&
+                        (!("target" in item) ||
+                          parsedEffect.target !== item?.target) && (
+                          <span>
+                            <b>Target: </b>
+                            {parsedEffect.target.toLowerCase()}
+                          </span>
+                        )}
                       {"powerPerLevel" in parsedEffect && (
                         <span>
                           <b>Effect Power / Lvl: </b>
                           {parsedEffect.powerPerLevel}
                         </span>
                       )}
-                      {"generalTypes" in parsedEffect && parsedEffect.generalTypes && (
-                        <span>
-                          <b>Generals: </b>
-                          {parsedEffect.generalTypes.join(", ")}
-                        </span>
-                      )}
-                      {"statTypes" in parsedEffect && parsedEffect.statTypes && (
-                        <span>
-                          <b>Stats: </b>
-                          {parsedEffect.statTypes.join(", ")}
-                        </span>
-                      )}
-                      {"elements" in parsedEffect && parsedEffect.elements && (
-                        <span>
-                          <b>Elements: </b>
-                          {parsedEffect.elements.join(", ")}
-                        </span>
-                      )}
+                      {"generalTypes" in parsedEffect &&
+                        parsedEffect.generalTypes &&
+                        parsedEffect.generalTypes.length > 0 && (
+                          <span>
+                            <b>Generals: </b>
+                            {parsedEffect.generalTypes.join(", ")}
+                          </span>
+                        )}
+                      {"statTypes" in parsedEffect &&
+                        parsedEffect.statTypes &&
+                        parsedEffect.statTypes.length > 0 && (
+                          <span>
+                            <b>Stats: </b>
+                            {parsedEffect.statTypes.join(", ")}
+                          </span>
+                        )}
+                      {"elements" in parsedEffect &&
+                        parsedEffect.elements &&
+                        parsedEffect.elements.length > 0 && (
+                          <span>
+                            <b>Elements: </b>
+                            {parsedEffect.elements.join(", ")}
+                          </span>
+                        )}
                     </div>
                   </>
                 )}
