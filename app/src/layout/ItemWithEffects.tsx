@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
 import Confirm from "@/layout/Confirm";
+import ReactHtmlParser from "react-html-parser";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
@@ -135,7 +136,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
 
             <hr className="py-1" />
-            <div>{item.description}</div>
+            {item.description && <div>{ReactHtmlParser(item.description)}</div>}
           </div>
         </div>
         <div>

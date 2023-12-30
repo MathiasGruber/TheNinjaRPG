@@ -23,6 +23,27 @@ export const availableRanks = (userrank: UserRank): LetterRank[] => {
   return [];
 };
 
+export const availableRoles = (letterRank?: LetterRank): UserRank[] => {
+  switch (letterRank) {
+    case "D":
+      return ["STUDENT"];
+    case "C":
+      return ["STUDENT", "GENIN"];
+    case "B":
+      return ["STUDENT", "GENIN", "CHUNIN"];
+    case "A":
+      return ["STUDENT", "GENIN", "CHUNIN", "JONIN"];
+    case "S":
+      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "COMMANDER"];
+  }
+  return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "COMMANDER"];
+};
+
+export const getAvailableRanks = (rank: LetterRank) => {
+  const ranks = LetterRanks.slice(0, LetterRanks.indexOf(rank) + 1);
+  return ranks;
+};
+
 const sufficientJutsuRank = (rank: JutsuRank, userrank: UserRank) => {
   return availableRanks(userrank).includes(rank);
 };

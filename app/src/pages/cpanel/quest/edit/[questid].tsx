@@ -10,7 +10,6 @@ import { ObjectiveFormWrapper } from "@/layout/EditContent";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { DocumentMinusIcon } from "@heroicons/react/24/outline";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
 import { allObjectiveTasks } from "@/validators/objectives";
 import { useQuestEditForm } from "@/libs/quest";

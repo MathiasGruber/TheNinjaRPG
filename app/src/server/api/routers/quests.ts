@@ -2,7 +2,8 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
-import { eq, inArray, lte, isNotNull, isNull, and, sql, asc } from "drizzle-orm";
+import { secondsFromNow } from "@/utils/time";
+import { eq, inArray, lte, isNotNull, isNull, and, sql, asc, gte } from "drizzle-orm";
 import { item, jutsu } from "@/drizzle/schema";
 import { userJutsu, userItem, userData } from "@/drizzle/schema";
 import { quest, questHistory, actionLog } from "@/drizzle/schema";
@@ -14,7 +15,7 @@ import { QuestTypes } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
-import { availableRanks } from "@/libs/train";
+import { availableRanks, availableRoles } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import type { QuestType } from "@/drizzle/constants";
@@ -110,17 +111,42 @@ export const questsRouter = createTRPCRouter({
           }
           return objective;
         });
+        // Check if quest is changed to be an event
+        if (entry.questType !== "event" && input.data.questType === "event") {
+          const roles = availableRoles(input.data.requiredRank);
+          const users = await ctx.drizzle.query.userData.findMany({
+            columns: { userId: true },
+            where: and(
+              inArray(userData.rank, roles),
+              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7))
+            ),
+          });
+          await ctx.drizzle.insert(questHistory).values(
+            users.map((user) => ({
+              id: nanoid(),
+              userId: user.userId,
+              questId: input.id,
+              questType: "event" as const,
+            }))
+          );
+        }
         // Update database
-        await ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id));
-        await ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "quest",
-          changes: diff,
-          relatedId: entry.id,
-          relatedMsg: `Update: ${entry.name}`,
-          relatedImage: entry.image,
-        });
+        await Promise.all([
+          ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id)),
+          ctx.drizzle
+            .update(questHistory)
+            .set({ questType: input.data.questType })
+            .where(eq(questHistory.questId, entry.id)),
+          ctx.drizzle.insert(actionLog).values({
+            id: nanoid(),
+            userId: ctx.userId,
+            tableName: "quest",
+            changes: diff,
+            relatedId: entry.id,
+            relatedMsg: `Update: ${entry.name}`,
+            relatedImage: entry.image,
+          }),
+        ]);
         if (process.env.NODE_ENV !== "development") {
           await callDiscordContent(user.username, entry.name, diff, entry.image);
         }

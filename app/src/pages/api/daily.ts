@@ -35,6 +35,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
             orderBy: sql`RAND()`,
           });
           const users = await drizzleDB.query.userData.findMany({
+            columns: { userId: true },
             where: eq(userData.rank, rank),
           });
           if (newDaily && users.length > 0) {
