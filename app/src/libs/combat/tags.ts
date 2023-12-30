@@ -289,7 +289,7 @@ export const adjustDamageTaken = (
             effect.calculation === "percentage"
               ? (power / 100) * consequence.damage
               : power;
-          consequence.damage = consequence.damage - change * ratio;
+          consequence.damage = consequence.damage + change * ratio;
         }
       }
     });
