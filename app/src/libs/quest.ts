@@ -343,14 +343,20 @@ export const getNewTrackers = (
                 currentGoal.done = true;
               }
               if (task === "defeat_opponents" && "opponent_ai" in objective) {
-                if (objective.opponent_ai !== taskUpdate.contentId) {
+                if (
+                  objective.opponent_ai &&
+                  objective.opponent_ai !== taskUpdate.contentId
+                ) {
                   notifications.push(`Attacking target for ${quest.name}.`);
                   consequences.push({ type: "combat", id: objective.opponent_ai });
                 }
               }
             }
             if (task === "defeat_opponents" && "opponent_ai" in objective) {
-              if (objective.opponent_ai === taskUpdate.contentId) {
+              if (
+                objective.opponent_ai &&
+                objective.opponent_ai === taskUpdate.contentId
+              ) {
                 notifications.push(`Opponent defeated for ${quest.name}.`);
                 currentGoal.done = true;
               }

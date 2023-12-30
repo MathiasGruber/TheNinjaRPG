@@ -93,7 +93,7 @@ export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
   task: z.literal("defeat_opponents").default("defeat_opponents"),
   opponent_name: z.string().min(3).default("Opponent"),
-  opponent_ai: z.string().min(10),
+  opponent_ai: z.string().min(10).optional().nullish(),
   ...complexObjectiveFields,
 });
 
