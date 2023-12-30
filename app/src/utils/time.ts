@@ -1,4 +1,15 @@
 /**
+ * Get game time which is the UTC HH:MM:SS timestring
+ */
+export const getGameTime = () => {
+  const now = new Date();
+  const hours = now.getUTCHours().toString().padStart(2, "0");
+  const minutes = now.getUTCMinutes().toString().padStart(2, "0");
+  const seconds = now.getUTCSeconds().toString().padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+/**
  * Number of seconds passed since the given date
  */
 export const secondsPassed = (date: Date) => {

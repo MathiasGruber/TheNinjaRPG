@@ -12,7 +12,7 @@ import { MoonIcon } from "@heroicons/react/24/solid";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
-import { getDaysHoursMinutesSeconds } from "@/utils/time";
+import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { getMainGameLinks } from "@/libs/menus";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
@@ -21,16 +21,12 @@ const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();
   const { location } = getMainGameLinks(userData);
   const [, setState] = useState<number>(0);
-  const [gameTime, setGameTime] = useState<string>("");
+  const [gameTime, setGameTime] = useState<string>(getGameTime());
 
   // Update the gameTime with the UTC HH:MM:SS timestring every second
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = new Date();
-      const hours = now.getUTCHours().toString().padStart(2, "0");
-      const minutes = now.getUTCMinutes().toString().padStart(2, "0");
-      const seconds = now.getUTCSeconds().toString().padStart(2, "0");
-      setGameTime(`${hours}:${minutes}:${seconds}`);
+      setGameTime(getGameTime());
     }, 1000);
     return () => clearInterval(interval);
   }, []);
