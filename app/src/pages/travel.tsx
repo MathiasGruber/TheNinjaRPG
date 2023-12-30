@@ -147,7 +147,11 @@ const Travel: NextPage = () => {
             )
           ) {
             checkQuest();
-          } else if (objective.attackers.length > 0 && objective.attackers_chance > 0) {
+          } else if (
+            objective.attackers &&
+            objective.attackers.length > 0 &&
+            objective.attackers_chance > 0
+          ) {
             // If an objective is an attacker objective, then check quest, which will also check for attacks
             checkQuest();
           }

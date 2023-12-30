@@ -8,15 +8,18 @@ import { useUserData } from "@/utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
 import { SunIcon } from "@heroicons/react/24/solid";
+import { MoonIcon } from "@heroicons/react/24/solid";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds } from "@/utils/time";
+import { getMainGameLinks } from "@/libs/menus";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();
+  const { location } = getMainGameLinks(userData);
   const [, setState] = useState<number>(0);
 
   /** Convenience methods for showing effects */
@@ -93,9 +96,19 @@ const MenuBoxProfile: React.FC = () => {
       case "ASLEEP":
         return (
           <Link href="/home" className="flex flex-row hover:text-orange-500">
-            ASLEEP <SunIcon className="h-6 w-6 hover:fill-orange-500" />
+            ASLEEP <SunIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
           </Link>
         );
+      case "AWAKE":
+        if (location) {
+          return (
+            <Link href="/home" className="flex flex-row hover:text-orange-500">
+              AWAKE <MoonIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+            </Link>
+          );
+        } else {
+          return <span>{userData.status}</span>;
+        }
       default:
         return <span>{userData.status}</span>;
     }
