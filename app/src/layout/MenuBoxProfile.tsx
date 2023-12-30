@@ -21,6 +21,19 @@ const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();
   const { location } = getMainGameLinks(userData);
   const [, setState] = useState<number>(0);
+  const [gameTime, setGameTime] = useState<string>("");
+
+  // Update the gameTime with the UTC HH:MM:SS timestring every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const hours = now.getUTCHours().toString().padStart(2, "0");
+      const minutes = now.getUTCMinutes().toString().padStart(2, "0");
+      const seconds = now.getUTCSeconds().toString().padStart(2, "0");
+      setGameTime(`${hours}:${minutes}:${seconds}`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   /** Convenience methods for showing effects */
   const showStat = (
@@ -191,6 +204,9 @@ const MenuBoxProfile: React.FC = () => {
           <hr />
           <p className="mt-2 flex flex-row">
             <b>Status: </b> <span className="ml-1">{statusLink(userData.status)}</span>
+          </p>
+          <p className="">
+            <b>Time: </b> {gameTime}
           </p>
         </div>
         {userData.immunityUntil > new Date() && (
