@@ -231,9 +231,9 @@ const MenuBoxProfile: React.FC = () => {
                   } else if (effect.type === "damagetakenadjust") {
                     return showStat(effect, "protection", i, className, arrow);
                   } else if (effect.type === "increasedamagetaken") {
-                    return showStat(effect, "protection", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasedamagetaken") {
                     return showStat(effect, "protection", i, "text-red-500", "↓");
+                  } else if (effect.type === "decreasedamagetaken") {
+                    return showStat(effect, "protection", i, "text-green-500", "↑");
                   } else if (effect.type === "healadjust") {
                     return showStat(effect, "healing", i, className, arrow);
                   } else if (effect.type === "increaseheal") {
