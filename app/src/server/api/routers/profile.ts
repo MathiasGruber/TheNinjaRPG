@@ -755,8 +755,8 @@ export const profileRouter = createTRPCRouter({
             ? [like(userData.username, `%${input.username}%`)]
             : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-          ...(input.isAi === 1 ? [eq(userData.isAi, 1)] : [eq(userData.isAi, 0)]),
-          eq(userData.isSummon, 0)
+          eq(userData.isAi, input.isAi),
+          ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)])
         ),
         columns: {
           userId: true,
