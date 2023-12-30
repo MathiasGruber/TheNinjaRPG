@@ -170,6 +170,7 @@ export const sortEffects = (
     "statadjust",
     "increasestat",
     "decreasestat",
+    "absorb",
     // Mid-modifiers
     "barrier",
     "clone",
@@ -188,7 +189,6 @@ export const sortEffects = (
     "summonprevent",
     "summon",
     // Post-moodifiers
-    "absorb",
     "damagegivenadjust",
     "increasedamagegiven",
     "decreasedamagegiven",
