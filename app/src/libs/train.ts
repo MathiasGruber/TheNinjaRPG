@@ -73,17 +73,18 @@ export const calcForgetReturn = (jutsu: Jutsu, level: number) => {
 
 export const calcJutsuEquipLimit = (userdata: UserData) => {
   const rankContrib = (rank: UserRank) => {
+    // TODO: Decrease this once we have more ranking going on
     switch (rank) {
       case "GENIN":
-        return 5;
+        return 5 + 2;
       case "CHUNIN":
-        return 6;
+        return 6 + 2;
       case "JONIN":
-        return 7;
+        return 7 + 2;
       case "COMMANDER":
-        return 8;
+        return 8 + 2;
     }
-    return 4;
+    return 4 + 2;
   };
   const fedContrib = (status: FederalStatus) => {
     switch (status) {
