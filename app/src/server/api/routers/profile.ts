@@ -914,7 +914,9 @@ export const fetchRegeneratedUser = async (props: {
         }
       }
       // Update the quest tracking data for the user
-      const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+      const { trackers } = getNewTrackers(user, [
+        { task: "user_level", value: user.level },
+      ]);
       user.questData = trackers;
       if (user.joinedVillageAt) {
         const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);

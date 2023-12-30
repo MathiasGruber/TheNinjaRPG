@@ -400,7 +400,6 @@ export const insertNextQuest = async (
   type: QuestType
 ) => {
   const history = await fetchUncompletedQuests(client, user, type);
-  console.log(history);
   const nextQuest = history?.[0];
   if (nextQuest) {
     const logEntry = await insertQuestEntry(client, user, nextQuest);
