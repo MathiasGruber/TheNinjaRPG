@@ -7,6 +7,7 @@ import Confirm from "@/layout/Confirm";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
 
 const settings = [
   {
@@ -61,6 +62,7 @@ const settings = [
 
 const MissionHall: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
+  useRequireInVillage();
 
   const currentQuest = userData?.userQuests?.find(
     (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt
