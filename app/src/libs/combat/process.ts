@@ -352,7 +352,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
             color: "red",
           });
         }
-        if (c.absorb_hp && c.absorb_hp > 0) {
+        if (c.absorb_hp && c.absorb_hp > 0 && target.curHealth > 0) {
           target.curHealth += c.absorb_hp;
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
