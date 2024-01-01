@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
@@ -16,6 +17,39 @@ import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { getMainGameLinks } from "@/libs/menus";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
+
+const socials = [
+  {
+    url: "https://discord.gg/QPgKtJVvwq",
+    image: "/images/discord.png",
+    alt: "Discord",
+  },
+  {
+    url: "https://www.facebook.com/profile.php?id=61554961626034",
+    image: "/images/facebook.png",
+    alt: "Facebook",
+  },
+  {
+    url: "https://www.youtube.com/@fullstackaidev",
+    image: "/images/youtube.png",
+    alt: "Youtube",
+  },
+  {
+    url: "https://twitter.com/RealTheNinjaRPG",
+    image: "/images/twitter.png",
+    alt: "Twitter",
+  },
+  {
+    url: "https://www.instagram.com/theninjarpg/",
+    image: "/images/instagram.png",
+    alt: "Instagram",
+  },
+  {
+    url: "https://www.tiktok.com/@theninjarpg",
+    image: "/images/tiktok.png",
+    alt: "Tiktok",
+  },
+];
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData } = useUserData();
@@ -124,192 +158,209 @@ const MenuBoxProfile: React.FC = () => {
   };
 
   return (
-    <MenuBox
-      title={"Hi " + userData.username}
-      link={
-        <Link href="/avatar">
-          <WrenchScrewdriverIcon className="h-6 w-6 hover:fill-orange-500" />
-        </Link>
-      }
-    >
-      <div className="flex-col items-center justify-center">
-        <Link href="/profile">
-          <AvatarImage
-            href={userData.avatar}
-            userId={userData.userId}
-            alt={userData.username}
-            refetchUserData={refetchUserData}
-            size={100}
-            hover_effect={true}
-            priority
+    <>
+      <MenuBox
+        title={"Hi " + userData.username}
+        link={
+          <Link href="/avatar">
+            <WrenchScrewdriverIcon className="h-6 w-6 hover:fill-orange-500" />
+          </Link>
+        }
+      >
+        <div className="flex-col items-center justify-center">
+          <Link href="/profile">
+            <AvatarImage
+              href={userData.avatar}
+              userId={userData.userId}
+              alt={userData.username}
+              refetchUserData={refetchUserData}
+              size={100}
+              hover_effect={true}
+              priority
+            />
+          </Link>
+
+          <StatusBar
+            title="HP"
+            tooltip="Health"
+            color="bg-red-500"
+            showText={true}
+            lastRegenAt={userData.regenAt}
+            regen={userData.regeneration}
+            status={userData.status}
+            current={userData.curHealth}
+            total={userData.maxHealth}
           />
-        </Link>
+          <StatusBar
+            title="CP"
+            tooltip="Chakra"
+            color="bg-blue-500"
+            showText={true}
+            lastRegenAt={userData.regenAt}
+            regen={userData.regeneration}
+            status={userData.status}
+            current={userData.curChakra}
+            total={userData.maxChakra}
+          />
+          <StatusBar
+            title="SP"
+            tooltip="Stamina"
+            color="bg-green-500"
+            showText={true}
+            lastRegenAt={userData.regenAt}
+            regen={userData.regeneration}
+            status={userData.status}
+            current={userData.curStamina}
+            total={userData.maxStamina}
+          />
+          <StatusBar
+            title="EP"
+            tooltip="Energy"
+            color="bg-yellow-500"
+            showText={true}
+            lastRegenAt={
+              userData.currentlyTraining ? userData.trainingStartedAt : userData.regenAt
+            }
+            regen={
+              userData.currentlyTraining
+                ? -ENERGY_SPENT_PER_SECOND
+                : userData.regeneration
+            }
+            status={userData.status}
+            current={userData.curEnergy}
+            total={userData.maxEnergy}
+          />
 
-        <StatusBar
-          title="HP"
-          tooltip="Health"
-          color="bg-red-500"
-          showText={true}
-          lastRegenAt={userData.regenAt}
-          regen={userData.regeneration}
-          status={userData.status}
-          current={userData.curHealth}
-          total={userData.maxHealth}
-        />
-        <StatusBar
-          title="CP"
-          tooltip="Chakra"
-          color="bg-blue-500"
-          showText={true}
-          lastRegenAt={userData.regenAt}
-          regen={userData.regeneration}
-          status={userData.status}
-          current={userData.curChakra}
-          total={userData.maxChakra}
-        />
-        <StatusBar
-          title="SP"
-          tooltip="Stamina"
-          color="bg-green-500"
-          showText={true}
-          lastRegenAt={userData.regenAt}
-          regen={userData.regeneration}
-          status={userData.status}
-          current={userData.curStamina}
-          total={userData.maxStamina}
-        />
-        <StatusBar
-          title="EP"
-          tooltip="Energy"
-          color="bg-yellow-500"
-          showText={true}
-          lastRegenAt={
-            userData.currentlyTraining ? userData.trainingStartedAt : userData.regenAt
-          }
-          regen={
-            userData.currentlyTraining
-              ? -ENERGY_SPENT_PER_SECOND
-              : userData.regeneration
-          }
-          status={userData.status}
-          current={userData.curEnergy}
-          total={userData.maxEnergy}
-        />
-
-        <div className="mt-4">
-          <hr />
-          <p className="mt-2 flex flex-row">
-            <b>Status: </b> <span className="ml-1">{statusLink(userData.status)}</span>
-          </p>
-          <p className="">
-            <b>Time: </b> {gameTime}
-          </p>
+          <div className="mt-4">
+            <hr />
+            <p className="mt-2 flex flex-row">
+              <b>Status: </b>{" "}
+              <span className="ml-1">{statusLink(userData.status)}</span>
+            </p>
+            <p className="">
+              <b>Time: </b> {gameTime}
+            </p>
+          </div>
+          {userData.immunityUntil > new Date() && (
+            <>
+              <hr className="my-2" />
+              <div className="flex flex-row">
+                <ShieldCheckIcon className="h-6 w-6 mr-2" />
+                <Cooldown
+                  createdAt={Date.now()}
+                  totalSeconds={immunitySecondsLeft}
+                  initialSecondsLeft={immunitySecondsLeft}
+                  setState={setState}
+                />
+              </div>
+            </>
+          )}
+          {active && (
+            <>
+              <hr className="my-2" />
+              <ul className="italic">
+                {active
+                  .filter((e) => e.targetId === userData.userId)
+                  .filter((e) => e.rounds === undefined || e.rounds > 0)
+                  .map((effect, i) => {
+                    let cooldown = "";
+                    if (effect.rounds && battle) {
+                      cooldown = `[${effect.rounds} rounds]`;
+                    }
+                    const isSealed = sealEffects && sealCheck(effect, sealEffects);
+                    const positive = effect.power && effect.power > 0;
+                    const arrow = positive ? "↑" : "↓";
+                    const direction = positive ? "increased" : "decreased";
+                    let className = isSealed ? "line-through" : "";
+                    if (["poolcostadjust", "damage"].includes(effect.type)) {
+                      className = positive ? "text-red-500" : "text-green-500";
+                    } else {
+                      className = positive ? "text-green-500" : "text-red-500";
+                    }
+                    if (effect.type === "statadjust") {
+                      return showStat(effect, direction, i, className, arrow);
+                    } else if (effect.type === "increasestat") {
+                      return showStat(effect, "increased", i, "text-green-500", "↑");
+                    } else if (effect.type === "decreasestat") {
+                      return showStat(effect, "decreased", i, "text-red-500", "↓");
+                    } else if (effect.type === "damagegivenadjust") {
+                      return showStat(effect, "damage", i, className, arrow);
+                    } else if (effect.type === "increasedamagegiven") {
+                      return showStat(effect, "damage", i, "text-green-500", "↑");
+                    } else if (effect.type === "decreasedamagegiven") {
+                      return showStat(effect, "damage", i, "text-red-500", "↓");
+                    } else if (effect.type === "damagetakenadjust") {
+                      return showStat(effect, "protection", i, className, arrow);
+                    } else if (effect.type === "increasedamagetaken") {
+                      return showStat(effect, "protection", i, "text-red-500", "↓");
+                    } else if (effect.type === "decreasedamagetaken") {
+                      return showStat(effect, "protection", i, "text-green-500", "↑");
+                    } else if (effect.type === "healadjust") {
+                      return showStat(effect, "healing", i, className, arrow);
+                    } else if (effect.type === "increaseheal") {
+                      return showStat(effect, "healing", i, "text-green-500", "↑");
+                    } else if (effect.type === "decreaseheal") {
+                      return showStat(effect, "healing", i, "text-red-500", "↓");
+                    } else if (effect.type === "absorb") {
+                      return showStat(effect, "absorb", i, className, arrow);
+                    } else if (effect.type === "reflect") {
+                      return showStat(effect, "reflect", i, className, arrow);
+                    } else if (effect.type === "damage") {
+                      const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                      return show(i, `Dmg ${cooldown}`, className, icon);
+                    } else if (effect.type === "heal") {
+                      const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                      return show(i, `Heal ${cooldown}`, className, icon);
+                    } else if (effect.type === "armoradjust") {
+                      return show(i, `Armor ${cooldown}`, className, arrow);
+                    } else if (effect.type === "increasearmor") {
+                      return showStat(effect, "protection", i, "text-green-500", "↑");
+                    } else if (effect.type === "decreasearmor") {
+                      return showStat(effect, "protection", i, "text-red-500", "↓");
+                    } else if (effect.type === "poolcostadjust") {
+                      return show(i, `Action cost ${cooldown}`, className, arrow);
+                    } else if (effect.type === "increasepoolcost") {
+                      return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
+                    } else if (effect.type === "decreasepoolcost") {
+                      return show(i, `Action cost ${cooldown}`, "text-green-500", "↓");
+                    } else if (effect.type === "fleeprevent") {
+                      return show(i, `Cannot flee ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "robprevent") {
+                      return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "stunprevent") {
+                      return show(
+                        i,
+                        `Stun Resistance ${cooldown}`,
+                        "text-blue-500",
+                        "-"
+                      );
+                    } else if (effect.type === "stun" && effect.rounds) {
+                      return show(i, `Stunned ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "onehitkillprevent" && effect.rounds) {
+                      return show(i, `OHKO immunity ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "sealprevent" && effect.rounds) {
+                      return show(i, `Seal immunity ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "seal" && effect.rounds) {
+                      return show(i, `BL Sealed ${cooldown}`, "text-blue-500", "-");
+                    } else {
+                      return <div key={i}>Unparsed: {effect.type}</div>;
+                    }
+                  })}
+              </ul>
+            </>
+          )}
         </div>
-        {userData.immunityUntil > new Date() && (
-          <>
-            <hr className="my-2" />
-            <div className="flex flex-row">
-              <ShieldCheckIcon className="h-6 w-6 mr-2" />
-              <Cooldown
-                createdAt={Date.now()}
-                totalSeconds={immunitySecondsLeft}
-                initialSecondsLeft={immunitySecondsLeft}
-                setState={setState}
-              />
-            </div>
-          </>
-        )}
-        {active && (
-          <>
-            <hr className="my-2" />
-            <ul className="italic">
-              {active
-                .filter((e) => e.targetId === userData.userId)
-                .filter((e) => e.rounds === undefined || e.rounds > 0)
-                .map((effect, i) => {
-                  let cooldown = "";
-                  if (effect.rounds && battle) {
-                    cooldown = `[${effect.rounds} rounds]`;
-                  }
-                  const isSealed = sealEffects && sealCheck(effect, sealEffects);
-                  const positive = effect.power && effect.power > 0;
-                  const arrow = positive ? "↑" : "↓";
-                  const direction = positive ? "increased" : "decreased";
-                  let className = isSealed ? "line-through" : "";
-                  if (["poolcostadjust", "damage"].includes(effect.type)) {
-                    className = positive ? "text-red-500" : "text-green-500";
-                  } else {
-                    className = positive ? "text-green-500" : "text-red-500";
-                  }
-                  if (effect.type === "statadjust") {
-                    return showStat(effect, direction, i, className, arrow);
-                  } else if (effect.type === "increasestat") {
-                    return showStat(effect, "increased", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasestat") {
-                    return showStat(effect, "decreased", i, "text-red-500", "↓");
-                  } else if (effect.type === "damagegivenadjust") {
-                    return showStat(effect, "damage", i, className, arrow);
-                  } else if (effect.type === "increasedamagegiven") {
-                    return showStat(effect, "damage", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasedamagegiven") {
-                    return showStat(effect, "damage", i, "text-red-500", "↓");
-                  } else if (effect.type === "damagetakenadjust") {
-                    return showStat(effect, "protection", i, className, arrow);
-                  } else if (effect.type === "increasedamagetaken") {
-                    return showStat(effect, "protection", i, "text-red-500", "↓");
-                  } else if (effect.type === "decreasedamagetaken") {
-                    return showStat(effect, "protection", i, "text-green-500", "↑");
-                  } else if (effect.type === "healadjust") {
-                    return showStat(effect, "healing", i, className, arrow);
-                  } else if (effect.type === "increaseheal") {
-                    return showStat(effect, "healing", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreaseheal") {
-                    return showStat(effect, "healing", i, "text-red-500", "↓");
-                  } else if (effect.type === "absorb") {
-                    return showStat(effect, "absorb", i, className, arrow);
-                  } else if (effect.type === "reflect") {
-                    return showStat(effect, "reflect", i, className, arrow);
-                  } else if (effect.type === "damage") {
-                    const icon = <HeartIcon className="h-6 w-6 mr-2" />;
-                    return show(i, `Dmg ${cooldown}`, className, icon);
-                  } else if (effect.type === "heal") {
-                    const icon = <HeartIcon className="h-6 w-6 mr-2" />;
-                    return show(i, `Heal ${cooldown}`, className, icon);
-                  } else if (effect.type === "armoradjust") {
-                    return show(i, `Armor ${cooldown}`, className, arrow);
-                  } else if (effect.type === "increasearmor") {
-                    return showStat(effect, "protection", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasearmor") {
-                    return showStat(effect, "protection", i, "text-red-500", "↓");
-                  } else if (effect.type === "poolcostadjust") {
-                    return show(i, `Action cost ${cooldown}`, className, arrow);
-                  } else if (effect.type === "increasepoolcost") {
-                    return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
-                  } else if (effect.type === "decreasepoolcost") {
-                    return show(i, `Action cost ${cooldown}`, "text-green-500", "↓");
-                  } else if (effect.type === "fleeprevent") {
-                    return show(i, `Cannot flee ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "robprevent") {
-                    return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "stunprevent") {
-                    return show(i, `Stun Resistance ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "stun" && effect.rounds) {
-                    return show(i, `Stunned ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "onehitkillprevent" && effect.rounds) {
-                    return show(i, `OHKO immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "sealprevent" && effect.rounds) {
-                    return show(i, `Seal immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "seal" && effect.rounds) {
-                    return show(i, `BL Sealed ${cooldown}`, "text-blue-500", "-");
-                  } else {
-                    return <div key={i}>Unparsed: {effect.type}</div>;
-                  }
-                })}
-            </ul>
-          </>
-        )}
+      </MenuBox>
+      <div className="px-2 flex align-center justify-center">
+        {socials.map((social, i) => {
+          return (
+            <a target="_blank" href={social.url} key={i} className="hover:opacity-80">
+              <Image src={social.image} width={64} height={64} alt={social.alt}></Image>
+            </a>
+          );
+        })}
       </div>
-    </MenuBox>
+    </>
   );
 };
 
