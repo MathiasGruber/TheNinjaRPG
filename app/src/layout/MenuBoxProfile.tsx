@@ -49,6 +49,11 @@ const socials = [
     image: "/images/tiktok.png",
     alt: "Tiktok",
   },
+  {
+    url: "https://www.reddit.com/r/theninjarpg/",
+    image: "/images/reddit.png",
+    alt: "Reddit",
+  },
 ];
 
 const MenuBoxProfile: React.FC = () => {
