@@ -11,7 +11,7 @@ import { QuestValidator } from "@/validators/objectives";
 import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { QuestTypes } from "@/drizzle/constants";
+import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
@@ -64,6 +64,57 @@ export const questsRouter = createTRPCRouter({
       if (!result) {
         throw serverError("NOT_FOUND", "Quest not found");
       }
+      return result;
+    }),
+  missionHall: publicProcedure.query(async ({ ctx }) => {
+    const summary = await ctx.drizzle
+      .select({
+        type: quest.questType,
+        rank: quest.requiredRank,
+        count: sql<number>`COUNT(*)`.mapWith(Number),
+      })
+      .from(quest)
+      .where(inArray(quest.questType, ["mission", "errand", "crime"]))
+      .groupBy(quest.questType, quest.requiredRank);
+    return summary;
+  }),
+  startRandom: protectedProcedure
+    .input(
+      z.object({
+        type: z.enum(["errand", "mission"]),
+        rank: z.enum(LetterRanks),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Fetch user
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) {
+        throw serverError("PRECONDITION_FAILED", "User does not exist");
+      }
+      // Check if user is allowed to perform this rank
+      const ranks = availableRanks(user.rank);
+      if (!ranks.includes(input.rank)) {
+        throw serverError("PRECONDITION_FAILED", `${input.rank}-rank not allowed`);
+      }
+      // Confirm user does not have any current active missions/crimes/errands
+      const current = user?.userQuests?.find(
+        (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt
+      );
+      if (current) {
+        throw serverError("PRECONDITION_FAILED", `Already active ${current.questType}`);
+      }
+      // Fetch quest
+      const result = await ctx.drizzle.query.quest.findFirst({
+        where: and(eq(quest.questType, input.type), eq(quest.requiredRank, input.rank)),
+      });
+      if (!result) {
+        throw serverError("NOT_FOUND", "No assignments at this level could be found");
+      }
+      // Insert quest entry
+      await insertQuestEntry(ctx.drizzle, user, result);
       return result;
     }),
   getQuestHistory: protectedProcedure

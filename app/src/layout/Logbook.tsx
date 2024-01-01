@@ -113,7 +113,7 @@ interface LogbookEntryProps {
   tracker: QuestTrackerType;
 }
 
-const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
+export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { quest, tracker } = props;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
   const allDone = tracker?.goals.every((g) => g.done);
