@@ -1094,6 +1094,7 @@ export const quest = mysqlTable(
     successDescription: varchar("successDescription", { length: 512 }),
     requiredRank: mysqlEnum("requiredRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
+    requiredVillage: varchar("requiredVillage", { length: 191 }),
     tierLevel: int("tierLevel"),
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),

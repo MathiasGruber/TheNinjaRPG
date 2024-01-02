@@ -47,6 +47,9 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: ais, isLoading: l3 } = api.profile.getAllAiNames.useQuery(undefined, {
     staleTime: Infinity,
   });
+  const { data: villages, isLoading: l4 } = api.village.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+  });
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -113,7 +116,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3;
+  const loading = l1 || l2 || l3 || l4;
 
   // Watch for changes
   const imageUrl = form.watch("image");
@@ -122,13 +125,16 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   // Object for form values
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
     { id: "name", label: "Title", type: "text" },
+    { id: "hidden", type: "number", label: "Hidden" },
+    { id: "questType", type: "str_array", values: QuestTypes },
     { id: "requiredRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
-    { id: "questType", type: "str_array", values: QuestTypes },
-    { id: "hidden", type: "number", label: "Hidden" },
-    { id: "reward_money", type: "number" },
-    { id: "reward_rank", type: "str_array", values: UserRanks },
   ];
+
+  // Add villages if they exist
+  if (villages) {
+    formData.push({ id: "requiredVillage", type: "db_values", values: villages });
+  }
 
   // For everything except daily, add timeframe
   if (questType !== "daily") {
@@ -139,6 +145,10 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   if (questType === "tier") {
     formData.push({ id: "tierLevel", type: "number" });
   }
+
+  // Rewards
+  formData.push({ id: "reward_money", type: "number" });
+  formData.push({ id: "reward_rank", type: "str_array", values: UserRanks });
 
   // Add items if they exist
   if (items) {

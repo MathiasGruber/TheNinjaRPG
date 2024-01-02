@@ -3,7 +3,8 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
-import { eq, inArray, lte, isNotNull, isNull, and, sql, asc, gte } from "drizzle-orm";
+import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
+import { eq, or, and } from "drizzle-orm";
 import { item, jutsu } from "@/drizzle/schema";
 import { userJutsu, userItem, userData } from "@/drizzle/schema";
 import { quest, questHistory, actionLog } from "@/drizzle/schema";
@@ -18,6 +19,7 @@ import { allObjectiveTasks } from "@/validators/objectives";
 import { availableRanks, availableRoles } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
+import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -66,7 +68,11 @@ export const questsRouter = createTRPCRouter({
       }
       return result;
     }),
-  missionHall: publicProcedure.query(async ({ ctx }) => {
+  missionHall: protectedProcedure.query(async ({ ctx }) => {
+    const user = await fetchRegeneratedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+    });
     const summary = await ctx.drizzle
       .select({
         type: quest.questType,
@@ -74,7 +80,15 @@ export const questsRouter = createTRPCRouter({
         count: sql<number>`COUNT(*)`.mapWith(Number),
       })
       .from(quest)
-      .where(inArray(quest.questType, ["mission", "errand", "crime"]))
+      .where(
+        and(
+          inArray(quest.questType, ["mission", "errand", "crime"]),
+          or(
+            isNull(quest.requiredVillage),
+            eq(quest.requiredVillage, user?.villageId ?? "")
+          )
+        )
+      )
       .groupBy(quest.questType, quest.requiredRank);
     return summary;
   }),
@@ -108,7 +122,14 @@ export const questsRouter = createTRPCRouter({
       }
       // Fetch quest
       const result = await ctx.drizzle.query.quest.findFirst({
-        where: and(eq(quest.questType, input.type), eq(quest.requiredRank, input.rank)),
+        where: and(
+          eq(quest.questType, input.type),
+          eq(quest.requiredRank, input.rank),
+          or(
+            isNull(quest.requiredVillage),
+            eq(quest.requiredVillage, user.villageId ?? "")
+          )
+        ),
       });
       if (!result) {
         throw serverError("NOT_FOUND", "No assignments at this level could be found");
@@ -145,6 +166,7 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: QuestValidator }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      setEmptyStringsToNulls(input.data);
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const entry = await fetchQuest(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
@@ -446,7 +468,11 @@ export const fetchUncompletedQuests = async (
         eq(quest.questType, type),
         lte(quest.requiredLevel, user.level),
         inArray(quest.requiredRank, availableLetters),
-        isNull(questHistory.completed)
+        isNull(questHistory.completed),
+        or(
+          isNull(quest.requiredVillage),
+          eq(quest.requiredVillage, user.villageId ?? "")
+        )
       )
     )
     .orderBy((table) => [asc(table.Quest.requiredLevel), asc(table.Quest.tierLevel)]);
@@ -483,18 +509,4 @@ export const insertNextQuest = async (
     return { ...logEntry, quest: nextQuest };
   }
   return undefined;
-};
-
-export const getRandomDaily = async (client: DrizzleClient, user: UserData) => {
-  const ranks = availableRanks(user.rank);
-  const newDaily = await client.query.quest.findFirst({
-    where: and(
-      eq(quest.questType, "daily"),
-      lte(quest.requiredLevel, user.level),
-      isNotNull(quest.content),
-      inArray(quest.requiredRank, ranks)
-    ),
-    orderBy: sql`RAND()`,
-  });
-  return newDaily ?? null;
 };

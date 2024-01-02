@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, inArray, isNotNull, and, sql } from "drizzle-orm";
+import { eq, inArray, isNull, isNotNull, and, or, sql } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
@@ -16,6 +16,8 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(200).json("Ran within the last 23.5 hours");
   }
 
+  const villages = await drizzleDB.query.village.findMany({});
+
   try {
     // Update daily quests
     await drizzleDB
@@ -23,31 +25,37 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       .set({ completed: 0, endAt: new Date() })
       .where(and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)));
     await Promise.all(
-      UserRanks.map(async (rank) => {
+      UserRanks.map((rank) => {
         const ranks = availableRanks(rank);
         if (ranks.length > 0) {
-          const newDaily = await drizzleDB.query.quest.findFirst({
-            where: and(
-              eq(quest.questType, "daily"),
-              isNotNull(quest.content),
-              inArray(quest.requiredRank, ranks)
-            ),
-            orderBy: sql`RAND()`,
+          villages.map(async (village) => {
+            const newDaily = await drizzleDB.query.quest.findFirst({
+              where: and(
+                eq(quest.questType, "daily"),
+                isNotNull(quest.content),
+                inArray(quest.requiredRank, ranks),
+                or(
+                  isNull(quest.requiredVillage),
+                  eq(quest.requiredVillage, village.id ?? "")
+                )
+              ),
+              orderBy: sql`RAND()`,
+            });
+            const users = await drizzleDB.query.userData.findMany({
+              columns: { userId: true },
+              where: and(eq(userData.rank, rank), eq(userData.villageId, village.id)),
+            });
+            if (newDaily && users.length > 0) {
+              await drizzleDB.insert(questHistory).values(
+                users.map((user) => ({
+                  id: nanoid(),
+                  userId: user.userId,
+                  questId: newDaily.id,
+                  questType: "daily" as const,
+                }))
+              );
+            }
           });
-          const users = await drizzleDB.query.userData.findMany({
-            columns: { userId: true },
-            where: eq(userData.rank, rank),
-          });
-          if (newDaily && users.length > 0) {
-            await drizzleDB.insert(questHistory).values(
-              users.map((user) => ({
-                id: nanoid(),
-                userId: user.userId,
-                questId: newDaily.id,
-                questType: "daily" as const,
-              }))
-            );
-          }
         }
       })
     );
