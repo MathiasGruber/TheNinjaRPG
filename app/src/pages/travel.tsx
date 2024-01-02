@@ -11,7 +11,6 @@ import { EyeIcon } from "@heroicons/react/24/solid";
 import { EyeSlashIcon } from "@heroicons/react/24/solid";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
-import { getUserQuests, isLocationObjective } from "@/libs/quest";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -116,50 +115,6 @@ const Travel: NextPage = () => {
         console.error("Error travelling", error);
       },
     });
-
-  const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
-    onSuccess: async (data) => {
-      if (data.success) {
-        data.notifications.forEach((notification) => {
-          show_toast("Quest Update", notification, "info");
-        });
-        await refetchUser();
-      }
-    },
-    onError: (error) => {
-      show_toast("Quest Error", error.message, "error");
-    },
-  });
-
-  useEffect(() => {
-    if (userData && currentSector && currentPosition) {
-      getUserQuests(userData).forEach((quest) => {
-        quest.content.objectives.forEach((objective) => {
-          // If an objective is a location objective, then check quest
-          if (
-            isLocationObjective(
-              {
-                sector: currentSector,
-                latitude: currentPosition.y,
-                longitude: currentPosition.x,
-              },
-              objective
-            )
-          ) {
-            checkQuest();
-          } else if (
-            objective.attackers &&
-            objective.attackers.length > 0 &&
-            objective.attackers_chance > 0
-          ) {
-            // If an objective is an attacker objective, then check quest, which will also check for attacks
-            checkQuest();
-          }
-        });
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPosition]);
 
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);

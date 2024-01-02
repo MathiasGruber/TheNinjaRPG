@@ -17,6 +17,7 @@ import { intersectUsers } from "@/libs/travel/sector";
 import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
+import { getUserQuests, isLocationObjective } from "@/libs/quest";
 import type { Village, UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
@@ -111,6 +112,20 @@ const Sector: React.FC<SectorProps> = (props) => {
     }
   };
 
+  const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        data.notifications.forEach((notification) => {
+          show_toast("Quest Update", notification, "info");
+        });
+        await refetchUser();
+      }
+    },
+    onError: (error) => {
+      show_toast("Quest Error", error.message, "error");
+    },
+  });
+
   // Convenience method for updating user list
   const updateUsersList = (data: UserData) => {
     if (users.current) {
@@ -135,21 +150,44 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: move, isLoading: isMoving } = api.travel.moveInSector.useMutation({
     onSuccess: async (res) => {
       if (res.success && res.data) {
+        const data = res.data;
         origin.current = findHex(grid.current, {
-          x: res.data.longitude,
-          y: res.data.latitude,
+          x: data.longitude,
+          y: data.latitude,
         });
         updateUsersList({
           ...userData,
-          longitude: res.data.longitude,
-          latitude: res.data.latitude,
-          location: res.data.location,
+          longitude: data.longitude,
+          latitude: data.latitude,
+          location: data.location,
         } as UserData);
-        setPosition({ x: res.data.longitude, y: res.data.latitude });
+        setPosition({ x: data.longitude, y: data.latitude });
         setMoves((prev) => prev + 1);
-        if (res.data.location !== userData?.location) {
-          console.log("LOCATION CHANGED; REFETCHING USER");
+        if (data.location !== userData?.location) {
           await refetchUser();
+        }
+        if (userData) {
+          getUserQuests(userData).forEach((quest) => {
+            quest.content.objectives.forEach((objective) => {
+              if (
+                // If an objective is a location objective, then check quest
+                isLocationObjective(
+                  {
+                    sector: data.sector,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                  },
+                  objective
+                ) ||
+                // If we have attackers, check for these
+                (objective.attackers &&
+                  objective.attackers.length > 0 &&
+                  objective.attackers_chance > 0)
+              ) {
+                checkQuest();
+              }
+            });
+          });
         }
       } else if (!res.success && res.message) {
         show_toast("Error moving", res.message, "info");
