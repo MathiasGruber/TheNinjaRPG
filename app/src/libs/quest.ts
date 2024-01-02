@@ -347,7 +347,12 @@ export const getNewTrackers = (
               if (task === "move_to_location") {
                 notifications.push(`You arrived at destination for ${quest.name}.`);
                 currentGoal.done = true;
-              } else if (task === "collect_item" && "item_name" in objective) {
+              } else if (
+                task === "collect_item" &&
+                "item_name" in objective &&
+                "collect_item_id" in objective &&
+                objective.collect_item_id
+              ) {
                 notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
                 consequences.push({ type: "item", id: objective.collect_item_id });
                 currentGoal.done = true;
