@@ -85,7 +85,7 @@ export const CollectItem = z.object({
   ...baseObjectiveFields,
   task: z.literal("collect_item").default("collect_item"),
   item_name: z.string().min(3).default("Secret scroll"),
-  collect_item_id: z.string(),
+  collect_item_id: z.string().optional().nullish(),
   ...complexObjectiveFields,
 });
 
