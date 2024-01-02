@@ -4,8 +4,10 @@ import Toggle from "@/layout/Toggle";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Button from "@/layout/Button";
+import Confirm from "@/layout/Confirm";
 import { SparklesIcon } from "@heroicons/react/24/solid";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
+import { XMarkIcon } from "@heroicons/react/24/solid";
 import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -160,8 +162,42 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     },
   });
 
+  const { mutate: abandon } = api.quests.abandon.useMutation({
+    onSuccess: async ({ message }) => {
+      show_toast("Success", message, "success");
+      await utils.profile.getUser.invalidate();
+    },
+    onError: (error) => {
+      show_toast("Error abandoning", error.message, "error");
+    },
+  });
+
   return (
-    <Post className={tierOrDaily ? "" : "col-span-2"}>
+    <Post
+      className={tierOrDaily ? "" : "col-span-2"}
+      options={
+        <div className="ml-3">
+          <div className="mt-2 flex flex-row items-center ">
+            {["mission", "crime", "event", "errand"].includes(quest.questType) && (
+              <Confirm
+                title="Confirm deleting quest"
+                button={
+                  <XMarkIcon className="ml-2 h-6 w-6 hover:fill-orange-500 cursor-pointer" />
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  void abandon({ id: quest.id });
+                }}
+              >
+                Are you sure you want to abandon this quest? Note that if you abandon
+                the quest, there will be a 10-minute timeout during which you cannot
+                start a new quest.
+              </Confirm>
+            )}
+          </div>
+        </div>
+      }
+    >
       <div className="flex flex-col h-full">
         <div className="font-bold text-xl">
           Current {capitalizeFirstLetter(quest.questType)}

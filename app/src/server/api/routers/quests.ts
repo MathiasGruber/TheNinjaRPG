@@ -138,6 +138,31 @@ export const questsRouter = createTRPCRouter({
       await insertQuestEntry(ctx.drizzle, user, result);
       return result;
     }),
+  abandon: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) {
+        throw serverError("PRECONDITION_FAILED", "User does not exist");
+      }
+      const current = user?.userQuests?.find((q) => q.questId === input.id && !q.endAt);
+      if (!current) {
+        throw serverError("PRECONDITION_FAILED", `No active quest with id ${input.id}`);
+      }
+      if (!["mission", "crime", "event", "errand"].includes(current.questType)) {
+        throw serverError("PRECONDITION_FAILED", `Cannot abandon ${current.questType}`);
+      }
+      await ctx.drizzle
+        .update(questHistory)
+        .set({ completed: 0, endAt: new Date() })
+        .where(
+          and(eq(questHistory.questId, input.id), eq(questHistory.userId, ctx.userId))
+        );
+      return { message: `Quest abandoned` };
+    }),
   getQuestHistory: protectedProcedure
     .input(
       z.object({
