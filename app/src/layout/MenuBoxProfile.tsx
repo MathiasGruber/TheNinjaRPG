@@ -275,33 +275,24 @@ const MenuBoxProfile: React.FC = () => {
                     const isSealed = sealEffects && sealCheck(effect, sealEffects);
                     const positive = effect.power && effect.power > 0;
                     const arrow = positive ? "↑" : "↓";
-                    const direction = positive ? "increased" : "decreased";
                     let className = isSealed ? "line-through" : "";
                     if (["poolcostadjust", "damage"].includes(effect.type)) {
                       className = positive ? "text-red-500" : "text-green-500";
                     } else {
                       className = positive ? "text-green-500" : "text-red-500";
                     }
-                    if (effect.type === "statadjust") {
-                      return showStat(effect, direction, i, className, arrow);
-                    } else if (effect.type === "increasestat") {
+                    if (effect.type === "increasestat") {
                       return showStat(effect, "increased", i, "text-green-500", "↑");
                     } else if (effect.type === "decreasestat") {
                       return showStat(effect, "decreased", i, "text-red-500", "↓");
-                    } else if (effect.type === "damagegivenadjust") {
-                      return showStat(effect, "damage", i, className, arrow);
                     } else if (effect.type === "increasedamagegiven") {
                       return showStat(effect, "damage", i, "text-green-500", "↑");
                     } else if (effect.type === "decreasedamagegiven") {
                       return showStat(effect, "damage", i, "text-red-500", "↓");
-                    } else if (effect.type === "damagetakenadjust") {
-                      return showStat(effect, "protection", i, className, arrow);
                     } else if (effect.type === "increasedamagetaken") {
                       return showStat(effect, "protection", i, "text-red-500", "↓");
                     } else if (effect.type === "decreasedamagetaken") {
                       return showStat(effect, "protection", i, "text-green-500", "↑");
-                    } else if (effect.type === "healadjust") {
-                      return showStat(effect, "healing", i, className, arrow);
                     } else if (effect.type === "increaseheal") {
                       return showStat(effect, "healing", i, "text-green-500", "↑");
                     } else if (effect.type === "decreaseheal") {
@@ -316,8 +307,6 @@ const MenuBoxProfile: React.FC = () => {
                     } else if (effect.type === "heal") {
                       const icon = <HeartIcon className="h-6 w-6 mr-2" />;
                       return show(i, `Heal ${cooldown}`, className, icon);
-                    } else if (effect.type === "armoradjust") {
-                      return show(i, `Armor ${cooldown}`, className, arrow);
                     } else if (effect.type === "increasearmor") {
                       return showStat(effect, "protection", i, "text-green-500", "↑");
                     } else if (effect.type === "decreasearmor") {

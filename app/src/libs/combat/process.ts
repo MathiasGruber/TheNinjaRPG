@@ -235,8 +235,6 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
             info = decreasepoolcost(e, curTarget);
           } else if (e.type === "clear" && isTargetOrNew) {
             info = clear(e, usersEffects, curTarget);
-          } else if (e.type === "damagegivenadjust") {
-            info = adjustDamageGiven(e, usersEffects, consequences, curTarget);
           } else if (e.type === "increasedamagegiven") {
             info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
           } else if (e.type === "decreasedamagegiven") {
@@ -255,26 +253,18 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         // Tags to apply always
         if (e.type === "absorb") {
           info = absorb(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "armoradjust") {
-          info = adjustArmor(e, curTarget);
         } else if (e.type === "increasearmor") {
           info = increaseArmor(e, curTarget);
         } else if (e.type === "decreasearmor") {
           info = decreaseArmor(e, curTarget);
-        } else if (e.type === "statadjust") {
-          info = adjustStats(e, curTarget);
         } else if (e.type === "increasestat") {
           info = increaseStats(e, curTarget);
         } else if (e.type === "decreasestat") {
           info = decreaseStats(e, curTarget);
-        } else if (e.type === "damagetakenadjust") {
-          info = adjustDamageTaken(e, usersEffects, consequences, curTarget);
         } else if (e.type === "increasedamagetaken") {
           info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
         } else if (e.type === "decreasedamagetaken") {
           info = decreaseDamageTaken(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "healadjust") {
-          info = adjustHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "increaseheal") {
           info = increaseHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "decreaseheal") {

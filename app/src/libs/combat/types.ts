@@ -277,14 +277,6 @@ export const AbsorbTag = z.object({
   target: z.enum(BaseTagTargets).optional().default("SELF"),
 });
 
-export const AdjustArmorTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("armoradjust").default("armoradjust"),
-  description: msg("Adjust armor rating of target"),
-});
-
 export const IncreaseArmorTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -299,15 +291,6 @@ export const DecreaseArmorTag = z.object({
   ...PositivePowerAttributes,
   type: z.literal("decreasearmor").default("decreasearmor"),
   description: msg("Decrease armor rating of target"),
-});
-
-export const AdjustDamageGivenTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("damagegivenadjust").default("damagegivenadjust"),
-  description: msg("Adjust damage given by target"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
 export const IncreaseDamageGivenTag = z.object({
@@ -328,15 +311,6 @@ export const DecreaseDamageGivenTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
-export const AdjustDamageTakenTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("damagetakenadjust").default("damagetakenadjust"),
-  description: msg("Adjust damage taken of target"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
-});
-
 export const IncreaseDamageTakenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -352,15 +326,6 @@ export const DecreaseDamageTakenTag = z.object({
   ...PositivePowerAttributes,
   type: z.literal("decreasedamagetaken").default("decreasedamagetaken"),
   description: msg("Decrease damage taken of target"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
-});
-
-export const AdjustHealGivenTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("healadjust").default("healadjust"),
-  description: msg("Adjust how much target can heal others"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -412,15 +377,6 @@ export const DecreasePoolCostTag = z.object({
   description: msg("Decrease cost of taking actions"),
   rounds: z.number().int().min(2).max(20).default(2),
   direction: z.enum(["defence"]).default("defence"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
-});
-
-export const AdjustStatTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("statadjust").default("statadjust"),
-  description: msg("Adjust stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -615,22 +571,17 @@ export const VisualTag = z.object({
 /******************** */
 const AllTags = z.union([
   AbsorbTag.default({}),
-  AdjustArmorTag.default({}),
   IncreaseArmorTag.default({}),
   DecreaseArmorTag.default({}),
-  AdjustDamageGivenTag.default({}),
   IncreaseDamageGivenTag.default({}),
   DecreaseDamageGivenTag.default({}),
-  AdjustDamageTakenTag.default({}),
   IncreaseDamageTakenTag.default({}),
   DecreaseDamageTakenTag.default({}),
-  AdjustHealGivenTag.default({}),
   IncreaseHealGivenTag.default({}),
   DecreaseHealGivenTag.default({}),
   AdjustPoolCostTag.default({}),
   IncreasePoolCostTag.default({}),
   DecreasePoolCostTag.default({}),
-  AdjustStatTag.default({}),
   IncreaseStatTag.default({}),
   DecreaseStatTag.default({}),
   BarrierTag.default({}),
@@ -663,19 +614,15 @@ const BloodlineTags = z.union([
   AbsorbTag.default({}),
   IncreaseArmorTag.default({}),
   DecreaseArmorTag.default({}),
-  AdjustDamageGivenTag.default({}),
   IncreaseDamageGivenTag.default({}),
   DecreaseDamageGivenTag.default({}),
-  AdjustDamageTakenTag.default({}),
   IncreaseDamageTakenTag.default({}),
   DecreaseDamageTakenTag.default({}),
-  AdjustHealGivenTag.default({}),
   IncreaseHealGivenTag.default({}),
   DecreaseHealGivenTag.default({}),
   AdjustPoolCostTag.default({}),
   IncreasePoolCostTag.default({}),
   DecreasePoolCostTag.default({}),
-  AdjustStatTag.default({}),
   IncreaseStatTag.default({}),
   DecreaseStatTag.default({}),
   DamageTag.default({}),
@@ -759,12 +706,6 @@ const SuperRefineEffects = (
       addIssue(ctx, "AbsorbTag should be set to defence");
     } else if (e.type === "barrier" && e.staticAssetPath === "") {
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
-    } else if (e.type === "armoradjust") {
-      if (
-        (e.direction === "offence" && e.power > 0) ||
-        (e.direction === "defence" && e.power < 0)
-      )
-        addIssue(ctx, "ArmorTag power & direction mismatch");
     } else if (e.type === "clone" && e.rounds === 0) {
       addIssue(
         ctx,
