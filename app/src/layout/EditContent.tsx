@@ -421,7 +421,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         const shownTag = parsedTag.success ? parsedTag.data : tag;
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).map((key) => {
-          if (key !== "type" && key in curTag) {
+          if (!["type", "calculation", "direction"].includes(key) && key in curTag) {
             // @ts-ignore
             shownTag[key] = curTag[key];
           }
