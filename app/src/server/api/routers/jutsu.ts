@@ -207,8 +207,8 @@ export const jutsuRouter = createTRPCRouter({
     ]);
     return results.filter((userjutsu) => {
       return (
-        userjutsu.jutsu.bloodlineId === "" ||
-        user.bloodlineId === userjutsu.jutsu.bloodlineId
+        userjutsu.jutsu?.bloodlineId === "" ||
+        user?.bloodlineId === userjutsu.jutsu?.bloodlineId
       );
     });
   }),
@@ -288,8 +288,8 @@ export const jutsuRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const filteredJutsus = userjutsus.filter((userjutsu) => {
         return (
-          userjutsu.jutsu.bloodlineId === "" ||
-          user.bloodlineId === userjutsu.jutsu.bloodlineId
+          userjutsu.jutsu?.bloodlineId === "" ||
+          user.bloodlineId === userjutsu.jutsu?.bloodlineId
         );
       });
       const userjutsu = filteredJutsus.find((j) => j.id === input.userJutsuId);
