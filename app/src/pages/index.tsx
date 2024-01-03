@@ -16,7 +16,11 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (userStatus !== "loading" && !userData) {
-      void router.push("/register");
+      if (userStatus === "error") {
+        void router.push("/500");
+      } else {
+        void router.push("/register");
+      }
     }
     if (userData && userId) {
       void router.push("/profile");
