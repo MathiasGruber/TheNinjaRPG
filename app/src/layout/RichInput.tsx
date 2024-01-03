@@ -62,7 +62,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
                 "wordcount",
               ],
               toolbar:
-                "undo redo | emoticons image | " +
+                "undo redo | emoticons image media | " +
                 "bold italic forecolor | alignleft aligncenter " +
                 "alignright alignjustify | bullist numlist outdent indent" +
                 "removeformat | help",
