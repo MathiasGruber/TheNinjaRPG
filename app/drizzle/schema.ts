@@ -750,6 +750,9 @@ export const userData = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    questFinishAt: datetime("questFinishAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     deletionAt: datetime("deletionAt", { mode: "date", fsp: 3 }),
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: tinyint("isBanned").default(0).notNull(),

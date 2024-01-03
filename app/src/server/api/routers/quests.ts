@@ -20,6 +20,8 @@ import { availableRanks, availableRoles } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
+import { missionHallSettings } from "@/libs/quest";
+import { secondsPassed } from "@/utils/time";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -108,6 +110,21 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
+      // Fetch settings
+      const settings = missionHallSettings.find(
+        (s) => s.type === input.type && s.rank === input.rank
+      );
+      if (!settings) {
+        throw serverError("PRECONDITION_FAILED", "Settings not found");
+      }
+      // Confirm timing, i.e. whether it has been long enough since last quest
+      const minutesPassed = secondsPassed(user.questFinishAt) / 60;
+      if (minutesPassed < settings.delayMinutes) {
+        throw serverError(
+          "PRECONDITION_FAILED",
+          `Must wait ${settings.delayMinutes} minutes`
+        );
+      }
       // Check if user is allowed to perform this rank
       const ranks = availableRanks(user.rank);
       if (!ranks.includes(input.rank)) {
@@ -155,12 +172,18 @@ export const questsRouter = createTRPCRouter({
       if (!["mission", "crime", "event", "errand"].includes(current.questType)) {
         throw serverError("PRECONDITION_FAILED", `Cannot abandon ${current.questType}`);
       }
-      await ctx.drizzle
-        .update(questHistory)
-        .set({ completed: 0, endAt: new Date() })
-        .where(
-          and(eq(questHistory.questId, input.id), eq(questHistory.userId, ctx.userId))
-        );
+      await Promise.all([
+        ctx.drizzle
+          .update(questHistory)
+          .set({ completed: 0, endAt: new Date() })
+          .where(
+            and(eq(questHistory.questId, input.id), eq(questHistory.userId, ctx.userId))
+          ),
+        ctx.drizzle
+          .update(userData)
+          .set({ questFinishAt: new Date() })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
       return { message: `Quest abandoned` };
     }),
   getQuestHistory: protectedProcedure
@@ -345,6 +368,7 @@ export const questsRouter = createTRPCRouter({
           .update(userData)
           .set({
             questData: u.questData,
+            questFinishAt: new Date(),
             money: u.money + rewards.reward_money,
             rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : u.rank,
           })

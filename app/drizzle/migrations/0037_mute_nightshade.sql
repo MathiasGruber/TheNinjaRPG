@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `questFinishAt` datetime(3) DEFAULT (CURRENT_TIMESTAMP(3)) NOT NULL;

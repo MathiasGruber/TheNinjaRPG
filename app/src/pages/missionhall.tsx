@@ -1,67 +1,22 @@
 import { type NextPage } from "next";
+import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import Countdown from "@/layout/Countdown";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import Confirm from "@/layout/Confirm";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
+import { availableRanks } from "@/libs/train";
+import { secondsFromDate } from "@/utils/time";
+import { missionHallSettings } from "@/libs/quest";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 
-const settings = [
-  {
-    type: "errand",
-    rank: "D",
-    name: "Errand",
-    image: "/missions/errands.webp",
-    description:
-      "Errands typically involve simple tasks such as fetching an item somewhere in the village, delivering groceries, etc.",
-  },
-  {
-    type: "mission",
-    rank: "D",
-    name: "D-rank",
-    image: "/missions/D_mission.webp",
-    description:
-      "D-rank missions are the lowest rank of missions. They are usually simple missions that have a low chance of danger, finding & retrieving items, doing manual labor, or fetching a lost cat",
-  },
-  {
-    type: "mission",
-    rank: "C",
-    name: "C-rank",
-    image: "/missions/C_mission.webp",
-    description:
-      "C-rank missions are the second lowest rank of missions. They are usually missions that have a chance of danger, e.g. escorting a client through friendly territory, etc.",
-  },
-  {
-    type: "mission",
-    rank: "B",
-    name: "B-rank",
-    image: "/missions/B_mission.webp",
-    description:
-      "B-rank missions are the third highest rank of missions. They are usually missions that have a decent chance of danger, e.g. escorting a client through neutral or enemy territory.",
-  },
-  {
-    type: "mission",
-    rank: "A",
-    name: "A-rank",
-    image: "/missions/A_mission.webp",
-    description:
-      "A-rank missions are the second highest rank of missions. They usually have a high chance of danger and are considered to be very difficult, e.g. assassinating a target, etc.",
-  },
-  {
-    type: "mission",
-    rank: "S",
-    name: "S-rank",
-    image: "/missions/S_mission.webp",
-    description:
-      "S-rank missions are the highest rank of missions. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.",
-  },
-] as const;
-
 const MissionHall: NextPage = () => {
-  const { data: userData, refetch } = useRequiredUserData();
+  const [, setCounter] = useState(0); // NOTE: This is a hack to force re-render
+  const { data: userData, refetch, timeDiff } = useRequiredUserData();
   useRequireInVillage();
 
   const currentQuest = userData?.userQuests?.find(
@@ -76,7 +31,7 @@ const MissionHall: NextPage = () => {
   });
 
   const { mutate: startRandom, isLoading } = api.quests.startRandom.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       void refetch();
     },
     onError: (error) => {
@@ -85,6 +40,12 @@ const MissionHall: NextPage = () => {
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Current timestamp synced with server
+  const now = new Date(new Date().getTime() - timeDiff);
+
+  // Get available letter ranks for user
+  const availableUserRanks = availableRanks(userData.rank);
 
   return (
     <ContentBox
@@ -109,11 +70,26 @@ const MissionHall: NextPage = () => {
       )}
       {!currentQuest && !isLoading && (
         <div className="grid grid-cols-3 italic p-3 gap-4 text-center">
-          {settings.map((setting, i) => {
+          {missionHallSettings.map((setting, i) => {
+            // Count how many of this type and rank are available
             const count =
               hallData?.find(
                 (point) => point.type === setting.type && point.rank === setting.rank
               )?.count ?? 0;
+            // Based on last quest finish, create countdown if applicable
+            const allowedAt = secondsFromDate(
+              setting.delayMinutes * 60,
+              userData.questFinishAt
+            );
+            const coundownComponent = (
+              <Countdown
+                targetDate={allowedAt}
+                onFinish={() => setCounter((n) => n + 1)}
+              />
+            );
+            const timer = allowedAt > now ? coundownComponent : null;
+            // Check is user rank is high enough for this quest
+            const isRankAllowed = availableUserRanks.includes(setting.rank);
             return (
               <Confirm
                 key={i}
@@ -122,14 +98,14 @@ const MissionHall: NextPage = () => {
                 button={
                   <div
                     className={
-                      count === 0
+                      count === 0 || timer !== null || !isRankAllowed
                         ? "filter grayscale"
                         : "hover:cursor-pointer hover:opacity-30"
                     }
                   >
                     <Image alt="small" src={setting.image} width={256} height={256} />
                     <p className="font-bold">{setting.name}</p>
-                    <p>[{count} available]</p>
+                    <p>{timer ?? <>[{count} available]</>}</p>
                   </div>
                 }
                 onAccept={(e) => {
