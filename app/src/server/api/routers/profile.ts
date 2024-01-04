@@ -913,18 +913,6 @@ export const fetchRegeneratedUser = async (props: {
           user.userQuests.push(questExam);
         }
       }
-      // Update the quest tracking data for the user
-      const { trackers } = getNewTrackers(user, [
-        { task: "user_level", value: user.level },
-      ]);
-      user.questData = trackers;
-      if (user.joinedVillageAt) {
-        const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
-        const { trackers } = getNewTrackers(user, [
-          { task: "days_in_village", increment: days },
-        ]);
-        user.questData = trackers;
-      }
       // Update database
       await client
         .update(userData)

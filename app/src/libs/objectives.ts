@@ -6,6 +6,8 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: "/badges/pvp_kills.webp", title: "PVP kills" };
     case "arena_kills":
       return { image: "/badges/arena_kills.webp", title: "Arena kills" };
+    case "minutes_passed":
+      return { image: "/badges/minutes_passed.webp", title: "Minutes passed" };
     // case "anbu_kills":
     //   return { image: "/badges/anbu_kills.webp", title: "ANBU kills" };
     // case "tournaments_won":

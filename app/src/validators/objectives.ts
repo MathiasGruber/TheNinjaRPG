@@ -5,6 +5,7 @@ import { UserRanks, LetterRanks, TimeFrames, QuestTypes } from "@/drizzle/consta
 export const SimpleTasks = [
   "pvp_kills",
   "arena_kills",
+  "minutes_passed",
   // "anbu_kills",
   // "tournaments_won",
   // "village_funds_earned",

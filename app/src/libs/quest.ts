@@ -6,6 +6,7 @@ import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/consta
 import { api } from "@/utils/api";
 import { show_toast, show_errors } from "@/libs/toast";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
+import { secondsPassed } from "@/utils/time";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -310,43 +311,50 @@ export const getNewTrackers = (
         if (!questTracker) {
           questTracker = QuestTracker.parse({ id: quest.id });
         }
-        // If no updates for tasks, just return tracker
-        if (tasks.length === 0) {
-          return questTracker;
-        }
         // Update the goals of the quest
         questTracker.goals = quest.content.objectives.map((objective) => {
           // Get the current goal, or create it
-          let currentGoal = questTracker?.goals.find(
-            (goal) => goal.id === objective.id
-          );
-          if (!currentGoal) {
-            currentGoal = ObjectiveTracker.parse({ id: objective.id });
+          let status = questTracker?.goals.find((goal) => goal.id === objective.id);
+          if (!status) {
+            status = ObjectiveTracker.parse({ id: objective.id });
           }
-          if (currentGoal.done) {
-            return currentGoal;
+          if (status.done) {
+            return status;
           }
-          // Get the task update for this objective. Return current if no updates
+
+          // Get the task update for this objective
           const task = objective.task;
+
+          // General updates we want to apply every time
+          if (task === "user_level") {
+            status.value = user.level;
+          } else if (task === "days_in_village") {
+            const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
+            status.value = days;
+          } else if (task === "minutes_passed" && questTracker) {
+            const minutes = Math.floor(
+              secondsPassed(new Date(questTracker.startAt)) / 60
+            );
+            status.value = minutes;
+          }
+
+          // Specific updates requested by the caller
           const taskUpdate = tasks.find((t) => t.task === task);
           if (taskUpdate) {
             // If objective has a value, increment it
             if ("value" in objective) {
               if (taskUpdate.increment) {
-                currentGoal.value += taskUpdate.increment;
+                status.value += taskUpdate.increment;
               }
               if (taskUpdate.value) {
-                currentGoal.value = taskUpdate.value;
-              }
-              if (currentGoal.value >= objective.value) {
-                currentGoal.done = true;
+                status.value = taskUpdate.value;
               }
             }
             // If objective has a location, set to completed
             if (isLocationObjective(user, objective)) {
               if (task === "move_to_location") {
                 notifications.push(`You arrived at destination for ${quest.name}.`);
-                currentGoal.done = true;
+                status.done = true;
               } else if (
                 task === "collect_item" &&
                 "item_name" in objective &&
@@ -355,7 +363,7 @@ export const getNewTrackers = (
               ) {
                 notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
                 consequences.push({ type: "item", id: objective.collect_item_id });
-                currentGoal.done = true;
+                status.done = true;
               }
               if (task === "defeat_opponents" && "opponent_ai" in objective) {
                 if (
@@ -373,11 +381,14 @@ export const getNewTrackers = (
                 objective.opponent_ai === taskUpdate.contentId
               ) {
                 notifications.push(`Opponent defeated for ${quest.name}.`);
-                currentGoal.done = true;
+                status.done = true;
               }
             }
           }
-          return currentGoal;
+          if ("value" in objective && status.value >= objective.value) {
+            status.done = true;
+          }
+          return status;
         });
         return questTracker;
       }
