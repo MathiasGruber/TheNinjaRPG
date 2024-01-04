@@ -47,7 +47,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
           urlBlocklist: [],
         }}
       />
-      <ErrorBoundary>
+      <ErrorBoundary showDialog={false}>
         <MultisessionAppSupport>
           <Layout>
             <Component {...pageProps} />

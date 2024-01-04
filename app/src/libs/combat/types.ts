@@ -566,6 +566,12 @@ export const VisualTag = z.object({
   description: msg("A battlefield visual effect"),
 });
 
+export const UnknownTag = z.object({
+  ...BaseAttributes,
+  type: z.literal("unknown").default("unknown"),
+  description: msg("An unknown tag - please report & change!"),
+});
+
 /******************** */
 /** UNIONS OF TAGS   **/
 /******************** */
@@ -604,11 +610,12 @@ const AllTags = z.union([
   SummonPreventTag.default({}),
   SummonTag.default({}),
   VisualTag.default({}),
+  UnknownTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
-export const tagTypes = AllTags._def.options.map(
-  (o) => o._def.innerType.shape.type._def.innerType._def.value
-);
+export const tagTypes = AllTags._def.options
+  .map((o) => o._def.innerType.shape.type._def.innerType._def.value)
+  .filter((t) => t !== "unknown");
 
 const BloodlineTags = z.union([
   AbsorbTag.default({}),
@@ -642,7 +649,7 @@ export const getTagSchema = (type: ZodAllTags["type"]) => {
   const schema = AllTags._def.options.find(
     (o) => o._def.innerType.shape.type._def.innerType._def.value === type
   );
-  if (!schema) throw new Error(`No schema found for tag type ${type}`);
+  if (!schema) return UnknownTag;
   return schema._def.innerType;
 };
 
