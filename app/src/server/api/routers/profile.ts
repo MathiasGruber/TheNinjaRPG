@@ -41,6 +41,8 @@ import { MAX_ATTRIBUTES } from "../../../libs/profile";
 import { statSchema } from "../../../libs/combat/types";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
+import { updateUserSchema } from "@/validators/user";
+import type { UpdateUserSchema } from "@/validators/user";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { QuestHistory, Quest } from "@/drizzle/schema";
@@ -381,53 +383,102 @@ export const profileRouter = createTRPCRouter({
         return { success: false, message: `Not allowed to delete AI` };
       }
     }),
+  // Update user
+  updateUser: protectedProcedure
+    .input(z.object({ id: z.string(), data: updateUserSchema }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Queries
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const target = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, input.id),
+      });
+      // Guards
+      if (!target) {
+        return { success: false, message: `User not found` };
+      }
+      if (user.role !== "ADMIN") {
+        return { success: false, message: `Not allowed to edit user` };
+      }
+      // Calculate diff
+      const prev = Object.fromEntries(
+        Object.entries(target).filter(([k]) => Object.keys(input.data).includes(k))
+      );
+      const diff = new HumanDiff({ objectName: "user" }).diff(prev, input.data);
+      // Update database
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set(input.data)
+          .where(eq(userData.userId, target.userId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: diff,
+          relatedId: target.userId,
+          relatedMsg: `Update: ${target.username}`,
+          relatedImage: target.avatar,
+        }),
+      ]);
+      return { success: true, message: `Data updated: ${diff.join(". ")}` };
+    }),
   // Update a AI
   updateAi: protectedProcedure
     .input(z.object({ id: z.string(), data: insertUserDataSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Queries
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const ai = await ctx.drizzle.query.userData.findFirst({
         where: eq(userData.userId, input.id),
         with: { jutsus: true },
       });
-      if (ai && ai.isAi && canChangeContent(user.role)) {
-        // Store any new jutsus
-        const olds = [...ai.jutsus.map((j) => j.jutsuId)];
-        const news = input.data.jutsus ? [...input.data.jutsus] : [];
-        const newJutsus = olds.sort().join(",") !== news.sort().join(",");
+      // Guards
+      if (!ai) {
+        return { success: false, message: `AI not found` };
+      }
+      if (!ai.isAi || !canChangeContent(user.role)) {
+        return { success: false, message: `Not allowed to edit AI` };
+      }
 
-        // If jutsus are different, then update with jutsu names for diff calculation only
-        let jutsuChanges: string[] = [];
-        if (newJutsus) {
-          const data = await ctx.drizzle.query.jutsu.findMany({
-            where: inArray(jutsu.id, olds.concat(news)),
-            columns: { id: true, name: true },
-          });
-          const s1 = { jutsus: olds.map((id) => data.find((j) => j.id === id)?.name) };
-          const s2 = { jutsus: news.map((id) => data.find((j) => j.id === id)?.name) };
-          jutsuChanges = new HumanDiff({ objectName: "jutsu" }).diff(s1, s2);
-        }
+      // Store any new jutsus
+      const olds = [...ai.jutsus.map((j) => j.jutsuId)];
+      const news = input.data.jutsus ? [...input.data.jutsus] : [];
+      const newJutsus = olds.sort().join(",") !== news.sort().join(",");
 
-        // Delete jutsus from objects
-        ai.jutsus = [];
-        input.data.jutsus = [];
+      // If jutsus are different, then update with jutsu names for diff calculation only
+      let jutsuChanges: string[] = [];
+      if (newJutsus) {
+        const data = await ctx.drizzle.query.jutsu.findMany({
+          where: inArray(jutsu.id, olds.concat(news)),
+          columns: { id: true, name: true },
+        });
+        const s1 = { jutsus: olds.map((id) => data.find((j) => j.id === id)?.name) };
+        const s2 = { jutsus: news.map((id) => data.find((j) => j.id === id)?.name) };
+        jutsuChanges = new HumanDiff({ objectName: "jutsu" }).diff(s1, s2);
+      }
 
-        // Update input data based on level
-        const newAi = { ...ai, ...input.data } as UserData;
+      // Delete jutsus from objects
+      ai.jutsus = [];
+      input.data.jutsus = [];
 
-        // Level-based stats / pools
-        scaleUserStats(newAi);
+      // Update input data based on level
+      const newAi = { ...ai, ...input.data } as UserData;
 
-        // Calculate diff
-        const diff = new HumanDiff({ objectName: "user" })
-          .diff(ai, newAi)
-          .concat(jutsuChanges);
+      // Level-based stats / pools
+      scaleUserStats(newAi);
 
-        // Update jutsus if needed
-        if (newJutsus) {
-          await ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, ai.userId));
-          await ctx.drizzle.insert(userJutsu).values(
+      // Calculate diff
+      const diff = new HumanDiff({ objectName: "user" })
+        .diff(ai, newAi)
+        .concat(jutsuChanges);
+
+      // Update jutsus if needed
+      if (newJutsus) {
+        await Promise.all([
+          ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, ai.userId)),
+          ctx.drizzle.insert(userJutsu).values(
             news.map((jutsuId) => ({
               id: nanoid(),
               userId: newAi.userId,
@@ -435,17 +486,16 @@ export const profileRouter = createTRPCRouter({
               level: newAi.level,
               equipped: 1,
             }))
-          );
-        }
+          ),
+        ]);
+      }
 
-        // Update database
-        const insertAi = { ...newAi } as UserData & { jutsus?: string[] };
-        delete insertAi.jutsus;
-        await ctx.drizzle
-          .update(userData)
-          .set(insertAi)
-          .where(eq(userData.userId, input.id));
-        await ctx.drizzle.insert(actionLog).values({
+      // Update database
+      const insertAi = { ...newAi } as UserData & { jutsus?: string[] };
+      delete insertAi.jutsus;
+      await Promise.all([
+        ctx.drizzle.update(userData).set(insertAi).where(eq(userData.userId, input.id)),
+        ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
           tableName: "ai",
@@ -453,16 +503,14 @@ export const profileRouter = createTRPCRouter({
           relatedId: ai.userId,
           relatedMsg: `Update: ${ai.username}`,
           relatedImage: ai.avatar,
-        });
+        }),
+      ]);
 
-        // Update discord channel
-        if (process.env.NODE_ENV !== "development") {
-          await callDiscordContent(user.username, ai.username, diff, ai.avatar);
-        }
-        return { success: true, message: `Data updated: ${diff.join(". ")}` };
-      } else {
-        return { success: false, message: `Not allowed to edit AI` };
+      // Update discord channel
+      if (process.env.NODE_ENV !== "development") {
+        await callDiscordContent(user.username, ai.username, diff, ai.avatar);
       }
+      return { success: true, message: `Data updated: ${diff.join(". ")}` };
     }),
   // Get user attributes
   getUserAttributes: protectedProcedure.query(async ({ ctx }) => {

@@ -11,7 +11,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { type ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
-  const tabNames = ["ai", "jutsu", "bloodline", "item"] as const;
+  const tabNames = ["ai", "user", "jutsu", "bloodline", "item"] as const;
   const [activeTab, setActiveTab] = useState<typeof tabNames[number]>("ai");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 

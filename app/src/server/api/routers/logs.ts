@@ -9,7 +9,7 @@ export const logsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        table: z.enum(["ai", "item", "bloodline", "jutsu", "bloodline"]),
+        table: z.enum(["ai", "user", "item", "bloodline", "jutsu", "bloodline"]),
       })
     )
     .query(async ({ ctx, input }) => {

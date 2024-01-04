@@ -9,13 +9,18 @@ import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
+import { EditContent } from "@/layout/EditContent";
 import { FlagIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
+import { updateUserSchema } from "@/validators/user";
 
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { canChangeAvatar } from "../../validators/reports";
 import { useUserData } from "@/utils/UserContext";
+import { useUserEditForm } from "@/libs/profile";
+import type { UpdateUserSchema } from "@/validators/user";
 
 const PublicProfile: NextPage = () => {
   const { isSignedIn } = useAuth();
@@ -58,7 +63,14 @@ const PublicProfile: NextPage = () => {
             back_href="/users"
             subtitle={"Public Profile: " + profile.username}
             topRightContent={
-              <div>
+              <div className="flex flex-row gap-1">
+                {userData?.role === "ADMIN" && (
+                  <EditUserComponent
+                    userId={profile.userId}
+                    profile={profile}
+                    refetchProfile={refetchProfile}
+                  />
+                )}
                 <ReportUser
                   user={profile}
                   content={{
@@ -68,7 +80,9 @@ const PublicProfile: NextPage = () => {
                       "General user behavior, justification must be provided in comments",
                   }}
                   system="user_profile"
-                  button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
+                  button={
+                    <FlagIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+                  }
                 />
               </div>
             }
@@ -172,3 +186,53 @@ const PublicProfile: NextPage = () => {
 };
 
 export default PublicProfile;
+
+interface EditUserComponentProps {
+  userId: string;
+  profile: UpdateUserSchema;
+  refetchProfile: () => void;
+}
+
+const EditUserComponent: React.FC<EditUserComponentProps> = (props) => {
+  // Destructure
+  const { userId, profile, refetchProfile } = props;
+
+  // Form handling
+  const {
+    form: {
+      getValues,
+      setValue,
+      register,
+      formState: { isDirty, errors },
+    },
+    formData,
+    handleUserSubmit,
+  } = useUserEditForm(userId, profile, refetchProfile);
+
+  // Get current form values
+  const currentValues = getValues();
+
+  return (
+    <Confirm
+      title="Update User Data"
+      proceed_label="Done"
+      button={
+        <Cog6ToothIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+      }
+    >
+      <EditContent
+        currentValues={currentValues}
+        schema={updateUserSchema}
+        showSubmit={isDirty}
+        buttonTxt="Save to Database"
+        setValue={setValue}
+        register={register}
+        errors={errors}
+        formData={formData}
+        type="ai"
+        allowImageUpload={true}
+        onAccept={handleUserSubmit}
+      />
+    </Confirm>
+  );
+};

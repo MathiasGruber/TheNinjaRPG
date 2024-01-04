@@ -1,4 +1,13 @@
+import HumanDiff from "human-object-diff";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { api } from "@/utils/api";
+import { UserRoles } from "@/drizzle/constants";
+import { show_toast, show_errors } from "@/libs/toast";
+import { updateUserSchema } from "@/validators/user";
+import type { UpdateUserSchema } from "@/validators/user";
 import type { UserData } from "@/drizzle/schema";
+import type { FormEntry } from "@/layout/EditContent";
 
 export const HP_PER_LVL = 50;
 export const SP_PER_LVL = 50;
@@ -96,3 +105,53 @@ export function scaleUserStats(user: UserData) {
   user["willpower"] = calcStat("willpower");
   user["speed"] = calcStat("speed");
 }
+
+/**
+ * Hook used when creating frontend forms for editing AIs
+ * @param data
+ */
+export const useUserEditForm = (
+  userId: string,
+  user: UpdateUserSchema,
+  refetch: () => void
+) => {
+  // Form handling
+  const form = useForm<UpdateUserSchema>({
+    mode: "all",
+    criteriaMode: "all",
+    values: user,
+    defaultValues: user,
+    resolver: zodResolver(updateUserSchema),
+  });
+
+  // Mutation for updating item
+  const { mutate: updateUser, isLoading: loading } = api.profile.updateUser.useMutation(
+    {
+      onSuccess: (data) => {
+        refetch();
+        show_toast("Updated User", data.message, "info");
+      },
+      onError: (error) => {
+        show_toast("Error updating", error.message, "error");
+      },
+    }
+  );
+
+  // Form submission
+  const handleUserSubmit = form.handleSubmit(
+    (data) => {
+      const diff = new HumanDiff({}).diff(user, data);
+      if (diff.length > 0) {
+        updateUser({ id: userId, data: data });
+      }
+    },
+    (errors) => show_errors(errors)
+  );
+
+  // Object for form values
+  const formData: FormEntry<keyof UpdateUserSchema>[] = [
+    { id: "role", type: "str_array", values: UserRoles },
+  ];
+
+  return { user, loading, form, formData, handleUserSubmit };
+};
