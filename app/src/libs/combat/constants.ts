@@ -86,6 +86,7 @@ export const Element = [
   "Magnet",
   "Yin",
   "Yang",
+  "Yin-Yang",
   "None",
 ] as const;
 export const StatType = [
