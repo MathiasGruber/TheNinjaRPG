@@ -6,10 +6,14 @@ import { canChangeContent } from "@/utils/permissions";
 import { serverEnv } from "src/env/schema.mjs";
 import { fetchQuest } from "@/routers/quests";
 import { fetchUser } from "@/routers/profile";
+import { fetchBloodline } from "@/routers/bloodline";
 import { requestContentImage } from "@/libs/replicate";
 import { fetchReplicateResult } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
 import { copyImageToStorage } from "@/libs/aws";
+import { tagTypes } from "@/libs/combat/types";
+import { LetterRanks, QuestTypes } from "@/drizzle/constants";
+import type { LetterRank, QuestType } from "@/drizzle/constants";
 
 const client = new OpenAI({
   apiKey: serverEnv.OPENAI_API_KEY,
@@ -17,11 +21,56 @@ const client = new OpenAI({
 });
 
 type ReturnQuest = {
-  title?: string;
-  description?: string;
-  successDescription?: string;
-  objectives?: string[];
+  name: string;
+  description: string;
+  successDescription: string;
+  objectives: string[];
+  questType: QuestType;
+  requiredRank: LetterRank;
 };
+
+type ReturnBloodline = {
+  name: string;
+  description: string;
+  regenIncrease: number;
+  rank: LetterRank;
+  effects: typeof tagTypes[number][];
+};
+
+async function callOpenAI<ReturnType>(
+  prompt: string,
+  current: string,
+  functionParameters: Record<string, unknown>
+) {
+  const completion = await client.chat.completions.create(
+    {
+      model: "gpt-4-1106-preview",
+      messages: [
+        {
+          role: "user",
+          content: `Update our TOK object, following these instructions: ${prompt}. \r\r The data for our current TOK object is ${current}`,
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "createTokObject",
+            description: "Create an updated TOK object",
+            parameters: functionParameters,
+          },
+        },
+      ],
+      tool_choice: {
+        type: "function",
+        function: { name: "createTokObject" },
+      },
+    },
+    { timeout: 10 * 1000 }
+  );
+  const args = completion?.choices?.[0]?.message?.tool_calls?.[0]?.function.arguments;
+  return JSON.parse(args ?? "{}") as ReturnType;
+}
 
 export const openaiRouter = createTRPCRouter({
   createImg: protectedProcedure
@@ -75,12 +124,7 @@ export const openaiRouter = createTRPCRouter({
       }
     }),
   createQuest: protectedProcedure
-    .input(
-      z.object({
-        questId: z.string(),
-        freeText: z.string(),
-      })
-    )
+    .input(z.object({ questId: z.string(), prompt: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Ensure the quest is there
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -92,37 +136,74 @@ export const openaiRouter = createTRPCRouter({
         throw serverError("UNAUTHORIZED", "You are not allowed to change content");
       }
       // Get new content from OpenAI
-      const completion = await client.chat.completions.create(
-        {
-          model: "gpt-3.5-turbo-1106",
-          messages: [
-            {
-              role: "user",
-              content: `
-              Please write and/or edit the title, description, and objectives for a ${
-                quest.requiredRank
-              }-ranked ${
-                quest.questType
-              }. Be specific about details of the mission, and try to follow the below user instructions.
-              
-              User Instructions: ${input.freeText}
-              Current title: ${quest.name}
-              Current description: ${quest.description}
-              Current success message: ${quest.successDescription}
-
-              The objectives must be a list of tasks, with the following available tasks: ${allObjectiveTasks.join(
-                ","
-              )}
-            
-              Return the output as JSON with the fields "title", "description", "successDescription" and "objectives".`,
+      return await callOpenAI<ReturnQuest>(input.prompt, JSON.stringify(quest), {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+          successDescription: { type: "string" },
+          objectives: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: allObjectiveTasks,
             },
-          ],
-          response_format: { type: "json_object" },
+          },
+          questType: {
+            type: "string",
+            enum: QuestTypes,
+          },
+          requiredRank: {
+            type: "string",
+            enum: LetterRanks,
+          },
         },
-        { timeout: 10 * 1000 }
+        required: [
+          "name",
+          "questType",
+          "requiredRank",
+          "description",
+          "successDescription",
+          "objectives",
+        ],
+      });
+    }),
+  createBloodline: protectedProcedure
+    .input(z.object({ bloodlineId: z.string(), prompt: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Ensure the quest is there
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const bloodline = await fetchBloodline(ctx.drizzle, input.bloodlineId);
+      if (!bloodline) {
+        throw serverError("NOT_FOUND", "Bloodline not found");
+      }
+      if (!canChangeContent(user.role)) {
+        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
+      }
+      // Get new content from OpenAI
+      return await callOpenAI<ReturnBloodline>(
+        input.prompt,
+        JSON.stringify(bloodline),
+        {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            regenIncrease: { type: "number" },
+            rank: {
+              type: "string",
+              enum: LetterRanks,
+            },
+            effects: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: tagTypes,
+              },
+            },
+          },
+          required: ["name", "description", "effects", "regenIncrease", "rank"],
+        }
       );
-      return JSON.parse(
-        completion?.choices?.[0]?.message?.content ?? "{}"
-      ) as ReturnQuest;
     }),
 });

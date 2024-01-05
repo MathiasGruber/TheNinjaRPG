@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import ChatInputField from "@/layout/ChatInputField";
 import { api } from "@/utils/api";
 import { DamageTag } from "@/libs/combat/types";
 import { EditContent } from "@/layout/EditContent";
@@ -14,6 +15,9 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/libs/bloodline";
+import { show_toast } from "@/libs/toast";
+import { getTagSchema } from "@/libs/combat/types";
+import type { ZodAllTags } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -87,6 +91,34 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     />
   );
 
+  const { mutate: chatIdea, isLoading } = api.openai.createBloodline.useMutation({
+    onSuccess: (data) => {
+      show_toast("Updated Bloodline", `Based on response from AI`, "success");
+      let key: keyof typeof data;
+      for (key in data) {
+        if (key === "effects") {
+          const effects = data.effects
+            .map((effect) => {
+              const schema = getTagSchema(effect);
+              const parsed = schema.safeParse({ type: effect });
+              if (parsed.success) {
+                return parsed.data;
+              } else {
+                return undefined;
+              }
+            })
+            .filter((e) => e !== undefined) as ZodAllTags[];
+          setEffects(effects);
+        } else {
+          setValue(key, data[key]);
+        }
+      }
+    },
+    onError: (error) => {
+      show_toast("Error from ChatGPT", error.message, "error");
+    },
+  });
+
   // Get current form values
   const currentValues = getValues();
 
@@ -97,6 +129,19 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
         title="Content Panel"
         subtitle="Bloodline Management"
         back_href="/manual/bloodlines"
+        noRightAlign={true}
+        topRightContent={
+          formData.find((e) => e.id === "description") ? (
+            <ChatInputField
+              id="chatInput"
+              placeholder="Instruct ChatGPT to edit description & objectives"
+              isLoading={isLoading}
+              onSubmit={(text) => {
+                chatIdea({ bloodlineId: bloodline.id, prompt: text });
+              }}
+            />
+          ) : undefined
+        }
       >
         {!bloodline && <p>Could not find this bloodline</p>}
         {!loading && bloodline && (

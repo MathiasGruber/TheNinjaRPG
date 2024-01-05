@@ -75,28 +75,24 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
   const { mutate: chatIdea, isLoading } = api.openai.createQuest.useMutation({
     onSuccess: (data) => {
       show_toast("Updated Quest", `Based on response from AI`, "success");
-      if ("description" in data && data.description) {
-        setValue("description", data.description);
-      }
-      if ("successDescription" in data && data.successDescription) {
-        setValue("successDescription", data.successDescription);
-      }
-      if ("title" in data && data.title) {
-        setValue("name", data.title);
-      }
-      if ("objectives" in data && data.objectives) {
-        const objectives = data.objectives
-          .map((task) => {
-            const schema = getObjectiveSchema(task);
-            const parsed = schema.safeParse({ id: nanoid(), task: task });
-            if (parsed.success) {
-              return parsed.data;
-            } else {
-              return undefined;
-            }
-          })
-          .filter((e) => e !== undefined) as AllObjectivesType[];
-        setObjectives(objectives);
+      let key: keyof typeof data;
+      for (key in data) {
+        if (key === "objectives") {
+          const objectives = data.objectives
+            .map((task) => {
+              const schema = getObjectiveSchema(task);
+              const parsed = schema.safeParse({ id: nanoid(), task: task });
+              if (parsed.success) {
+                return parsed.data;
+              } else {
+                return undefined;
+              }
+            })
+            .filter((e) => e !== undefined) as AllObjectivesType[];
+          setObjectives(objectives);
+        } else {
+          setValue(key, data[key]);
+        }
       }
     },
     onError: (error) => {
@@ -140,7 +136,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               placeholder="Instruct ChatGPT to edit description & objectives"
               isLoading={isLoading}
               onSubmit={(text) => {
-                chatIdea({ questId: quest.id, freeText: text });
+                chatIdea({ questId: quest.id, prompt: text });
               }}
             />
           ) : undefined
