@@ -26,10 +26,11 @@ import { show_toast } from "@/libs/toast";
 import { COST_CHANGE_USERNAME } from "@/libs/profile";
 import { COST_RESET_STATS } from "@/libs/profile";
 import { COST_SWAP_BLOODLINE } from "@/libs/profile";
+import { COST_SWAP_VILLAGE } from "@/libs/profile";
 import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
 import { statSchema } from "@/libs/combat/types";
-import type { Bloodline } from "../../../drizzle/schema";
+import type { Bloodline, Village } from "../../../drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "../../validators/comments";
@@ -108,12 +109,120 @@ const EditProfile: NextPage = () => {
         >
           <SwapBloodline />
         </Accordion>
+        <Accordion
+          title="Swap Village"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Change your village of choice"
+          selectedSubtitle={`You can swap your current village for another for ${COST_SWAP_VILLAGE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+          onClick={setActiveElement}
+        >
+          <SwapVillage />
+        </Accordion>
       </div>
     </ContentBox>
   );
 };
 
 export default EditProfile;
+
+/**
+ * Swap village
+ */
+const SwapVillage: React.FC = () => {
+  // State
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const [village, setVillage] = useState<Village | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  // Fetch data
+  const { data, isFetching } = api.village.getAll.useQuery(undefined, {
+    enabled: !!userData,
+    keepPreviousData: true,
+    staleTime: Infinity,
+  });
+  const villages = data?.map((village) => ({
+    ...village,
+    image: `/villages/${village.name}.png`,
+  }));
+
+  // Mutations
+  const { mutate: swap, isLoading: isSwapping } = api.village.swapVillage.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        show_toast("Success", data.message, "success");
+        await refetchUser();
+      } else {
+        show_toast("Error swapping village", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error swapping village", error.message, "error");
+    },
+    onSettled: () => {
+      setIsOpen(false);
+    },
+  });
+
+  // Only show if we have userData
+  if (!userData) {
+    return <Loader explanation="Loading profile page..." />;
+  }
+
+  // Derived data
+  const canAfford = userData && userData.reputationPoints >= COST_SWAP_BLOODLINE;
+
+  // Show component
+  return (
+    <div className="mt-2">
+      {!isFetching && (
+        <ActionSelector
+          items={villages}
+          showBgColor={false}
+          showLabels={true}
+          onClick={(id) => {
+            if (id == village?.id) {
+              setVillage(undefined);
+              setIsOpen(false);
+            } else {
+              setVillage(villages?.find((village) => village.id === id));
+              setIsOpen(true);
+            }
+          }}
+        />
+      )}
+      {isFetching && <Loader explanation="Loading villages" />}
+      {isOpen && userData && village && (
+        <Modal
+          title="Confirm Purchase"
+          proceed_label={
+            isSwapping
+              ? undefined
+              : canAfford
+              ? `Swap for ${COST_SWAP_VILLAGE} reps`
+              : `Need ${COST_SWAP_VILLAGE - userData.reputationPoints} reps`
+          }
+          setIsOpen={setIsOpen}
+          isValid={false}
+          onAccept={() => {
+            if (canAfford) {
+              swap({ villageId: village.id });
+            } else {
+              setIsOpen(false);
+            }
+          }}
+          confirmClassName={
+            canAfford
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }
+        >
+          {!isSwapping && <ItemWithEffects item={village} key={village.id} />}
+          {isSwapping && <Loader explanation={`Purchasing ${village.name}`} />}
+        </Modal>
+      )}
+    </div>
+  );
+};
 
 /**
  * Swap bloodline

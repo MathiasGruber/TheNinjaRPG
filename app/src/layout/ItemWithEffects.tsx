@@ -19,11 +19,12 @@ export type GenericObject = {
   name: string;
   description: string;
   image?: string;
-  rarity: ItemRarity;
-  level: number;
+  rarity?: ItemRarity;
+  level?: number;
+  sector?: number;
   createdAt: Date;
   updatedAt: Date;
-  attacks: string[];
+  attacks?: string[];
   effects?: ZodAllTags[];
   href?: string;
 };
@@ -146,9 +147,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Bloodline</b>: {(item?.bloodline as Bloodline)?.name}
               </p>
             )}
-            {"attacks" in item && (
+            {"attacks" in item && item.attacks && (
               <p className="col-span-2">
                 <b>Attacks</b>: {item.attacks.join(", ")}
+              </p>
+            )}
+            {"sector" in item && item.sector && (
+              <p className="col-span-2">
+                <b>Sector</b>: {item.sector}
               </p>
             )}
             {"jutsuType" in item && (

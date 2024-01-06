@@ -5,7 +5,9 @@ import { village, userData } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUser } from "./profile";
+import { fetchUser, fetchRegeneratedUser } from "./profile";
+import { COST_SWAP_VILLAGE } from "@/libs/profile";
+import { VILLAGE_LONG, VILLAGE_LAT } from "@/libs/travel/constants";
 import type { DrizzleClient } from "../../db";
 
 export const villageRouter = createTRPCRouter({
@@ -52,6 +54,52 @@ export const villageRouter = createTRPCRouter({
       } else {
         return { success: false, message: "You don't have enough money" };
       }
+    }),
+  swapVillage: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Queries
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      // Guards
+      if (!user) {
+        return { success: false, message: "User does not exist" };
+      }
+      const village = await fetchVillage(ctx.drizzle, input.villageId);
+      if (!village) {
+        return { success: false, message: "Village does not exist" };
+      }
+      if (user.villageId === village.id) {
+        return { success: false, message: "You are already in this village" };
+      }
+      if (user.status !== "AWAKE") {
+        return { success: false, message: "You must be awake." };
+      }
+      const cost = COST_SWAP_VILLAGE;
+      if (cost > user.reputationPoints) {
+        return { success: false, message: "You do not have enough reputation points" };
+      }
+      // Update
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          villageId: village.id,
+          reputationPoints: user.reputationPoints - cost,
+          sector: village.sector,
+          longitude: VILLAGE_LONG,
+          latitude: VILLAGE_LAT,
+        })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            gte(userData.reputationPoints, cost),
+            eq(userData.status, "AWAKE")
+          )
+        );
+      return { success: true, message: "You have swapped villages" };
     }),
 });
 
