@@ -13,6 +13,7 @@ The codebase relies on a variety of external services for e.g. auth, websockets,
 
 The following videos on youtube are recommended to get up to speed with different components of the stack:
 
+- The official TheNinja-RPG youtube, [TNR DevLog](https://www.youtube.com/watch?v=m29HidoaGqM&list=PLKGedXg3BVNJAW2nNioLEv1tcQjiwrOgA)
 - Next.js, Clerk, tRPC, Planetscale, tailwind: [T3 Stack Tutorial ](https://www.youtube.com/watch?v=YkOSUVzOAA4)
 - Drizzle ORM: [DrizzleORM Pitch](https://www.youtube.com/watch?v=_SLxGYzv6jo)
 - Upstash: [Rate-Limit with UpStash](https://www.youtube.com/watch?v=yfGCmSjGIxk)
