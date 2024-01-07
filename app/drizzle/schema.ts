@@ -1137,6 +1137,7 @@ export const questHistory = mysqlTable("QuestHistory", {
     .notNull(),
   endAt: datetime("endedAt", { mode: "date", fsp: 3 }),
   completed: tinyint("completed").default(0).notNull(),
+  previousCompletes: int("previousCompletes").default(0).notNull(),
 });
 export type QuestHistory = InferInsertModel<typeof questHistory>;
 

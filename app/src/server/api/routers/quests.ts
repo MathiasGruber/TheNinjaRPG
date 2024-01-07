@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
-import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
+import { inArray, lte, isNotNull, isNull, sql, asc, gte, SQL } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
 import { item, jutsu } from "@/drizzle/schema";
 import { userJutsu, userItem, userData } from "@/drizzle/schema";
@@ -152,7 +152,7 @@ export const questsRouter = createTRPCRouter({
         throw serverError("NOT_FOUND", "No assignments at this level could be found");
       }
       // Insert quest entry
-      await insertQuestEntry(ctx.drizzle, user, result);
+      await upsertQuestEntry(ctx.drizzle, user, result);
       return result;
     }),
   abandon: protectedProcedure
@@ -235,20 +235,14 @@ export const questsRouter = createTRPCRouter({
         // Check if quest is changed to be an event
         if (entry.questType !== "event" && input.data.questType === "event") {
           const roles = availableRoles(input.data.requiredRank);
-          const users = await ctx.drizzle.query.userData.findMany({
-            columns: { userId: true },
-            where: and(
+          await upsertQuestEntries(
+            ctx.drizzle,
+            entry,
+            and(
               inArray(userData.rank, roles),
-              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7))
-            ),
-          });
-          await ctx.drizzle.insert(questHistory).values(
-            users.map((user) => ({
-              id: nanoid(),
-              userId: user.userId,
-              questId: input.id,
-              questType: "event" as const,
-            }))
+              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7)),
+              isNull(questHistory.id)
+            )
           );
         }
         // Update database
@@ -376,7 +370,11 @@ export const questsRouter = createTRPCRouter({
         // Update quest history
         ctx.drizzle
           .update(questHistory)
-          .set({ completed: 1, endAt: new Date() })
+          .set({
+            completed: 1,
+            previousCompletes: sql`${questHistory.previousCompletes} + 1`,
+            endAt: new Date(),
+          })
           .where(
             and(
               eq(questHistory.questId, input.questId),
@@ -528,22 +526,72 @@ export const fetchUncompletedQuests = async (
   return history.map((quest) => quest.Quest);
 };
 
-export const insertQuestEntry = async (
+/** Upsert quest entries for all users by selector. NOTE: selector determined which users get updated/inserted entries */
+export const upsertQuestEntries = async (
+  client: DrizzleClient,
+  quest: Quest,
+  updateSelector: SQL<unknown> | undefined
+) => {
+  const users = await client
+    .select({ userId: userData.userId })
+    .from(userData)
+    .leftJoin(
+      questHistory,
+      and(eq(questHistory.userId, userData.userId), eq(questHistory.questId, quest.id))
+    )
+    .where(updateSelector);
+  if (users.length > 0) {
+    await client.insert(questHistory).values(
+      users.map((user) => ({
+        id: nanoid(),
+        userId: user.userId,
+        questId: quest.id,
+        questType: quest.questType,
+      }))
+    );
+  }
+  await client
+    .update(questHistory)
+    .set({ completed: 0, endAt: null, startedAt: new Date() })
+    .where(eq(questHistory.questId, quest.id));
+};
+
+/** Upsert quest entry for a single user */
+export const upsertQuestEntry = async (
   client: DrizzleClient,
   user: UserData,
   quest: Quest
 ) => {
-  const logEntry = {
-    id: nanoid(),
-    userId: user.userId,
-    questId: quest.id,
-    questType: quest.questType,
-    startedAt: new Date(),
-    endAt: null,
-    completed: 0,
-  };
-  await client.insert(questHistory).values(logEntry);
-  return logEntry;
+  const current = await client.query.questHistory.findFirst({
+    where: and(
+      eq(questHistory.questId, quest.id),
+      eq(questHistory.userId, user.userId)
+    ),
+  });
+  if (current) {
+    const logEntry = {
+      startedAt: new Date(),
+      endAt: null,
+      completed: 0,
+    };
+    await client
+      .update(questHistory)
+      .set(logEntry)
+      .where(eq(questHistory.id, current.id));
+    return { ...current, ...logEntry };
+  } else {
+    const logEntry = {
+      id: nanoid(),
+      userId: user.userId,
+      questId: quest.id,
+      questType: quest.questType,
+      startedAt: new Date(),
+      endAt: null,
+      completed: 0,
+    };
+    await client.insert(questHistory).values(logEntry);
+    return logEntry;
+  }
 };
 
 export const insertNextQuest = async (
@@ -554,7 +602,7 @@ export const insertNextQuest = async (
   const history = await fetchUncompletedQuests(client, user, type);
   const nextQuest = history?.[0];
   if (nextQuest) {
-    const logEntry = await insertQuestEntry(client, user, nextQuest);
+    const logEntry = await upsertQuestEntry(client, user, nextQuest);
     return { ...logEntry, quest: nextQuest };
   }
   return undefined;
