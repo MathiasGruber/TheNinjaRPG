@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
 import { TrashIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import { AcademicCapIcon } from "@heroicons/react/24/outline";
 
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -77,14 +78,6 @@ const Profile: NextPage = () => {
   const expRequired =
     userData &&
     Math.max(calcLevelRequirements(userData.level) - userData.experience, 0);
-
-  useEffect(() => {
-    if (expRequired !== undefined && expRequired <= 0) {
-      setShowModal(true);
-    } else {
-      setShowModal(false);
-    }
-  }, [expRequired]);
 
   if (!userData) {
     return <Loader explanation="Loading profile page..." />;
@@ -234,6 +227,18 @@ const Profile: NextPage = () => {
             <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
           </div>
         </div>
+        {expRequired !== undefined && expRequired <= 0 && (
+          <Button
+            id="create"
+            color="red"
+            label="Level up!"
+            image={<AcademicCapIcon className="h-6 w-6 mr-2" />}
+            onClick={(e) => {
+              e.preventDefault();
+              setShowModal(true);
+            }}
+          />
+        )}
       </ContentBox>
       <StrengthWeaknesses />
       <Logbook />
