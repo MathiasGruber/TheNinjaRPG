@@ -30,7 +30,14 @@ export const ItemSlots = [
   "NONE",
 ] as const;
 
-export const UserRoles = ["USER", "MODERATOR", "CONTENT", "EVENT", "ADMIN"] as const;
+export const UserRoles = [
+  "USER",
+  "MODERATOR",
+  "CONTENT",
+  "EVENT",
+  "ADMIN",
+  "CONTENT-ADMIN",
+] as const;
 export type UserRole = typeof UserRoles[number];
 
 export const UserStatuses = [

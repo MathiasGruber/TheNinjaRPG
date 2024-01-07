@@ -42,7 +42,7 @@ import { statSchema } from "../../../libs/combat/types";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import { updateUserSchema } from "@/validators/user";
-import type { UpdateUserSchema } from "@/validators/user";
+import { canChangeUserRole } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { QuestHistory, Quest } from "@/drizzle/schema";
@@ -393,12 +393,25 @@ export const profileRouter = createTRPCRouter({
       const target = await ctx.drizzle.query.userData.findFirst({
         where: eq(userData.userId, input.id),
       });
+      const availableRoles = canChangeUserRole(user.role);
       // Guards
       if (!target) {
         return { success: false, message: `User not found` };
       }
-      if (user.role !== "ADMIN") {
-        return { success: false, message: `Not allowed to edit user` };
+      if (!availableRoles) {
+        return { success: false, message: `Not allowed to change user roles` };
+      }
+      if (!availableRoles.includes(target.role)) {
+        return {
+          success: false,
+          message: `Not allowed to change users with role ${target.role}`,
+        };
+      }
+      if (!availableRoles.includes(input.data.role)) {
+        return {
+          success: false,
+          message: `Only available roles: ${availableRoles.join(", ")}`,
+        };
       }
       // Calculate diff
       const prev = Object.fromEntries(

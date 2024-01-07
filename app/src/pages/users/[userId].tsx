@@ -14,6 +14,7 @@ import { FlagIcon } from "@heroicons/react/24/outline";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
 import { updateUserSchema } from "@/validators/user";
+import { canChangeUserRole } from "@/utils/permissions";
 
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -47,6 +48,7 @@ const PublicProfile: NextPage = () => {
   });
 
   const canChange = isSignedIn && userData && canChangeAvatar(userData);
+  const availableRoles = userData && canChangeUserRole(userData.role);
 
   return (
     <>
@@ -64,7 +66,7 @@ const PublicProfile: NextPage = () => {
             subtitle={"Public Profile: " + profile.username}
             topRightContent={
               <div className="flex flex-row gap-1">
-                {userData?.role === "ADMIN" && (
+                {availableRoles && availableRoles.length > 0 && (
                   <EditUserComponent
                     userId={profile.userId}
                     profile={profile}
