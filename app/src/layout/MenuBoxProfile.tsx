@@ -30,7 +30,7 @@ const socials = [
     alt: "Facebook",
   },
   {
-    url: "https://www.youtube.com/@fullstackaidev",
+    url: "https://www.youtube.com/@fullstackscientist",
     image: "/images/youtube.png",
     alt: "Youtube",
   },
