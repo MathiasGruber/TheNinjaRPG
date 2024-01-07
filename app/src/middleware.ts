@@ -16,7 +16,13 @@ export default authMiddleware({
     "/api/trpc/(.*)",
     "/api/uploadthing",
   ],
-  ignoredRoutes: ["/api/cleaner", "/api/daily", "/api/subscriptions", "/api/ipn"],
+  ignoredRoutes: [
+    "/api/cleaner",
+    "/api/healthcheck",
+    "/api/daily",
+    "/api/subscriptions",
+    "/api/ipn",
+  ],
 });
 
 export const config = {
