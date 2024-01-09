@@ -228,7 +228,7 @@ const BaseAttributes = {
   power: z.number().min(-100).max(100).default(1),
   powerPerLevel: z.number().min(-1).max(1).default(0),
   // Used for indicating offensive / defensive effect
-  direction: z.enum(["offence", "defence"]).default("offence"),
+  direction: type("offence"),
   // Attack target, if different from the default
   target: z.enum(BaseTagTargets).optional().default("INHERIT"),
   // Enable / disables applying to friendlies. Default is to apply to all users
@@ -354,7 +354,7 @@ export const AdjustPoolCostTag = z.object({
   type: z.literal("poolcostadjust").default("poolcostadjust"),
   description: msg("Adjust cost of taking actions"),
   rounds: z.number().int().min(2).max(20).default(2),
-  direction: z.enum(["defence"]).default("defence"),
+  direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -365,7 +365,7 @@ export const IncreasePoolCostTag = z.object({
   type: z.literal("increasepoolcost").default("increasepoolcost"),
   description: msg("Increase cost of taking actions"),
   rounds: z.number().int().min(2).max(20).default(2),
-  direction: z.enum(["defence"]).default("defence"),
+  direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -376,7 +376,7 @@ export const DecreasePoolCostTag = z.object({
   type: z.literal("decreasepoolcost").default("decreasepoolcost"),
   description: msg("Decrease cost of taking actions"),
   rounds: z.number().int().min(2).max(20).default(2),
-  direction: z.enum(["defence"]).default("defence"),
+  direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
@@ -405,7 +405,7 @@ export const BarrierTag = z.object({
   curHealth: z.number().int().min(1).max(100000).default(100),
   maxHealth: z.number().int().min(1).max(100000).default(100),
   absorbPercentage: z.number().int().min(1).max(100).default(50),
-  direction: z.enum(["defence"]).default("defence"),
+  direction: type("defence"),
   description: msg("Creates a barrier with level corresponding to power"),
 });
 
@@ -709,9 +709,7 @@ const SuperRefineEffects = (
   ctx: z.RefinementCtx
 ) => {
   effects.forEach((e) => {
-    if (e.type === "absorb" && e.direction === "offence") {
-      addIssue(ctx, "AbsorbTag should be set to defence");
-    } else if (e.type === "barrier" && e.staticAssetPath === "") {
+    if (e.type === "barrier" && e.staticAssetPath === "") {
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
     } else if (e.type === "clone" && e.rounds === 0) {
       addIssue(
