@@ -4,7 +4,7 @@ import { randomInt } from "@/utils/math";
 import { availableUserActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
-import { secondsPassed, secondsFromNow } from "@/utils/time";
+import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
 import type { PathCalculator } from "../hexgrid";
@@ -455,7 +455,7 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
 /** Align battle based on timestamp to update:
  * - The proper round & activeUserId
  * - The action points of all users, in case of next round */
-export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
+export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
@@ -463,7 +463,9 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
   // 1. refill action points
   // 2. update round info on battle
   // 3. update all user effect rounds
+  // 4. update all updatedAt fields on items & jutsus
   if (progressRound) {
+    const timeLeftInPrevRound = COMBAT_SECONDS - secondsPassed(battle.roundStartAt);
     refillActionPoints(battle);
     battle.roundStartAt = new Date();
     battle.round = actionRound;
@@ -478,6 +480,18 @@ export const alignBattle = (battle: ReturnedBattle, userId?: string) => {
         // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
         e.rounds = e.rounds - 1;
       }
+    });
+    battle.usersState.forEach((u) => {
+      u.items.forEach((i) => {
+        if (i.updatedAt) {
+          i.updatedAt = secondsFromDate(-timeLeftInPrevRound, new Date(i.updatedAt));
+        }
+      });
+      u.jutsus.forEach((j) => {
+        if (j.updatedAt) {
+          j.updatedAt = secondsFromDate(-timeLeftInPrevRound, new Date(j.updatedAt));
+        }
+      });
     });
   }
   // Update the active user on the battle
