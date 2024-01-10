@@ -5,6 +5,8 @@ import Countdown from "@/layout/Countdown";
 import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
 import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { GiftIcon } from "@heroicons/react/24/solid";
+import { hasReward } from "@/validators/objectives";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
@@ -14,17 +16,37 @@ interface ObjectiveProps {
   titlePrefix?: string | number;
   objective: AllObjectivesType;
   tracker: QuestTrackerType;
+  checkRewards: () => void;
   tier?: number;
 }
 
 export const Objective: React.FC<ObjectiveProps> = (props) => {
-  const { objective, tier, tracker, titlePrefix } = props;
+  const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
 
   // Derived status of the objective
   const status = tracker.goals.find((g) => g.id === objective.id);
   const value = status?.value || 0;
   const done = status?.done || ("value" in objective && value >= objective.value);
+  const canCollect = !status?.collected && done;
+
+  // Indicator icon
+  const indicatorIcons = done ? (
+    <div className="flex flex-col items-center gap-1">
+      <CheckIcon className="h-10 w-10 stroke-green-500" />
+      {hasReward(objective) &&
+        (canCollect ? (
+          <GiftIcon
+            className="h-7 w-7 cursor-pointer hover:fill-orange-500"
+            onClick={checkRewards}
+          />
+        ) : (
+          <GiftIcon className="h-7 w-7 fill-slate-500" />
+        ))}
+    </div>
+  ) : (
+    <XMarkIcon className="h-10 w-10 stroke-red-500" />
+  );
 
   // Show the objective
   return (
@@ -55,7 +77,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                   total={objective.value}
                 />
               </div>
-              {done === true && <CheckIcon className="h-10 w-10 stroke-green-500" />}
+              {indicatorIcons}
             </div>
           )}
           {"sector" in objective && (
@@ -67,17 +89,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                 <div>
                   <b>Position:</b> [{objective.longitude}, {objective.latitude}]
                 </div>
+                <Reward info={objective} />
               </div>
-              <div>
-                {done ? (
-                  <CheckIcon className="h-10 w-10 stroke-green-500" />
-                ) : (
-                  <XMarkIcon className="h-10 w-10 stroke-red-500" />
-                )}
-              </div>
+              <div>{indicatorIcons}</div>
             </div>
           )}
-          <Reward info={objective} />
         </div>
       </div>
     </div>

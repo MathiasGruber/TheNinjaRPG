@@ -219,6 +219,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
             <Objective
               objective={objective}
               tracker={tracker}
+              checkRewards={() => checkRewards({ questId: quest.id })}
               key={i}
               titlePrefix={`${i + 1}. `}
             />

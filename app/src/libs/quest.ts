@@ -245,21 +245,18 @@ export const isLocationObjective = (
  */
 export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
   const activeQuests = getUserQuests(user);
-  let rewards: ObjectiveRewardType = {
-    reward_money: 0,
-    reward_jutsus: [],
-    reward_items: [],
-    reward_rank: "NONE",
-  };
+  let rewards = ObjectiveReward.parse({});
   const { trackers } = getNewTrackers(user, [{ task: "any" }]);
   const quest = activeQuests.find((q) => q.id === questId);
-  let done = false;
+  let questDone = false;
   if (quest) {
     const questTracker = trackers.find((q) => q.id === quest.id);
-    done = questTracker?.goals.every((g) => g.done) ?? false;
-    if (done) {
-      rewards = quest.content.reward;
-      quest.content.objectives.forEach((objective) => {
+    questDone = questTracker?.goals.every((g) => g.done) ?? false;
+    if (questDone) rewards = quest.content.reward;
+    quest.content.objectives.forEach((objective) => {
+      const status = questTracker?.goals.find((g) => g.id === objective.id);
+      if (status?.done && !status.collected) {
+        status.collected = true;
         if (objective.reward_money) {
           rewards.reward_money += objective.reward_money;
         }
@@ -272,10 +269,10 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
         if (objective.reward_rank !== "NONE") {
           rewards.reward_rank = objective.reward_rank;
         }
-      });
-    }
+      }
+    });
   }
-  return { rewards, quest, done };
+  return { rewards, trackers, quest, questDone };
 };
 
 /**

@@ -47,6 +47,15 @@ const rewardFields = {
 export const ObjectiveReward = z.object(rewardFields);
 export type ObjectiveRewardType = z.infer<typeof ObjectiveReward>;
 
+export const hasReward = (reward: ObjectiveRewardType) => {
+  return (
+    reward.reward_money > 0 ||
+    reward.reward_rank !== "NONE" ||
+    reward.reward_items.length > 0 ||
+    reward.reward_jutsus.length > 0
+  );
+};
+
 export const attackerFields = {
   attackers: z.array(z.string()).default([]),
   attackers_chance: z.number().min(0).max(100).default(0),
@@ -110,6 +119,7 @@ export const ObjectiveTracker = z.object({
   id: z.string(),
   done: z.boolean().default(false),
   value: z.number().default(0),
+  collected: z.boolean().default(false),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 

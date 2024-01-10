@@ -324,14 +324,15 @@ export const questsRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       // Figure out if any finished quests & get rewards
-      const { rewards, quest, done } = getReward(u, input.questId);
-      if (!done) return { rewards, quest };
-      // Update user quest data
-      u.userQuests = u.userQuests.filter((q) => q.questId !== input.questId);
-      const { trackers } = getNewTrackers(u, [{ task: "any" }]);
+      const { rewards, trackers, quest, questDone } = getReward(u, input.questId);
       u.questData = trackers;
+      // Update user quest data
+      if (questDone) {
+        u.userQuests = u.userQuests.filter((q) => q.questId !== input.questId);
+        const { trackers } = getNewTrackers(u, [{ task: "any" }]);
+        u.questData = trackers;
+      }
       // Fetch names from the database
-      console.log(rewards);
       const [items, jutsus] = await Promise.all([
         // Fetch names from the database
         rewards.reward_items.length > 0
@@ -362,25 +363,27 @@ export const questsRouter = createTRPCRouter({
           .update(userData)
           .set({
             questData: u.questData,
-            questFinishAt: new Date(),
             money: u.money + rewards.reward_money,
             rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : u.rank,
+            ...(questDone ? { questFinishAt: new Date() } : {}),
           })
           .where(eq(userData.userId, ctx.userId)),
         // Update quest history
-        ctx.drizzle
-          .update(questHistory)
-          .set({
-            completed: 1,
-            previousCompletes: sql`${questHistory.previousCompletes} + 1`,
-            endAt: new Date(),
-          })
-          .where(
-            and(
-              eq(questHistory.questId, input.questId),
-              eq(questHistory.userId, ctx.userId)
-            )
-          ),
+        questDone
+          ? ctx.drizzle
+              .update(questHistory)
+              .set({
+                completed: 1,
+                previousCompletes: sql`${questHistory.previousCompletes} + 1`,
+                endAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(questHistory.questId, input.questId),
+                  eq(questHistory.userId, ctx.userId)
+                )
+              )
+          : undefined,
         // Insert items & jutsus
         ...[
           jutsus.length > 0 &&
