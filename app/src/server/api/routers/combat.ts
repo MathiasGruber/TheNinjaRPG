@@ -27,6 +27,7 @@ import { combatAssetsNames } from "@/libs/travel/constants";
 import { getServerPusher } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { Logger } from "next-axiom";
+import { scaleUserStats } from "@/libs/profile";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/schema";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -436,6 +437,7 @@ export const initiateBattle = async (
     userId: string;
     targetId: string;
     client: DrizzleClient;
+    scaleTarget?: boolean;
   },
   battleType: BattleType,
   background = "forest.webp"
@@ -491,6 +493,12 @@ export const initiateBattle = async (
     }
     if (users[1].status !== "AWAKE") {
       return { success: false, message: "Target is not awake" };
+    }
+
+    // If requested scale the target user to the same level & stats as attacker
+    if (info?.scaleTarget) {
+      users[1].level = users[0].level;
+      scaleUserStats(users[1]);
     }
 
     // Get previous battles between these two users within last 60min

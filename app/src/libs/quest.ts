@@ -299,7 +299,7 @@ export const getNewTrackers = (
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
-  const consequences: { type: "item" | "combat"; id: string }[] = [];
+  const consequences: { type: "item" | "combat"; id: string; scale?: number }[] = [];
   const trackers = activeQuests
     .map((quest) => {
       if (quest) {
@@ -368,7 +368,11 @@ export const getNewTrackers = (
                   objective.opponent_ai !== taskUpdate.contentId
                 ) {
                   notifications.push(`Attacking target for ${quest.name}.`);
-                  consequences.push({ type: "combat", id: objective.opponent_ai });
+                  consequences.push({
+                    type: "combat",
+                    id: objective.opponent_ai,
+                    scale: objective.opponent_scaled_to_user,
+                  });
                 }
               }
             }

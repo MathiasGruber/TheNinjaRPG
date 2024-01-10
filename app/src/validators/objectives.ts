@@ -59,6 +59,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
 export const attackerFields = {
   attackers: z.array(z.string()).default([]),
   attackers_chance: z.number().min(0).max(100).default(0),
+  attackers_scaled_to_user: z.number().min(0).max(1).default(0),
 };
 
 export const baseObjectiveFields = {
@@ -104,6 +105,7 @@ export const DefeatOpponents = z.object({
   task: z.literal("defeat_opponents").default("defeat_opponents"),
   opponent_name: z.string().min(3).default("Opponent"),
   opponent_ai: z.string().min(10).optional().nullish(),
+  opponent_scaled_to_user: z.number().min(0).max(1).default(0),
   ...complexObjectiveFields,
 });
 

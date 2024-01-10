@@ -439,7 +439,11 @@ export const questsRouter = createTRPCRouter({
             if (random * 100 < objective.attackers_chance) {
               const idx = Math.floor(Math.random() * objective.attackers.length);
               const randomOpponent = objective.attackers[idx] as string;
-              opponent = { type: "combat", id: randomOpponent };
+              opponent = {
+                type: "combat",
+                id: randomOpponent,
+                scale: objective.attackers_scaled_to_user,
+              };
               notifications.push("You have been attacked!");
             }
           }
@@ -475,6 +479,7 @@ export const questsRouter = createTRPCRouter({
                     userId: user.userId,
                     targetId: opponent.id,
                     client: ctx.drizzle,
+                    scaleTarget: opponent.scale ? true : false,
                   },
                   "ARENA",
                   determineCombatBackground("ground")
