@@ -281,6 +281,13 @@
       "when": 1704656641152,
       "tag": "0039_strange_norman_osborn",
       "breakpoints": false
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1705091380014,
+      "tag": "0040_safe_krista_starr",
+      "breakpoints": false
     }
   ]
 }
