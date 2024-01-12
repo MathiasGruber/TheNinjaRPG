@@ -99,11 +99,11 @@ const NavBar: React.FC<NavBarProps> = (props) => {
   return (
     <>
       <div className="rounded-md bg-gradient-to-t from-orange-800 to-orange-600 text-center">
-        <div className="hidden w-full flex-row p-3 md:flex">
+        <div className="hidden w-full md:grid p-3 grid-cols-12 ml-3">
           {navLinks.map((link) => (
             <Link
               key={link.name}
-              className="basis-1/5 font-bold hover:text-orange-500"
+              className="col-span-2 font-bold hover:text-orange-500 flex flex-row gap-1"
               href={link.href}
               onClick={async () => {
                 if (link.onClick) {
@@ -112,6 +112,7 @@ const NavBar: React.FC<NavBarProps> = (props) => {
               }}
               prefetch={false}
             >
+              {link.icon}
               {link.name}
             </Link>
           ))}
@@ -119,8 +120,8 @@ const NavBar: React.FC<NavBarProps> = (props) => {
             <UserButton
               appearance={{
                 elements: {
-                  rootBox: "basis-1/5 justify-center items-center",
-                  userButtonBox: "basis-1/5 justify-center items-center",
+                  rootBox: " justify-center items-center",
+                  userButtonBox: " justify-center items-center",
                 },
               }}
               signInUrl="/login"

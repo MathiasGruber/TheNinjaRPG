@@ -156,3 +156,5 @@ export const QuestTypes = [
   "daily",
 ] as const;
 export type QuestType = typeof QuestTypes[number];
+
+export const SmileyEmotions = ["like", "love", "laugh"] as const;

@@ -16,6 +16,7 @@
         "@typescript-eslint/no-this-alias": "warn",
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-ts-comment": "off",
+        "@next/next/no-img-element": "off",
         "@typescript-eslint/no-misused-promises": [
           2,
           {

@@ -1,8 +1,11 @@
 import React from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 // import Script from "next/script";
 
 const Header: React.FC = () => {
+  const router = useRouter();
+  const imageId = (router.query.imageid as string) ?? "";
   return (
     <>
       <Head>
@@ -19,8 +22,20 @@ const Header: React.FC = () => {
         <meta name="copyright" content="TheNinja-RPG.com" />
         <meta name="revisit-after" content="1 day" />
         <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
-
         <link rel="icon" href="/favicon.ico" />
+
+        {/* Social Media Sharing */}
+        <meta property="og:url" content="https://www.theninja-rpg.com" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="TheNinja-RPG" />
+        <meta
+          property="og:description"
+          content="A free browser based online game set in the ninja world of the Seichi"
+        />
+        <meta
+          property="og:image"
+          content={`https://www.theninja-rpg.com/api/og?imageid=${imageId}`}
+        />
       </Head>
       {/* 
       NOT USED FOR NOW. NOTE THAT THERE MAY BE CORS CONFLICS CAUSED BETWEEN HIGHLIGHT.IO AND GOOGLE TAG MANAGER

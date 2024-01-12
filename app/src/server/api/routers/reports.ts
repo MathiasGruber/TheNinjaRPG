@@ -15,6 +15,7 @@ import { canClearReport } from "@/validators/reports";
 import { canEscalateBan } from "@/validators/reports";
 import { canChangeAvatar } from "@/validators/reports";
 import { fetchUser } from "./profile";
+import { fetchImage } from "./conceptart";
 import type { DrizzleClient } from "../../db";
 import sanitize from "@/utils/sanitize";
 
@@ -109,6 +110,8 @@ export const reportsRouter = createTRPCRouter({
             });
           case "user_profile":
             return fetchUser(ctx.drizzle, input.system_id);
+          case "concept_art":
+            return fetchImage(ctx.drizzle, input.system_id, "");
           default:
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }

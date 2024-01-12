@@ -9,9 +9,11 @@ import {
   BuildingStorefrontIcon,
   FireIcon,
   UserIcon,
-  // BeakerIcon,
-  // WrenchIcon,
-  // RectangleGroupIcon,
+  NewspaperIcon,
+  ScaleIcon,
+  ChatBubbleLeftRightIcon,
+  BugAntIcon,
+  PaintBrushIcon,
 } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 import { calcIsInVillage } from "./travel/controls";
@@ -35,18 +37,27 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
     {
       href: "/news",
       name: "News",
+      icon: <NewspaperIcon className="h-6 w-6" />,
     },
     {
       href: "/manual",
-      name: "Game Info",
+      name: "Info",
+      icon: <ScaleIcon className="h-6 w-6" />,
     },
     {
       href: "/forum",
       name: "Forum",
+      icon: <ChatBubbleLeftRightIcon className="h-6 w-6" />,
     },
     {
       href: "/help",
-      name: "Bugs & Help",
+      name: "Bugs",
+      icon: <BugAntIcon className="h-6 w-6" />,
+    },
+    {
+      href: "/conceptart",
+      name: "Art",
+      icon: <PaintBrushIcon className="h-6 w-6" />,
     },
   ];
   // Add login or logout button
@@ -54,6 +65,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
     links.push({
       href: "/login",
       name: "Login",
+      icon: <UserIcon className="h-6 w-6" />,
     });
   }
   return links;

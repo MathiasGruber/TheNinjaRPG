@@ -18,6 +18,7 @@ export default authMiddleware({
   ],
   ignoredRoutes: [
     "/api/cleaner",
+    "/api/og",
     "/api/healthcheck",
     "/api/daily",
     "/api/subscriptions",

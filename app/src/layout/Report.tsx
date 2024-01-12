@@ -120,6 +120,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
       <div
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setShowModal(true);
         }}
       >

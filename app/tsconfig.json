@@ -19,6 +19,7 @@
     "noErrorTruncation": false,
     "baseUrl": ".",
     "paths": {
+      "@/env/*": ["src/env/*"],
       "@/layout/*": ["src/layout/*"],
       "@/utils/*": ["src/utils/*"],
       "@/validators/*": ["src/validators/*"],

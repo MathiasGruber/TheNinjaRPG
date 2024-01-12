@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { UserReport } from "../../drizzle/schema";
 import ReactHtmlParser from "react-html-parser";
 
@@ -30,6 +31,17 @@ const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
           <b>Reported Content:</b>
           <hr />
           {ReactHtmlParser((props.report.infraction as { content: string }).content)}
+        </div>
+      )}
+      {props.report.infraction?.hasOwnProperty("image") && (
+        <div>
+          <b>Image:</b>
+          <hr />
+          <img
+            src={(props.report.infraction as { image: string }).image}
+            width="100%"
+            alt="ReportingImage"
+          />
         </div>
       )}
       <br />

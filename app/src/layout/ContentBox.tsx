@@ -20,13 +20,13 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
       {props.initialBreak && <div className="h-4"></div>}
       <div className="sm:container">
         <div
-          className={`flex ${
+          className={`flex  ${
             props.topRightCorntentBreakpoint
               ? `flex-col ${props.topRightCorntentBreakpoint}:flex-row ${props.topRightCorntentBreakpoint}:items-center`
               : "flex-row items-center"
           }`}
         >
-          <div className="self-end">
+          <div className="self-start">
             <h2 className="text-2xl font-bold text-orange-900">
               {props.back_href ? (
                 <Link
@@ -43,9 +43,11 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
 
             {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
           </div>
-          {!props.noRightAlign && <div className="grow"></div>}
-          <div className={props.noRightAlign ? "grow" : ""}>
-            {props.topRightContent}
+          <div className="flex flex-row grow">
+            {!props.noRightAlign && <div className="grow "></div>}
+            <div className={props.noRightAlign ? "grow " : ""}>
+              {props.topRightContent}
+            </div>
           </div>
         </div>
 

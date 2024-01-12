@@ -1,9 +1,13 @@
 import { copyImageToStorage } from "./aws";
 import { fetchAttributes } from "../server/api/routers/profile";
-import { userData, historicalAvatar } from "../../drizzle/schema";
-import { eq, and, isNotNull } from "drizzle-orm";
-import type { DrizzleClient } from "../server/db";
-import type { UserData, UserRank } from "../../drizzle/schema";
+import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
+import { eq, sql, and, isNotNull } from "drizzle-orm";
+import { fetchImage } from "@/routers/conceptart";
+import sharp from "sharp";
+import { UTApi } from "uploadthing/server";
+import type { DrizzleClient } from "@/server/db";
+import type { UserData, UserRank } from "@/drizzle/schema";
+import type { Prediction } from "replicate";
 
 /**
  * The prompt to be used for creating the avatar
@@ -253,4 +257,61 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
     }
   }
   return url;
+};
+
+interface FileEsque extends Blob {
+  name: string;
+}
+
+export const syncImage = async (
+  client: DrizzleClient,
+  prediction: Prediction,
+  userId?: string
+) => {
+  const id = prediction.id;
+  const result = await fetchImage(client, id, userId ?? "");
+  const utapi = new UTApi();
+  let imageUrl: string | undefined = undefined;
+  if (prediction.status === "succeeded") {
+    const url = (prediction.output as string[])?.[0];
+    if (url) {
+      // Get image from AI service (will expire within 1 hour)
+      const res1 = await fetch(
+        "https://utfs.io/f/2138a3d6-98e1-492d-9029-e3824a40177b-3j2f18.png"
+      );
+      const watermark_blob = Buffer.from(await res1.arrayBuffer());
+      const res = await fetch(url);
+      const blob = await res.arrayBuffer();
+      const resultBuffer = await sharp(blob)
+        .composite([{ input: watermark_blob, top: 0, left: 0 }])
+        .toBuffer();
+      const watermarkedresult = new Blob([resultBuffer]) as FileEsque;
+      watermarkedresult.name = "image.png";
+      const response = await utapi.uploadFiles(watermarkedresult);
+      imageUrl = response.data?.url;
+    } else {
+      prediction.status = "failed";
+    }
+  }
+  if (prediction.status !== result.status) {
+    if (prediction.status === "failed") {
+      await Promise.all([
+        client.delete(conceptImage).where(eq(conceptImage.id, id)),
+        client
+          .update(userData)
+          .set({ reputationPoints: sql`${userData.reputationPoints} + 1` })
+          .where(eq(userData.userId, result.userId)),
+      ]);
+    } else {
+      await client
+        .update(conceptImage)
+        .set({
+          status: prediction.status,
+          image: imageUrl,
+          done: prediction.status === "succeeded" ? 1 : 0,
+        })
+        .where(eq(conceptImage.id, id));
+    }
+  }
+  return result;
 };

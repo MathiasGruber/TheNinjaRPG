@@ -1163,3 +1163,75 @@ export const gameTimers = mysqlTable(
     return { name: index("name").on(table.name) };
   }
 );
+
+export const userLikes = mysqlTable(
+  "UserLikes",
+  {
+    type: mysqlEnum("type", consts.SmileyEmotions).notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    imageId: varchar("imageId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("userLikes_userId_idx").on(table.userId),
+      imageIdIdx: index("userLikes_imageId_idx").on(table.imageId),
+    };
+  }
+);
+
+export const conceptImage = mysqlTable(
+  "ConceptImage",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    status: varchar("status", { length: 191 }).default("started").notNull(),
+    hidden: tinyint("hidden").default(0).notNull(),
+    // prompt schema
+    prompt: varchar("prompt", { length: 5000 }).notNull(),
+    negative_prompt: varchar("negative_prompt", { length: 5000 }).default("").notNull(),
+    seed: int("seed").notNull().default(42),
+    guidance_scale: int("guidance_scale").notNull().default(4),
+    // References
+    n_likes: int("n_likes").default(0).notNull(),
+    n_loves: int("n_loves").default(0).notNull(),
+    n_laugh: int("n_laugh").default(0).notNull(),
+    n_comments: int("n_comments").default(0).notNull(),
+    description: varchar("description", { length: 255 }),
+    done: tinyint("done").default(0).notNull(),
+  },
+  (table) => {
+    return {
+      idKey: uniqueIndex("image_id_key").on(table.id),
+      avatarKey: uniqueIndex("image_avatar_key").on(table.image),
+      doneIdx: index("image_done_idx").on(table.done),
+      userIdIdx: index("image_userId_idx").on(table.userId),
+      avatarIdx: index("image_avatar_idx").on(table.image),
+    };
+  }
+);
+export type ContentImage = InferSelectModel<typeof conceptImage>;
+
+export const likeRelations = relations(userLikes, ({ one }) => ({
+  likes: one(conceptImage, {
+    fields: [userLikes.imageId],
+    references: [conceptImage.id],
+  }),
+}));
+
+export const imageRelations = relations(conceptImage, ({ many, one }) => ({
+  likes: many(userLikes),
+  user: one(userData, {
+    fields: [conceptImage.userId],
+    references: [userData.userId],
+  }),
+}));
