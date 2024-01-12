@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.420.0",
-    "@clerk/nextjs": "4.27.6",
+    "@clerk/nextjs": "4.29.3",
     "@heroicons/react": "2.0.16",
     "@highlight-run/next": "4.3.0",
     "@highlight-run/node": "3.3.0",
