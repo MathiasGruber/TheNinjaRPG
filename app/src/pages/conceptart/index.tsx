@@ -7,7 +7,6 @@ import SelectField from "@/layout/SelectField";
 import ConceptImage from "@/layout/ConceptImage";
 import Confirm from "@/layout/Confirm";
 import Button from "@/layout/Button";
-import Loader from "@/layout/Loader";
 import InputField from "@/layout/InputField";
 import { useSafePush } from "@/utils/routing";
 import { api } from "@/utils/api";
