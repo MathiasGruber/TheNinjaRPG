@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import { api } from "@/utils/api";
-import { useUserData } from "@/utils/UserContext";
 import Link from "next/link";
 import AvatarImage from "@/layout/Avatar";
 import ConceptImage from "@/layout/ConceptImage";
@@ -10,9 +9,6 @@ import Loader from "@/layout/Loader";
 import type { NextPage } from "next";
 
 const ConceptArtImage: NextPage = () => {
-  // State
-  const { data: userData } = useUserData();
-
   // Any specific image in router?
   const router = useRouter();
   const imageId = router.query.imageid as string | undefined;
@@ -23,7 +19,6 @@ const ConceptArtImage: NextPage = () => {
     { staleTime: Infinity, enabled: !!imageId }
   );
 
-  if (!userData) return <Loader explanation="Loading userdata" />;
   if (isFetching || !image) return <Loader explanation="Fetching image" />;
 
   return (

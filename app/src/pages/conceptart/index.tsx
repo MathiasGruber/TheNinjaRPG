@@ -100,8 +100,6 @@ const ConceptArt: NextPage = () => {
     (errors) => console.log(errors)
   );
 
-  if (!userData) return <Loader explanation="Loading userdata" />;
-
   return (
     <ContentBox
       title="Concept Art"
@@ -144,55 +142,57 @@ const ConceptArt: NextPage = () => {
               );
             })}
           </SelectField>
-          <Confirm
-            title="Create New"
-            button={
-              <Button
-                id="new-art"
-                label="New"
-                paddingClass="p-2"
-                image={<SparklesIcon className="mr-2 h-6 w-6" />}
-              />
-            }
-            proceed_label="Create"
-            onAccept={handleCreateNew}
-          >
-            <div className="flex flex-col gap-1">
-              <p className="pb-3 italic">
-                Input the prompt you want to use for your creation. Note that each
-                submission costs 1 reputation point! You currently have{" "}
-                {userData.reputationPoints} reputation points.
-              </p>
-              <InputField
-                id="prompt"
-                label="Prompt"
-                register={promptForm.register}
-                error={promptForm.formState.errors.prompt?.message}
-              />
-              <InputField
-                id="negative_prompt"
-                label="Negative Prompt"
-                register={promptForm.register}
-                error={promptForm.formState.errors.negative_prompt?.message}
-              />
-              <div className="flex flex-row">
+          {userData && (
+            <Confirm
+              title="Create New"
+              button={
+                <Button
+                  id="new-art"
+                  label="New"
+                  paddingClass="p-2"
+                  image={<SparklesIcon className="mr-2 h-6 w-6" />}
+                />
+              }
+              proceed_label="Create"
+              onAccept={handleCreateNew}
+            >
+              <div className="flex flex-col gap-1">
+                <p className="pb-3 italic">
+                  Input the prompt you want to use for your creation. Note that each
+                  submission costs 1 reputation point! You currently have{" "}
+                  {userData.reputationPoints} reputation points.
+                </p>
                 <InputField
-                  id="guidance_scale"
-                  type="number"
-                  label="Guidance Scale"
+                  id="prompt"
+                  label="Prompt"
                   register={promptForm.register}
-                  error={promptForm.formState.errors.guidance_scale?.message}
+                  error={promptForm.formState.errors.prompt?.message}
                 />
                 <InputField
-                  id="seed"
-                  type="number"
-                  label="Seed Value"
+                  id="negative_prompt"
+                  label="Negative Prompt"
                   register={promptForm.register}
-                  error={promptForm.formState.errors.seed?.message}
+                  error={promptForm.formState.errors.negative_prompt?.message}
                 />
+                <div className="flex flex-row">
+                  <InputField
+                    id="guidance_scale"
+                    type="number"
+                    label="Guidance Scale"
+                    register={promptForm.register}
+                    error={promptForm.formState.errors.guidance_scale?.message}
+                  />
+                  <InputField
+                    id="seed"
+                    type="number"
+                    label="Seed Value"
+                    register={promptForm.register}
+                    error={promptForm.formState.errors.seed?.message}
+                  />
+                </div>
               </div>
-            </div>
-          </Confirm>
+            </Confirm>
+          )}
         </div>
       }
     >
