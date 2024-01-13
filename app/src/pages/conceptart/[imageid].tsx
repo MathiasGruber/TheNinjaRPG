@@ -8,12 +8,9 @@ import Head from "next/head";
 import type { NextPage } from "next";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 
+// eslint-disable-next-line @typescript-eslint/require-await
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  return {
-    props: {
-      imageid: context.query.imageid,
-    },
-  };
+  return { props: { imageid: context.query.imageid } };
 };
 
 const ConceptArtImage: NextPage = ({
