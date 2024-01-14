@@ -27,18 +27,18 @@ export const seedVillages = async (client: DrizzleClient) => {
   ];
   // Buildings
   const buildings = [
-    { name: "Home", image: "/buildings/Home.webp", level: 0 },
+    { name: "Home", image: "/buildings/Home.webp", level: 1 },
     { name: "Training Grounds", image: "/buildings/Training.webp", level: 1 },
     { name: "Clan Hall", image: "/buildings/Clan.webp", level: 0 },
     { name: "Alliance Hall", image: "/buildings/Alliance.webp", level: 0 },
     { name: "Battle Arena", image: "/buildings/Arena.webp", level: 1 },
-    { name: "Mission Hall", image: "/buildings/Missions.webp", level: 0 },
-    { name: "Bank", image: "/buildings/Bank.webp", level: 0 },
+    { name: "Mission Hall", image: "/buildings/Missions.webp", level: 1 },
+    { name: "Bank", image: "/buildings/Bank.webp", level: 1 },
     { name: "Item shop", image: "/buildings/Shop.webp", level: 1 },
     { name: "Hospital", image: "/buildings/Hospital.webp", level: 1 },
     { name: "ANBU", image: "/buildings/ANBU.webp", level: 0 },
     // { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
-    { name: "Ramen Shop", image: "/buildings/RamenShop.webp", level: 0 },
+    { name: "Ramen Shop", image: "/buildings/RamenShop.webp", level: 1 },
     { name: "Black Market", image: "/buildings/BlackMarket.webp", level: 0 },
   ];
 
