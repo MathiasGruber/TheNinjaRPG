@@ -45,7 +45,7 @@ const Bank: NextPage = () => {
     onSuccess: async (data) => {
       if (data.success) {
         show_toast("Transfer to bank", data.message, "success");
-        utils.profile.getUser.invalidate();
+        await utils.profile.getUser.invalidate();
       } else {
         show_toast("Transfer to bank", data.message, "info");
       }
@@ -59,7 +59,7 @@ const Bank: NextPage = () => {
     onSuccess: async (data) => {
       if (data.success) {
         show_toast("Transfer to pocket", data.message, "success");
-        utils.profile.getUser.invalidate();
+        await utils.profile.getUser.invalidate();
       } else {
         show_toast("Transfer to pocket", data.message, "info");
       }
@@ -108,9 +108,9 @@ const Bank: NextPage = () => {
                 <button
                   type="submit"
                   className={`absolute top-0 right-0 px-2.5 h-full text-white bg-amber-900 hover:bg-red-800 border-amber-900 rounded-r-lg border`}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
-                    onDeposit();
+                    await onDeposit();
                   }}
                 >
                   <ChevronDoubleRightIcon className="h-5 w-5" />
@@ -134,9 +134,9 @@ const Bank: NextPage = () => {
                 <button
                   type="submit"
                   className={`absolute top-0 right-0 px-2.5 h-full text-white bg-amber-900 hover:bg-red-800 border-amber-900 rounded-r-lg border`}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
-                    onWithdraw();
+                    await onWithdraw();
                   }}
                 >
                   <ChevronDoubleLeftIcon className="h-5 w-5" />
