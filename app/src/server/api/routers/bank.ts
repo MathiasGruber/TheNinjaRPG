@@ -45,4 +45,29 @@ export const bankRouter = createTRPCRouter({
       }
       return { success: true, message: `Successfully withdrew ${input.amount} ryo` };
     }),
+  transfer: protectedProcedure
+    .input(z.object({ amount: z.number().min(0), targetId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const target = await fetchUser(ctx.drizzle, input.targetId);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.bank < input.amount) {
+        return { success: false, message: "Not enough money in bank" };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ bank: sql`${userData.bank} - ${input.amount}` })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.bank, input.amount)));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Not enough money in bank" };
+      }
+      await ctx.drizzle
+        .update(userData)
+        .set({ bank: sql`${userData.bank} + ${input.amount}` })
+        .where(eq(userData.userId, input.targetId));
+      return {
+        success: true,
+        message: `Successfully transferred ${input.amount} ryo to ${target.username}`,
+      };
+    }),
 });
