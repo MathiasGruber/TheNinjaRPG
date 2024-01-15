@@ -33,9 +33,10 @@ import { callDiscordContent } from "@/libs/discord";
 import { scaleUserStats } from "@/libs/profile";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
+import { calcLevelRequirements } from "@/libs/profile";
+import { activityStreakRewards } from "@/libs/profile";
 import { getEnergySpentPerSecond } from "@/libs/train";
 import { getStatTrainingEfficiency } from "@/libs/train";
-import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "@/libs/profile";
 import { MAX_ATTRIBUTES } from "@/libs/profile";
@@ -48,7 +49,7 @@ import { canChangeUserRole } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { QuestHistory, Quest } from "@/drizzle/schema";
-import type { DrizzleClient } from "@server/db";
+import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
 
@@ -72,7 +73,7 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ stat: z.enum(UserStatNames) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         userIp: ctx.userIp,
@@ -113,7 +114,7 @@ export const profileRouter = createTRPCRouter({
   stopTraining: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         forceRegen: true,
@@ -216,7 +217,7 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update user with new level
   levelUp: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchRegeneratedUser({
+    const { user } = await fetchRegeneratedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
@@ -247,12 +248,28 @@ export const profileRouter = createTRPCRouter({
   getUser: protectedProcedure
     .input(z.object({ token: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      const user = await fetchRegeneratedUser({
+      const { user, rewards } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         // forceRegen: true, // This should be disabled in prod to save on DB calls
       });
       const notifications: NavBarDropdownLink[] = [];
+      if (rewards) {
+        if (rewards.money > 0) {
+          notifications.push({
+            href: "/profile",
+            name: `Activity streak reward: ${rewards.money} ryo`,
+            color: "toast",
+          });
+        }
+        if (rewards.reputationPoints > 0) {
+          notifications.push({
+            href: "/profile",
+            name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
+            color: "toast",
+          });
+        }
+      }
       if (user) {
         // Get number of un-resolved user reports
         if (user.role === "MODERATOR" || user.role === "ADMIN") {
@@ -393,7 +410,7 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ speed: z.enum(TrainingSpeeds) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -977,6 +994,10 @@ export const fetchRegeneratedUser = async (props: {
   if (user?.bloodline?.regenIncrease) {
     user.regeneration = user.regeneration + user.bloodline.regenIncrease;
   }
+
+  // Rewards, e.g. for activity streak
+  let rewards: ReturnType<typeof activityStreakRewards> | undefined;
+
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
@@ -989,8 +1010,21 @@ export const fetchRegeneratedUser = async (props: {
       if (!user.currentlyTraining) {
         user.curEnergy = Math.min(user.curEnergy + regen, user.maxEnergy);
       }
-      user.updatedAt = new Date();
-      user.regenAt = new Date();
+      // Get activity rewards if any & update timers
+      const now = new Date();
+      const newDay = now.getDate() !== user.updatedAt.getDate();
+      const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
+      if (newDay) {
+        user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;
+        rewards = activityStreakRewards(user.activityStreak);
+        if (rewards.money > 0) user.money += rewards.money;
+        if (rewards.reputationPoints > 0) {
+          user.reputationPoints += rewards.reputationPoints;
+          user.reputationPointsTotal += rewards.reputationPoints;
+        }
+      }
+      user.updatedAt = now;
+      user.regenAt = now;
       // Ensure that we have a tier quest
       let questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
@@ -1008,6 +1042,7 @@ export const fetchRegeneratedUser = async (props: {
         }
       }
       // Update database
+      console.log(rewards);
       await client
         .update(userData)
         .set({
@@ -1018,6 +1053,10 @@ export const fetchRegeneratedUser = async (props: {
           updatedAt: user.updatedAt,
           regenAt: user.regenAt,
           questData: user.questData,
+          activityStreak: user.activityStreak,
+          money: user.money,
+          reputationPoints: user.reputationPoints,
+          reputationPointsTotal: user.reputationPointsTotal,
           ...(userIp ? { lastIp: userIp } : {}),
         })
         .where(eq(userData.userId, userId));
@@ -1027,7 +1066,7 @@ export const fetchRegeneratedUser = async (props: {
     const { trackers } = getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
   }
-  return user;
+  return { user, rewards };
 };
 
 export const fetchAttributes = async (client: DrizzleClient, userId: string) => {

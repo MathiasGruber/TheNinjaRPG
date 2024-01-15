@@ -71,7 +71,7 @@ export const questsRouter = createTRPCRouter({
       return result;
     }),
   missionHall: protectedProcedure.query(async ({ ctx }) => {
-    const user = await fetchRegeneratedUser({
+    const { user } = await fetchRegeneratedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
@@ -103,7 +103,7 @@ export const questsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch user
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -158,7 +158,7 @@ export const questsRouter = createTRPCRouter({
   abandon: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -316,21 +316,21 @@ export const questsRouter = createTRPCRouter({
   checkRewards: protectedProcedure
     .input(z.object({ questId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const u = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
-      if (!u) {
+      if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       // Figure out if any finished quests & get rewards
-      const { rewards, trackers, quest, questDone } = getReward(u, input.questId);
-      u.questData = trackers;
+      const { rewards, trackers, quest, questDone } = getReward(user, input.questId);
+      user.questData = trackers;
       // Update user quest data
       if (questDone) {
-        u.userQuests = u.userQuests.filter((q) => q.questId !== input.questId);
-        const { trackers } = getNewTrackers(u, [{ task: "any" }]);
-        u.questData = trackers;
+        user.userQuests = user.userQuests.filter((q) => q.questId !== input.questId);
+        const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+        user.questData = trackers;
       }
       // Fetch names from the database
       const [items, jutsus] = await Promise.all([
@@ -352,9 +352,9 @@ export const questsRouter = createTRPCRouter({
           : [],
       ]);
       // New tier quest
-      const questTier = u.userQuests?.find((q) => q.quest.questType === "tier");
+      const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
-        await insertNextQuest(ctx.drizzle, u, "tier");
+        await insertNextQuest(ctx.drizzle, user, "tier");
       }
       // Update database
       await Promise.all([
@@ -362,9 +362,9 @@ export const questsRouter = createTRPCRouter({
         ctx.drizzle
           .update(userData)
           .set({
-            questData: u.questData,
-            money: u.money + rewards.reward_money,
-            rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : u.rank,
+            questData: user.questData,
+            money: user.money + rewards.reward_money,
+            rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : user.rank,
             ...(questDone ? { questFinishAt: new Date() } : {}),
           })
           .where(eq(userData.userId, ctx.userId)),
@@ -414,7 +414,7 @@ export const questsRouter = createTRPCRouter({
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))
     .mutation(async ({ ctx }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

@@ -60,7 +60,7 @@ export const villageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Queries
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

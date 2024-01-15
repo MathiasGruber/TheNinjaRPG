@@ -199,7 +199,7 @@ const Profile: NextPage = () => {
           </div>
         }
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <b>General</b>
             <p>
@@ -219,12 +219,16 @@ const Profile: NextPage = () => {
             <p>PvP Streak: {userData.pvpStreak}</p>
           </div>
           <div>
+            <b>Reputation</b>
+            <p>Reputation points: {userData.reputationPoints}</p>
+            <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
+            <p>Activity Streak: {userData.activityStreak}</p>
+          </div>
+          <div>
             <b>Associations</b>
             <p>Village: {userData.village?.name}</p>
             <p>Bloodline: {userData.bloodline?.name || "None"}</p>
             <p>Clan: None</p>
-            <p>Reputation points: {userData.reputationPoints}</p>
-            <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
           </div>
         </div>
         {expRequired !== undefined && expRequired <= 0 && (

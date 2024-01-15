@@ -156,3 +156,11 @@ export const useUserEditForm = (
 
   return { user, loading, form, formData, handleUserSubmit };
 };
+
+export const activityStreakRewards = (streak: number) => {
+  const rewards = { money: streak * 100, reputationPoints: 0 };
+  if (streak % 10 === 0) {
+    rewards["reputationPoints"] = Math.floor(streak / 10);
+  }
+  return rewards;
+};

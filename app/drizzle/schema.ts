@@ -753,6 +753,7 @@ export const userData = mysqlTable(
     questFinishAt: datetime("questFinishAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    activityStreak: int("activityStreak").default(0).notNull(),
     deletionAt: datetime("deletionAt", { mode: "date", fsp: 3 }),
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: tinyint("isBanned").default(0).notNull(),

@@ -24,6 +24,7 @@ import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
+import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -123,7 +124,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
         <NavTabs
           current={userData.trainingSpeed}
           options={TrainingSpeeds}
-          setValue={(value) => changeSpeed({ speed: value })}
+          setValue={(value) => changeSpeed({ speed: value as TrainingSpeed })}
         />
       }
     >

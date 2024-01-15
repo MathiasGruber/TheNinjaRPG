@@ -217,7 +217,7 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

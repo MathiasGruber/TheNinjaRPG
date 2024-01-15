@@ -256,7 +256,7 @@ export const bloodlineRouter = createTRPCRouter({
   swapBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchRegeneratedUser({
+      const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
