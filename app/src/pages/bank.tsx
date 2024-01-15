@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type NextPage } from "next";
 import { z } from "zod";
 import Image from "next/image";
@@ -5,6 +6,8 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import InputField from "@/layout/InputField";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import Table, { type ColumnDefinitionType } from "@/layout/Table";
+import { useInfinitePagination } from "@/libs/pagination";
 import { getSearchValidator } from "@/validators/register";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -15,8 +18,12 @@ import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { type ArrayElement } from "@/utils/typeutils";
 
 const Bank: NextPage = () => {
+  // State
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
   // User data
   const { data: userData } = useRequiredUserData();
   const money = userData?.money ?? 0;
@@ -94,6 +101,61 @@ const Bank: NextPage = () => {
     resolver: zodResolver(userSearchSchema),
   });
   const targetUser = userSearchMethods.watch("users", [])?.[0];
+
+  // User search for ledger sender
+  const userSearchSchemaFrom = getSearchValidator({ max: maxUsers });
+  const userSearchMethodsFrom = useForm<z.infer<typeof userSearchSchemaFrom>>({
+    resolver: zodResolver(userSearchSchemaFrom),
+  });
+  const targetUserFrom = userSearchMethodsFrom.watch("users", [])?.[0];
+
+  // User search for ledger receiver
+  const userSearchSchemaTo = getSearchValidator({ max: maxUsers });
+  const userSearchMethodsTo = useForm<z.infer<typeof userSearchSchemaTo>>({
+    resolver: zodResolver(userSearchSchemaTo),
+  });
+  const targetUserTo = userSearchMethodsTo.watch("users", [])?.[0];
+
+  // Getting bank transers
+  const {
+    data: ledger,
+    fetchNextPage,
+    hasNextPage,
+  } = api.bank.getTransfers.useInfiniteQuery(
+    {
+      limit: 30,
+      senderId: targetUserFrom?.userId,
+      receiverId: targetUserTo?.userId,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true,
+      staleTime: 1000 * 60 * 5, // every 5min
+    }
+  );
+  const allTransfers = ledger?.pages
+    .map((page) => page.data)
+    .flat()
+    .map((entry) => ({
+      ...entry,
+      sender: entry.sender.username,
+      receiver: entry.receiver.username,
+    }));
+  type Transfer = ArrayElement<typeof allTransfers>;
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
+  // Table component
+  const columns: ColumnDefinitionType<Transfer, keyof Transfer>[] = [
+    { key: "sender", header: "Sender", type: "string" },
+    { key: "receiver", header: "Receiver", type: "string" },
+    { key: "amount", header: "Amount", type: "string" },
+    { key: "createdAt", header: "Date", type: "date" },
+  ];
 
   // Submit handlers
   const onDeposit = toBankForm.handleSubmit((data) => toBank(data));
@@ -216,6 +278,34 @@ const Bank: NextPage = () => {
             }
           />
         </div>
+      </ContentBox>
+      <ContentBox
+        title="Bank Ledger"
+        subtitle="Search historical transactions"
+        initialBreak={true}
+        padding={false}
+      >
+        <div className="w-full px-4 py-4">
+          <UserSearchSelect
+            useFormMethods={userSearchMethodsFrom}
+            selectedUsers={[]}
+            showYourself={true}
+            inline={false}
+            maxUsers={maxUsers}
+          />
+          <UserSearchSelect
+            useFormMethods={userSearchMethodsTo}
+            selectedUsers={[]}
+            showYourself={true}
+            inline={false}
+            maxUsers={maxUsers}
+          />
+        </div>
+        <Table data={allTransfers} columns={columns} setLastElement={setLastElement} />
+        <p className="p-2 italic text-xs">
+          Note: All transactions in Seichi are on a public blockchain ledger. This means
+          that all transactions are public and can be viewed by anyone.{" "}
+        </p>
       </ContentBox>
     </>
   );

@@ -1238,3 +1238,32 @@ export const imageRelations = relations(conceptImage, ({ many, one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const bankTransfers = mysqlTable(
+  "BankTransfers",
+  {
+    senderId: varchar("senderId", { length: 191 }).notNull(),
+    receiverId: varchar("receiverId", { length: 191 }).notNull(),
+    amount: int("amount").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      senderIdIdx: index("BankTransfers_senderId_idx").on(table.senderId),
+      receiverIdIdx: index("BankTransfers_receiverId_idx").on(table.receiverId),
+    };
+  }
+);
+
+export const bankTransferRelations = relations(bankTransfers, ({ one }) => ({
+  sender: one(userData, {
+    fields: [bankTransfers.senderId],
+    references: [userData.userId],
+  }),
+  receiver: one(userData, {
+    fields: [bankTransfers.receiverId],
+    references: [userData.userId],
+  }),
+}));

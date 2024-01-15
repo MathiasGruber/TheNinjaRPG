@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, baseServerResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
-import { eq, and, gte, sql } from "drizzle-orm";
-import { userData } from "@/drizzle/schema";
+import { eq, or, and, gte, sql } from "drizzle-orm";
+import { userData, bankTransfers } from "@/drizzle/schema";
 
 export const bankRouter = createTRPCRouter({
   toBank: protectedProcedure
@@ -61,13 +61,50 @@ export const bankRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return { success: false, message: "Not enough money in bank" };
       }
-      await ctx.drizzle
-        .update(userData)
-        .set({ bank: sql`${userData.bank} + ${input.amount}` })
-        .where(eq(userData.userId, input.targetId));
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ bank: sql`${userData.bank} + ${input.amount}` })
+          .where(eq(userData.userId, input.targetId)),
+        ctx.drizzle.insert(bankTransfers).values({
+          senderId: ctx.userId,
+          receiverId: input.targetId,
+          amount: input.amount,
+        }),
+      ]);
       return {
         success: true,
         message: `Successfully transferred ${input.amount} ryo to ${target.username}`,
+      };
+    }),
+  getTransfers: protectedProcedure
+    .input(
+      z.object({
+        senderId: z.string().optional().nullish(),
+        receiverId: z.string().optional().nullish(),
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(100),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ? input.cursor : 0;
+      const skip = currentCursor * input.limit;
+      const transfers = await ctx.drizzle.query.bankTransfers.findMany({
+        where: or(
+          input.senderId ? eq(bankTransfers.senderId, input.senderId) : undefined,
+          input.receiverId ? eq(bankTransfers.receiverId, input.receiverId) : undefined
+        ),
+        with: {
+          sender: { columns: { username: true } },
+          receiver: { columns: { username: true } },
+        },
+        offset: skip,
+        limit: input.limit,
+      });
+      const nextCursor = transfers.length < input.limit ? null : currentCursor + 1;
+      return {
+        data: transfers,
+        nextCursor: nextCursor,
       };
     }),
 });
