@@ -4,7 +4,7 @@ import Image from "next/image";
 import MenuBox from "./MenuBox";
 import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
-import { ENERGY_SPENT_PER_SECOND } from "@/libs/train";
+import { getEnergySpentPerSecond } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
 import { ShieldCheckIcon } from "@heroicons/react/24/solid";
@@ -228,7 +228,7 @@ const MenuBoxProfile: React.FC = () => {
             }
             regen={
               userData.currentlyTraining
-                ? -ENERGY_SPENT_PER_SECOND
+                ? -getEnergySpentPerSecond(userData.trainingSpeed)
                 : userData.regeneration
             }
             status={userData.status}

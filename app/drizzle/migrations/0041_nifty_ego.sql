@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `trainingSpeed` enum('15min','1hr','4hrs','8hrs') DEFAULT '15min' NOT NULL;

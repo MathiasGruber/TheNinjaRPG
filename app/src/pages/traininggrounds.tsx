@@ -6,9 +6,11 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import StatusBar from "@/layout/StatusBar";
+import NavTabs from "@/layout/NavTabs";
 import Button from "@/layout/Button";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import { ENERGY_SPENT_PER_SECOND } from "@/libs/train";
+import { getEnergySpentPerSecond } from "@/libs/train";
+import { getStatTrainingEfficiency } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
@@ -20,9 +22,11 @@ import { show_toast } from "@/libs/toast";
 import { BoltIcon } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
-import { UserStatNames } from "../../drizzle/constants";
-import type { Jutsu } from "../../drizzle/schema";
+import { UserStatNames } from "@/drizzle/constants";
+import { TrainingSpeeds } from "@/drizzle/constants";
+import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 
 const Training: NextPage = () => {
   // Get user data
@@ -33,19 +37,29 @@ const Training: NextPage = () => {
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Show components if we have user
   return (
     <>
-      <StatsTraining />
-      <JutsuTraining />
+      <StatsTraining userData={userData} />
+      <JutsuTraining userData={userData} />
     </>
   );
 };
 
 export default Training;
 
-const StatsTraining: React.FC = () => {
+interface TrainingProps {
+  userData: NonNullable<UserWithRelations>;
+}
+
+const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { userData } = props;
+  const efficiency = getStatTrainingEfficiency(userData.trainingSpeed);
+
+  // tRPC useUtils
+  const utils = api.useUtils();
 
   // Mutations
   const { mutate: startTraining, isLoading: isStarting } =
@@ -53,7 +67,7 @@ const StatsTraining: React.FC = () => {
       onSuccess: async (data) => {
         show_toast("Training", data.message, "info");
         if (data.success) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
         }
       },
       onError: (error) => {
@@ -66,7 +80,7 @@ const StatsTraining: React.FC = () => {
       onSuccess: async (data) => {
         if (data.success) {
           show_toast("Training", data.message, "success");
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
         } else {
           show_toast("Training", data.message, "info");
         }
@@ -76,7 +90,22 @@ const StatsTraining: React.FC = () => {
       },
     });
 
-  const isLoading = isStarting || isStopping;
+  const { mutate: changeSpeed, isLoading: isChaning } =
+    api.profile.updateTrainingSpeed.useMutation({
+      onSuccess: async (data) => {
+        if (data.success) {
+          show_toast("Training", data.message, "success");
+          await utils.profile.getUser.invalidate();
+        } else {
+          show_toast("Training", data.message, "info");
+        }
+      },
+      onError: (error) => {
+        show_toast("Error training", error.message, "error");
+      },
+    });
+
+  const isLoading = isStarting || isStopping || isChaning;
 
   // Convenience definitions
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
@@ -86,7 +115,18 @@ const StatsTraining: React.FC = () => {
   if (isLoading) return <Loader explanation="Processing..." />;
 
   return (
-    <ContentBox title="Training" subtitle="Character Training" back_href="/village">
+    <ContentBox
+      title="Training"
+      subtitle={`Training (${efficiency}% efficiency)`}
+      back_href="/village"
+      topRightContent={
+        <NavTabs
+          current={userData.trainingSpeed}
+          options={TrainingSpeeds}
+          setValue={(value) => changeSpeed({ speed: value })}
+        />
+      }
+    >
       <div className="grid grid-cols-4 text-center font-bold">
         {UserStatNames.map((stat, i) => {
           const part = stat.match(/[a-z]+/g)?.[0] as string;
@@ -133,7 +173,7 @@ const StatsTraining: React.FC = () => {
                 color="bg-yellow-500"
                 showText={true}
                 lastRegenAt={userData.trainingStartedAt}
-                regen={-ENERGY_SPENT_PER_SECOND}
+                regen={-getEnergySpentPerSecond(userData.trainingSpeed)}
                 status={userData.status}
                 current={userData.curEnergy}
                 total={userData.maxEnergy}
@@ -152,13 +192,16 @@ const StatsTraining: React.FC = () => {
   );
 };
 
-const JutsuTraining: React.FC = () => {
+const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { userData } = props;
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const now = new Date();
+
+  // tRPC useUtils
+  const utils = api.useUtils();
 
   // Two-level filtering
   const state = useFiltering();
@@ -210,7 +253,7 @@ const JutsuTraining: React.FC = () => {
         show_toast("Training", data.message, "info");
         if (data.success) {
           await refetchUserJutsu();
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
         }
       },
       onError: (error) => {

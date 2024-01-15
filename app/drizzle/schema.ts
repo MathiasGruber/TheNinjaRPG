@@ -775,6 +775,9 @@ export const userData = mysqlTable(
     curEnergy: int("curEnergy").default(100).notNull(),
     maxEnergy: int("maxEnergy").default(100).notNull(),
     trainingStartedAt: datetime("trainingStartedAt", { mode: "date", fsp: 3 }),
+    trainingSpeed: mysqlEnum("trainingSpeed", consts.TrainingSpeeds)
+      .default("15min")
+      .notNull(),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
     unreadNotifications: int("unreadNotifications").default(0).notNull(),
     unreadNews: int("unreadNews").default(0).notNull(),

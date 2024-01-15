@@ -158,3 +158,6 @@ export const QuestTypes = [
 export type QuestType = typeof QuestTypes[number];
 
 export const SmileyEmotions = ["like", "love", "laugh"] as const;
+
+export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
+export type TrainingSpeed = typeof TrainingSpeeds[number];

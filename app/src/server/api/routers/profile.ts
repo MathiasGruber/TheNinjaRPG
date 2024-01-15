@@ -29,25 +29,27 @@ import { getNewTrackers } from "@/libs/quest";
 import { mutateContentSchema } from "@/validators/comments";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
-import { callDiscordContent } from "../../../libs/discord";
+import { callDiscordContent } from "@/libs/discord";
 import { scaleUserStats } from "@/libs/profile";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
-import { ENERGY_SPENT_PER_SECOND } from "../../../libs/train";
-import { calcLevelRequirements } from "../../../libs/profile";
-import { calcHP, calcSP, calcCP } from "../../../libs/profile";
-import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "../../../libs/profile";
-import { MAX_ATTRIBUTES } from "../../../libs/profile";
-import { statSchema } from "../../../libs/combat/types";
-import { calcIsInVillage } from "../../../libs/travel/controls";
+import { getEnergySpentPerSecond } from "@/libs/train";
+import { getStatTrainingEfficiency } from "@/libs/train";
+import { calcLevelRequirements } from "@/libs/profile";
+import { calcHP, calcSP, calcCP } from "@/libs/profile";
+import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "@/libs/profile";
+import { MAX_ATTRIBUTES } from "@/libs/profile";
+import { statSchema } from "@/libs/combat/types";
+import { calcIsInVillage } from "@/libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
+import { TrainingSpeeds } from "@/drizzle/constants";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { QuestHistory, Quest } from "@/drizzle/schema";
-import type { DrizzleClient } from "../../db";
-import type { NavBarDropdownLink } from "../../../libs/menus";
+import type { DrizzleClient } from "@server/db";
+import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
 
 export const profileRouter = createTRPCRouter({
@@ -127,10 +129,13 @@ export const profileRouter = createTRPCRouter({
       }
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
-      const trainingAmount = Math.min(
-        Math.floor(ENERGY_SPENT_PER_SECOND * seconds),
-        user.curEnergy
-      );
+      const trainingAmount =
+        Math.min(
+          Math.floor(getEnergySpentPerSecond(user.trainingSpeed) * seconds),
+          user.curEnergy
+        ) *
+        getStatTrainingEfficiency(user.trainingSpeed) *
+        0.01;
       const { trackers } = getNewTrackers(user, [
         { task: "stats_trained", increment: trainingAmount },
         { task: "minutes_training", increment: minutes },
@@ -381,6 +386,34 @@ export const profileRouter = createTRPCRouter({
         return { success: true, message: `AI deleted` };
       } else {
         return { success: false, message: `Not allowed to delete AI` };
+      }
+    }),
+  // Update user training speed
+  updateTrainingSpeed: protectedProcedure
+    .input(z.object({ speed: z.enum(TrainingSpeeds) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) {
+        throw serverError("NOT_FOUND", "User not found");
+      }
+      if (user.currentlyTraining) {
+        return {
+          success: false,
+          message: "Cannot change training speed while training",
+        };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ trainingSpeed: input.speed })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        return { success: true, message: "Training speed updated" };
       }
     }),
   // Update user

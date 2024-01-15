@@ -1,11 +1,10 @@
 import { StatType, GeneralType } from "./combat/constants";
 import { tagTypes } from "./combat/types";
-import { LetterRanks } from "../../drizzle/constants";
-import type { LetterRank } from "../../drizzle/constants";
-import type { Jutsu, JutsuRank } from "../../drizzle/schema";
-import type { UserData, UserRank, FederalStatus } from "../../drizzle/schema";
-
-export const ENERGY_SPENT_PER_SECOND = 0.1;
+import { LetterRanks } from "@/drizzle/constants";
+import type { LetterRank } from "@/drizzle/constants";
+import type { TrainingSpeed } from "@/drizzle/constants";
+import type { Jutsu, JutsuRank } from "@/drizzle/schema";
+import type { UserData, UserRank, FederalStatus } from "@/drizzle/schema";
 
 export const availableRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
@@ -139,3 +138,39 @@ export type FilterType = typeof mainFilters[number];
 export type StatType = typeof statFilters[number];
 export type EffectType = typeof effectFilters[number];
 export type RarityType = typeof rarities[number];
+
+/**
+ * Get training efficiency
+ */
+export const getStatTrainingEfficiency = (speed: TrainingSpeed) => {
+  switch (speed) {
+    case "15min":
+      return 100;
+    case "1hr":
+      return 90;
+    case "4hrs":
+      return 80;
+    case "8hrs":
+      return 70;
+    default:
+      throw Error("Invalid training speed");
+  }
+};
+
+/**
+ * Get training energy per second
+ */
+export const getEnergySpentPerSecond = (speed: TrainingSpeed) => {
+  switch (speed) {
+    case "15min":
+      return 100 / (15 * 60);
+    case "1hr":
+      return 100 / (60 * 60);
+    case "4hrs":
+      return 100 / (4 * 60 * 60);
+    case "8hrs":
+      return 100 / (8 * 60 * 60);
+    default:
+      throw Error("Invalid training speed");
+  }
+};

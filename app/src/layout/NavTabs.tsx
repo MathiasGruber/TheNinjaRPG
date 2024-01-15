@@ -2,7 +2,7 @@ import React from "react";
 
 interface NavTabsProps {
   current: string;
-  options: string[];
+  options: string[] | readonly string[];
   fontSize?: "text-xs" | "text-sm" | "text-base";
   setValue: React.Dispatch<React.SetStateAction<any>>;
 }
