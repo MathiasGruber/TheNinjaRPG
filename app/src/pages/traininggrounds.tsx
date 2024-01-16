@@ -11,6 +11,7 @@ import Button from "@/layout/Button";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { energyPerSecond } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
+import { JUTSU_LEVEL_CAP } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
@@ -274,6 +275,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const trainCost = (jutsu && calcJutsuTrainCost(jutsu, level)) || 0;
   const canTrain = jutsu && userData && canTrainJutsu(jutsu, userData);
   const canAfford = userData && trainCost && userData.money >= trainCost;
+  const isCapped = level >= JUTSU_LEVEL_CAP;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
@@ -313,7 +315,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
               <Modal
                 title="Confirm Purchase"
                 proceed_label={
-                  !isStartingTrain
+                  !isStartingTrain && !isCapped
                     ? canTrain && canAfford && trainSeconds && trainCost
                       ? `Train [${trainSeconds}, ${trainCost} ryo]`
                       : canAfford

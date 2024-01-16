@@ -54,6 +54,8 @@ export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
   return sufficientRank && villageCheck && bloodCheck;
 };
 
+export const JUTSU_LEVEL_CAP = 20;
+
 export const calcJutsuTrainTime = (jutsu: Jutsu, level: number) => {
   let lvlIncrement = 7;
   if (jutsu.jutsuRank === "C") {

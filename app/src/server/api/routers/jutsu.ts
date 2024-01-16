@@ -6,6 +6,7 @@ import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser, fetchRegeneratedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
+import { JUTSU_LEVEL_CAP } from "@/libs/train";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { JutsuValidator, animationNames } from "@/libs/combat/types";
@@ -245,7 +246,9 @@ export const jutsuRouter = createTRPCRouter({
       const level = userjutsu ? userjutsu.level : 0;
       const trainTime = calcJutsuTrainTime(info, level);
       const trainCost = calcJutsuTrainCost(info, level);
-
+      if (level >= JUTSU_LEVEL_CAP) {
+        return { success: false, message: "Jutsu is already at max level" };
+      }
       let questData = user.questData;
       if (!userjutsu) {
         const { trackers } = getNewTrackers(user, [
