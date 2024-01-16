@@ -66,6 +66,10 @@ export const paypalRouter = createTRPCRouter({
       if (affectedUserId === undefined) {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not extract user ID");
       }
+      const affectedUser = await fetchUser(ctx.drizzle, affectedUserId);
+      if (!affectedUser) {
+        throw serverError("INTERNAL_SERVER_ERROR", "Could not fetch target user");
+      }
       const capture = order?.purchase_units?.[0]?.payments?.captures?.[0];
       if (capture?.status !== "COMPLETED") {
         throw serverError("INTERNAL_SERVER_ERROR", "Payments not completed");
@@ -96,6 +100,24 @@ export const paypalRouter = createTRPCRouter({
         reps: dollars2reps(parseFloat(value)),
         raw: order,
       });
+      // If this user was recruited, also give 10% to the recruiter
+      const referralBonus = Math.floor(dollars2reps(parseFloat(value)) * 0.1);
+      if (affectedUser.recruiterId && referralBonus > 0) {
+        await updateReps({
+          client: ctx.drizzle,
+          createdById: ctx.userId,
+          transactionId: capture.id,
+          transactionUpdatedDate: capture.update_time,
+          orderId: nanoid(),
+          affectedUserId: affectedUser.recruiterId,
+          invoiceId: capture.invoice_id,
+          value: 0,
+          currency: currency_code,
+          status: "COMPLETED",
+          reps: referralBonus,
+          raw: {},
+        });
+      }
     }),
   resolveSubscription: protectedProcedure
     .input(
@@ -330,14 +352,14 @@ export const updateReps = async (input: {
   raw: JsonData;
 }) => {
   return await input.client.transaction(async (tx) => {
-    await tx
+    await input.client
       .update(userData)
       .set({
         reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.reps}`,
         reputationPoints: sql`${userData.reputationPoints} + ${input.reps}`,
       })
       .where(eq(userData.userId, input.affectedUserId));
-    return await tx.insert(paypalTransaction).values({
+    return await input.client.insert(paypalTransaction).values({
       id: nanoid(),
       createdById: input.createdById,
       transactionId: input.transactionId,

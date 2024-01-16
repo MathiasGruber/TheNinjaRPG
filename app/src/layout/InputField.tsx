@@ -29,17 +29,18 @@ const InputField: React.FC<InputFieldProps> = (props) => {
             {props.label}
           </label>
         )}
-
-        <input
-          {...(props.autofocus && { autoFocus: true })}
-          {...(props.register &&
-            props.register(props.id, { valueAsNumber: props.type === "number" }))}
-          type={props.type || "text"}
-          id={props.id}
-          className={`text-sm ${border_color} block w-full rounded-lg bg-gray-50 p-2.5`}
-          placeholder={props.placeholder || props.label}
-        />
-        {props.options}
+        <div className="relative">
+          <input
+            {...(props.autofocus && { autoFocus: true })}
+            {...(props.register &&
+              props.register(props.id, { valueAsNumber: props.type === "number" }))}
+            type={props.type || "text"}
+            id={props.id}
+            className={`text-sm ${border_color} block w-full rounded-lg bg-gray-50 p-2.5`}
+            placeholder={props.placeholder || props.label}
+          />
+          {props.options}
+        </div>
       </div>
       {props.error && <p className="text-xs italic text-red-500"> {props.error}</p>}
     </>

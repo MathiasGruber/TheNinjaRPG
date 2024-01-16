@@ -698,6 +698,7 @@ export const userData = mysqlTable(
   "UserData",
   {
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
+    recruiterId: varchar("recruiterId", { length: 191 }),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
     gender: varchar("gender", { length: 191 }).notNull(),
@@ -839,6 +840,12 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
+  recruitedUsers: many(userData, { relationName: "recruiter" }),
+  recruiter: one(userData, {
+    fields: [userData.recruiterId],
+    references: [userData.userId],
+    relationName: "recruiter",
+  }),
 }));
 
 export const userNindo = mysqlTable(

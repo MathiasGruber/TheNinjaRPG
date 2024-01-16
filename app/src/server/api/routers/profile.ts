@@ -8,6 +8,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "../trpc";
 import {
   userData,
+  bankTransfers,
   userAttribute,
   historicalAvatar,
   reportLog,
@@ -53,6 +54,7 @@ import type { QuestHistory, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
+import { c } from "@highlight-run/next/dist/withHighlight-fe21762b";
 
 export const profileRouter = createTRPCRouter({
   // Get all AI names
@@ -244,6 +246,20 @@ export const profileRouter = createTRPCRouter({
         questData: trackers,
       })
       .where(and(eq(userData.userId, ctx.userId), eq(userData.level, user.level)));
+    if (result.rowsAffected > 0 && user.recruiterId) {
+      const amount = newLevel * 10;
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ bank: sql`${userData.bank} + ${amount}` })
+          .where(eq(userData.userId, user.recruiterId)),
+        ctx.drizzle.insert(bankTransfers).values({
+          senderId: ctx.userId,
+          receiverId: user.recruiterId,
+          amount: amount,
+        }),
+      ]);
+    }
     return result.rowsAffected === 0 ? user.level : newLevel;
   }),
   // Get all information on logged in user
@@ -827,6 +843,15 @@ export const profileRouter = createTRPCRouter({
           village: true,
           bloodline: true,
           nindo: true,
+          recruitedUsers: {
+            columns: {
+              userId: true,
+              username: true,
+              level: true,
+              rank: true,
+              avatar: true,
+            },
+          },
         },
       });
       return user ?? null;
@@ -845,6 +870,7 @@ export const profileRouter = createTRPCRouter({
             message: "Must only contain alphanumeric characters and no spaces",
           })
           .optional(),
+        recruiterId: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -867,6 +893,7 @@ export const profileRouter = createTRPCRouter({
           ...(input.username !== undefined
             ? [like(userData.username, `%${input.username}%`)]
             : []),
+          ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
           eq(userData.isAi, input.isAi),
           ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)])

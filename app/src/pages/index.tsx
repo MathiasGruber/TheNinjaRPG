@@ -14,6 +14,11 @@ const Home: NextPage = () => {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const { data: userData, status: userStatus } = useUserData();
 
+  // Save referrer in local storage if present
+  if (router.query.ref) {
+    localStorage.setItem("ref", router.query.ref as string);
+  }
+
   useEffect(() => {
     if (userStatus !== "loading" && !userData) {
       if (userStatus === "error") {

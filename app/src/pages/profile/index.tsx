@@ -14,7 +14,7 @@ import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
 import { TrashIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
-import { AcademicCapIcon } from "@heroicons/react/24/outline";
+import { AcademicCapIcon, ShareIcon } from "@heroicons/react/24/outline";
 
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -92,7 +92,7 @@ const Profile: NextPage = () => {
         title="Profile"
         subtitle="An overview of basic information"
         topRightContent={
-          <div className="flex flex-row">
+          <div className="flex flex-row gap-1">
             {showModal && (
               <Modal
                 title={`Level up to Lvl ${userData.level + 1}!`}
@@ -133,6 +133,12 @@ const Profile: NextPage = () => {
                 )}
               </Modal>
             )}
+            <Link href="/profile/recruit">
+              <ShareIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+            </Link>
+            <Link href="/profile/edit">
+              <WrenchScrewdriverIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+            </Link>
             <Confirm
               title="Confirm Deletion"
               button={
@@ -193,9 +199,6 @@ const Profile: NextPage = () => {
                 )}
               </span>
             </Confirm>
-            <Link href="/profile/edit">
-              <WrenchScrewdriverIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
-            </Link>
           </div>
         }
       >

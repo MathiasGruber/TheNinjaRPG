@@ -67,6 +67,7 @@ const Register: React.FC = () => {
   const {
     register,
     watch,
+    setValue,
     setError,
     clearErrors,
     handleSubmit,
@@ -93,6 +94,14 @@ const Register: React.FC = () => {
   } else if (!databaseUsername && errors.username?.type == "custom") {
     clearErrors("username");
   }
+
+  // If we have local storage referrer, set it as default value
+  useEffect(() => {
+    const referrer = localStorage.getItem("ref");
+    if (referrer) {
+      setValue("recruiter_userid", referrer);
+    }
+  }, [setValue]);
 
   // If we have userdata, we should not be here
   useEffect(() => {
@@ -131,10 +140,7 @@ const Register: React.FC = () => {
 
   return (
     <form>
-      <ContentBox
-        title="Create Character"
-        subtitle="Set up your character. An AI will attempt to generate an avatar for you based on your choices."
-      >
+      <ContentBox title="Create your Ninja" subtitle="Avatar created by AI">
         {isLoading && <Loader explanation="Creating character..." />}
         {!isLoading && (
           <>
@@ -229,11 +235,6 @@ const Register: React.FC = () => {
                 >
                   {option_attributes}
                 </SelectField>
-                <Button
-                  id="create"
-                  label="Create Character"
-                  onClick={handleCreateCharacter}
-                />
               </div>
             </div>
 
@@ -267,6 +268,11 @@ const Register: React.FC = () => {
               }
               register={register}
               error={errors.read_earlyaccess?.message}
+            />
+            <Button
+              id="create"
+              label="Create Character"
+              onClick={handleCreateCharacter}
             />
           </>
         )}

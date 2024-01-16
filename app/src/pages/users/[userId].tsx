@@ -2,13 +2,14 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
 import ReactHtmlParser from "react-html-parser";
-
+import Link from "next/link";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
 import { FlagIcon } from "@heroicons/react/24/outline";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
@@ -172,6 +173,34 @@ const PublicProfile: NextPage = () => {
               </div>
             </div>
           </ContentBox>
+          {profile.recruitedUsers.length > 0 && (
+            <ContentBox
+              title="Recruited Users"
+              subtitle={`${profile.username} referred these users`}
+              initialBreak={true}
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
+                {profile.recruitedUsers.map((user) => (
+                  <Link href={`/users/${user.userId}`} className="text-center">
+                    <AvatarImage
+                      href={user.avatar}
+                      alt={user.username}
+                      userId={user.userId}
+                      hover_effect={true}
+                      priority={true}
+                      size={100}
+                    />
+                    <div>
+                      <div className="font-bold">{user.username}</div>
+                      <div>
+                        Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </ContentBox>
+          )}
           {profile.nindo && (
             <ContentBox
               title="Nindo"

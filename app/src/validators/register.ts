@@ -45,6 +45,7 @@ export const registrationSchema = z
     read_tos: z.literal(true),
     read_privacy: z.literal(true),
     read_earlyaccess: z.literal(true),
+    recruiter_userid: z.string().optional().nullish(),
   })
   .strict()
   .required()

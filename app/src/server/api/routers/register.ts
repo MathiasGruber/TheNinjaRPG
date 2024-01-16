@@ -40,6 +40,7 @@ export const registerRouter = createTRPCRouter({
         ),
         ctx.drizzle.insert(userData).values({
           userId: ctx.userId,
+          recruiterId: input.recruiter_userid,
           username: input.username,
           gender: input.gender,
           villageId: input.village,
