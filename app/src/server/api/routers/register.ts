@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { baseServerResponse } from "../trpc";
 import { registrationSchema } from "@/validators/register";
 import { fetchVillage } from "./village";
@@ -49,6 +49,12 @@ export const registerRouter = createTRPCRouter({
           immunityUntil: secondsFromNow(24 * 3600),
         }),
       ]);
+      if (input.recruiter_userid) {
+        await ctx.drizzle
+          .update(userData)
+          .set({ nRecruited: sql`${userData.nRecruited} + 1` })
+          .where(eq(userData.userId, input.recruiter_userid));
+      }
       return { success: true, message: "Character created" };
     }),
 });

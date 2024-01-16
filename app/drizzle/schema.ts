@@ -699,6 +699,7 @@ export const userData = mysqlTable(
   {
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
     recruiterId: varchar("recruiterId", { length: 191 }),
+    nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
     gender: varchar("gender", { length: 191 }).notNull(),

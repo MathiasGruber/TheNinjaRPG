@@ -316,6 +316,13 @@
       "when": 1705399854908,
       "tag": "0044_lazy_medusa",
       "breakpoints": false
+    },
+    {
+      "idx": 45,
+      "version": "5",
+      "when": 1705423061912,
+      "tag": "0045_steady_karnak",
+      "breakpoints": false
     }
   ]
 }

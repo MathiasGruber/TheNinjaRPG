@@ -12,6 +12,7 @@ export interface PostProps {
     level: number;
     rank: UserRank;
     role: UserRole;
+    nRecruited?: number | null;
     federalStatus: FederalStatus;
   };
   className?: string;
@@ -102,6 +103,14 @@ const Post: React.FC<PostProps> = (props) => {
             <div>
               Lvl. {props.user.level} {capitalizeFirstLetter(props.user.rank)}
             </div>
+            {props.user.nRecruited && props.user.nRecruited > 0 ? (
+              <Link
+                href={`/users/${props.user.userId}`}
+                className="font-bold hover:text-orange-500"
+              >
+                Recruits: {props.user.nRecruited}
+              </Link>
+            ) : undefined}
           </div>
         </div>
       )}

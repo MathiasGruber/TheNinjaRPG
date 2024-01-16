@@ -350,6 +350,7 @@ export const commentsRouter = createTRPCRouter({
           level: userData.level,
           role: userData.role,
           federalStatus: userData.federalStatus,
+          nRecruited: userData.nRecruited,
         })
         .from(conversationComment)
         .innerJoin(userData, eq(conversationComment.userId, userData.userId))
