@@ -20,7 +20,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/village";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
-import { BoltIcon } from "@heroicons/react/24/solid";
+import { BoltIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
 import { UserStatNames } from "@/drizzle/constants";
@@ -267,6 +267,27 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
+  const { mutate: cancel, isLoading: isStoppingTrain } =
+    api.jutsu.stopTraining.useMutation({
+      onSuccess: async (data) => {
+        show_toast("Training", data.message, "info");
+        if (data.success) {
+          await refetchUserJutsu();
+          await utils.profile.getUser.invalidate();
+        }
+      },
+      onError: (error) => {
+        show_toast("Error training", error.message, "error");
+      },
+      onSettled: () => {
+        setIsOpen(false);
+        setJutsu(undefined);
+      },
+    });
+
+  // Mutation loading
+  const isLoading = isStartingTrain || isStoppingTrain;
+
   // Derived calculations
   const level = userJutsuCounts?.find((entry) => entry.id === jutsu?.id)?.quantity || 0;
   const trainSeconds =
@@ -315,7 +336,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
               <Modal
                 title="Confirm Purchase"
                 proceed_label={
-                  !isStartingTrain && !isCapped
+                  !isLoading && !isCapped
                     ? canTrain && canAfford && trainSeconds && trainCost
                       ? `Train [${trainSeconds}, ${trainCost} ryo]`
                       : canAfford
@@ -326,7 +347,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                 setIsOpen={setIsOpen}
                 isValid={false}
                 onAccept={() => {
-                  if (canTrain && canAfford && !isStartingTrain) {
+                  if (canTrain && canAfford && !isLoading) {
                     train({ jutsuId: jutsu.id });
                   } else {
                     setIsOpen(false);
@@ -339,10 +360,10 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                 }
               >
                 <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-                {!isStartingTrain && (
+                {!isLoading && (
                   <ItemWithEffects item={jutsu} key={jutsu.id} showStatistic="jutsu" />
                 )}
-                {isStartingTrain && <Loader explanation={`Training ${jutsu.name}`} />}
+                {isLoading && <Loader explanation={`Training ${jutsu.name}`} />}
               </Modal>
             )}
           </>
@@ -361,6 +382,10 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                   }}
                 />
               </p>
+              <XCircleIcon
+                className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:fill-orange-500"
+                onClick={() => cancel()}
+              />
             </div>
           </div>
         )}

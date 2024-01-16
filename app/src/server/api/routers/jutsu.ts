@@ -283,6 +283,30 @@ export const jutsuRouter = createTRPCRouter({
       }
       return { success: true, message: `You started training: ${info.name}` };
     }),
+  // Stop training jutsu
+  stopTraining: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
+      const userjutsu = userjutsus.find(
+        (j) => j.finishTraining && j.finishTraining > new Date()
+      );
+      if (!userjutsu) {
+        return { success: false, message: "Not training any jutsu" };
+      }
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({
+          level: sql`${userJutsu.level} - 1`,
+          finishTraining: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(userJutsu.id, userjutsu.id), eq(userJutsu.userId, ctx.userId)));
+      return {
+        success: true,
+        message: `You stopped training: ${userjutsu.jutsu?.name}`,
+      };
+    }),
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
     .input(z.object({ userJutsuId: z.string() }))
