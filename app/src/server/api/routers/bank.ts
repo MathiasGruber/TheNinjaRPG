@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, baseServerResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
-import { eq, or, and, gte, sql } from "drizzle-orm";
+import { eq, or, and, gte, sql, desc } from "drizzle-orm";
 import { userData, bankTransfers } from "@/drizzle/schema";
 
 export const bankRouter = createTRPCRouter({
@@ -100,6 +100,7 @@ export const bankRouter = createTRPCRouter({
         },
         offset: skip,
         limit: input.limit,
+        orderBy: desc(bankTransfers.createdAt),
       });
       const nextCursor = transfers.length < input.limit ? null : currentCursor + 1;
       return {
