@@ -83,6 +83,7 @@ export const Element = [
   "Shadow",
   "Wood",
   "Scorch",
+  "Storm",
   "Magnet",
   "Yin",
   "Yang",
