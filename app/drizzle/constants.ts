@@ -154,6 +154,7 @@ export const QuestTypes = [
   "errand",
   "tier",
   "daily",
+  "achievement",
 ] as const;
 export type QuestType = typeof QuestTypes[number];
 
