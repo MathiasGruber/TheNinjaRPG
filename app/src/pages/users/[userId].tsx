@@ -180,8 +180,8 @@ const PublicProfile: NextPage = () => {
               initialBreak={true}
             >
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
-                {profile.recruitedUsers.map((user) => (
-                  <Link href={`/users/${user.userId}`} className="text-center">
+                {profile.recruitedUsers.map((user, i) => (
+                  <Link href={`/users/${user.userId}`} className="text-center" key={i}>
                     <AvatarImage
                       href={user.avatar}
                       alt={user.username}
