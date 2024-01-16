@@ -9,8 +9,8 @@ import StatusBar from "@/layout/StatusBar";
 import NavTabs from "@/layout/NavTabs";
 import Button from "@/layout/Button";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import { getEnergySpentPerSecond } from "@/libs/train";
-import { getStatTrainingEfficiency } from "@/libs/train";
+import { energyPerSecond } from "@/libs/train";
+import { trainEfficiency } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
@@ -57,7 +57,7 @@ interface TrainingProps {
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData } = props;
-  const efficiency = getStatTrainingEfficiency(userData.trainingSpeed);
+  const efficiency = trainEfficiency(userData.trainingSpeed);
 
   // tRPC useUtils
   const utils = api.useUtils();
@@ -174,7 +174,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                 color="bg-yellow-500"
                 showText={true}
                 lastRegenAt={userData.trainingStartedAt}
-                regen={-getEnergySpentPerSecond(userData.trainingSpeed)}
+                regen={-energyPerSecond(userData.trainingSpeed)}
                 status={userData.status}
                 current={userData.curEnergy}
                 total={userData.maxEnergy}

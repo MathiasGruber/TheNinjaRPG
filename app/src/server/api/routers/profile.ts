@@ -35,8 +35,9 @@ import { insertUserDataSchema } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { calcLevelRequirements } from "@/libs/profile";
 import { activityStreakRewards } from "@/libs/profile";
-import { getEnergySpentPerSecond } from "@/libs/train";
-import { getStatTrainingEfficiency } from "@/libs/train";
+import { energyPerSecond } from "@/libs/train";
+import { trainingMultiplier } from "@/libs/train";
+import { trainEfficiency } from "@/libs/train";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "@/libs/profile";
 import { MAX_ATTRIBUTES } from "@/libs/profile";
@@ -130,13 +131,14 @@ export const profileRouter = createTRPCRouter({
       }
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
+      const energySpent = Math.min(
+        Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
+        user.curEnergy
+      );
       const trainingAmount =
-        Math.min(
-          Math.floor(getEnergySpentPerSecond(user.trainingSpeed) * seconds),
-          user.curEnergy
-        ) *
-        getStatTrainingEfficiency(user.trainingSpeed) *
-        0.01;
+        energySpent *
+        trainEfficiency(user.trainingSpeed) *
+        trainingMultiplier(user.trainingSpeed);
       const { trackers } = getNewTrackers(user, [
         { task: "stats_trained", increment: trainingAmount },
         { task: "minutes_training", increment: minutes },

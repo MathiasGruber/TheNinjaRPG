@@ -142,7 +142,7 @@ export type RarityType = typeof rarities[number];
 /**
  * Get training efficiency
  */
-export const getStatTrainingEfficiency = (speed: TrainingSpeed) => {
+export const trainEfficiency = (speed: TrainingSpeed) => {
   switch (speed) {
     case "15min":
       return 100;
@@ -158,9 +158,27 @@ export const getStatTrainingEfficiency = (speed: TrainingSpeed) => {
 };
 
 /**
+ * Get training multiplier
+ */
+export const trainingMultiplier = (speed: TrainingSpeed) => {
+  switch (speed) {
+    case "15min":
+      return 0.01;
+    case "1hr":
+      return 0.04;
+    case "4hrs":
+      return 0.16;
+    case "8hrs":
+      return 0.32;
+    default:
+      throw Error("Invalid training speed");
+  }
+};
+
+/**
  * Get training energy per second
  */
-export const getEnergySpentPerSecond = (speed: TrainingSpeed) => {
+export const energyPerSecond = (speed: TrainingSpeed) => {
   switch (speed) {
     case "15min":
       return 100 / (15 * 60);
