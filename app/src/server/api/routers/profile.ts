@@ -151,7 +151,7 @@ export const profileRouter = createTRPCRouter({
         .set({
           trainingStartedAt: null,
           currentlyTraining: null,
-          curEnergy: sql`curEnergy - ${trainingAmount}`,
+          curEnergy: sql`curEnergy - ${energySpent}`,
           experience: sql`experience + ${trainingAmount}`,
           strength:
             user.currentlyTraining === "strength"
