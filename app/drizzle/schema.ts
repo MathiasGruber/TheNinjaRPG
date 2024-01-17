@@ -1139,18 +1139,29 @@ export const quest = mysqlTable(
 );
 export type Quest = InferSelectModel<typeof quest>;
 
-export const questHistory = mysqlTable("QuestHistory", {
-  id: varchar("id", { length: 191 }).primaryKey().notNull(),
-  userId: varchar("userId", { length: 191 }).notNull(),
-  questId: varchar("questId", { length: 191 }).notNull(),
-  questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
-  startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
-    .default(sql`(CURRENT_TIMESTAMP(3))`)
-    .notNull(),
-  endAt: datetime("endedAt", { mode: "date", fsp: 3 }),
-  completed: tinyint("completed").default(0).notNull(),
-  previousCompletes: int("previousCompletes").default(0).notNull(),
-});
+export const questHistory = mysqlTable(
+  "QuestHistory",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    questId: varchar("questId", { length: 191 }).notNull(),
+    questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
+    startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    endAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+    completed: tinyint("completed").default(0).notNull(),
+    previousCompletes: int("previousCompletes").default(0).notNull(),
+  },
+  (table) => {
+    return {
+      idKey: uniqueIndex("QuestHistory_id_key").on(table.id),
+      userIdIdx: index("QuestHistory_userId_idx").on(table.userId),
+      questIdIdx: index("QuestHistory_questId_idx").on(table.questId),
+      completedIdx: index("QuestHistory_completed_idx").on(table.completed),
+    };
+  }
+);
 export type QuestHistory = InferInsertModel<typeof questHistory>;
 
 export const questHistoryRelations = relations(questHistory, ({ one }) => ({

@@ -6,6 +6,7 @@ import { UserRanks } from "@/drizzle/constants";
 import { availableRanks } from "@/libs/train";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
+import { upsertQuestEntries } from "@/routers/quests";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { nanoid } from "nanoid";
 
@@ -44,18 +45,11 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
               ),
               orderBy: sql`RAND()`,
             });
-            const users = await drizzleDB.query.userData.findMany({
-              columns: { userId: true },
-              where: and(eq(userData.rank, rank), eq(userData.villageId, village.id)),
-            });
-            if (newDaily && users.length > 0) {
-              await drizzleDB.insert(questHistory).values(
-                users.map((user) => ({
-                  id: nanoid(),
-                  userId: user.userId,
-                  questId: newDaily.id,
-                  questType: "daily" as const,
-                }))
+            if (newDaily) {
+              await upsertQuestEntries(
+                drizzleDB,
+                newDaily,
+                and(eq(userData.rank, rank), eq(userData.villageId, village.id))
               );
             }
           });
