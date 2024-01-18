@@ -1101,7 +1101,9 @@ export const dataBattleAction = mysqlTable(
   (table) => {
     return {
       idKey: uniqueIndex("DataBattleActions_id").on(table.id),
+      contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
       typeIdx: index("DataBattleActions_type").on(table.type),
+      battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
     };
   }
 );
@@ -1134,6 +1136,10 @@ export const quest = mysqlTable(
     return {
       idKey: uniqueIndex("Quest_id").on(table.id),
       tierLevel: unique("tierLevel").on(table.tierLevel),
+      questTypeIdx: index("Quest_questType_idx").on(table.questType),
+      requiredRankIdx: index("Quest_requiredRank_idx").on(table.requiredRank),
+      requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
+      requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
     };
   }
 );
