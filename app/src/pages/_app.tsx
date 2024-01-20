@@ -2,6 +2,7 @@ import { AxiomWebVitals } from "next-axiom";
 import { ClerkProvider, MultisessionAppSupport } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
+import PlausibleProvider from "next-plausible";
 import Link from "next/link";
 import Header from "@/layout/Header";
 import CookieConsent from "react-cookie-consent";
@@ -16,45 +17,47 @@ import "../styles/globals.css";
 
 const MyApp: AppType = ({ Component, pageProps }) => {
   return (
-    <ClerkProvider
-      {...pageProps}
-      appearance={{
-        variables: {
-          colorPrimary: "#ce7e00",
-          colorText: "black",
-        },
-      }}
-    >
-      <Header />
-      <ToastContainer />
-      <CookieConsent>
-        This website uses cookies to enhance the user experience. Please read our{" "}
-        <Link href="/policy" className="text-amber-500 font-bold">
-          Privacy Policy
-        </Link>{" "}
-        before continuing.
-      </CookieConsent>
-      <AxiomWebVitals />
-      <HighlightInit
-        projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
-        serviceName="tnr-frontend"
-        enableStrictPrivacy={true}
-        reportConsoleErrors={true}
-        enablePerformanceRecording={true}
-        networkRecording={{
-          enabled: true,
-          recordHeadersAndBody: true,
-          urlBlocklist: [],
+    <PlausibleProvider domain="theninja-rpg.com">
+      <ClerkProvider
+        {...pageProps}
+        appearance={{
+          variables: {
+            colorPrimary: "#ce7e00",
+            colorText: "black",
+          },
         }}
-      />
-      <ErrorBoundary showDialog={false}>
-        <MultisessionAppSupport>
-          <Layout>
-            <Component {...pageProps} />
-          </Layout>
-        </MultisessionAppSupport>
-      </ErrorBoundary>
-    </ClerkProvider>
+      >
+        <Header />
+        <ToastContainer />
+        <CookieConsent>
+          This website uses cookies to enhance the user experience. Please read our{" "}
+          <Link href="/policy" className="text-amber-500 font-bold">
+            Privacy Policy
+          </Link>{" "}
+          before continuing.
+        </CookieConsent>
+        <AxiomWebVitals />
+        <HighlightInit
+          projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
+          serviceName="tnr-frontend"
+          enableStrictPrivacy={true}
+          reportConsoleErrors={true}
+          enablePerformanceRecording={true}
+          networkRecording={{
+            enabled: true,
+            recordHeadersAndBody: true,
+            urlBlocklist: [],
+          }}
+        />
+        <ErrorBoundary showDialog={false}>
+          <MultisessionAppSupport>
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          </MultisessionAppSupport>
+        </ErrorBoundary>
+      </ClerkProvider>
+    </PlausibleProvider>
   );
 };
 
