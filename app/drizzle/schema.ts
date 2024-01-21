@@ -841,6 +841,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
+  badges: many(userBadge),
   recruitedUsers: many(userData, { relationName: "recruiter" }),
   recruiter: one(userData, {
     fields: [userData.recruiterId],
@@ -1291,6 +1292,58 @@ export const bankTransferRelations = relations(bankTransfers, ({ one }) => ({
   }),
   receiver: one(userData, {
     fields: [bankTransfers.receiverId],
+    references: [userData.userId],
+  }),
+}));
+
+export const badge = mysqlTable(
+  "Badge",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: varchar("description", { length: 500 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      idKey: uniqueIndex("Badge_id_key").on(table.id),
+      nameKey: uniqueIndex("Badge_name_key").on(table.name),
+    };
+  }
+);
+export type Badge = InferSelectModel<typeof badge>;
+
+export const userBadge = mysqlTable(
+  "UserBadge",
+  {
+    userId: varchar("userId", { length: 191 }).notNull(),
+    badgeId: varchar("badgeId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("UserBadge_userId_idx").on(table.userId),
+      badgeIdIdx: index("UserBadge_badgeId_idx").on(table.badgeId),
+    };
+  }
+);
+export type UserBadge = InferSelectModel<typeof userBadge>;
+
+export const userBadgeRelations = relations(userBadge, ({ one }) => ({
+  badge: one(badge, {
+    fields: [userBadge.badgeId],
+    references: [badge.id],
+  }),
+  user: one(userData, {
+    fields: [userBadge.userId],
     references: [userData.userId],
   }),
 }));

@@ -52,7 +52,7 @@ interface EditContentProps<T, K, S> {
   allowImageUpload?: boolean;
   limitSelectHeight?: boolean;
   fixedWidths?: "basis-32";
-  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai";
+  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge";
   bgColor?: "bg-slate-600" | "";
   control?: Control<any>;
   setValue: UseFormSetValue<any>;
@@ -304,6 +304,8 @@ export const EditContent = <
                           prompt +=
                             ", epic composition, cinematic, vibrant background, by greg rutkowski and thomas kinkade, Trending on artstation, 8k, hyperrealistic, extremely detailed";
                         } else if (props.type === "item") {
+                          prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
+                        } else if (props.type === "badge") {
                           prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
                         } else if (props.type === "jutsu") {
                           prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;

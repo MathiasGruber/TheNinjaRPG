@@ -32,7 +32,7 @@ export type GenericObject = {
 export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu | Quest | GenericObject;
   imageBorder?: boolean;
-  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest";
+  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   onDelete?: (id: string) => void;
 }

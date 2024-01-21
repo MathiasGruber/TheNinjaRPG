@@ -22,6 +22,7 @@ import { questsRouter } from "./routers/quests";
 import { openaiRouter } from "./routers/openai";
 import { conceptartRouter } from "./routers/conceptart";
 import { bankRouter } from "./routers/bank";
+import { badgeRouter } from "./routers/badge";
 
 /**
  * This is the primary router for your server.
@@ -52,6 +53,7 @@ export const appRouter = createTRPCRouter({
   openai: openaiRouter,
   conceptart: conceptartRouter,
   bank: bankRouter,
+  badge: badgeRouter,
 });
 
 // export type definition of API

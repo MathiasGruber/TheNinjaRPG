@@ -20,6 +20,7 @@ const ManualMain: NextPage = () => {
           "quests",
           "logs",
           "damage_calcs",
+          "badges",
         ].map((page) => (
           <Link key={page} href={`/manual/${page}`}>
             <Image
