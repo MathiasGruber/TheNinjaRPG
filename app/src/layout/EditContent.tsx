@@ -306,7 +306,7 @@ export const EditContent = <
                         } else if (props.type === "item") {
                           prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
                         } else if (props.type === "badge") {
-                          prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
+                          prompt = `${prompt}, concept art design, Ubisoft Inspiration, Profesional Videogame Design, High Quality, 4k, Photoshop.`;
                         } else if (props.type === "jutsu") {
                           prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
                         } else if (props.type === "bloodline") {

@@ -1,5 +1,6 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import ChatInputField from "@/layout/ChatInputField";
 import { api } from "@/utils/api";
 import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
@@ -8,6 +9,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
 import { useBadgeEditForm } from "@/libs/badge";
 import { BadgeValidator } from "@/validators/badge";
+import { show_toast } from "@/libs/toast";
 import type { Badge } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -63,6 +65,20 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
   // Get current form values
   const currentValues = getValues();
 
+  // Mutations
+  const { mutate: chatIdea, isLoading } = api.openai.createBadge.useMutation({
+    onSuccess: (data) => {
+      show_toast("Updated Badge", `Based on response from AI`, "success");
+      let key: keyof typeof data;
+      for (key in data) {
+        setValue(key, data[key]);
+      }
+    },
+    onError: (error) => {
+      show_toast("Error from ChatGPT", error.message, "error");
+    },
+  });
+
   // Show panel controls
   return (
     <ContentBox
@@ -70,6 +86,18 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
       subtitle="Badge Management"
       back_href="/manual/badges"
       noRightAlign={true}
+      topRightContent={
+        formData.find((e) => e.id === "description") ? (
+          <ChatInputField
+            id="chatInput"
+            placeholder="Instruct ChatGPT to edit name & description"
+            isLoading={isLoading}
+            onSubmit={(text) => {
+              chatIdea({ badgeId: badge.id, prompt: text });
+            }}
+          />
+        ) : undefined
+      }
     >
       {!badge && <p>Could not find this badge</p>}
       {badge && (

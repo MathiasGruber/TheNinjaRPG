@@ -5,6 +5,7 @@ import { allObjectiveTasks } from "@/validators/objectives";
 import { canChangeContent } from "@/utils/permissions";
 import { serverEnv } from "src/env/schema.mjs";
 import { fetchQuest } from "@/routers/quests";
+import { fetchBadge } from "@/routers/badge";
 import { fetchUser } from "@/routers/profile";
 import { fetchBloodline } from "@/routers/bloodline";
 import { requestContentImage } from "@/libs/replicate";
@@ -27,6 +28,11 @@ type ReturnQuest = {
   objectives: string[];
   questType: QuestType;
   requiredRank: LetterRank;
+};
+
+type ReturnBadge = {
+  name: string;
+  description: string;
 };
 
 type ReturnBloodline = {
@@ -166,6 +172,28 @@ export const openaiRouter = createTRPCRouter({
           "successDescription",
           "objectives",
         ],
+      });
+    }),
+  createBadge: protectedProcedure
+    .input(z.object({ badgeId: z.string(), prompt: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Ensure the quest is there
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const badge = await fetchBadge(ctx.drizzle, input.badgeId);
+      if (!badge) {
+        throw serverError("NOT_FOUND", "Badge not found");
+      }
+      if (!canChangeContent(user.role)) {
+        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
+      }
+      // Get new content from OpenAI
+      return await callOpenAI<ReturnBadge>(input.prompt, JSON.stringify(badge), {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+        },
+        required: ["name", "description"],
       });
     }),
   createBloodline: protectedProcedure

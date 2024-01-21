@@ -139,7 +139,7 @@ export const requestContentImage = async (prompt: string): Promise<ReplicateRetu
         apply_watermark: false,
         high_noise_frac: 0.8,
         negative_prompt:
-          "deformed,weird,bad resolution,bad depiction,weird,worst quality,worst resolution,too blurry,not relevant,text",
+          "deformed,weird,bad resolution,bad depiction,weird,worst quality,worst resolution,too blurry,not relevant,text,border,frame",
         prompt_strength: 0.8,
         num_inference_steps: 25,
       },
