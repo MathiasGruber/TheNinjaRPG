@@ -65,7 +65,7 @@ const MissionHall: NextPage = () => {
       {isLoading && <Loader explanation="Accepting..." />}
       {currentQuest && currentTracker && (
         <div className="p-3">
-          <LogbookEntry quest={currentQuest.quest} tracker={currentTracker} />
+          <LogbookEntry userQuest={currentQuest} tracker={currentTracker} />
         </div>
       )}
       {!currentQuest && !isLoading && (

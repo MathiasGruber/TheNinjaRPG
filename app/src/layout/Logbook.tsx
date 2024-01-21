@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Post from "./Post";
 import Toggle from "@/layout/Toggle";
 import Loader from "@/layout/Loader";
@@ -16,7 +16,7 @@ import { show_toast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import ReactHtmlParser from "react-html-parser";
 import type { QuestTrackerType } from "@/validators/objectives";
-import type { Quest } from "@/drizzle/schema";
+import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 
 interface LogbookProps {}
@@ -92,11 +92,9 @@ const Logbook: React.FC<LogbookProps> = () => {
     >
       {showActive && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {userData?.userQuests.map((uq, i) => {
+          {userData?.userQuests?.map((uq, i) => {
             const tracker = userData?.questData?.find((q) => q.id === uq.questId);
-            return (
-              tracker && <LogbookEntry key={i} quest={uq.quest} tracker={tracker} />
-            );
+            return tracker && <LogbookEntry key={i} userQuest={uq} tracker={tracker} />;
           })}
         </div>
       )}
@@ -111,20 +109,22 @@ const Logbook: React.FC<LogbookProps> = () => {
 export default Logbook;
 
 interface LogbookEntryProps {
-  quest: Quest;
+  userQuest: UserQuest;
   tracker: QuestTrackerType;
 }
 
 export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
-  const { quest, tracker } = props;
+  const { userQuest, tracker } = props;
+  const quest = userQuest.quest;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
   const allDone = tracker?.goals.every((g) => g.done);
   const utils = api.useContext();
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
-    onSuccess: async ({ rewards, quest }) => {
-      if (quest) {
+    onSuccess: async ({ rewards, userQuest, resolved }) => {
+      if (resolved && userQuest) {
+        const quest = userQuest.quest;
         const reward = (
           <div className="flex flex-col">
             {quest.successDescription && (
@@ -153,8 +153,6 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
         show_toast(`Finished : ${quest.name}`, reward, "success");
         await utils.profile.getUser.invalidate();
         await utils.quests.getQuestHistory.invalidate();
-      } else {
-        show_toast("Info", "All objectives were not completed yet", "info");
       }
     },
     onError: (error) => {
@@ -171,6 +169,17 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       show_toast("Error abandoning", error.message, "error");
     },
   });
+
+  useEffect(() => {
+    const check = quest.questType === "achievement" && !userQuest.completed;
+    if (check && allDone) {
+      void checkRewards({ questId: quest.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // We do not show entries for achievements
+  if (quest.questType === "achievement") return undefined;
 
   return (
     <Post

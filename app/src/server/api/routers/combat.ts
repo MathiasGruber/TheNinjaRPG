@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
-import { eq, or, and, sql, gt, isNotNull, desc, inArray } from "drizzle-orm";
+import { eq, or, and, sql, gt, isNotNull, isNull, desc, inArray } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
@@ -16,7 +16,7 @@ import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
 import { fetchRegeneratedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
-import { userData } from "@/drizzle/schema";
+import { userData, questHistory, quest } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { performActionSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
@@ -28,6 +28,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
+import { mockAchievementHistoryEntries } from "@/libs/quest";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/schema";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -445,26 +446,33 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
-    const users = await tx.query.userData.findMany({
-      with: {
-        bloodline: true,
-        village: true,
-        items: {
-          with: { item: true },
-          where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
-        },
-        jutsus: {
-          with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, 1),
-        },
-        userQuests: {
-          with: {
-            quest: true,
+    const [achievements, users] = await Promise.all([
+      tx.select().from(quest).where(eq(quest.questType, "achievement")),
+      tx.query.userData.findMany({
+        with: {
+          bloodline: true,
+          village: true,
+          items: {
+            with: { item: true },
+            where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+          },
+          jutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+          },
+          userQuests: {
+            where: or(
+              and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+              eq(questHistory.questType, "achievement")
+            ),
+            with: {
+              quest: true,
+            },
           },
         },
-      },
-      where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
-    });
+        where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
+      }),
+    ]);
     users.sort((a) => (a.userId === userId ? -1 : 1));
 
     // Use long/lat fields for position in combat map
@@ -494,6 +502,10 @@ export const initiateBattle = async (
     if (users[1].status !== "AWAKE") {
       return { success: false, message: "Target is not awake" };
     }
+
+    // Add achievements to users for tracking
+    users[0].userQuests.push(...mockAchievementHistoryEntries(achievements, users[0]));
+    users[1].userQuests.push(...mockAchievementHistoryEntries(achievements, users[1]));
 
     // If requested scale the target user to the same level & stats as attacker
     if (info?.scaleTarget) {

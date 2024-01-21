@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
-import { inArray, lte, isNotNull, isNull, sql, asc, gte, SQL } from "drizzle-orm";
+import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
 import { item, jutsu } from "@/drizzle/schema";
 import { userJutsu, userItem, userData } from "@/drizzle/schema";
@@ -22,6 +22,7 @@ import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { missionHallSettings } from "@/libs/quest";
 import { secondsPassed } from "@/utils/time";
+import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -324,13 +325,18 @@ export const questsRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       // Figure out if any finished quests & get rewards
-      const { rewards, trackers, quest, questDone } = getReward(user, input.questId);
+      const { rewards, trackers, userQuest, resolved } = getReward(user, input.questId);
       user.questData = trackers;
       // Update user quest data
-      if (questDone) {
-        user.userQuests = user.userQuests.filter((q) => q.questId !== input.questId);
-        const { trackers } = getNewTrackers(user, [{ task: "any" }]);
-        user.questData = trackers;
+      if (resolved && userQuest) {
+        // Achievements are only inserted once completed
+        if (userQuest.quest.questType === "achievement") {
+          await upsertQuestEntry(ctx.drizzle, user, userQuest.quest);
+        } else {
+          user.userQuests = user.userQuests.filter((q) => q.questId !== input.questId);
+          const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+          user.questData = trackers;
+        }
       }
       // Fetch names from the database
       const [items, jutsus] = await Promise.all([
@@ -365,11 +371,11 @@ export const questsRouter = createTRPCRouter({
             questData: user.questData,
             money: user.money + rewards.reward_money,
             rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : user.rank,
-            ...(questDone ? { questFinishAt: new Date() } : {}),
+            ...(resolved ? { questFinishAt: new Date() } : {}),
           })
           .where(eq(userData.userId, ctx.userId)),
         // Update quest history
-        questDone
+        resolved
           ? ctx.drizzle
               .update(questHistory)
               .set({
@@ -409,7 +415,7 @@ export const questsRouter = createTRPCRouter({
       // Update rewards for readability
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
-      return { rewards, quest };
+      return { rewards, userQuest, resolved };
     }),
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))
@@ -596,6 +602,7 @@ export const upsertQuestEntry = async (
       startedAt: new Date(),
       endAt: null,
       completed: 0,
+      previousCompletes: 0,
     };
     await client.insert(questHistory).values(logEntry);
     return logEntry;

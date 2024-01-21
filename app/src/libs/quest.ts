@@ -196,7 +196,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
  * Get currently active quests for a user
  */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
-  return user?.userQuests?.map((uq) => uq.quest) ?? [];
+  return user?.userQuests?.map((uq) => ({ ...uq, ...uq.quest })) ?? [];
 };
 
 /**
@@ -206,7 +206,7 @@ export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
  * Get active objectives for a user
  */
 export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
-  const activeQuests = getUserQuests(user);
+  const activeQuests = user.userQuests.map((uq) => uq.quest);
   const activeObjectives: AllObjectivesType[] = [];
   activeQuests.forEach((quest) => {
     const questTracker = user.questData?.find((q) => q.id === quest.id);
@@ -244,16 +244,17 @@ export const isLocationObjective = (
  * list of rewards to award the user
  */
 export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
-  const activeQuests = getUserQuests(user);
   let rewards = ObjectiveReward.parse({});
   const { trackers } = getNewTrackers(user, [{ task: "any" }]);
-  const quest = activeQuests.find((q) => q.id === questId);
-  let questDone = false;
-  if (quest) {
-    const questTracker = trackers.find((q) => q.id === quest.id);
-    questDone = questTracker?.goals.every((g) => g.done) ?? false;
-    if (questDone) rewards = quest.content.reward;
-    quest.content.objectives.forEach((objective) => {
+  const userQuest = user.userQuests.find((uq) => uq.questId === questId);
+  let resolved = false;
+  if (userQuest && !userQuest.completed) {
+    const questTracker = trackers.find((q) => q.id === userQuest.quest.id);
+    resolved = questTracker?.goals.every((g) => g.done) ?? false;
+    if (resolved) {
+      rewards = userQuest.quest.content.reward;
+    }
+    userQuest.quest.content.objectives.forEach((objective) => {
       const status = questTracker?.goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;
@@ -272,7 +273,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
       }
     });
   }
-  return { rewards, trackers, quest, questDone };
+  return { rewards, trackers, userQuest, resolved };
 };
 
 /**
@@ -454,3 +455,22 @@ export const missionHallSettings = [
       "S-rank missions are the highest rank of missions. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.",
   },
 ] as const;
+
+export const mockAchievementHistoryEntries = (
+  quests: Quest[],
+  user: NonNullable<UserWithRelations>
+) => {
+  return quests
+    .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
+    .map((a) => ({
+      id: a.id,
+      userId: user.userId,
+      questId: a.id,
+      questType: a.questType,
+      completed: 0,
+      previousCompletes: 0,
+      quest: a,
+      endAt: null,
+      startedAt: new Date(),
+    }));
+};

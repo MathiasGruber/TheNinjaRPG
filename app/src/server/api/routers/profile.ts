@@ -23,10 +23,12 @@ import {
   actionLog,
   notification,
   questHistory,
+  quest,
 } from "@/drizzle/schema";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { getNewTrackers } from "@/libs/quest";
+import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { mutateContentSchema } from "@/validators/comments";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -50,11 +52,10 @@ import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
-import type { QuestHistory, Quest } from "@/drizzle/schema";
+import type { UserQuest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
-import { c } from "@highlight-run/next/dist/withHighlight-fe21762b";
 
 export const profileRouter = createTRPCRouter({
   // Get all AI names
@@ -1002,20 +1003,34 @@ export const fetchRegeneratedUser = async (props: {
   const { client, userId, userIp, forceRegen } = props;
 
   // Ensure we can fetch the user
-  const user = (await client.query.userData.findFirst({
-    where: eq(userData.userId, userId),
-    with: {
-      bloodline: true,
-      village: true,
-      userQuests: {
-        where: and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-        with: {
-          quest: true,
+  const [achievements, user] = await Promise.all([
+    client.select().from(quest).where(eq(quest.questType, "achievement")),
+    client.query.userData.findFirst({
+      where: eq(userData.userId, userId),
+      with: {
+        bloodline: true,
+        village: true,
+        userQuests: {
+          where: or(
+            and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+            eq(questHistory.questType, "achievement")
+          ),
+          with: {
+            quest: true,
+          },
+          orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
-        orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
       },
-    },
-  })) as UserWithRelations;
+    }),
+  ]);
+
+  // Add in achievements
+  if (user) {
+    user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
+  }
+
+  // const achievements = ;
+  // const user = (await ) as UserWithRelations;
 
   // Add bloodline regen to regeneration
   // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
@@ -1071,7 +1086,6 @@ export const fetchRegeneratedUser = async (props: {
         }
       }
       // Update database
-      console.log(rewards);
       await client
         .update(userData)
         .set({
@@ -1106,8 +1120,8 @@ export const fetchAttributes = async (client: DrizzleClient, userId: string) => 
 
 export type UserWithRelations =
   | (UserData & {
-      bloodline?: Bloodline;
-      village?: Village;
-      userQuests: (QuestHistory & { quest: Quest })[];
+      bloodline?: Bloodline | null;
+      village?: Village | null;
+      userQuests: UserQuest[];
     })
   | undefined;

@@ -17,7 +17,7 @@ import { intersectUsers } from "@/libs/travel/sector";
 import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
-import { getUserQuests, isLocationObjective } from "@/libs/quest";
+import { isLocationObjective } from "@/libs/quest";
 import type { Village, UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
@@ -167,8 +167,8 @@ const Sector: React.FC<SectorProps> = (props) => {
           await refetchUser();
         }
         if (userData) {
-          getUserQuests(userData).forEach((quest) => {
-            quest.content.objectives.forEach((objective) => {
+          userData?.userQuests?.forEach((userquest) => {
+            userquest.quest.content.objectives.forEach((objective) => {
               if (
                 // If an objective is a location objective, then check quest
                 isLocationObjective(
