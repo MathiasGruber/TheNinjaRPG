@@ -99,7 +99,12 @@ const ManualBadges: NextPage = () => {
         emptyText="No badges exist yet."
       />
       {isOpen && userData && badge && (
-        <Modal title="Confirm Purchase" setIsOpen={setIsOpen} isValid={false}>
+        <Modal
+          title="Confirm Purchase"
+          setIsOpen={setIsOpen}
+          isValid={false}
+          className="max-w-3xl"
+        >
           {!isLoading && (
             <div className="relative">
               <ItemWithEffects

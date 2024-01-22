@@ -3,6 +3,7 @@ import React from "react";
 interface ModalProps {
   title: string;
   children: string | React.ReactNode;
+  className?: string;
   proceed_label?: string;
   confirmClassName?: string;
   isValid?: boolean;
@@ -25,7 +26,9 @@ const Modal: React.FC<ModalProps> = (props) => {
           props.setIsOpen(false);
         }}
       ></div>
-      <div className="fixed left-1/2 top-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow">
+      <div
+        className={`fixed left-1/2 top-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow ${props.className}`}
+      >
         <div className="flex items-start justify-between rounded-t border-b border-gray-600 p-4">
           <h3 className="text-xl font-semibold text-white">{props.title}</h3>
           <button
