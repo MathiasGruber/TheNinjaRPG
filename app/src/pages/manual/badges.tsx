@@ -93,6 +93,8 @@ const ManualBadges: NextPage = () => {
           setIsOpen(true);
         }}
         showBgColor={false}
+        roundFull={true}
+        hideBorder={true}
         showLabels={true}
         emptyText="No badges exist yet."
       />

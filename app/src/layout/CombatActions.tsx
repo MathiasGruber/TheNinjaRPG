@@ -20,6 +20,8 @@ interface ActionSelectorProps {
     id: string;
     quantity: number;
   }[];
+  roundFull?: boolean;
+  hideBorder?: boolean;
   showBgColor: boolean;
   showLabels: boolean;
   selectedId?: string;
@@ -73,6 +75,8 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 src={item.image}
                 isGreyed={isGreyed}
                 alt="sp"
+                roundFull={props.roundFull}
+                hideBorder={props.hideBorder}
                 rarity={item.rarity}
                 updatedAt={item.updatedAt}
                 cooldown={item.cooldown}
@@ -104,6 +108,8 @@ interface ActionOptionProps {
   count?: number;
   isGreyed: boolean;
   className?: string;
+  roundFull?: boolean;
+  hideBorder?: boolean;
   labelSingles?: boolean;
   updatedAt?: number | Date;
   cooldown?: number;
@@ -149,6 +155,8 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           alt={props.alt}
           rarity={props.rarity}
           className=""
+          roundFull={props.roundFull}
+          hideBorder={props.hideBorder}
           onClick={props.onClick}
         />
         {props.count && (props.labelSingles || props.count > 1) && (
