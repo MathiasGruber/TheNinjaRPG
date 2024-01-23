@@ -246,6 +246,7 @@ export const itemRouter = createTRPCRouter({
         stack: z.number().min(1).max(50),
       })
     )
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const iid = input.itemId;
       const uid = ctx.userId;
@@ -256,16 +257,16 @@ export const itemRouter = createTRPCRouter({
         .where(eq(userItem.userId, uid));
       const userItemsCount = counts?.[0]?.count || 0;
       if (input.stack > 1 && !item.canStack) {
-        throw serverError("PRECONDITION_FAILED", "Item cannot be stacked");
+        return { success: false, message: "Item cannot be stacked" };
       }
       if (userItemsCount >= calcMaxItems()) {
-        throw serverError("PRECONDITION_FAILED", "Inventory is full");
+        return { success: false, message: "Inventory is full" };
       }
       if (!info) {
-        throw serverError("PRECONDITION_FAILED", "Item not found");
+        return { success: false, message: "Item not found" };
       }
       if (info.hidden === 1) {
-        throw serverError("PRECONDITION_FAILED", "Item can not be bought");
+        return { success: false, message: "Item can not be bought" };
       }
       const cost = info.cost * input.stack;
       const result = await ctx.drizzle
@@ -275,7 +276,7 @@ export const itemRouter = createTRPCRouter({
         })
         .where(and(eq(userData.userId, uid), gte(userData.money, cost)));
       if (result.rowsAffected !== 1) {
-        throw serverError("PRECONDITION_FAILED", "Not enough money");
+        return { success: false, message: "Not enough money" };
       }
       await ctx.drizzle.insert(userItem).values({
         id: nanoid(),
@@ -284,7 +285,7 @@ export const itemRouter = createTRPCRouter({
         quantity: input.stack,
         equipped: "NONE",
       });
-      return result;
+      return { success: true, message: `You bought ${info.name}` };
     }),
 });
 

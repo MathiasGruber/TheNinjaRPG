@@ -49,9 +49,14 @@ const ItemShop: NextPage = () => {
 
   // Mutations
   const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
-    onSuccess: () => {
-      void refetchUserItems();
-      void refetchUser();
+    onSuccess: (data) => {
+      if(data.success){
+        void refetchUserItems();
+        void refetchUser();
+        show_toast("Success", data.message, "success");  
+      } else {
+        show_toast("Error purchasing", data.message, "error");  
+      }      
     },
     onError: (error) => {
       show_toast("Error purchasing", error.message, "error");
@@ -143,7 +148,7 @@ const ItemShop: NextPage = () => {
                   {!isPurchasing && (
                     <>
                       <ItemWithEffects item={item} key={item.id} />
-                      {item.canStack && item.stackSize > 1 && (
+                      {item.canStack && item.stackSize > 1 ? (
                         <UncontrolledSliderField
                           id="stackSize"
                           label={`How many to buy: ${stacksize}`}
@@ -152,7 +157,7 @@ const ItemShop: NextPage = () => {
                           max={item.stackSize}
                           setValue={setStacksize}
                         />
-                      )}
+                      ) : undefined}
                     </>
                   )}
                   {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
