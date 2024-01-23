@@ -99,7 +99,10 @@ const Profile: NextPage = () => {
                 setIsOpen={setShowModal}
                 proceed_label="Awesome!"
                 isValid={false}
-                onAccept={() => levelUp()}
+                onAccept={() => {
+                  levelUp();
+                  setShowModal(false);
+                }}
               >
                 <div className="basis-1/2 absolute top-0 right-0 opacity-20">
                   <Image
