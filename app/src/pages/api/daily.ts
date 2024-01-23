@@ -8,7 +8,6 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { nanoid } from "nanoid";
 
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
   // Check timer
@@ -49,7 +48,11 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
               await upsertQuestEntries(
                 drizzleDB,
                 newDaily,
-                and(eq(userData.rank, rank), eq(userData.villageId, village.id))
+                and(
+                  eq(userData.rank, rank),
+                  eq(userData.villageId, village.id),
+                  isNull(questHistory.id)
+                )
               );
             }
           });
