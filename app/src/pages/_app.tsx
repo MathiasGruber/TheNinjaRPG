@@ -38,9 +38,11 @@ const MyApp: AppType = ({ Component, pageProps }) => {
       <HighlightInit
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
         serviceName="tnr-frontend"
-        enableStrictPrivacy={true}
+        tracingOrigins
+        privacySetting="strict"
         reportConsoleErrors={true}
-        enablePerformanceRecording={true}
+        disableSessionRecording={true}
+        environment={process.env.NODE_ENV}
         networkRecording={{
           enabled: true,
           recordHeadersAndBody: true,

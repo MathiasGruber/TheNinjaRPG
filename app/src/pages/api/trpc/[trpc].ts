@@ -7,6 +7,7 @@ import { Handlers, H } from "@highlight-run/node";
 H.init({
   projectID: process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID,
   serviceName: "tnr-backend",
+  environment: process.env.NODE_ENV,
 });
 
 // Configure Vercel
@@ -35,6 +36,7 @@ export default createNextApiHandler({
         projectID: process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID,
         serviceName: "TheNinja-RPG",
         serviceVersion: "git-sha",
+        environment: process.env.NODE_ENV,
       }
     );
   },
