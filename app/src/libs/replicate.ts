@@ -5,6 +5,8 @@ import { eq, sql, and, isNotNull } from "drizzle-orm";
 import { fetchImage } from "@/routers/conceptart";
 import sharp from "sharp";
 import { UTApi } from "uploadthing/server";
+import Replicate from "replicate";
+import { env } from "@/env/server.mjs";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import type { Prediction } from "replicate";
@@ -91,60 +93,44 @@ interface ReplicateReturn {
   output: string[] | string | null;
   status: string;
 }
-export const requestAvatar = async (prompt: string): Promise<ReplicateReturn> => {
-  return fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-    },
-    body: JSON.stringify({
-      version: "db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
-      input: {
-        prompt: prompt,
-        negative_prompt: "two heads, 2people, 2face",
-        image_dimensions: "512x512",
-        num_outputs: 1,
-        num_inference_steps: 50,
-        guidance_scale: 20,
-        scheduler: "DDIM",
-      },
-    }),
-  }).then((response) => response.json() as Promise<ReplicateReturn>);
-};
 
-/**
- * Request new content image
- */
-export const requestContentImage = async (prompt: string): Promise<ReplicateReturn> => {
-  return fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+export const txt2img = async (config: {
+  prompt: string;
+  width: number;
+  height: number;
+  negative_prompt?: string;
+  guidance_scale?: number;
+  seed?: number;
+}) => {
+  // Replicate instantiate
+  const replicate = new Replicate({
+    auth: env.REPLICATE_API_TOKEN,
+  });
+  // Set defaults
+  const negative_prompt = config?.negative_prompt ?? "";
+  const guidance_scale = config?.guidance_scale ?? 7.5;
+  const seed = config?.seed ?? 0;
+  // Run repliacte
+  const output = await replicate.predictions.create({
+    version: "ed6d8bee9a278b0d7125872bddfb9dd3fc4c401426ad634d8246a660e387475b",
+    input: {
+      seed: seed,
+      width: config.width,
+      height: config.height,
+      prompt: config.prompt,
+      scheduler: "K_EULER_ANCESTRAL",
+      num_outputs: 1,
+      guidance_scale: guidance_scale,
+      safety_checker: true,
+      negative_prompt:
+        negative_prompt +
+        ", child, nsfw, porn, sex, canvas frame, cartoon, 3d, ((disfigured)), ((bad art)), ((deformed)),((extra limbs)),((close up)),((b&w)), wierd colors, blurry,  (((duplicate))), ((morbid)), ((mutilated)), [out of frame], extra fingers, mutated hands, ((poorly drawn hands)), ((poorly drawn face)), (((mutation))), (((deformed))), ((ugly)), blurry, ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), out of frame, ugly, extra limbs, (bad anatomy), gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), mutated hands, (fused fingers), (too many fingers), (((long neck))), Photoshop, video game, ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, mutation, mutated, extra limbs, extra legs, extra arms, disfigured, deformed, cross-eye, body out of frame, blurry, bad art, bad anatomy, 3d render ENSD: 31337",
+      prompt_strength: 0.8,
+      num_inference_steps: 50,
+      webhook: `https://www.theninja-rpg.com/api/replicate`,
     },
-    body: JSON.stringify({
-      version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-      input: {
-        prompt: prompt,
-        width: 512,
-        height: 512,
-        refine: "expert_ensemble_refiner",
-        scheduler: "K_EULER",
-        lora_scale: 0.6,
-        num_outputs: 1,
-        guidance_scale: 7.0,
-        apply_watermark: false,
-        high_noise_frac: 0.8,
-        negative_prompt:
-          "deformed,weird,bad resolution,bad depiction,weird,worst quality,worst resolution,too blurry,not relevant,text,border,frame",
-        prompt_strength: 0.8,
-        num_inference_steps: 25,
-      },
-    }),
-  }).then((response) => response.json() as Promise<ReplicateReturn>);
+  });
+  return output;
 };
 
 /**
@@ -194,7 +180,7 @@ export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
   });
   if (!currentProcessing) {
     const prompt = await getPrompt(client, user);
-    const result = await requestAvatar(prompt);
+    const result = await txt2img({ prompt: prompt, width: 512, height: 512 });
     if (user.avatar) {
       await client
         .update(userData)

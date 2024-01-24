@@ -8,8 +8,7 @@ import { fetchQuest } from "@/routers/quests";
 import { fetchBadge } from "@/routers/badge";
 import { fetchUser } from "@/routers/profile";
 import { fetchBloodline } from "@/routers/bloodline";
-import { requestContentImage } from "@/libs/replicate";
-import { fetchReplicateResult } from "@/libs/replicate";
+import { fetchReplicateResult, txt2img } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
 import { copyImageToStorage } from "@/libs/aws";
 import { tagTypes } from "@/libs/combat/types";
@@ -86,7 +85,7 @@ export const openaiRouter = createTRPCRouter({
       if (!canChangeContent(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not allowed to change content");
       }
-      const result = await requestContentImage(input.prompt);
+      const result = await txt2img({ prompt: input.prompt, width: 512, height: 512 });
       return { replicateId: result.id };
     }),
   removeBg: protectedProcedure

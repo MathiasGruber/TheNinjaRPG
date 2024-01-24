@@ -11,7 +11,7 @@ import { SmileyEmotions } from "@/drizzle/constants";
 import Replicate from "replicate";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "../../db";
-import { syncImage } from "@/libs/replicate";
+import { syncImage, txt2img } from "@/libs/replicate";
 
 const replicate = new Replicate({
   auth: env.REPLICATE_API_TOKEN,
@@ -79,26 +79,15 @@ export const conceptartRouter = createTRPCRouter({
       if (!user || user.reputationPoints < 1) {
         throw serverError("PRECONDITION_FAILED", "Not enough reputation points");
       }
-      const output = await replicate.predictions.create({
-        version: "ed6d8bee9a278b0d7125872bddfb9dd3fc4c401426ad634d8246a660e387475b",
-        input: {
-          seed: input.seed,
-          width: 576,
-          height: 768,
-          prompt:
-            input.prompt +
-            ", trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, midjourney",
-          scheduler: "K_EULER_ANCESTRAL",
-          num_outputs: 1,
-          guidance_scale: input.guidance_scale,
-          safety_checker: true,
-          negative_prompt:
-            input.negative_prompt +
-            ", child, nsfw, porn, sex, canvas frame, cartoon, 3d, ((disfigured)), ((bad art)), ((deformed)),((extra limbs)),((close up)),((b&w)), wierd colors, blurry,  (((duplicate))), ((morbid)), ((mutilated)), [out of frame], extra fingers, mutated hands, ((poorly drawn hands)), ((poorly drawn face)), (((mutation))), (((deformed))), ((ugly)), blurry, ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), out of frame, ugly, extra limbs, (bad anatomy), gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), mutated hands, (fused fingers), (too many fingers), (((long neck))), Photoshop, video game, ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, mutation, mutated, extra limbs, extra legs, extra arms, disfigured, deformed, cross-eye, body out of frame, blurry, bad art, bad anatomy, 3d render ENSD: 31337",
-          prompt_strength: 0.8,
-          num_inference_steps: 50,
-          webhook: `https://www.theninja-rpg.com/api/replicate`,
-        },
+      const output = await txt2img({
+        prompt:
+          input.prompt +
+          ", trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, midjourney",
+        width: 576,
+        height: 768,
+        negative_prompt: input.negative_prompt,
+        guidance_scale: input.guidance_scale,
+        seed: input.seed,
       });
       await Promise.all([
         ctx.drizzle
