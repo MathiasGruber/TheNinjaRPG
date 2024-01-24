@@ -10,7 +10,6 @@ import { fetchUser } from "@/routers/profile";
 import { fetchBloodline } from "@/routers/bloodline";
 import { fetchReplicateResult, txt2img, uploadToUT } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
-import { copyImageToStorage } from "@/libs/aws";
 import { tagTypes } from "@/libs/combat/types";
 import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import type { LetterRank, QuestType } from "@/drizzle/constants";

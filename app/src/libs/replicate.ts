@@ -1,4 +1,3 @@
-import { copyImageToStorage } from "./aws";
 import { fetchAttributes } from "../server/api/routers/profile";
 import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
