@@ -588,7 +588,15 @@ export const upsertQuestEntries = async (
   await client
     .update(questHistory)
     .set({ completed: 0, endAt: null, startedAt: new Date() })
-    .where(eq(questHistory.questId, quest.id));
+    .where(
+      and(
+        eq(questHistory.questId, quest.id),
+        inArray(
+          questHistory.userId,
+          users.map((u) => u.userId)
+        )
+      )
+    );
 };
 
 /** Upsert quest entry for a single user */
