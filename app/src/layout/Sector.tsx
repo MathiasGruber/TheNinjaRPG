@@ -236,6 +236,11 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
+      // Check user status
+      if (userData.status !== "AWAKE") {
+        setTarget(null);
+        return;
+      }
       // Get target hex
       const targetHex = grid?.current?.getHex({ col: target.x, row: target.y });
       // Guards
