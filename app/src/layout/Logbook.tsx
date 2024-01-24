@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Post from "./Post";
+import Image from "next/image";
 import Toggle from "@/layout/Toggle";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
@@ -122,7 +123,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
-    onSuccess: async ({ rewards, userQuest, resolved }) => {
+    onSuccess: async ({ rewards, userQuest, resolved, badges }) => {
       if (resolved && userQuest) {
         const quest = userQuest.quest;
         const reward = (
@@ -132,22 +133,42 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                 <i>{ReactHtmlParser(quest.successDescription)}</i>
               </span>
             )}
-            {rewards.reward_money > 0 && (
-              <span>
-                <b>Money:</b> {rewards.reward_money} ryo
-              </span>
-            )}
-            {rewards.reward_jutsus.length > 0 && (
-              <span>
-                <b>Jutsus: </b> {rewards.reward_jutsus.join(", ")}
-              </span>
-            )}
-            {rewards.reward_items.length > 0 && (
-              <span>
-                <b>Items: </b>
-                {rewards.reward_items.join(", ")}
-              </span>
-            )}
+            <div className="flex flex-row items-center">
+              <div className="flex flex-col basis-2/3">
+                {rewards.reward_money > 0 && (
+                  <span>
+                    <b>Money:</b> {rewards.reward_money} ryo
+                  </span>
+                )}
+                {rewards.reward_jutsus.length > 0 && (
+                  <span>
+                    <b>Jutsus: </b> {rewards.reward_jutsus.join(", ")}
+                  </span>
+                )}
+                {rewards.reward_badges.length > 0 && (
+                  <span>
+                    <b>Badges: </b> {rewards.reward_badges.join(", ")}
+                  </span>
+                )}
+                {rewards.reward_items.length > 0 && (
+                  <span>
+                    <b>Items: </b>
+                    {rewards.reward_items.join(", ")}
+                  </span>
+                )}
+              </div>
+              <div className="basis-1/3 flex flex-col">
+                {badges.map((badge, i) => (
+                  <Image
+                    key={i}
+                    src={badge.image}
+                    width={128}
+                    height={128}
+                    alt={badge.name}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         );
         show_toast(`Finished : ${quest.name}`, reward, "success");

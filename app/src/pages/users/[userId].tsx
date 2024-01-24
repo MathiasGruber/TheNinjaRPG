@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { type NextPage } from "next";
 import ReactHtmlParser from "react-html-parser";
 import Link from "next/link";
+import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
@@ -197,6 +198,29 @@ const PublicProfile: NextPage = () => {
                       </div>
                     </div>
                   </Link>
+                ))}
+              </div>
+            </ContentBox>
+          )}
+          {profile.badges.length > 0 && (
+            <ContentBox
+              title="Achieved Badges"
+              subtitle={`Achieved through quests & help`}
+              initialBreak={true}
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
+                {profile.badges.map((userbadge, i) => (
+                  <div key={i} className="text-center">
+                    <Image
+                      src={userbadge.badge.image}
+                      alt={userbadge.badge.name}
+                      width={128}
+                      height={128}
+                    />
+                    <div>
+                      <div className="font-bold">{userbadge.badge.name}</div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </ContentBox>

@@ -612,6 +612,11 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     enabled: fields.includes("reward_jutsus"),
   });
 
+  const { data: badgeData } = api.badge.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+    enabled: fields.includes("reward_badges"),
+  });
+
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
     enabled: fields.includes("reward_items") || fields.includes("collect_item_id"),
@@ -733,6 +738,13 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         return {
           id: value,
           values: jutsuData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "reward_badges" && badgeData?.data) {
+        return {
+          id: value,
+          values: badgeData?.data,
           multiple: true,
           type: "db_values",
         };

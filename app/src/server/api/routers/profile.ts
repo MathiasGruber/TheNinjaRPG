@@ -844,6 +844,11 @@ export const profileRouter = createTRPCRouter({
           village: true,
           bloodline: true,
           nindo: true,
+          badges: {
+            with: {
+              badge: true
+            }
+          },
           recruitedUsers: {
             columns: {
               userId: true,

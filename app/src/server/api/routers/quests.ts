@@ -5,8 +5,8 @@ import { serverError, baseServerResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
-import { item, jutsu } from "@/drizzle/schema";
-import { userJutsu, userItem, userData } from "@/drizzle/schema";
+import { item, jutsu, badge } from "@/drizzle/schema";
+import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
 import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
@@ -288,6 +288,7 @@ export const questsRouter = createTRPCRouter({
           reward: {
             reward_money: 0,
             reward_jutsus: [],
+            reward_badges: [],
             reward_items: [],
             reward_rank: "NONE",
           },
@@ -339,7 +340,7 @@ export const questsRouter = createTRPCRouter({
         }
       }
       // Fetch names from the database
-      const [items, jutsus] = await Promise.all([
+      const [items, jutsus, badges] = await Promise.all([
         // Fetch names from the database
         rewards.reward_items.length > 0
           ? ctx.drizzle
@@ -354,6 +355,15 @@ export const questsRouter = createTRPCRouter({
               .leftJoin(userJutsu, eq(jutsu.id, userJutsu.jutsuId))
               .where(
                 and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId))
+              )
+          : [],
+        rewards.reward_badges.length > 0
+          ? ctx.drizzle
+              .select({ id: badge.id, name: badge.name, image: badge.image })
+              .from(badge)
+              .leftJoin(userBadge, eq(badge.id, userBadge.badgeId))
+              .where(
+                and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId))
               )
           : [],
       ]);
@@ -411,11 +421,22 @@ export const questsRouter = createTRPCRouter({
               }))
             ),
         ],
+        ...[
+          badges.length > 0 &&
+            ctx.drizzle.insert(userBadge).values(
+              badges.map(({ id }) => ({
+                id: nanoid(),
+                userId: ctx.userId,
+                badgeId: id,
+              }))
+            ),
+        ],
       ]);
       // Update rewards for readability
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
-      return { rewards, userQuest, resolved };
+      rewards.reward_badges = badges.map((i) => i.name);
+      return { rewards, userQuest, resolved, badges };
     }),
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))

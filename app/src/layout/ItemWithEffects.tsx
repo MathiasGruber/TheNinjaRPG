@@ -10,6 +10,7 @@ import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/o
 import { getTagSchema } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
+import { ObjectiveReward } from "@/validators/objectives";
 import type { ItemRarity } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -68,19 +69,20 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   // Define rewards from quests if they are there
   const rewards: string[] = [];
   if ("content" in item) {
-    if (item.content?.reward?.reward_items.length > 0) {
+    const questReward = ObjectiveReward.parse(item.content?.reward);
+    if (questReward.reward_items.length > 0) {
       rewards.push(`${item.content.reward.reward_items.length} items`);
     }
-    if (item.content?.reward?.reward_jutsus.length > 0) {
+    if (questReward.reward_jutsus.length > 0) {
       rewards.push(`${item.content.reward.reward_jutsus.length} jutsus`);
     }
-    if (
-      item.content?.reward?.reward_rank &&
-      item.content?.reward?.reward_rank !== "NONE"
-    ) {
+    if (questReward.reward_badges.length > 0) {
+      rewards.push(`${item.content.reward.reward_badges.length} badges`);
+    }
+    if (questReward.reward_rank && questReward.reward_rank !== "NONE") {
       rewards.push(`rank of ${item.content.reward.reward_rank.toLowerCase()}`);
     }
-    if (item.content?.reward?.reward_money) {
+    if (questReward.reward_money) {
       rewards.push(`${item.content.reward.reward_money} ryo`);
     }
   }

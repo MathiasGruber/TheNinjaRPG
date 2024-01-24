@@ -42,17 +42,20 @@ const rewardFields = {
   reward_rank: z.enum(UserRanks).default("NONE"),
   reward_items: z.array(z.string()).default([]),
   reward_jutsus: z.array(z.string()).default([]),
+  reward_badges: z.array(z.string()).default([]),
 };
 
 export const ObjectiveReward = z.object(rewardFields);
 export type ObjectiveRewardType = z.infer<typeof ObjectiveReward>;
 
 export const hasReward = (reward: ObjectiveRewardType) => {
+  const parsedReward = ObjectiveReward.parse(reward);
   return (
-    reward.reward_money > 0 ||
-    reward.reward_rank !== "NONE" ||
-    reward.reward_items.length > 0 ||
-    reward.reward_jutsus.length > 0
+    parsedReward.reward_money > 0 ||
+    parsedReward.reward_rank !== "NONE" ||
+    parsedReward.reward_items.length > 0 ||
+    parsedReward.reward_jutsus.length > 0 ||
+    parsedReward.reward_badges.length > 0
   );
 };
 

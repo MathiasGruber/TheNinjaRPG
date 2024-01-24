@@ -16,19 +16,22 @@ import type { DrizzleClient } from "@/server/db";
 export const badgeRouter = createTRPCRouter({
   getAll: protectedProcedure
     .input(
-      z.object({
-        cursor: z.number().nullish(),
-        limit: z.number().min(1).max(500),
-      })
+      z
+        .object({
+          cursor: z.number().nullish(),
+          limit: z.number().min(1).max(500),
+        })
+        .optional()
     )
     .query(async ({ ctx, input }) => {
-      const currentCursor = input.cursor ? input.cursor : 0;
-      const skip = currentCursor * input.limit;
+      const currentCursor = input?.cursor ? input.cursor : 0;
+      const limit = input?.limit ? input.limit : 100;
+      const skip = currentCursor * limit;
       const results = await ctx.drizzle.query.badge.findMany({
         offset: skip,
-        limit: input.limit,
+        limit: limit,
       });
-      const nextCursor = results.length < input.limit ? null : currentCursor + 1;
+      const nextCursor = results.length < limit ? null : currentCursor + 1;
       return {
         data: results,
         nextCursor: nextCursor,

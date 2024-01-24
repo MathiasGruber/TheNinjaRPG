@@ -51,6 +51,9 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: villages, isLoading: l4 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
+  const { data: badges, isLoading: l5 } = api.badge.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+  });
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -93,6 +96,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
           reward: {
             reward_money: data.reward_money,
             reward_jutsus: data.reward_jutsus,
+            reward_badges: data.reward_badges,
             reward_items: data.reward_items,
             reward_rank: data.reward_rank,
           },
@@ -117,7 +121,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4;
+  const loading = l1 || l2 || l3 || l4 || l5;
 
   // Watch for changes
   const imageUrl = form.watch("image");
@@ -167,6 +171,16 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
       id: "reward_jutsus",
       type: "db_values",
       values: jutsus,
+      multiple: true,
+    });
+  }
+
+  // Add badges if they exist
+  if (badges?.data) {
+    formData.push({
+      id: "reward_badges",
+      type: "db_values",
+      values: badges.data,
       multiple: true,
     });
   }
