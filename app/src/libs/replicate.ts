@@ -94,6 +94,19 @@ interface ReplicateReturn {
   status: string;
 }
 
+/**
+ * Upload file from URL to uploadthing
+ */
+export const uploadToUT = async (url: string) => {
+  const utapi = new UTApi();
+  const uploadedFile = await utapi.uploadFilesFromUrl(url);
+  const uploadedFileUrl = uploadedFile.data?.url ?? null;
+  return uploadedFileUrl;
+};
+
+/**
+ * Create an image from text
+ */
 export const txt2img = async (config: {
   prompt: string;
   width: number;
@@ -109,7 +122,7 @@ export const txt2img = async (config: {
   // Set defaults
   const negative_prompt = config?.negative_prompt ?? "";
   const guidance_scale = config?.guidance_scale ?? 7.5;
-  const seed = config?.seed ?? 0;
+  const seed = config?.seed ?? Math.floor(Math.random() * 1000000);
   // Run repliacte
   const output = await replicate.predictions.create({
     version: "ed6d8bee9a278b0d7125872bddfb9dd3fc4c401426ad634d8246a660e387475b",
@@ -154,17 +167,14 @@ export const requestBgRemoval = async (url: string): Promise<ReplicateReturn> =>
 /**
  * Fetches result from Replicate API
  */
-export const fetchReplicateResult = async (
-  replicateId: string
-): Promise<ReplicateReturn> => {
-  return fetch(`https://api.replicate.com/v1/predictions/${replicateId}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-    },
-  }).then((response) => response.json() as Promise<ReplicateReturn>);
+export const fetchReplicateResult = async (replicateId: string) => {
+  // Replicate instantiate
+  const replicate = new Replicate({
+    auth: env.REPLICATE_API_TOKEN,
+  });
+  const prediction = await replicate.predictions.get(replicateId);
+  const replicateUrl = (prediction.output as string[])?.[0] ?? null;
+  return { prediction, replicateUrl };
 };
 
 /**
@@ -214,17 +224,19 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
   let url = user.avatar;
   for (const avatar of avatars) {
     if (avatar.replicateId) {
-      const result = await fetchReplicateResult(avatar.replicateId);
+      const { prediction, replicateUrl } = await fetchReplicateResult(
+        avatar.replicateId
+      );
       // If failed or canceled, rerun
       let isDone = true;
       if (
-        result.status === "failed" ||
-        result.status === "canceled" ||
-        (result.status === "succeeded" && !result.output)
+        prediction.status === "failed" ||
+        prediction.status === "canceled" ||
+        (prediction.status === "succeeded" && !prediction.output)
       ) {
         await updateAvatar(client, user);
-      } else if (result.status == "succeeded" && result.output?.[0]) {
-        url = await copyImageToStorage(result.output[0], result.id);
+      } else if (prediction.status == "succeeded" && replicateUrl) {
+        url = await uploadToUT(replicateUrl);
         if (url) {
           await client
             .update(userData)
@@ -237,7 +249,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
       if (isDone) {
         await client
           .update(historicalAvatar)
-          .set({ done: 1, avatar: url, status: result.status })
+          .set({ done: 1, avatar: url, status: prediction.status })
           .where(eq(historicalAvatar.id, avatar.id));
       }
     }

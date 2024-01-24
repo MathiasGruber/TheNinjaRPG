@@ -8,7 +8,7 @@ import { fetchQuest } from "@/routers/quests";
 import { fetchBadge } from "@/routers/badge";
 import { fetchUser } from "@/routers/profile";
 import { fetchBloodline } from "@/routers/bloodline";
-import { fetchReplicateResult, txt2img } from "@/libs/replicate";
+import { fetchReplicateResult, txt2img, uploadToUT } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
 import { copyImageToStorage } from "@/libs/aws";
 import { tagTypes } from "@/libs/combat/types";
@@ -107,18 +107,18 @@ export const openaiRouter = createTRPCRouter({
       if (!canChangeContent(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not allowed to change content");
       }
-      const result = await fetchReplicateResult(input.replicateId);
+      const { prediction, replicateUrl } = await fetchReplicateResult(
+        input.replicateId
+      );
       if (
-        result.status == "failed" ||
-        result.status == "canceled" ||
-        (result.status == "succeeded" && !result.output)
+        prediction.status == "failed" ||
+        prediction.status == "canceled" ||
+        (prediction.status == "succeeded" && !prediction.output)
       ) {
         return { status: "failed", url: null };
-      } else if (result.status == "succeeded") {
-        const output = result.output;
-        const replicateUrl = typeof output === "string" ? output : output?.[0];
+      } else if (prediction.status == "succeeded") {
         if (replicateUrl) {
-          const url = await copyImageToStorage(replicateUrl, result.id);
+          const url = await uploadToUT(replicateUrl);
           if (url) {
             return { status: "succeeded", url };
           }
