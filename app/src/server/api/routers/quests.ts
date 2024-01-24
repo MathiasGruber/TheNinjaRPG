@@ -241,8 +241,7 @@ export const questsRouter = createTRPCRouter({
             entry,
             and(
               inArray(userData.rank, roles),
-              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7)),
-              isNull(questHistory.id)
+              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7))
             )
           );
         }
@@ -567,6 +566,7 @@ export const upsertQuestEntries = async (
   quest: Quest,
   updateSelector: SQL<unknown> | undefined
 ) => {
+  // Users to insert for
   const users = await client
     .select({ userId: userData.userId })
     .from(userData)
@@ -574,7 +574,7 @@ export const upsertQuestEntries = async (
       questHistory,
       and(eq(questHistory.userId, userData.userId), eq(questHistory.questId, quest.id))
     )
-    .where(updateSelector);
+    .where(and(updateSelector, isNull(questHistory.id)));
   if (users.length > 0) {
     await client.insert(questHistory).values(
       users.map((user) => ({
@@ -584,19 +584,28 @@ export const upsertQuestEntries = async (
         questType: quest.questType,
       }))
     );
+    console.log(`INSERTING FOR ${users.length}`);
   }
-  await client
-    .update(questHistory)
-    .set({ completed: 0, endAt: null, startedAt: new Date() })
-    .where(
-      and(
-        eq(questHistory.questId, quest.id),
-        inArray(
-          questHistory.userId,
-          users.map((u) => u.userId)
+  // Users to update for (including those we just inserted for)
+  const allUsers = await client
+    .select({ userId: userData.userId })
+    .from(userData)
+    .where(updateSelector);
+  if (allUsers.length > 0) {
+    console.log(`UPDATING FOR ${allUsers.length}`);
+    await client
+      .update(questHistory)
+      .set({ completed: 0, endAt: null, startedAt: new Date() })
+      .where(
+        and(
+          inArray(
+            questHistory.userId,
+            allUsers.map((user) => user.userId)
+          ),
+          eq(questHistory.questId, quest.id)
         )
-      )
-    );
+      );
+  }
 };
 
 /** Upsert quest entry for a single user */

@@ -48,11 +48,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
               await upsertQuestEntries(
                 drizzleDB,
                 newDaily,
-                and(
-                  eq(userData.rank, rank),
-                  eq(userData.villageId, village.id),
-                  isNull(questHistory.id)
-                )
+                and(eq(userData.rank, rank), eq(userData.villageId, village.id))
               );
             }
           });
