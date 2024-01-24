@@ -266,7 +266,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
     const questTracker = trackers.find((q) => q.id === userQuest.quest.id);
     resolved = questTracker?.goals.every((g) => g.done) ?? false;
     if (resolved) {
-      rewards = userQuest.quest.content.reward;
+      rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = questTracker?.goals.find((g) => g.id === objective.id);
