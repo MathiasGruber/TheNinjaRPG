@@ -279,6 +279,9 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
         if (objective.reward_jutsus) {
           rewards.reward_jutsus.push(...objective.reward_jutsus);
         }
+        if (objective.reward_badges) {
+          rewards.reward_badges.push(...objective.reward_badges);
+        }
         if (objective.reward_items) {
           rewards.reward_items.push(...objective.reward_items);
         }
