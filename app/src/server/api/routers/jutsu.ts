@@ -50,7 +50,7 @@ export const jutsuRouter = createTRPCRouter({
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
         name: z.string().min(0).max(256).optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
@@ -93,7 +93,7 @@ export const jutsuRouter = createTRPCRouter({
             ? [
                 sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
               ]
-            : [])
+            : []),
         ),
         offset: skip,
         with: {
@@ -292,10 +292,10 @@ export const jutsuRouter = createTRPCRouter({
   // Stop training jutsu
   stopTraining: protectedProcedure
     .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx }) => {
       const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
       const userjutsu = userjutsus.find(
-        (j) => j.finishTraining && j.finishTraining > new Date()
+        (j) => j.finishTraining && j.finishTraining > new Date(),
       );
       if (!userjutsu) {
         return { success: false, message: "Not training any jutsu" };
@@ -374,7 +374,7 @@ export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => 
       .update(userJutsu)
       .set({ equipped: 0 })
       .where(
-        and(eq(userJutsu.userId, userId), inArray(userJutsu.jutsuId, equippedAiJutsus))
+        and(eq(userJutsu.userId, userId), inArray(userJutsu.jutsuId, equippedAiJutsus)),
       );
   }
   // CORRECTOR END: This code fixes if anyone has an AI jutsu equipped

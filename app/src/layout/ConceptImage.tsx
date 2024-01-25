@@ -83,13 +83,13 @@ const ConceptImage: React.FC<InputProps> = (props) => {
 
   // Show image
   const hasLike = image?.likes?.find(
-    (like) => like.userId === user?.userId && like.type === "like"
+    (like) => like.userId === user?.userId && like.type === "like",
   );
   const hasLove = image?.likes?.find(
-    (like) => like.userId === user?.userId && like.type === "love"
+    (like) => like.userId === user?.userId && like.type === "love",
   );
   const hasLaugh = image?.likes?.find(
-    (like) => like.userId === user?.userId && like.type === "laugh"
+    (like) => like.userId === user?.userId && like.type === "laugh",
   );
 
   // Social sharing
@@ -100,7 +100,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
     <div>
       <div className="relative">
         <Image
-          src={image.image!}
+          src={image.image}
           width={512}
           height={768}
           quality={100}

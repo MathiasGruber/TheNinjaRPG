@@ -11,7 +11,7 @@ export const absorb = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, qualifier } = getPower(effect);
   // Pools that are going to be restored
@@ -32,8 +32,8 @@ export const absorb = (
               effect.calculation === "percentage"
                 ? consequence.damage * (power / 100)
                 : power > consequence.damage
-                ? consequence.damage
-                : power
+                  ? consequence.damage
+                  : power,
             ) * ratio;
           consequence.damage -= convert;
           pools.map((pool) => {
@@ -57,7 +57,7 @@ export const absorb = (
   return getInfo(
     target,
     effect,
-    `will absorb up to ${qualifier} damage and convert it to ${pools.join(", ")}`
+    `will absorb up to ${qualifier} damage and convert it to ${pools.join(", ")}`,
   );
 };
 
@@ -230,7 +230,7 @@ export const adjustDamageGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
@@ -255,7 +255,7 @@ export const increaseDamageGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   return adjustDamageGiven(effect, usersEffects, consequences, target);
 };
@@ -264,7 +264,7 @@ export const decreaseDamageGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   effect.power = -effect.power;
   effect.powerPerLevel = -effect.powerPerLevel;
@@ -276,7 +276,7 @@ export const adjustDamageTaken = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
@@ -301,7 +301,7 @@ export const increaseDamageTaken = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   return adjustDamageTaken(effect, usersEffects, consequences, target);
 };
@@ -310,7 +310,7 @@ export const decreaseDamageTaken = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   effect.power = -effect.power;
   effect.powerPerLevel = -effect.powerPerLevel;
@@ -322,7 +322,7 @@ export const adjustHealGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
@@ -347,7 +347,7 @@ export const increaseHealGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
@@ -356,7 +356,7 @@ export const decreaseHealGiven = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   effect.power = -effect.power;
   effect.powerPerLevel = -effect.powerPerLevel;
@@ -366,7 +366,7 @@ export const decreaseHealGiven = (
 export const clear = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
@@ -463,7 +463,7 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
 export const updateStatUsage = (
   user: BattleUserState,
   effect: UserEffect | GroundEffect,
-  inverse = false
+  inverse = false,
 ) => {
   if ("statTypes" in effect && "direction" in effect) {
     effect.statTypes?.forEach((statType) => {
@@ -526,7 +526,7 @@ const powerEffect = (attack: number, defence: number, avg_exp: number) => {
 export const damageCalc = (
   effect: UserEffect,
   origin: BattleUserState | undefined,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const calcs: number[] = [];
@@ -584,7 +584,7 @@ export const damageUser = (
   origin: BattleUserState | undefined,
   target: BattleUserState,
   consequences: Map<string, Consequence>,
-  applyTimes: number
+  applyTimes: number,
 ) => {
   const damage =
     damageCalc(effect, origin, target) * applyTimes * (1 - effect.barrierAbsorb);
@@ -600,7 +600,7 @@ export const damageUser = (
 export const damageBarrier = (
   groundEffects: GroundEffect[],
   origin: BattleUserState,
-  effect: UserEffect
+  effect: UserEffect,
 ) => {
   // Get the barrier
   const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
@@ -633,7 +633,7 @@ export const damageBarrier = (
 export const flee = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
@@ -671,7 +671,7 @@ export const heal = (
   effect: UserEffect,
   target: BattleUserState,
   consequences: Map<string, Consequence>,
-  applyTimes: number
+  applyTimes: number,
 ) => {
   const { power } = getPower(effect);
   const heal =
@@ -696,7 +696,7 @@ export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
     return getInfo(
       target,
       effect,
-      `${affected.join(", ")} cost is ${adverb} by ${qualifier}`
+      `${affected.join(", ")} cost is ${adverb} by ${qualifier}`,
     );
   }
 };
@@ -716,7 +716,7 @@ export const reflect = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
@@ -730,8 +730,8 @@ export const reflect = (
               effect.calculation === "percentage"
                 ? consequence.damage * (power / 100)
                 : power > consequence.damage
-                ? consequence.damage
-                : power
+                  ? consequence.damage
+                  : power,
             ) * ratio;
           consequence.damage -= convert;
           consequence.reflect = convert;
@@ -751,7 +751,7 @@ export const reflect = (
 export const move = (
   effect: GroundEffect,
   usersState: BattleUserState[],
-  groundEffects: GroundEffect[]
+  groundEffects: GroundEffect[],
 ) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
   let info: ActionEffect | undefined = undefined;
@@ -789,7 +789,7 @@ export const move = (
 export const onehitkill = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
@@ -827,7 +827,7 @@ export const rob = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   origin: BattleUserState,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   let stolen = 0;
   let info: ActionEffect | undefined = undefined;
@@ -914,7 +914,7 @@ export const robPrevent = (effect: UserEffect, target: BattleUserState) => {
 export const seal = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
@@ -960,7 +960,7 @@ export const sealPrevent = (effect: UserEffect, target: BattleUserState) => {
 export const stun = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
@@ -1094,7 +1094,7 @@ export const getPower = (effect: UserEffect | GroundEffect) => {
 };
 
 /** Convert from e.g. ninjutsuOffence -> Ninjutsu */
-export const getStatTypeFromStat = (stat: typeof StatNames[number]) => {
+export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
   switch (stat) {
     case "ninjutsuOffence":
       return "Ninjutsu";
@@ -1122,7 +1122,6 @@ export const getStatTypeFromStat = (stat: typeof StatNames[number]) => {
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
 const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
-  let attacks = 0;
   let defended = 0;
   // Calculate how much damage to adjust based on stats.
   if ("statTypes" in lhs && "statTypes" in rhs) {
@@ -1130,15 +1129,14 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
     const left = lhs.statTypes?.map((e) =>
       e === "Highest" && lhs.highestOffence
         ? getStatTypeFromStat(lhs.highestOffence)
-        : e
+        : e,
     );
     const right = rhs.statTypes?.map((e) =>
       e === "Highest" && lhs.highestOffence
         ? getStatTypeFromStat(lhs.highestOffence)
-        : e
+        : e,
     );
     left?.forEach((stat) => {
-      attacks += 1;
       if (right?.includes(stat)) {
         defended += 1;
       }
@@ -1146,7 +1144,6 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
   }
   if ("generalTypes" in lhs) {
     lhs.generalTypes?.forEach((stat) => {
-      attacks += 1;
       if ("generalTypes" in rhs && rhs.generalTypes?.includes(stat)) {
         defended += 1;
       }
@@ -1154,14 +1151,11 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
   }
   if ("elements" in lhs) {
     lhs.elements?.forEach((stat) => {
-      attacks += 1;
       if ("elements" in rhs && rhs.elements?.includes(stat)) {
         defended += 1;
       }
     });
   }
-  // Return an overlap of attacks vs. defends
-  // return defended / attacks;
 
   // As long as one of the attacks is defended, return 1 (full ratio)
   return defended > 0 ? 1 : 0;
@@ -1173,10 +1167,10 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
 const preventCheck = (
   usersEffects: UserEffect[],
   type: string,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const prevent = usersEffects.find(
-    (e) => e.type == type && e.targetId === target.userId && !e.castThisRound
+    (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
   if (prevent) {
     const power = prevent.power + prevent.level * prevent.powerPerLevel;

@@ -53,7 +53,7 @@ export const paypalRouter = createTRPCRouter({
         startDate: z.date().optional(),
         endDate: z.date().optional(),
         orderId: z.string().min(15).max(20),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
@@ -124,7 +124,7 @@ export const paypalRouter = createTRPCRouter({
       z.object({
         subscriptionId: z.string(),
         orderId: z.string().optional(),
-      })
+      }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -165,7 +165,7 @@ export const paypalRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -189,9 +189,9 @@ export const paypalRouter = createTRPCRouter({
       where: and(
         or(
           eq(paypalSubscription.createdById, ctx.userId),
-          eq(paypalSubscription.affectedUserId, ctx.userId)
+          eq(paypalSubscription.affectedUserId, ctx.userId),
         ),
-        eq(paypalSubscription.status, "ACTIVE")
+        eq(paypalSubscription.status, "ACTIVE"),
       ),
       with: { affectedUser: true, createdBy: true },
       orderBy: desc(paypalSubscription.createdAt),
@@ -207,7 +207,7 @@ export const paypalRouter = createTRPCRouter({
         where: and(
           eq(paypalSubscription.status, "ACTIVE"),
           eq(paypalSubscription.createdById, input.userId),
-          eq(paypalSubscription.affectedUserId, ctx.userId)
+          eq(paypalSubscription.affectedUserId, ctx.userId),
         ),
       });
       // If we could not find in paypal
@@ -254,14 +254,14 @@ export const paypalRouter = createTRPCRouter({
       if (paypalSub === undefined) {
         throw serverError(
           "INTERNAL_SERVER_ERROR",
-          `Subscription ${input.subscriptionId} not found in paypal`
+          `Subscription ${input.subscriptionId} not found in paypal`,
         );
       }
       // If not found in local database
       if (dbSub === undefined) {
         throw serverError(
           "INTERNAL_SERVER_ERROR",
-          `Subscription ${input.subscriptionId} not found in database`
+          `Subscription ${input.subscriptionId} not found in database`,
         );
       }
       // Check that the user is related to this subscription
@@ -351,28 +351,26 @@ export const updateReps = async (input: {
   reps: number;
   raw: JsonData;
 }) => {
-  return await input.client.transaction(async (tx) => {
-    await input.client
-      .update(userData)
-      .set({
-        reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.reps}`,
-        reputationPoints: sql`${userData.reputationPoints} + ${input.reps}`,
-      })
-      .where(eq(userData.userId, input.affectedUserId));
-    return await input.client.insert(paypalTransaction).values({
-      id: nanoid(),
-      createdById: input.createdById,
-      transactionId: input.transactionId,
-      transactionUpdatedDate: input.transactionUpdatedDate,
-      orderId: input.orderId,
-      affectedUserId: input.affectedUserId,
-      invoiceId: input.invoiceId,
-      amount: input.value,
-      reputationPoints: input.reps,
-      currency: input.currency,
-      status: input.status,
-      rawData: input.raw,
-    });
+  await input.client
+    .update(userData)
+    .set({
+      reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.reps}`,
+      reputationPoints: sql`${userData.reputationPoints} + ${input.reps}`,
+    })
+    .where(eq(userData.userId, input.affectedUserId));
+  return await input.client.insert(paypalTransaction).values({
+    id: nanoid(),
+    createdById: input.createdById,
+    transactionId: input.transactionId,
+    transactionUpdatedDate: input.transactionUpdatedDate,
+    orderId: input.orderId,
+    affectedUserId: input.affectedUserId,
+    invoiceId: input.invoiceId,
+    amount: input.value,
+    reputationPoints: input.reps,
+    currency: input.currency,
+    status: input.status,
+    rawData: input.raw,
   });
 };
 
@@ -388,7 +386,7 @@ export const getPaypalSubscription = async (subscriptionId: string, token: strin
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
-    }
+    },
   )
     .then((response) => response.json())
     .then((data: PaypalSubscription | undefined) => {
@@ -401,7 +399,7 @@ export const getPaypalSubscription = async (subscriptionId: string, token: strin
  */
 export const cancelPaypalSubscription = async (
   subscriptionId: string,
-  token: string
+  token: string,
 ) => {
   return await fetch(
     `${process.env.NEXT_PUBLIC_PAYPAL_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`,
@@ -412,7 +410,7 @@ export const cancelPaypalSubscription = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ reason: "Canceleted through site" }),
-    }
+    },
   ).then((response) => response.status);
 };
 
@@ -426,7 +424,7 @@ export const getPaypalAccessToken = async () => {
       Authorization:
         "Basic " +
         btoa(
-          `${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
+          `${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
         ),
     },
     body: new URLSearchParams({
@@ -451,7 +449,7 @@ export const getPaypalOrder = async (input: { orderId: string; token: string }) 
         Authorization: "Bearer " + input.token,
         "Content-Type": "application/json",
       },
-    }
+    },
   )
     .then((response) => {
       return response.json();

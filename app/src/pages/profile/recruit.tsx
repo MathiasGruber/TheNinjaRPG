@@ -1,28 +1,14 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useSafePush } from "@/utils/routing";
-import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
-import InputField from "@/layout/InputField";
-import Logbook from "@/layout/Logbook";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
-import Countdown from "@/layout/Countdown";
-import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
 import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
-import { AcademicCapIcon, ShareIcon } from "@heroicons/react/24/outline";
 
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
-import { calcLevelRequirements } from "@/libs/profile";
-import { calcHP, calcSP, calcCP } from "@/libs/profile";
-import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { type ArrayElement } from "@/utils/typeutils";
 
 const Profile: NextPage = () => {
@@ -46,7 +32,7 @@ const Profile: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: 1000 * 60 * 5, // every 5min
-    }
+    },
   );
   const allUsers = users?.pages.map((page) => page.data).flat();
   type User = ArrayElement<typeof allUsers>;

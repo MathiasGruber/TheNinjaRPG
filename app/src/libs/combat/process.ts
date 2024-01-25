@@ -5,8 +5,6 @@ import { shouldApplyEffectTimes } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, absorb, reflect } from "./tags";
-import { adjustStats, adjustDamageGiven, adjustDamageTaken } from "./tags";
-import { adjustArmor, adjustHealGiven } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -29,7 +27,7 @@ import type { CompleteBattle, Consequence } from "./types";
 export const checkFriendlyFire = (
   effect: BattleEffect,
   target: ReturnedUserState,
-  usersState: BattleUserState[]
+  usersState: BattleUserState[],
 ) => {
   // In case of multiple villages in the battle; friendly based on villageId, otherwise based on controllerId
   const villageIds = [...new Set(usersState.map((u) => u.villageId))];
@@ -57,7 +55,7 @@ export const realizeTag = <T extends BattleEffect>(
   user: BattleUserState,
   level: number | undefined,
   round: number = 0,
-  barrierAbsorb: number = 0
+  barrierAbsorb: number = 0,
 ): T => {
   if ("rounds" in tag) {
     tag.timeTracker = {};
@@ -86,7 +84,7 @@ const getVisual = (
   longitude: number,
   latitude: number,
   animation?: AnimationName,
-  round: number = 0
+  round: number = 0,
 ): GroundEffect => {
   return {
     ...VisualTag.parse({
@@ -168,13 +166,13 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
         newGroundEffects.push(
-          getVisual(e.longitude, e.latitude, e.disappearAnimation, round)
+          getVisual(e.longitude, e.latitude, e.disappearAnimation, round),
         );
       }
     }
     if (e.appearAnimation && e.isNew && e.type !== "visual") {
       newGroundEffects.push(
-        getVisual(e.longitude, e.latitude, e.appearAnimation, round)
+        getVisual(e.longitude, e.latitude, e.appearAnimation, round),
       );
     }
     if (info) actionEffects.push(info);
@@ -185,7 +183,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
 
   // Fetch any active sealing effects
   const sealEffects = usersEffects.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectActive(e)
+    (e) => e.type === "seal" && !e.isNew && isEffectActive(e),
   );
 
   // Apply all user effects to their target users
@@ -296,7 +294,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
     // Show once appearing animation
     if (e.appearAnimation && longitude && latitude) {
       newGroundEffects.push(
-        getVisual(longitude, latitude, e.appearAnimation, battle.round)
+        getVisual(longitude, latitude, e.appearAnimation, battle.round),
       );
     }
 
@@ -306,7 +304,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
       newGroundEffects.push(
-        getVisual(longitude, latitude, e.disappearAnimation, round)
+        getVisual(longitude, latitude, e.disappearAnimation, round),
       );
     }
   });
@@ -347,7 +345,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
             txt: `${target.username} absorbs ${c.absorb_hp.toFixed(
-              2
+              2,
             )} damage and converts it to health`,
             color: "green",
           });
@@ -357,7 +355,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           target.curStamina = Math.min(target.maxHealth, target.curStamina);
           actionEffects.push({
             txt: `${target.username} absorbs ${c.absorb_sp.toFixed(
-              2
+              2,
             )} damage and converts it to stamina`,
             color: "green",
           });
@@ -367,7 +365,7 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
           target.curChakra = Math.min(target.maxHealth, target.curChakra);
           actionEffects.push({
             txt: `${target.username} absorbs ${c.absorb_cp.toFixed(
-              2
+              2,
             )} damage and converts it to chakra`,
             color: "green",
           });
@@ -375,12 +373,12 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
         // Process disappear animation of characters
         if (target.curHealth <= 0 && !target.isOriginal) {
           newGroundEffects.push(
-            getVisual(target.longitude, target.latitude, "smoke", round)
+            getVisual(target.longitude, target.latitude, "smoke", round),
           );
         }
         if (user.curHealth <= 0 && !user.isOriginal) {
           newGroundEffects.push(
-            getVisual(user.longitude, user.latitude, "smoke", round)
+            getVisual(user.longitude, user.latitude, "smoke", round),
           );
         }
       }

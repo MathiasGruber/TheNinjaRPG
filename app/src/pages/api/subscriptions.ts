@@ -17,11 +17,11 @@ const syncSubscriptions = async (req: NextApiRequest, res: NextApiResponse) => {
         eq(paypalSubscription.status, "ACTIVE"),
         lte(
           paypalSubscription.updatedAt,
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 30)
-        )
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
+        ),
       ),
     });
-    subscriptions.map(async (subscription) => {
+    void subscriptions.map(async (subscription) => {
       const paypalSub = await getPaypalSubscription(subscription.subscriptionId, token);
       if (paypalSub) {
         const paypalStatus = paypalSub.status;

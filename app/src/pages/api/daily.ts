@@ -31,7 +31,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       UserRanks.map((rank) => {
         const ranks = availableRanks(rank);
         if (ranks.length > 0) {
-          villages.map(async (village) => {
+          void villages.map(async (village) => {
             const newDaily = await drizzleDB.query.quest.findFirst({
               where: and(
                 eq(quest.questType, "daily"),
@@ -39,8 +39,8 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
                 inArray(quest.requiredRank, ranks),
                 or(
                   isNull(quest.requiredVillage),
-                  eq(quest.requiredVillage, village.id ?? "")
-                )
+                  eq(quest.requiredVillage, village.id ?? ""),
+                ),
               ),
               orderBy: sql`RAND()`,
             });
@@ -48,12 +48,12 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
               await upsertQuestEntries(
                 drizzleDB,
                 newDaily,
-                and(eq(userData.rank, rank), eq(userData.villageId, village.id))
+                and(eq(userData.rank, rank), eq(userData.villageId, village.id)),
               );
             }
           });
         }
-      })
+      }),
     );
 
     // Update timer

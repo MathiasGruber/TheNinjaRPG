@@ -45,7 +45,7 @@ export const commentsRouter = createTRPCRouter({
         id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const report = await fetchUserReport(ctx.drizzle, input.id);
@@ -108,7 +108,7 @@ export const commentsRouter = createTRPCRouter({
         thread_id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const thread = await fetchThread(ctx.drizzle, input.thread_id);
@@ -266,7 +266,7 @@ export const commentsRouter = createTRPCRouter({
         isPublic: 0,
         isLocked: 0,
       });
-      [...input.users, ctx.userId].map(async (user) => {
+      void [...input.users, ctx.userId].map(async (user) => {
         await ctx.drizzle.insert(user2conversation).values({
           conversationId: convoId,
           userId: user,
@@ -279,7 +279,7 @@ export const commentsRouter = createTRPCRouter({
       // Update conversation & update user notifications
       const pusher = getServerPusher();
       input.users.forEach(
-        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" })
+        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
       );
       await ctx.drizzle.insert(conversationComment).values({
         id: nanoid(),
@@ -302,8 +302,8 @@ export const commentsRouter = createTRPCRouter({
         .where(
           and(
             eq(user2conversation.conversationId, convo.id),
-            eq(user2conversation.userId, ctx.userId)
-          )
+            eq(user2conversation.userId, ctx.userId),
+          ),
         );
       if (convo.users.length === 1) {
         await ctx.drizzle.delete(conversation).where(eq(conversation.id, convo.id));
@@ -324,8 +324,8 @@ export const commentsRouter = createTRPCRouter({
         })
         .refine(
           (data) => !!data.convo_id || !!data.convo_title,
-          "Either convo_id or convo_title is required"
-        )
+          "Either convo_id or convo_title is required",
+        ),
     )
     .query(async ({ ctx, input }) => {
       const convo = await fetchConversation({
@@ -397,7 +397,7 @@ export const commentsRouter = createTRPCRouter({
       const pusher = getServerPusher();
       void pusher.trigger(convo.id, "event", { message: "new" });
       userIds.forEach(
-        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" })
+        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
       );
       return await ctx.drizzle.insert(conversationComment).values({
         id: nanoid(),
@@ -416,7 +416,7 @@ export const commentsRouter = createTRPCRouter({
       const comment = await ctx.drizzle.query.conversationComment.findFirst({
         where: and(
           eq(conversationComment.id, input.object_id),
-          eq(conversationComment.userId, ctx.userId)
+          eq(conversationComment.userId, ctx.userId),
         ),
       });
       if (comment) {

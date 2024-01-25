@@ -117,7 +117,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 <span className="... ml-3 truncate font-bold">Chats</span>
               </a>
               <hr />
-              {allConversations.map((convo, i) => (
+              {allConversations.map((convo) => (
                 <div
                   className={`my-3 flex h-12 flex-row items-center rounded-lg p-1 hover:bg-orange-200 ${
                     selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
@@ -198,7 +198,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     if (users && users.length > 0) {
       create.setValue(
         "users",
-        users.map((u) => u.userId)
+        users.map((u) => u.userId),
       );
     }
   }, [users, create]);
@@ -217,7 +217,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     (data) => {
       createConversation.mutate(data);
     },
-    (error) => console.error(error)
+    (error) => console.error(error),
   );
 
   return (
