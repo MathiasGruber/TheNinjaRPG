@@ -10,6 +10,7 @@ import { api } from "@/utils/api";
 import { DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { useUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
+import { canChangeContent } from "@/utils/permissions";
 import type { NextPage } from "next";
 import type { Badge } from "@/drizzle/schema";
 
@@ -68,15 +69,17 @@ const ManualBadges: NextPage = () => {
       subtitle="All available user badges"
       back_href="/manual"
       topRightContent={
-        <Button
-          id="create-badge"
-          label="New"
-          image={<DocumentPlusIcon className="mr-1 h-6 w-6" />}
-          onClick={() => create()}
-          marginClass=""
-          noJustify={true}
-          borderClass="rounded-md border-2 border-orange-900"
-        />
+        userData && canChangeContent(userData.role) ? (
+          <Button
+            id="create-badge"
+            label="New"
+            image={<DocumentPlusIcon className="mr-1 h-6 w-6" />}
+            onClick={() => create()}
+            marginClass=""
+            noJustify={true}
+            borderClass="rounded-md border-2 border-orange-900"
+          />
+        ) : undefined
       }
     >
       <p className="mb-2">
