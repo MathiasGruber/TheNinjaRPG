@@ -46,7 +46,7 @@ const Hospital: NextPage = () => {
     {
       currentBloodlineId: userData?.bloodlineId,
     },
-    { staleTime: Infinity, enabled: userData !== undefined }
+    { staleTime: Infinity, enabled: userData !== undefined },
   );
 
   // Mutations
@@ -153,7 +153,7 @@ const PurchaseBloodline: React.FC = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -242,8 +242,8 @@ const PurchaseBloodline: React.FC = () => {
             isPurchasing
               ? undefined
               : canAfford
-              ? `Buy for ${cost} reps`
-              : `Need ${cost - userData.reputationPoints} reps`
+                ? `Buy for ${cost} reps`
+                : `Need ${cost - userData.reputationPoints} reps`
           }
           setIsOpen={setIsOpen}
           isValid={false}
@@ -280,7 +280,7 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const { data, isFetching } = api.bloodline.get.useQuery(
     { id: props.bloodlineId },
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
 
   // Mutations
@@ -352,13 +352,13 @@ const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
         show_toast(
           "Bloodline confirmed!",
           "After thorough examination a bloodline was detected",
-          "success"
+          "success",
         );
       } else {
         show_toast(
           "No bloodline found",
           "After thorough examination the doctors conclude you have no bloodline",
-          "error"
+          "error",
         );
       }
     },

@@ -94,7 +94,7 @@ const ManualDamageSimulator: NextPage = () => {
   });
   const { data: previous } = api.simulator.getDamageSimulation.useQuery(
     { id: damageSimulationId ? damageSimulationId : "" },
-    { enabled: !!damageSimulationId, staleTime: Infinity }
+    { enabled: !!damageSimulationId, staleTime: Infinity },
   );
 
   // Mutation for creating new entry
@@ -146,7 +146,7 @@ const ManualDamageSimulator: NextPage = () => {
   const getDamage = (
     attValues: StatSchema,
     defValues: StatSchema,
-    actValues: ActSchema
+    actValues: ActSchema,
   ) => {
     const attacker = {
       ...attValues,
@@ -240,7 +240,7 @@ const ManualDamageSimulator: NextPage = () => {
   // Handle simulation
   const onSubmit = attForm.handleSubmit(
     () => saveEntry({ attacker: attValues, defender: defValues, action: actValues }),
-    (errors) => console.error(errors)
+    (errors) => console.error(errors),
   );
 
   // Handle inserting historical entry into form
@@ -471,7 +471,7 @@ const ManualDamageSimulator: NextPage = () => {
                           },
                           function () {
                             show_toast("Error", "Could not create link", "error");
-                          }
+                          },
                         );
                       }}
                     />

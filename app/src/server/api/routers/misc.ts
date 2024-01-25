@@ -62,7 +62,7 @@ export const miscRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;

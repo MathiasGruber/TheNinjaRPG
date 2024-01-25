@@ -58,7 +58,7 @@ interface EditContentProps<T, K, S> {
   setValue: UseFormSetValue<any>;
   register: UseFormRegister<any>;
   onAccept?: (
-    e: React.BaseSyntheticEvent<object, any, any> | undefined
+    e: React.BaseSyntheticEvent<object, any, any> | undefined,
   ) => Promise<void>;
   onEnter?: () => Promise<void>;
 }
@@ -70,9 +70,9 @@ interface EditContentProps<T, K, S> {
 export const EditContent = <
   T extends z.AnyZodObject,
   K extends keyof T["shape"],
-  S extends z.infer<T>
+  S extends z.infer<T>,
 >(
-  props: EditContentProps<T, K, S>
+  props: EditContentProps<T, K, S>,
 ) => {
   // Destructure
   const { formData, errors, showSubmit, buttonTxt, control, currentValues } = props;
@@ -506,8 +506,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
             value === "appearAnimation"
               ? watchAppear
               : value === "staticAnimation"
-              ? watchStatic
-              : watchDisappear,
+                ? watchStatic
+                : watchDisappear,
         };
       } else if (innerType instanceof z.ZodEnum && value === "staticAssetPath") {
         return {
@@ -706,7 +706,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           "opponent_name",
           "reward",
           "completed",
-        ].includes(value)
+        ].includes(value),
     )
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);

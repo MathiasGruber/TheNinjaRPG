@@ -198,8 +198,8 @@ const SwapVillage: React.FC = () => {
             isSwapping
               ? undefined
               : canAfford
-              ? `Swap for ${COST_SWAP_VILLAGE} reps`
-              : `Need ${COST_SWAP_VILLAGE - userData.reputationPoints} reps`
+                ? `Swap for ${COST_SWAP_VILLAGE} reps`
+                : `Need ${COST_SWAP_VILLAGE - userData.reputationPoints} reps`
           }
           setIsOpen={setIsOpen}
           isValid={false}
@@ -240,7 +240,7 @@ const SwapBloodline: React.FC = () => {
       enabled: !!userData,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
 
@@ -303,8 +303,8 @@ const SwapBloodline: React.FC = () => {
             isSwapping
               ? undefined
               : canAfford
-              ? `Swap for ${COST_SWAP_BLOODLINE} reps`
-              : `Need ${COST_SWAP_BLOODLINE - userData.reputationPoints} reps`
+                ? `Swap for ${COST_SWAP_BLOODLINE} reps`
+                : `Need ${COST_SWAP_BLOODLINE - userData.reputationPoints} reps`
           }
           setIsOpen={setIsOpen}
           isValid={false}
@@ -406,12 +406,12 @@ const ResetStats: React.FC = () => {
   const buttonText = isDefault
     ? "Nothing changed"
     : canBuy
-    ? misalignment === 0
-      ? "Reset Stats"
-      : misalignment > 0
-      ? `Remove ${misalignment} points`
-      : `Place ${-misalignment} more points`
-    : "Not enough points";
+      ? misalignment === 0
+        ? "Reset Stats"
+        : misalignment > 0
+          ? `Remove ${misalignment} points`
+          : `Place ${-misalignment} more points`
+      : "Not enough points";
 
   // Show component
   return (
@@ -460,8 +460,8 @@ const AvatarChange: React.FC = () => {
             userData.federalStatus === "NORMAL"
               ? "avatarNormalUploader"
               : userData.federalStatus === "SILVER"
-              ? "avatarSilverUploader"
-              : "avatarGoldUploader"
+                ? "avatarSilverUploader"
+                : "avatarGoldUploader"
           }
           onClientUploadComplete={(res) => {
             if (res?.[0]?.url) {
@@ -488,16 +488,16 @@ const AvatarChange: React.FC = () => {
  */
 const AttributeChange: React.FC = () => {
   // State
-  const [hairColor, setHairColor] = useState<typeof colors[number]>("Black");
-  const [eyeColor, setEyeColor] = useState<typeof colors[number]>("Black");
-  const [skinColor, setSkinColor] = useState<typeof skin_colors[number]>("Light");
+  const [hairColor, setHairColor] = useState<(typeof colors)[number]>("Black");
+  const [eyeColor, setEyeColor] = useState<(typeof colors)[number]>("Black");
+  const [skinColor, setSkinColor] = useState<(typeof skin_colors)[number]>("Light");
 
   // Queries
   const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined, {
     staleTime: Infinity,
   });
   const selectedAttributes = data
-    ? data.map((a) => a.attribute as typeof attributes[number])
+    ? data.map((a) => a.attribute as (typeof attributes)[number])
     : [];
 
   // Mutations
@@ -566,7 +566,7 @@ const AttributeChange: React.FC = () => {
             id="eyecolor"
             label="Eye Color"
             placeholder={eyeColor}
-            onChange={(e) => setEyeColor(e.target.value as typeof colors[number])}
+            onChange={(e) => setEyeColor(e.target.value as (typeof colors)[number])}
             onButtonClick={() => insertAttr({ attribute: "Eyes", color: eyeColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
@@ -581,7 +581,9 @@ const AttributeChange: React.FC = () => {
           <SelectField
             id="skincolor"
             label="Skin Color"
-            onChange={(e) => setSkinColor(e.target.value as typeof skin_colors[number])}
+            onChange={(e) =>
+              setSkinColor(e.target.value as (typeof skin_colors)[number])
+            }
             onButtonClick={() => insertAttr({ attribute: "Skin", color: skinColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
@@ -596,7 +598,7 @@ const AttributeChange: React.FC = () => {
           <SelectField
             id="haircolor"
             label="Hair Color"
-            onChange={(e) => setHairColor(e.target.value as typeof colors[number])}
+            onChange={(e) => setHairColor(e.target.value as (typeof colors)[number])}
             onButtonClick={() => insertAttr({ attribute: "Hair", color: hairColor })}
             button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
           >
@@ -622,7 +624,7 @@ const NindoChange: React.FC = () => {
   // Queries
   const { data, refetch, isLoading } = api.profile.getNindo.useQuery(
     { userId: userData?.userId as string },
-    { enabled: !!userData, staleTime: Infinity }
+    { enabled: !!userData, staleTime: Infinity },
   );
 
   // Mutations
@@ -689,7 +691,7 @@ const NameChange: React.FC = () => {
   // Queries
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: searchTerm },
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
 
   // Mutations

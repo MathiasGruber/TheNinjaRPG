@@ -52,7 +52,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
         updateItem({ id: item.id, data: newItem });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch the effects

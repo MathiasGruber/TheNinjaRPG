@@ -80,7 +80,7 @@ export const getPrompt = async (client: DrizzleClient, user: UserData) => {
   };
   return `${getPhenotype(
     user.rank,
-    user.gender
+    user.gender,
   )}, ${attributes}, anime, portrait poster, soft lighting, detailed face, by stanley artgerm lau, wlop, rossdraws, concept art, looking into camera`;
 };
 
@@ -184,7 +184,7 @@ export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
     where: and(
       eq(historicalAvatar.userId, user.userId),
       eq(historicalAvatar.done, 0),
-      isNotNull(historicalAvatar.replicateId)
+      isNotNull(historicalAvatar.replicateId),
     ),
   });
   if (!currentProcessing) {
@@ -214,7 +214,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
     where: and(
       eq(historicalAvatar.userId, user.userId),
       eq(historicalAvatar.done, 0),
-      isNotNull(historicalAvatar.replicateId)
+      isNotNull(historicalAvatar.replicateId),
     ),
   });
   if (avatars.length === 0 && !user.avatar) {
@@ -224,7 +224,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
   for (const avatar of avatars) {
     if (avatar.replicateId) {
       const { prediction, replicateUrl } = await fetchReplicateResult(
-        avatar.replicateId
+        avatar.replicateId,
       );
       // If failed or canceled, rerun
       let isDone = true;
@@ -263,7 +263,7 @@ interface FileEsque extends Blob {
 export const syncImage = async (
   client: DrizzleClient,
   prediction: Prediction,
-  userId?: string
+  userId?: string,
 ) => {
   const id = prediction.id;
   const result = await fetchImage(client, id, userId ?? "");
@@ -274,7 +274,7 @@ export const syncImage = async (
     if (url) {
       // Get image from AI service (will expire within 1 hour)
       const res1 = await fetch(
-        "https://utfs.io/f/2138a3d6-98e1-492d-9029-e3824a40177b-3j2f18.png"
+        "https://utfs.io/f/2138a3d6-98e1-492d-9029-e3824a40177b-3j2f18.png",
       );
       const watermark_blob = Buffer.from(await res1.arrayBuffer());
       const res = await fetch(url);

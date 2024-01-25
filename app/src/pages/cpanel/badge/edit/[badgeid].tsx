@@ -21,7 +21,7 @@ const BadgePanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.badge.get.useQuery(
     { id: badgeId },
-    { staleTime: Infinity, enabled: badgeId !== undefined }
+    { staleTime: Infinity, enabled: badgeId !== undefined },
   );
 
   // Redirect to profile if not content or admin

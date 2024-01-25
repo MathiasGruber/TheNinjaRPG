@@ -32,7 +32,7 @@ const ManualBadges: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
-    }
+    },
   );
   const allBadges = badges?.pages.map((page) => page.data).flat();
 

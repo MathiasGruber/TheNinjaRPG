@@ -28,7 +28,7 @@ export const findNearestEdge = (position: SectorPoint) => {
 export const calcGlobalTravelTime = (
   sectorA: number,
   sectorB: number,
-  map: GlobalMapData
+  map: GlobalMapData,
 ) => {
   const a = map?.tiles[sectorA]?.c;
   const b = map?.tiles[sectorB]?.c;
@@ -55,10 +55,10 @@ export const calcIsInVillage = (position: SectorPoint) => {
 // Maximum distance between two set of longitudes / latitudes
 export const maxDistance = (
   userData: { longitude: number; latitude: number },
-  b: SectorPoint
+  b: SectorPoint,
 ) => {
   return Math.max(
     Math.abs(userData.longitude - b.x),
-    Math.abs(userData.latitude - b.y)
+    Math.abs(userData.latitude - b.y),
   );
 };

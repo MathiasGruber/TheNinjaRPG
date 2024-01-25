@@ -45,7 +45,7 @@ const Report: NextPage = () => {
 
   const { data: report, refetch: refetchReport } = api.reports.get.useQuery(
     { id: report_id },
-    { enabled: report_id !== undefined }
+    { enabled: report_id !== undefined },
   );
 
   const {
@@ -59,7 +59,7 @@ const Report: NextPage = () => {
       enabled: report !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
-    }
+    },
   );
   const allComments = comments?.pages.map((page) => page.data).flat();
 
@@ -119,7 +119,7 @@ const Report: NextPage = () => {
       onError: (error) => {
         show_toast("Error on excalating report", error.message, "error");
       },
-    }
+    },
   );
 
   const { mutate: clearReport, isLoading: load4 } = api.reports.clear.useMutation({
@@ -144,22 +144,22 @@ const Report: NextPage = () => {
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   const handleSubmitBan = handleSubmit(
     (data) => banUser(data),
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   const handleSubmitEscalation = handleSubmit(
     (data) => escalateReport(data),
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   const handleSubmitClear = handleSubmit(
     (data) => clearReport(data),
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   if (!userData || !report) {

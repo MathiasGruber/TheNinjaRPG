@@ -38,7 +38,7 @@ export const show_errors = (errors: FieldErrors<any>) => {
 export const show_toast = (
   title: string,
   message: string | JSX.Element,
-  type: string
+  type: string,
 ) => {
   // Settings for toast
   const params = {

@@ -134,7 +134,7 @@ export const EventTimer: React.FC<EventTimerProps> = (props) => {
   const expiresAt = quest.expiresAt || nextYear;
   const expiryTime = secondsFromDate(
     getFreqSeconds(quest.timeFrame),
-    new Date(tracker.startAt)
+    new Date(tracker.startAt),
   );
   const targetDate = expiresAt < expiryTime ? new Date(expiresAt) : expiryTime;
 
@@ -159,7 +159,7 @@ const getStatusColor = (tier: number | undefined, done: boolean) => {
   }
 };
 
-const getFreqSeconds = (timeFrame: typeof TimeFrames[number]) => {
+const getFreqSeconds = (timeFrame: (typeof TimeFrames)[number]) => {
   switch (timeFrame) {
     case "daily":
       return 60 * 60 * 24;

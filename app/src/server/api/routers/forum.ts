@@ -33,7 +33,7 @@ export const forumRouter = createTRPCRouter({
         board_id: z.string(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const board = await fetchBoard(ctx.drizzle, input.board_id);
@@ -41,7 +41,7 @@ export const forumRouter = createTRPCRouter({
         ctx.drizzle,
         input.board_id,
         input.cursor,
-        input.limit
+        input.limit,
       );
       return {
         data: threads,
@@ -54,7 +54,7 @@ export const forumRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const board = await ctx.drizzle.query.forumBoard.findFirst({
@@ -65,7 +65,7 @@ export const forumRouter = createTRPCRouter({
         ctx.drizzle,
         board.id,
         input.cursor,
-        input.limit
+        input.limit,
       );
       return {
         data: threads,
@@ -124,7 +124,7 @@ export const forumRouter = createTRPCRouter({
       z.object({
         thread_id: z.string(),
         status: z.boolean(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -142,7 +142,7 @@ export const forumRouter = createTRPCRouter({
       z.object({
         thread_id: z.string(),
         status: z.boolean(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -176,7 +176,7 @@ export const getInfiniteThreads = async (
   client: DrizzleClient,
   boardId: string,
   cursor: number | null | undefined,
-  limit: number
+  limit: number,
 ) => {
   const currentCursor = cursor ? cursor : 0;
   const skip = currentCursor * limit;

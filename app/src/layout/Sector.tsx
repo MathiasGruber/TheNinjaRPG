@@ -60,7 +60,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { data: userData, pusher, refetch: refetchUser } = useRequiredUserData();
   const { data: fetchedUsers } = api.travel.getSectorData.useQuery(
     { sector: sector },
-    { enabled: sector !== undefined }
+    { enabled: sector !== undefined },
   );
 
   // Router for forwarding
@@ -177,7 +177,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                     latitude: data.latitude,
                     longitude: data.longitude,
                   },
-                  objective
+                  objective,
                 ) ||
                 // If we have attackers, check for these
                 (objective.attackers &&
@@ -308,7 +308,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         WIDTH,
         prng,
         props.showVillage !== undefined,
-        props.tile
+        props.tile,
       );
       grid.current = honeycombGrid;
 
@@ -373,7 +373,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             } else if (showUsers.current && i.object.userData.type === "attack") {
               const target = users.current?.find(
-                (u) => u.userId === i.object.userData.userId
+                (u) => u.userId === i.object.userData.userId,
               );
               if (target) {
                 if (
@@ -536,7 +536,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
     (user) =>
       user.latitude === props.hex.row &&
       user.longitude === props.hex.col &&
-      user.userId !== props.userId
+      user.userId !== props.userId,
   );
   return (
     <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>

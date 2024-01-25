@@ -22,7 +22,7 @@ const ConceptArtImage: NextPage = ({
   // Fetch data
   const { data: image, isFetching } = api.conceptart.get.useQuery(
     { id: imageId ?? "" },
-    { staleTime: Infinity, enabled: !!imageId }
+    { staleTime: Infinity, enabled: !!imageId },
   );
 
   if (isFetching || !image) return <Loader explanation="Fetching image" />;

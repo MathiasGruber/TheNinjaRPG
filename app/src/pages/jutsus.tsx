@@ -19,7 +19,7 @@ const MyJutsu: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
-    undefined
+    undefined,
   );
 
   // User Jutsus
@@ -125,8 +125,8 @@ const MyJutsu: NextPage = () => {
               ? userjutsu.equipped
                 ? "Unequip"
                 : canEquip
-                ? "Equip"
-                : "Unequip other first"
+                  ? "Equip"
+                  : "Unequip other first"
               : undefined
           }
           setIsOpen={setIsOpen}

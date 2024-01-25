@@ -48,7 +48,7 @@ export type OurFileRouter = typeof ourFileRouter;
  */
 const avatarMiddleware = async (
   req: NextApiRequest,
-  fedRequirement?: typeof FederalStatuses[number]
+  fedRequirement?: (typeof FederalStatuses)[number],
 ) => {
   const { userId } = JSON.parse(req.body as string) as { userId: string };
   if (!userId) throw new Error("Unauthorized");
@@ -59,8 +59,8 @@ const avatarMiddleware = async (
       and(
         eq(historicalAvatar.userId, userId),
         isNotNull(historicalAvatar.avatar),
-        gt(historicalAvatar.createdAt, sql`NOW() - INTERVAL 1 DAY`)
-      )
+        gt(historicalAvatar.createdAt, sql`NOW() - INTERVAL 1 DAY`),
+      ),
     );
   const nRecentAvatars = avatars?.[0]?.count || 0;
   if (nRecentAvatars > 50) throw new Error("Can only upload 50 files per day");
@@ -85,7 +85,7 @@ const avatarMiddleware = async (
 const uploadHistoricalAvatar = async (
   file: { url: string },
   userId: string,
-  updateUser?: boolean
+  updateUser?: boolean,
 ) => {
   const promises = [
     drizzleDB.insert(historicalAvatar).values({

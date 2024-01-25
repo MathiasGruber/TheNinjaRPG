@@ -14,7 +14,7 @@ import { type ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
   const tabNames = ["Online", "Strongest", "Staff"] as const;
-  const [activeTab, setActiveTab] = useState<typeof tabNames[number]>("Online");
+  const [activeTab, setActiveTab] = useState<(typeof tabNames)[number]>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { register, errors, searchTerm } = useUserSearch();
 
@@ -34,7 +34,7 @@ const Users: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: 1000 * 60 * 5, // every 5min
-    }
+    },
   );
   const allUsers = users?.pages.map((page) => page.data).flat();
   type User = ArrayElement<typeof allUsers>;

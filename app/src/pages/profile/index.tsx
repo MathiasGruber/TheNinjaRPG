@@ -155,8 +155,8 @@ const Profile: NextPage = () => {
                 canDelete
                   ? "Complete Deletion"
                   : userData.deletionAt
-                  ? "Disable Deletion Timer"
-                  : "Enable Deletion Timer"
+                    ? "Disable Deletion Timer"
+                    : "Enable Deletion Timer"
               }
               onAccept={(e) => {
                 e.preventDefault();

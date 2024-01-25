@@ -6,7 +6,8 @@
   @font-face {
     font-family: "fontasia";
     src: url("/fonts/fontasia-webfont.eot");
-    src: url("/fonts/fontasia-webfont.eot?#iefix") format("embedded-opentype"),
+    src:
+      url("/fonts/fontasia-webfont.eot?#iefix") format("embedded-opentype"),
       url("/fonts/fontasia-webfont.woff") format("woff"),
       url("/fonts/fontasia-webfont.ttf") format("truetype"),
       url("/fonts/fontasia-webfont.svg#fontasiaregular") format("svg");

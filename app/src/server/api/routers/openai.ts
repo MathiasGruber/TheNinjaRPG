@@ -38,13 +38,13 @@ type ReturnBloodline = {
   description: string;
   regenIncrease: number;
   rank: LetterRank;
-  effects: typeof tagTypes[number][];
+  effects: (typeof tagTypes)[number][];
 };
 
 async function callOpenAI<ReturnType>(
   prompt: string,
   current: string,
-  functionParameters: Record<string, unknown>
+  functionParameters: Record<string, unknown>,
 ) {
   const completion = await client.chat.completions.create(
     {
@@ -70,7 +70,7 @@ async function callOpenAI<ReturnType>(
         function: { name: "createTokObject" },
       },
     },
-    { timeout: 10 * 1000 }
+    { timeout: 10 * 1000 },
   );
   const args = completion?.choices?.[0]?.message?.tool_calls?.[0]?.function.arguments;
   return JSON.parse(args ?? "{}") as ReturnType;
@@ -99,7 +99,7 @@ export const openaiRouter = createTRPCRouter({
     }),
   fetchImg: protectedProcedure
     .input(
-      z.object({ replicateId: z.string(), field: z.string(), removeBg: z.boolean() })
+      z.object({ replicateId: z.string(), field: z.string(), removeBg: z.boolean() }),
     )
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -107,7 +107,7 @@ export const openaiRouter = createTRPCRouter({
         throw serverError("UNAUTHORIZED", "You are not allowed to change content");
       }
       const { prediction, replicateUrl } = await fetchReplicateResult(
-        input.replicateId
+        input.replicateId,
       );
       if (
         prediction.status == "failed" ||
@@ -229,7 +229,7 @@ export const openaiRouter = createTRPCRouter({
             },
           },
           required: ["name", "description", "effects", "regenIncrease", "rank"],
-        }
+        },
       );
     }),
 });

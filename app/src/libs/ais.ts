@@ -16,7 +16,7 @@ import type { FormEntry } from "@/layout/EditContent";
  */
 export const useAiEditForm = (
   user: UserData & { jutsus: UserJutsu[] },
-  refetch: () => void
+  refetch: () => void,
 ) => {
   // Process data for form
   const processedUser = {
@@ -57,7 +57,7 @@ export const useAiEditForm = (
         updateAi({ id: user.userId, data: data });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch for changes to avatar

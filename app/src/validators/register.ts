@@ -55,7 +55,7 @@ export const registrationSchema = z
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_1"],
-    }
+    },
   )
   .refine(
     (data) =>
@@ -63,7 +63,7 @@ export const registrationSchema = z
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_2"],
-    }
+    },
   )
   .refine(
     (data) =>
@@ -71,7 +71,7 @@ export const registrationSchema = z
     {
       message: "Attributes can only be chosen once",
       path: ["attribute_3"],
-    }
+    },
   );
 export type RegistrationSchema = z.infer<typeof registrationSchema>;
 
@@ -92,7 +92,7 @@ export const getSearchValidator = (props: { max: number }) => {
           rank: z.string(),
           level: z.number(),
           federalStatus: z.enum(FederalStatuses),
-        })
+        }),
       )
       .min(1)
       .max(props.max),

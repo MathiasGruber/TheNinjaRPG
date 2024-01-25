@@ -36,7 +36,7 @@ export const showAnimation = (
   appearAnimation: string,
   hex: TerrainHex,
   spriteMixer: ReturnType<typeof SpriteMixer>,
-  playInfinite = false
+  playInfinite = false,
 ) => {
   const info = Animations.get(appearAnimation);
   if (info) {
@@ -67,7 +67,7 @@ export const drawCombatBackground = (
   width: number,
   height: number,
   scene: Scene,
-  background: string
+  background: string,
 ) => {
   // Set scene background
   const bg_texture = loadTexture(`/locations/${background}`);
@@ -97,7 +97,7 @@ export const drawCombatBackground = (
   });
   const honeycombGrid = new Grid(
     Tile,
-    rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT })
+    rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT }),
   ).map((tile) => {
     tile.cost = 1;
     return tile;
@@ -120,7 +120,7 @@ export const drawCombatBackground = (
       const geometry = new BufferGeometry();
       const corners = tile.corners;
       const vertices = new Float32Array(
-        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
+        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : [])),
       );
       geometry.setAttribute("position", new BufferAttribute(vertices, 3));
       const mesh = new Mesh(geometry, material?.clone());
@@ -234,7 +234,7 @@ export const drawCombatEffect = (info: {
         // Sprite to show
         if (effect.staticAssetPath) {
           const texture = loadTexture(
-            `/combat/staticAssets/${effect.staticAssetPath}.png`
+            `/combat/staticAssets/${effect.staticAssetPath}.png`,
           );
           const material = new SpriteMaterial({ map: texture });
           const sprite = new Sprite(material);
@@ -254,7 +254,7 @@ export const drawCombatEffect = (info: {
             effect.staticAnimation,
             hex,
             spriteMixer,
-            true
+            true,
           );
           if (actionSprite) asset.add(actionSprite);
         }
@@ -298,7 +298,7 @@ export const drawStatusBar = (
   color: string,
   stroke: boolean,
   name: string,
-  yOffset: number
+  yOffset: number,
 ) => {
   const canvas = document.createElement("canvas");
   const r = 3;
@@ -410,7 +410,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     highlightSprite.material.color.setHex(
       userData.village
         ? parseInt(userData.village.hexColor.replace("#", ""), 16)
-        : 0x000000
+        : 0x000000,
     );
     group.add(highlightSprite);
 
@@ -637,7 +637,7 @@ export const highlightTiles = (info: {
     highlights.forEach((tile) => {
       if (tile) {
         const mesh = group_tiles.getObjectByName(
-          `${tile.row},${tile.col}`
+          `${tile.row},${tile.col}`,
         ) as HexagonalFaceMesh;
         if (mesh.userData.highlight === false) {
           mesh.userData.highlight = true;
@@ -755,7 +755,7 @@ export const highlightUsers = (info: {
         u.longitude === targetTile.col &&
         u.latitude === targetTile.row &&
         u.curHealth > 0 &&
-        u.fledBattle === false
+        u.fledBattle === false,
     );
     if (target) {
       const userMesh = group_users.getObjectByName(target.userId) as Group;
@@ -838,7 +838,7 @@ export const highlightTooltips = (info: {
       updateStatusBar(
         "hp_current",
         barrier as Group,
-        typedEffect.curHealth / typedEffect.maxHealth
+        typedEffect.curHealth / typedEffect.maxHealth,
       );
     }
     // Remember that we drew this

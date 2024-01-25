@@ -23,7 +23,7 @@ const CombatPage: NextPage = () => {
   const { data: userData, setBattle } = useRequiredUserData();
   const { data, isInitialLoading, refetch } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
-    { enabled: !!userData?.battleId, staleTime: Infinity }
+    { enabled: !!userData?.battleId, staleTime: Infinity },
   );
 
   // Derived variables

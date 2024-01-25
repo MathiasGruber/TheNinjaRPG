@@ -65,7 +65,7 @@ const total = boards.length;
 
 const upsertBoard = async (
   client: DrizzleClient,
-  board: { name: string; summary: string; group: string }
+  board: { name: string; summary: string; group: string },
 ) => {
   // Database call
   const obj = await client.query.forumBoard.findFirst({

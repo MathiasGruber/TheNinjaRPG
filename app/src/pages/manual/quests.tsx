@@ -39,7 +39,7 @@ const ManualTravel: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
-    }
+    },
   );
   const allQuests = quests?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });

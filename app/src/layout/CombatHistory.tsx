@@ -26,7 +26,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
       enabled: battle.id !== undefined,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");
 
@@ -76,8 +76,8 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                     effect.color === "red"
                       ? "text-red-500"
                       : effect.color === "blue"
-                      ? "text-blue-500"
-                      : "text-green-500";
+                        ? "text-blue-500"
+                        : "text-green-500";
                   return (
                     <p key={i} className={color}>
                       - {effect.txt}
@@ -87,7 +87,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
               </div>
             );
           })}
-      </li>
+      </li>,
     );
   });
 

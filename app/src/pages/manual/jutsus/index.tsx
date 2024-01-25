@@ -41,7 +41,7 @@ const ManualJutsus: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const alljutsus = jutsus?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });

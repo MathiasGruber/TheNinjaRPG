@@ -18,7 +18,7 @@ export const logsRouter = createTRPCRouter({
           "bloodline",
           "badge",
         ]),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;

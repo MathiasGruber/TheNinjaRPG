@@ -13,9 +13,9 @@ import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 
 type DataBattleAction = {
-  type: typeof BattleDataEntryType[number];
+  type: (typeof BattleDataEntryType)[number];
   contentId: string;
-  battleType: typeof BattleTypes[number];
+  battleType: (typeof BattleTypes)[number];
   battleWon: number;
 };
 
@@ -26,7 +26,7 @@ export const updateBattle = async (
   client: DrizzleClient,
   result: CombatResult | null,
   newBattle: CompleteBattle,
-  fetchedVersion: number
+  fetchedVersion: number,
 ) => {
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
@@ -62,7 +62,7 @@ export const saveUsage = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
-  userId: string
+  userId: string,
 ) => {
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
@@ -109,7 +109,7 @@ export const createAction = async (
     appliedEffects: ActionEffect[];
     description: string;
     battleVersion: number;
-  }[]
+  }[],
 ) => {
   if (history.length > 0) {
     const actions = history
@@ -138,7 +138,7 @@ export const updateUser = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
-  userId: string
+  userId: string,
 ) => {
   const user = curBattle.usersState.find((user) => user.userId === userId);
   if (result && user) {
@@ -163,7 +163,7 @@ export const updateUser = async (
           .map((u) => ({
             task: "defeat_opponents",
             contentId: u.userId,
-          }))
+          })),
       );
       user.questData = trackers;
     }

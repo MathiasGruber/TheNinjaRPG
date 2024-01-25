@@ -221,7 +221,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: userData !== undefined,
-    }
+    },
   );
   const alljutsus = jutsus?.pages
     .map((page) => page.data)
@@ -245,7 +245,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     };
   });
   const finishTrainingAt = userJutsus?.find(
-    (jutsu) => jutsu.finishTraining && jutsu.finishTraining > now
+    (jutsu) => jutsu.finishTraining && jutsu.finishTraining > now,
   );
 
   // Mutations
@@ -340,8 +340,8 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                     ? canTrain && canAfford && trainSeconds && trainCost
                       ? `Train [${trainSeconds}, ${trainCost} ryo]`
                       : canAfford
-                      ? "Not Available"
-                      : `Need ${trainCost - userData.money} more ryo`
+                        ? "Not Available"
+                        : `Need ${trainCost - userData.money} more ryo`
                     : undefined
                 }
                 setIsOpen={setIsOpen}

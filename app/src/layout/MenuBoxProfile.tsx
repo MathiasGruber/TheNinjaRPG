@@ -76,7 +76,7 @@ const MenuBoxProfile: React.FC = () => {
     qualifier: string,
     key: number,
     className: string,
-    arrow: string
+    arrow: string,
   ) => {
     if ("statTypes" in effect) {
       return (
@@ -112,7 +112,7 @@ const MenuBoxProfile: React.FC = () => {
     i: number,
     txt: string,
     color: string,
-    qualifier: string | React.ReactNode
+    qualifier: string | React.ReactNode,
   ) => {
     return (
       <li key={i} className={`${color}`}>
@@ -133,7 +133,7 @@ const MenuBoxProfile: React.FC = () => {
   const immunitySecondsLeft = (userData.immunityUntil.getTime() - Date.now()) / 1000;
 
   // Status link
-  const statusLink = (status: typeof UserStatuses[number]) => {
+  const statusLink = (status: (typeof UserStatuses)[number]) => {
     switch (status) {
       case "BATTLE":
         return (
@@ -326,7 +326,7 @@ const MenuBoxProfile: React.FC = () => {
                         i,
                         `Stun Resistance ${cooldown}`,
                         "text-blue-500",
-                        "-"
+                        "-",
                       );
                     } else if (effect.type === "stun" && effect.rounds) {
                       return show(i, `Stunned ${cooldown}`, "text-blue-500", "-");

@@ -97,7 +97,7 @@ class TrackballControls extends EventDispatcher {
       return function getMouseOnScreen(pageX, pageY) {
         vector.set(
           (pageX - scope.screen.left) / scope.screen.width,
-          (pageY - scope.screen.top) / scope.screen.height
+          (pageY - scope.screen.top) / scope.screen.height,
         );
 
         return vector;
@@ -111,7 +111,7 @@ class TrackballControls extends EventDispatcher {
         vector.set(
           (pageX - scope.screen.width * 0.5 - scope.screen.left) /
             (scope.screen.width * 0.5),
-          (scope.screen.height + 2 * (scope.screen.top - pageY)) / scope.screen.width // screen.width intentional
+          (scope.screen.height + 2 * (scope.screen.top - pageY)) / scope.screen.width, // screen.width intentional
         );
 
         return vector;
@@ -240,7 +240,7 @@ class TrackballControls extends EventDispatcher {
             _panStart.add(
               mouseChange
                 .subVectors(_panEnd, _panStart)
-                .multiplyScalar(scope.dynamicDampingFactor)
+                .multiplyScalar(scope.dynamicDampingFactor),
             );
           }
         }
@@ -252,7 +252,7 @@ class TrackballControls extends EventDispatcher {
         if (_eye.lengthSq() > scope.maxDistance * scope.maxDistance) {
           scope.object.position.addVectors(
             scope.target,
-            _eye.setLength(scope.maxDistance)
+            _eye.setLength(scope.maxDistance),
           );
           _zoomStart.copy(_zoomEnd);
         }
@@ -260,7 +260,7 @@ class TrackballControls extends EventDispatcher {
         if (_eye.lengthSq() < scope.minDistance * scope.minDistance) {
           scope.object.position.addVectors(
             scope.target,
-            _eye.setLength(scope.minDistance)
+            _eye.setLength(scope.minDistance),
           );
           _zoomStart.copy(_zoomEnd);
         }
@@ -509,7 +509,7 @@ class TrackballControls extends EventDispatcher {
           const dx = _pointers[0].pageX - _pointers[1].pageX;
           const dy = _pointers[0].pageY - _pointers[1].pageY;
           _touchZoomDistanceEnd = _touchZoomDistanceStart = Math.sqrt(
-            dx * dx + dy * dy
+            dx * dx + dy * dy,
           );
 
           const x = (_pointers[0].pageX + _pointers[1].pageX) / 2;

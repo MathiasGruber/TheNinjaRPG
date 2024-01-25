@@ -15,7 +15,7 @@ export const drizzleDB =
   global.drizzle ||
   drizzle(
     connect({ url: process.env["DATABASE_URL"] }),
-    { schema } // ,  logger: true
+    { schema }, // ,  logger: true
   );
 
 if (env.NODE_ENV !== "production") {

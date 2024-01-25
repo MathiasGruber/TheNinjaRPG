@@ -16,12 +16,12 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Step 2: Update users who are in battle where the battle no longer exists to be awake and not in battle
     await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.battleId=NULL, a.status="AWAKE", a.travelFinishAt=NULL WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`
+      sql`UPDATE ${userData} a SET a.battleId=NULL, a.status="AWAKE", a.travelFinishAt=NULL WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`,
     );
 
     // Step 3: Delete from battle action where battles have been deleted
     await drizzleDB.execute(
-      sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId)`
+      sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId)`,
     );
 
     // One day in mseconds
@@ -43,13 +43,13 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       .where(
         and(
           lte(conversation.updatedAt, new Date(Date.now() - oneDay * 14)),
-          eq(conversation.isPublic, 0)
-        )
+          eq(conversation.isPublic, 0),
+        ),
       );
 
     // Step 7: Conversation comments where the conversation does not exist anymore
     await drizzleDB.execute(
-      sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
+      sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`,
     );
 
     // Step 8: Delete conversation comments older than 14 days
@@ -59,12 +59,12 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore
     await drizzleDB.execute(
-      sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`
+      sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`,
     );
 
     // Step 10: Remove user jutsus where the jutsu ID no longer exists
     await drizzleDB.execute(
-      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${jutsu} b WHERE b.id = a.jutsuId)`
+      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${jutsu} b WHERE b.id = a.jutsuId)`,
     );
 
     res.status(200).json("OK");

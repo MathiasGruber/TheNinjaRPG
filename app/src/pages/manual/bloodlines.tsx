@@ -19,7 +19,7 @@ import type { NextPage } from "next";
 const ManualBloodlines: NextPage = () => {
   // Settings
   const { data: userData } = useUserData();
-  const [rank, setRank] = useState<typeof LetterRanks[number]>("D");
+  const [rank, setRank] = useState<(typeof LetterRanks)[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
@@ -38,7 +38,7 @@ const ManualBloodlines: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });

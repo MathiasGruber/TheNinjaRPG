@@ -60,7 +60,7 @@ const Forum: NextPage = () => {
           })}
         </ContentBox>
         <br />
-      </div>
+      </div>,
     );
   });
   return <div>{forum}</div>;

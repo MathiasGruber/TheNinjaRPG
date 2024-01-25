@@ -12,7 +12,7 @@ const JutsuStatistics: NextPage = () => {
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
     { id: jutsuId, type: "jutsu" },
-    { staleTime: Infinity, enabled: jutsuId !== undefined }
+    { staleTime: Infinity, enabled: jutsuId !== undefined },
   );
   const jutsu = data?.info;
   const usage = data?.usage;

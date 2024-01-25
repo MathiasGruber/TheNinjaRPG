@@ -15,7 +15,7 @@ const debug = false;
 export const performAIaction = (
   battle: CompleteBattle,
   grid: Grid<TerrainHex>,
-  aiUserId: string
+  aiUserId: string,
 ) => {
   // New stats to return
   let searchSize = 0;
@@ -116,7 +116,7 @@ const getHighestFitness = (searchTree: SearchAction, depth: number = 0) => {
   let fitness = searchTree.fitness;
   if (searchTree.nextActions && searchTree.nextActions?.length > 0) {
     const nexts = searchTree.nextActions.map((action) =>
-      getHighestFitness(action, depth + 1)
+      getHighestFitness(action, depth + 1),
     );
     const bestNext = nexts.reduce((a, b) => (a.fitness > b.fitness ? a : b));
     moves += ` > ${bestNext.moves}`;
@@ -145,7 +145,7 @@ const getBestAction = (searchTree: SearchAction[]) => {
         return bestAction;
       }
     },
-    { action: undefined, fitness: -Infinity, futureFitness: -Infinity }
+    { action: undefined, fitness: -Infinity, futureFitness: -Infinity },
   );
   // console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
   // console.log(
@@ -167,7 +167,7 @@ const getActionTree = (
   astar: PathCalculator,
   initialFitness = 0,
   curDepth = 0,
-  searchDepth = 1
+  searchDepth = 1,
 ): SearchAction[] => {
   // Destructure
   const user = battle.usersState.find((u) => u.userId === userId);
@@ -218,7 +218,7 @@ const getActionTree = (
               grid,
               astar,
               action,
-              curDepth
+              curDepth,
             ) + initialFitness;
 
           // If we are not at the end of the depth, calculate the next actions
@@ -232,7 +232,7 @@ const getActionTree = (
                   astar,
                   fitness,
                   curDepth + 1,
-                  searchDepth
+                  searchDepth,
                 )
               : undefined;
           // Add to the list of searched actions
@@ -261,7 +261,7 @@ export const evaluateFitness = (
   grid: Grid<TerrainHex>,
   astar: PathCalculator,
   action: CombatAction,
-  depth: number
+  depth: number,
 ) => {
   const curUsersState = curBattle.usersState;
   const newUsersState = newBattle.usersState;
@@ -294,7 +294,7 @@ export const evaluateFitness = (
     .filter((u) =>
       villageIds.length > 1
         ? u.villageId !== newUser.villageId
-        : u.controllerId !== newUser.controllerId
+        : u.controllerId !== newUser.controllerId,
     )
     .filter((u) => stillInBattle(u))
     .forEach((newEnemy) => {

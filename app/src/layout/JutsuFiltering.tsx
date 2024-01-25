@@ -136,7 +136,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         </SelectField>
       )}
       {["AppearAnimation", "StaticAnimation", "DisappearAnimation"].includes(
-        filter
+        filter,
       ) && (
         <SelectField
           id={filter}

@@ -45,8 +45,8 @@ export const travelRouter = createTRPCRouter({
           eq(userData.status, "AWAKE"),
           or(
             gte(userData.updatedAt, secondsFromNow(-300)),
-            eq(userData.userId, ctx.userId)
-          )
+            eq(userData.userId, ctx.userId),
+          ),
         ),
       });
     }),
@@ -65,7 +65,7 @@ export const travelRouter = createTRPCRouter({
       const travelTime = calcGlobalTravelTime(
         user.sector,
         input.sector,
-        map as unknown as GlobalMapData
+        map as unknown as GlobalMapData,
       );
       const endTime = secondsFromNow(travelTime);
       const result = await ctx.drizzle
@@ -130,7 +130,7 @@ export const travelRouter = createTRPCRouter({
         sector: z.number().int(),
         level: z.number().int(),
         avatar: z.string().url(),
-      })
+      }),
     )
     .output(
       baseServerResponse.merge(
@@ -145,8 +145,8 @@ export const travelRouter = createTRPCRouter({
               latitude: z.number(),
             })
             .optional(),
-        })
-      )
+        }),
+      ),
     )
     .mutation(async ({ input, ctx }) => {
       const { longitude, latitude, sector } = input;
@@ -166,8 +166,8 @@ export const travelRouter = createTRPCRouter({
             eq(userData.status, "AWAKE"),
             eq(userData.sector, sector),
             sql`ABS(longitude - ${longitude}) <= 1`,
-            sql`ABS(latitude - ${latitude}) <= 1`
-          )
+            sql`ABS(latitude - ${latitude}) <= 1`,
+          ),
         );
       if (result.rowsAffected === 1) {
         const output = { ...input, location, userId: ctx.userId };

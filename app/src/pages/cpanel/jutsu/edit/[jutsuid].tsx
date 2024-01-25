@@ -26,7 +26,7 @@ const JutsuPanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.jutsu.get.useQuery(
     { id: jutsuId },
-    { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined }
+    { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form

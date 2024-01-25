@@ -42,7 +42,7 @@ const Board: NextPage = () => {
       enabled: board_id !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
-    }
+    },
   );
   const allThreads = threads?.pages.map((page) => page.data).flat();
   const board = threads?.pages[0]?.board;
@@ -73,7 +73,7 @@ const Board: NextPage = () => {
       onError: (error) => {
         show_toast("Error on creating new thread", error.message, "error");
       },
-    }
+    },
   );
 
   const { mutate: pinThread, isLoading: load2 } = api.forum.pinThread.useMutation({
@@ -102,7 +102,7 @@ const Board: NextPage = () => {
       onError: (error) => {
         show_toast("Error on deleting thread", error.message, "error");
       },
-    }
+    },
   );
 
   useEffect(() => {
@@ -167,8 +167,8 @@ const Board: NextPage = () => {
                 thread.isPinned
                   ? "fill-orange-500"
                   : canEdit
-                  ? "hover:fill-orange-500"
-                  : ""
+                    ? "hover:fill-orange-500"
+                    : ""
               }`}
             />
           );

@@ -119,7 +119,7 @@ const Map: React.FC<MapProps> = (props) => {
           const vertices = new Float32Array(
             points
               .map((p) => t.b[p])
-              .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : []))
+              .flatMap((p) => (p ? [p.x / 3, p.y / 3, p.z / 3] : [])),
           );
           geometry.setAttribute("position", new BufferAttribute(vertices, 3));
           const consistentRandom = prng();
@@ -166,7 +166,7 @@ const Map: React.FC<MapProps> = (props) => {
             // Set position to top of pin
             Object.assign(
               labelSprite.position,
-              new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5)
+              new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5),
             );
             Object.assign(labelSprite.scale, new Vector3(3, 1, 1));
             group_highlights.add(labelSprite);
@@ -219,7 +219,7 @@ const Map: React.FC<MapProps> = (props) => {
           (mesh as HexagonalFaceMesh).material.color.setHSL(
             userLocation.h,
             userLocation.c,
-            userLocation.l
+            userLocation.l,
           );
           // TWEEN.update();
         }

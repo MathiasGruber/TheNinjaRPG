@@ -36,7 +36,7 @@ export const registerRouter = createTRPCRouter({
             id: nanoid(),
             attribute: attribute,
             userId: ctx.userId,
-          }))
+          })),
         ),
         ctx.drizzle.insert(userData).values({
           userId: ctx.userId,

@@ -29,7 +29,7 @@ const BloodlinePanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.bloodline.get.useQuery(
     { id: bloodlineId },
-    { staleTime: Infinity, retry: false, enabled: bloodlineId !== undefined }
+    { staleTime: Infinity, retry: false, enabled: bloodlineId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form

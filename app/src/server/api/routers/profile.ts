@@ -105,8 +105,8 @@ export const profileRouter = createTRPCRouter({
           and(
             eq(userData.userId, ctx.userId),
             isNull(userData.currentlyTraining),
-            eq(userData.status, "AWAKE")
-          )
+            eq(userData.status, "AWAKE"),
+          ),
         );
       if (result.rowsAffected === 0) {
         return { success: false, message: "You are already training" };
@@ -136,7 +136,7 @@ export const profileRouter = createTRPCRouter({
       const minutes = seconds / 60;
       const energySpent = Math.min(
         Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
-        user.curEnergy
+        user.curEnergy,
       );
       const trainingAmount =
         energySpent *
@@ -208,8 +208,8 @@ export const profileRouter = createTRPCRouter({
           and(
             eq(userData.userId, ctx.userId),
             isNotNull(userData.currentlyTraining),
-            eq(userData.status, "AWAKE")
-          )
+            eq(userData.status, "AWAKE"),
+          ),
         );
       if (result.rowsAffected === 0) {
         return { success: false, message: "You are not training" };
@@ -484,7 +484,7 @@ export const profileRouter = createTRPCRouter({
       }
       // Calculate diff
       const prev = Object.fromEntries(
-        Object.entries(target).filter(([k]) => Object.keys(input.data).includes(k))
+        Object.entries(target).filter(([k]) => Object.keys(input.data).includes(k)),
       );
       const diff = new HumanDiff({ objectName: "user" }).diff(prev, input.data);
       // Update database
@@ -567,7 +567,7 @@ export const profileRouter = createTRPCRouter({
               jutsuId: jutsuId,
               level: newAi.level,
               equipped: 1,
-            }))
+            })),
           ),
         ]);
       }
@@ -603,7 +603,7 @@ export const profileRouter = createTRPCRouter({
     .input(
       z.object({
         username: z.string().trim(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const username = await ctx.drizzle.query.userData.findFirst({
@@ -743,7 +743,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         attribute: z.enum([...attributes, "Hair", "Skin", "Eyes"]),
         color: z.enum([...colors, ...skin_colors]).optional(),
-      })
+      }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -776,8 +776,8 @@ export const profileRouter = createTRPCRouter({
         .where(
           and(
             eq(userAttribute.attribute, input.attribute),
-            eq(userAttribute.userId, ctx.userId)
-          )
+            eq(userAttribute.userId, ctx.userId),
+          ),
         );
       if (result.rowsAffected === 0) {
         return { success: false, message: "Failed to delete attribute" };
@@ -791,7 +791,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         username: z.string().trim(),
         showYourself: z.boolean(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       return ctx.drizzle.query.userData.findMany({
@@ -807,7 +807,7 @@ export const profileRouter = createTRPCRouter({
         where: and(
           like(userData.username, `%${input.username}%`),
           eq(userData.approvedTos, 1),
-          ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`])
+          ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`]),
         ),
         orderBy: [sql`LENGTH(${userData.username}) asc`],
         limit: 5,
@@ -846,8 +846,8 @@ export const profileRouter = createTRPCRouter({
           nindo: true,
           badges: {
             with: {
-              badge: true
-            }
+              badge: true,
+            },
           },
           recruitedUsers: {
             columns: {
@@ -877,7 +877,7 @@ export const profileRouter = createTRPCRouter({
           })
           .optional(),
         recruiterId: z.string().optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -902,7 +902,7 @@ export const profileRouter = createTRPCRouter({
           ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
           eq(userData.isAi, input.isAi),
-          ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)])
+          ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)]),
         ),
         columns: {
           userId: true,
@@ -1018,7 +1018,7 @@ export const fetchRegeneratedUser = async (props: {
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-            eq(questHistory.questType, "achievement")
+            eq(questHistory.questType, "achievement"),
           ),
           with: {
             quest: true,

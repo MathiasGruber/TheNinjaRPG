@@ -25,7 +25,7 @@ export const simulatorRouter = createTRPCRouter({
         attacker: statSchema,
         defender: statSchema,
         action: actSchema,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const maxEntries = 20;
@@ -49,8 +49,8 @@ export const simulatorRouter = createTRPCRouter({
           .where(
             and(
               eq(damageSimulation.userId, ctx.userId),
-              gt(damageSimulation.createdAt, lastEntry.createdAt)
-            )
+              gt(damageSimulation.createdAt, lastEntry.createdAt),
+            ),
           );
       }
     }),
@@ -64,8 +64,8 @@ export const simulatorRouter = createTRPCRouter({
           .where(
             and(
               eq(damageSimulation.id, input.id),
-              eq(damageSimulation.userId, ctx.userId)
-            )
+              eq(damageSimulation.userId, ctx.userId),
+            ),
           );
       } else {
         return await ctx.drizzle
@@ -91,7 +91,7 @@ export const simulatorRouter = createTRPCRouter({
 export const fetchEntry = async (
   client: DrizzleClient,
   id: string,
-  userId?: string
+  userId?: string,
 ) => {
   const entry = await client.query.damageSimulation.findFirst({
     where: eq(damageSimulation.id, id),

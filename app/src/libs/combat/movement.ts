@@ -14,7 +14,7 @@ export const isValidMove = (info: {
   const { action, user, users, target, clicked, barriers } = info;
   const { villageId, userId } = user;
   const barrier = barriers.find(
-    (b) => b.longitude === target.col && b.latitude === target.row
+    (b) => b.longitude === target.col && b.latitude === target.row,
   );
   if (!barrier) {
     const opponent = users.find(
@@ -22,7 +22,7 @@ export const isValidMove = (info: {
         u.longitude === target.col &&
         u.latitude === target.row &&
         u.curHealth > 0 &&
-        !u.fledBattle
+        !u.fledBattle,
     );
     if (action.target === "CHARACTER") {
       if (opponent) return true;

@@ -12,7 +12,7 @@ import { type ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
   const tabNames = ["ai", "user", "jutsu", "bloodline", "item", "badge"] as const;
-  const [activeTab, setActiveTab] = useState<typeof tabNames[number]>("ai");
+  const [activeTab, setActiveTab] = useState<(typeof tabNames)[number]>("ai");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   const {
@@ -25,7 +25,7 @@ const Users: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 5, // every 5min
-    }
+    },
   );
   const allEntries = entries?.pages
     .map((page) => page.data)

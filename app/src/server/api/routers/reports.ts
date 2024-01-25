@@ -34,7 +34,7 @@ export const reportsRouter = createTRPCRouter({
             message: "Must only contain alphanumeric characters and no spaces",
           })
           .optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -59,11 +59,11 @@ export const reportsRouter = createTRPCRouter({
               ? [
                   or(
                     eq(userReport.reportedUserId, ctx.userId),
-                    eq(userReport.reporterUserId, ctx.userId)
+                    eq(userReport.reporterUserId, ctx.userId),
                   ),
                 ]
-              : [])
-          )
+              : []),
+          ),
         )
         .innerJoin(
           reportedUser,
@@ -71,8 +71,8 @@ export const reportsRouter = createTRPCRouter({
             eq(reportedUser.userId, userReport.reportedUserId),
             ...(input.username !== undefined
               ? [like(reportedUser.username, `%${input.username}%`)]
-              : [])
-          )
+              : []),
+          ),
         )
         .limit(input.limit)
         .offset(skip);
@@ -206,7 +206,7 @@ export const reportsRouter = createTRPCRouter({
             eq(userReport.reportedUserId, report.reportedUserId),
             eq(userReport.status, "BAN_ACTIVATED"),
             gte(userReport.banEnd, new Date()),
-            ne(userReport.id, report.id)
+            ne(userReport.id, report.id),
           ),
         });
         if (reports.length === 0) {

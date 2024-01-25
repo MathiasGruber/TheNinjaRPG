@@ -26,8 +26,8 @@ export const dataRouter = createTRPCRouter({
           and(
             eq(dataBattleAction.type, "jutsu"),
             isNotNull(jutsu.name),
-            eq(dataBattleAction.battleType, input.battleType)
-          )
+            eq(dataBattleAction.battleType, input.battleType),
+          ),
         );
       return usage;
     }),
@@ -45,14 +45,14 @@ export const dataRouter = createTRPCRouter({
         .groupBy(
           userData.userId,
           dataBattleAction.battleWon,
-          dataBattleAction.battleType
+          dataBattleAction.battleType,
         )
         .where(
           and(
             eq(dataBattleAction.type, "ai"),
             isNotNull(userData.userId),
-            eq(dataBattleAction.battleType, input.battleType)
-          )
+            eq(dataBattleAction.battleType, input.battleType),
+          ),
         );
       return usage;
     }),
@@ -61,7 +61,7 @@ export const dataRouter = createTRPCRouter({
       z.object({
         id: z.string(),
         type: z.enum(["jutsu", "item", "bloodline", "basic", "ai"]),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       // General User Statistics

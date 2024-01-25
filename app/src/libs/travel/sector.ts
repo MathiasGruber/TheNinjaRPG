@@ -93,7 +93,7 @@ export const drawSector = (
   width: number,
   prng: () => number,
   hasVillage: boolean,
-  globalTile: GlobalTile
+  globalTile: GlobalTile,
 ) => {
   // Calculate hex size
   const stackingDisplacement = 1.31;
@@ -110,7 +110,7 @@ export const drawSector = (
   });
   const honeycombGrid = new Grid(
     Tile,
-    rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT })
+    rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT }),
   ).map((tile) => {
     const nx = tile.col / SECTOR_WIDTH - 0.5;
     const ny = tile.row / SECTOR_HEIGHT - 0.5;
@@ -142,7 +142,7 @@ export const drawSector = (
       const geometry = new BufferGeometry();
       const corners = tile.corners;
       const vertices = new Float32Array(
-        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : []))
+        points.map((p) => corners[p]).flatMap((p) => (p ? [p.x, p.y, -10] : [])),
       );
       geometry.setAttribute("position", new BufferAttribute(vertices, 3));
       const mesh = new Mesh(geometry, material?.clone());
@@ -235,7 +235,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 export const createMultipleUserSprite = (
   nUsers: number,
   location: string,
-  dimensions: { height: number; width: number }
+  dimensions: { height: number; width: number },
 ) => {
   // Group is used to group components of the user Marker
   const group = new Group();
@@ -353,7 +353,7 @@ export const drawUsers = (info: {
       ...user,
       group: `${user.latitude},${user.longitude}`,
     })),
-    "group"
+    "group",
   );
 
   // Calculate new angle, which is used for rotating users placed on same location
@@ -440,7 +440,7 @@ export const intersectUsers = (info: {
   const userMesh = intersects.find(
     (i) =>
       i.object.parent?.userData.type === "user" &&
-      i.object.parent?.userData.userId !== userData.userId
+      i.object.parent?.userData.userId !== userData.userId,
   )?.object.parent;
   if (users && userMesh && intersects.length > 0) {
     const userHex = userMesh.userData.tile as TerrainHex;
@@ -448,7 +448,7 @@ export const intersectUsers = (info: {
       (g) =>
         g.latitude === userHex.row &&
         g.longitude === userHex.col &&
-        g.userId !== userData.userId
+        g.userId !== userData.userId,
     );
     if (locationUsers.length === 1 && userMesh) {
       const userId = userMesh.userData.userId as string;
@@ -501,7 +501,7 @@ export const intersectTiles = (info: {
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(
-        `${tile.row},${tile.col}`
+        `${tile.row},${tile.col}`,
       ) as HexagonalFaceMesh;
       if (mesh.userData.highlight === false) {
         mesh.userData.highlight = true;

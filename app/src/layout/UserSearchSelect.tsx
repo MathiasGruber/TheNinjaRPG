@@ -52,7 +52,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
 
   const { data: searchResults } = api.profile.searchUsers.useQuery(
     { username: searchTerm, showYourself: props.showYourself },
-    { enabled: searchTerm !== "" }
+    { enabled: searchTerm !== "" },
   );
 
   useEffect(() => {
@@ -83,7 +83,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
           e.preventDefault();
           const newSelected = getUnique(
             watchUsers.filter((e) => e.userId !== user.userId),
-            "userId"
+            "userId",
           );
           setValue("users", newSelected);
         }}

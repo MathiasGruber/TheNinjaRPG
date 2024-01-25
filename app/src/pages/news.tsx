@@ -26,7 +26,7 @@ const News: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allThreads = threads?.pages.map((page) => page.data).flat();
   const board = threads?.pages[0]?.board;

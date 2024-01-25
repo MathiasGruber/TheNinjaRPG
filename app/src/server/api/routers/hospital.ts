@@ -22,7 +22,7 @@ export const hospitalRouter = createTRPCRouter({
           status: "AWAKE",
         })
         .where(
-          and(eq(userData.userId, ctx.userId), eq(userData.status, "HOSPITALIZED"))
+          and(eq(userData.userId, ctx.userId), eq(userData.status, "HOSPITALIZED")),
         );
     } else {
       const cost = calcHealCost(user);
@@ -41,8 +41,8 @@ export const hospitalRouter = createTRPCRouter({
           and(
             eq(userData.userId, ctx.userId),
             gte(userData.money, cost),
-            eq(userData.status, "HOSPITALIZED")
-          )
+            eq(userData.status, "HOSPITALIZED"),
+          ),
         );
     }
     if (result.rowsAffected === 1) {

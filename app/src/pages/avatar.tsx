@@ -31,7 +31,7 @@ const Avatar: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
 

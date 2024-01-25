@@ -98,7 +98,7 @@ export const UsageStats: React.FC<UsageStatsProps> = (props) => {
 export const getUsageChart = (
   ctx: CanvasRenderingContext2D,
   groups: Groups,
-  labels: Label[]
+  labels: Label[],
 ) => {
   // Calculate the statistics
   const won: UsageDataset = { data: [], label: "Won" };

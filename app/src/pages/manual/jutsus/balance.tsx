@@ -10,7 +10,7 @@ import type { NextPage } from "next";
 
 const ManualJutsus: NextPage = () => {
   // State
-  const [filter, setFilter] = useState<typeof BattleTypes[number]>("COMBAT");
+  const [filter, setFilter] = useState<(typeof BattleTypes)[number]>("COMBAT");
 
   // Reference for the chart
   const chartRef = useRef<HTMLCanvasElement>(null);
@@ -18,7 +18,7 @@ const ManualJutsus: NextPage = () => {
   // Queries
   const { data, isLoading } = api.data.getJutsuBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
 
   useEffect(() => {

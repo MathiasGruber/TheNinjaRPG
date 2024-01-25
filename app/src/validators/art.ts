@@ -24,7 +24,7 @@ export const conceptArtFilterSchema = z.object({
 export type ConceptFilterType = z.infer<typeof conceptArtFilterSchema>;
 
 export const getTimeFrameinSeconds = (
-  timeString: typeof timeFrame[number]
+  timeString: (typeof timeFrame)[number],
 ): number | null => {
   switch (timeString) {
     case "Week":

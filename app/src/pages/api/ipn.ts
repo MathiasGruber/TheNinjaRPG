@@ -87,7 +87,7 @@ export const verifyWebhookEvent = async (input: { body: any; token: string }) =>
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input.body),
-    }
+    },
   )
     .then((response) => {
       return response.json();

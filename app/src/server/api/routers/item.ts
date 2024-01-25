@@ -117,7 +117,7 @@ export const itemRouter = createTRPCRouter({
         itemRarity: z.enum(ItemRarities).optional(),
         effect: z.string().optional(),
         stat: z.enum(statFilters).optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
@@ -136,7 +136,7 @@ export const itemRouter = createTRPCRouter({
             : []),
           ...(input.stat
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.stat}) IS NOT NULL`]
-            : [])
+            : []),
         ),
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
@@ -209,7 +209,7 @@ export const itemRouter = createTRPCRouter({
       z.object({
         userItemId: z.string(),
         slot: z.enum(ItemSlots),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const userItems = await fetchUserItems(ctx.drizzle, ctx.userId);
@@ -219,7 +219,7 @@ export const itemRouter = createTRPCRouter({
       }
       if (!useritem.equipped || useritem.equipped !== input.slot) {
         const equipped = userItems.find(
-          (i) => i.equipped === input.slot && i.id !== useritem.id
+          (i) => i.equipped === input.slot && i.id !== useritem.id,
         );
         if (equipped) {
           await ctx.drizzle
@@ -244,7 +244,7 @@ export const itemRouter = createTRPCRouter({
       z.object({
         itemId: z.string(),
         stack: z.number().min(1).max(50),
-      })
+      }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -309,7 +309,7 @@ export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
 export const fetchUserItem = async (
   client: DrizzleClient,
   userId: string,
-  userItemId: string
+  userItemId: string,
 ) => {
   return await client.query.userItem.findFirst({
     where: and(eq(userItem.userId, userId), eq(userItem.id, userItemId)),

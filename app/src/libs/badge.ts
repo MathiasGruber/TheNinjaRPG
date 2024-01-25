@@ -42,7 +42,7 @@ export const useBadgeEditForm = (badge: Badge, refetch: () => void) => {
         updateBadge({ id: badge.id, data: newBadge });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch for changes to avatar

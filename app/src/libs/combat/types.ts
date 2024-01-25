@@ -23,8 +23,8 @@ export type BattleUserState = UserWithRelations & {
   items: (UserItem & {
     item: Item;
   })[];
-  highestOffence: typeof StatNames[number];
-  highestDefence: typeof StatNames[number];
+  highestOffence: (typeof StatNames)[number];
+  highestDefence: (typeof StatNames)[number];
   actionPoints: number;
   armor: number;
   hidden?: boolean;
@@ -36,8 +36,8 @@ export type BattleUserState = UserWithRelations & {
   hex?: TerrainHex;
   originalMoney: number;
   direction: "left" | "right";
-  usedGenerals: typeof GeneralType[number][];
-  usedStats: typeof StatNames[number][];
+  usedGenerals: (typeof GeneralType)[number][];
+  usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
 };
 
@@ -61,7 +61,7 @@ export type CompleteBattle = {
 /**
  * User state returned is masked to hide confidential information about other players
  */
-export type ReturnedUserState = Pick<BattleUserState, typeof publicState[number]> &
+export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[number]> &
   Partial<BattleUserState>;
 
 /**
@@ -106,8 +106,8 @@ export type CombatAction = {
   image: string;
   battleDescription: string;
   type: "basic" | "jutsu" | "item";
-  target: typeof AttackTargets[number];
-  method: typeof AttackMethods[number];
+  target: (typeof AttackTargets)[number];
+  method: (typeof AttackMethods)[number];
   range: number;
   healthCostPerc: number;
   chakraCostPerc: number;
@@ -176,7 +176,7 @@ export const animationNames = [
   "rising_smoke",
 ] as const;
 
-export type AnimationName = typeof animationNames[number];
+export type AnimationName = (typeof animationNames)[number];
 
 /**
  * Convenience method for a string with a default value
@@ -423,7 +423,7 @@ export const CloneTag = z.object({
   ...PositivePowerAttributes,
   type: z.literal("clone").default("clone"),
   description: msg(
-    "Create a temporary clone to fight alongside you for a given number of rounds."
+    "Create a temporary clone to fight alongside you for a given number of rounds.",
   ),
   rounds: z.number().int().min(2).max(100).default(2),
   calculation: z.enum(["percentage"]).default("percentage"),
@@ -552,7 +552,7 @@ export const SummonTag = z.object({
   ...PositivePowerAttributes,
   type: z.literal("summon").default("summon"),
   description: msg(
-    "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage."
+    "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage.",
   ),
   rounds: z.number().int().min(2).max(100).default(2),
   aiId: z.string().default(""),
@@ -641,13 +641,13 @@ const BloodlineTags = z.union([
 ]);
 export type ZodBloodlineTags = z.infer<typeof BloodlineTags>;
 export const bloodlineTypes = BloodlineTags._def.options.map(
-  (o) => o._def.innerType.shape.type._def.innerType._def.value
+  (o) => o._def.innerType.shape.type._def.innerType._def.value,
 );
 
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: ZodAllTags["type"]) => {
   const schema = AllTags._def.options.find(
-    (o) => o._def.innerType.shape.type._def.innerType._def.value === type
+    (o) => o._def.innerType.shape.type._def.innerType._def.value === type,
   );
   if (!schema) return UnknownTag;
   return schema._def.innerType;
@@ -667,8 +667,8 @@ export type BattleEffect = ZodAllTags & {
   villageId?: string | null;
   targetType?: "user" | "barrier";
   power?: number;
-  highestOffence?: typeof StatNames[number];
-  highestDefence?: typeof StatNames[number];
+  highestOffence?: (typeof StatNames)[number];
+  highestDefence?: (typeof StatNames)[number];
   longitude: number;
   latitude: number;
   barrierAbsorb: number;
@@ -691,8 +691,8 @@ export type ActionEffect = {
  * Refiner object, which is used to refine the data in the battle object
  */
 type ActionValidatorType = {
-  target: typeof AttackTargets[number];
-  method: typeof AttackMethods[number];
+  target: (typeof AttackTargets)[number];
+  method: (typeof AttackMethods)[number];
   range?: number;
   effects: ZodAllTags[];
 };
@@ -706,7 +706,7 @@ const addIssue = (ctx: z.RefinementCtx, message: string) => {
 
 const SuperRefineEffects = (
   effects: ZodAllTags[] | ZodBloodlineTags[],
-  ctx: z.RefinementCtx
+  ctx: z.RefinementCtx,
 ) => {
   effects.forEach((e) => {
     if (e.type === "barrier" && e.staticAssetPath === "") {
@@ -714,7 +714,7 @@ const SuperRefineEffects = (
     } else if (e.type === "clone" && e.rounds === 0) {
       addIssue(
         ctx,
-        "CloneTag can only be set to 0 rounds, indicating a single clone creation"
+        "CloneTag can only be set to 0 rounds, indicating a single clone creation",
       );
     }
   });

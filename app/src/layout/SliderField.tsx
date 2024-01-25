@@ -66,7 +66,7 @@ interface UncontrolledSliderFieldProps {
   setValue: React.Dispatch<React.SetStateAction<number>>;
 }
 export const UncontrolledSliderField: React.FC<UncontrolledSliderFieldProps> = (
-  props
+  props,
 ) => {
   return (
     <div className="m-1">

@@ -42,8 +42,8 @@ export const homeRouter = createTRPCRouter({
             and(
               eq(userData.userId, ctx.userId),
               eq(userData.status, "AWAKE"),
-              gte(userData.curHealth, 0)
-            )
+              gte(userData.curHealth, 0),
+            ),
           );
         if (result.rowsAffected === 0) {
           return errorResponse("You can't sleep right now; are you awake and well?");

@@ -2,7 +2,7 @@ import type { UserData } from "../../drizzle/schema";
 
 // Options in standard ramen shop
 export const ramenOptions = ["small", "medium", "large"] as const;
-export type RamenOption = typeof ramenOptions[number];
+export type RamenOption = (typeof ramenOptions)[number];
 
 /**
  * For each ramen option, return the percentage of health it heals

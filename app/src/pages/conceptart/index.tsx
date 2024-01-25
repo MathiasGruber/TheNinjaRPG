@@ -70,7 +70,7 @@ const ConceptArt: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allImage = data?.pages
     .map((page) => page.data)
@@ -96,7 +96,7 @@ const ConceptArt: NextPage = () => {
         }
       }
     },
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   return (
@@ -113,7 +113,10 @@ const ConceptArt: NextPage = () => {
           <SelectField
             id="filter"
             onChange={(e) =>
-              filterForm.setValue("sort", e.target.value as typeof sortOptions[number])
+              filterForm.setValue(
+                "sort",
+                e.target.value as (typeof sortOptions)[number],
+              )
             }
           >
             {sortOptions.map((value) => {
@@ -129,7 +132,7 @@ const ConceptArt: NextPage = () => {
             onChange={(e) =>
               filterForm.setValue(
                 "time_frame",
-                e.target.value as typeof timeFrame[number]
+                e.target.value as (typeof timeFrame)[number],
               )
             }
           >

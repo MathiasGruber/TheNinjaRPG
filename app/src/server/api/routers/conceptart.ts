@@ -50,8 +50,8 @@ export const conceptartRouter = createTRPCRouter({
             and(
               eq(userLikes.userId, ctx.userId),
               eq(userLikes.imageId, input.imageId),
-              eq(userLikes.type, input.type)
-            )
+              eq(userLikes.type, input.type),
+            ),
           );
       } else {
         await ctx.drizzle.insert(userLikes).values({
@@ -112,7 +112,7 @@ export const conceptartRouter = createTRPCRouter({
           cursor: z.number().nullish(),
           limit: z.number().min(1).max(500),
         })
-        .merge(conceptArtFilterSchema)
+        .merge(conceptArtFilterSchema),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -123,7 +123,7 @@ export const conceptartRouter = createTRPCRouter({
         extras: {
           sumReaction:
             sql<number>`${conceptImage.n_likes} + ${conceptImage.n_loves} + ${conceptImage.n_laugh}`.as(
-              "total_reaction"
+              "total_reaction",
             ),
         },
         where: and(
@@ -134,7 +134,7 @@ export const conceptartRouter = createTRPCRouter({
             secondsBack
               ? sql`createdAt > DATE_SUB(NOW(), INTERVAL ${secondsBack} SECOND)`
               : undefined,
-          ]
+          ],
         ),
         offset: skip,
         limit: input.limit,
@@ -175,7 +175,7 @@ export const conceptartRouter = createTRPCRouter({
 export const fetchImage = async (
   client: DrizzleClient,
   imageId: string,
-  userId: string
+  userId: string,
 ) => {
   const result = await client.query.conceptImage.findFirst({
     where: eq(conceptImage.id, imageId),

@@ -14,15 +14,15 @@ export const oceanColors = [0x184695, 0x1c54b5, 0x2767d7] as const;
 export const dessertColors = [0xf9e79f, 0xfad7a0, 0xf5cba7] as const;
 
 export const groundMats = groundColors.map(
-  (color) => new MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true }),
 );
 
 export const oceanMats = oceanColors.map(
-  (color) => new MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true }),
 );
 
 export const dessertMats = dessertColors.map(
-  (color) => new MeshBasicMaterial({ color, transparent: true })
+  (color) => new MeshBasicMaterial({ color, transparent: true }),
 );
 
 /**
@@ -46,7 +46,7 @@ export const getMapSprites = (
   density: number,
   asset: string,
   hex: TerrainHex,
-  scatterStrength: number
+  scatterStrength: number,
 ) => {
   const sprites: Sprite[] = [];
   // Fetch tile sprite

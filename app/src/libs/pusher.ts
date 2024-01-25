@@ -40,7 +40,7 @@ export class Pusher {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: body,
-        }
+        },
       );
     } catch (error) {
       console.log("Error", error);
@@ -60,12 +60,12 @@ export class Pusher {
       encodedSecret,
       { name: "HMAC", hash: "SHA-256" },
       false,
-      ["sign"]
+      ["sign"],
     );
     const signature = await crypto.subtle.sign(
       { name: "HMAC", hash: "SHA-256" },
       importedKey,
-      encodedData
+      encodedData,
     );
     const signatureArray = Array.from(new Uint8Array(signature));
     const signatureHex = signatureArray
@@ -80,7 +80,7 @@ export const getServerPusher = () => {
     process.env.PUSHER_APP_ID,
     process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
     process.env.PUSHER_APP_SECRET,
-    process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER
+    process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
   );
   return pusher;
 };

@@ -35,7 +35,7 @@ export const bloodlineRouter = createTRPCRouter({
         showHidden: z.boolean().optional().nullable(),
         effect: z.string().optional(),
         stat: z.enum(statFilters).optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
@@ -52,7 +52,7 @@ export const bloodlineRouter = createTRPCRouter({
             : []),
           ...(input.stat
             ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.stat}) IS NOT NULL`]
-            : [])
+            : []),
         ),
         offset: skip,
         limit: input.limit,
@@ -187,7 +187,7 @@ export const bloodlineRouter = createTRPCRouter({
       const randomBloodline = getRandomElement(
         await ctx.drizzle.query.bloodline.findMany({
           where: and(eq(bloodline.rank, bloodlineRank), eq(bloodline.hidden, 0)),
-        })
+        }),
       );
       if (randomBloodline) {
         bloodlineId = randomBloodline.id;
@@ -286,7 +286,7 @@ export const updateBloodline = async (
   client: DrizzleClient,
   user: UserData,
   bloodlineId: string | null,
-  repCost: number
+  repCost: number,
 ) => {
   // Get current bloodline jutsus
   const bloodlineJutsus = user.bloodlineId
@@ -308,8 +308,8 @@ export const updateBloodline = async (
             .where(
               and(
                 eq(userJutsu.userId, user.userId),
-                inArray(userJutsu.jutsuId, bloodlineJutsus)
-              )
+                inArray(userJutsu.jutsuId, bloodlineJutsus),
+              ),
             ),
         ]
       : []),
@@ -321,7 +321,7 @@ export const updateBloodline = async (
         reputationPoints: user.reputationPoints - repCost,
       })
       .where(
-        and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost))
+        and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost)),
       ),
   ]);
 };

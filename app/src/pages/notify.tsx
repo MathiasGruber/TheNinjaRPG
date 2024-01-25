@@ -34,7 +34,7 @@ const NotifyUsers: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const notifications = data?.pages.map((page) => page.data).flat();
 

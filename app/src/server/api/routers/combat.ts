@@ -99,7 +99,7 @@ export const combatRouter = createTRPCRouter({
         battleId: z.string(),
         refreshKey: z.number().optional(),
         checkBattle: z.boolean().optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const entries = await ctx.drizzle.query.battleAction.findMany({
@@ -125,7 +125,7 @@ export const combatRouter = createTRPCRouter({
       const Tile = defineHex({ dimensions: 1, orientation: Orientation.FLAT });
       const grid = new Grid(
         Tile,
-        rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT })
+        rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT }),
       ).map((tile) => {
         tile.cost = 1;
         return tile;
@@ -286,7 +286,7 @@ export const combatRouter = createTRPCRouter({
 
           // Only keep visual tags that are newer than original round
           newBattle.groundEffects = newBattle.groundEffects.filter(
-            (e) => e.type !== "visual" || e.createdRound >= originalRound
+            (e) => e.type !== "visual" || e.createdRound >= originalRound,
           );
 
           /**
@@ -330,7 +330,7 @@ export const combatRouter = createTRPCRouter({
         where: and(
           eq(userData.userId, input.aiId),
           eq(userData.isAi, 1),
-          eq(userData.isSummon, 0)
+          eq(userData.isSummon, 0),
         ),
       });
       // Check that user was found
@@ -357,7 +357,7 @@ export const combatRouter = createTRPCRouter({
             client: ctx.drizzle,
           },
           "ARENA",
-          determineArenaBackground(user.village?.name || "Unknown")
+          determineArenaBackground(user.village?.name || "Unknown"),
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -379,7 +379,7 @@ export const combatRouter = createTRPCRouter({
         sector: z.number().int(),
         userId: z.string(),
         asset: z.enum(["ocean", "ground", "dessert"]).optional(),
-      })
+      }),
     )
     .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
@@ -393,7 +393,7 @@ export const combatRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "COMBAT",
-        determineCombatBackground(input.asset || "ground")
+        determineCombatBackground(input.asset || "ground"),
       );
     }),
 });
@@ -441,7 +441,7 @@ export const initiateBattle = async (
     scaleTarget?: boolean;
   },
   battleType: BattleType,
-  background = "forest.webp"
+  background = "forest.webp",
 ): Promise<BaseServerResponse> => {
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
@@ -463,7 +463,7 @@ export const initiateBattle = async (
           userQuests: {
             where: or(
               and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-              eq(questHistory.questType, "achievement")
+              eq(questHistory.questType, "achievement"),
             ),
             with: {
               quest: true,
@@ -524,15 +524,15 @@ export const initiateBattle = async (
             or(
               and(
                 eq(battleHistory.attackedId, users[0]["userId"]),
-                eq(battleHistory.defenderId, users[1]["userId"])
+                eq(battleHistory.defenderId, users[1]["userId"]),
               ),
               and(
                 eq(battleHistory.attackedId, users[1]["userId"]),
-                eq(battleHistory.defenderId, users[0]["userId"])
-              )
+                eq(battleHistory.defenderId, users[0]["userId"]),
+              ),
             ),
-            gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date()))
-          )
+            gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+          ),
         );
       const previousBattles = results?.[0]?.count || 0;
       if (previousBattles > 0) {
@@ -542,7 +542,7 @@ export const initiateBattle = async (
 
     // Create the users array to be inserted into the battle
     const { userEffects, usersState, allSummons } = processUsersForBattle(
-      users as BattleUserState[]
+      users as BattleUserState[],
     );
 
     // If there are any summonAIs defined, then add them to usersState, but disable them
@@ -577,7 +577,7 @@ export const initiateBattle = async (
       for (let row = 0; row < COMBAT_HEIGHT; row++) {
         // Ignore the spots where we placed users
         const foundUser = usersState.find(
-          (u) => u.longitude === col && u.latitude === row
+          (u) => u.longitude === col && u.latitude === row,
         );
         if (!foundUser) {
           const rand = Math.random();
@@ -668,11 +668,11 @@ export const initiateBattle = async (
                 and(
                   eq(userData.sector, sector),
                   ...(longitude ? [eq(userData.longitude, longitude)] : []),
-                  ...(latitude ? [eq(userData.latitude, latitude)] : [])
+                  ...(latitude ? [eq(userData.latitude, latitude)] : []),
                 ),
               ]
-            : [])
-        )
+            : []),
+        ),
       );
     if (result.rowsAffected !== 2) {
       return { success: false, message: "Attack failed, did the target move?" };

@@ -82,7 +82,7 @@ const Register: React.FC = () => {
   // Checking for unique username
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: watchUsername },
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
 
   // If selected username found in database, set error. If not, clear error.
@@ -118,7 +118,7 @@ const Register: React.FC = () => {
   // Handle form submit
   const handleCreateCharacter = handleSubmit(
     (data) => createCharacter(data),
-    (errors) => console.log(errors)
+    (errors) => console.log(errors),
   );
 
   // Options used for select fields

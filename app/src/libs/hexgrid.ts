@@ -80,7 +80,7 @@ export interface UserLocation {
 /** Find a given hex in a grid */
 export const findHex = (
   grid: Grid<TerrainHex> | null,
-  point: Point2D | UserLocation
+  point: Point2D | UserLocation,
 ) => {
   if ("x" in point && "y" in point) {
     return grid?.getHex({
@@ -98,7 +98,7 @@ export const findHex = (
 export const getPossibleActionTiles = (
   action: CombatAction | undefined,
   origin: TerrainHex | undefined,
-  grid: Grid<TerrainHex>
+  grid: Grid<TerrainHex>,
 ) => {
   let highlights: Grid<TerrainHex> | undefined = undefined;
   if (action && origin) {

@@ -29,7 +29,7 @@ function _objectSpread(target) {
       ownKeys = ownKeys.concat(
         Object.getOwnPropertySymbols(source).filter(function (sym) {
           return Object.getOwnPropertyDescriptor(source, sym).enumerable;
-        })
+        }),
       );
     }
 
@@ -198,7 +198,7 @@ var runtime_1 = createCommonjsModule(function (module) {
               },
               function (err) {
                 invoke("throw", err, resolve, reject);
-              }
+              },
             );
           }
 
@@ -214,7 +214,7 @@ var runtime_1 = createCommonjsModule(function (module) {
               // If a rejected Promise was yielded, throw the rejection back
               // into the async generator function so it can be handled there.
               return invoke("throw", error, resolve, reject);
-            }
+            },
           );
         }
       }
@@ -246,7 +246,7 @@ var runtime_1 = createCommonjsModule(function (module) {
                 callInvokeWithMethodAndArg,
                 // Avoid propagating failures to Promises returned by later
                 // invocations of the iterator.
-                callInvokeWithMethodAndArg
+                callInvokeWithMethodAndArg,
               )
             : callInvokeWithMethodAndArg());
       }
@@ -758,7 +758,7 @@ var runtime_1 = createCommonjsModule(function (module) {
     // as the regeneratorRuntime namespace. Otherwise create a new empty
     // object. Either way, the resulting object will be used to initialize
     // the regeneratorRuntime variable at the top of this file.
-    module.exports
+    module.exports,
   );
 
   try {
@@ -835,7 +835,7 @@ function doRequest(_ref) {
       {
         "Content-Type": "application/json",
       },
-      headers
+      headers,
     );
   }
 
@@ -879,15 +879,15 @@ function doRequest(_ref) {
             },
             _callee,
             null,
-            [[3, 9]]
+            [[3, 9]],
           );
-        })
+        }),
       );
 
       return function (_x) {
         return _ref2.apply(this, arguments);
       };
-    })()
+    })(),
   );
 }
 
@@ -929,7 +929,7 @@ function _handleError() {
                 _context2.t0 = _context2["catch"](0);
                 errorMessage = "Unexpected status code ".concat(
                   response.status,
-                  ": Cannot parse error response"
+                  ": Cannot parse error response",
                 );
 
               case 14:
@@ -943,9 +943,9 @@ function _handleError() {
         },
         _callee2,
         null,
-        [[0, 11]]
+        [[0, 11]],
       );
-    })
+    }),
   );
   return _handleError.apply(this, arguments);
 }
@@ -1039,7 +1039,7 @@ var DeviceStateStore =
 
           if (!this.isConnected) {
             throw new Error(
-              "Cannot read value: DeviceStateStore not connected to IndexedDB"
+              "Cannot read value: DeviceStateStore not connected to IndexedDB",
             );
           }
 
@@ -1100,9 +1100,9 @@ var DeviceStateStore =
                   }
                 },
                 _callee,
-                this
+                this,
               );
-            })
+            }),
           );
 
           function _readProperty(_x) {
@@ -1119,7 +1119,7 @@ var DeviceStateStore =
 
           if (!this.isConnected) {
             throw new Error(
-              "Cannot write value: DeviceStateStore not connected to IndexedDB"
+              "Cannot write value: DeviceStateStore not connected to IndexedDB",
             );
           }
 
@@ -1167,9 +1167,9 @@ var DeviceStateStore =
                   }
                 },
                 _callee2,
-                this
+                this,
               );
-            })
+            }),
           );
 
           function _writeProperty(_x2, _x3) {
@@ -1366,7 +1366,7 @@ self.PusherPushNotifications = {
                   path = ""
                     .concat(
                       self.PusherPushNotifications._endpoint(instanceId),
-                      "/reporting_api/v2/instances/"
+                      "/reporting_api/v2/instances/",
                     )
                     .concat(instanceId, "/events");
                   options = {
@@ -1403,9 +1403,9 @@ self.PusherPushNotifications = {
           },
           _callee,
           null,
-          [[21, 26]]
+          [[21, 26]],
         );
-      })
+      }),
     );
 
     function reportEvent(_x) {
@@ -1495,7 +1495,7 @@ self.addEventListener("push", function (e) {
                   };
                   return _context2.abrupt(
                     "return",
-                    self.registration.showNotification(title, options)
+                    self.registration.showNotification(title, options),
                   );
 
                 case 13:
@@ -1504,7 +1504,7 @@ self.addEventListener("push", function (e) {
               }
             }
           }, _callee2);
-        })
+        }),
       );
 
       return function handleNotification(_x2) {

@@ -25,7 +25,7 @@ import type { GroundEffect, UserEffect } from "./types";
 export const availableUserActions = (
   battle: ReturnedBattle | undefined | null,
   userId: string | undefined,
-  basicMoves = true
+  basicMoves = true,
 ): CombatAction[] => {
   const usersState = battle?.usersState;
   const user = usersState?.find((u) => u.userId === userId);
@@ -274,7 +274,7 @@ export const insertAction = (info: {
         aStar,
         groundEffects,
         userHex,
-        tile
+        tile,
       );
 
       // ADD USER EFFECTS
@@ -288,7 +288,7 @@ export const insertAction = (info: {
               user,
               action.level,
               battle.round,
-              totalAbsorb
+              totalAbsorb,
             );
             if (effect) {
               effect.longitude = tile.col;
@@ -314,7 +314,7 @@ export const insertAction = (info: {
             user,
             action.level,
             battle.round,
-            totalAbsorb
+            totalAbsorb,
           );
           if (effect) {
             effect.longitude = tile.col;
@@ -381,28 +381,28 @@ export const insertAction = (info: {
       }
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_subject",
-        user.gender === "Male" ? "he" : "she"
+        user.gender === "Male" ? "he" : "she",
       );
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_object",
-        user.gender === "Male" ? "him" : "her"
+        user.gender === "Male" ? "him" : "her",
       );
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_posessive",
-        user.gender === "Male" ? "his" : "hers"
+        user.gender === "Male" ? "his" : "hers",
       );
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_reflexive",
-        user.gender === "Male" ? "himself" : "herself"
+        user.gender === "Male" ? "himself" : "herself",
       );
       action.battleDescription = action.battleDescription.replaceAll(
         "%user",
-        user.username
+        user.username,
       );
       // Update generic descriptions
       action.battleDescription = action.battleDescription.replaceAll(
         "%location",
-        `[${targetTile.row}, ${targetTile.col}]`
+        `[${targetTile.row}, ${targetTile.col}]`,
       );
       // Update target descriptions
       if (targetGenders.length > 0) {
@@ -412,7 +412,7 @@ export const insertAction = (info: {
             ? targetGenders[0] == "Male"
               ? "himself"
               : "herself"
-            : "they"
+            : "they",
         );
         action.battleDescription = action.battleDescription.replaceAll(
           "%target_object",
@@ -420,7 +420,7 @@ export const insertAction = (info: {
             ? targetGenders[0] == "Male"
               ? "him"
               : "her"
-            : "them"
+            : "them",
         );
         action.battleDescription = action.battleDescription.replaceAll(
           "%target_posessive",
@@ -428,7 +428,7 @@ export const insertAction = (info: {
             ? targetGenders[0] == "Male"
               ? "his"
               : "hers"
-            : "theirs"
+            : "theirs",
         );
         action.battleDescription = action.battleDescription.replaceAll(
           "%target_reflexive",
@@ -436,13 +436,13 @@ export const insertAction = (info: {
             ? targetGenders[0] == "Male"
               ? "himself"
               : "herself"
-            : "themselves"
+            : "themselves",
         );
       }
       if (targetUsernames.length > 0) {
         action.battleDescription = action.battleDescription.replaceAll(
           "%target",
-          targetUsernames.join(", ")
+          targetUsernames.join(", "),
         );
       }
       // Successful action
@@ -454,9 +454,9 @@ export const insertAction = (info: {
 
 export const getTargetUser = (
   users: BattleUserState[],
-  target: typeof AttackTargets[number],
+  target: (typeof AttackTargets)[number],
   tile: TerrainHex,
-  userId: string
+  userId: string,
 ) => {
   let result: BattleUserState | undefined = undefined;
   const user = users.find((u) => u.userId === userId);
@@ -520,7 +520,7 @@ export const performBattleAction = (props: {
 export const isInNewRound = (
   user: { updatedAt: string | Date; actionPoints: number },
   battle: ReturnedBattle,
-  timeDiff = 0
+  timeDiff = 0,
 ) => {
   // Did we pass to next round?
   const syncedTime = Date.now() - timeDiff;
@@ -537,7 +537,7 @@ export const actionPointsAfterAction = (
   user: { updatedAt: string | Date; actionPoints: number },
   battle: ReturnedBattle,
   action: CombatAction,
-  timeDiff = 0
+  timeDiff = 0,
 ) => {
   if (isInNewRound(user, battle, timeDiff)) {
     return 100 - action.actionCostPerc;
@@ -560,7 +560,7 @@ export const stillInBattle = (user: ReturnedUserState) => {
 export const calcActiveUser = (
   battle: ReturnedBattle,
   userId?: string | null,
-  timeDiff: number = 0
+  timeDiff: number = 0,
 ) => {
   const syncedTime = Date.now() - timeDiff;
   const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();

@@ -13,7 +13,7 @@ const VillageOverview: NextPage = () => {
   const village_id = userData?.village?.id as string;
   const { data, isFetching } = api.village.get.useQuery(
     { id: village_id },
-    { enabled: village_id !== undefined, staleTime: Infinity }
+    { enabled: village_id !== undefined, staleTime: Infinity },
   );
 
   const title = userData?.village ? `${userData.village.name} Village` : "Village";

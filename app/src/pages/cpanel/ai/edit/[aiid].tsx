@@ -21,7 +21,7 @@ const AIPanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
-    { staleTime: Infinity, enabled: aiId !== undefined }
+    { staleTime: Infinity, enabled: aiId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form

@@ -22,7 +22,7 @@ const calcCurrent = (
   total: number,
   status?: UserStatus,
   regen?: number,
-  regenAt?: Date | null
+  regenAt?: Date | null,
 ) => {
   let current = start;
   if (status === "BATTLE") {
@@ -54,7 +54,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
 
   // Calculate initial state
   const [state, setState] = useState(
-    calcCurrent(current, total, status, regen, lastRegenAt)
+    calcCurrent(current, total, status, regen, lastRegenAt),
   );
 
   // Color for the bars

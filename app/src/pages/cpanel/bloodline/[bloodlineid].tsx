@@ -12,7 +12,7 @@ const BloodlineStatistics: NextPage = () => {
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
     { id: bloodlineId, type: "bloodline" },
-    { staleTime: Infinity, enabled: bloodlineId !== undefined }
+    { staleTime: Infinity, enabled: bloodlineId !== undefined },
   );
   const bloodline = data?.info;
   const usage = data?.usage;

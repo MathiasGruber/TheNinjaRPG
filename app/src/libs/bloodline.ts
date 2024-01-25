@@ -79,7 +79,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
         updateBloodline({ id: bloodline.id, data: newBloodline });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch the effects

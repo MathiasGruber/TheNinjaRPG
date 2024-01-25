@@ -10,7 +10,7 @@ import type { NextPage } from "next";
 
 const ManualAIs: NextPage = () => {
   // State
-  const [filter, setFilter] = useState<typeof BattleTypes[number]>("ARENA");
+  const [filter, setFilter] = useState<(typeof BattleTypes)[number]>("ARENA");
 
   // Reference for the chart
   const chartRef = useRef<HTMLCanvasElement>(null);
@@ -18,7 +18,7 @@ const ManualAIs: NextPage = () => {
   // // Queries
   const { data, isLoading } = api.data.getAiBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
 
   useEffect(() => {

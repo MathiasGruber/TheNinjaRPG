@@ -48,7 +48,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
@@ -97,7 +97,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
-    (errors) => console.error(errors)
+    (errors) => console.error(errors),
   );
 
   return (

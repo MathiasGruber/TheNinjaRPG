@@ -20,10 +20,10 @@ const MissionHall: NextPage = () => {
   useRequireInVillage();
 
   const currentQuest = userData?.userQuests?.find(
-    (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt
+    (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,
   );
   const currentTracker = userData?.questData?.find(
-    (q) => q.id === currentQuest?.questId
+    (q) => q.id === currentQuest?.questId,
   );
 
   const { data: hallData } = api.quests.missionHall.useQuery(undefined, {
@@ -74,12 +74,12 @@ const MissionHall: NextPage = () => {
             // Count how many of this type and rank are available
             const count =
               hallData?.find(
-                (point) => point.type === setting.type && point.rank === setting.rank
+                (point) => point.type === setting.type && point.rank === setting.rank,
               )?.count ?? 0;
             // Based on last quest finish, create countdown if applicable
             const allowedAt = secondsFromDate(
               setting.delayMinutes * 60,
-              userData.questFinishAt
+              userData.questFinishAt,
             );
             const coundownComponent = (
               <Countdown

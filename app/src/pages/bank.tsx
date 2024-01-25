@@ -131,7 +131,7 @@ const Bank: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: 1000 * 60 * 5, // every 5min
-    }
+    },
   );
   const allTransfers = ledger?.pages
     .map((page) => page.data)

@@ -108,7 +108,7 @@ const Combat: React.FC<CombatProps> = (props) => {
               if (data.logEntries) {
                 return prevData ? [...data.logEntries, ...prevData] : data.logEntries;
               }
-            }
+            },
           );
         }
         // Update battle state
@@ -282,7 +282,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         WIDTH,
         HEIGHT,
         scene,
-        battle.current.background
+        battle.current.background,
       );
       grid.current = honeycombGrid;
 
@@ -363,7 +363,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         if (userData && battle.current && grid.current) {
           // Get the selected user
           const user = battle.current.usersState.find(
-            (u) => u.userId === userId.current
+            (u) => u.userId === userId.current,
           );
 
           // Draw all users on the map + indicators for positions with multiple users
@@ -443,15 +443,15 @@ const Combat: React.FC<CombatProps> = (props) => {
     ? result.curHealth <= 0
       ? "Lost"
       : result.experience > 0.01
-      ? "Won"
-      : "Fled"
+        ? "Won"
+        : "Fled"
     : "Unknown";
   const showNextMatch = outcome === "Won" && battle.current?.battleType === "ARENA";
   const arenaOpponentId = battle.current?.usersState.find(
-    (u) => u.userId !== suid && !u.isSummon && u.isAi
+    (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.userId;
   const initiveWinner = battle.current?.usersState.find(
-    (u) => u.userId === battle.current?.activeUserId
+    (u) => u.userId === battle.current?.activeUserId,
   );
   return (
     <>

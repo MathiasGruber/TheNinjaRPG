@@ -137,10 +137,10 @@ export const mainFilters = [
 export const statFilters = [...StatType, ...GeneralType] as const;
 export const effectFilters = tagTypes;
 export const rarities = ["ALL", ...LetterRanks] as const;
-export type FilterType = typeof mainFilters[number];
-export type StatType = typeof statFilters[number];
-export type EffectType = typeof effectFilters[number];
-export type RarityType = typeof rarities[number];
+export type FilterType = (typeof mainFilters)[number];
+export type StatType = (typeof statFilters)[number];
+export type EffectType = (typeof effectFilters)[number];
+export type RarityType = (typeof rarities)[number];
 
 /**
  * Get training efficiency

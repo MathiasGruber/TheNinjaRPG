@@ -50,7 +50,7 @@ export const useInfinitePagination = ({
         show_toast(
           "Error fetching batch",
           "Error fetching next batch of data",
-          "error"
+          "error",
         );
       });
     }

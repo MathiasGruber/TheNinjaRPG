@@ -19,7 +19,7 @@ const MyItems: NextPage = () => {
   // State
   const { data: userData } = useRequiredUserData();
   const tabs = ["Character", "Backpack"];
-  const [screen, setScreen] = useState<typeof tabs[number]>("Character");
+  const [screen, setScreen] = useState<(typeof tabs)[number]>("Character");
 
   // Data from DB
   useRequiredUserData();

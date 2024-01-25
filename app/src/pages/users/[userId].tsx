@@ -37,7 +37,7 @@ const PublicProfile: NextPage = () => {
     isLoading,
   } = api.profile.getPublicUser.useQuery(
     { userId: userId },
-    { enabled: userId !== undefined }
+    { enabled: userId !== undefined },
   );
 
   const updateAvatar = api.reports.updateUserAvatar.useMutation({

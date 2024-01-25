@@ -29,7 +29,7 @@ const Arena: NextPage = () => {
 
   const { data: ai } = api.profile.getAi.useQuery(
     { userId: aiId ?? "" },
-    { staleTime: Infinity, enabled: !!aiId }
+    { staleTime: Infinity, enabled: !!aiId },
   );
 
   // Mutation for starting a fight
@@ -109,7 +109,7 @@ const Arena: NextPage = () => {
                     effects: [],
                     href: `/users/${ai.userId}`,
                     attacks: ai.jutsus?.map((jutsu) =>
-                      "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown"
+                      "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",
                     ),
                     ...ai,
                   } as GenericObject

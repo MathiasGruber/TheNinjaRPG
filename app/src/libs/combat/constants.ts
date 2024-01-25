@@ -90,7 +90,7 @@ export const allElements = [
   "Yin-Yang",
   "None",
 ] as const;
-export type Element = typeof allElements[number];
+export type Element = (typeof allElements)[number];
 
 export const StatType = [
   "Highest",

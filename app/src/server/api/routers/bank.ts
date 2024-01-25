@@ -84,7 +84,7 @@ export const bankRouter = createTRPCRouter({
         receiverId: z.string().optional().nullish(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -92,7 +92,7 @@ export const bankRouter = createTRPCRouter({
       const transfers = await ctx.drizzle.query.bankTransfers.findMany({
         where: or(
           input.senderId ? eq(bankTransfers.senderId, input.senderId) : undefined,
-          input.receiverId ? eq(bankTransfers.receiverId, input.receiverId) : undefined
+          input.receiverId ? eq(bankTransfers.receiverId, input.receiverId) : undefined,
         ),
         with: {
           sender: { columns: { username: true } },

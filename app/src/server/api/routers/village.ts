@@ -96,8 +96,8 @@ export const villageRouter = createTRPCRouter({
           and(
             eq(userData.userId, ctx.userId),
             gte(userData.reputationPoints, cost),
-            eq(userData.status, "AWAKE")
-          )
+            eq(userData.status, "AWAKE"),
+          ),
         );
       return { success: true, message: "You have swapped villages" };
     }),

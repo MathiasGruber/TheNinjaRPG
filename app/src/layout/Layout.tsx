@@ -63,7 +63,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
             // for all calculations
             data.userData.updatedAt = secondsFromDate(
               -discrepancy / 1000,
-              data.userData.updatedAt
+              data.userData.updatedAt,
             );
           }
           // Save the time-discrepancy between client and server for reference
@@ -80,7 +80,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           await signOut();
         }
       },
-    }
+    },
   );
   // if (timeDiff > 0) {
   //   console.log("Client - Server time diff [ms]: ", timeDiff);

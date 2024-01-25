@@ -1,5 +1,5 @@
 export const LetterRanks = ["D", "C", "B", "A", "S"] as const;
-export type LetterRank = typeof LetterRanks[number];
+export type LetterRank = (typeof LetterRanks)[number];
 
 export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 
@@ -38,7 +38,7 @@ export const UserRoles = [
   "ADMIN",
   "CONTENT-ADMIN",
 ] as const;
-export type UserRole = typeof UserRoles[number];
+export type UserRole = (typeof UserRoles)[number];
 
 export const UserStatuses = [
   "AWAKE",
@@ -49,7 +49,7 @@ export const UserStatuses = [
 ] as const;
 
 export const FederalStatuses = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
-export type FederalStatus = typeof FederalStatuses[number];
+export type FederalStatus = (typeof FederalStatuses)[number];
 
 export const UserRanks = [
   "STUDENT",
@@ -60,7 +60,7 @@ export const UserRanks = [
   "ELDER",
   "NONE",
 ] as const;
-export type UserRank = typeof UserRanks[number];
+export type UserRank = (typeof UserRanks)[number];
 
 export const ItemTypes = [
   "WEAPON",
@@ -156,9 +156,9 @@ export const QuestTypes = [
   "daily",
   "achievement",
 ] as const;
-export type QuestType = typeof QuestTypes[number];
+export type QuestType = (typeof QuestTypes)[number];
 
 export const SmileyEmotions = ["like", "love", "laugh"] as const;
 
 export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
-export type TrainingSpeed = typeof TrainingSpeeds[number];
+export type TrainingSpeed = (typeof TrainingSpeeds)[number];

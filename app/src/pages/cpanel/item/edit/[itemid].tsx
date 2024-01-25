@@ -25,7 +25,7 @@ const ItemPanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.item.get.useQuery(
     { id: itemId },
-    { staleTime: Infinity, enabled: itemId !== undefined }
+    { staleTime: Infinity, enabled: itemId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form

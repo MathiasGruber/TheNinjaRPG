@@ -35,7 +35,7 @@ export const avatarRouter = createTRPCRouter({
       z.object({
         limit: z.number().min(1).max(100).nullish(),
         cursor: z.number().nullish(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const limit = input.limit ?? 50;
@@ -44,7 +44,7 @@ export const avatarRouter = createTRPCRouter({
         where: and(
           eq(historicalAvatar.userId, ctx.userId),
           eq(historicalAvatar.done, 1),
-          isNotNull(historicalAvatar.avatar)
+          isNotNull(historicalAvatar.avatar),
         ),
         offset: cursor ? cursor : 0,
         limit: limit + 1,

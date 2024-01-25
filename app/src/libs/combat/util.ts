@@ -23,10 +23,10 @@ import type { Item, UserItem } from "../../../drizzle/schema";
 export const findUser = (
   users: ReturnedUserState[],
   longitude: number,
-  latitude: number
+  latitude: number,
 ) => {
   return users.find(
-    (u) => u.longitude === longitude && u.latitude === latitude && stillInBattle(u)
+    (u) => u.longitude === longitude && u.latitude === latitude && stillInBattle(u),
   );
 };
 
@@ -36,10 +36,10 @@ export const findUser = (
 export const findBarrier = (
   groundEffects: GroundEffect[],
   longitude: number,
-  latitude: number
+  latitude: number,
 ) => {
   return groundEffects.find(
-    (b) => b.longitude === longitude && b.latitude === latitude && b.type === "barrier"
+    (b) => b.longitude === longitude && b.latitude === latitude && b.type === "barrier",
   );
 };
 
@@ -48,7 +48,7 @@ export const getBarriersBetween = (
   aStar: PathCalculator,
   groundEffects: GroundEffect[],
   origin: TerrainHex,
-  target: TerrainHex
+  target: TerrainHex,
 ) => {
   // Get all the barriers
   const barriers = (aStar
@@ -76,7 +76,7 @@ export const getBarriersBetween = (
 export const shouldApplyEffectTimes = (
   effect: UserEffect | GroundEffect,
   battle: ReturnedBattle,
-  targetId: string
+  targetId: string,
 ) => {
   // Certain buff/debuffs are applied always (e.g. resolving against each attack)
   const alwaysApply: ZodAllTags["type"][] = [
@@ -126,7 +126,7 @@ export const shouldApplyEffectTimes = (
  */
 export const calcEffectRoundInfo = (
   effect: UserEffect | GroundEffect,
-  battle: ReturnedBattle
+  battle: ReturnedBattle,
 ) => {
   if (effect.rounds !== undefined && effect.createdRound !== undefined) {
     return { startRound: effect.createdRound, curRound: battle.round };
@@ -151,7 +151,7 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
  */
 export const sortEffects = (
   a: UserEffect | GroundEffect,
-  b: UserEffect | GroundEffect
+  b: UserEffect | GroundEffect,
 ) => {
   const ordered: ZodAllTags["type"][] = [
     // Pre-modifiers
@@ -205,7 +205,7 @@ export const sortEffects = (
 export const calcPoolCost = (
   action: CombatAction,
   usersEffects: UserEffect[],
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   let hpCost = (action.healthCostPerc * target.maxHealth) / 100;
   let cpCost = (action.chakraCostPerc * target.maxChakra) / 100;
@@ -214,7 +214,7 @@ export const calcPoolCost = (
     .filter(
       (e) =>
         ["poolcostadjust", "increasepoolcost", "decreasepoolcost"].includes(e.type) &&
-        e.targetId === target.userId
+        e.targetId === target.userId,
     )
     .forEach((e) => {
       // Get the power to apply (positive or negative)
@@ -292,11 +292,11 @@ export const maskBattle = (battle: Battle, userId: string) => {
     usersState: (battle.usersState as ReturnedUserState[]).map((user) => {
       if (user.controllerId !== userId) {
         return Object.fromEntries(
-          publicState.map((key) => [key, user[key]])
+          publicState.map((key) => [key, user[key]]),
         ) as unknown as ReturnedUserState;
       } else {
         return Object.fromEntries(
-          allState.map((key) => [key, user[key]])
+          allState.map((key) => [key, user[key]]),
         ) as unknown as ReturnedUserState;
       }
     }),
@@ -506,14 +506,14 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
 
 export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
   const stunned = battle.usersEffects.find(
-    (e) => e.type === "stun" && e.targetId === userId
+    (e) => e.type === "stun" && e.targetId === userId,
   );
   return stunned ? true : false;
 };
 
 export const rollInitiative = (
   user: BattleUserState,
-  opponents?: BattleUserState[]
+  opponents?: BattleUserState[],
 ) => {
   // Get a random number between 1 and 20
   let roll = randomInt(1, 20);
@@ -559,7 +559,7 @@ export const rollInitiative = (
 
 export const processUsersForBattle = (
   users: BattleUserState[],
-  hide: boolean = false
+  hide: boolean = false,
 ) => {
   // Collect user effects here
   const allSummons: string[] = [];
@@ -593,7 +593,7 @@ export const processUsersForBattle = (
     };
     type offenceKey = keyof typeof offences;
     user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
-      offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur
+      offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
     ) as offenceKey;
     const defences = {
       ninjutsuDefence: user.ninjutsuDefence,
@@ -603,7 +603,7 @@ export const processUsersForBattle = (
     };
     type defenceKey = keyof typeof defences;
     user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
-      defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur
+      defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur,
     ) as defenceKey;
 
     // Remember how much money this user had
@@ -655,7 +655,7 @@ export const processUsersForBattle = (
       })
       .map((userjutsu) => {
         userjutsu.updatedAt = secondsFromNow(
-          -userjutsu.jutsu.cooldown * COMBAT_SECONDS
+          -userjutsu.jutsu.cooldown * COMBAT_SECONDS,
         );
         return userjutsu;
       });

@@ -46,7 +46,7 @@ export const getTimeLeftStr = (
   days: number,
   hours: number,
   minutes: number,
-  seconds: number
+  seconds: number,
 ) => {
   if (days > 0) {
     return `${days} days, ${hours} hours`;

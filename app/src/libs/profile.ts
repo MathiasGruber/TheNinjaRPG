@@ -114,7 +114,7 @@ export function scaleUserStats(user: UserData) {
 export const useUserEditForm = (
   userId: string,
   user: UpdateUserSchema,
-  refetch: () => void
+  refetch: () => void,
 ) => {
   // Form handling
   const form = useForm<UpdateUserSchema>({
@@ -135,7 +135,7 @@ export const useUserEditForm = (
       onError: (error) => {
         show_toast("Error updating", error.message, "error");
       },
-    }
+    },
   );
 
   // Form submission
@@ -146,7 +146,7 @@ export const useUserEditForm = (
         updateUser({ id: userId, data: data });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Object for form values

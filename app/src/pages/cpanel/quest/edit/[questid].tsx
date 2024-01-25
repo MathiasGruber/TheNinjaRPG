@@ -29,7 +29,7 @@ const QuestPanel: NextPage = () => {
   // Queries
   const { data, isLoading, refetch } = api.quests.get.useQuery(
     { id: questId },
-    { staleTime: Infinity, enabled: questId !== undefined }
+    { staleTime: Infinity, enabled: questId !== undefined },
   );
 
   // Redirect to profile if not content or admin

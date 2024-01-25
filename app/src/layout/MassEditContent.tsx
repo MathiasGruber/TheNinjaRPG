@@ -56,7 +56,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: props.type === "jutsu" && showModal,
-    }
+    },
   );
 
   const {
@@ -70,7 +70,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: props.type === "bloodline" && showModal,
-    }
+    },
   );
 
   const {
@@ -84,7 +84,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: props.type === "item" && showModal,
-    }
+    },
   );
 
   const {
@@ -98,7 +98,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: props.type === "quest" && showModal,
-    }
+    },
   );
 
   // Get the data

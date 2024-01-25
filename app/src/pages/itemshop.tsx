@@ -38,7 +38,7 @@ const ItemShop: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allItems = items?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -50,13 +50,13 @@ const ItemShop: NextPage = () => {
   // Mutations
   const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
     onSuccess: (data) => {
-      if(data.success){
+      if (data.success) {
         void refetchUserItems();
         void refetchUser();
-        show_toast("Success", data.message, "success");  
+        show_toast("Success", data.message, "success");
       } else {
-        show_toast("Error purchasing", data.message, "error");  
-      }      
+        show_toast("Error purchasing", data.message, "error");
+      }
     },
     onError: (error) => {
       show_toast("Error purchasing", error.message, "error");
@@ -126,8 +126,8 @@ const ItemShop: NextPage = () => {
                     isPurchasing
                       ? undefined
                       : canAfford
-                      ? `Buy for ${item.cost * stacksize} ryo`
-                      : `Need ${item.cost * stacksize - userData.money} more ryo`
+                        ? `Buy for ${item.cost * stacksize} ryo`
+                        : `Need ${item.cost * stacksize - userData.money} more ryo`
                   }
                   setIsOpen={setIsOpen}
                   isValid={false}

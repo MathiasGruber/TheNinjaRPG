@@ -46,8 +46,8 @@ export const seedVillages = async (client: DrizzleClient) => {
   console.log("\nSyncing villages...");
 
   const createVillage = async (
-    villageData: typeof villages[number],
-    elderData: typeof elders[number] | undefined
+    villageData: (typeof villages)[number],
+    elderData: (typeof elders)[number] | undefined,
   ) => {
     // // Create Village
     let villageId = nanoid();
@@ -68,7 +68,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       const curBuilding = await client.query.villageStructure.findFirst({
         where: and(
           eq(villageStructure.name, building.name),
-          eq(villageStructure.villageId, villageId)
+          eq(villageStructure.villageId, villageId),
         ),
       });
       if (curBuilding) {
@@ -78,8 +78,8 @@ export const seedVillages = async (client: DrizzleClient) => {
           .where(
             and(
               eq(villageStructure.name, building.name),
-              eq(villageStructure.villageId, villageId)
-            )
+              eq(villageStructure.villageId, villageId),
+            ),
           );
       } else {
         await client

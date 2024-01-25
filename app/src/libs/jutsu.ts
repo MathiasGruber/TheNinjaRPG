@@ -35,7 +35,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Query for bloodlines and villages
   const { data: bloodlines, isLoading: l1 } = api.bloodline.getAllNames.useQuery(
     undefined,
-    { staleTime: Infinity }
+    { staleTime: Infinity },
   );
   const { data: villages, isLoading: l2 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
@@ -61,7 +61,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
         updateJutsu({ id: jutsu.id, data: newJutsu });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch the effects

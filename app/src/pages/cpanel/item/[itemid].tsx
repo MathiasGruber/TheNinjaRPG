@@ -12,7 +12,7 @@ const ItemStatistics: NextPage = () => {
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
     { id: itemId, type: "item" },
-    { staleTime: Infinity, enabled: itemId !== undefined }
+    { staleTime: Infinity, enabled: itemId !== undefined },
   );
   const item = data?.info;
   const usage = data?.usage;

@@ -27,7 +27,7 @@ export default createNextApiHandler({
     console.error(
       `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
         error.stack
-      }`
+      }`,
     );
     // Highlight.io
     void Handlers.trpcOnError(
@@ -37,7 +37,7 @@ export default createNextApiHandler({
         serviceName: "TheNinja-RPG",
         serviceVersion: "git-sha",
         environment: process.env.NODE_ENV,
-      }
+      },
     );
   },
 });

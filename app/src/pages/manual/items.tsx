@@ -20,8 +20,8 @@ import type { NextPage } from "next";
 const ManualItems: NextPage = () => {
   // Settings
   const { data: userData } = useUserData();
-  const [rarity, setRarity] = useState<typeof ItemRarities[number]>("COMMON");
-  const [itemType, setItemType] = useState<typeof ItemTypes[number]>("WEAPON");
+  const [rarity, setRarity] = useState<(typeof ItemRarities)[number]>("COMMON");
+  const [itemType, setItemType] = useState<(typeof ItemTypes)[number]>("WEAPON");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
@@ -40,7 +40,7 @@ const ManualItems: NextPage = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allItems = items?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -82,7 +82,9 @@ const ManualItems: NextPage = () => {
             <SelectField
               id="item-type"
               label=""
-              onChange={(e) => setItemType(e.target.value as typeof ItemTypes[number])}
+              onChange={(e) =>
+                setItemType(e.target.value as (typeof ItemTypes)[number])
+              }
             >
               {Object.values(ItemTypes).map((target) => (
                 <option key={target} value={target}>

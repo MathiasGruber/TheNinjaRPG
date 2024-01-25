@@ -4,7 +4,7 @@ export const callDiscordContent = async (
   username: string,
   updated_name: string,
   diff: string[],
-  image_url?: string | null
+  image_url?: string | null,
 ) => {
   return fetch(process.env.DISCORD_CONTENT_UPDATES, {
     method: "POST",
@@ -20,7 +20,7 @@ export const callDiscordNews = async (
   username: string,
   title: string,
   content: string,
-  image_url?: string | null
+  image_url?: string | null,
 ) => {
   const nhm = new NodeHtmlMarkdown({}, undefined, undefined);
   return fetch(process.env.DISCORD_NEWS_UPDATES, {

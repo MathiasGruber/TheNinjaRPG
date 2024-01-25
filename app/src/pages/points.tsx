@@ -197,7 +197,7 @@ const ReputationStore = (props: { currency: string }) => {
               show_toast(
                 "No order",
                 "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
-                "info"
+                "info",
               );
               return new Promise(() => {
                 return null;
@@ -220,8 +220,8 @@ const PayPalSubscriptionButton = (props: {
   userId: string;
   buyerId: string;
   imageSrc: string;
-  buttonStatus: typeof FederalStatuses[number];
-  currentUserStatus: typeof FederalStatuses[number];
+  buttonStatus: (typeof FederalStatuses)[number];
+  currentUserStatus: (typeof FederalStatuses)[number];
   onSuccess?: () => void;
   onFailure?: () => void;
 }) => {
@@ -371,7 +371,7 @@ const PayPalSubscriptionButton = (props: {
               show_toast(
                 "No subscription",
                 "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-                "info"
+                "info",
               );
             }
             return new Promise(() => {
@@ -564,7 +564,7 @@ const TransactionHistory = () => {
       enabled: !!userId,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
-    }
+    },
   );
   const allTransactions = transactions?.pages
     .map((page) => page.data)
@@ -629,7 +629,7 @@ const LookupSubscription = () => {
   // Submit handler
   const handleSubmitRequest = searchForm.handleSubmit(
     (data) => mutate({ subscriptionId: data.text }),
-    (errors) => console.error(errors)
+    (errors) => console.error(errors),
   );
 
   // Render input form

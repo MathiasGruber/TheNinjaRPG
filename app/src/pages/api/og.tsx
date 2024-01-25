@@ -51,6 +51,6 @@ export default async function handler(request: NextRequest) {
     {
       width: width,
       height: height,
-    }
+    },
   );
 }

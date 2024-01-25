@@ -32,10 +32,10 @@ export const LocationTasks = [
   "collect_item",
   "defeat_opponents",
 ] as const;
-export type LocationTasksType = typeof LocationTasks[number];
+export type LocationTasksType = (typeof LocationTasks)[number];
 
 export const allObjectiveTasks = [...SimpleTasks, ...LocationTasks] as const;
-export type AllObjectiveTask = typeof allObjectiveTasks[number];
+export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
 const rewardFields = {
   reward_money: z.number().default(0),
@@ -173,7 +173,7 @@ export const QuestValidator = z
 export type ZodQuestType = z.infer<typeof QuestValidator>;
 
 export const getObjectiveSchema = (type: string) => {
-  if (SimpleTasks.includes(type as typeof SimpleTasks[number])) {
+  if (SimpleTasks.includes(type as (typeof SimpleTasks)[number])) {
     return SimpleObjective;
   } else if (type === "move_to_location") {
     return MoveToObjective;

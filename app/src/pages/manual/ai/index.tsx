@@ -35,7 +35,7 @@ const ManualAI: NextPage = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: Infinity,
-    }
+    },
   );
   const allUsers = users?.pages
     .map((page) => page.data)
@@ -51,7 +51,7 @@ const ManualAI: NextPage = () => {
         effects: [],
         href: `/users/${user.userId}`,
         attacks: user.jutsus?.map((jutsu) =>
-          "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown"
+          "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",
         ),
         ...user,
       } as GenericObject;

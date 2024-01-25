@@ -51,7 +51,7 @@ export const battle = mysqlTable(
     return {
       idVersionKey: uniqueIndex("Battle_id_version_key").on(table.id, table.version),
     };
-  }
+  },
 );
 export type Battle = InferSelectModel<typeof battle>;
 export type BattleType = Battle["battleType"];
@@ -77,10 +77,10 @@ export const battleAction = mysqlTable(
       battleIdIdx: index("BattleAction_battleId_idx").on(table.battleId),
       battleIdVersionIdx: index("BattleAction_battleId_version_idx").on(
         table.battleId,
-        table.battleVersion
+        table.battleVersion,
       ),
     };
-  }
+  },
 );
 
 export const battleHistory = mysqlTable(
@@ -100,7 +100,7 @@ export const battleHistory = mysqlTable(
       battleWinnerIdx: index("BattleHistory_attackedId_idx").on(table.attackedId),
       battleLoserIdx: index("BattleHistory_defenderId_idx").on(table.defenderId),
     };
-  }
+  },
 );
 
 export const bloodline = mysqlTable(
@@ -129,7 +129,7 @@ export const bloodline = mysqlTable(
       villageIdx: index("Bloodline_village_idx").on(table.village),
       rankIdx: index("Bloodline_rank_idx").on(table.rank),
     };
-  }
+  },
 );
 export type Bloodline = InferSelectModel<typeof bloodline>;
 export type BloodlineRank = Bloodline["rank"];
@@ -158,7 +158,7 @@ export const bloodlineRolls = mysqlTable(
       bloodlineIdIdx: index("BloodlineRolls_bloodlineId_idx").on(table.bloodlineId),
       userIdIdx: index("BloodlineRolls_userId_idx").on(table.userId),
     };
-  }
+  },
 );
 
 export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
@@ -188,7 +188,7 @@ export const conversation = mysqlTable(
       titleKey: index("Conversation_title_key").on(table.title),
       createdByIdIdx: index("Conversation_createdById_idx").on(table.createdById),
     };
-  }
+  },
 );
 
 export const conversationRelations = relations(conversation, ({ many }) => ({
@@ -209,14 +209,14 @@ export const user2conversation = mysqlTable(
     return {
       userIdIdx: index("UsersInConversation_userId_idx").on(table.userId),
       conversationIdIdx: index("UsersInConversation_conversationId_idx").on(
-        table.conversationId
+        table.conversationId,
       ),
       usersInConversationConversationIdUserId: primaryKey(
         table.conversationId,
-        table.userId
+        table.userId,
       ),
     };
-  }
+  },
 );
 
 export const user2conversationRelations = relations(user2conversation, ({ one }) => ({
@@ -247,10 +247,10 @@ export const conversationComment = mysqlTable(
       userIdIdx: index("ConversationComment_userId_idx").on(table.userId),
       createdAtIdx: index("ConversationComment_createdAt_idx").on(table.createdAt),
       conversationIdIdx: index("ConversationComment_conversationId_idx").on(
-        table.conversationId
+        table.conversationId,
       ),
     };
-  }
+  },
 );
 export type ConversationComment = InferSelectModel<typeof conversationComment>;
 
@@ -265,7 +265,7 @@ export const conversationCommentRelations = relations(
       fields: [conversationComment.conversationId],
       references: [conversation.id],
     }),
-  })
+  }),
 );
 
 export const damageSimulation = mysqlTable(
@@ -284,7 +284,7 @@ export const damageSimulation = mysqlTable(
       userIdIdx: index("DamageCalculation_userId_idx").on(table.userId),
       createdAtIdx: index("DamageCalculation_createdAt_idx").on(table.createdAt),
     };
-  }
+  },
 );
 export type DamageSimulation = InferSelectModel<typeof damageSimulation>;
 
@@ -308,7 +308,7 @@ export const forumBoard = mysqlTable(
     return {
       nameKey: uniqueIndex("ForumBoard_name_key").on(table.name),
     };
-  }
+  },
 );
 
 export const forumPost = mysqlTable(
@@ -327,7 +327,7 @@ export const forumPost = mysqlTable(
       userIdIdx: index("ForumPost_userId_idx").on(table.userId),
       threadIdIdx: index("ForumPost_threadId_idx").on(table.threadId),
     };
-  }
+  },
 );
 export type ForumPost = InferSelectModel<typeof forumPost>;
 
@@ -364,7 +364,7 @@ export const forumThread = mysqlTable(
       boardIdIdx: index("ForumThread_boardId_idx").on(table.boardId),
       userIdIdx: index("ForumThread_userId_idx").on(table.userId),
     };
-  }
+  },
 );
 
 export const forumThreadRelations = relations(forumThread, ({ one, many }) => ({
@@ -394,7 +394,7 @@ export const historicalAvatar = mysqlTable(
   (table) => {
     return {
       replicateIdKey: uniqueIndex("HistoricalAvatar_replicateId_key").on(
-        table.replicateId
+        table.replicateId,
       ),
       avatarKey: uniqueIndex("HistoricalAvatar_avatar_key").on(table.avatar),
       doneIdx: index("HistoricalAvatar_done_idx").on(table.done),
@@ -402,7 +402,7 @@ export const historicalAvatar = mysqlTable(
       replicateIdIdx: index("HistoricalAvatar_replicateId_idx").on(table.replicateId),
       avatarIdx: index("HistoricalAvatar_avatar_idx").on(table.avatar),
     };
-  }
+  },
 );
 
 export const item = mysqlTable(
@@ -445,7 +445,7 @@ export const item = mysqlTable(
       nameKey: uniqueIndex("Item_name_key").on(table.name),
       imageKey: uniqueIndex("Item_image_key").on(table.image),
     };
-  }
+  },
 );
 export type Item = InferSelectModel<typeof item>;
 export type ItemType = Item["itemType"];
@@ -490,7 +490,7 @@ export const jutsu = mysqlTable(
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
     };
-  }
+  },
 );
 
 export const jutsuRelations = relations(jutsu, ({ one }) => ({
@@ -520,7 +520,7 @@ export const notification = mysqlTable(
     return {
       createdAtIdx: index("Notification_createdAt_idx").on(table.createdAt),
     };
-  }
+  },
 );
 
 export const notificationRelations = relations(notification, ({ one }) => ({
@@ -550,15 +550,15 @@ export const paypalSubscription = mysqlTable(
   (table) => {
     return {
       subscriptionIdKey: uniqueIndex("PaypalSubscription_subscriptionId_key").on(
-        table.subscriptionId
+        table.subscriptionId,
       ),
       orderIdKey: uniqueIndex("PaypalSubscription_orderId_key").on(table.orderId),
       createdByIdIdx: index("PaypalSubscription_createdById_idx").on(table.createdById),
       affectedUserIdIdx: index("PaypalSubscription_affectedUserId_idx").on(
-        table.affectedUserId
+        table.affectedUserId,
       ),
     };
-  }
+  },
 );
 
 export const paypalSubscriptionRelations = relations(paypalSubscription, ({ one }) => ({
@@ -601,10 +601,10 @@ export const paypalTransaction = mysqlTable(
       orderIdKey: uniqueIndex("PaypalTransaction_orderId_key").on(table.orderId),
       createdByIdIdx: index("PaypalTransaction_createdById_idx").on(table.createdById),
       affectedUserIdIdx: index("PaypalTransaction_affectedUserId_idx").on(
-        table.affectedUserId
+        table.affectedUserId,
       ),
     };
-  }
+  },
 );
 
 export const paypalTransactionRelations = relations(paypalTransaction, ({ one }) => ({
@@ -647,7 +647,7 @@ export const reportLog = mysqlTable(
       targetUserIdIdx: index("ReportLog_targetUserId_idx").on(table.targetUserId),
       staffUserIdIdx: index("ReportLog_staffUserId_idx").on(table.staffUserId),
     };
-  }
+  },
 );
 
 export const actionLog = mysqlTable(
@@ -666,7 +666,7 @@ export const actionLog = mysqlTable(
   },
   (table) => {
     return { userId: index("ActionLog_userId_idx").on(table.userId) };
-  }
+  },
 );
 
 export const actionLogRelations = relations(actionLog, ({ one }) => ({
@@ -687,11 +687,11 @@ export const userAttribute = mysqlTable(
     return {
       attributeUserIdKey: uniqueIndex("UserAttribute_attribute_userId_key").on(
         table.attribute,
-        table.userId
+        table.userId,
       ),
       userIdIdx: index("UserAttribute_userId_idx").on(table.userId),
     };
-  }
+  },
 );
 
 export const userData = mysqlTable(
@@ -794,7 +794,7 @@ export const userData = mysqlTable(
       villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
       battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
     };
-  }
+  },
 );
 export const insertUserDataSchema = createInsertSchema(userData)
   .omit({
@@ -865,7 +865,7 @@ export const userNindo = mysqlTable(
   },
   (table) => {
     return { userIdIdx: index("UserNindo_userId_idx").on(table.userId) };
-  }
+  },
 );
 
 export const userItem = mysqlTable(
@@ -890,7 +890,7 @@ export const userItem = mysqlTable(
       quantityIdx: index("UserItem_quantity_idx").on(table.quantity),
       equippedIdx: index("UserItem_equipped_idx").on(table.equipped),
     };
-  }
+  },
 );
 export type UserItem = InferSelectModel<typeof userItem>;
 export type ItemSlot = UserItem["equipped"];
@@ -926,13 +926,13 @@ export const userJutsu = mysqlTable(
     return {
       userIdJutsuIdKey: uniqueIndex("UserJutsu_userId_jutsuId_key").on(
         table.userId,
-        table.jutsuId
+        table.jutsuId,
       ),
       userIdIdx: index("UserJutsu_userId_idx").on(table.userId),
       jutsuIdIdx: index("UserJutsu_jutsuId_idx").on(table.jutsuId),
       equippedIdx: index("Jutsu_equipped_idx").on(table.equipped),
     };
-  }
+  },
 );
 export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
@@ -973,13 +973,13 @@ export const userReport = mysqlTable(
   (table) => {
     return {
       reporterUserIdIdx: index("UserReport_reporterUserId_idx").on(
-        table.reporterUserId
+        table.reporterUserId,
       ),
       reportedUserIdIdx: index("UserReport_reportedUserId_idx").on(
-        table.reportedUserId
+        table.reportedUserId,
       ),
     };
-  }
+  },
 );
 export type UserReport = InferSelectModel<typeof userReport>;
 export type ReportAction = UserReport["status"];
@@ -1017,7 +1017,7 @@ export const userReportComment = mysqlTable(
       userIdIdx: index("UserReportComment_userId_idx").on(table.userId),
       reportIdIdx: index("UserReportComment_reportId_idx").on(table.reportId),
     };
-  }
+  },
 );
 export type UserReportComment = InferSelectModel<typeof userReportComment>;
 
@@ -1048,7 +1048,7 @@ export const village = mysqlTable(
       nameKey: uniqueIndex("Village_name_key").on(table.name),
       sectorKey: uniqueIndex("Village_sector_key").on(table.sector),
     };
-  }
+  },
 );
 export type Village = InferSelectModel<typeof village>;
 
@@ -1072,11 +1072,11 @@ export const villageStructure = mysqlTable(
     return {
       nameVillageIdKey: uniqueIndex("VillageStructure_name_villageId_key").on(
         table.name,
-        table.villageId
+        table.villageId,
       ),
       villageIdIdx: index("VillageStructure_villageId_idx").on(table.villageId),
     };
-  }
+  },
 );
 export type VillageStructure = InferSelectModel<typeof villageStructure>;
 
@@ -1106,7 +1106,7 @@ export const dataBattleAction = mysqlTable(
       typeIdx: index("DataBattleActions_type").on(table.type),
       battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
     };
-  }
+  },
 );
 
 export const quest = mysqlTable(
@@ -1142,7 +1142,7 @@ export const quest = mysqlTable(
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
       requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
     };
-  }
+  },
 );
 export type Quest = InferSelectModel<typeof quest>;
 
@@ -1167,7 +1167,7 @@ export const questHistory = mysqlTable(
       questIdIdx: index("QuestHistory_questId_idx").on(table.questId),
       completedIdx: index("QuestHistory_completed_idx").on(table.completed),
     };
-  }
+  },
 );
 export type QuestHistory = InferInsertModel<typeof questHistory>;
 export type UserQuest = QuestHistory & { quest: Quest };
@@ -1192,7 +1192,7 @@ export const gameTimers = mysqlTable(
   },
   (table) => {
     return { name: index("name").on(table.name) };
-  }
+  },
 );
 
 export const userLikes = mysqlTable(
@@ -1210,7 +1210,7 @@ export const userLikes = mysqlTable(
       userIdIdx: index("userLikes_userId_idx").on(table.userId),
       imageIdIdx: index("userLikes_imageId_idx").on(table.imageId),
     };
-  }
+  },
 );
 
 export const conceptImage = mysqlTable(
@@ -1248,7 +1248,7 @@ export const conceptImage = mysqlTable(
       userIdIdx: index("image_userId_idx").on(table.userId),
       avatarIdx: index("image_avatar_idx").on(table.image),
     };
-  }
+  },
 );
 export type ContentImage = InferSelectModel<typeof conceptImage>;
 
@@ -1282,7 +1282,7 @@ export const bankTransfers = mysqlTable(
       senderIdIdx: index("BankTransfers_senderId_idx").on(table.senderId),
       receiverIdIdx: index("BankTransfers_receiverId_idx").on(table.receiverId),
     };
-  }
+  },
 );
 
 export const bankTransferRelations = relations(bankTransfers, ({ one }) => ({
@@ -1315,7 +1315,7 @@ export const badge = mysqlTable(
       idKey: uniqueIndex("Badge_id_key").on(table.id),
       nameKey: uniqueIndex("Badge_name_key").on(table.name),
     };
-  }
+  },
 );
 export type Badge = InferSelectModel<typeof badge>;
 
@@ -1333,7 +1333,7 @@ export const userBadge = mysqlTable(
       userIdIdx: index("UserBadge_userId_idx").on(table.userId),
       badgeIdIdx: index("UserBadge_badgeId_idx").on(table.badgeId),
     };
-  }
+  },
 );
 export type UserBadge = InferSelectModel<typeof userBadge>;
 

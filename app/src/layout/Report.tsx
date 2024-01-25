@@ -16,7 +16,7 @@ import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 interface ReportUserProps {
   button: React.ReactNode;
-  system: typeof systems[number];
+  system: (typeof systems)[number];
   user: {
     userId: string;
     username: string;
@@ -43,7 +43,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
       show_toast(
         props.user.username + " User Reported",
         "Your report has been submitted. A moderator will review it asap.",
-        "info"
+        "info",
       );
     },
     onError: (error) => {
@@ -71,7 +71,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
       reset();
       setShowModal(false);
     },
-    (errors) => console.error(errors)
+    (errors) => console.error(errors),
   );
 
   if (showModal) {

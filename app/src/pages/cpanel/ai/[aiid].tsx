@@ -12,7 +12,7 @@ const AiStatistics: NextPage = () => {
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
     { id: aiId, type: "ai" },
-    { staleTime: Infinity, enabled: aiId !== undefined }
+    { staleTime: Infinity, enabled: aiId !== undefined },
   );
   const ai = data?.info;
   const usage = data?.usage;

@@ -128,7 +128,7 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
 interface BaseCommentProps extends PostProps {
   comment: UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
-  system?: typeof systems[number];
+  system?: (typeof systems)[number];
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;

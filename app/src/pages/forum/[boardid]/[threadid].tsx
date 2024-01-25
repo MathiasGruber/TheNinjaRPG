@@ -33,7 +33,7 @@ const Thread: NextPage = () => {
       enabled: thread_id !== undefined,
       staleTime: Infinity,
       keepPreviousData: true,
-    }
+    },
   );
   const thread = comments?.thread;
   const allComments = comments?.data;
@@ -75,7 +75,7 @@ const Thread: NextPage = () => {
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
-    (errors) => console.error(errors)
+    (errors) => console.error(errors),
   );
 
   if (!thread) return <Loader explanation="Loading..."></Loader>;

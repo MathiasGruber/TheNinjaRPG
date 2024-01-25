@@ -43,7 +43,7 @@ const Reports: NextPage = () => {
       keepPreviousData: true,
       staleTime: Infinity,
       enabled: userData !== undefined,
-    }
+    },
   );
   const allReports = reports?.pages.map((page) => page.data).flat();
 
