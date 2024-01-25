@@ -15,22 +15,7 @@
   // Add the IDs of extensions you want installed when the container is created.
   "customizations": {
     "vscode": {
-      "extensions": [
-        "ms-azuretools.vscode-docker",
-        "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint",
-        "GitHub.copilot",
-        "bradlc.vscode-tailwindcss",
-        "oderwat.indent-rainbow",
-        "ms-python.python",
-        "Gruntfuggly.todo-tree",
-        "yoavbls.pretty-ts-errors",
-        "ms-vscode.makefile-tools",
-        "ms-toolsai.jupyter",
-        "GitHub.copilot-chat",
-        "bierner.markdown-emoji",
-        "mhutchie.git-graph"
-      ],
+      "extensions": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "GitHub.copilot", "bradlc.vscode-tailwindcss", "oderwat.indent-rainbow", "yoavbls.pretty-ts-errors", "ms-toolsai.jupyter", "GitHub.copilot-chat"],
       "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"
       }
