@@ -45,6 +45,7 @@ export const jutsuRouter = createTRPCRouter({
         bloodline: z.string().optional(),
         stat: z.enum(statFilters).optional(),
         effect: z.string().optional(),
+        element: z.string().optional(),
         appear: z.enum(animationNames).optional(),
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
@@ -76,6 +77,11 @@ export const jutsuRouter = createTRPCRouter({
           ...(input.appear
             ? [
                 sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
+              ]
+            : []),
+          ...(input.element
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.element},NULL,'$[*].elements') IS NOT NULL`,
               ]
             : []),
           ...(input.static

@@ -5,10 +5,12 @@ import SelectField from "@/layout/SelectField";
 import InputField from "@/layout/InputField";
 import NavTabs from "@/layout/NavTabs";
 import { animationNames } from "@/libs/combat/types";
+import { allElements } from "@/libs/combat/constants";
 import { mainFilters, statFilters, effectFilters, rarities } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchNameSchema } from "@/validators/jutsu";
+import type { Element } from "@/libs/combat/constants";
 import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { FilterType, StatType, EffectType, RarityType } from "@/libs/train";
@@ -21,7 +23,7 @@ interface JutsuFilteringProps {
 const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity, setAnimation } = props.state;
-  const { setFilter, setName, filter, rarity } = props.state;
+  const { setFilter, setName, setElement, filter, rarity } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines
@@ -119,6 +121,20 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
           })}
         </SelectField>
       )}
+      {filter === "Element" && (
+        <SelectField
+          id={filter}
+          onChange={(e) => setElement(e.target.value as Element)}
+        >
+          {allElements.map((element) => {
+            return (
+              <option key={element} value={element}>
+                {element}
+              </option>
+            );
+          })}
+        </SelectField>
+      )}
       {["AppearAnimation", "StaticAnimation", "DisappearAnimation"].includes(
         filter
       ) && (
@@ -153,6 +169,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     bloodline: state.filter === "Bloodline" ? state.bloodline : undefined,
     stat: state.filter === "Stat" ? state.stat : undefined,
     effect: state.filter === "Effect" ? state.effect : undefined,
+    element: state.filter === "Element" ? state.element : undefined,
     appear: state.filter === "AppearAnimation" ? state.animation : undefined,
     static: state.filter === "StaticAnimation" ? state.animation : undefined,
     disappear: state.filter === "DisappearAnimation" ? state.animation : undefined,
@@ -169,6 +186,7 @@ export const useFiltering = () => {
   const [stat, setStat] = useState(statFilters[0] as StatType);
   const [animation, setAnimation] = useState(animationNames[0] as AnimationName);
   const [effect, setEffect] = useState(effectFilters[0] as EffectType);
+  const [element, setElement] = useState(allElements[0] as Element);
   const [rarity, setRarity] = useState(rarities[0] as RarityType);
   // Return all
   return {
@@ -179,6 +197,7 @@ export const useFiltering = () => {
     effect,
     rarity,
     animation,
+    element,
     setName,
     setFilter,
     setBloodline,
@@ -186,6 +205,7 @@ export const useFiltering = () => {
     setEffect,
     setRarity,
     setAnimation,
+    setElement,
   };
 };
 

@@ -71,7 +71,7 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
-export const Element = [
+export const allElements = [
   "Fire",
   "Water",
   "Wind",
@@ -90,6 +90,8 @@ export const Element = [
   "Yin-Yang",
   "None",
 ] as const;
+export type Element = typeof allElements[number];
+
 export const StatType = [
   "Highest",
   "Ninjutsu",

@@ -129,6 +129,7 @@ export const mainFilters = [
   "Bloodline",
   "Stat",
   "Effect",
+  "Element",
   "AppearAnimation",
   "StaticAnimation",
   "DisappearAnimation",
