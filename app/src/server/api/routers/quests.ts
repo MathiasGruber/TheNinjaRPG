@@ -35,7 +35,7 @@ export const questsRouter = createTRPCRouter({
         limit: z.number().min(1).max(500),
         questType: z.enum(QuestTypes).optional(),
         objectiveTask: z.enum(allObjectiveTasks).optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -51,7 +51,7 @@ export const questsRouter = createTRPCRouter({
             ? [
                 sql`JSON_SEARCH(${quest.content},'one',${input.objectiveTask}) IS NOT NULL`,
               ]
-            : [])
+            : []),
         ),
         offset: skip,
         limit: input.limit,
@@ -88,9 +88,9 @@ export const questsRouter = createTRPCRouter({
           inArray(quest.questType, ["mission", "errand", "crime"]),
           or(
             isNull(quest.requiredVillage),
-            eq(quest.requiredVillage, user?.villageId ?? "")
-          )
-        )
+            eq(quest.requiredVillage, user?.villageId ?? ""),
+          ),
+        ),
       )
       .groupBy(quest.questType, quest.requiredRank);
     return summary;
@@ -100,7 +100,7 @@ export const questsRouter = createTRPCRouter({
       z.object({
         type: z.enum(["errand", "mission"]),
         rank: z.enum(LetterRanks),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch user
@@ -113,7 +113,7 @@ export const questsRouter = createTRPCRouter({
       }
       // Fetch settings
       const settings = missionHallSettings.find(
-        (s) => s.type === input.type && s.rank === input.rank
+        (s) => s.type === input.type && s.rank === input.rank,
       );
       if (!settings) {
         throw serverError("PRECONDITION_FAILED", "Settings not found");
@@ -123,7 +123,7 @@ export const questsRouter = createTRPCRouter({
       if (minutesPassed < settings.delayMinutes) {
         throw serverError(
           "PRECONDITION_FAILED",
-          `Must wait ${settings.delayMinutes} minutes`
+          `Must wait ${settings.delayMinutes} minutes`,
         );
       }
       // Check if user is allowed to perform this rank
@@ -133,7 +133,7 @@ export const questsRouter = createTRPCRouter({
       }
       // Confirm user does not have any current active missions/crimes/errands
       const current = user?.userQuests?.find(
-        (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt
+        (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,
       );
       if (current) {
         throw serverError("PRECONDITION_FAILED", `Already active ${current.questType}`);
@@ -145,8 +145,8 @@ export const questsRouter = createTRPCRouter({
           eq(quest.requiredRank, input.rank),
           or(
             isNull(quest.requiredVillage),
-            eq(quest.requiredVillage, user.villageId ?? "")
-          )
+            eq(quest.requiredVillage, user.villageId ?? ""),
+          ),
         ),
       });
       if (!result) {
@@ -178,7 +178,10 @@ export const questsRouter = createTRPCRouter({
           .update(questHistory)
           .set({ completed: 0, endAt: new Date() })
           .where(
-            and(eq(questHistory.questId, input.id), eq(questHistory.userId, ctx.userId))
+            and(
+              eq(questHistory.questId, input.id),
+              eq(questHistory.userId, ctx.userId),
+            ),
           ),
         ctx.drizzle
           .update(userData)
@@ -192,7 +195,7 @@ export const questsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
@@ -241,8 +244,8 @@ export const questsRouter = createTRPCRouter({
             entry,
             and(
               inArray(userData.rank, roles),
-              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7))
-            )
+              gte(userData.updatedAt, secondsFromNow(-60 * 60 * 24 * 7)),
+            ),
           );
         }
         // Update database
@@ -353,16 +356,19 @@ export const questsRouter = createTRPCRouter({
               .from(jutsu)
               .leftJoin(userJutsu, eq(jutsu.id, userJutsu.jutsuId))
               .where(
-                and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId))
+                and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
               )
           : [],
         rewards.reward_badges.length > 0
           ? ctx.drizzle
               .select({ id: badge.id, name: badge.name, image: badge.image })
               .from(badge)
-              .leftJoin(userBadge, eq(badge.id, userBadge.badgeId))
+              .leftJoin(
+                userBadge,
+                and(eq(badge.id, userBadge.badgeId), eq(userBadge.userId, ctx.userId)),
+              )
               .where(
-                and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId))
+                and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
               )
           : [],
       ]);
@@ -395,8 +401,8 @@ export const questsRouter = createTRPCRouter({
               .where(
                 and(
                   eq(questHistory.questId, input.questId),
-                  eq(questHistory.userId, ctx.userId)
-                )
+                  eq(questHistory.userId, ctx.userId),
+                ),
               )
           : undefined,
         // Insert items & jutsus
@@ -407,7 +413,7 @@ export const questsRouter = createTRPCRouter({
                 id: nanoid(),
                 userId: ctx.userId,
                 jutsuId: id,
-              }))
+              })),
             ),
         ],
         ...[
@@ -417,7 +423,7 @@ export const questsRouter = createTRPCRouter({
                 id: nanoid(),
                 userId: ctx.userId,
                 itemId: id,
-              }))
+              })),
             ),
         ],
         ...[
@@ -427,7 +433,7 @@ export const questsRouter = createTRPCRouter({
                 id: nanoid(),
                 userId: ctx.userId,
                 badgeId: id,
-              }))
+              })),
             ),
         ],
       ]);
@@ -492,7 +498,7 @@ export const questsRouter = createTRPCRouter({
               itemId: id,
               quantity: 1,
               equipped: "NONE",
-            })
+            }),
           ) || []),
           // Initiate battle if needed
           ...[
@@ -508,7 +514,7 @@ export const questsRouter = createTRPCRouter({
                     scaleTarget: opponent.scale ? true : false,
                   },
                   "ARENA",
-                  determineCombatBackground("ground")
+                  determineCombatBackground("ground"),
                 )
               : undefined,
           ],
@@ -534,7 +540,7 @@ export const fetchQuest = async (client: DrizzleClient, id: string) => {
 export const fetchUncompletedQuests = async (
   client: DrizzleClient,
   user: UserData,
-  type: QuestType
+  type: QuestType,
 ) => {
   const availableLetters = availableRanks(user.rank);
   const history = await client
@@ -542,7 +548,7 @@ export const fetchUncompletedQuests = async (
     .from(quest)
     .leftJoin(
       questHistory,
-      and(eq(quest.id, questHistory.questId), eq(questHistory.userId, user.userId))
+      and(eq(quest.id, questHistory.questId), eq(questHistory.userId, user.userId)),
     )
     .where(
       and(
@@ -552,9 +558,9 @@ export const fetchUncompletedQuests = async (
         isNull(questHistory.completed),
         or(
           isNull(quest.requiredVillage),
-          eq(quest.requiredVillage, user.villageId ?? "")
-        )
-      )
+          eq(quest.requiredVillage, user.villageId ?? ""),
+        ),
+      ),
     )
     .orderBy((table) => [asc(table.Quest.requiredLevel), asc(table.Quest.tierLevel)]);
   return history.map((quest) => quest.Quest);
@@ -564,7 +570,7 @@ export const fetchUncompletedQuests = async (
 export const upsertQuestEntries = async (
   client: DrizzleClient,
   quest: Quest,
-  updateSelector: SQL<unknown> | undefined
+  updateSelector: SQL<unknown> | undefined,
 ) => {
   // Users to insert for
   const users = await client
@@ -572,7 +578,7 @@ export const upsertQuestEntries = async (
     .from(userData)
     .leftJoin(
       questHistory,
-      and(eq(questHistory.userId, userData.userId), eq(questHistory.questId, quest.id))
+      and(eq(questHistory.userId, userData.userId), eq(questHistory.questId, quest.id)),
     )
     .where(and(updateSelector, isNull(questHistory.id)));
   if (users.length > 0) {
@@ -582,7 +588,7 @@ export const upsertQuestEntries = async (
         userId: user.userId,
         questId: quest.id,
         questType: quest.questType,
-      }))
+      })),
     );
     console.log(`INSERTING FOR ${users.length}`);
   }
@@ -600,10 +606,10 @@ export const upsertQuestEntries = async (
         and(
           inArray(
             questHistory.userId,
-            allUsers.map((user) => user.userId)
+            allUsers.map((user) => user.userId),
           ),
-          eq(questHistory.questId, quest.id)
-        )
+          eq(questHistory.questId, quest.id),
+        ),
       );
   }
 };
@@ -612,12 +618,12 @@ export const upsertQuestEntries = async (
 export const upsertQuestEntry = async (
   client: DrizzleClient,
   user: UserData,
-  quest: Quest
+  quest: Quest,
 ) => {
   const current = await client.query.questHistory.findFirst({
     where: and(
       eq(questHistory.questId, quest.id),
-      eq(questHistory.userId, user.userId)
+      eq(questHistory.userId, user.userId),
     ),
   });
   if (current) {
@@ -650,7 +656,7 @@ export const upsertQuestEntry = async (
 export const insertNextQuest = async (
   client: DrizzleClient,
   user: UserData,
-  type: QuestType
+  type: QuestType,
 ) => {
   const history = await fetchUncompletedQuests(client, user, type);
   const nextQuest = history?.[0];
