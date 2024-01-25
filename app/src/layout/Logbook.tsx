@@ -43,7 +43,7 @@ const Logbook: React.FC<LogbookProps> = () => {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
-    }
+    },
   );
   const allHistory = history?.pages
     .map((page) => page.data)

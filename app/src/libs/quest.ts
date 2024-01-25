@@ -107,7 +107,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         updateQuest({ id: quest.id, data: newQuest });
       }
     },
-    (errors) => show_errors(errors)
+    (errors) => show_errors(errors),
   );
 
   // Watch the effects
@@ -239,7 +239,7 @@ export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
  */
 export const isLocationObjective = (
   location: { latitude: number; longitude: number; sector: number },
-  objective: AllObjectivesType
+  objective: AllObjectivesType,
 ) => {
   if ("sector" in objective) {
     if (
@@ -263,13 +263,14 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   let resolved = false;
   if (userQuest && !userQuest.completed) {
-    const questTracker = trackers.find((q) => q.id === userQuest.quest.id);
-    resolved = questTracker?.goals.every((g) => g.done) ?? false;
+    const tracker = trackers.find((q) => q.id === userQuest.quest.id);
+    const goals = tracker?.goals ?? [];
+    resolved = (goals.every((g) => g.done) || goals.length === 0) ?? false;
     if (resolved) {
       rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
     userQuest.quest.content.objectives.forEach((objective) => {
-      const status = questTracker?.goals.find((g) => g.id === objective.id);
+      const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;
         if (objective.reward_money) {
@@ -309,7 +310,7 @@ export const getNewTrackers = (
     increment?: number;
     value?: number;
     contentId?: string;
-  }[]
+  }[],
 ) => {
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
@@ -345,7 +346,7 @@ export const getNewTrackers = (
             status.value = days;
           } else if (task === "minutes_passed" && questTracker) {
             const minutes = Math.floor(
-              secondsPassed(new Date(questTracker.startAt)) / 60
+              secondsPassed(new Date(questTracker.startAt)) / 60,
             );
             status.value = minutes;
           }
@@ -472,7 +473,7 @@ export const missionHallSettings = [
 
 export const mockAchievementHistoryEntries = (
   quests: Quest[],
-  user: NonNullable<UserWithRelations>
+  user: NonNullable<UserWithRelations>,
 ) => {
   return quests
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
