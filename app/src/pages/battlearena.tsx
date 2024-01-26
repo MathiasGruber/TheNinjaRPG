@@ -120,10 +120,12 @@ const Arena: NextPage = () => {
         </>
       )}
       {isAttacking && (
-        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
-          <div className="m-auto text-center text-white">
-            <p className="text-5xl">Entering the Arena</p>
-            <Loader />
+        <div className="min-h-64">
+          <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
+            <div className="m-auto text-center text-white">
+              <p className="text-5xl">Entering the Arena</p>
+              <Loader />
+            </div>
           </div>
         </div>
       )}

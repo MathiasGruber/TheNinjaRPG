@@ -12,8 +12,10 @@ export const getGameTime = () => {
 /**
  * Number of seconds passed since the given date
  */
-export const secondsPassed = (date: Date) => {
-  return Math.floor((new Date().getTime() - date.getTime()) / 1000);
+export const secondsPassed = (date: Date, timeDiff?: number) => {
+  let now = new Date().getTime();
+  if (timeDiff) now = now - timeDiff;
+  return Math.floor((now - date.getTime()) / 1000);
 };
 
 /**

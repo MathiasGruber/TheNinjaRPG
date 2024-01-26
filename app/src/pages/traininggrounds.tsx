@@ -32,7 +32,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 const Training: NextPage = () => {
   // Get user data
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
 
   // Ensure user is in village
   useRequireInVillage();
@@ -43,8 +43,8 @@ const Training: NextPage = () => {
   // Show components if we have user
   return (
     <>
-      <StatsTraining userData={userData} />
-      <JutsuTraining userData={userData} />
+      <StatsTraining userData={userData} timeDiff={timeDiff} />
+      <JutsuTraining userData={userData} timeDiff={timeDiff} />
     </>
   );
 };
@@ -53,11 +53,12 @@ export default Training;
 
 interface TrainingProps {
   userData: NonNullable<UserWithRelations>;
+  timeDiff: number;
 }
 
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { userData } = props;
+  const { userData, timeDiff } = props;
   const efficiency = trainEfficiency(userData.trainingSpeed);
 
   // tRPC useUtils
@@ -174,6 +175,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                 tooltip="Energy"
                 color="bg-yellow-500"
                 showText={true}
+                timeDiff={timeDiff}
                 lastRegenAt={userData.trainingStartedAt}
                 regen={-energyPerSecond(userData.trainingSpeed)}
                 status={userData.status}
@@ -196,7 +198,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
 
 const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { userData } = props;
+  const { userData, timeDiff } = props;
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -370,22 +372,25 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
         )}
         {isFetching && <Loader explanation="Loading jutsu" />}
         {finishTrainingAt?.finishTraining && (
-          <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
-            <div className="m-auto text-center text-white">
-              <p className="p-5  text-3xl">Training</p>
-              <p className="text-2xl">
-                Time Left:{" "}
-                <Countdown
-                  targetDate={finishTrainingAt.finishTraining}
-                  onFinish={async () => {
-                    await refetchUserJutsu();
-                  }}
+          <div className="min-h-36">
+            <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
+              <div className="m-auto text-center text-white">
+                <p className="p-5  text-3xl">Training</p>
+                <p className="text-2xl">
+                  Time Left:{" "}
+                  <Countdown
+                    targetDate={finishTrainingAt.finishTraining}
+                    timeDiff={timeDiff}
+                    onFinish={async () => {
+                      await refetchUserJutsu();
+                    }}
+                  />
+                </p>
+                <XCircleIcon
+                  className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:fill-orange-500"
+                  onClick={() => cancel()}
                 />
-              </p>
-              <XCircleIcon
-                className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:fill-orange-500"
-                onClick={() => cancel()}
-              />
+              </div>
             </div>
           </div>
         )}

@@ -5,12 +5,16 @@ import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 interface CountdownProps {
   targetDate: Date;
   className?: string;
+  timeDiff?: number;
   // NOTE: Careful with this one to avoid infinite loop on re-render
   onFinish?: () => void;
 }
 
 const Countdown: React.FC<CountdownProps> = (props) => {
-  const targetTime = props.targetDate.getTime();
+  let targetTime = props.targetDate.getTime();
+  if (props.timeDiff) {
+    targetTime -= props.timeDiff;
+  }
   const [countDown, setCountDown] = useState(targetTime - new Date().getTime());
   const [countString, setCountString] = useState<string | null>(null);
 
