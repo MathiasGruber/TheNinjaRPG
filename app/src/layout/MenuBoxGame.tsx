@@ -68,6 +68,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
             if (disabled) {
               if (inBattle) href = "/combat";
               if (inHospital) href = "/hospital";
+              if (inBed) href = "/home";
             }
             return (
               <Link
