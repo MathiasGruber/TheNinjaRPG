@@ -63,7 +63,7 @@ const Home: NextPage = () => {
               {userData.status === "ASLEEP" ? (
                 <>
                   <Image
-                    className="hover:opacity-30"
+                    className="hover:opacity-30 animate-pulse"
                     alt="sleeping"
                     src="/home/sleep.webp"
                     width={256}

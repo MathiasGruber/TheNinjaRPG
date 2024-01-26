@@ -120,28 +120,19 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
       icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
     },
   ];
-  // Add back in if needed, until then incorporate things closer in the game
-  // if (userData && ["CONTENT", "ADMIN"].includes(userData.role)) {
-  //   systems.push({
-  //     href: "/cpanel",
-  //     name: `Content`,
-  //     icon: <BeakerIcon key="cpanel" className="h-6 w-6" />,
-  //   });
-  // }
-  // if (userData && ["MODERATOR", "ADMIN"].includes(userData.role)) {
-  //   systems.push({
-  //     href: "/mpanel",
-  //     name: `Moderate`,
-  //     icon: <WrenchIcon key="mpanel" className="h-6 w-6" />,
-  //   });
-  // }
-  // if (userData && ["ADMIN"].includes(userData.role)) {
-  //   systems.push({
-  //     href: "/apanel",
-  //     name: `Admin`,
-  //     icon: <RectangleGroupIcon key="mpanel" className="h-6 w-6" />,
-  //   });
-  // }
+
+  // For entries that require awake, check if user is awake
+  const inBattle = userData?.status === "BATTLE";
+  const inHospital = userData?.status === "HOSPITALIZED";
+  const inBed = userData?.status === "ASLEEP";
+  const notAwake = inBattle || inHospital || inBed;
+  systems.forEach((system) => {
+    if (system.requireAwake && notAwake) {
+      if (inBattle) system.href = "/combat";
+      if (inHospital) system.href = "/hospital";
+      if (inBed) system.href = "/home";
+    }
+  });
 
   // Is in village
   let location: NavBarDropdownLink | undefined = undefined;
@@ -157,7 +148,7 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
     systems.push({
       href: "/village",
       name: "Village",
-      requireAwake: true,
+      requireAwake: false,
       className: "block md:hidden",
       icon: <BuildingStorefrontIcon key="village" className="h-6 w-6" />,
     });

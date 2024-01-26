@@ -19,9 +19,6 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
   }
 
   const inBattle = userData.status === "BATTLE";
-  const inHospital = userData.status === "HOSPITALIZED";
-  const inBed = userData.status === "ASLEEP";
-  const notAwake = inBattle || inHospital || inBed;
 
   return (
     <>
@@ -63,17 +60,11 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
         )}
         <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
           {systems.map((system, i) => {
-            const disabled = system.requireAwake && notAwake;
-            let href = system.href;
-            if (disabled) {
-              if (inBattle) href = "/combat";
-              if (inHospital) href = "/hospital";
-              if (inBed) href = "/home";
-            }
+            const disabled = system.requireAwake && userData?.status !== "AWAKE";
             return (
               <Link
                 key={i}
-                href={href}
+                href={system.href}
                 className={system.className ? system.className : ""}
               >
                 <li
