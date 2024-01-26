@@ -21,6 +21,8 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       const myStatsChart = new ChartJS(statsCtx, {
         type: "radar",
         options: {
+          maintainAspectRatio: false,
+          responsive: true,
           elements: {
             line: {
               borderWidth: 3,
@@ -77,6 +79,8 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       const myGeneralsChart = new ChartJS(generalsCtx, {
         type: "bar",
         options: {
+          maintainAspectRatio: false,
+          responsive: true,
           aspectRatio: 1,
           scales: {
             y: {
