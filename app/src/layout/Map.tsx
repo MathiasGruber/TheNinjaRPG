@@ -177,18 +177,28 @@ const Map: React.FC<MapProps> = (props) => {
       scene.add(group_tiles);
 
       // Add user label
-      const userLocation = { r: 1.0, g: 0.0, b: 0.0 };
+      const userTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
+      const questTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
+      const sectorsToHighlight: number[] = [];
       if (props.userLocation && userData) {
-        const mesh = group_tiles.getObjectByName(`${userData.sector}`);
-        console.log("Adding user location", mesh);
-        if (mesh) {
-          // (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
-          new TWEEN.Tween(userLocation)
-            .to({ r: 0.0, g: 0, b: 1.0 }, 1000)
-            .repeat(Infinity)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .start();
-        }
+        sectorsToHighlight.push(userData.sector);
+        userData.userQuests.forEach((userquest) => {
+          userquest.quest.content.objectives.forEach((objective) => {
+            if ("sector" in objective && objective.sector) {
+              sectorsToHighlight.push(objective.sector);
+            }
+          });
+        });
+        new TWEEN.Tween(userTweenColor)
+          .to({ r: 1.0, g: 0.0, b: 0.0 }, 1000)
+          .repeat(Infinity)
+          .easing(TWEEN.Easing.Cubic.InOut)
+          .start();
+        new TWEEN.Tween(questTweenColor)
+          .to({ r: 0.8, g: 0.6, b: 0.0 }, 1000)
+          .repeat(Infinity)
+          .easing(TWEEN.Easing.Cubic.InOut)
+          .start();
       }
 
       //Enable controls
@@ -214,13 +224,23 @@ const Map: React.FC<MapProps> = (props) => {
       // Render the image
       let animationId = 0;
       function render() {
-        if (userLocation && userData) {
-          const mesh = group_tiles.getObjectByName(`${userData.sector}`);
-          (mesh as HexagonalFaceMesh).material.color.setRGB(
-            userLocation.r,
-            userLocation.g,
-            userLocation.b,
-          );
+        if (userTweenColor && userData && sectorsToHighlight.length > 0) {
+          sectorsToHighlight.forEach((sector) => {
+            const mesh = group_tiles.getObjectByName(`${sector}`);
+            if (userData.sector === sector) {
+              (mesh as HexagonalFaceMesh).material.color.setRGB(
+                userTweenColor.r,
+                userTweenColor.g,
+                userTweenColor.b,
+              );
+            } else {
+              (mesh as HexagonalFaceMesh).material.color.setRGB(
+                questTweenColor.r,
+                questTweenColor.g,
+                questTweenColor.b,
+              );
+            }
+          });
           TWEEN.update();
         }
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
@@ -304,6 +324,22 @@ const Map: React.FC<MapProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      <div className="absolute left-0 top-0 m-5">
+        <ul>
+          {hoverSector && (
+            <>
+              <li className="flex flex-row items-center">
+                <span className="text-2xl mr-1 animate-pulse text-red-500">⬢</span> Your
+                location
+              </li>
+              <li className="flex flex-row items-center">
+                <span className="text-2xl mr-1 animate-pulse text-orange-500">⬢</span>{" "}
+                Quest locations
+              </li>
+            </>
+          )}
+        </ul>
+      </div>
       <div className="absolute right-0 top-0 m-5">
         <ul>
           {hoverSector && (

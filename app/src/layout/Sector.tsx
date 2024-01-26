@@ -260,6 +260,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, userData, moves, sector, isMoving, move]);
 
   useEffect(() => {
