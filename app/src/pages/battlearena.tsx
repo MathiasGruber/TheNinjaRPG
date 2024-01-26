@@ -32,6 +32,15 @@ const Arena: NextPage = () => {
     { staleTime: Infinity, enabled: !!aiId },
   );
 
+  const sortedAis = aiData
+    ?.filter((ai) => !ai.isSummon)
+    .sort((a, b) => {
+      if (userData?.level) {
+        return Math.abs(a.level - userData.level) - Math.abs(b.level - userData.level);
+      }
+      return 1;
+    });
+
   // Mutation for starting a fight
   const { mutate: attack, isLoading: isAttacking } =
     api.combat.startArenaBattle.useMutation({
@@ -56,16 +65,13 @@ const Arena: NextPage = () => {
 
   // Set initially selected AI
   useEffect(() => {
-    if (!aiId && aiData && userData) {
-      const closestAIs = aiData.sort((a, b) => {
-        return Math.abs(a.level - userData.level) - Math.abs(b.level - userData.level);
-      });
-      const selectedAI = closestAIs[0];
+    if (!aiId) {
+      const selectedAI = sortedAis?.[0];
       if (selectedAI) {
         setAiId(selectedAI.userId);
       }
     }
-  }, [aiData, aiId, userData]);
+  }, [sortedAis, aiId]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
@@ -84,18 +90,11 @@ const Arena: NextPage = () => {
           </h1>
           <div className="rounded-2xl bg-slate-200 mt-3">
             <SelectField id="ai_id" onChange={(e) => setAiId(e.target.value)}>
-              {aiData
-                ?.filter((ai) => !ai.isSummon)
-                .sort((a, b) => a.level - b.level)
-                .map((ai) => (
-                  <option
-                    key={ai.userId}
-                    value={ai.userId}
-                    selected={ai.userId === aiId}
-                  >
-                    {ai.username} (lvl {ai.level})
-                  </option>
-                ))}
+              {sortedAis?.map((ai) => (
+                <option key={ai.userId} value={ai.userId} defaultValue={aiId}>
+                  {ai.username} (lvl {ai.level})
+                </option>
+              ))}
             </SelectField>
             {ai && (
               <ItemWithEffects
