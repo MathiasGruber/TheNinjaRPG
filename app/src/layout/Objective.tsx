@@ -70,7 +70,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
               <div className="grow">
                 <StatusBar
                   title="Goal"
-                  tooltip="Energy"
+                  tooltip="Status points"
                   color={getStatusColor(tier, done)}
                   showText={true}
                   current={value > objective.value ? objective.value : value}
