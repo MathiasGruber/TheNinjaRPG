@@ -13,7 +13,7 @@ import {
   Mesh,
 } from "three";
 import alea from "alea";
-//import * as TWEEN from "@tweenjs/tween.js";
+import * as TWEEN from "@tweenjs/tween.js";
 import { loadTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "@/libs/travel/util";
 import { groundMats, oceanMats, dessertMats } from "@/libs/travel/biome";
@@ -177,17 +177,17 @@ const Map: React.FC<MapProps> = (props) => {
       scene.add(group_tiles);
 
       // Add user label
-      const userLocation = { h: 0.9, c: 0, l: 0.7 };
+      const userLocation = { r: 1.0, g: 0.0, b: 0.0 };
       if (props.userLocation && userData) {
         const mesh = group_tiles.getObjectByName(`${userData.sector}`);
+        console.log("Adding user location", mesh);
         if (mesh) {
-          (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
-          // new TWEEN.Tween(userLocation)
-          //   .to({ h: 0.9, c: 1, l: 0.8 }, 100)
-          //   .yoyo(true)
-          //   .repeat(Infinity)
-          //   .easing(TWEEN.Easing.Cubic.InOut)
-          //   .start();
+          // (mesh as HexagonalFaceMesh).material.color.setHex(0x00ffd8);
+          new TWEEN.Tween(userLocation)
+            .to({ r: 0.0, g: 0, b: 1.0 }, 1000)
+            .repeat(Infinity)
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .start();
         }
       }
 
@@ -216,12 +216,12 @@ const Map: React.FC<MapProps> = (props) => {
       function render() {
         if (userLocation && userData) {
           const mesh = group_tiles.getObjectByName(`${userData.sector}`);
-          (mesh as HexagonalFaceMesh).material.color.setHSL(
-            userLocation.h,
-            userLocation.c,
-            userLocation.l,
+          (mesh as HexagonalFaceMesh).material.color.setRGB(
+            userLocation.r,
+            userLocation.g,
+            userLocation.b,
           );
-          // TWEEN.update();
+          TWEEN.update();
         }
         // Intersections with mouse: https://threejs.org/docs/index.html#api/en/core/Raycaster
         if (props.intersection) {
