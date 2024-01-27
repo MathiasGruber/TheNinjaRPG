@@ -1,20 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSafePush } from "@/utils/routing";
+import { z } from "zod";
 import dynamic from "next/dynamic";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
+import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
 import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
 import { EyeIcon } from "@heroicons/react/24/solid";
 import { EyeSlashIcon } from "@heroicons/react/24/solid";
+import { GlobeAltIcon } from "@heroicons/react/24/solid";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { NextPage } from "next";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
 
@@ -26,6 +31,7 @@ const Travel: NextPage = () => {
   const [showActive, setShowActive] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
+  const [showSelectSector, setShowSelectSector] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
@@ -59,6 +65,17 @@ const Travel: NextPage = () => {
   void useMemo(async () => {
     setGlobe(await fetchMap());
   }, []);
+
+  // Selecting sector to highlight form
+  const sectorSelect = z.object({
+    sector: z.number().int().min(0).max(492).optional(),
+  });
+  const sectorForm = useForm<z.infer<typeof sectorSelect>>({
+    mode: "all",
+    resolver: zodResolver(sectorSelect),
+  });
+  const highlightedSector = sectorForm.watch("sector");
+  console.log(highlightedSector);
 
   useEffect(() => {
     if (!currentSector && userData && globe) {
@@ -164,7 +181,7 @@ const Travel: NextPage = () => {
         }
         padding={false}
         topRightContent={
-          <div className="flex flex-row items-center">
+          <div className="flex flex-row items-center cursor-pointer">
             {activeTab === sectorLink && (
               <>
                 {showActive ? (
@@ -185,6 +202,10 @@ const Travel: NextPage = () => {
                 />
               </>
             )}
+            <GlobeAltIcon
+              className={`h-7 w-7 mx-1 hover:fill-orange-500`}
+              onClick={() => setShowSelectSector((prev) => !prev)}
+            />
             <NavTabs
               current={activeTab}
               options={[sectorLink, "Global"]}
@@ -198,6 +219,7 @@ const Travel: NextPage = () => {
             intersection={true}
             highlights={villages}
             userLocation={true}
+            highlightedSector={highlightedSector}
             onTileClick={(sector) => {
               setTargetSector(sector);
               setShowModal(true);
@@ -248,6 +270,21 @@ const Travel: NextPage = () => {
                 Do you confirm?
               </div>
             )}
+          </Modal>
+        )}
+        {showSelectSector && userData && (
+          <Modal title="Highlight Sector" setIsOpen={setShowSelectSector}>
+            <p>Select sector you wish to highlight on the global map.</p>
+            {highlightedSector ? (
+              <p>Currently selected sector {highlightedSector}</p>
+            ) : undefined}
+            <InputField
+              type="number"
+              id="sector"
+              register={sectorForm.register}
+              error={sectorForm.formState.errors.sector?.message}
+              placeholder="Sector to highlight on global map"
+            />
           </Modal>
         )}
         {userData?.travelFinishAt && (

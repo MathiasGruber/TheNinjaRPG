@@ -28,6 +28,7 @@ import type { HexagonalFaceMesh } from "@/libs/hexgrid";
 interface MapProps {
   highlights?: Village[];
   userLocation?: boolean;
+  highlightedSector?: number;
   intersection: boolean;
   hexasphere: GlobalMapData;
   onTileClick?: (sector: number | null, tile: GlobalTile | null) => void;
@@ -39,7 +40,7 @@ const Map: React.FC<MapProps> = (props) => {
   const [hoverSector, setHoverSector] = useState<number | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const mouse = new Vector2();
-  const { hexasphere } = props;
+  const { hexasphere, highlightedSector } = props;
 
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -179,9 +180,13 @@ const Map: React.FC<MapProps> = (props) => {
       // Add user label
       const userTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
       const questTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
+      const highlightTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
       const sectorsToHighlight: number[] = [];
       if (props.userLocation && userData) {
         sectorsToHighlight.push(userData.sector);
+        if (highlightedSector) {
+          sectorsToHighlight.push(highlightedSector);
+        }
         userData.userQuests.forEach((userquest) => {
           userquest.quest.content.objectives.forEach((objective) => {
             if ("sector" in objective && objective.sector) {
@@ -196,6 +201,11 @@ const Map: React.FC<MapProps> = (props) => {
           .start();
         new TWEEN.Tween(questTweenColor)
           .to({ r: 0.8, g: 0.6, b: 0.0 }, 1000)
+          .repeat(Infinity)
+          .easing(TWEEN.Easing.Cubic.InOut)
+          .start();
+        new TWEEN.Tween(highlightTweenColor)
+          .to({ r: 0.0, g: 0.6, b: 0.8 }, 1000)
           .repeat(Infinity)
           .easing(TWEEN.Easing.Cubic.InOut)
           .start();
@@ -232,6 +242,12 @@ const Map: React.FC<MapProps> = (props) => {
                 userTweenColor.r,
                 userTweenColor.g,
                 userTweenColor.b,
+              );
+            } else if (highlightedSector === sector) {
+              (mesh as HexagonalFaceMesh).material.color.setRGB(
+                highlightTweenColor.r,
+                highlightTweenColor.g,
+                highlightTweenColor.b,
               );
             } else {
               (mesh as HexagonalFaceMesh).material.color.setRGB(
@@ -319,7 +335,7 @@ const Map: React.FC<MapProps> = (props) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.highlights, props.intersection]);
+  }, [props.highlights, props.intersection, highlightedSector]);
 
   return (
     <>
@@ -333,8 +349,14 @@ const Map: React.FC<MapProps> = (props) => {
               </li>
               <li className="flex flex-row items-center">
                 <span className="text-2xl mr-1 animate-pulse text-orange-500">⬢</span>{" "}
-                Quests
+                Quest
               </li>
+              {highlightedSector && (
+                <li className="flex flex-row items-center">
+                  <span className="text-2xl mr-1 animate-pulse text-teal-500">⬢</span>{" "}
+                  Highlight
+                </li>
+              )}
             </>
           )}
         </ul>
