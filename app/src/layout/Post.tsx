@@ -98,8 +98,8 @@ const Post: React.FC<PostProps> = (props) => {
               size={100}
             />
           </Link>
+          <div className={userColor}>{props.user.username}</div>
           <div className="hidden sm:block">
-            <div className={userColor}>{props.user.username}</div>
             <div>
               Lvl. {props.user.level} {capitalizeFirstLetter(props.user.rank)}
             </div>
