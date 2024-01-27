@@ -329,12 +329,11 @@ const Map: React.FC<MapProps> = (props) => {
           {hoverSector && (
             <>
               <li className="flex flex-row items-center">
-                <span className="text-2xl mr-1 animate-pulse text-red-500">⬢</span> Your
-                location
+                <span className="text-2xl mr-1 animate-pulse text-red-500">⬢</span> You
               </li>
               <li className="flex flex-row items-center">
                 <span className="text-2xl mr-1 animate-pulse text-orange-500">⬢</span>{" "}
-                Quest locations
+                Quests
               </li>
             </>
           )}
