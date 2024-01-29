@@ -3,6 +3,9 @@ import { groupBy } from "@/utils/grouping";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import ExportGraph from "@/layout/ExportGraph";
+import { ArrowDownOnSquareIcon } from "@heroicons/react/24/outline";
 import { getUsageChart } from "@/layout/UsageStatistics";
 import { api } from "@/utils/api";
 import type { BattleTypes } from "@/drizzle/constants";
@@ -59,6 +62,9 @@ const ManualJutsus: NextPage = () => {
         <div className="relative w-[99%]">
           <canvas ref={chartRef} id="baseUsage"></canvas>
         </div>
+        {chartRef.current !== null && (
+          <ExportGraph canvas={chartRef.current} filename="jutsu_balance" />
+        )}
       </ContentBox>
     </>
   );

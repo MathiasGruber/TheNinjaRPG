@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import ExportGraph from "@/layout/ExportGraph";
 import { Chart as ChartJS } from "chart.js/auto";
 import { groupBy } from "@/utils/grouping";
 
@@ -57,6 +58,9 @@ export const LevelStats: React.FC<LevelStatsProps> = (props) => {
   return (
     <div className="relative w-[99%]">
       <canvas ref={chartRef} id="baseUsage"></canvas>
+      {chartRef.current !== null && (
+        <ExportGraph canvas={chartRef.current} filename="level_distribution" />
+      )}
     </div>
   );
 };
@@ -91,6 +95,9 @@ export const UsageStats: React.FC<UsageStatsProps> = (props) => {
   return (
     <div className="relative w-[99%]">
       <canvas ref={chartRef} id="baseUsage"></canvas>
+      {chartRef.current !== null && (
+        <ExportGraph canvas={chartRef.current} filename="usage_statistics" />
+      )}
     </div>
   );
 };

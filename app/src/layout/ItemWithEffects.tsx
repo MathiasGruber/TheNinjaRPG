@@ -113,7 +113,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
             <div className="absolute right-6 flex flex-row">
               {showStatistic && (
-                <Link href={`/cpanel/${showStatistic}/${item.id}`} className="mr-1">
+                <Link
+                  href={`/cpanel/${showStatistic}/statistics/${item.id}`}
+                  className="mr-1"
+                >
                   <ChartBarIcon className="h-6 w-6 hover:fill-orange-500" />
                 </Link>
               )}

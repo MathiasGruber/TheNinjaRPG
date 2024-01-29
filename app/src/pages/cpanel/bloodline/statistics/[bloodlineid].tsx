@@ -1,25 +1,25 @@
 import { useRouter } from "next/router";
-import ContentBox from "../../../layout/ContentBox";
-import Loader from "../../../layout/Loader";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
-import { UsageStats, LevelStats } from "../../../layout/UsageStatistics";
+import { UsageStats, LevelStats } from "@/layout/UsageStatistics";
 import type { NextPage } from "next";
 
-const JutsuStatistics: NextPage = () => {
+const BloodlineStatistics: NextPage = () => {
   const router = useRouter();
-  const jutsuId = router.query.jutsuid as string;
+  const bloodlineId = router.query.bloodlineid as string;
 
   // Queries
   const { data, isLoading } = api.data.getStatistics.useQuery(
-    { id: jutsuId, type: "jutsu" },
-    { staleTime: Infinity, enabled: jutsuId !== undefined },
+    { id: bloodlineId, type: "bloodline" },
+    { staleTime: Infinity, enabled: bloodlineId !== undefined },
   );
-  const jutsu = data?.info;
+  const bloodline = data?.info;
   const usage = data?.usage;
   const totalUsers = data?.totalUsers ?? 0;
   const levelDistribution = data?.levelDistribution;
   const total = usage?.reduce((acc, curr) => acc + curr.count, 0) ?? 0;
-  const name = jutsu && "name" in jutsu ? jutsu.name : "";
+  const name = bloodline && "name" in bloodline ? bloodline.name : "";
 
   // Prevent unauthorized access
   if (isLoading) {
@@ -30,15 +30,15 @@ const JutsuStatistics: NextPage = () => {
   return (
     <>
       <ContentBox
-        title={`Jutsu: ${name}`}
+        title={`Bloodline: ${name}`}
         subtitle={`Total users: ${totalUsers}`}
-        back_href="/manual/jutsus"
+        back_href="/manual/bloodlines"
       >
         {levelDistribution && (
           <LevelStats
             levelDistribution={levelDistribution}
-            title="#Users vs. Jutsu Level"
-            xaxis="Jutsu Level"
+            title="#Users vs. User Level"
+            xaxis="User Level"
           />
         )}
       </ContentBox>
@@ -53,4 +53,4 @@ const JutsuStatistics: NextPage = () => {
   );
 };
 
-export default JutsuStatistics;
+export default BloodlineStatistics;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { groupBy } from "@/utils/grouping";
 import ContentBox from "@/layout/ContentBox";
+import Button from "@/layout/Button";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import { getUsageChart } from "@/layout/UsageStatistics";
@@ -58,6 +59,7 @@ const ManualAIs: NextPage = () => {
         <div className="relative w-[99%]">
           <canvas ref={chartRef} id="baseUsage"></canvas>
         </div>
+        <Button />
       </ContentBox>
     </>
   );
