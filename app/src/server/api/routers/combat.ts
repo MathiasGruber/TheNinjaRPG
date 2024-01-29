@@ -205,6 +205,7 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
+              log.error("UseractionError", { input: input });
               return { updateClient: false, notification };
             }
           } else if (isAITurn) {
@@ -219,6 +220,7 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
+              log.error("AIactionError", { input: input });
               return { updateClient: false, notification };
             }
           }
@@ -226,6 +228,7 @@ export const combatRouter = createTRPCRouter({
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
           if (!description && actionPerformed && history.length === 0) {
+            log.error("NoBattleDescription", { input: input });
             return { updateClient: false, notification: "No battle description" };
           }
 
