@@ -59,7 +59,6 @@ const ManualAIs: NextPage = () => {
         <div className="relative w-[99%]">
           <canvas ref={chartRef} id="baseUsage"></canvas>
         </div>
-        <Button />
       </ContentBox>
     </>
   );

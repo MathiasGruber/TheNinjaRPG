@@ -181,7 +181,7 @@ export const getBackgroundColor = (tile: GlobalTile) => {
     return { color: groundColors[1] };
   } else if (tile.t === 2) {
     return { color: dessertColors[2] };
-  } else if (tile.t === 3) {
+  } else {
     return { color: iceColors[2] };
   }
 };

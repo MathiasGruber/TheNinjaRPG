@@ -378,7 +378,7 @@ export const combatRouter = createTRPCRouter({
           .max(SECTOR_HEIGHT - 1),
         sector: z.number().int(),
         userId: z.string(),
-        asset: z.enum(["ocean", "ground", "dessert"]).optional(),
+        asset: z.enum(["ocean", "ground", "dessert", "ice"]).optional(),
       }),
     )
     .output(baseServerResponse)
@@ -419,9 +419,13 @@ export const determineArenaBackground = (villageName: string) => {
   }
 };
 
-export const determineCombatBackground = (asset: "ocean" | "ground" | "dessert") => {
+export const determineCombatBackground = (
+  asset: "ocean" | "ground" | "dessert" | "ice",
+) => {
   switch (asset) {
     case "ocean":
+      return "midjourney_ocean.webp";
+    case "ice":
       return "midjourney_ocean.webp";
     case "ground":
       return "midjourney_forest.webp";

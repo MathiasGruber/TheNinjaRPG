@@ -12,7 +12,7 @@ import type { HexOffset, HexOptions } from "honeycomb-grid";
  * Custom hex used by honeycomb.js
  */
 export class TerrainHex extends Hex {
-  asset?: "ocean" | "ground" | "dessert";
+  asset?: "ocean" | "ground" | "dessert" | "ice";
   level!: number;
   cost!: number;
 }
