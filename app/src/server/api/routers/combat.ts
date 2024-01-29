@@ -275,6 +275,7 @@ export const combatRouter = createTRPCRouter({
             newBattle.round === originalRound &&
             newBattle.activeUserId === originalActiveUserId
           ) {
+            log.error("BattleStateUnchanged", { input: input });
             return { notification: `Battle state was not changed` };
           }
 
