@@ -18,6 +18,7 @@ import {
   user2conversation,
   userReport,
   userNindo,
+  userItem,
   userJutsu,
   jutsu,
   actionLog,
@@ -967,6 +968,82 @@ export const profileRouter = createTRPCRouter({
     }
     await deleteUser(ctx.drizzle, ctx.userId);
   }),
+  // Copy user setting to Terriator - exclusive to Terriator user for debugging
+  cloneUserForDebug: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const target = await fetchUser(ctx.drizzle, input.userId);
+      if (!user || !target) {
+        return { success: false, message: "User not found" };
+      }
+      if (user.username !== "Terriator") {
+        return { success: false, message: "You are not Terriator" };
+      }
+      if (target.username === "Terriator") {
+        return { success: false, message: "Cannot copy Terriator to Terriator" };
+      }
+      const [targetJutsus, targetItems] = await Promise.all([
+        ctx.drizzle.query.userJutsu.findMany({
+          where: eq(userJutsu.userId, input.userId),
+        }),
+        ctx.drizzle.query.userItem.findMany({
+          where: eq(userItem.userId, input.userId),
+        }),
+      ]);
+      await Promise.all([
+        ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
+        ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            curHealth: target.curHealth,
+            maxHealth: target.maxHealth,
+            curStamina: target.curStamina,
+            maxStamina: target.maxStamina,
+            curChakra: target.curChakra,
+            maxChakra: target.maxChakra,
+            curEnergy: target.curEnergy,
+            maxEnergy: target.maxEnergy,
+            money: target.money,
+            bank: target.bank,
+            experience: target.experience,
+            rank: target.rank,
+            level: target.level,
+            villageId: target.villageId,
+            bloodlineId: target.bloodlineId,
+            strength: target.strength,
+            speed: target.speed,
+            intelligence: target.intelligence,
+            willpower: target.willpower,
+            ninjutsuOffence: target.ninjutsuOffence,
+            ninjutsuDefence: target.ninjutsuDefence,
+            genjutsuOffence: target.genjutsuOffence,
+            genjutsuDefence: target.genjutsuDefence,
+            taijutsuOffence: target.taijutsuOffence,
+            taijutsuDefence: target.taijutsuDefence,
+            bukijutsuOffence: target.bukijutsuOffence,
+            bukijutsuDefence: target.bukijutsuDefence,
+            questData: target.questData,
+            sector: target.sector,
+            latitude: target.latitude,
+            longitude: target.longitude,
+          })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      if (targetJutsus.length > 0) {
+        await ctx.drizzle
+          .insert(userJutsu)
+          .values(targetJutsus.map((uj) => ({ ...uj, userId: ctx.userId })));
+      }
+      if (targetItems.length > 0) {
+        await ctx.drizzle
+          .insert(userItem)
+          .values(targetItems.map((ui) => ({ ...ui, userId: ctx.userId })));
+      }
+      return { success: true, message: "User copied" };
+    }),
 });
 
 export const deleteUser = async (client: DrizzleClient, userId: string) => {

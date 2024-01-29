@@ -13,6 +13,7 @@ import ReportUser from "@/layout/Report";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
 import { FlagIcon } from "@heroicons/react/24/outline";
+import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
 import { updateUserSchema } from "@/validators/user";
@@ -27,7 +28,7 @@ import type { UpdateUserSchema } from "@/validators/user";
 
 const PublicProfile: NextPage = () => {
   const { isSignedIn } = useAuth();
-  const { data: userData } = useUserData();
+  const { data: userData, refetch: refetchUser } = useUserData();
   const router = useRouter();
   const userId = router.query.userId as string;
 
@@ -46,6 +47,20 @@ const PublicProfile: NextPage = () => {
     },
     onError: (error) => {
       show_toast("Error on updating avatar", error.message, "error");
+    },
+  });
+
+  const cloneUser = api.profile.cloneUserForDebug.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        await refetchUser();
+        show_toast("User cloned successfully", data.message, "success");
+      } else {
+        show_toast("Error on cloning user", data.message, "error");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error on cloning user", error.message, "error");
     },
   });
 
@@ -68,6 +83,12 @@ const PublicProfile: NextPage = () => {
             subtitle={"Public Profile: " + profile.username}
             topRightContent={
               <div className="flex flex-row gap-1">
+                {userData?.username === "Terriator" && (
+                  <ClipboardDocumentCheckIcon
+                    className="h-6 w-6 cursor-pointer hover:fill-orange-500"
+                    onClick={() => cloneUser.mutate({ userId: profile.userId })}
+                  />
+                )}
                 {availableRoles && availableRoles.length > 0 && (
                   <EditUserComponent
                     userId={profile.userId}
