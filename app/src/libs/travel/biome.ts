@@ -13,6 +13,10 @@ export const oceanColors = [0x184695, 0x1c54b5, 0x2767d7] as const;
 
 export const dessertColors = [0xf9e79f, 0xfad7a0, 0xf5cba7] as const;
 
+export const iceColors = [0x9febf7, 0x89cde0, 0x98dfe8] as const;
+
+export const snowColors = [0xffffff, 0xeeeeee, 0xfefefe] as const;
+
 export const groundMats = groundColors.map(
   (color) => new MeshBasicMaterial({ color, transparent: true }),
 );
@@ -25,6 +29,14 @@ export const dessertMats = dessertColors.map(
   (color) => new MeshBasicMaterial({ color, transparent: true }),
 );
 
+export const iceMats = iceColors.map(
+  (color) => new MeshBasicMaterial({ color, transparent: true }),
+);
+
+export const snowMats = snowColors.map(
+  (color) => new MeshBasicMaterial({ color, transparent: true }),
+);
+
 /**
  * Returns materials and potential game assets to show on a given tile
  */
@@ -32,7 +44,7 @@ interface TileInfo {
   material: MeshBasicMaterial;
   sprites: Sprite[];
   density: number;
-  asset: "ocean" | "ground" | "dessert";
+  asset: "ocean" | "ground" | "dessert" | "ice";
 }
 
 export const getTileInfo = (prng: () => number, hex: TerrainHex, tile: GlobalTile) => {
@@ -59,6 +71,9 @@ export const getMapSprites = (
       assets = groundAssets;
       cost += 1;
     } else if (asset === "dessert") {
+      assets = dessertAssets;
+      cost += 1;
+    } else if (asset === "ice") {
       assets = dessertAssets;
       cost += 1;
     } else {
@@ -134,7 +149,7 @@ const getMaterial = (hex: TerrainHex, tile: GlobalTile) => {
     } else {
       return { material: dessertMats[2], asset: "dessert", density: 3 } as TileInfo;
     }
-  } else {
+  } else if (tile.t === 2) {
     if (hex.level < 0.05) {
       return { material: oceanMats[2], asset: "ocean", density: 1 } as TileInfo;
     } else if (hex.level < 0.1) {
@@ -146,6 +161,16 @@ const getMaterial = (hex: TerrainHex, tile: GlobalTile) => {
     } else {
       return { material: dessertMats[2], asset: "dessert", density: 1 } as TileInfo;
     }
+  } else {
+    if (hex.level < 0.05) {
+      return { material: oceanMats[2], asset: "ocean", density: 1 } as TileInfo;
+    } else if (hex.level < 0.3) {
+      return { material: snowMats[0], asset: "ice", density: 1 } as TileInfo;
+    } else if (hex.level < 0.6) {
+      return { material: snowMats[1], asset: "ice", density: 1 } as TileInfo;
+    } else {
+      return { material: snowMats[2], asset: "ice", density: 1 } as TileInfo;
+    }
   }
 };
 
@@ -154,7 +179,9 @@ export const getBackgroundColor = (tile: GlobalTile) => {
     return { color: oceanColors[0] };
   } else if (tile.t === 1) {
     return { color: groundColors[1] };
-  } else {
+  } else if (tile.t === 2) {
     return { color: dessertColors[2] };
+  } else if (tile.t === 3) {
+    return { color: iceColors[2] };
   }
 };

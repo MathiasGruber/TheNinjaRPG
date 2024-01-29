@@ -75,7 +75,6 @@ const Travel: NextPage = () => {
     resolver: zodResolver(sectorSelect),
   });
   const highlightedSector = sectorForm.watch("sector");
-  console.log(highlightedSector);
 
   useEffect(() => {
     if (!currentSector && userData && globe) {

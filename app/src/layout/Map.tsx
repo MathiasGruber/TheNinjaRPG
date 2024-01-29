@@ -16,7 +16,7 @@ import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
 import { loadTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "@/libs/travel/util";
-import { groundMats, oceanMats, dessertMats } from "@/libs/travel/biome";
+import { groundMats, oceanMats, dessertMats, iceMats } from "@/libs/travel/biome";
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
 import { useUserData } from "@/utils/UserContext";
 import type { Village } from "../../drizzle/schema";
@@ -129,8 +129,10 @@ const Map: React.FC<MapProps> = (props) => {
             material = oceanMats[Math.floor(consistentRandom * oceanMats.length)];
           } else if (t.t === 1) {
             material = groundMats[Math.floor(consistentRandom * groundMats.length)];
-          } else {
+          } else if (t.t === 2) {
             material = dessertMats[Math.floor(consistentRandom * dessertMats.length)];
+          } else {
+            material = iceMats[Math.floor(consistentRandom * iceMats.length)];
           }
           const mesh = new Mesh(geometry, material?.clone());
           mesh.matrixAutoUpdate = false;

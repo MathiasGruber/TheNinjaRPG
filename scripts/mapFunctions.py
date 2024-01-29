@@ -5,7 +5,7 @@ from PIL import Image
 
 # Command-line arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("-map_image", help="Image to use for creating map", default="data/map.png")
+parser.add_argument("-map_image", help="Image to use for creating map", default="data/mapWithCold.png")
 parser.add_argument("-map_data", help="Hexasphere json file", default="data/hexasphere.json")
 parser.add_argument("-output_data", help="Output hexasphere json file", default="../app/public/map/hexasphere.json")
 
@@ -49,8 +49,10 @@ if __name__ == '__main__':
     new_tiles = []
     for tile, long, lat in zip(tiles, longs, lats):
         color = map_image.getpixel((long, lat))
-        # 0=water, 1=land, 2=dessert
-        if color[0] > color[1]-40:
+        # 0=water, 1=land, 2=dessert, 3=ice
+        if (color[0] == color[1]) and (color[1] == color[2]):
+            color=3
+        elif color[0] > color[1]-40:
             color=2
         elif color[1] > color[2]:
             color=1
