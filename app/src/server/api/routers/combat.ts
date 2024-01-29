@@ -205,7 +205,7 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
-              log.error("UseractionError", { input: input });
+              log.error("BattleError-UserAction", { input: input });
               return { updateClient: false, notification };
             }
           } else if (isAITurn) {
@@ -220,7 +220,7 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
-              log.error("AIactionError", { input: input });
+              log.error("BattleError-AiAction", { input: input });
               return { updateClient: false, notification };
             }
           }
@@ -228,7 +228,7 @@ export const combatRouter = createTRPCRouter({
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
           if (!description && actionPerformed && history.length === 0) {
-            log.error("NoBattleDescription", { input: input });
+            log.error("BattleError-NoDescription", { input: input });
             return { updateClient: false, notification: "No battle description" };
           }
 
@@ -278,7 +278,7 @@ export const combatRouter = createTRPCRouter({
             newBattle.round === originalRound &&
             newBattle.activeUserId === originalActiveUserId
           ) {
-            log.error("BattleStateUnchanged", { input: input });
+            log.error("BattleError-StateUnchanged", { input: input });
             return { notification: `Battle state was not changed` };
           }
 
