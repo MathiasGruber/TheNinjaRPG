@@ -12,7 +12,7 @@ export const seedVillages = async (client: DrizzleClient) => {
     { name: "Silence", sector: 297, hexColor: "#0a0a0a" },
     { name: "Current", sector: 4, hexColor: "#3232a8" },
     { name: "Horizon", sector: 66, hexColor: "#9e4819" },
-    { name: "Samui", sector: 116, hexColor: "#6b199e" },
+    { name: "Glacier", sector: 116, hexColor: "#6b199e" },
     { name: "Shine", sector: 90, hexColor: "#adab10" },
   ];
   // Elders

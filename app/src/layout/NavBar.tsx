@@ -94,7 +94,6 @@ const NavBar: React.FC<NavBarProps> = (props) => {
 
   // Links to show on game menu
   const gameLinks = notifications ? notifications.concat(systems) : navLinks;
-  console.log(gameLinks);
 
   // Return navbar
   return (
