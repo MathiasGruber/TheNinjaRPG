@@ -1033,14 +1033,24 @@ export const profileRouter = createTRPCRouter({
           .where(eq(userData.userId, ctx.userId)),
       ]);
       if (targetJutsus.length > 0) {
-        await ctx.drizzle
-          .insert(userJutsu)
-          .values(targetJutsus.map((uj) => ({ ...uj, userId: ctx.userId })));
+        await ctx.drizzle.insert(userJutsu).values(
+          targetJutsus.map((userjutsu) => ({
+            ...userjutsu,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
       }
       if (targetItems.length > 0) {
         await ctx.drizzle
           .insert(userItem)
-          .values(targetItems.map((ui) => ({ ...ui, userId: ctx.userId })));
+          .values(
+            targetItems.map((useritem) => ({
+              ...useritem,
+              userId: ctx.userId,
+              id: nanoid(),
+            })),
+          );
       }
       return { success: true, message: "User copied" };
     }),
