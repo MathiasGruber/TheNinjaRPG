@@ -39,9 +39,8 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
         serviceName="tnr-frontend"
         tracingOrigins
-        privacySetting="strict"
+        privacySetting="default"
         reportConsoleErrors={true}
-        disableSessionRecording={true}
         environment={process.env.NODE_ENV}
         networkRecording={{
           enabled: true,

@@ -12,11 +12,11 @@ dependencies:
     specifier: 2.0.16
     version: 2.0.16(react@18.2.0)
   '@highlight-run/next':
-    specifier: 7.3.4
-    version: 7.3.4(@opentelemetry/api@1.6.0)(next@14.1.0)(react-dom@18.2.0)(react@18.2.0)
+    specifier: 7.3.5
+    version: 7.3.5(@opentelemetry/api@1.6.0)(next@14.1.0)(react-dom@18.2.0)(react@18.2.0)
   '@highlight-run/node':
-    specifier: 3.7.2
-    version: 3.7.2
+    specifier: 3.7.3
+    version: 3.7.3
   '@highlight-run/react':
     specifier: 3.2.1
     version: 3.2.1(react-dom@18.2.0)(react@18.2.0)
@@ -63,8 +63,8 @@ dependencies:
     specifier: 23.1.1
     version: 23.1.1
   '@uploadthing/react':
-    specifier: 6.0.2
-    version: 6.0.2(next@14.1.0)(react@18.2.0)(uploadthing@6.0.4)
+    specifier: 6.2.2
+    version: 6.2.2(next@14.1.0)(react@18.2.0)(uploadthing@6.3.1)
   '@upstash/ratelimit':
     specifier: 0.4.2
     version: 0.4.2(@upstash/redis@1.20.6)
@@ -174,8 +174,8 @@ dependencies:
     specifier: ^6.8.2
     version: 6.8.2
   uploadthing:
-    specifier: 6.0.4
-    version: 6.0.4
+    specifier: 6.3.1
+    version: 6.3.1
   zod:
     specifier: 3.22.4
     version: 3.22.4
@@ -1020,14 +1020,14 @@ packages:
       - supports-color
     dev: false
 
-  /@highlight-run/next@7.3.4(@opentelemetry/api@1.6.0)(next@14.1.0)(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-uADuNwee9ojCLgHeBzrUwnVfDX/8MMFxwb1eawVYYyB5/KiluhBvrpLx/0Dv3jiS8K3DVOM5/OrI5PkglNsylQ==}
+  /@highlight-run/next@7.3.5(@opentelemetry/api@1.6.0)(next@14.1.0)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-E1HBvRcjiM0LdygEJK++mQhnjQhZiS7r1/Dc7nUTIvYj5eB7Y+S8hzkDE+Fnyn+93LdRzviZVwOmEAt8lbeziQ==}
     peerDependencies:
       next: '>=11'
       react: '>=17'
     dependencies:
       '@highlight-run/cloudflare': 2.1.4(@opentelemetry/api@1.6.0)
-      '@highlight-run/node': 3.7.2
+      '@highlight-run/node': 3.7.3
       '@highlight-run/opentelemetry-sdk-workers': 1.0.5
       '@highlight-run/react': 3.2.1(react-dom@18.2.0)(react@18.2.0)
       '@highlight-run/sourcemap-uploader': 0.6.0
@@ -1041,8 +1041,8 @@ packages:
       - supports-color
     dev: false
 
-  /@highlight-run/node@3.7.2:
-    resolution: {integrity: sha512-jjjULwY4zSn9oT4c2rFGYsjp5AQLUa4aTTiRH6FD0keZq80vItIWgkVIlKYykFN/lFuuot8+/eJnDlJJoti1Ow==}
+  /@highlight-run/node@3.7.3:
+    resolution: {integrity: sha512-ZHawSxtoTaiaW1xtlHH80xQJpfSC4JXt2bgvr5aVgI9Uc51IFcBCJHIrMFBecJ4Zrptj5x7Kt0AqBz2hfd4w/w==}
     dev: false
 
   /@highlight-run/opentelemetry-sdk-workers@1.0.4:
@@ -1050,13 +1050,13 @@ packages:
     engines: {node: '>=14'}
     dependencies:
       '@opentelemetry/api': 1.6.0
-      '@opentelemetry/core': 1.17.0(@opentelemetry/api@1.6.0)
+      '@opentelemetry/core': 1.20.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/instrumentation': 0.44.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/otlp-exporter-base': 0.43.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/otlp-transformer': 0.43.0(@opentelemetry/api@1.6.0)
-      '@opentelemetry/resources': 1.17.0(@opentelemetry/api@1.6.0)
+      '@opentelemetry/resources': 1.20.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/sdk-trace-base': 1.20.0(@opentelemetry/api@1.6.0)
-      '@opentelemetry/semantic-conventions': 1.17.0
+      '@opentelemetry/semantic-conventions': 1.20.0
       protobufjs: 7.2.4
     transitivePeerDependencies:
       - supports-color
@@ -1067,13 +1067,13 @@ packages:
     engines: {node: '>=14'}
     dependencies:
       '@opentelemetry/api': 1.6.0
-      '@opentelemetry/core': 1.17.0(@opentelemetry/api@1.6.0)
+      '@opentelemetry/core': 1.20.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/instrumentation': 0.44.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/otlp-exporter-base': 0.43.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/otlp-transformer': 0.43.0(@opentelemetry/api@1.6.0)
-      '@opentelemetry/resources': 1.17.0(@opentelemetry/api@1.6.0)
+      '@opentelemetry/resources': 1.20.0(@opentelemetry/api@1.6.0)
       '@opentelemetry/sdk-trace-base': 1.20.0(@opentelemetry/api@1.6.0)
-      '@opentelemetry/semantic-conventions': 1.17.0
+      '@opentelemetry/semantic-conventions': 1.20.0
       protobufjs: 7.2.4
     transitivePeerDependencies:
       - supports-color
@@ -2033,12 +2033,19 @@ packages:
   /@ungap/structured-clone@1.2.0:
     resolution: {integrity: sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==}
 
+  /@uploadthing/dropzone@0.1.1:
+    resolution: {integrity: sha512-ohlnFQfNr/UmImfipVo4uiBj1HQL7dp/sWBD96iAajc6RaQuYnHATGaSaISpCjZTeoLkksuu4/LR8vU9nSzpvQ==}
+    dependencies:
+      attr-accept: 2.2.2
+      file-selector: 0.6.0
+    dev: false
+
   /@uploadthing/mime-types@0.2.2:
     resolution: {integrity: sha512-ZUo1JHOPPMZDsUw1mOhhVDIvJGlsjj6T0xJ/YJtulyJwL43S9B5pxg1cHcRuTEgjaxj7B55jiqQ6r9mDrrjH9A==}
     dev: false
 
-  /@uploadthing/react@6.0.2(next@14.1.0)(react@18.2.0)(uploadthing@6.0.4):
-    resolution: {integrity: sha512-gUJwNvSFs0bg4m0c6wlFo1Fe3uyGTmAp0BESkRZvqyN4hNhIcxMY0TxjqxCKsYkv1T0/y3dHgN/XU2BDAQQh7w==}
+  /@uploadthing/react@6.2.2(next@14.1.0)(react@18.2.0)(uploadthing@6.3.1):
+    resolution: {integrity: sha512-fDfVooLTbC5/FM1o/chPDf5i8DRxCOeRSuRl0R6yh/jIHTdDO2kwXeM5DTaBazJmaEabh5GB+I9Rwg8nU0QdVA==}
     peerDependencies:
       next: '*'
       react: ^17.0.2 || ^18.0.0
@@ -2047,19 +2054,20 @@ packages:
       next:
         optional: true
     dependencies:
-      '@uploadthing/shared': 6.0.2(@uploadthing/mime-types@0.2.2)
+      '@uploadthing/dropzone': 0.1.1
+      '@uploadthing/shared': 6.2.0(@uploadthing/mime-types@0.2.2)
       attr-accept: 2.2.2
       file-selector: 0.6.0
       next: 14.1.0(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       tailwind-merge: 1.14.0
-      uploadthing: 6.0.4
+      uploadthing: 6.3.1
     transitivePeerDependencies:
       - '@uploadthing/mime-types'
     dev: false
 
-  /@uploadthing/shared@6.0.2(@uploadthing/mime-types@0.2.2):
-    resolution: {integrity: sha512-yFOhvzBG8VB2qmEGWDuW/tV/ZcfRZ4a6rX7i9/ZS3IqHA0FO7CKa8yitltAl3yRdSI9it88iMEQg7Ah/ve8D4A==}
+  /@uploadthing/shared@6.2.0(@uploadthing/mime-types@0.2.2):
+    resolution: {integrity: sha512-GMC1gwZa9X48RZwuY7gGse7E8TXYMAMUNaYWEQL2ctVhMZv7viCPyMyZ0yMqBsQmOeGfbmycPnUeNE9IuesJGg==}
     peerDependencies:
       '@uploadthing/mime-types': ^0.2.2
     peerDependenciesMeta:
@@ -2067,6 +2075,7 @@ packages:
         optional: true
     dependencies:
       '@uploadthing/mime-types': 0.2.2
+      std-env: 3.7.0
     dev: false
 
   /@upstash/core-analytics@0.0.6:
@@ -2615,6 +2624,11 @@ packages:
 
   /concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  /consola@3.2.3:
+    resolution: {integrity: sha512-I5qxpzLv+sJhTVEoLYNcTW+bThDCPsit0vLNKShZx6rLtpilNpmmeTPaeqJb9ZE9dV3DGaeby6Vuhrw38WjeyQ==}
+    engines: {node: ^14.18.0 || >=16.10.0}
+    dev: false
 
   /cookie@0.5.0:
     resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
@@ -5874,6 +5888,10 @@ packages:
     engines: {node: '>= 0.6'}
     dev: false
 
+  /std-env@3.7.0:
+    resolution: {integrity: sha512-JPbdCEQLj1w5GilpiHAx3qJvFndqybBysA3qUOnznweH4QbNYUsW/ea8QzSrnh0vNsezMMw5bcVool8lM0gwzg==}
+    dev: false
+
   /streamsearch@1.1.0:
     resolution: {integrity: sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==}
     engines: {node: '>=10.0.0'}
@@ -6363,12 +6381,14 @@ packages:
       picocolors: 1.0.0
     dev: true
 
-  /uploadthing@6.0.4:
-    resolution: {integrity: sha512-5zIKiL00ONywAmqtL4Ug1OAw/fpa6DGFRae/C8Bckuqmx0I949CghjCwvMKaIo+ZCD9qBeLwfNNucZNeTsHzJA==}
+  /uploadthing@6.3.1:
+    resolution: {integrity: sha512-eqbUpxSYtofT/aqqXHlaNJhpK94st6rGeEr8d2QmL0gHWKauS9w7J4jQ5Q7Jfmb2kMJj+pXW3duydkev/5G6Mw==}
     engines: {node: '>=18.13.0'}
     dependencies:
       '@uploadthing/mime-types': 0.2.2
-      '@uploadthing/shared': 6.0.2(@uploadthing/mime-types@0.2.2)
+      '@uploadthing/shared': 6.2.0(@uploadthing/mime-types@0.2.2)
+      consola: 3.2.3
+      std-env: 3.7.0
     dev: false
 
   /uri-js@4.4.1:
