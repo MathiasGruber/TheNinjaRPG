@@ -7,6 +7,8 @@ import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
+import type { RamenOption } from "@/utils/ramen";
+import type { UserWithRelations } from "../server/api/routers/profile";
 
 const RamenShop: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
@@ -45,63 +47,27 @@ const RamenShop: NextPage = () => {
       {isLoading && <Loader explanation="Purchasing food" />}
       {!isLoading && (
         <div className="grid grid-cols-3 text-center font-bold italic p-3">
-          <div
-            className="hover:cursor-pointer"
-            onClick={() => mutate({ ramen: "small" })}
-          >
-            <Image
-              alt="small"
-              src="/ramen/small_bowl.webp"
-              width={256}
-              height={256}
-              className="hover:opacity-30"
-            />
-            <p>Small Bowl</p>
-            <p className="text-green-700">
-              +{getRamenHealPercentage("small").toFixed()}% HP
-            </p>
-            <p className="text-red-700">
-              -{calcRamenCost("small", userData).toFixed(2)} ryo
-            </p>
-          </div>
-          <div
-            className="hover:cursor-pointer"
-            onClick={() => mutate({ ramen: "medium" })}
-          >
-            <Image
-              alt="medium"
-              src="/ramen/medium_bowl.webp"
-              width={256}
-              height={256}
-              className="hover:opacity-30"
-            />
-            <p>Medium Bowl</p>
-            <p className="text-green-700">
-              +{getRamenHealPercentage("medium").toFixed()}% HP
-            </p>
-            <p className="text-red-700">
-              -{calcRamenCost("medium", userData).toFixed(2)} ryo
-            </p>
-          </div>
-          <div
-            className="hover:cursor-pointer"
-            onClick={() => mutate({ ramen: "large" })}
-          >
-            <Image
-              alt="large"
-              src="/ramen/large_bowl.webp"
-              width={256}
-              height={256}
-              className="hover:opacity-30"
-            />
-            <p>Large Bowl</p>
-            <p className="text-green-700">
-              +{getRamenHealPercentage("large").toFixed()}% HP
-            </p>
-            <p className="text-red-700">
-              -{calcRamenCost("large", userData).toFixed(2)} ryo
-            </p>
-          </div>
+          <MenuEntry
+            title="Small Bowl"
+            entry="small"
+            image="/ramen/small_bowl.webp"
+            userData={userData}
+            onPurchase={() => mutate({ ramen: "small" })}
+          />
+          <MenuEntry
+            title="Medium Bowl"
+            entry="medium"
+            image="/ramen/medium_bowl.webp"
+            userData={userData}
+            onPurchase={() => mutate({ ramen: "medium" })}
+          />
+          <MenuEntry
+            title="Large Bowl"
+            entry="large"
+            image="/ramen/large_bowl.webp"
+            userData={userData}
+            onPurchase={() => mutate({ ramen: "large" })}
+          />
         </div>
       )}
     </ContentBox>
@@ -109,3 +75,51 @@ const RamenShop: NextPage = () => {
 };
 
 export default RamenShop;
+
+interface MenuEntryProps {
+  title: string;
+  entry: RamenOption;
+  image: string;
+  userData: NonNullable<UserWithRelations>;
+  onPurchase: () => void;
+}
+
+const MenuEntry: React.FC<MenuEntryProps> = (props) => {
+  // Destructure
+  const { title, entry, image, userData, onPurchase } = props;
+
+  // Convenience
+  const healPerc = getRamenHealPercentage(entry);
+  const cost = calcRamenCost(entry, userData);
+
+  // Checks
+  const canAfford = userData.money >= cost;
+  const left = (100 * (userData.maxHealth - userData.curHealth)) / userData.maxHealth;
+  const healTooMuch = healPerc > left + 10;
+
+  // Click handler
+  const onClick = () => {
+    if (!canAfford) {
+      show_toast("Ramen Shop", "You don't have enough money", "info");
+    } else if (left === 0 || healTooMuch) {
+      show_toast("Ramen Shop", "You don't need to eat that much", "info");
+    } else {
+      onPurchase();
+    }
+  };
+
+  return (
+    <div className="hover:cursor-pointer" onClick={onClick}>
+      <Image
+        alt={title}
+        src={image}
+        width={256}
+        height={256}
+        className={`hover:opacity-30 ${!canAfford || healTooMuch || left === 0 ? "grayscale opacity-50 cursor-not-allowed" : ""}`}
+      />
+      <p>{title}</p>
+      <p className="text-green-700">+{healPerc.toFixed()}% HP</p>
+      <p className="text-red-700">-{cost.toFixed(2)} ryo</p>
+    </div>
+  );
+};
