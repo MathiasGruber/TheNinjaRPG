@@ -22,6 +22,7 @@
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "2.9.10",
     "@next/bundle-analyzer": "14.0.3",
+    "@next/third-parties": "^14.1.0",
     "@paypal/react-paypal-js": "7.8.2",
     "@planetscale/database": "^1.7.0",
     "@pusher/push-notifications-server": "^1.2.6",

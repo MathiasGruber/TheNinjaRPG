@@ -3,7 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
 import Link from "next/link";
-import Script from "next/script";
+import { GoogleTagManager } from "@next/third-parties/google";
 import Header from "@/layout/Header";
 import CookieConsent, { getCookieConsentValue } from "react-cookie-consent";
 import { ToastContainer } from "react-toastify";
@@ -31,19 +31,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
     >
       <Header />
       {cookieConsent === "true" && (
-        <>
-          <Script
-            strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${env.NEXT_PUBLIC_MEASUREMENT_ID}`}
-          />
-          <Script
-            id="google-tag-manager"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '${env.NEXT_PUBLIC_MEASUREMENT_ID}', {page_path: window.location.pathname});`,
-            }}
-          />
-        </>
+        <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
       )}
       <ToastContainer />
       <CookieConsent cookieName="TNR-cookie-conscent">
