@@ -28,7 +28,7 @@ import { calcHealCost } from "@/libs/hospital/hospital";
 
 const Hospital: NextPage = () => {
   // Settings
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, timeDiff, refetch: refetchUser } = useRequiredUserData();
   const isHospitalized = userData?.status === "HOSPITALIZED";
   const hospitalName = userData?.village?.name
     ? userData.village.name + " Hospital"
