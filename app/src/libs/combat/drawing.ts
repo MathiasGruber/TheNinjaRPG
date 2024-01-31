@@ -620,7 +620,7 @@ export const highlightTiles = (info: {
   const origin = user && grid.getHex({ col: user.longitude, row: user.latitude });
 
   // Make sure the proper round & activeUser is reflected in how we draw combat
-  const { actor } = calcActiveUser(battle, user.userId);
+  const { actor } = calcActiveUser(battle, user.userId, timeDiff);
 
   // Check if we have enough action points to perform action
   const canAct =

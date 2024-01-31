@@ -133,7 +133,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Handle key-presses
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     if (battle.current) {
-      const { actor } = calcActiveUser(battle.current, suid);
+      const { actor } = calcActiveUser(battle.current, suid, timeDiff);
       switch (event.key) {
         case "w":
           if (actor.userId === suid) {
@@ -178,7 +178,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       if (suid && battle.current && userId.current && !isLoadingUser && !result) {
-        const { actor } = calcActiveUser(battle.current, suid);
+        const { actor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
         if (actor.isAi) {
           performAction({
@@ -202,7 +202,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingUser, result, suid]);
+  }, [isLoadingUser, timeDiff, result, suid]);
 
   useEffect(() => {
     action.current = props.action;
