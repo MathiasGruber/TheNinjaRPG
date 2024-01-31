@@ -205,7 +205,7 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
-              log.error("BattleError-UserAction", { input: input });
+              log.error("BattleError-UserAction", { input: input, notification });
               return { updateClient: false, notification };
             }
           } else if (isAITurn) {
@@ -278,7 +278,16 @@ export const combatRouter = createTRPCRouter({
             newBattle.round === originalRound &&
             newBattle.activeUserId === originalActiveUserId
           ) {
-            log.error("BattleError-StateUnchanged", { input: input });
+            log.error("BattleError-StateUnchanged", {
+              input: input,
+              attempts,
+              progressRound,
+              isAITurn,
+              isUserTurn,
+              isStunned,
+              actor: actor.username,
+              newActor: newActor.username,
+            });
             return { notification: `Battle state was not changed` };
           }
 
