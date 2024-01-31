@@ -68,7 +68,7 @@ const Hospital: NextPage = () => {
   const bloodlineId = userData?.bloodlineId;
 
   // Heal finish time
-  const healFinishAt = userData && calcHealFinish(userData);
+  const healFinishAt = userData && calcHealFinish(userData, timeDiff);
   const healCost = userData && calcHealCost(userData);
   const canAfford = userData && healCost && userData.money >= healCost;
 
