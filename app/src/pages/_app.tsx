@@ -2,10 +2,8 @@ import { AxiomWebVitals } from "next-axiom";
 import { ClerkProvider } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
-import Link from "next/link";
 import { GoogleTagManager } from "@next/third-parties/google";
 import Header from "@/layout/Header";
-import CookieConsent, { getCookieConsentValue } from "react-cookie-consent";
 import { ToastContainer } from "react-toastify";
 import { type AppType } from "next/app";
 
@@ -17,8 +15,6 @@ import "@uploadthing/react/styles.css";
 import "../styles/globals.css";
 
 const MyApp: AppType = ({ Component, pageProps }) => {
-  const cookieConsent = getCookieConsentValue("TNR-cookie-conscent");
-
   return (
     <ClerkProvider
       {...pageProps}
@@ -30,17 +26,8 @@ const MyApp: AppType = ({ Component, pageProps }) => {
       }}
     >
       <Header />
-      {cookieConsent === "true" && (
-        <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
-      )}
+      <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
       <ToastContainer />
-      <CookieConsent cookieName="TNR-cookie-conscent">
-        This website uses cookies to enhance the user experience. Please read our{" "}
-        <Link href="/policy" className="text-amber-500 font-bold">
-          Privacy Policy
-        </Link>{" "}
-        before continuing.
-      </CookieConsent>
       <AxiomWebVitals />
       <HighlightInit
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}
