@@ -75,8 +75,8 @@ export const increaseArmor = (effect: UserEffect, target: BattleUserState) => {
 };
 
 export const decreaseArmor = (effect: UserEffect, target: BattleUserState) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustArmor(effect, target);
 };
 
@@ -220,8 +220,8 @@ export const increaseStats = (effect: UserEffect, target: BattleUserState) => {
 };
 
 export const decreaseStats = (effect: UserEffect, target: BattleUserState) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustStats(effect, target);
 };
 
@@ -266,8 +266,8 @@ export const decreaseDamageGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageGiven(effect, usersEffects, consequences, target);
 };
 
@@ -312,8 +312,8 @@ export const decreaseDamageTaken = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageTaken(effect, usersEffects, consequences, target);
 };
 
@@ -358,8 +358,8 @@ export const decreaseHealGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
@@ -706,8 +706,8 @@ export const increasepoolcost = (effect: UserEffect, target: BattleUserState) =>
 };
 
 export const decreasepoolcost = (effect: UserEffect, target: BattleUserState) => {
-  effect.power = -effect.power;
-  effect.powerPerLevel = -effect.powerPerLevel;
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return pooladjust(effect, target);
 };
 

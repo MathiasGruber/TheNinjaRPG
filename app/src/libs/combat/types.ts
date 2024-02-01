@@ -383,7 +383,7 @@ export const DecreasePoolCostTag = z.object({
 export const IncreaseStatTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PowerAttributes,
+  ...PositivePowerAttributes,
   type: z.literal("increasestat").default("increasestat"),
   description: msg("Increase stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -392,7 +392,7 @@ export const IncreaseStatTag = z.object({
 export const DecreaseStatTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PowerAttributes,
+  ...PositivePowerAttributes,
   type: z.literal("decreasestat").default("decreasestat"),
   description: msg("Decrease stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),

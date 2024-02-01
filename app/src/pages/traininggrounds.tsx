@@ -14,7 +14,8 @@ import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
-import { canTrainJutsu, calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
+import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
+import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/village";
@@ -290,17 +291,39 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Mutation loading
   const isLoading = isStartingTrain || isStoppingTrain;
 
+  // While loading userdata
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   // Derived calculations
   const level = userJutsuCounts?.find((entry) => entry.id === jutsu?.id)?.quantity || 0;
   const trainSeconds =
     jutsu &&
     getTimeLeftStr(...getDaysHoursMinutesSeconds(calcJutsuTrainTime(jutsu, level)));
-  const trainCost = (jutsu && calcJutsuTrainCost(jutsu, level)) || 0;
-  const canTrain = jutsu && userData && canTrainJutsu(jutsu, userData);
-  const canAfford = userData && trainCost && userData.money >= trainCost;
+  const cost = (jutsu && calcJutsuTrainCost(jutsu, level)) || 0;
+  const okRank = checkJutsuRank(jutsu?.jutsuRank, userData.rank);
+  const okVillage = checkJutsuVillage(jutsu, userData);
+  const okBloodline = checkJutsuBloodline(jutsu, userData);
+  const canAfford = userData && cost && userData.money >= cost;
   const isCapped = level >= JUTSU_LEVEL_CAP;
+  const canTrain = okRank && okVillage && okBloodline && !isCapped && canAfford;
 
-  if (!userData) return <Loader explanation="Loading userdata" />;
+  // Label for proceed button
+  let proceed_label: string | undefined = undefined;
+  if (!isLoading && !isCapped) {
+    if (!canAfford) {
+      proceed_label = `Need ${cost - userData.money} more ryo`;
+    } else if (isCapped) {
+      proceed_label = `Level capped`;
+    } else if (!okRank) {
+      proceed_label = `Cannot train ${jutsu?.jutsuRank} rank`;
+    } else if (!okVillage) {
+      proceed_label = `Wrong village`;
+    } else if (!okBloodline) {
+      proceed_label = `Wrong bloodline`;
+    } else if (trainSeconds && cost) {
+      proceed_label = `Train [${trainSeconds}, ${cost} ryo]`;
+    }
+  }
 
   return (
     <>
@@ -337,35 +360,33 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
             {isOpen && jutsu && (
               <Modal
                 title="Confirm Purchase"
-                proceed_label={
-                  !isLoading && !isCapped
-                    ? canTrain && canAfford && trainSeconds && trainCost
-                      ? `Train [${trainSeconds}, ${trainCost} ryo]`
-                      : canAfford
-                        ? "Not Available"
-                        : `Need ${trainCost - userData.money} more ryo`
-                    : undefined
-                }
+                proceed_label={proceed_label}
                 setIsOpen={setIsOpen}
                 isValid={false}
                 onAccept={() => {
-                  if (canTrain && canAfford && !isLoading) {
+                  if (canTrain && !isLoading) {
                     train({ jutsuId: jutsu.id });
                   } else {
                     setIsOpen(false);
                   }
                 }}
                 confirmClassName={
-                  canTrain && canAfford
+                  canTrain
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-red-600 text-white hover:bg-red-700"
                 }
               >
-                <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-                {!isLoading && (
-                  <ItemWithEffects item={jutsu} key={jutsu.id} showStatistic="jutsu" />
-                )}
-                {isLoading && <Loader explanation={`Training ${jutsu.name}`} />}
+                <div className="relative">
+                  <p className="pb-3">You have {userData.money} ryo in your pocket</p>
+                  {!isLoading && (
+                    <ItemWithEffects
+                      item={jutsu}
+                      key={jutsu.id}
+                      showStatistic="jutsu"
+                    />
+                  )}
+                  {isLoading && <Loader explanation={`Training ${jutsu.name}`} />}
+                </div>
               </Modal>
             )}
           </>

@@ -161,7 +161,6 @@ const Bank: NextPage = () => {
   const onDeposit = toBankForm.handleSubmit((data) => toBank(data));
   const onWithdraw = toPocketForm.handleSubmit((data) => toPocket(data));
   const onTransfer = toUserForm.handleSubmit((data) => {
-    console.log("test");
     if (targetUser) {
       transfer({ targetId: targetUser.userId, amount: data.amount });
     } else {

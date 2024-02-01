@@ -384,7 +384,6 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
         with: { jutsus: { with: { jutsu: true } } },
       });
-      console.log(user);
       if (!user) {
         throw serverError("NOT_FOUND", "AI not found");
       }
@@ -1042,15 +1041,13 @@ export const profileRouter = createTRPCRouter({
         );
       }
       if (targetItems.length > 0) {
-        await ctx.drizzle
-          .insert(userItem)
-          .values(
-            targetItems.map((useritem) => ({
-              ...useritem,
-              userId: ctx.userId,
-              id: nanoid(),
-            })),
-          );
+        await ctx.drizzle.insert(userItem).values(
+          targetItems.map((useritem) => ({
+            ...useritem,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
       }
       return { success: true, message: "User copied" };
     }),

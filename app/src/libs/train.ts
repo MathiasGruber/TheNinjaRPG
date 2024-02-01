@@ -43,15 +43,27 @@ export const getAvailableRanks = (rank: LetterRank) => {
   return ranks;
 };
 
-const sufficientJutsuRank = (rank: JutsuRank, userrank: UserRank) => {
+export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) => {
+  if (!rank) return false;
   return availableRanks(userrank).includes(rank);
 };
 
+export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) => {
+  if (!jutsu) return false;
+  return !jutsu.villageId || jutsu.villageId === userdata.villageId;
+};
+
+export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData) => {
+  if (!jutsu) return false;
+  return !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
+};
+
 export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
-  const sufficientRank = sufficientJutsuRank(jutsu.jutsuRank, userdata.rank);
-  const villageCheck = !jutsu.villageId || jutsu.villageId === userdata.villageId;
-  const bloodCheck = !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
-  return sufficientRank && villageCheck && bloodCheck;
+  return (
+    checkJutsuRank(jutsu.jutsuRank, userdata.rank) &&
+    checkJutsuVillage(jutsu, userdata) &&
+    checkJutsuBloodline(jutsu, userdata)
+  );
 };
 
 export const JUTSU_LEVEL_CAP = 20;
