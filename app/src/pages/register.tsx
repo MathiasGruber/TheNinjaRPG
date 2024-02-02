@@ -241,7 +241,11 @@ const Register: React.FC = () => {
             <CheckBox
               id="read_tos"
               label={
-                <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                <Link
+                  href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   I have read & agree to the Terms of Service
                 </Link>
               }
@@ -251,7 +255,11 @@ const Register: React.FC = () => {
             <CheckBox
               id="read_privacy"
               label={
-                <Link href="/policy" target="_blank" rel="noopener noreferrer">
+                <Link
+                  href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   I have read & agree to the Privacy Policy
                 </Link>
               }
@@ -261,7 +269,11 @@ const Register: React.FC = () => {
             <CheckBox
               id="read_earlyaccess"
               label={
-                <Link href="/policy" target="_blank" rel="noopener noreferrer">
+                <Link
+                  href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   I accept that this is Early Access, and things (even if purchased with
                   real money) may radically change.
                 </Link>

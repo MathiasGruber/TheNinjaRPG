@@ -8,8 +8,6 @@ export default authMiddleware({
     "/forum(.*)",
     "/github",
     "/help",
-    "/terms",
-    "/policy",
     "/rules",
     "/news",
     "/conceptart(.*)",
