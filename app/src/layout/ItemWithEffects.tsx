@@ -157,7 +157,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Attacks</b>: {item.attacks.join(", ")}
               </p>
             )}
-            {"sector" in item && item.sector && (
+            {"sector" in item && item.sector !== undefined && item.sector > 0 && (
               <p className="col-span-2">
                 <b>Sector</b>: {item.sector}
               </p>
