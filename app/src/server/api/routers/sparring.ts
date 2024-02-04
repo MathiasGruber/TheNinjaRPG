@@ -57,7 +57,7 @@ export const sparringRouter = createTRPCRouter({
         challengedId: input.targetId,
         status: "PENDING",
       });
-      void pusher.trigger(input.targetId, "event", { type: "challenged" });
+      void pusher.trigger(input.targetId, "event", { type: "challengeCreated" });
       return { success: true, message: "Challenge created" };
     }),
   acceptChallenge: protectedProcedure
@@ -89,7 +89,9 @@ export const sparringRouter = createTRPCRouter({
       );
       if (result.success) {
         await updateChallengeState(ctx.drizzle, input.challengeId, "ACCEPTED");
-        void pusher.trigger(challenge.challengerId, "event", { type: "sparAccepted" });
+        void pusher.trigger(challenge.challengerId, "event", {
+          type: "challengeAccepted",
+        });
       }
       return result;
     }),
@@ -104,6 +106,9 @@ export const sparringRouter = createTRPCRouter({
       if (challenge.status !== "PENDING") {
         throw serverError("FORBIDDEN", "You can only reject pending challenges");
       }
+      void pusher.trigger(challenge.challengerId, "event", {
+        type: "challengeRejected",
+      });
       return await updateChallengeState(ctx.drizzle, input.challengeId, "REJECTED");
     }),
   cancelChallenge: protectedProcedure

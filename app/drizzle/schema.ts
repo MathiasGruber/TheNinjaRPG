@@ -1367,6 +1367,7 @@ export const userChallenge = mysqlTable(
     };
   },
 );
+export type UserChallenge = InferSelectModel<typeof userChallenge>;
 
 export const userChallengeRelations = relations(userChallenge, ({ one }) => ({
   challenger: one(userData, {

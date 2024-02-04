@@ -15,7 +15,17 @@
   // Add the IDs of extensions you want installed when the container is created.
   "customizations": {
     "vscode": {
-      "extensions": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "GitHub.copilot", "bradlc.vscode-tailwindcss", "oderwat.indent-rainbow", "yoavbls.pretty-ts-errors", "ms-toolsai.jupyter", "GitHub.copilot-chat"],
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "GitHub.copilot",
+        "bradlc.vscode-tailwindcss",
+        "oderwat.indent-rainbow",
+        "yoavbls.pretty-ts-errors",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot-chat",
+        "johnpapa.vscode-cloak"
+      ],
       "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"
       }

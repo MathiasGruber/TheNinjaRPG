@@ -18,7 +18,7 @@ import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type ArrayElement } from "@/utils/typeutils";
+import type { ArrayElement } from "@/utils/typeutils";
 
 const Bank: NextPage = () => {
   // State

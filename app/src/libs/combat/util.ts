@@ -353,7 +353,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Result object
       const result: CombatResult = {
         didWin: didWin ? 1 : 0,
-        experience: experience,
+        experience: 0.01,
         eloPvp: 0,
         eloPve: 0,
         pvpStreak: didWin && battle.battleType === "COMBAT" ? user.pvpStreak + 1 : 0,
@@ -372,35 +372,42 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         genjutsuDefence: 0,
         taijutsuDefence: 0,
         bukijutsuDefence: 0,
-        money: moneyDelta,
+        money: 0,
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
       };
 
-      // If any stats were used, distribute exp change on stats.
-      // If not, then distribute equally among all stats & generals
-      let total = user.usedStats.length + user.usedGenerals.length;
-      if (total === 0) {
-        user.usedStats = [
-          "ninjutsuOffence",
-          "ninjutsuDefence",
-          "genjutsuOffence",
-          "genjutsuDefence",
-          "taijutsuOffence",
-          "taijutsuDefence",
-          "bukijutsuOffence",
-          "bukijutsuDefence",
-        ];
-        user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
-        total = 12;
+      // Things to reward for non-spars
+      if (battle.battleType !== "SPARRING") {
+        // Experience
+        result["experience"] = experience;
+        // Money stolen/given
+        result["money"] = moneyDelta;
+        // If any stats were used, distribute exp change on stats.
+        // If not, then distribute equally among all stats & generals
+        let total = user.usedStats.length + user.usedGenerals.length;
+        if (total === 0) {
+          user.usedStats = [
+            "ninjutsuOffence",
+            "ninjutsuDefence",
+            "genjutsuOffence",
+            "genjutsuDefence",
+            "taijutsuOffence",
+            "taijutsuDefence",
+            "bukijutsuOffence",
+            "bukijutsuDefence",
+          ];
+          user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
+          total = 12;
+        }
+        const statGain = Math.floor((experience / total) * 100) / 100;
+        user.usedStats.forEach((stat) => {
+          result[stat] += statGain;
+        });
+        user.usedGenerals.forEach((stat) => {
+          result[stat.toLowerCase() as keyof CombatResult] += statGain;
+        });
       }
-      const statGain = Math.floor((experience / total) * 100) / 100;
-      user.usedStats.forEach((stat) => {
-        result[stat] += statGain;
-      });
-      user.usedGenerals.forEach((stat) => {
-        result[stat.toLowerCase() as keyof CombatResult] += statGain;
-      });
 
       // Return results
       return result;

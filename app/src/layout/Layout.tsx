@@ -123,6 +123,24 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           await refetchUser();
         } else if (data.type === "newInbox") {
           await refetchUser();
+        } else if (data.type === "challengeCreated") {
+          show_toast(
+            "Notification!",
+            <Link href="/battlearena">You have been challenged</Link>,
+            "info",
+          );
+        } else if (data.type === "challengeAccepted") {
+          show_toast(
+            "Notification!",
+            <Link href="/combat">Your challenge has been accepted</Link>,
+            "success",
+          );
+        } else if (data.type === "challengeRejected") {
+          show_toast(
+            "Notification!",
+            <Link href="/combat">Your challenge has been rejected</Link>,
+            "error",
+          );
         }
       });
       return () => {
