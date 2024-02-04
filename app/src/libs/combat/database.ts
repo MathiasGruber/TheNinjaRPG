@@ -194,7 +194,7 @@ export const updateUser = async (
         questData: user.questData,
         battleId: null,
         regenAt: new Date(),
-        ...(result.curHealth <= 0
+        ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
           ? {
               status: "HOSPITALIZED",
               longitude: VILLAGE_LONG,

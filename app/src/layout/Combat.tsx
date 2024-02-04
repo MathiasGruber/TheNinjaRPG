@@ -51,6 +51,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const mouse = new Vector2();
   const battleId = battle.current?.id;
+  const battleType = battle.current?.battleType;
 
   // Data from the DB
   const {
@@ -446,13 +447,14 @@ const Combat: React.FC<CombatProps> = (props) => {
         ? "Won"
         : "Fled"
     : "Unknown";
-  const showNextMatch = outcome === "Won" && battle.current?.battleType === "ARENA";
+  const showNextMatch = outcome === "Won" && battleType === "ARENA";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.userId;
   const initiveWinner = battle.current?.usersState.find(
     (u) => u.userId === battle.current?.activeUserId,
   );
+  const toHospital = result && result.curHealth <= 0 && battleType !== "SPARRING";
   return (
     <>
       <div ref={mountRef}></div>
@@ -537,12 +539,12 @@ const Combat: React.FC<CombatProps> = (props) => {
             </div>
             <div className="p-5 flex flex-row justify-center">
               <Link
-                href={result.curHealth <= 0 ? "/hospital" : "/profile"}
+                href={toHospital ? "/hospital" : "/profile"}
                 className={showNextMatch ? "basis-1/2" : "basis-1/1"}
               >
                 <Button
                   id="return"
-                  label={`Return to ${result.curHealth <= 0 ? "Hospital" : "Profile"}`}
+                  label={`Return to ${toHospital ? "Hospital" : "Profile"}`}
                 />
               </Link>
               {showNextMatch && arenaOpponentId && (

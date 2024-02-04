@@ -514,10 +514,10 @@ export const initiateBattle = async (
       };
     }
     if (users[0].status !== "AWAKE") {
-      return { success: false, message: "You are not awake" };
+      return { success: false, message: "Aggressor is not awake" };
     }
     if (users[1].status !== "AWAKE") {
-      return { success: false, message: "Target is not awake" };
+      return { success: false, message: "Defender is not awake" };
     }
 
     // Add achievements to users for tracking
