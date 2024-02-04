@@ -1,12 +1,18 @@
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { eq, or, and, gt } from "drizzle-orm";
 import { CHALLENGE_EXPIRY_SECONDS } from "@/libs/combat/constants";
 import { secondsFromNow } from "@/utils/time";
 import { userChallenge } from "@/drizzle/schema";
+import { getServerPusher } from "@/libs/pusher";
+import { fetchUser } from "@/routers/profile";
+import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import type { ChallengeState } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
+
+const pusher = getServerPusher();
 
 export const sparringRouter = createTRPCRouter({
   getUserChallenges: protectedProcedure.query(async ({ ctx }) => {
@@ -31,13 +37,61 @@ export const sparringRouter = createTRPCRouter({
   }),
   createChallenge: protectedProcedure
     .input(z.object({ targetId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // TODO: Create user challenge
+      // Fetch
+      const recentChallenges = await ctx.drizzle.query.userChallenge.findMany({
+        where: and(
+          eq(userChallenge.challengerId, ctx.userId),
+          gt(userChallenge.createdAt, secondsFromNow(-10)),
+        ),
+      });
+      // Guard
+      if (recentChallenges.length > 0) {
+        throw serverError("FORBIDDEN", "Max 1 challenge per 10 seconds");
+      }
+      // Mutate
+      await ctx.drizzle.insert(userChallenge).values({
+        id: nanoid(),
+        challengerId: ctx.userId,
+        challengedId: input.targetId,
+        status: "PENDING",
+      });
+      void pusher.trigger(input.targetId, "event", { type: "challenged" });
+      return { success: true, message: "Challenge created" };
     }),
   acceptChallenge: protectedProcedure
     .input(z.object({ challengeId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // TODO: Create accept challenge endpoint - start battle
+      // Fetch
+      const [challenge, user] = await Promise.all([
+        fetchChallenge(ctx.drizzle, input.challengeId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Guards
+      if (challenge.challengedId !== ctx.userId) {
+        throw serverError("FORBIDDEN", "Not your challenge to accept");
+      }
+      if (challenge.status !== "PENDING") {
+        throw serverError("FORBIDDEN", "Challenge not pending");
+      }
+      // Mutate
+      const result = await initiateBattle(
+        {
+          sector: user.sector,
+          userId: challenge.challengedId,
+          targetId: challenge.challengerId,
+          client: ctx.drizzle,
+        },
+        "SPARRING",
+        determineArenaBackground("Unknown"),
+      );
+      if (result.success) {
+        await updateChallengeState(ctx.drizzle, input.challengeId, "ACCEPTED");
+        void pusher.trigger(challenge.challengerId, "event", { type: "sparAccepted" });
+      }
+      return result;
     }),
   rejectChallenge: protectedProcedure
     .input(z.object({ challengeId: z.string() }))
