@@ -162,3 +162,12 @@ export const SmileyEmotions = ["like", "love", "laugh"] as const;
 
 export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
 export type TrainingSpeed = (typeof TrainingSpeeds)[number];
+
+export const ChallengeStates = [
+  "PENDING",
+  "ACCEPTED",
+  "REJECTED",
+  "CANCELLED",
+  "EXPIRED",
+] as const;
+export type ChallengeState = (typeof ChallengeStates)[number];

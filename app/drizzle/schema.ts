@@ -1347,3 +1347,34 @@ export const userBadgeRelations = relations(userBadge, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const userChallenge = mysqlTable(
+  "UserChallenge",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    challengerId: varchar("challengerId", { length: 191 }).notNull(),
+    challengedId: varchar("challengedId", { length: 191 }).notNull(),
+    status: mysqlEnum("status", consts.ChallengeStates).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      createdAtIdx: index("UserChallenge_createdAt_idx").on(table.createdAt),
+      challengerIdIdx: index("UserChallenge_challengerId_idx").on(table.challengerId),
+      challengedIdIdx: index("UserChallenge_challengedId_idx").on(table.challengedId),
+    };
+  },
+);
+
+export const userChallengeRelations = relations(userChallenge, ({ one }) => ({
+  challenger: one(userData, {
+    fields: [userChallenge.challengerId],
+    references: [userData.userId],
+  }),
+  challenged: one(userData, {
+    fields: [userChallenge.challengedId],
+    references: [userData.userId],
+  }),
+}));
