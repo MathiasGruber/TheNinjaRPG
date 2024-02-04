@@ -13,6 +13,7 @@ import Button from "@/layout/Button";
 import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { TrashIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 import { AcademicCapIcon, ShareIcon } from "@heroicons/react/24/outline";
 
@@ -60,6 +61,7 @@ const Profile: NextPage = () => {
     onSuccess: async (newLevel) => {
       if (userData && newLevel !== userData.level) {
         await refetchUser();
+        sendGTMEvent({ event: "levelUp", value: newLevel });
       }
     },
     onError: (error) => {
