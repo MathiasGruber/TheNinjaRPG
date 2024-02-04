@@ -1,9 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { eq, inArray, isNull, isNotNull, and, or, sql } from "drizzle-orm";
+import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { quest, questHistory, userData } from "@/drizzle/schema";
+import { quest, questHistory, userData, userChallenge } from "@/drizzle/schema";
+import { CHALLENGE_EXPIRY_SECONDS } from "@/libs/combat/constants";
 import { UserRanks } from "@/drizzle/constants";
 import { availableRanks } from "@/libs/train";
+import { secondsFromNow } from "@/utils/time";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
@@ -23,6 +25,13 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     await drizzleDB.update(userData).set({ bank: sql`${userData.bank} * 1.01` });
 
     // STEP 2: Update daily quests
+    await drizzleDB
+      .delete(userChallenge)
+      .where(
+        lt(userChallenge.createdAt, secondsFromNow(-CHALLENGE_EXPIRY_SECONDS * 2)),
+      );
+
+    // STEP 3: Update daily quests
     await drizzleDB
       .update(questHistory)
       .set({ completed: 0, endAt: new Date() })

@@ -65,7 +65,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
               {columns.map((column, i) => (
                 <td
                   key={`cell-${i}`}
-                  className={`sm:px-6 sm:py-4`}
+                  className={`px-3 py-2`}
                   style={{
                     width: column.width ? `${column.width}rem` : "auto",
                     minWidth: column.width ? `${column.width}rem` : "auto",
