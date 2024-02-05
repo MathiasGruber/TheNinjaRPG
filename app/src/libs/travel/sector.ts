@@ -199,15 +199,18 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(sprite);
 
   // Attack button
-  const attack = loadTexture("map/attack.png");
-  const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
-  const attackSprite = new Sprite(attackMat);
-  attackSprite.visible = false;
-  attackSprite.userData.userId = userData.userId;
-  attackSprite.userData.type = "attack";
-  Object.assign(attackSprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
-  Object.assign(attackSprite.position, new Vector3(w * 0.9, h * 1.4, -5));
-  group.add(attackSprite);
+  if (userData.rank !== "STUDENT") {
+    const attack = loadTexture("map/attack.png");
+    const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
+    const attackSprite = new Sprite(attackMat);
+    attackSprite.visible = false;
+    attackSprite.userData.userId = userData.userId;
+    attackSprite.userData.type = "attack";
+    Object.assign(attackSprite.scale, new Vector3(h * 0.8, h * 0.8, 1));
+    Object.assign(attackSprite.position, new Vector3(w * 0.9, h * 1.4, -5));
+    attackSprite.name = `${userData.userId}-attack`;
+    group.add(attackSprite);
+  }
 
   // Info button
   const info = loadTexture("map/info.png");
@@ -218,6 +221,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   infoSprite.userData.type = "info";
   Object.assign(infoSprite.scale, new Vector3(h * 0.7, h * 0.7, 1));
   Object.assign(infoSprite.position, new Vector3(w * 0.1, h * 1.4, -5));
+  infoSprite.name = `${userData.userId}-info`;
   group.add(infoSprite);
 
   // Name
@@ -297,29 +301,14 @@ export const drawVillage = (villageName: string, grid: Grid<TerrainHex>) => {
   if (hex) {
     const { height: h, x, y } = hex;
     // Village shadow
-    const canvas = document.createElement("canvas");
-    canvas.width = h * 4;
-    canvas.height = h * 4;
-    const context = canvas.getContext("2d");
-    if (context) {
-      context.globalAlpha = 0.3;
-      context.fillStyle = "black";
-      context.beginPath();
-      context.arc(2 * h, 2 * h, 2 * h, 0, 2 * Math.PI);
-      context.fill();
-    }
-    const texture = createTexture(canvas);
-    texture.generateMipmaps = false;
-    texture.minFilter = LinearFilter;
-    const shadow_material = new SpriteMaterial({ map: texture });
-    shadow_material.needsUpdate = true;
+    const shadow_texture = loadTexture("map/shadow.png");
+    const shadow_material = new SpriteMaterial({ map: shadow_texture });
     const shadow_sprite = new Sprite(shadow_material);
-    shadow_sprite.scale.set(h * 2.4, h * 1.5, 1);
+    shadow_sprite.scale.set(h * 2.6, h * 2, 1);
     shadow_sprite.position.set(x, y - h / 3, -7);
     group.add(shadow_sprite);
     // Village graphic
     const graphic = loadTexture(`map/${villageName}.webp`);
-    // graphic.encoding = sRGBEncoding;
     const graphicMat = new SpriteMaterial({ map: graphic });
     const graphicSprite = new Sprite(graphicMat);
     graphicSprite.scale.set(h * 2.2, h * 2.2, 1);
@@ -465,11 +454,10 @@ export const intersectUsers = (info: {
 
   currentTooltips.forEach((userId) => {
     if (!newUserTooltips.has(userId)) {
-      const user = group_users.getObjectByName(userId);
-      if (user) {
-        (user?.children[2] as Sprite).visible = false;
-        (user?.children[3] as Sprite).visible = false;
-      }
+      const attackSprite = group_users.getObjectByName(`${userId}-attack`);
+      if (attackSprite) attackSprite.visible = false;
+      const infoSprite = group_users.getObjectByName(`${userId}-info`);
+      if (infoSprite) infoSprite.visible = false;
     }
   });
 

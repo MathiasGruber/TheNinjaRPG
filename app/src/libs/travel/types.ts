@@ -1,3 +1,5 @@
+import type { UserRank } from "@/drizzle/constants";
+
 type NonEmptyArray<T> = T[] & { 0: T };
 
 export interface GlobalPoint {
@@ -33,6 +35,7 @@ export interface SectorUser {
   latitude: number;
   location: string;
   level: number;
+  rank: UserRank;
   immunityUntil: Date;
   updatedAt: Date;
 }

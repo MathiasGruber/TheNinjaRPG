@@ -37,6 +37,7 @@ export const travelRouter = createTRPCRouter({
           sector: true,
           avatar: true,
           level: true,
+          rank: true,
           immunityUntil: true,
           updatedAt: true,
         },

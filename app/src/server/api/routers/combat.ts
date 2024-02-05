@@ -520,6 +520,11 @@ export const initiateBattle = async (
       return { success: false, message: "Defender is not awake" };
     }
 
+    // If defender is student it is a no-go
+    if (battleType === "COMBAT" && users[1].rank === "STUDENT") {
+      return { success: false, message: "Defender is a student" };
+    }
+
     // Add achievements to users for tracking
     users[0].userQuests.push(...mockAchievementHistoryEntries(achievements, users[0]));
     users[1].userQuests.push(...mockAchievementHistoryEntries(achievements, users[1]));

@@ -357,18 +357,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   const { height: h, width: w } = hex;
 
   // Shadow
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const context = canvas.getContext("2d");
-  if (context) {
-    context.globalAlpha = 0.3;
-    context.fillStyle = "black";
-    context.beginPath();
-    context.arc(w / 2, h / 2, h / 2, 0, 2 * Math.PI);
-    context.fill();
-  }
-  const texture = createTexture(canvas);
+  const texture = loadTexture("map/shadow.png");
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   texture.needsUpdate = true;
