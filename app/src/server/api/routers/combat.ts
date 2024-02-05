@@ -40,6 +40,9 @@ import type { DrizzleClient } from "@/server/db";
 // Debug flag when testing battle
 const debug = false;
 
+// Pusher instance
+const pusher = getServerPusher();
+
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
     .input(z.object({ battleId: z.string().optional().nullable() }))
@@ -130,9 +133,6 @@ export const combatRouter = createTRPCRouter({
         tile.cost = 1;
         return tile;
       });
-
-      // Pusher instance
-      const pusher = getServerPusher();
 
       // OUTER LOOP: Attempt to perform action untill success || error thrown
       // The primary purpose here is that if the battle version was already updated, we retry the user's action
@@ -409,8 +409,50 @@ export const combatRouter = createTRPCRouter({
         determineCombatBackground(input.asset || "ground"),
       );
     }),
+  iAmHere: protectedProcedure
+    .input(z.object({ battleId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      // Fetch
+      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+      const user = userBattle?.usersState.find((u) => u.userId === ctx.userId);
+      // Guard
+      if (!userBattle) return { success: false, message: "You are not in a battle" };
+      if (!user) return { success: false, message: "You are not in this battle" };
+      if (new Date() > userBattle.roundStartAt) return { success: true, message: "" };
+      // Pre-Mutate
+      user.iAmHere = true;
+      userBattle.updatedAt = new Date();
+      userBattle.version = userBattle.version + 1;
+      const allHere = userBattle.usersState.every((u) => u.iAmHere);
+      if (allHere) userBattle.createdAt = new Date();
+      // Mutate
+      const result = await ctx.drizzle
+        .update(battle)
+        .set({
+          usersState: userBattle.usersState,
+          version: userBattle.version,
+          createdAt: userBattle.createdAt,
+        })
+        .where(
+          and(
+            eq(battle.id, input.battleId),
+            eq(battle.version, userBattle.version - 1),
+          ),
+        );
+      if (result.rowsAffected > 0) {
+        void pusher.trigger(userBattle.id, "event", {
+          version: userBattle.version + 1,
+        });
+        return { success: true, message: "", battle: userBattle };
+      } else {
+        return { success: false, message: "Someone else updated the battle state" };
+      }
+    }),
 });
 
+/***********************************************
+ * CONVENIENCE FUNCTIONS USED ON COMBAT ENDPOINTS
+ ***********************************************/
 export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   const result = await client.query.battle.findFirst({
     where: eq(battle.id, battleId),

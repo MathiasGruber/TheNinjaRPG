@@ -613,6 +613,9 @@ export const processUsersForBattle = (
       defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur,
     ) as defenceKey;
 
+    // By default set iAmHere to false
+    user.iAmHere = false;
+
     // Remember how much money this user had
     user.originalMoney = user.money;
     user.actionPoints = 100;

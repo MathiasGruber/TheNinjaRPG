@@ -25,6 +25,7 @@ export type BattleUserState = UserWithRelations & {
   })[];
   highestOffence: (typeof StatNames)[number];
   highestDefence: (typeof StatNames)[number];
+  iAmHere: boolean;
   actionPoints: number;
   armor: number;
   hidden?: boolean;

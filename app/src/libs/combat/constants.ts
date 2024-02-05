@@ -1,7 +1,7 @@
 export const COMBAT_WIDTH = 13;
 export const COMBAT_HEIGHT = 5;
 export const COMBAT_SECONDS = 10;
-export const COMBAT_LOBBY_SECONDS = 20;
+export const COMBAT_LOBBY_SECONDS = 200;
 
 export const CHALLENGE_EXPIRY_SECONDS = 120;
 
@@ -38,6 +38,7 @@ export const publicState = [
   "leftBattle",
   "isOriginal",
   "isAi",
+  "iAmHere",
   "controllerId",
   "actionPoints",
   "direction",

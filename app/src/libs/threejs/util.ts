@@ -1,11 +1,11 @@
-import { TextureLoader, Texture, sRGBEncoding } from "three";
+import { TextureLoader, Texture, sRGBEncoding, SRGBColorSpace } from "three";
 
 /**
  * Load texture from file
  */
 export const loadTexture = (path: string) => {
   const texture = new TextureLoader().load(path);
-  texture.encoding = sRGBEncoding;
+  texture.colorSpace = SRGBColorSpace;
   return texture;
 };
 
@@ -14,6 +14,6 @@ export const loadTexture = (path: string) => {
  */
 export const createTexture = (canvas: HTMLCanvasElement) => {
   const texture = new Texture(canvas);
-  texture.encoding = sRGBEncoding;
+  texture.colorSpace = SRGBColorSpace;
   return texture;
 };

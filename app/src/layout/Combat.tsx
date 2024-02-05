@@ -6,6 +6,8 @@ import type { Grid } from "honeycomb-grid";
 import Button from "./Button";
 import Countdown from "./Countdown";
 import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import { ClockIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
 import { drawCombatBackground, drawCombatEffects } from "@/libs/combat/drawing";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import { COMBAT_SECONDS, COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
@@ -130,6 +132,31 @@ const Combat: React.FC<CombatProps> = (props) => {
         document.body.style.cursor = "default";
       },
     });
+
+  // I am here call
+  const { mutate: iAmHere } = api.combat.iAmHere.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.battle) {
+        battle.current = data.battle;
+        setBattle(battle.current);
+        setBattleState({ battle: data.battle, result: null, isLoading: false });
+      } else {
+        show_toast("Error", data.message, "info");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error", error.message, "error");
+    },
+  });
+  useEffect(() => {
+    if (battle.current && isInLobby) {
+      const user = battle.current.usersState.find((u) => u.userId === suid);
+      if (user && !user.iAmHere) {
+        iAmHere({ battleId: battle.current.id });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInLobby]);
 
   // Handle key-presses
   const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -489,7 +516,12 @@ const Combat: React.FC<CombatProps> = (props) => {
                       <p className="absolute text-lg top-10">
                         {Math.floor(u.initiative)}
                       </p>
-                      <p>{u.username}</p>
+                      <p>{u.username}</p>{" "}
+                      {u.iAmHere ? (
+                        <CheckCircleIcon className="h-6 w-6" />
+                      ) : (
+                        <ClockIcon className="h-6 w-6" />
+                      )}
                     </div>
                   );
                 })}

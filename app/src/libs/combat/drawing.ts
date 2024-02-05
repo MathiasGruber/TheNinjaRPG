@@ -334,14 +334,16 @@ export const drawStatusBar = (
  * Update status bar of a user sprite
  */
 export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: number) => {
-  const bar = userSpriteGroup.getObjectByName(name) as Sprite;
-  const width = bar.userData.full_width as number;
-  const newWidth = width * perc;
-  const newPosition = width / 2 - (width * (1 - perc)) / 2;
-  bar.scale.set(newWidth, bar.scale.y, 1);
-  bar.position.set(newPosition, bar.position.y, bar.position.z);
-  if (perc === 0) {
-    bar.visible = false;
+  const bar = userSpriteGroup.getObjectByName(name);
+  if (bar) {
+    const width = bar.userData.full_width as number;
+    const newWidth = width * perc;
+    const newPosition = width / 2 - (width * (1 - perc)) / 2;
+    bar.scale.set(newWidth, bar.scale.y, 1);
+    bar.position.set(newPosition, bar.position.y, bar.position.z);
+    if (perc === 0) {
+      bar.visible = false;
+    }
   }
 };
 
@@ -360,7 +362,6 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   const texture = loadTexture("map/shadow.png");
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
-  texture.needsUpdate = true;
   const shadow_material = new SpriteMaterial({ map: texture });
   const shadow_sprite = new Sprite(shadow_material);
   shadow_sprite.scale.set(w * 0.7, h * 0.4, 1);
