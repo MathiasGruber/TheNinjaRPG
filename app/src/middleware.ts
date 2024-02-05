@@ -20,6 +20,7 @@ export default authMiddleware({
     "/api/og",
     "/api/healthcheck",
     "/api/daily",
+    "/api/cpaLead",
     "/api/subscriptions",
     "/api/ipn",
   ],
