@@ -21,6 +21,7 @@ interface ConversationProps {
   refreshKey: number;
   title: string;
   subtitle: string;
+  initialBreak?: boolean;
   chatbox_options?: React.ReactNode;
   topRightContent?: React.ReactNode;
 }
@@ -107,7 +108,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         <ContentBox
           title={props.title}
           subtitle={props.subtitle}
-          initialBreak={true}
+          initialBreak={props.initialBreak}
           topRightContent={props.topRightContent}
         >
           <form>
