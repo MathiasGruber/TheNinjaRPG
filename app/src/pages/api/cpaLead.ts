@@ -29,7 +29,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   // Check password
   if (body.password !== process.env.CPALEAD_PASS) {
-    return res.status(403).json("Invalid password");
+    return res.status(403).json(`Invalid password: ${body.password}`);
   }
 
   // Check IP
