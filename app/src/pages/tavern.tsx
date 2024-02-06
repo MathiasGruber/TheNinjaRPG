@@ -30,7 +30,6 @@ const Tavern: NextPage = () => {
     <ContentBox
       title={"Tavern"}
       subtitle={activeTab + " Tavern"}
-      initialBreak={true}
       padding={false}
       noBorder={true}
       topRightContent={navTabs}
