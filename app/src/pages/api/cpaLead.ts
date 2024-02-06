@@ -6,7 +6,6 @@ import { cpaLeadConversion, userData } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { env } from "@/env/server.mjs";
 import type { NextApiRequest, NextApiResponse } from "next";
-// TODO: Import from env
 
 type LeadType = {
   campaign_id: string;

@@ -77,7 +77,7 @@ const PaypalShop: NextPage = () => {
                 <div className="grow"></div>
                 <NavTabs
                   current={activeTab}
-                  options={["Reputation", "Ads", "Federal", "Log"]}
+                  options={["Reputation", "Ads", "Federal"]}
                   setValue={setActiveTab}
                 />
               </>
@@ -85,9 +85,9 @@ const PaypalShop: NextPage = () => {
           >
             {activeTab === "Reputation" && <ReputationStore currency={currency} />}
             {activeTab === "Federal" && <FederalStore />}
-            {activeTab === "Log" && <TransactionHistory />}
             {activeTab === "Ads" && <RewardedAds />}
           </ContentBox>
+          {activeTab === "Reputation" && <TransactionHistory />}
           {activeTab === "Federal" && <SubscriptionsOverview />}
           {activeTab === "Federal" && <LookupSubscription />}
         </PayPalScriptProvider>
@@ -126,8 +126,6 @@ const RewardedAds = () => {
 
   // Offers to show to user
   const offersToShow = relevantAds.filter((ad) => ad.country.includes(selectedCountry));
-
-  console.log(offersToShow);
 
   return (
     <div>
@@ -245,16 +243,12 @@ const ReputationStore = (props: { currency: string }) => {
   return (
     <>
       <div className="text-center text-2xl">
-        <p className="text-3xl font-bold">Cost: ${amount}</p>
-        <p className="italic text-red-800 font-bold">
-          NOTE: Points carry to final release!
-        </p>
         <SliderField
           id="reputationPoints"
           default={20}
           min={5}
           max={1000}
-          unit="reputation points"
+          unit={`reputation points for $${amount}`}
           register={repFormMethods.register}
           setValue={repFormMethods.setValue}
           watchedValue={watchedPoints}
@@ -309,6 +303,9 @@ const ReputationStore = (props: { currency: string }) => {
       ) : (
         <Loader />
       )}
+      <p className="italic text-red-800 font-bold">
+        NOTE: Points do carry to final release!
+      </p>
     </>
   );
 };
@@ -690,13 +687,23 @@ const TransactionHistory = () => {
     { key: "transactionUpdatedDate", header: "Last Update", type: "string" },
   ];
 
+  // If no previous, do not show
+  if (allTransactions.length === 0) return null;
+
   return (
-    <Table
-      data={allTransactions}
-      columns={columns}
-      linkPrefix="/users/"
-      setLastElement={setLastElement}
-    />
+    <ContentBox
+      title="Transaction History"
+      subtitle="Previous purchases"
+      initialBreak={true}
+      padding={false}
+    >
+      <Table
+        data={allTransactions}
+        columns={columns}
+        linkPrefix="/users/"
+        setLastElement={setLastElement}
+      />
+    </ContentBox>
   );
 };
 
