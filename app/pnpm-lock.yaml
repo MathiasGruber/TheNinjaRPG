@@ -77,6 +77,9 @@ dependencies:
   '@vercel/og':
     specifier: ^0.6.2
     version: 0.6.2
+  '@widgetbot/react-embed':
+    specifier: ^1.9.0
+    version: 1.9.0(react@18.2.0)
   abstract-astar:
     specifier: 0.2.0
     version: 0.2.0
@@ -2129,6 +2132,21 @@ packages:
       yoga-wasm-web: 0.3.3
     dev: false
 
+  /@widgetbot/embed-api@1.2.15:
+    resolution: {integrity: sha512-Uj83i7LxP/fZrMQ3RodB6CNX2qFVHO9Ue2ElJU6IC10sjy4np5420qRcILGhSiWXzrhgagE2bR7AVh89NC0pRg==}
+    dependencies:
+      post-robot: 8.0.31
+    dev: false
+
+  /@widgetbot/react-embed@1.9.0(react@18.2.0):
+    resolution: {integrity: sha512-+Qgqy7lwLy++lIiHmSsgxUjwcX80iFIHR0QJpKq4W82ePUmq4bTuxvUbxcE+VQH5IjNrWaydGNR8zROV5vUQsA==}
+    peerDependencies:
+      react: '>= 15'
+    dependencies:
+      '@widgetbot/embed-api': 1.2.15
+      react: 18.2.0
+    dev: false
+
   /abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
     engines: {node: '>=6.5'}
@@ -2654,6 +2672,18 @@ packages:
     engines: {node: '>=12.13'}
     dependencies:
       is-what: 4.1.15
+    dev: false
+
+  /cross-domain-safe-weakmap@1.0.29:
+    resolution: {integrity: sha512-VLoUgf2SXnf3+na8NfeUFV59TRZkIJqCIATaMdbhccgtnTlSnHXkyTRwokngEGYdQXx8JbHT9GDYitgR2sdjuA==}
+    dependencies:
+      cross-domain-utils: 2.0.38
+    dev: false
+
+  /cross-domain-utils@2.0.38:
+    resolution: {integrity: sha512-zZfi3+2EIR9l4chrEiXI2xFleyacsJf8YMLR1eJ0Veb5FTMXeJ3DpxDjZkto2FhL/g717WSELqbptNSo85UJDw==}
+    dependencies:
+      zalgo-promise: 1.0.48
     dev: false
 
   /cross-fetch@3.1.8:
@@ -5225,6 +5255,14 @@ packages:
     resolution: {integrity: sha512-saLsH7WeYYPiD25LDuLRRY/i+6HaPYr6G1OUlN39otzkSTxKnubR9RTxS3/Kk50s1g2JTgFwWQDQyplC5/SHZg==}
     engines: {node: '>= 6'}
 
+  /post-robot@8.0.31:
+    resolution: {integrity: sha512-nUhtKgtmcgyuPm4RnIhUB3gsDYJBHOgFry3TvOxhIHpgfwYY/T69d4oB90tw4YUllFZUUwqLEv1Wgyg6eOoJ7A==}
+    dependencies:
+      cross-domain-safe-weakmap: 1.0.29
+      cross-domain-utils: 2.0.38
+      zalgo-promise: 1.0.48
+    dev: false
+
   /postcss-import@15.1.0(postcss@8.4.33):
     resolution: {integrity: sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==}
     engines: {node: '>=14.0.0'}
@@ -6586,6 +6624,10 @@ packages:
 
   /yoga-wasm-web@0.3.3:
     resolution: {integrity: sha512-N+d4UJSJbt/R3wqY7Coqs5pcV0aUj2j9IaQ3rNj9bVCLld8tTGKRa2USARjnvZJWVx1NDmQev8EknoczaOQDOA==}
+    dev: false
+
+  /zalgo-promise@1.0.48:
+    resolution: {integrity: sha512-LLHANmdm53+MucY9aOFIggzYtUdkSBFxUsy4glTTQYNyK6B3uCPWTbfiGvSrEvLojw0mSzyFJ1/RRLv+QMNdzQ==}
     dev: false
 
   /zod@3.22.4:

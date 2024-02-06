@@ -10,6 +10,7 @@ interface ContentBoxProps {
   topRightCorntentBreakpoint?: "sm" | "md" | "lg" | "xl" | "2xl";
   topRightContent?: React.ReactNode;
   padding?: boolean;
+  noBorder?: boolean;
   initialBreak?: boolean;
   noRightAlign?: boolean;
 }
@@ -52,7 +53,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
         </div>
 
         <div
-          className={`relative border-2 border-double border-amber-900 bg-amber-50 shadow-lg ${
+          className={`relative ${!props.noBorder ? "border-2 border-double border-amber-900" : ""} bg-amber-50 shadow-lg ${
             props.padding === undefined || props.padding ? "p-3" : ""
           }`}
         >
