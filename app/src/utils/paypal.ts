@@ -1,4 +1,13 @@
-import type { FederalStatus } from "../../drizzle/schema";
+import type { FederalStatus } from "@/drizzle/schema";
+import type { UserData } from "@/drizzle/schema";
+
+export const getUserFederalStatus = (user: UserData) => {
+  if (user.federalStatus !== "GOLD" && user.role !== "USER") {
+    return "SILVER";
+  } else {
+    return user.federalStatus;
+  }
+};
 
 export const reps2dollars = (reps: number) => {
   return Math.ceil(Math.pow(reps, 1 / 1.305) * 10) / 10;

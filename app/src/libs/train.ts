@@ -1,10 +1,11 @@
 import { StatType, GeneralType } from "./combat/constants";
 import { tagTypes } from "./combat/types";
+import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
-import type { UserData, UserRank, FederalStatus } from "@/drizzle/schema";
+import type { UserData, UserRank } from "@/drizzle/schema";
 
 export const availableRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
@@ -120,7 +121,8 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     }
     return 4 + 2;
   };
-  const fedContrib = (status: FederalStatus) => {
+  const fedContrib = (userdata: UserData) => {
+    const status = getUserFederalStatus(userdata);
     switch (status) {
       case "NORMAL":
         return 1;
@@ -131,7 +133,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     }
     return 0;
   };
-  return 1 + rankContrib(userdata.rank) + fedContrib(userdata.federalStatus);
+  return 1 + rankContrib(userdata.rank) + fedContrib(userdata);
 };
 
 // For categorizing jutsu

@@ -13,6 +13,7 @@ import AvatarImage from "@/layout/Avatar";
 import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
@@ -440,12 +441,13 @@ const AvatarChange: React.FC = () => {
   console.log(userData);
 
   // Only show if we have userData
-  if (!userData) {
-    return <Loader explanation="Loading profile page..." />;
-  }
+  if (!userData) return <Loader explanation="Loading profile page..." />;
+
+  // Get user status
+  const userstatus = getUserFederalStatus(userData);
 
   // If we have federal support
-  if (userData.federalStatus !== "NONE") {
+  if (userstatus !== "NONE") {
     return (
       <div className="grid grid-cols-2 pt-2">
         <AvatarImage
@@ -457,9 +459,9 @@ const AvatarChange: React.FC = () => {
         />
         <UploadButton
           endpoint={
-            userData.federalStatus === "NORMAL"
+            userstatus === "NORMAL"
               ? "avatarNormalUploader"
-              : userData.federalStatus === "SILVER"
+              : userstatus === "SILVER"
                 ? "avatarSilverUploader"
                 : "avatarGoldUploader"
           }

@@ -2,6 +2,7 @@ import { createUploadthing } from "uploadthing/next-legacy";
 import { eq, sql, gt, and, isNotNull } from "drizzle-orm";
 import { historicalAvatar, userData } from "../../drizzle/schema";
 import { drizzleDB } from "./db";
+import { getUserFederalStatus } from "@/utils/paypal";
 import type { FileRouter } from "uploadthing/next-legacy";
 import type { NextApiRequest } from "next";
 import type { FederalStatuses } from "../../drizzle/constants";
@@ -70,7 +71,8 @@ const avatarMiddleware = async (
       where: eq(userData.userId, userId),
     });
     if (!user) throw new Error("User not found");
-    if (user.federalStatus !== fedRequirement) {
+    const userstatus = getUserFederalStatus(user);
+    if (userstatus !== fedRequirement) {
       throw new Error("You must be " + fedRequirement + " to upload this avatar");
     }
   }
