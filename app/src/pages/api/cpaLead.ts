@@ -4,6 +4,7 @@ import { drizzleDB } from "@/server/db";
 import { eq, sql } from "drizzle-orm";
 import { cpaLeadConversion, userData } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
+import { env } from "@/env/server.mjs";
 import type { NextApiRequest, NextApiResponse } from "next";
 // TODO: Import from env
 
@@ -28,12 +29,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   const body = req.query as unknown as LeadType;
 
   // Check password
-  if (body.password !== process.env.CPALEAD_PASS) {
+  if (body.password !== env.CPALEAD_PASS) {
     return res.status(403).json(`Invalid password`);
   }
 
   // Check IP
-  if (ip !== process.env.CPALEAD_IP) {
+  if (ip !== env.CPALEAD_IP) {
     return res.status(401).json(`Invalid IP: ${ip}`);
   }
 

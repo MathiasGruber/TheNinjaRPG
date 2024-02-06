@@ -15,6 +15,7 @@ export const serverSchema = z.object({
   DISCORD_NEWS_UPDATES: z.string().url(),
   REPLICATE_API_TOKEN: z.string(),
   CPALEAD_PASS: z.string(),
+  CPALEAD_IP: z.string(),
 });
 
 /**
@@ -32,6 +33,7 @@ export const serverEnv = {
   DISCORD_NEWS_UPDATES: process.env.DISCORD_NEWS_UPDATES,
   REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
   CPALEAD_PASS: process.env.CPALEAD_PASS,
+  CPALEAD_IP: process.env.CPALEAD_IP,
 };
 
 /**
