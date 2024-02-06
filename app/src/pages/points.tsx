@@ -189,6 +189,8 @@ const RewardedAds = () => {
           })}
         </div>
       )}
+      {ads?.userAgent && <p>User agent: {ads?.userAgent}</p>}
+      {ads?.userIp && <p>User IP: {ads?.userIp}</p>}
     </div>
   );
 };

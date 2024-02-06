@@ -75,10 +75,12 @@ export const paypalRouter = createTRPCRouter({
       .then((response) => response.json())
       .then(
         (data) =>
-          data as {
+          ({ ...data, userAgent: ctx.userAgent, userIp: ctx.userIp }) as {
             status: string;
             number_offers: number;
             offers: CpaLeadAd[];
+            userAgent: string | undefined;
+            userIp: string | undefined;
           },
       );
   }),
