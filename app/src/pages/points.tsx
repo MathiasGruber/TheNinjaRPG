@@ -688,7 +688,7 @@ const TransactionHistory = () => {
   ];
 
   // If no previous, do not show
-  if (allTransactions.length === 0) return null;
+  if (!allTransactions || allTransactions.length === 0) return null;
 
   return (
     <ContentBox
