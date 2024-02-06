@@ -17,7 +17,6 @@ type LeadType = {
   lead_id: string;
   country_iso: string;
   password: string;
-  virtual_currency: number;
 };
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -51,7 +50,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         gatewayId: body.gateway_id,
         leadId: body.lead_id,
         countryIso: body.country_iso,
-        virtualCurrency: body.virtual_currency,
+        virtualCurrency: body.payout,
       }),
       drizzleDB
         .update(userData)
