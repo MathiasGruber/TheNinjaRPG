@@ -25,11 +25,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   ip = typeof ip === "string" ? ip.split(/, /)[0] : req.socket.remoteAddress;
 
   // Create context
-  const body = req.body as LeadType;
+  const body = req.query as unknown as LeadType;
 
   // Check password
   if (body.password !== process.env.CPALEAD_PASS) {
-    return res.status(403).json(`Invalid password: ${body.password}`);
+    return res.status(403).json(`Invalid password`);
   }
 
   // Check IP
