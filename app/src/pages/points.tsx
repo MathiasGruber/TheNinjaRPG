@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import Table from "@/layout/Table";
 import SliderField from "@/layout/SliderField";
 import Confirm from "@/layout/Confirm";
@@ -8,6 +9,8 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
 import InputField from "@/layout/InputField";
 import Button from "@/layout/Button";
+import Post from "@/layout/Post";
+import ReactCountryFlag from "react-country-flag";
 import { useAuth } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
@@ -67,14 +70,14 @@ const PaypalShop: NextPage = () => {
         >
           <ContentBox
             title={activeTab}
-            subtitle="Premium game features"
-            padding={activeTab === "History" ? false : true}
+            subtitle="Premium features"
+            padding={activeTab === "Log" ? false : true}
             topRightContent={
               <>
                 <div className="grow"></div>
                 <NavTabs
                   current={activeTab}
-                  options={["Reputation", "Federal", "History"]}
+                  options={["Reputation", "Ads", "Federal", "Log"]}
                   setValue={setActiveTab}
                 />
               </>
@@ -82,7 +85,8 @@ const PaypalShop: NextPage = () => {
           >
             {activeTab === "Reputation" && <ReputationStore currency={currency} />}
             {activeTab === "Federal" && <FederalStore />}
-            {activeTab === "History" && <TransactionHistory />}
+            {activeTab === "Log" && <TransactionHistory />}
+            {activeTab === "Ads" && <RewardedAds />}
           </ContentBox>
           {activeTab === "Federal" && <SubscriptionsOverview />}
           {activeTab === "Federal" && <LookupSubscription />}
@@ -93,6 +97,103 @@ const PaypalShop: NextPage = () => {
 };
 
 export default PaypalShop;
+
+/**
+ * CPALead rewarded ads
+ */
+const RewardedAds = () => {
+  // Fetch all ads
+  const { data: ads, isLoading } = api.paypal.getCpaLeads.useQuery();
+  const [selectedCountry, setSelectedCountry] = useState<string>("US");
+
+  // Filter to relevant
+  const relevantAds =
+    ads?.offers
+      .filter((offer) => offer.payout_currency === "USD")
+      .filter((offer) => !offer.dating)
+      .filter((offer) => offer.traffic_type === "incentive") ?? [];
+
+  // Get unique countries
+  const uniqueCountries: string[] = [];
+  relevantAds.forEach((ad) => {
+    const countries = ad.country.split(":");
+    countries.forEach((country) => {
+      if (!uniqueCountries.includes(country)) {
+        uniqueCountries.push(country);
+      }
+    });
+  });
+
+  // Offers to show to user
+  const offersToShow = relevantAds.filter((ad) => ad.country.includes(selectedCountry));
+
+  console.log(offersToShow);
+
+  return (
+    <div>
+      <p className="italic">
+        Select your country to show offers available to you. You may be able to use a
+        VPN to fill in offers in other countries.
+      </p>
+      {isLoading && <Loader explanation="Loading offers" />}
+      {uniqueCountries.map((countryCode, i) => (
+        <ReactCountryFlag
+          key={i}
+          svg
+          countryCode={countryCode}
+          style={{
+            width: "30px",
+            height: "30px",
+            margin: "2px",
+            ...(selectedCountry === countryCode
+              ? {}
+              : { filter: "grayscale(90%)", opacity: "0.3", cursor: "pointer" }),
+          }}
+          onClick={() => setSelectedCountry(countryCode)}
+        />
+      ))}
+      {!isLoading && offersToShow.length === 0 && (
+        <p className="text-3xl text-center font-bold">Sorry, none available</p>
+      )}
+      {offersToShow.length > 0 && (
+        <div>
+          <p className="text-3xl font-bold pt-3 text-center">
+            Available Offers: {selectedCountry}
+          </p>
+          {offersToShow.map((offer, i) => {
+            const preview = offer.previews?.[0]?.url;
+            const image = preview ? (
+              <div className="relative w-24 mr-3">
+                <Image
+                  src={preview}
+                  alt="Ad"
+                  sizes="70px"
+                  fill
+                  style={{
+                    objectFit: "contain",
+                  }}
+                />
+              </div>
+            ) : null;
+            return (
+              <Link className="font-bold" href={offer.link} key={i} target="_blank">
+                <Post title={offer.title} hover_effect={true} image={image}>
+                  {offer.description && (
+                    <div>
+                      <p className="italic">Earn {offer.amount} reputation points</p>
+
+                      {offer.conversion}
+                    </div>
+                  )}
+                </Post>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /**
  * Reputation Store component
@@ -146,7 +247,7 @@ const ReputationStore = (props: { currency: string }) => {
       <div className="text-center text-2xl">
         <p className="text-3xl font-bold">Cost: ${amount}</p>
         <p className="italic text-red-800 font-bold">
-          NOTE: Points do carry over to final release!
+          NOTE: Points carry to final release!
         </p>
         <SliderField
           id="reputationPoints"

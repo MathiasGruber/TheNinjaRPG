@@ -1,7 +1,8 @@
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { drizzleDB } from "@/server/db";
-import { cpaLeadConversion } from "@/drizzle/schema";
+import { eq, sql } from "drizzle-orm";
+import { cpaLeadConversion, userData } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import type { NextApiRequest, NextApiResponse } from "next";
 // TODO: Import from env
@@ -39,18 +40,28 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   // Handle the different events
   try {
-    await drizzleDB.insert(cpaLeadConversion).values({
-      id: nanoid(),
-      userId: body.subid,
-      campaignId: body.campaign_id,
-      campaignName: body.campaign_name,
-      payout: body.payout,
-      ipAddress: body.ip_address,
-      gatewayId: body.gateway_id,
-      leadId: body.lead_id,
-      countryIso: body.country_iso,
-      virtualCurrency: body.virtual_currency,
-    });
+    await Promise.all([
+      drizzleDB.insert(cpaLeadConversion).values({
+        id: nanoid(),
+        userId: body.subid,
+        campaignId: body.campaign_id,
+        campaignName: body.campaign_name,
+        payout: body.payout,
+        ipAddress: body.ip_address,
+        gatewayId: body.gateway_id,
+        leadId: body.lead_id,
+        countryIso: body.country_iso,
+        virtualCurrency: body.virtual_currency,
+      }),
+      drizzleDB
+        .update(userData)
+        .set({
+          reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${body.payout}`,
+          reputationPoints: sql`${userData.reputationPoints} + ${body.payout}`,
+        })
+        .where(eq(userData.userId, body.subid)),
+    ]);
+
     return res.status(200).json("OK");
   } catch (cause) {
     if (cause instanceof TRPCError) {

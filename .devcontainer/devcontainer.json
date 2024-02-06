@@ -24,7 +24,8 @@
         "yoavbls.pretty-ts-errors",
         "ms-toolsai.jupyter",
         "GitHub.copilot-chat",
-        "johnpapa.vscode-cloak"
+        "johnpapa.vscode-cloak",
+        "ms-azuretools.vscode-docker"
       ],
       "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"

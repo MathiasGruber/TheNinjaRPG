@@ -134,6 +134,9 @@ dependencies:
   react-chartjs-2:
     specifier: ^5.2.0
     version: 5.2.0(chart.js@4.3.2)(react@18.2.0)
+  react-country-flag:
+    specifier: ^3.1.0
+    version: 3.1.0(react@18.2.0)
   react-dom:
     specifier: 18.2.0
     version: 18.2.0(react@18.2.0)
@@ -5471,6 +5474,15 @@ packages:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
       chart.js: 4.3.2
+      react: 18.2.0
+    dev: false
+
+  /react-country-flag@3.1.0(react@18.2.0):
+    resolution: {integrity: sha512-JWQFw1efdv9sTC+TGQvTKXQg1NKbDU2mBiAiRWcKM9F1sK+/zjhP2yGmm8YDddWyZdXVkR8Md47rPMJmo4YO5g==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      react: '>=16'
+    dependencies:
       react: 18.2.0
     dev: false
 

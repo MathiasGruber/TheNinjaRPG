@@ -228,7 +228,7 @@ const Profile: NextPage = () => {
           </div>
           <div>
             <b>Reputation</b>
-            <p>Reputation points: {userData.reputationPoints}</p>
+            <p>Reputation points: {userData.reputationPoints.toFixed(2)}</p>
             <p>Federal Support: {userData.federalStatus.toLowerCase()}</p>
             <p>Activity Streak: {userData.activityStreak}</p>
           </div>
