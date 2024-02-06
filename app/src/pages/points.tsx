@@ -264,47 +264,52 @@ const ReputationStore = (props: { currency: string }) => {
           maxUsers={maxUsers}
         />
       )}
-      {isResolved && userData && selectedUser && !isLoading ? (
-        <PayPalButtons
-          style={{ layout: "horizontal" }}
-          forceReRender={[amount, watchedUsers, props.currency]}
-          createOrder={(data, actions) => {
-            return actions.order.create({
-              purchase_units: [
-                {
-                  amount: {
-                    currency_code: props.currency,
-                    value: amount.toString(),
+      <div className="grid grid-cols-2 mt-3">
+        <div className="bg-slate-500 mx-2 mb-2 rounded-md p-2 font-bold text-center cursor-not-allowed">
+          Crypto, Coming Soon
+        </div>
+        {isResolved && userData && selectedUser && !isLoading ? (
+          <PayPalButtons
+            style={{ layout: "horizontal", tagline: false }}
+            forceReRender={[amount, watchedUsers, props.currency]}
+            createOrder={(data, actions) => {
+              return actions.order.create({
+                purchase_units: [
+                  {
+                    amount: {
+                      currency_code: props.currency,
+                      value: amount.toString(),
+                    },
+                    invoice_id: invoiceId,
+                    custom_id: `${userData.userId}-${selectedUser.userId}`,
                   },
-                  invoice_id: invoiceId,
-                  custom_id: `${userData.userId}-${selectedUser.userId}`,
-                },
-              ],
-            });
-          }}
-          onApprove={(data, actions) => {
-            invoiceId = nanoid();
-            if (actions.order) {
-              return actions.order.capture().then((details) => {
-                buyReps({ orderId: details.id });
+                ],
               });
-            } else {
-              show_toast(
-                "No order",
-                "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
-                "info",
-              );
-              return new Promise(() => {
-                return null;
-              });
-            }
-          }}
-        />
-      ) : (
-        <Loader />
-      )}
-      <p className="italic text-red-800 font-bold">
-        NOTE: Points do carry to final release!
+            }}
+            onApprove={(data, actions) => {
+              invoiceId = nanoid();
+              if (actions.order) {
+                return actions.order.capture().then((details) => {
+                  buyReps({ orderId: details.id });
+                });
+              } else {
+                show_toast(
+                  "No order",
+                  "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
+                  "info",
+                );
+                return new Promise(() => {
+                  return null;
+                });
+              }
+            }}
+          />
+        ) : (
+          <Loader />
+        )}
+      </div>
+      <p className="italic text-slate-500 font-bold text-center">
+        PS: Points do carry to final release!
       </p>
     </>
   );
