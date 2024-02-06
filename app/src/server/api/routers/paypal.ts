@@ -70,7 +70,7 @@ type CpaLeadAd = {
 export const paypalRouter = createTRPCRouter({
   getCpaLeads: protectedProcedure.query(async ({ ctx }) => {
     return await fetch(
-      `https://cpalead.com/dashboard/reports/campaign_json.php?id=2878227&dating=false&ua=${ctx.userAgent}&subid=${ctx.userId}`,
+      `https://cpalead.com/dashboard/reports/campaign_json.php?id=2878227&dating=false&ua=${encodeURIComponent(ctx.userAgent)}&subid=${ctx.userId}`,
     )
       .then((response) => response.json())
       .then(
