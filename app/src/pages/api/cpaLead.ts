@@ -4,6 +4,7 @@ import { drizzleDB } from "@/server/db";
 import { cpaLeadConversion } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import type { NextApiRequest, NextApiResponse } from "next";
+// TODO: Import from env
 
 type LeadType = {
   campaign_id: string;
@@ -33,7 +34,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   // Check IP
   if (ip !== process.env.CPALEAD_IP) {
-    return res.status(403).json(`Invalid IP: ${ip}`);
+    return res.status(401).json(`Invalid IP: ${ip}`);
   }
 
   // Handle the different events
