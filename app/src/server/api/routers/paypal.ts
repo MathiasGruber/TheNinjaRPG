@@ -10,6 +10,7 @@ import { plan2FedStatus } from "@/utils/paypal";
 import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
+import { getMobileOperatingSystem } from "@/utils/hardware";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -69,8 +70,14 @@ type CpaLeadAd = {
 
 export const paypalRouter = createTRPCRouter({
   getCpaLeads: protectedProcedure.query(async ({ ctx }) => {
+    // Targeting the user
+    const os = getMobileOperatingSystem(ctx.userAgent);
+    const target = ["ios", "android"].includes(os)
+      ? `device=${os}`
+      : `ua=${encodeURIComponent(ctx.userAgent ?? "user")}`;
+    // Fetch offers
     return await fetch(
-      `https://cpalead.com/dashboard/reports/campaign_json.php?id=2878227&dating=false&ua=${encodeURIComponent(ctx.userAgent ?? "user")}&subid=${ctx.userId}`,
+      `https://cpalead.com/dashboard/reports/campaign_json.php?id=2878227&dating=false&${target}&subid=${ctx.userId}`,
     )
       .then((response) => response.json())
       .then(
