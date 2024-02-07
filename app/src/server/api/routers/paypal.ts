@@ -51,14 +51,14 @@ type CpaLeadAd = {
   title: string;
   description: string;
   link: string;
-  amount: number;
+  amount: string;
   payout_currency: string;
   dating: boolean;
   traffic_type: "incentive" | "non-incentive";
   campid: string;
   country: string;
   rank: number;
-  epc: number;
+  epc: string;
   ratio: number;
   creatives: { size: string; url: string }[];
   previews: { size: string; url: string }[];

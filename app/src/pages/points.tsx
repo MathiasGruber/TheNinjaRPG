@@ -109,9 +109,11 @@ const RewardedAds = () => {
   // Filter to relevant
   const relevantAds =
     ads?.offers
-      .filter((offer) => offer.payout_currency === "USD")
-      .filter((offer) => !offer.dating)
-      .filter((offer) => offer.traffic_type === "incentive") ?? [];
+      .map((o) => ({ ...o, thr: parseFloat(o.epc) / parseFloat(o.amount) }))
+      .filter((o) => o.payout_currency === "USD")
+      .filter((o) => !o.dating)
+      .filter((o) => o.traffic_type === "incentive")
+      .filter((o) => o.thr > 0.05) ?? [];
 
   // Get unique countries
   const uniqueCountries: string[] = [];
