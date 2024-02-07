@@ -18,7 +18,7 @@ export function getMobileOperatingSystem(userAgent?: string) {
   }
 
   // iOS detection from: http://stackoverflow.com/a/9039885/177710
-  if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+  if (/iPad|iPhone|iPod/.test(userAgent)) {
     return "ios";
   }
 
