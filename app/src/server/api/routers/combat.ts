@@ -563,8 +563,13 @@ export const initiateBattle = async (
     }
 
     // If defender is student it is a no-go
-    if (battleType === "COMBAT" && users[1].rank === "STUDENT") {
-      return { success: false, message: "Defender is a student" };
+    if (battleType === "COMBAT") {
+      if (users[0].rank === "STUDENT") {
+        return { success: false, message: "Need to rank up to do PvP combat" };
+      }
+      if (users[1].rank === "STUDENT") {
+        return { success: false, message: "Cannot attack students" };
+      }
     }
 
     // Add achievements to users for tracking
