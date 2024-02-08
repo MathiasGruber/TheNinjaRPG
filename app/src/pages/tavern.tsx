@@ -52,11 +52,7 @@ const Tavern: NextPage = () => {
         convo_title={conversation}
         title={conversation + " Tavern"}
         initialBreak={false}
-        subtitle={
-          conversation === "Global"
-            ? "Broadcast across all villages"
-            : "Chat with your fellow villagers"
-        }
+        subtitle={conversation === "Global" ? "Global chat" : "Village chat"}
         topRightContent={navTabs}
       />
     );
