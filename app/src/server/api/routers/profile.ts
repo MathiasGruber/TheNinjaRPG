@@ -834,7 +834,6 @@ export const profileRouter = createTRPCRouter({
           level: true,
           role: true,
           reputationPoints: true,
-          popularityPoints: true,
           experience: true,
           avatar: true,
           isAi: true,
