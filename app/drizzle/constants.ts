@@ -171,3 +171,6 @@ export const ChallengeStates = [
   "EXPIRED",
 ] as const;
 export type ChallengeState = (typeof ChallengeStates)[number];
+
+export const AllianceStates = ["NEUTRAL", "ALLY", "ENEMY"] as const;
+export type AllianceState = (typeof AllianceStates)[number];

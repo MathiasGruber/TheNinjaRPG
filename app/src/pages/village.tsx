@@ -63,7 +63,7 @@ const Building: React.FC<BuildingProps> = (props) => {
           title=""
           tooltip="Health"
           color="bg-red-500"
-          showText={true}
+          showText={false}
           current={props.structure.curSp}
           total={props.structure.maxSp}
         />

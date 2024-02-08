@@ -102,6 +102,13 @@ export const villageRouter = createTRPCRouter({
         );
       return { success: true, message: "You have swapped villages" };
     }),
+  getAlliances: publicProcedure.query(async ({ ctx }) => {
+    const [villages, alliances] = await Promise.all([
+      fetchVillages(ctx.drizzle),
+      ctx.drizzle.query.villageAlliance.findMany(),
+    ]);
+    return { villages, alliances };
+  }),
 });
 
 export const fetchVillage = async (client: DrizzleClient, villageId: string) => {

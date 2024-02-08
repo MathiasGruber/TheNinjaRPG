@@ -1080,6 +1080,26 @@ export const villageStructure = mysqlTable(
 );
 export type VillageStructure = InferSelectModel<typeof villageStructure>;
 
+export const villageAlliance = mysqlTable(
+  "VillageAlliance",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    villageIdA: varchar("villageIdA", { length: 191 }).notNull(),
+    villageIdB: varchar("villageIdB", { length: 191 }).notNull(),
+    status: mysqlEnum("status", consts.AllianceStates).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }),
+  },
+  (table) => {
+    return {
+      villageIdAIdx: index("VillageAlliance_villageIdA_idx").on(table.villageIdA),
+      villageIdBIdx: index("VillageAlliance_villageIdB_idx").on(table.villageIdB),
+      statusIdx: index("VillageAlliance_status_idx").on(table.status),
+    };
+  },
+);
+export type VillageAlliance = InferSelectModel<typeof villageAlliance>;
+
 export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
   village: one(village, {
     fields: [villageStructure.villageId],
