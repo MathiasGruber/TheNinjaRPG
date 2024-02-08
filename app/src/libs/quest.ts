@@ -95,6 +95,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
           objectives: newObjectives,
           reward: {
             reward_money: data.reward_money,
+            reward_prestige: data.reward_prestige,
             reward_jutsus: data.reward_jutsus,
             reward_badges: data.reward_badges,
             reward_items: data.reward_items,
@@ -153,6 +154,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
 
   // Rewards
   formData.push({ id: "reward_money", type: "number" });
+  formData.push({ id: "reward_prestige", type: "number" });
   formData.push({ id: "reward_rank", type: "str_array", values: UserRanks });
 
   // Add items if they exist
@@ -275,6 +277,9 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
         status.collected = true;
         if (objective.reward_money) {
           rewards.reward_money += objective.reward_money;
+        }
+        if (objective.reward_prestige) {
+          rewards.reward_prestige += objective.reward_prestige;
         }
         if (objective.reward_jutsus) {
           rewards.reward_jutsus.push(...objective.reward_jutsus);

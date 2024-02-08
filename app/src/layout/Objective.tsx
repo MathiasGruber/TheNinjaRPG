@@ -106,7 +106,10 @@ interface RewardProps {
 
 export const Reward: React.FC<RewardProps> = (props) => {
   const info = props.info;
-  const rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
+  let rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
+  if (info?.reward_prestige) {
+    rewards += `${rewards ? ", " : ""} ${info.reward_prestige} Prestige`;
+  }
   return (
     <>
       {rewards && (

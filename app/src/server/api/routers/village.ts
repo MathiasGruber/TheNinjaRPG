@@ -88,6 +88,7 @@ export const villageRouter = createTRPCRouter({
         .set({
           villageId: village.id,
           reputationPoints: user.reputationPoints - cost,
+          villagePrestige: 0,
           sector: village.sector,
           longitude: VILLAGE_LONG,
           latitude: VILLAGE_LAT,

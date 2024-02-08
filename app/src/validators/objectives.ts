@@ -39,6 +39,7 @@ export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
 const rewardFields = {
   reward_money: z.number().default(0),
+  reward_prestige: z.number().default(0),
   reward_rank: z.enum(UserRanks).default("NONE"),
   reward_items: z.array(z.string()).default([]),
   reward_jutsus: z.array(z.string()).default([]),
@@ -52,6 +53,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
   const parsedReward = ObjectiveReward.parse(reward);
   return (
     parsedReward.reward_money > 0 ||
+    parsedReward.reward_prestige > 0 ||
     parsedReward.reward_rank !== "NONE" ||
     parsedReward.reward_items.length > 0 ||
     parsedReward.reward_jutsus.length > 0 ||

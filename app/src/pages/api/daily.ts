@@ -24,14 +24,19 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     // STEP 1: Bank interest
     await drizzleDB.update(userData).set({ bank: sql`${userData.bank} * 1.01` });
 
-    // STEP 2: Update daily quests
+    // STEP 2: Clear old challenges
     await drizzleDB
       .delete(userChallenge)
       .where(
         lt(userChallenge.createdAt, secondsFromNow(-CHALLENGE_EXPIRY_SECONDS * 2)),
       );
 
-    // STEP 3: Update daily quests
+    // STEP 3: Update village prestige
+    await drizzleDB
+      .update(userData)
+      .set({ villagePrestige: sql`${userData.villagePrestige} + 1` });
+
+    // STEP 4: Update daily quests
     await drizzleDB
       .update(questHistory)
       .set({ completed: 0, endAt: new Date() })

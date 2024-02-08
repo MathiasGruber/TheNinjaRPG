@@ -733,8 +733,7 @@ export const userData = mysqlTable(
     bukijutsuOffence: double("bukijutsuOffence").default(10).notNull(),
     reputationPoints: float("reputationPoints").default(5).notNull(),
     reputationPointsTotal: float("reputationPointsTotal").default(5).notNull(),
-    popularityPoints: int("popularityPoints").default(6).notNull(),
-    popularityPointsTotal: int("popularityPointsTotal").default(6).notNull(),
+    villagePrestige: float("villagePrestige").default(0).notNull(),
     federalStatus: mysqlEnum("federalStatus", consts.FederalStatuses)
       .default("NONE")
       .notNull(),

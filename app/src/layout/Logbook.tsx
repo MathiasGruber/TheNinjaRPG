@@ -124,11 +124,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
     onSuccess: async ({ rewards, userQuest, resolved, badges }) => {
-      if (resolved && userQuest) {
+      if (userQuest) {
         const quest = userQuest.quest;
         const reward = (
           <div className="flex flex-col">
-            {quest.successDescription && (
+            {resolved && quest.successDescription && (
               <span className="mb-2">
                 <i>{ReactHtmlParser(quest.successDescription)}</i>
               </span>
@@ -138,6 +138,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                 {rewards.reward_money > 0 && (
                   <span>
                     <b>Money:</b> {rewards.reward_money} ryo
+                  </span>
+                )}
+                {rewards.reward_prestige > 0 && (
+                  <span>
+                    <b>Village prestige:</b> {rewards.reward_prestige}
                   </span>
                 )}
                 {rewards.reward_jutsus.length > 0 && (
@@ -171,7 +176,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
             </div>
           </div>
         );
-        show_toast(`Finished : ${quest.name}`, reward, "success");
+        if (resolved) {
+          show_toast(`Finished: ${quest.name}`, reward, "success");
+        } else {
+          show_toast(`Reward from ${quest.name}`, reward, "success");
+        }
         await utils.profile.getUser.invalidate();
         await utils.quests.getQuestHistory.invalidate();
       }
