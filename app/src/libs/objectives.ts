@@ -23,46 +23,51 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
     //     image: "/badges/any_missions_completed.webp",
     //     title: "Completed Missions",
     //   };
-    // case "d_missions_completed":
-    //   return {
-    //     image: "/badges/mission_d.webp",
-    //     title: "D-rank Missions",
-    //   };
-    // case "c_missions_completed":
-    //   return {
-    //     image: "/badges/mission_c.webp",
-    //     title: "C-rank Missions",
-    //   };
-    // case "b_missions_completed":
-    //   return {
-    //     image: "/badges/mission_b.webp",
-    //     title: "B-rank Missions",
-    //   };
-    // case "a_missions_completed":
-    //   return {
-    //     image: "/badges/mission_a.webp",
-    //     title: "A-rank Missions",
-    //   };
-    // case "d_crimes_completed":
-    //   return {
-    //     image: "/badges/crime_d.webp",
-    //     title: "D-rank crimes",
-    //   };
-    // case "c_crimes_completed":
-    //   return {
-    //     image: "/badges/crime_c.webp",
-    //     title: "C-rank crimes",
-    //   };
-    // case "b_crimes_completed":
-    //   return {
-    //     image: "/badges/crime_b.webp",
-    //     title: "B-rank crimes",
-    //   };
-    // case "a_crimes_completed":
-    //   return {
-    //     image: "/badges/crime_a.webp",
-    //     title: "A-rank crimes",
-    //   };
+    case "errands_total":
+      return {
+        image: "/badges/errands.webp",
+        title: "Errands",
+      };
+    case "d_missions_total":
+      return {
+        image: "/badges/mission_d.webp",
+        title: "D-rank Missions",
+      };
+    case "c_missions_total":
+      return {
+        image: "/badges/mission_c.webp",
+        title: "C-rank Missions",
+      };
+    case "b_missions_total":
+      return {
+        image: "/badges/mission_b.webp",
+        title: "B-rank Missions",
+      };
+    case "a_missions_total":
+      return {
+        image: "/badges/mission_a.webp",
+        title: "A-rank Missions",
+      };
+    case "d_crimes_total":
+      return {
+        image: "/badges/crime_d.webp",
+        title: "D-rank crimes",
+      };
+    case "c_crimes_total":
+      return {
+        image: "/badges/crime_c.webp",
+        title: "C-rank crimes",
+      };
+    case "b_crimes_total":
+      return {
+        image: "/badges/crime_b.webp",
+        title: "B-rank crimes",
+      };
+    case "a_crimes_total":
+      return {
+        image: "/badges/crime_a.webp",
+        title: "A-rank crimes",
+      };
     case "minutes_training":
       return {
         image: "/badges/minutes_training.webp",

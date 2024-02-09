@@ -3,10 +3,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/constants";
+import { getQuestCounterFieldName } from "@/validators/user";
 import { api } from "@/utils/api";
 import { show_toast, show_errors } from "@/libs/toast";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
+import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -357,6 +359,14 @@ export const getNewTrackers = (
               secondsPassed(new Date(questTracker.startAt)) / 60,
             );
             status.value = minutes;
+          } else if (task.includes("missions_total") || task.includes("crimes_total")) {
+            const type = task.includes("missions") ? "mission" : "crime";
+            const rank = task.split("_")[0]?.toUpperCase() as LetterRank;
+            const field = getQuestCounterFieldName(type, rank);
+            if (field) status.value = user[field];
+          } else if (task === "errands_total") {
+            const field = getQuestCounterFieldName("errand", "D");
+            if (field) status.value = user[field];
           }
 
           // Specific updates requested by the caller
