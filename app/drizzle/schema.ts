@@ -741,8 +741,8 @@ export const userData = mysqlTable(
     approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
-    longitude: tinyint("longitude", { unsigned: true }).default(10).notNull(),
-    latitude: tinyint("latitude", { unsigned: true }).default(7).notNull(),
+    longitude: tinyint("longitude").default(10).notNull(),
+    latitude: tinyint("latitude").default(7).notNull(),
     location: varchar("location", { length: 191 }).default("").notNull(),
     joinedVillageAt: datetime("joinedVillageAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
