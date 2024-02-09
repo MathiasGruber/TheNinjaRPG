@@ -141,15 +141,15 @@ const Combat: React.FC<CombatProps> = (props) => {
         setBattle(battle.current);
         setBattleState({ battle: data.battle, result: null, isLoading: false });
       } else {
-        show_toast("Error", data.message, "info");
+        show_toast("iAmHere Error", data.message, "info");
       }
     },
     onError: (error) => {
-      show_toast("Error", error.message, "error");
+      show_toast("iAmHere Error", error.message, "error");
     },
   });
   useEffect(() => {
-    if (battle.current && isInLobby) {
+    if (battle.current && isInLobby && battle.current.battleType !== "ARENA") {
       const user = battle.current.usersState.find((u) => u.userId === suid);
       if (user && !user.iAmHere) {
         iAmHere({ battleId: battle.current.id });
