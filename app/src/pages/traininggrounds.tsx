@@ -230,7 +230,8 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     .map((page) => page.data)
     .flat()
     .filter((j) => !j.villageId || userData?.villageId === j.villageId)
-    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId);
+    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId)
+    .filter((j) => !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType));
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
