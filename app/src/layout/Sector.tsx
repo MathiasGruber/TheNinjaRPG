@@ -189,8 +189,6 @@ const Sector: React.FC<SectorProps> = (props) => {
             });
           });
         }
-      } else if (!res.success && res.message) {
-        show_toast("Error moving", res.message, "info");
       }
     },
     onError: (error) => {

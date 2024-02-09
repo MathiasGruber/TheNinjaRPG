@@ -183,7 +183,7 @@ export const travelRouter = createTRPCRouter({
         if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
           return errorResponse(`Cannot move more than one square at a time`);
         }
-        return errorResponse(`Unknown error while moving`);
+        throw serverError("BAD_REQUEST", `Unknown error while moving`);
       }
     }),
 });
