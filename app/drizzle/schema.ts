@@ -778,9 +778,7 @@ export const userData = mysqlTable(
       .default("15min")
       .notNull(),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
-    unreadNotifications: tinyint("unreadNotifications", { unsigned: true })
-      .default(0)
-      .notNull(),
+    unreadNotifications: tinyint("unreadNotifications").default(0).notNull(),
     unreadNews: tinyint("unreadNews", { unsigned: true }).default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
     // Statistics
