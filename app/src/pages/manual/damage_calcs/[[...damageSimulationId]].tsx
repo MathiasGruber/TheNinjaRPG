@@ -469,7 +469,7 @@ const ManualDamageSimulator: NextPage = () => {
                             show_toast("Saved", "Copied to clipboard!", "info");
                           },
                           function () {
-                            show_toast("Error", "Could not create link", "error");
+                            show_toast("Simulator", "Could not create link", "error");
                           },
                         );
                       }}

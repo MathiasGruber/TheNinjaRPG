@@ -92,7 +92,7 @@ const ConceptArt: NextPage = () => {
         if (userData.reputationPoints > 0) {
           if (!isLoading) create(data);
         } else {
-          show_toast("Error", "No reputation points left.", "error");
+          show_toast("ConceptArt Error", "No reputation points left.", "error");
         }
       }
     },

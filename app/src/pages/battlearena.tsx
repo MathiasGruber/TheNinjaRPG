@@ -233,11 +233,11 @@ const ChallengeUser: React.FC = () => {
         userSearchMethods.setValue("users", []);
         await refetch();
       } else {
-        show_toast("Error", data.message, "info");
+        show_toast("Arena Error", data.message, "info");
       }
     },
     onError: (error) => {
-      show_toast("Error", error.message, "error");
+      show_toast("Arena Error", error.message, "error");
     },
   });
 
