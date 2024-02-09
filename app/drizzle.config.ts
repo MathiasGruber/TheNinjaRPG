@@ -1,12 +1,12 @@
 import "dotenv/config";
-import type { Config } from "drizzle-kit";
+import { defineConfig } from "drizzle-kit";
 
-export default {
+export default defineConfig({
   out: "./drizzle/migrations",
   schema: "./drizzle/schema.ts",
   driver: "mysql2",
   ...(process.env.DATABASE_URL
-    ? { dbCredentials: { connectionString: process.env.DATABASE_URL } }
+    ? { dbCredentials: { uri: process.env.DATABASE_URL } }
     : {}),
   breakpoints: false,
-} satisfies Config;
+});

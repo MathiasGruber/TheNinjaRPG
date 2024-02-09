@@ -22,6 +22,7 @@ import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { missionHallSettings } from "@/libs/quest";
 import { secondsPassed } from "@/utils/time";
+import { getQuestCounterFieldName } from "@/validators/user";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
@@ -378,18 +379,35 @@ export const questsRouter = createTRPCRouter({
       if (!questTier) {
         await insertNextQuest(ctx.drizzle, user, "tier");
       }
+
+      // Update userdata
+      const updatedUserData: { [key: string]: any } = {
+        questData: user.questData,
+        money: user.money + rewards.reward_money,
+        villagePrestige: user.villagePrestige + rewards.reward_prestige,
+        rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : user.rank,
+      };
+
+      // If the quest is finished, we update additional fields on the userData model
+      if (resolved) {
+        // Update the finishAt timer
+        updatedUserData["questFinishAt"] = new Date();
+        // Update various counters on the user model
+        const field = getQuestCounterFieldName(
+          userQuest?.quest.questType,
+          userQuest?.quest.requiredRank,
+        );
+        if (field) {
+          updatedUserData[field] = sql`${userData[field]} + 1`;
+        }
+      }
+
       // Update database
       await Promise.all([
         // Update userdata
         ctx.drizzle
           .update(userData)
-          .set({
-            questData: user.questData,
-            money: user.money + rewards.reward_money,
-            villagePrestige: user.villagePrestige + rewards.reward_prestige,
-            rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : user.rank,
-            ...(resolved ? { questFinishAt: new Date() } : {}),
-          })
+          .set(updatedUserData)
           .where(eq(userData.userId, ctx.userId)),
         // Update quest history
         resolved

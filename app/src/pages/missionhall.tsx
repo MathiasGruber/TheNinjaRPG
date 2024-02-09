@@ -10,6 +10,7 @@ import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { availableRanks } from "@/libs/train";
 import { secondsFromDate } from "@/utils/time";
+import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
@@ -90,6 +91,10 @@ const MissionHall: NextPage = () => {
             const timer = allowedAt > now ? coundownComponent : null;
             // Check is user rank is high enough for this quest
             const isRankAllowed = availableUserRanks.includes(setting.rank);
+            // Completed field on user model
+            const missionOrCrime = userData?.villageId === "" ? "crime" : "mission";
+            const type = setting.type === "errand" ? "errand" : missionOrCrime;
+            const completedField = getQuestCounterFieldName(type, setting.rank);
             return (
               <Confirm
                 key={i}
@@ -106,6 +111,7 @@ const MissionHall: NextPage = () => {
                     <Image alt="small" src={setting.image} width={256} height={256} />
                     <p className="font-bold">{setting.name}</p>
                     <p>{timer ?? <>[{count} available]</>}</p>
+                    {completedField && <p>[{userData[completedField]} completed]</p>}
                   </div>
                 }
                 onAccept={(e) => {
