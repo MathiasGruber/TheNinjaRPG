@@ -226,12 +226,6 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       enabled: userData !== undefined,
     },
   );
-  const alljutsus = jutsus?.pages
-    .map((page) => page.data)
-    .flat()
-    .filter((j) => !j.villageId || userData?.villageId === j.villageId)
-    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId)
-    .filter((j) => !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType));
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
@@ -248,9 +242,6 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
           : userJutsu.level,
     };
   });
-  const finishTrainingAt = userJutsus?.find(
-    (jutsu) => jutsu.finishTraining && jutsu.finishTraining > now,
-  );
 
   // Mutations
   const { mutate: train, isLoading: isStartingTrain } =
@@ -294,6 +285,22 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Filtering jutsus
+  const alljutsus = jutsus?.pages
+    .map((page) => page.data)
+    .flat()
+    .filter((j) => !j.villageId || userData?.villageId === j.villageId)
+    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId)
+    .filter((j) => {
+      const userJutsu = userJutsus?.find((uj) => uj.jutsuId === j.id);
+      return userJutsu || !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType);
+    });
+
+  // Training time
+  const finishTrainingAt = userJutsus?.find(
+    (jutsu) => jutsu.finishTraining && jutsu.finishTraining > now,
+  );
 
   // Derived calculations
   const level = userJutsuCounts?.find((entry) => entry.id === jutsu?.id)?.quantity || 0;
