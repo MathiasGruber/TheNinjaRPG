@@ -2,7 +2,6 @@ import React from "react";
 import ContentBox from "@/layout/ContentBox";
 import Image from "next/image";
 import Link from "next/link";
-import WidgetBot from "@widgetbot/react-embed";
 import type { NextPage } from "next";
 
 const BugReport: NextPage = () => {

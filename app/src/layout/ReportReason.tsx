@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import type { UserReport } from "../../drizzle/schema";
 import ReactHtmlParser from "react-html-parser";
 

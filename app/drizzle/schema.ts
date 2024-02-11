@@ -25,6 +25,7 @@ import type { QuestContentType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 import * as consts from "./constants";
+import type { ZodAllTags } from "@/libs/combat/types";
 
 export const battle = mysqlTable(
   "Battle",
@@ -112,7 +113,7 @@ export const bloodline = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     description: text("description").notNull(),
-    effects: json("effects").notNull(),
+    effects: json("effects").$type<ZodAllTags[]>().notNull(),
     regenIncrease: int("regenIncrease").default(0).notNull(),
     village: varchar("village", { length: 191 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
@@ -419,7 +420,7 @@ export const item = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    effects: json("effects").notNull(),
+    effects: json("effects").$type<ZodAllTags[]>().notNull(),
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
     slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
@@ -466,7 +467,7 @@ export const jutsu = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    effects: json("effects").notNull(),
+    effects: json("effects").$type<ZodAllTags[]>().notNull(),
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     range: int("range").notNull(),
     cooldown: int("cooldown").default(0).notNull(),
@@ -711,12 +712,12 @@ export const userData = mysqlTable(
     maxChakra: smallint("maxChakra", { unsigned: true }).default(100).notNull(),
     curStamina: smallint("curStamina", { unsigned: true }).default(100).notNull(),
     maxStamina: smallint("maxStamina", { unsigned: true }).default(100).notNull(),
-    regeneration: tinyint("regeneration", { unsigned: true }).default(1).notNull(),
+    regeneration: tinyint("regeneration").default(1).notNull(),
     money: int("money").default(100).notNull(),
     bank: int("bank").default(100).notNull(),
     experience: int("experience").default(0).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
-    level: tinyint("level", { unsigned: true }).default(1).notNull(),
+    level: tinyint("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),
@@ -771,15 +772,15 @@ export const userData = mysqlTable(
     immunityUntil: datetime("immunityUntil", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    curEnergy: tinyint("curEnergy", { unsigned: true }).default(100).notNull(),
-    maxEnergy: tinyint("maxEnergy", { unsigned: true }).default(100).notNull(),
+    curEnergy: tinyint("curEnergy").default(100).notNull(),
+    maxEnergy: tinyint("maxEnergy").default(100).notNull(),
     trainingStartedAt: datetime("trainingStartedAt", { mode: "date", fsp: 3 }),
     trainingSpeed: mysqlEnum("trainingSpeed", consts.TrainingSpeeds)
       .default("15min")
       .notNull(),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
     unreadNotifications: tinyint("unreadNotifications").default(0).notNull(),
-    unreadNews: tinyint("unreadNews", { unsigned: true }).default(0).notNull(),
+    unreadNews: tinyint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),

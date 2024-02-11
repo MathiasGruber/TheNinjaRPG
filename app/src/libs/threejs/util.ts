@@ -1,4 +1,4 @@
-import { TextureLoader, Texture, sRGBEncoding, SRGBColorSpace } from "three";
+import { TextureLoader, Texture, SRGBColorSpace } from "three";
 
 /**
  * Load texture from file
