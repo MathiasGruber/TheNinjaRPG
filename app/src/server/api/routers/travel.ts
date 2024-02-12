@@ -81,8 +81,8 @@ export const travelRouter = createTRPCRouter({
         user.sector = input.sector;
         user.status = "TRAVEL";
         user.travelFinishAt = endTime;
-        const pusher = getServerPusher();
-        void pusher.trigger(user.sector.toString(), "event", user);
+        // const pusher = getServerPusher();
+        // void pusher.trigger(user.sector.toString(), "event", user);
         return { success: true, message: "OK", sector: user.sector };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);

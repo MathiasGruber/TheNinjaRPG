@@ -1,0 +1,10 @@
+ALTER TABLE `UserData` MODIFY COLUMN `regeneration` tinyint NOT NULL DEFAULT 1;
+ALTER TABLE `UserData` MODIFY COLUMN `level` tinyint NOT NULL DEFAULT 1;
+ALTER TABLE `UserData` MODIFY COLUMN `longitude` tinyint NOT NULL DEFAULT 10;
+ALTER TABLE `UserData` MODIFY COLUMN `latitude` tinyint NOT NULL DEFAULT 7;
+ALTER TABLE `UserData` MODIFY COLUMN `curEnergy` tinyint NOT NULL DEFAULT 100;
+ALTER TABLE `UserData` MODIFY COLUMN `maxEnergy` tinyint NOT NULL DEFAULT 100;
+ALTER TABLE `UserData` MODIFY COLUMN `unreadNotifications` tinyint NOT NULL;
+ALTER TABLE `UserData` MODIFY COLUMN `unreadNews` tinyint NOT NULL;
+ALTER TABLE `UserData` ADD `primaryElement` enum('Fire','Water','Wind','Earth','Lightning','Ice','Crystal','Dust','Shadow','Wood','Scorch','Storm','Magnet','Yin','Yang','Yin-Yang','None');
+ALTER TABLE `UserData` ADD `secondaryElement` enum('Fire','Water','Wind','Earth','Lightning','Ice','Crystal','Dust','Shadow','Wood','Scorch','Storm','Magnet','Yin','Yang','Yin-Yang','None');
