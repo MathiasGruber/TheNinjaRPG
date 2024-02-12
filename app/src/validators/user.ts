@@ -28,13 +28,20 @@ export const getQuestCounterFieldName = (
 };
 
 export const getUserElements = (user: UserWithRelations) => {
+  // Natural elements
   const userElements: ElementName[] = [];
   if (user?.primaryElement) userElements.push(user.primaryElement);
   if (user?.secondaryElement) userElements.push(user.secondaryElement);
+  // Bloodline elements
+  const bloodlineElements: ElementName[] = [];
   user?.bloodline?.effects.map((effect) => {
     if ("elements" in effect && effect.elements) {
-      userElements.push(...effect.elements);
+      bloodlineElements.push(...effect.elements);
     }
   });
-  return Array.from(new Set(userElements));
+  if (bloodlineElements.length > 0) {
+    return Array.from(new Set(bloodlineElements));
+  } else {
+    return Array.from(new Set(userElements));
+  }
 };

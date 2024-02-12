@@ -1177,12 +1177,11 @@ export const fetchRegeneratedUser = async (props: {
       }
       // Ensure that the user has elements
       const rankId = UserRanks.findIndex((r) => r === user.rank);
-      const elements = BasicElementName.filter((e) => e !== "None");
       if (rankId >= 1 && !user.primaryElement) {
-        user.primaryElement = getRandomElement(elements) ?? null;
+        user.primaryElement = getRandomElement(BasicElementName) ?? null;
       }
       if (rankId >= 2 && !user.secondaryElement) {
-        user.secondaryElement = getRandomElement(elements) ?? null;
+        user.secondaryElement = getRandomElement(BasicElementName) ?? null;
       }
       // Update database
       await client
