@@ -809,6 +809,10 @@ export const userData = mysqlTable(
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
       battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
+      statusIdx: index("UserData_status_idx").on(table.status),
+      sectorIdx: index("UserData_sector_idx").on(table.sector),
+      latitudeIdx: index("UserData_latitude_idx").on(table.latitude),
+      longitudeIdx: index("UserData_longitude_idx").on(table.longitude),
     };
   },
 );
