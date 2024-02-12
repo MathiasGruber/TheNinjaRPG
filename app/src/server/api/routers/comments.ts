@@ -1,4 +1,4 @@
-import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
+import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { nanoid } from "nanoid";
 import { z } from "zod";
