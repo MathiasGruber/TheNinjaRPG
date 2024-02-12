@@ -21,7 +21,7 @@ import type { Jutsu } from "@/drizzle/schema";
  */
 export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Case type
-  const jutsu = { ...data, effects: data.effects as ZodAllTags[] };
+  const jutsu = { ...data, effects: data.effects };
 
   // Form handling
   const form = useForm<ZodJutsuType>({
