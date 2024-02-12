@@ -294,7 +294,11 @@ export const combatRouter = createTRPCRouter({
           // Optimistic update for all other users before we process request. Also increment version
           const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
           if (!battleOver) {
-            void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+            // Only push websocket data if there is more than one non-AI in battle
+            const nUsers = battle.usersState.filter((u) => !u.isAi).length;
+            if (nUsers > 1) {
+              void pusher.trigger(battle.id, "event", { version: battle.version + 1 });
+            }
           }
 
           // Only keep visual tags that are newer than original round

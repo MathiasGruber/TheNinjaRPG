@@ -172,8 +172,8 @@ export const travelRouter = createTRPCRouter({
         );
       if (result.rowsAffected === 1) {
         const output = { ...input, location, userId: ctx.userId };
-        // const pusher = getServerPusher();
-        // void pusher.trigger(input.sector.toString(), "event", output);
+        const pusher = getServerPusher();
+        void pusher.trigger(input.sector.toString(), "event", output);
         return { success: true, message: "OK", data: output };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);
