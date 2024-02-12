@@ -52,9 +52,17 @@ export const getUserElements = (user: UserWithRelations) => {
 export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
   // Default to beneficial, as should be true for most bloodline effects
   let isStrength = true;
-  // If it is a decrease effect, it is not beneficial
-  if (effect.type.includes("decrease")) isStrength = false;
-  // Damage tag on self is not good
-  if (effect.type === "damage") isStrength = false;
+  // Certains tags are negative in a bloodline context
+  if (
+    [
+      "decreasearmor",
+      "decreasedamagegiven",
+      "increasedamagetaken",
+      "decreaseheal",
+      "decreasestat",
+      "damage",
+    ].includes(effect.type)
+  )
+    isStrength = false;
   return isStrength;
 };
