@@ -273,7 +273,6 @@ export const AbsorbTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
   direction: type("defence"),
   description: msg("Absorb damage taken & convert to health, chakra or stamina"),
-  elements: z.array(z.enum(ElementNames)).optional(),
   poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
   target: z.enum(BaseTagTargets).optional().default("SELF"),
 });

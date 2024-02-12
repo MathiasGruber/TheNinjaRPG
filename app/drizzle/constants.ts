@@ -193,8 +193,6 @@ export const ElementNames = [
   "Scorch",
   "Storm",
   "Magnet",
-  "Yin",
-  "Yang",
   "Yin-Yang",
   "None",
 ] as const;

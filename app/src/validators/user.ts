@@ -3,6 +3,7 @@ import { UserRoles } from "@/drizzle/constants";
 import type { LetterRank, QuestType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { ElementName } from "@/drizzle/constants";
+import type { ZodAllTags } from "@/libs/combat/types";
 
 export const updateUserSchema = z.object({
   role: z.enum(UserRoles),
@@ -36,7 +37,9 @@ export const getUserElements = (user: UserWithRelations) => {
   const bloodlineElements: ElementName[] = [];
   user?.bloodline?.effects.map((effect) => {
     if ("elements" in effect && effect.elements) {
-      bloodlineElements.push(...effect.elements);
+      if (isBloodlineEffectBeneficial(effect)) {
+        bloodlineElements.push(...effect.elements);
+      }
     }
   });
   if (bloodlineElements.length > 0) {
@@ -44,4 +47,14 @@ export const getUserElements = (user: UserWithRelations) => {
   } else {
     return Array.from(new Set(userElements));
   }
+};
+
+export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
+  // Default to beneficial, as should be true for most bloodline effects
+  let isStrength = true;
+  // If it is a decrease effect, it is not beneficial
+  if (effect.type.includes("decrease")) isStrength = false;
+  // Damage tag on self is not good
+  if (effect.type === "damage") isStrength = false;
+  return isStrength;
 };
