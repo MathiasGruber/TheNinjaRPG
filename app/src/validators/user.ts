@@ -42,11 +42,12 @@ export const getUserElements = (user: UserWithRelations) => {
       }
     }
   });
-  if (bloodlineElements.length > 0) {
-    return Array.from(new Set(bloodlineElements));
-  } else {
-    return Array.from(new Set(userElements));
+  // Create final list of elements
+  const finalElements = bloodlineElements.length > 0 ? bloodlineElements : userElements;
+  if (bloodlineElements.length === 1 && userElements.length === 2) {
+    finalElements.push(userElements[1] as ElementName);
   }
+  return Array.from(new Set(finalElements));
 };
 
 export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
