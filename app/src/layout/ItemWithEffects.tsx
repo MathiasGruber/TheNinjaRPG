@@ -304,7 +304,8 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               >
                 {!parsedEffect && (
                   <div className="pb-1">
-                    <b>Effect {i + 1}: </b> <i>{effect.type}</i> - PLEASE REPORT!
+                    <b>Effect {i + 1}: </b> <i>{effect.type}</i> -{" "}
+                    {JSON.stringify(result)} - PLEASE REPORT!
                   </div>
                 )}
                 {parsedEffect && (
