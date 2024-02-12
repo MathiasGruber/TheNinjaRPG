@@ -51,6 +51,8 @@ import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
+import { UserRanks, ElementNames } from "@/drizzle/constants";
+import { getRandomElement } from "@/utils/array";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -1173,6 +1175,15 @@ export const fetchRegeneratedUser = async (props: {
           user.userQuests.push(questExam);
         }
       }
+      // Ensure that the user has elements
+      const rankId = UserRanks.findIndex((r) => r === user.rank);
+      const elements = ElementNames.filter((e) => e !== "None");
+      if (rankId >= 1 && !user.primaryElement) {
+        user.primaryElement = getRandomElement(elements) ?? null;
+      }
+      if (rankId >= 2 && !user.secondaryElement) {
+        user.secondaryElement = getRandomElement(elements) ?? null;
+      }
       // Update database
       await client
         .update(userData)
@@ -1186,6 +1197,8 @@ export const fetchRegeneratedUser = async (props: {
           questData: user.questData,
           activityStreak: user.activityStreak,
           money: user.money,
+          primaryElement: user.primaryElement,
+          secondaryElement: user.secondaryElement,
           reputationPoints: user.reputationPoints,
           reputationPointsTotal: user.reputationPointsTotal,
           ...(userIp ? { lastIp: userIp } : {}),

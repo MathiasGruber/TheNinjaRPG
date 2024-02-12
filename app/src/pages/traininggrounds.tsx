@@ -26,7 +26,8 @@ import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
 import { FingerPrintIcon } from "@heroicons/react/24/solid";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
-import type { TrainingSpeed } from "@/drizzle/constants";
+import { getUserElements } from "@/validators/user";
+import type { ElementName, TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -218,7 +219,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 100, hideAi: true, ...getFilter(state) },
+    { limit: 500, hideAi: true, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -286,6 +287,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
 
+  // Get user elements
+  const userElements = new Set(getUserElements(userData));
+
   // Filtering jutsus
   const alljutsus = jutsus?.pages
     .map((page) => page.data)
@@ -295,6 +299,19 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     .filter((j) => {
       const userJutsu = userJutsus?.find((uj) => uj.jutsuId === j.id);
       return userJutsu || !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType);
+    })
+    .filter((j) => {
+      const jutsuElements: ElementName[] = [];
+      j.effects.map((effect) => {
+        if ("elements" in effect && effect.elements) {
+          jutsuElements.push(...effect.elements);
+        }
+      });
+      if (jutsuElements.length === 0) {
+        return true;
+      } else {
+        return jutsuElements.find((e) => userElements.has(e));
+      }
     });
 
   // Training time

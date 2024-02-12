@@ -1,4 +1,4 @@
-export const getRandomElement = <T>(arr?: T[]) => {
+export const getRandomElement = <T>(arr?: T[] | readonly T[]) => {
   const length = arr?.length;
   if (length) {
     const idx = Math.floor(Math.random() * length);

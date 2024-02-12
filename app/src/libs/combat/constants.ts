@@ -74,27 +74,6 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
-export const allElements = [
-  "Fire",
-  "Water",
-  "Wind",
-  "Earth",
-  "Lightning",
-  "Ice",
-  "Crystal",
-  "Dust",
-  "Shadow",
-  "Wood",
-  "Scorch",
-  "Storm",
-  "Magnet",
-  "Yin",
-  "Yang",
-  "Yin-Yang",
-  "None",
-] as const;
-export type Element = (typeof allElements)[number];
-
 export const StatType = [
   "Highest",
   "Ninjutsu",
@@ -102,8 +81,11 @@ export const StatType = [
   "Taijutsu",
   "Bukijutsu",
 ] as const;
+
 export const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
+
 export const PoolType = ["Health", "Chakra", "Stamina"] as const;
+
 export const StatNames = [
   "ninjutsuOffence",
   "ninjutsuDefence",

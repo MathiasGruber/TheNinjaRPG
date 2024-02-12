@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AttackMethods, AttackTargets, ItemRarities } from "@/drizzle/constants";
 import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
-import { allElements } from "@/libs/combat/constants";
+import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
 import { StatType, GeneralType, PoolType } from "@/libs/combat/constants";
 import type { publicState } from "@/libs/combat/constants";
@@ -259,7 +259,7 @@ const IncludeStats = {
   // formula: power is used in stats-based formula to calculate return value
   statTypes: z.array(z.enum(StatType)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
-  elements: z.array(z.enum(allElements)).optional(),
+  elements: z.array(z.enum(ElementNames)).optional(),
 };
 
 /******************** */
@@ -273,7 +273,7 @@ export const AbsorbTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
   direction: type("defence"),
   description: msg("Absorb damage taken & convert to health, chakra or stamina"),
-  elements: z.array(z.enum(allElements)).optional(),
+  elements: z.array(z.enum(ElementNames)).optional(),
   poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
   target: z.enum(BaseTagTargets).optional().default("SELF"),
 });

@@ -174,3 +174,24 @@ export type ChallengeState = (typeof ChallengeStates)[number];
 
 export const AllianceStates = ["NEUTRAL", "ALLY", "ENEMY"] as const;
 export type AllianceState = (typeof AllianceStates)[number];
+
+export const ElementNames = [
+  "Fire",
+  "Water",
+  "Wind",
+  "Earth",
+  "Lightning",
+  "Ice",
+  "Crystal",
+  "Dust",
+  "Shadow",
+  "Wood",
+  "Scorch",
+  "Storm",
+  "Magnet",
+  "Yin",
+  "Yang",
+  "Yin-Yang",
+  "None",
+] as const;
+export type ElementName = (typeof ElementNames)[number];

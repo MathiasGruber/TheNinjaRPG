@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Toggle from "@/layout/Toggle";
+import ElementImage from "@/layout/ElementImage";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { Chart as ChartJS } from "chart.js/auto";
+import { getUserElements } from "@/validators/user";
 
 interface StrengthWeaknessesProps {}
 
@@ -22,6 +24,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
         type: "radar",
         options: {
           maintainAspectRatio: false,
+          aspectRatio: 1.4,
           responsive: true,
           elements: {
             line: {
@@ -81,7 +84,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
         options: {
           maintainAspectRatio: false,
           responsive: true,
-          aspectRatio: 1,
+          aspectRatio: 1.1,
           scales: {
             y: {
               beginAtZero: true,
@@ -128,6 +131,9 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
     }
   }, [userData, showGraphs]);
 
+  // Calculate user elements
+  const userElements = getUserElements(userData);
+
   return (
     <ContentBox
       title="Strengths & Weaknesses"
@@ -145,14 +151,33 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       {showGraphs && (
         <div className="grid grid-cols-1 sm:grid-cols-2 pt-3">
           <div>
+            <p className="font-bold">Generals</p>
             <div className="relative w-[99%] p-3">
               <canvas ref={generalsChart} id="generalsChart"></canvas>
             </div>
           </div>
           <div>
+            <p className="font-bold">Strengths</p>
             <div className="relative w-[99%]">
               <canvas ref={statsChart} id="statsChart"></canvas>
             </div>
+            <p className="font-bold pt-2">Elemental Proficiency</p>
+            <div className="flex flex-row w-full justify-center gap-2 pt-2">
+              {userElements.map((element) => (
+                <div key={element} className="relative">
+                  <ElementImage element={element} className="w-14" />
+                  <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 rounded-md bg-gray-800 p-2 text-sm font-bold text-gray-100 opacity-0 transition-opacity hover:opacity-100">
+                    {element}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {userElements.length === 0 && (
+              <>
+                <p>- 1st element at Genin</p>
+                <p>- 2nd element at Chunin</p>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -176,15 +201,30 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
             </div>
           </div>
           <div className="pt-2">
-            <b>Generals</b>
             <div className="grid grid-cols-2">
               <div>
+                <b>Generals</b>
                 <p>Strength: {userData.strength.toFixed(2)}</p>
                 <p>Intelligence: {userData.intelligence.toFixed(2)}</p>
-              </div>
-              <div>
                 <p>Willpower: {userData.willpower.toFixed(2)}</p>
                 <p>Speed: {userData.speed.toFixed(2)}</p>
+              </div>
+              <div>
+                <b>Elemental Proficiency</b>
+                <div className="grid grid-cols-2 gap-1">
+                  {userElements.map((element) => (
+                    <div key={element} className="flex flex-row pt-1">
+                      <ElementImage element={element} className="w-6" />
+                      <p className="pl-2">{element}</p>
+                    </div>
+                  ))}
+                </div>
+                {userElements.length === 0 && (
+                  <>
+                    <p>- 1st element at Genin</p>
+                    <p>- 2nd element at Chunin</p>
+                  </>
+                )}
               </div>
             </div>
           </div>

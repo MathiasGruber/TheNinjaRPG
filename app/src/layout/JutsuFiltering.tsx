@@ -5,12 +5,12 @@ import SelectField from "@/layout/SelectField";
 import InputField from "@/layout/InputField";
 import NavTabs from "@/layout/NavTabs";
 import { animationNames } from "@/libs/combat/types";
-import { allElements } from "@/libs/combat/constants";
+import { ElementNames } from "@/drizzle/constants";
 import { mainFilters, statFilters, effectFilters, rarities } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchNameSchema } from "@/validators/jutsu";
-import type { Element } from "@/libs/combat/constants";
+import type { ElementName } from "@/drizzle/constants";
 import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { FilterType, StatType, EffectType, RarityType } from "@/libs/train";
@@ -124,9 +124,9 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
       {filter === "Element" && (
         <SelectField
           id={filter}
-          onChange={(e) => setElement(e.target.value as Element)}
+          onChange={(e) => setElement(e.target.value as ElementName)}
         >
-          {allElements.map((element) => {
+          {ElementNames.map((element) => {
             return (
               <option key={element} value={element}>
                 {element}
@@ -186,7 +186,7 @@ export const useFiltering = () => {
   const [stat, setStat] = useState(statFilters[0] as StatType);
   const [animation, setAnimation] = useState(animationNames[0] as AnimationName);
   const [effect, setEffect] = useState(effectFilters[0] as EffectType);
-  const [element, setElement] = useState(allElements[0] as Element);
+  const [element, setElement] = useState(ElementNames[0] as ElementName);
   const [rarity, setRarity] = useState(rarities[0] as RarityType);
   // Return all
   return {
