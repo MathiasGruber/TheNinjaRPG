@@ -164,7 +164,7 @@ export const availableUserActions = (
             chakraCostPerc: userjutsu.jutsu.chakraCostPerc,
             staminaCostPerc: userjutsu.jutsu.staminaCostPerc,
             actionCostPerc: userjutsu.jutsu.actionCostPerc,
-            effects: userjutsu.jutsu.effects as ZodAllTags[],
+            effects: userjutsu.jutsu.effects,
             level: userjutsu.level,
             data: userjutsu.jutsu,
           };
@@ -188,7 +188,7 @@ export const availableUserActions = (
             chakraCostPerc: useritem.item.chakraCostPerc,
             staminaCostPerc: useritem.item.staminaCostPerc,
             actionCostPerc: useritem.item.actionCostPerc,
-            effects: useritem.item.effects as ZodAllTags[],
+            effects: useritem.item.effects,
             quantity: useritem.quantity,
             data: useritem.item,
           };

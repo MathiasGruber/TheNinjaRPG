@@ -21,7 +21,7 @@ import type { ZodItemType } from "@/libs/combat/types";
  */
 export const useItemEditForm = (data: Item, refetch: () => void) => {
   // Case type
-  const item = { ...data, effects: data.effects as ZodAllTags[] };
+  const item = { ...data, effects: data.effects };
 
   // Form handling
   const form = useForm<ZodItemType>({

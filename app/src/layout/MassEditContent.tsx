@@ -137,7 +137,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     if (!stat) return true;
     if (!("effects" in entry)) return true;
     // Filter on effects
-    const effect = (entry.effects as ZodAllTags[]).find((e) => e.type === tagType);
+    const effect = entry.effects.find((e) => e.type === tagType);
     if (effect) {
       const c1 =
         "statTypes" in effect &&
