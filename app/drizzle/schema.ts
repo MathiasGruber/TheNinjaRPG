@@ -1062,6 +1062,8 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     hexColor: varchar("hexColor", { length: 191 }).default("#000000").notNull(),
+    infrastructureAIs: tinyint("infrastructureAI").default(0).notNull(),
+    infrastructureWalls: tinyint("infrastructureWalls").default(0).notNull(),
   },
   (table) => {
     return {

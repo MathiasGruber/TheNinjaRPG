@@ -40,6 +40,8 @@ export const seedVillages = async (client: DrizzleClient) => {
     // { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
     { name: "Ramen Shop", image: "/buildings/RamenShop.webp", level: 1 },
     { name: "Black Market", image: "/buildings/BlackMarket.webp", level: 0 },
+    { name: "Protectors", image: "/buildings/AI.webp", level: 1 },
+    { name: "Walls", image: "/buildings/Walls.webp", level: 1 },
   ];
 
   const promises: Promise<void>[] = [];
