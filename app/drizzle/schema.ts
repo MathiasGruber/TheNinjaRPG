@@ -1062,8 +1062,6 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     hexColor: varchar("hexColor", { length: 191 }).default("#000000").notNull(),
-    infrastructureAIs: tinyint("infrastructureAI").default(0).notNull(),
-    infrastructureWalls: tinyint("infrastructureWalls").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1087,6 +1085,9 @@ export const villageStructure = mysqlTable(
     villageId: varchar("villageId", { length: 191 }).notNull(),
     level: int("level").default(1).notNull(),
     maxLevel: int("maxLevel").default(10).notNull(),
+    longitude: tinyint("longitude").default(10).notNull(),
+    latitude: tinyint("latitude").default(10).notNull(),
+    hasPage: tinyint("hasPage").default(0).notNull(),
     curSp: int("curSp").default(100).notNull(),
     maxSp: int("maxSp").default(100).notNull(),
   },

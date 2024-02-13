@@ -8,7 +8,7 @@ import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
 import { getServerPusher } from "../../../libs/pusher";
-import { userData } from "@/drizzle/schema";
+import { userData, village } from "@/drizzle/schema";
 import { fetchUser } from "./profile";
 import * as map from "../../../../public/map/hexasphere.json";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -25,31 +25,38 @@ export const travelRouter = createTRPCRouter({
       if (user.sector !== input.sector) {
         throw serverError("FORBIDDEN", `You are not in sector ${input.sector}`);
       }
-      return await ctx.drizzle.query.userData.findMany({
-        columns: {
-          userId: true,
-          username: true,
-          longitude: true,
-          latitude: true,
-          location: true,
-          curHealth: true,
-          maxHealth: true,
-          sector: true,
-          avatar: true,
-          level: true,
-          rank: true,
-          immunityUntil: true,
-          updatedAt: true,
-        },
-        where: and(
-          eq(userData.sector, input.sector),
-          eq(userData.status, "AWAKE"),
-          or(
-            gte(userData.updatedAt, secondsFromNow(-300)),
-            eq(userData.userId, ctx.userId),
+      const [users, villageData] = await Promise.all([
+        ctx.drizzle.query.userData.findMany({
+          columns: {
+            userId: true,
+            username: true,
+            longitude: true,
+            latitude: true,
+            location: true,
+            curHealth: true,
+            maxHealth: true,
+            sector: true,
+            avatar: true,
+            level: true,
+            rank: true,
+            immunityUntil: true,
+            updatedAt: true,
+          },
+          where: and(
+            eq(userData.sector, input.sector),
+            eq(userData.status, "AWAKE"),
+            or(
+              gte(userData.updatedAt, secondsFromNow(-300)),
+              eq(userData.userId, ctx.userId),
+            ),
           ),
-        ),
-      });
+        }),
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.sector, input.sector),
+          with: { structures: true },
+        }),
+      ]);
+      return { users, village: villageData };
     }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
@@ -107,7 +114,7 @@ export const travelRouter = createTRPCRouter({
       user.status = "AWAKE";
       user.travelFinishAt = null;
       const pusher = getServerPusher();
-      void pusher.trigger(userData.sector.toString(), "event", user);
+      void pusher.trigger(user.sector.toString(), "event", user);
       await ctx.drizzle
         .update(userData)
         .set({ status: "AWAKE", travelFinishAt: null })
@@ -189,4 +196,5 @@ export const travelRouter = createTRPCRouter({
 });
 
 type RouterOutput = inferRouterOutputs<typeof travelRouter>;
-export type SectorUsers = RouterOutput["getSectorData"];
+export type SectorUsers = RouterOutput["getSectorData"]["users"];
+export type SectorVillage = RouterOutput["getSectorData"]["village"];

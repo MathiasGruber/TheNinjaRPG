@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { eq, and, sql } from "drizzle-orm";
-import { VILLAGE_LONG, VILLAGE_LAT } from "@/libs//travel/constants";
+import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
 import { battle, battleAction, userData } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
@@ -197,8 +197,8 @@ export const updateUser = async (
         ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
           ? {
               status: "HOSPITALIZED",
-              longitude: VILLAGE_LONG,
-              latitude: VILLAGE_LAT,
+              longitude: HOSPITAL_LONG,
+              latitude: HOSPITAL_LAT,
               sector: user.village?.sector,
               immunityUntil:
                 curBattle.battleType === "COMBAT"

@@ -23,8 +23,6 @@ const VillageOverview: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
-  const specialStructures = ["Protectors", "Walls"];
-
   return (
     <ContentBox
       title={title}
@@ -32,7 +30,7 @@ const VillageOverview: NextPage = () => {
       topRightContent={
         <div className="flex flex-row">
           {data?.villageData.structures
-            .filter((s) => specialStructures.includes(s.name))
+            .filter((s) => s.hasPage === 0)
             .map((structure, i) => (
               <div key={i} className="w-32 pb-1 px-2">
                 <Building
@@ -49,7 +47,7 @@ const VillageOverview: NextPage = () => {
         {data && userData && userData.village && (
           <>
             {data.villageData.structures
-              .filter((s) => !specialStructures.includes(s.name))
+              .filter((s) => s.hasPage !== 0)
               .map((structure, i) => (
                 <div key={i} className="p-2">
                   <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>

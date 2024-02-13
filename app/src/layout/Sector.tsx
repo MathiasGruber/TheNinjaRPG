@@ -18,17 +18,16 @@ import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
 import { isLocationObjective } from "@/libs/quest";
-import type { Village, UserData } from "@/drizzle/schema";
+import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
 import type { TerrainHex } from "@/libs/hexgrid";
-import type { SectorUsers } from "../server/api/routers/travel";
+import type { SectorUsers } from "@/routers/travel";
 
 interface SectorProps {
   sector: number;
   tile: GlobalTile;
   target: SectorPoint | null;
-  showVillage?: Village;
   showSorrounding: boolean;
   showActive: boolean;
   setShowSorrounding: React.Dispatch<React.SetStateAction<boolean>>;
@@ -58,10 +57,12 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Data from db
   const { data: userData, pusher, refetch: refetchUser } = useRequiredUserData();
-  const { data: fetchedUsers } = api.travel.getSectorData.useQuery(
+  const { data } = api.travel.getSectorData.useQuery(
     { sector: sector },
-    { enabled: sector !== undefined },
+    { enabled: sector !== undefined, staleTime: Infinity },
   );
+  const fetchedUsers = data?.users;
+  const villageData = data?.village;
 
   // Router for forwarding
   const router = useSafePush();
@@ -299,21 +300,21 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Setup camara
       const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
-      camera.zoom = 2;
+      camera.zoom = villageData ? 1 : 2;
       camera.updateProjectionMatrix();
 
       // Draw the map
       const { group_tiles, group_edges, group_assets, honeycombGrid } = drawSector(
         WIDTH,
         prng,
-        props.showVillage !== undefined,
+        villageData !== undefined,
         props.tile,
       );
       grid.current = honeycombGrid;
 
       // Draw any village in this sector
-      if (props.showVillage) {
-        const village = drawVillage(props.showVillage.name, grid.current);
+      if (villageData) {
+        const village = drawVillage(villageData, grid.current);
         group_assets.add(village);
       }
 
@@ -422,7 +423,6 @@ const Sector: React.FC<SectorProps> = (props) => {
               ? users.current
               : users.current.filter((u) => u.userId === userData.userId),
             grid: grid.current,
-            showVillage: props.showVillage !== undefined,
             lastTime: lastTime,
             angle: userAngle,
           });

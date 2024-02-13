@@ -7,7 +7,7 @@ import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUser, fetchRegeneratedUser } from "./profile";
 import { COST_SWAP_VILLAGE } from "@/libs/profile";
-import { VILLAGE_LONG, VILLAGE_LAT } from "@/libs/travel/constants";
+import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import type { DrizzleClient } from "../../db";
 
 export const villageRouter = createTRPCRouter({
@@ -90,8 +90,8 @@ export const villageRouter = createTRPCRouter({
           reputationPoints: user.reputationPoints - cost,
           villagePrestige: 0,
           sector: village.sector,
-          longitude: VILLAGE_LONG,
-          latitude: VILLAGE_LAT,
+          longitude: ALLIANCEHALL_LONG,
+          latitude: ALLIANCEHALL_LAT,
         })
         .where(
           and(

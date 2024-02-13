@@ -16,9 +16,9 @@ import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { createNoise2D } from "simplex-noise";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "./constants";
-import { VILLAGE_LONG, VILLAGE_LAT } from "./constants";
 import { getTileInfo } from "./biome";
 import { calcIsInVillage } from "./controls";
+import { wallPlacements } from "./controls";
 import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
@@ -28,6 +28,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "../../../drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, SectorPoint, GlobalTile } from "./types";
+import type { SectorVillage } from "@/routers/travel";
 
 export const drawQuest = (info: {
   group_quest: Group;
@@ -135,7 +136,11 @@ export const drawSector = (
     if (tile) {
       const { material, sprites, asset } = getTileInfo(prng, tile, globalTile);
       tile.asset = asset;
-      if (!hasVillage || !calcIsInVillage({ x: tile.col, y: tile.row })) {
+      if (
+        prng() < 0.1 ||
+        !hasVillage ||
+        !calcIsInVillage({ x: tile.col, y: tile.row })
+      ) {
         sprites.map((sprite) => group_assets.add(sprite));
       }
 
@@ -295,33 +300,81 @@ export const createMultipleUserSprite = (
 /**
  * Draw village on map
  */
-export const drawVillage = (villageName: string, grid: Grid<TerrainHex>) => {
-  const hex = grid.getHex({ col: VILLAGE_LONG, row: VILLAGE_LAT });
+export const drawVillage = (
+  village: NonNullable<SectorVillage>,
+  grid: Grid<TerrainHex>,
+) => {
   const group = new Group();
-  if (hex) {
-    const { height: h, x, y } = hex;
-    // Village shadow
-    const shadow_texture = loadTexture("map/shadow.png");
-    const shadow_material = new SpriteMaterial({ map: shadow_texture });
-    const shadow_sprite = new Sprite(shadow_material);
-    shadow_sprite.scale.set(h * 2.6, h * 2, 1);
-    shadow_sprite.position.set(x, y - h / 3, -7);
-    group.add(shadow_sprite);
-    // Village graphic
-    const graphic = loadTexture(`map/${villageName}.webp`);
-    const graphicMat = new SpriteMaterial({ map: graphic });
-    const graphicSprite = new Sprite(graphicMat);
-    graphicSprite.scale.set(h * 2.2, h * 2.2, 1);
-    graphicSprite.position.set(x, y, -7);
-    group.add(graphicSprite);
-    // Village text
-    const text = loadTexture(`villages/${villageName}Marker.png`);
+  // Village text
+  const pos = grid.getHex({ col: 10, row: 0 });
+  if (pos) {
+    const { height: h, x, y } = pos;
+    const text = loadTexture(`villages/${village.name}Marker.png`);
     const textMat = new SpriteMaterial({ map: text });
     const textSprite = new Sprite(textMat);
     textSprite.scale.set(h * 1.5, h * 0.5, 1);
     textSprite.position.set(x, y + h, -7);
     group.add(textSprite);
   }
+  // Village wall
+  const wall_tower_texture = loadTexture("map/wall_stone_tower.webp");
+  const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
+  let prevPos: TerrainHex | null = null;
+  wallPlacements.map((wall) => {
+    const pos = grid.getHex({ col: wall.x, row: wall.y });
+    if (pos) {
+      const { height: h, x, y } = pos;
+      const sprite = new Sprite(wall_tower_material);
+      sprite.scale.set(h * 0.9, h * 1.3, 1);
+      sprite.position.set(x, y + h / 3, -7);
+      group.add(sprite);
+      if (prevPos) {
+        const x2 = (prevPos.x * 3 + pos.x) / 4;
+        const y2 = (prevPos.y * 3 + pos.y) / 4;
+        const sprite2 = new Sprite(wall_tower_material);
+        sprite2.scale.set(h * 0.5, h * 0.8, 1);
+        sprite2.position.set(x2, y2 + h / 4, -7);
+        group.add(sprite2);
+        const x3 = (prevPos.x + pos.x * 3) / 4;
+        const y3 = (prevPos.y + pos.y * 3) / 4;
+        const sprite3 = new Sprite(wall_tower_material);
+        sprite3.scale.set(h * 0.5, h * 0.8, 1);
+        sprite3.position.set(x3, y3 + h / 4, -7);
+        group.add(sprite3);
+        const x4 = (prevPos.x * 2 + pos.x * 2) / 4;
+        const y4 = (prevPos.y * 2 + pos.y * 2) / 4;
+        const sprite4 = new Sprite(wall_tower_material);
+        sprite4.scale.set(h * 0.5, h * 0.8, 1);
+        sprite4.position.set(x4, y4 + h / 4, -7);
+        group.add(sprite4);
+      }
+      prevPos = pos;
+    }
+  });
+  group.children.sort((a, b) => b.position.y - a.position.y);
+  // Village structures
+  village.structures
+    .filter((s) => s.hasPage !== 0)
+    .map((structure) => {
+      const pos = grid.getHex({ col: structure.longitude, row: structure.latitude });
+      if (pos) {
+        const { height: h, x, y } = pos;
+        //  Structure shadow
+        const shadow_texture = loadTexture("map/shadow.png");
+        const shadow_material = new SpriteMaterial({ map: shadow_texture });
+        const shadow_sprite = new Sprite(shadow_material);
+        shadow_sprite.scale.set(h * 1.6, h * 0.9, 1);
+        shadow_sprite.position.set(x, y - h / 5, -7);
+        group.add(shadow_sprite);
+        // Structure
+        const texture = loadTexture(structure.image);
+        const material = new SpriteMaterial({ map: texture });
+        const sprite = new Sprite(material);
+        sprite.scale.set(h * 1.4, h * 1.4, 1);
+        sprite.position.set(x, y + h / 10, -7);
+        group.add(sprite);
+      }
+    });
   return group;
 };
 
@@ -332,7 +385,6 @@ export const drawUsers = (info: {
   group_users: Group;
   users: SectorUser[];
   grid: Grid<TerrainHex>;
-  showVillage: boolean;
   lastTime: number;
   angle: number;
 }) => {

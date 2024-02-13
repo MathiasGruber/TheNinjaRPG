@@ -147,7 +147,6 @@ const Travel: NextPage = () => {
           tile={currentTile}
           sector={currentSector}
           target={targetPosition}
-          showVillage={villages?.find((village) => village.sector === currentSector)}
           showSorrounding={showSorrounding}
           showActive={showActive}
           setShowSorrounding={setShowSorrounding}

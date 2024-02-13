@@ -1,8 +1,11 @@
 export const SECTOR_WIDTH = 20;
 export const SECTOR_HEIGHT = 15;
 
-export const VILLAGE_LONG = 10;
-export const VILLAGE_LAT = 7;
+export const ALLIANCEHALL_LONG = 10;
+export const ALLIANCEHALL_LAT = 7;
+
+export const HOSPITAL_LONG = 12;
+export const HOSPITAL_LAT = 8;
 
 export const TREES_PATH = "craftpix-949054/PNG/Assets_separately/Trees_texture_shadow/";
 export const STONES_PATH = "craftpix-377140/PNG/Objects_separately/";
