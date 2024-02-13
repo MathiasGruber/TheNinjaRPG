@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import NavTabs from "@/layout/NavTabs";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -10,52 +11,70 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
 import type { NextPage } from "next";
 
-const Alliance: NextPage = () => {
+const TownHall: NextPage = () => {
   const { data: userData } = useRequiredUserData();
+  const availableTabs = ["Alliance", "Kage"] as const;
+  const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
-  const { data, isLoading } = api.village.getAlliances.useQuery(undefined, {
-    staleTime: 10000,
-  });
-
-  if (isLoading || !data) return <Loader explanation="Loading alliances" />;
   if (!userData) return <Loader explanation="Loading userdata" />;
-
-  const villages = data.villages;
-  const alliances = data.alliances;
 
   return (
     <ContentBox
       title="Town Hall"
       subtitle="Status between villages"
       back_href="/village"
+      topRightContent={
+        <NavTabs
+          id="arenaSelection"
+          current={tab}
+          options={availableTabs}
+          setValue={setTab}
+        />
+      }
     >
-      <div className="grid grid-cols-7 items-center text-center">
-        <div></div>
-        {villages.map((village, i) => (
-          <div key={i}>
-            <p className="font-bold pt-1">{village.name}</p>
-            <VillageBlock village={village} user={userData} />
-          </div>
-        ))}
-        {villages.map((villageRow, i) => {
-          const elements: JSX.Element[] = [
-            <VillageBlock key={`row-${i}`} village={villageRow} user={userData} />,
-          ];
-          villages.map((villageCol, j) => {
-            elements.push(
-              <AllianceBlock
-                alliances={alliances}
-                villageRow={villageRow}
-                villageCol={villageCol}
-                user={userData}
-                key={j}
-              />,
-            );
-          });
-          return elements;
-        })}
-      </div>
+      {tab === "Alliance" && <AllianceHall user={userData} />}
+      {tab === "Kage" && <p>Coming up next: Kage 🚀🚀🚀</p>}
     </ContentBox>
+  );
+};
+
+const AllianceHall: React.FC<{ user: NonNullable<UserWithRelations> }> = ({ user }) => {
+  const { data, isLoading } = api.village.getAlliances.useQuery(undefined, {
+    staleTime: 10000,
+  });
+
+  if (isLoading || !data) return <Loader explanation="Loading alliances" />;
+
+  const villages = data.villages;
+  const alliances = data.alliances;
+
+  return (
+    <div className="grid grid-cols-7 items-center text-center">
+      <div></div>
+      {villages.map((village, i) => (
+        <div key={i}>
+          <p className="font-bold pt-1">{village.name}</p>
+          <VillageBlock village={village} user={user} />
+        </div>
+      ))}
+      {villages.map((villageRow, i) => {
+        const elements: JSX.Element[] = [
+          <VillageBlock key={`row-${i}`} village={villageRow} user={user} />,
+        ];
+        villages.map((villageCol, j) => {
+          elements.push(
+            <AllianceBlock
+              alliances={alliances}
+              villageRow={villageRow}
+              villageCol={villageCol}
+              user={user}
+              key={j}
+            />,
+          );
+        });
+        return elements;
+      })}
+    </div>
   );
 };
 
@@ -108,4 +127,4 @@ const VillageBlock: React.FC<{ village: Village; user: UserWithRelations }> = ({
   );
 };
 
-export default Alliance;
+export default TownHall;
