@@ -52,8 +52,8 @@ export const seedVillages = async (client: DrizzleClient) => {
       hasPage: 1,
     },
     {
-      name: "Alliance Hall",
-      image: "/buildings/Alliance.webp",
+      name: "Town Hall",
+      image: "/buildings/TownHall.webp",
       level: 1,
       longitude: 10,
       latitude: 7,

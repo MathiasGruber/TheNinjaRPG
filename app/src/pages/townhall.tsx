@@ -25,8 +25,8 @@ const Alliance: NextPage = () => {
 
   return (
     <ContentBox
-      title="Alliance"
-      subtitle="Alliance status between villages"
+      title="Town Hall"
+      subtitle="Status between villages"
       back_href="/village"
     >
       <div className="grid grid-cols-7 items-center text-center">
