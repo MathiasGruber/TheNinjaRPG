@@ -94,7 +94,7 @@ const Post: React.FC<PostProps> = (props) => {
 
   return (
     <div
-      className={`mb-3 flex flex-row ${
+      className={`relative mb-3 flex flex-row ${
         props.align_middle ? "items-center" : ""
       } rounded-lg border ${color} px-1 py-3 shadow ${props.hover_effect ? hover : ""} ${
         props.className ? props.className : ""
@@ -134,7 +134,7 @@ const Post: React.FC<PostProps> = (props) => {
           </div>
         </div>
       </div>
-      {props.options && <div>{props.options}</div>}
+      {props.options && <div className="absolute right-3 top-3">{props.options}</div>}
     </div>
   );
 };

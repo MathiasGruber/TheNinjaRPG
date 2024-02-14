@@ -127,7 +127,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           )}
           {allComments.map((comment, i) => {
             return (
-              <div key={comment.id} ref={i === 0 ? setLastElement : null}>
+              <div
+                key={comment.id}
+                ref={i === allComments.length - 1 ? setLastElement : null}
+              >
                 <CommentOnConversation
                   user={comment}
                   hover_effect={false}
