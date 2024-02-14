@@ -6,6 +6,7 @@ import { CommentOnConversation } from "@/layout/Comment";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -28,28 +29,30 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
 
+  const queryKey = {
+    convo_id: props.convo_id,
+    convo_title: props.convo_title,
+    limit: 10,
+    refreshKey: props.refreshKey,
+  };
+  console.log("queryKey", queryKey);
+
   const {
     data: comments,
     fetchNextPage,
     hasNextPage,
     refetch,
     isLoading,
-  } = api.comments.getConversationComments.useInfiniteQuery(
-    {
-      convo_id: props.convo_id,
-      convo_title: props.convo_title,
-      limit: 10,
-      refreshKey: props.refreshKey,
-    },
-    {
-      enabled: props.convo_id !== undefined || props.convo_title !== undefined,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
-      staleTime: Infinity,
-    },
-  );
+  } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
+    enabled: props.convo_id !== undefined || props.convo_title !== undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    keepPreviousData: true,
+    staleTime: Infinity,
+  });
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
+
+  const utils = api.useUtils();
 
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
@@ -69,14 +72,58 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     }
   }, [conversation, setValue]);
 
+  // Create comment & optimistically update the interface
   const { mutate: createComment, isLoading: isCommenting } =
     api.comments.createConversationComment.useMutation({
+      onMutate: async (newMessage) => {
+        // Get previous data
+        const old = utils.comments.getConversationComments.getInfiniteData();
+        if (!userData || !conversation) return { old };
+        // Optimistic update
+        await utils.comments.getConversationComments.cancel();
+        utils.comments.getConversationComments.setInfiniteData(
+          queryKey,
+          (oldQueryData) => {
+            if (!oldQueryData) return undefined;
+            const next = {
+              id: "test",
+              createdAt: new Date(),
+              conversationId: conversation.id,
+              content: newMessage.comment,
+              isPinned: 0,
+              userId: userData.userId,
+              username: userData.username,
+              avatar: userData.avatar,
+              rank: userData.rank,
+              level: userData.level,
+              role: userData.role,
+              federalStatus: userData.federalStatus,
+              nRecruited: userData.nRecruited,
+            };
+            return {
+              pageParams: oldQueryData.pageParams,
+              pages: oldQueryData.pages.map((page, i) => {
+                if (i === 0) {
+                  return {
+                    convo: page.convo,
+                    data: [next, ...page.data],
+                    nextCursor: page.nextCursor,
+                  };
+                }
+                return page;
+              }),
+            };
+          },
+        );
+        return { old };
+      },
       onSuccess: () => {
         reset();
         setEditorKey((prev) => prev + 1);
       },
-      onError: (error) => {
-        show_toast("Error on creating new thread", error.message, "error");
+      onError: (error, _newComment, context) => {
+        utils.comments.getConversationComments.setInfiniteData(queryKey, context?.old);
+        show_toast("Error", error.message, "error");
       },
     });
 
@@ -123,6 +170,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
                 {isCommenting && <Loader />}
               </div>
+              <ArrowPathIcon
+                className="h-10 w-10 absolute right-5 top-3 z-50 text-gray-400 hover:text-gray-600 hover:cursor-pointer"
+                onClick={() => refetch()}
+              />
             </div>
           )}
           {allComments.map((comment, i) => {
