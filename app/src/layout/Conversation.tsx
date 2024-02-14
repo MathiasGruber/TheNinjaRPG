@@ -39,7 +39,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     {
       convo_id: props.convo_id,
       convo_title: props.convo_title,
-      limit: 3,
+      limit: 10,
       refreshKey: props.refreshKey,
     },
     {
@@ -70,19 +70,22 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   useEffect(() => {
     if (conversation) {
       setValue("object_id", conversation.id);
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [conversation, setValue]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [allComments]);
+    // Scroll to bottom after 1 seconds
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 1000);
+  }, [conversation]);
 
   const { mutate: createComment, isLoading: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onSuccess: () => {
         reset();
         setEditorKey((prev) => prev + 1);
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       },
       onError: (error) => {
         show_toast("Error on creating new thread", error.message, "error");
