@@ -111,7 +111,12 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     <div key={props.refreshKey}>
       {isLoading && <Loader explanation="Loading data" />}
       {!isLoading && allComments && allComments.length > 0 && (
-        <ContentBox title="Messages" initialBreak={true}>
+        <ContentBox
+          title={props.title}
+          subtitle={props.subtitle}
+          initialBreak={props.initialBreak}
+          topRightContent={props.topRightContent}
+        >
           <div className="max-h-[75vh] lg:max-h-[60vh] overflow-auto">
             {allComments.map((comment, i) => {
               return (
