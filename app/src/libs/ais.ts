@@ -2,7 +2,7 @@ import HumanDiff from "human-object-diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
-import { UserRanks } from "@/drizzle/constants";
+import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { show_toast, show_errors } from "@/libs/toast";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import type { InsertUserDataSchema } from "@/drizzle/schema";
@@ -87,6 +87,8 @@ export const useAiEditForm = (
     { id: "willpower", label: "Willpower Focus", type: "number" },
     { id: "speed", label: "Speed Focus", type: "number" },
     { id: "isSummon", type: "number" },
+    { id: "primaryElement", type: "str_array", values: ElementNames },
+    { id: "secondaryElement", type: "str_array", values: ElementNames },
     {
       id: "jutsus",
       label: "Jutsus",
