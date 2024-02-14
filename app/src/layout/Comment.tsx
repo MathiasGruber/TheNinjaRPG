@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outline";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
-import Button from "./Button";
 import Confirm from "@/layout/Confirm";
 import ReportUser from "@/layout/Report";
 import { canDeleteComment } from "../validators/reports";

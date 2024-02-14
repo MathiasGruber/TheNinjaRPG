@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { z } from "zod";
 import SelectField from "@/layout/SelectField";
 import NavTabs from "@/layout/NavTabs";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
@@ -18,6 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { BoltIcon, CheckIcon, XMarkIcon, TrashIcon } from "@heroicons/react/24/solid";
+import type { z } from "zod";
 import type { UserChallenge } from "@/drizzle/schema";
 import type { ChallengeState, UserRank } from "@/drizzle/constants";
 import type { GenericObject } from "@/layout/ItemWithEffects";

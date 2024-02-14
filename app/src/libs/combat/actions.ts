@@ -16,7 +16,7 @@ import type { BattleUserState, ReturnedUserState } from "./types";
 import type { CompleteBattle, ReturnedBattle } from "./types";
 import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "../hexgrid";
-import type { CombatAction, ZodAllTags } from "./types";
+import type { CombatAction } from "./types";
 import type { GroundEffect, UserEffect } from "./types";
 
 /**

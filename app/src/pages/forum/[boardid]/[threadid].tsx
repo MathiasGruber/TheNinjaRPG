@@ -5,11 +5,9 @@ import { useRouter } from "next/router";
 import { type NextPage } from "next";
 
 import ReactHtmlParser from "react-html-parser";
-import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/solid";
 
 import Loader from "../../../layout/Loader";
 import Pagination from "../../../layout/Pagination";
-import Button from "../../../layout/Button";
 import ContentBox from "../../../layout/ContentBox";
 import RichInput from "../../../layout/RichInput";
 import { CommentOnForum } from "../../../layout/Comment";

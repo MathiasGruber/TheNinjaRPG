@@ -18,7 +18,6 @@ import { statFilters } from "@/libs/train";
 import { QuestTypes } from "@/drizzle/constants";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import type { QuestType } from "@/drizzle/constants";
-import type { ZodAllTags } from "@/libs/combat/types";
 import type { StatType } from "@/libs/train";
 import type { EffectType } from "@/libs/train";
 import type { Jutsu } from "@/drizzle/schema";

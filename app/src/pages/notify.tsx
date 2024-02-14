@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
