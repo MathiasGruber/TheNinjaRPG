@@ -103,38 +103,25 @@ const Thread: NextPage = () => {
               </div>
             );
           })}
+        {thread && !thread.isLocked && userData && !userData.isBanned && (
+          <div className="mb-3 relative">
+            <RichInput
+              id="comment"
+              height="200"
+              refreshKey={totalComments}
+              placeholder=""
+              control={control}
+              disabled={isLoading}
+              error={errors.comment?.message}
+              onSubmit={handleSubmitComment}
+            />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+              {isLoading && <Loader />}
+            </div>
+          </div>
+        )}
       </ContentBox>
       {totalPages && <Pagination current={page} total={totalPages} setPage={setPage} />}
-      <ContentBox title="Create New Post">
-        <form>
-          {thread && !thread.isLocked && userData && !userData.isBanned && (
-            <div className="mb-3">
-              <RichInput
-                id="comment"
-                height="200"
-                refreshKey={totalComments}
-                placeholder=""
-                control={control}
-                disabled={isLoading}
-                error={errors.comment?.message}
-                onSubmit={handleSubmitComment}
-              />
-              <div className="flex flex-row-reverse">
-                {!isLoading ? (
-                  <Button
-                    id="submit_comment"
-                    label="Post Comment"
-                    image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
-                    onClick={handleSubmitComment}
-                  />
-                ) : (
-                  <Loader />
-                )}
-              </div>
-            </div>
-          )}
-        </form>
-      </ContentBox>
     </>
   );
 };

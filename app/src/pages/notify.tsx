@@ -91,7 +91,6 @@ const NotifyUsers: NextPage = () => {
                   onSubmit={onSubmit}
                   error={errors.content?.message}
                 />
-                <Button id="create" label="Send Notification" />
               </form>
             </div>
           )}

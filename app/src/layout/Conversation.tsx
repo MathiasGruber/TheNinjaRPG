@@ -25,7 +25,6 @@ interface ConversationProps {
 
 const Conversation: React.FC<ConversationProps> = (props) => {
   const { data: userData, pusher } = useUserData();
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
 
@@ -49,10 +48,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       staleTime: Infinity,
     },
   );
-  const allComments = comments?.pages
-    .map((page) => page.data)
-    .flat()
-    .reverse();
+  const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
 
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -73,19 +69,11 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     }
   }, [conversation, setValue]);
 
-  useEffect(() => {
-    // Scroll to bottom after 1 seconds
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 1000);
-  }, [conversation]);
-
   const { mutate: createComment, isLoading: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onSuccess: () => {
         reset();
         setEditorKey((prev) => prev + 1);
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       },
       onError: (error) => {
         show_toast("Error on creating new thread", error.message, "error");
@@ -120,43 +108,37 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           initialBreak={props.initialBreak}
           topRightContent={props.topRightContent}
         >
-          <div className="max-h-[75vh] lg:max-h-[60vh] overflow-auto">
-            {allComments.map((comment, i) => {
-              return (
-                <div key={comment.id} ref={i === 0 ? setLastElement : null}>
-                  <CommentOnConversation
-                    user={comment}
-                    hover_effect={false}
-                    comment={comment}
-                    refetchComments={async () => await refetch()}
-                  >
-                    {ReactHtmlParser(comment.content)}
-                  </CommentOnConversation>
-                </div>
-              );
-            })}
-            {conversation &&
-              !conversation.isLocked &&
-              userData &&
-              !userData.isBanned && (
-                <div className="relative">
-                  <RichInput
-                    id="comment"
-                    refreshKey={editorKey}
-                    height="200"
-                    disabled={isCommenting}
-                    placeholder=""
-                    control={control}
-                    error={errors.comment?.message}
-                    onSubmit={handleSubmitComment}
-                  />
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-                    {isCommenting && <Loader />}
-                  </div>
-                </div>
-              )}
-            <div ref={messagesEndRef}></div>
-          </div>
+          {conversation && !conversation.isLocked && userData && !userData.isBanned && (
+            <div className="relative mb-2">
+              <RichInput
+                id="comment"
+                refreshKey={editorKey}
+                height="120"
+                disabled={isCommenting}
+                placeholder=""
+                control={control}
+                error={errors.comment?.message}
+                onSubmit={handleSubmitComment}
+              />
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                {isCommenting && <Loader />}
+              </div>
+            </div>
+          )}
+          {allComments.map((comment, i) => {
+            return (
+              <div key={comment.id} ref={i === 0 ? setLastElement : null}>
+                <CommentOnConversation
+                  user={comment}
+                  hover_effect={false}
+                  comment={comment}
+                  refetchComments={async () => await refetch()}
+                >
+                  {ReactHtmlParser(comment.content)}
+                </CommentOnConversation>
+              </div>
+            );
+          })}
         </ContentBox>
       )}
     </div>

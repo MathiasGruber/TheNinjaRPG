@@ -675,7 +675,6 @@ const NindoChange: React.FC = () => {
         onSubmit={onSubmit}
         error={errors.content?.message}
       />
-      <Button id="create" label="Update Nindo" />
     </form>
   );
 };

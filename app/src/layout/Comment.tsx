@@ -207,7 +207,6 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
             onSubmit={onSubmit}
             error={errors.comment?.message}
           />
-          <Button id="edit_comment" label="Edit Comment" />
         </form>
       ) : (
         <div className="mb-6">{props.children}</div>
