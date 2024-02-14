@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import ReactHtmlParser from "react-html-parser";
 import { CommentOnConversation } from "@/layout/Comment";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -22,12 +20,12 @@ interface ConversationProps {
   title: string;
   subtitle: string;
   initialBreak?: boolean;
-  chatbox_options?: React.ReactNode;
   topRightContent?: React.ReactNode;
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
   const { data: userData, pusher } = useUserData();
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
 
@@ -41,7 +39,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     {
       convo_id: props.convo_id,
       convo_title: props.convo_title,
-      limit: 10,
+      limit: 3,
       refreshKey: props.refreshKey,
     },
     {
@@ -51,7 +49,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       staleTime: Infinity,
     },
   );
-  const allComments = comments?.pages.map((page) => page.data).flat();
+  const allComments = comments?.pages
+    .map((page) => page.data)
+    .flat()
+    .reverse();
   const conversation = comments?.pages[0]?.convo;
 
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -69,8 +70,13 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   useEffect(() => {
     if (conversation) {
       setValue("object_id", conversation.id);
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [conversation, setValue]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [allComments]);
 
   const { mutate: createComment, isLoading: isCommenting } =
     api.comments.createConversationComment.useMutation({
@@ -104,60 +110,45 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   return (
     <div key={props.refreshKey}>
       {isLoading && <Loader explanation="Loading data" />}
-      {conversation && !conversation.isLocked && userData && !userData.isBanned && (
-        <ContentBox
-          title={props.title}
-          subtitle={props.subtitle}
-          initialBreak={props.initialBreak}
-          topRightContent={props.topRightContent}
-        >
-          <form>
-            <div className="mb-3">
-              <RichInput
-                id="comment"
-                refreshKey={editorKey}
-                height="200"
-                disabled={isCommenting}
-                placeholder=""
-                control={control}
-                error={errors.comment?.message}
-                onSubmit={handleSubmitComment}
-              />
-              <div className="flex flex-row-reverse">
-                {isCommenting && <Loader />}
-                {!isCommenting && (
-                  <Button
-                    id="submit_comment"
-                    label="Send Message"
-                    image={<PaperAirplaneIcon className="mr-1 h-5 w-5" />}
-                    onClick={handleSubmitComment}
-                  />
-                )}
-                {props.chatbox_options}
-              </div>
-            </div>
-          </form>
-        </ContentBox>
-      )}
       {!isLoading && allComments && allComments.length > 0 && (
         <ContentBox title="Messages" initialBreak={true}>
-          {allComments.map((comment, i) => {
-            return (
-              <div
-                key={comment.id}
-                ref={i === allComments.length - 1 ? setLastElement : null}
-              >
-                <CommentOnConversation
-                  user={comment}
-                  hover_effect={false}
-                  comment={comment}
-                  refetchComments={async () => await refetch()}
-                >
-                  {ReactHtmlParser(comment.content)}
-                </CommentOnConversation>
-              </div>
-            );
-          })}
+          <div className="max-h-[75vh] lg:max-h-[60vh] overflow-auto">
+            {allComments.map((comment, i) => {
+              return (
+                <div key={comment.id} ref={i === 0 ? setLastElement : null}>
+                  <CommentOnConversation
+                    user={comment}
+                    hover_effect={false}
+                    comment={comment}
+                    refetchComments={async () => await refetch()}
+                  >
+                    {ReactHtmlParser(comment.content)}
+                  </CommentOnConversation>
+                </div>
+              );
+            })}
+            {conversation &&
+              !conversation.isLocked &&
+              userData &&
+              !userData.isBanned && (
+                <div className="relative">
+                  <RichInput
+                    id="comment"
+                    refreshKey={editorKey}
+                    height="200"
+                    disabled={isCommenting}
+                    placeholder=""
+                    control={control}
+                    error={errors.comment?.message}
+                    onSubmit={handleSubmitComment}
+                  />
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                    {isCommenting && <Loader />}
+                  </div>
+                </div>
+              )}
+            <div ref={messagesEndRef}></div>
+          </div>
         </ContentBox>
       )}
     </div>
