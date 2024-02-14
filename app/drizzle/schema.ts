@@ -1055,6 +1055,7 @@ export const village = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     sector: int("sector").default(1).notNull(),
     description: varchar("description", { length: 512 }).default("").notNull(),
+    kageId: varchar("kageId", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1072,8 +1073,12 @@ export const village = mysqlTable(
 );
 export type Village = InferSelectModel<typeof village>;
 
-export const villageRelations = relations(village, ({ many }) => ({
+export const villageRelations = relations(village, ({ many, one }) => ({
   structures: many(villageStructure),
+  kage: one(userData, {
+    fields: [village.kageId],
+    references: [userData.userId],
+  }),
 }));
 
 export const villageStructure = mysqlTable(

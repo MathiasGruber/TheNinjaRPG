@@ -33,11 +33,34 @@ const TownHall: NextPage = () => {
       }
     >
       {tab === "Alliance" && <AllianceHall user={userData} />}
-      {tab === "Kage" && <p>Coming up next: Kage 🚀🚀🚀</p>}
+      {tab === "Kage" && <KageHall user={userData} />}
     </ContentBox>
   );
 };
 
+/**
+ * Kage Overview Component
+ */
+const KageHall: React.FC<{ user: NonNullable<UserWithRelations> }> = ({ user }) => {
+  // Query
+  const { data: village, isLoading } = api.village.get.useQuery(
+    { id: user.villageId ?? "" },
+    { staleTime: 10000 },
+  );
+
+  console.log(village);
+
+  // Checks
+  if (!user.villageId) return <Loader explanation="Join a village first" />;
+  if (isLoading || !village) return <Loader explanation="Loading village" />;
+
+  // Render
+  return <p>Coming up next: Kage 🚀🚀🚀</p>;
+};
+
+/**
+ * Alliance Overview Component
+ */
 const AllianceHall: React.FC<{ user: NonNullable<UserWithRelations> }> = ({ user }) => {
   const { data, isLoading } = api.village.getAlliances.useQuery(undefined, {
     staleTime: 10000,

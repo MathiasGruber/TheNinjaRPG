@@ -118,6 +118,13 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
       structures: {
         orderBy: (structure, { desc }) => desc(structure.name),
       },
+      kage: {
+        columns: {
+          username: true,
+          userId: true,
+          avatar: true,
+        },
+      },
     },
   });
 };

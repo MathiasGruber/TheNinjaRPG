@@ -407,6 +407,13 @@
       "when": 1707845635764,
       "tag": "0057_tranquil_shinobi_shaw",
       "breakpoints": false
+    },
+    {
+      "idx": 58,
+      "version": "5",
+      "when": 1707898732513,
+      "tag": "0058_late_quentin_quire",
+      "breakpoints": false
     }
   ]
 }
