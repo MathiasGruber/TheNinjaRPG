@@ -79,17 +79,30 @@ const Post: React.FC<PostProps> = (props) => {
       break;
   }
 
+  // Blocks
+  const UsernameBlock = props.user && (
+    <div className="basis-1/4">
+      <div className={userColor}>{props.user.username}</div>
+      <div className="text-xs pb-2">
+        <span className="bg-slate-300 p-1 m-1 rounded-md">Lvl. {props.user.level}</span>
+        <span className="bg-slate-300 p-1 m-1 rounded-md">
+          {capitalizeFirstLetter(props.user.rank)}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className={`mb-3 flex flex-row ${
         props.align_middle ? "items-center" : ""
-      } rounded-lg border ${color} p-6 shadow ${props.hover_effect ? hover : ""} ${
+      } rounded-lg border ${color} px-1 py-3 shadow ${props.hover_effect ? hover : ""} ${
         props.className ? props.className : ""
       }`}
     >
       {props.image}
       {props.user && (
-        <div className="... mr-3 basis-2/12 truncate text-center  text-sm sm:basis-3/12 sm:text-base">
+        <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
           <Link href={`/users/${props.user.userId}`}>
             <AvatarImage
               href={props.user.avatar}
@@ -98,30 +111,27 @@ const Post: React.FC<PostProps> = (props) => {
               size={100}
             />
           </Link>
-          <div className={userColor}>{props.user.username}</div>
-          <div className="hidden sm:block">
-            <div>
-              Lvl. {props.user.level} {capitalizeFirstLetter(props.user.rank)}
-            </div>
-            {props.user.nRecruited && props.user.nRecruited > 0 ? (
-              <Link
-                href={`/users/${props.user.userId}`}
-                className="font-bold hover:text-orange-500"
-              >
-                Recruits: {props.user.nRecruited}
-              </Link>
-            ) : undefined}
-          </div>
+          {props.user.nRecruited && props.user.nRecruited > 0 ? (
+            <Link
+              href={`/users/${props.user.userId}`}
+              className="font-bold hover:text-orange-500 text-xs"
+            >
+              Recruits: {props.user.nRecruited}
+            </Link>
+          ) : undefined}
         </div>
       )}
       <div className="grow basis-1/2">
-        {props.title && (
-          <h3 className="text-xl font-bold tracking-tight text-gray-900">
-            {props.title}
-          </h3>
-        )}
-        <div className="relative font-normal text-gray-900 h-full">
-          {props.children}
+        <div className="flex flex-col h-full justify-center">
+          {props.title && (
+            <h3 className="text-2xl font-bold tracking-tight text-gray-900 basis-1/5">
+              {props.title}
+            </h3>
+          )}
+          {UsernameBlock}
+          <div className="relative font-normal text-gray-900 basis-3/4 ">
+            {props.children}
+          </div>
         </div>
       </div>
       {props.options && <div>{props.options}</div>}
