@@ -8,7 +8,7 @@ export const seedVillages = async (client: DrizzleClient) => {
   // Default villages
   const villages = [
     { name: "Konoki", sector: 105, hexColor: "#206625" },
-    { name: "Shroud", sector: 74, hexColor: "#606160" },
+    { name: "Shroud", sector: 4, hexColor: "#606160" },
     { name: "Silence", sector: 297, hexColor: "#0a0a0a" },
     { name: "Current", sector: 300, hexColor: "#3232a8" },
     // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
@@ -135,7 +135,15 @@ export const seedVillages = async (client: DrizzleClient) => {
     villageData: (typeof villages)[number],
     elderData: (typeof elders)[number] | undefined,
   ) => {
-    // // Create Village
+    // Get elder ID
+    let elderId = nanoid();
+    const curElder = await client.query.userData.findFirst({
+      where: eq(userData.username, elderData?.username ?? ""),
+    });
+    if (curElder) {
+      elderId = curElder.userId;
+    }
+    // Create Village
     let villageId = nanoid();
     const curVillage = await client.query.village.findFirst({
       where: eq(village.name, villageData.name),
@@ -147,10 +155,12 @@ export const seedVillages = async (client: DrizzleClient) => {
         .where(eq(village.name, villageData.name));
       villageId = curVillage.id;
     } else {
-      await client.insert(village).values({ id: villageId, ...villageData });
+      await client
+        .insert(village)
+        .values({ id: villageId, ...villageData, kageId: elderId });
     }
     // Buildings
-    buildings.map(async (building) => {
+    void buildings.map(async (building) => {
       const curBuilding = await client.query.villageStructure.findFirst({
         where: and(
           eq(villageStructure.name, building.name),
@@ -173,12 +183,8 @@ export const seedVillages = async (client: DrizzleClient) => {
           .values({ id: nanoid(), ...building, villageId: villageId });
       }
     });
-    // // Village elder
+    // Village elder
     if (elderData) {
-      let elderId = nanoid();
-      const curElder = await client.query.userData.findFirst({
-        where: eq(userData.username, elderData.username),
-      });
       if (!curElder) {
         await client.insert(userData).values({
           userId: elderId,
@@ -189,11 +195,18 @@ export const seedVillages = async (client: DrizzleClient) => {
           username: elderData.username,
           gender: elderData.gender,
         });
-      } else {
-        elderId = curElder.userId;
+      }
+      const elderVillage = await client.query.village.findFirst({
+        where: eq(village.name, villageData.name),
+      });
+      if (!elderVillage?.kageId) {
+        await client
+          .update(village)
+          .set({ kageId: elderId })
+          .where(eq(village.name, villageData.name));
       }
       await client.delete(userAttribute).where(eq(userAttribute.userId, elderId));
-      elderData.attributes.map(async (attribute) => {
+      void elderData.attributes.map(async (attribute) => {
         await client.insert(userAttribute).values({
           id: nanoid(),
           userId: elderId,

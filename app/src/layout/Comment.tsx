@@ -159,7 +159,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
     <Post
       options={
         props.user && (
-          <div className="flex flex-col sm:flex-row">
+          <div className="flex flex-row">
             {isAuthor && props.editComment && (
               <PencilSquareIcon
                 className={`h-6 w-6 ${
