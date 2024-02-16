@@ -7,6 +7,7 @@ import { stillInBattle } from "./actions";
 import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
+import { PRESTIGE_COST } from "@/utils/kage";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -350,6 +351,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         : user.money;
       const moneyDelta = newMoney - user.originalMoney;
 
+      // Prestige calculation
+      let deltaPrestige = 0;
+      if (battle.battleType === "KAGE" && !didWin) deltaPrestige = -PRESTIGE_COST;
+
       // Result object
       const result: CombatResult = {
         didWin: didWin ? 1 : 0,
@@ -373,6 +378,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         taijutsuDefence: 0,
         bukijutsuDefence: 0,
         money: 0,
+        villagePrestige: deltaPrestige,
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
       };

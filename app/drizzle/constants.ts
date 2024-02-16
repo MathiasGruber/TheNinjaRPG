@@ -134,7 +134,8 @@ export const UserStatNames = [
   "willpower",
 ] as const;
 
-export const BattleTypes = ["ARENA", "COMBAT", "SPARRING"] as const;
+export const BattleTypes = ["ARENA", "COMBAT", "SPARRING", "KAGE"] as const;
+export type BattleType = (typeof BattleTypes)[number];
 
 export const BattleDataEntryType = [
   "jutsu",

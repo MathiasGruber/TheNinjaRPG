@@ -8,7 +8,7 @@ import Image from "next/image";
 import Confirm from "@/layout/Confirm";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
-import { availableRanks } from "@/libs/train";
+import { availableLetterRanks } from "@/libs/train";
 import { secondsFromDate } from "@/utils/time";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
@@ -46,7 +46,7 @@ const MissionHall: NextPage = () => {
   const now = new Date(new Date().getTime() - timeDiff);
 
   // Get available letter ranks for user
-  const availableUserRanks = availableRanks(userData.rank);
+  const availableUserRanks = availableLetterRanks(userData.rank);
 
   return (
     <ContentBox

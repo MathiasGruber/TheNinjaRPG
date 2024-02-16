@@ -108,7 +108,7 @@ const CombatPage: NextPage = () => {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {battle && userData?.status === "BATTLE" && (
+      {battle && userData?.status === "BATTLE" && user?.isAi !== 1 && (
         <ActionSelector
           items={actions}
           showBgColor={true}

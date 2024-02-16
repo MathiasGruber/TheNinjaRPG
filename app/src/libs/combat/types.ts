@@ -10,7 +10,7 @@ import type { StatNames } from "@/libs/combat/constants";
 import type { Jutsu, Item } from "@/drizzle/schema";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
-import type { BattleType } from "@/drizzle/schema";
+import type { BattleType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 
 /**
@@ -97,6 +97,7 @@ export type CombatResult = {
   taijutsuDefence: number;
   bukijutsuOffence: number;
   bukijutsuDefence: number;
+  villagePrestige: number;
   friendsLeft: number;
   targetsLeft: number;
 };

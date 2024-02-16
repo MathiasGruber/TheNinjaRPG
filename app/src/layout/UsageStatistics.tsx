@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import ExportGraph from "@/layout/ExportGraph";
 import { Chart as ChartJS } from "chart.js/auto";
 import { groupBy } from "@/utils/grouping";
+import type { BattleType } from "@/drizzle/constants";
 
 interface LevelStatsProps {
   levelDistribution: {
@@ -68,7 +69,7 @@ export const LevelStats: React.FC<LevelStatsProps> = (props) => {
 interface UsageStatsProps {
   usage: {
     battleWon: number;
-    battleType: "ARENA" | "COMBAT" | "SPARRING";
+    battleType: BattleType;
     count: number;
   }[];
 }

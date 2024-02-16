@@ -16,7 +16,7 @@ import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
-import { availableRanks, availableRoles } from "@/libs/train";
+import { availableLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
@@ -128,7 +128,7 @@ export const questsRouter = createTRPCRouter({
         );
       }
       // Check if user is allowed to perform this rank
-      const ranks = availableRanks(user.rank);
+      const ranks = availableLetterRanks(user.rank);
       if (!ranks.includes(input.rank)) {
         throw serverError("PRECONDITION_FAILED", `${input.rank}-rank not allowed`);
       }
@@ -239,7 +239,7 @@ export const questsRouter = createTRPCRouter({
         });
         // Check if quest is changed to be an event
         if (entry.questType !== "event" && input.data.questType === "event") {
-          const roles = availableRoles(input.data.requiredRank);
+          const roles = availableRanks(input.data.requiredRank);
           await upsertQuestEntries(
             ctx.drizzle,
             entry,
@@ -562,7 +562,7 @@ export const fetchUncompletedQuests = async (
   user: UserData,
   type: QuestType,
 ) => {
-  const availableLetters = availableRanks(user.rank);
+  const availableLetters = availableLetterRanks(user.rank);
   const history = await client
     .select()
     .from(quest)

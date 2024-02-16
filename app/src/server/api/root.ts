@@ -24,6 +24,7 @@ import { conceptartRouter } from "./routers/conceptart";
 import { bankRouter } from "./routers/bank";
 import { badgeRouter } from "./routers/badge";
 import { sparringRouter } from "./routers/sparring";
+import { kageRouter } from "./routers/kage";
 
 /**
  * This is the primary router for your server.
@@ -56,6 +57,7 @@ export const appRouter = createTRPCRouter({
   bank: bankRouter,
   badge: badgeRouter,
   sparring: sparringRouter,
+  kage: kageRouter,
 });
 
 // export type definition of API

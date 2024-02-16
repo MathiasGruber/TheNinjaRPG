@@ -149,7 +149,11 @@ const Combat: React.FC<CombatProps> = (props) => {
     },
   });
   useEffect(() => {
-    if (battle.current && isInLobby && battle.current.battleType !== "ARENA") {
+    if (
+      battle.current &&
+      isInLobby &&
+      !["KAGE", "ARENA"].includes(battle.current.battleType)
+    ) {
       const user = battle.current.usersState.find((u) => u.userId === suid);
       if (user && !user.iAmHere) {
         iAmHere({ battleId: battle.current.id });
@@ -485,6 +489,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {/* BATTLE LOBBY SCREEN */}
       {isInLobby && battle.current && battle.current.battleType !== "ARENA" && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="flex flex-col items-center justify-center text-white h-full">
@@ -529,6 +534,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           </div>
         </div>
       )}
+      {/* FINAL DONE SCREEN */}
       {result && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
@@ -563,6 +569,9 @@ const Combat: React.FC<CombatProps> = (props) => {
               )}
               {result.intelligence > 0 && (
                 <p>Intelligence: {result.intelligence.toFixed(2)}</p>
+              )}
+              {result.villagePrestige !== 0 && (
+                <p>Village Prestige: {result.villagePrestige.toFixed(2)}</p>
               )}
               {result.money !== 0 && <p>Money: {result.money.toFixed(2)}</p>}
               {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}

@@ -7,7 +7,7 @@ import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 
-export const availableRanks = (userrank: UserRank): LetterRank[] => {
+export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
     case "STUDENT":
       return ["D"];
@@ -23,7 +23,23 @@ export const availableRanks = (userrank: UserRank): LetterRank[] => {
   return [];
 };
 
-export const availableRoles = (letterRank?: LetterRank): UserRank[] => {
+export const hasRequiredRank = (userRank: UserRank, requiredRank: UserRank) => {
+  switch (requiredRank) {
+    case "STUDENT":
+      return true;
+    case "GENIN":
+      return ["GENIN", "CHUNIN", "JONIN", "COMMANDER"].includes(userRank);
+    case "CHUNIN":
+      return ["CHUNIN", "JONIN", "COMMANDER"].includes(userRank);
+    case "JONIN":
+      return ["JONIN", "COMMANDER"].includes(userRank);
+    case "COMMANDER":
+      return userRank === "COMMANDER";
+  }
+  return false;
+};
+
+export const availableRanks = (letterRank?: LetterRank): UserRank[] => {
   switch (letterRank) {
     case "D":
       return ["STUDENT"];
@@ -39,14 +55,14 @@ export const availableRoles = (letterRank?: LetterRank): UserRank[] => {
   return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "COMMANDER"];
 };
 
-export const getAvailableRanks = (rank: LetterRank) => {
+export const getAvailableLetterRanks = (rank: LetterRank) => {
   const ranks = LetterRanks.slice(0, LetterRanks.indexOf(rank) + 1);
   return ranks;
 };
 
 export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) => {
   if (!rank) return false;
-  return availableRanks(userrank).includes(rank);
+  return availableLetterRanks(userrank).includes(rank);
 };
 
 export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) => {

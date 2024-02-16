@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { baseServerResponse, serverError } from "../trpc";
-import { village, userData } from "@/drizzle/schema";
+import { village, userData, kageDefendedChallenges } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
@@ -19,16 +19,32 @@ export const villageRouter = createTRPCRouter({
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const villageData = await fetchVillage(ctx.drizzle, input.id);
-      if (!villageData) {
-        throw serverError("NOT_FOUND", "Village not found");
-      }
-      const counts = await ctx.drizzle
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(userData)
-        .where(eq(userData.villageId, input.id));
+      // Fetch in parallel
+      const [villageData, counts, defendedChallenges] = await Promise.all([
+        fetchVillage(ctx.drizzle, input.id),
+        ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userData)
+          .where(eq(userData.villageId, input.id)),
+        ctx.drizzle.query.kageDefendedChallenges.findMany({
+          with: {
+            user: {
+              columns: {
+                username: true,
+                userId: true,
+                avatar: true,
+              },
+            },
+          },
+          where: eq(kageDefendedChallenges.villageId, input.id),
+        }),
+      ]);
+      // Guards
+      if (!villageData) throw serverError("NOT_FOUND", "Village not found");
+      // Derived
       const population = counts?.[0]?.count || 0;
-      return { villageData, population };
+      // Return
+      return { villageData, population, defendedChallenges };
     }),
   // Buying food in ramen shop
   buyFood: protectedProcedure

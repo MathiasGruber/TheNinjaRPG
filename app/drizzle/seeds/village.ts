@@ -195,6 +195,11 @@ export const seedVillages = async (client: DrizzleClient) => {
           username: elderData.username,
           gender: elderData.gender,
         });
+      } else {
+        await client
+          .update(userData)
+          .set({ villageId })
+          .where(eq(userData.userId, elderId));
       }
       const elderVillage = await client.query.village.findFirst({
         where: eq(village.name, villageData.name),

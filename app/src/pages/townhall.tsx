@@ -2,11 +2,20 @@ import React, { useState } from "react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
 import NavTabs from "@/layout/NavTabs";
+import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
+import { show_toast } from "@/libs/toast";
+import { useSafePush } from "@/utils/routing";
+import { TrophyIcon } from "@heroicons/react/24/solid";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { canChallengeKage } from "@/utils/kage";
+import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
+import { RANK_REQUIREMENT } from "@/utils/kage";
+import { PRESTIGE_COST } from "@/utils/kage";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
@@ -21,7 +30,7 @@ const TownHall: NextPage = () => {
 
   const NavBarBlock = (
     <NavTabs
-      id="arenaSelection"
+      id="townhallSelection"
       current={tab}
       options={availableTabs}
       setValue={setTab}
@@ -42,15 +51,43 @@ const KageHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Router for forwarding
+  const router = useSafePush();
+
   // Query
   const { data: village, isLoading } = api.village.get.useQuery(
     { id: user.villageId ?? "" },
     { staleTime: 10000 },
   );
 
+  // Mutation for starting a fight
+  const { mutate: attack, isLoading: isAttacking } = api.kage.fightKage.useMutation({
+    onMutate: () => {
+      document.body.style.cursor = "wait";
+    },
+    onSuccess: async (data) => {
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await router.push("/combat");
+      } else {
+        show_toast("Error attacking", data.message, "info");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error attacking", error.message, "error");
+    },
+    onSettled: () => {
+      document.body.style.cursor = "default";
+    },
+  });
+
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
   if (isLoading || !village) return <Loader explanation="Loading village" />;
+  if (isAttacking) return <Loader explanation="Attacking Kage" />;
 
   // Render
   return (
@@ -71,20 +108,74 @@ const KageHall: React.FC<{
           generation of warriors. The Kage is a symbol of strength, wisdom, and dignity,
           known to have the power to shape the destiny of the village.
         </p>
-        <p className="pt-3 font-bold">Requirements for kage: </p>
-        <ul>
-          <li>- 30 Village Prestige</li>
-          <li>- Jounin rank </li>
-        </ul>
+        {canChallengeKage(user) && user.userId !== village.villageData.kageId && (
+          <>
+            <Button
+              id="challenge"
+              className="pt-3"
+              image={<TrophyIcon className="h-6 w-6 mr-2" />}
+              label="Challenge Kage"
+              onClick={() =>
+                attack({
+                  kageId: village.villageData.kageId,
+                  villageId: village.villageData.id,
+                })
+              }
+            />
+            <p>
+              <span className="font-bold">Note 1: </span>
+              <span>Kage challenges are executed as AI vs AI</span>
+            </p>
+            <p>
+              <span className="font-bold">Note 2: </span>
+              <span>Losing the challenge costs {PRESTIGE_COST} village prestige</span>
+            </p>
+          </>
+        )}
+        {!canChallengeKage(user) && (
+          <p className="pt-3">
+            <span className="font-bold">Requirements: </span>
+            <span>
+              {PRESTIGE_REQUIREMENT} Village Prestige,{" "}
+              {capitalizeFirstLetter(RANK_REQUIREMENT)} rank
+            </span>
+          </p>
+        )}
       </ContentBox>
       <PublicUserComponent
         userId={village.villageData.kageId}
         title="Village Kage"
         initialBreak
-        showRecruited
-        showBadges
-        showNindo
       />
+      {village.defendedChallenges && village.defendedChallenges.length > 0 && (
+        <ContentBox
+          title="Challenge Record"
+          subtitle="Challenges defended by current Kage"
+          initialBreak={true}
+        >
+          <div className="grid grid-cols-4 lggrid-cols-5">
+            {village.defendedChallenges.map((challenge, i) => (
+              <div key={i} className="p-2 text-center">
+                <AvatarImage
+                  href={challenge.user.avatar}
+                  alt={challenge.user.username}
+                  hover_effect={true}
+                  size={200}
+                />
+                <p className="font-bold text-red-500 text-sm">
+                  Lasted {challenge.rounds} rounds
+                </p>
+                <p className="italic text-xs">
+                  {challenge.createdAt.toLocaleDateString()}
+                </p>
+                <p className="italic text-xs">
+                  {challenge.createdAt.toLocaleTimeString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ContentBox>
+      )}
     </>
   );
 };

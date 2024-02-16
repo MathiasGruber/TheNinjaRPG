@@ -57,7 +57,6 @@ export const battle = mysqlTable(
   },
 );
 export type Battle = InferSelectModel<typeof battle>;
-export type BattleType = Battle["battleType"];
 
 export const battleAction = mysqlTable(
   "BattleAction",
@@ -781,7 +780,7 @@ export const userData = mysqlTable(
       .default("15min")
       .notNull(),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
-    unreadNotifications: tinyint("unreadNotifications").default(0).notNull(),
+    unreadNotifications: smallint("unreadNotifications").default(0).notNull(),
     unreadNews: tinyint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
     // Statistics
@@ -1108,6 +1107,13 @@ export const villageStructure = mysqlTable(
 );
 export type VillageStructure = InferSelectModel<typeof villageStructure>;
 
+export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
+  village: one(village, {
+    fields: [villageStructure.villageId],
+    references: [village.id],
+  }),
+}));
+
 export const villageAlliance = mysqlTable(
   "VillageAlliance",
   {
@@ -1128,12 +1134,36 @@ export const villageAlliance = mysqlTable(
 );
 export type VillageAlliance = InferSelectModel<typeof villageAlliance>;
 
-export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
-  village: one(village, {
-    fields: [villageStructure.villageId],
-    references: [village.id],
+export const kageDefendedChallenges = mysqlTable(
+  "KageDefendedChallenges",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    kageId: varchar("kageId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    rounds: int("rounds").notNull(),
+  },
+  (table) => {
+    return {
+      villageIdIdx: index("VillageKageChallenges_villageId_idx").on(table.villageId),
+      userIdIdx: index("VillageKageChallenges_userId_idx").on(table.userId),
+      kageIDIdx: index("VillageKageChallenges_kageID_idx").on(table.kageId),
+    };
+  },
+);
+
+export const kageDefendedChallengesRelations = relations(
+  kageDefendedChallenges,
+  ({ one }) => ({
+    user: one(userData, {
+      fields: [kageDefendedChallenges.userId],
+      references: [userData.userId],
+    }),
   }),
-}));
+);
 
 export const dataBattleAction = mysqlTable(
   "DataBattleAction",

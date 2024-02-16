@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { eq, and, sql } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
 import { battle, battleAction, userData } from "@/drizzle/schema";
+import { kageDefendedChallenges, village } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
@@ -131,6 +132,42 @@ export const createAction = async (
   }
 };
 
+export const updateVillage = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch
+  const user = curBattle.usersState.find((u) => u.userId === userId);
+  const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  // Guards
+  if (curBattle.battleType !== "KAGE") return;
+  if (!user || !user.villageId || !kage || !kage.villageId) return;
+  if (user.villageId !== kage.villageId) return;
+  // Apply
+  if (result && result.didWin > 0) {
+    console.log("updateVillage", result?.didWin);
+    await Promise.all([
+      client
+        .update(village)
+        .set({ kageId: user.userId })
+        .where(eq(village.id, user.villageId)),
+      client
+        .delete(kageDefendedChallenges)
+        .where(eq(kageDefendedChallenges.villageId, kage.villageId)),
+    ]);
+  } else {
+    await client.insert(kageDefendedChallenges).values({
+      id: nanoid(),
+      villageId: user.villageId,
+      userId: user.userId,
+      kageId: kage.userId,
+      rounds: curBattle.round,
+    });
+  }
+};
+
 /**
  * Update the user with battle result using raw queries for speed
  */
@@ -191,6 +228,7 @@ export const updateUser = async (
         genjutsuDefence: sql`genjutsuDefence + ${result.genjutsuDefence}`,
         taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
         bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
+        villagePrestige: sql`villagePrestige + ${result.villagePrestige}`,
         questData: user.questData,
         battleId: null,
         regenAt: new Date(),

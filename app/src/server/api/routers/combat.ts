@@ -15,7 +15,7 @@ import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
-import { updateUser, updateBattle } from "@/libs/combat/database";
+import { updateUser, updateBattle, updateVillage } from "@/libs/combat/database";
 import { fetchRegeneratedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
@@ -32,7 +32,7 @@ import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import type { BaseServerResponse } from "@/server/api/trpc";
-import type { BattleType } from "@/drizzle/schema";
+import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
@@ -203,6 +203,7 @@ export const combatRouter = createTRPCRouter({
             const actions = availableUserActions(newBattle, suid);
             const action = actions.find((a) => a.id === input.actionId);
             if (!action) throw serverError("CONFLICT", `Invalid action`);
+            if (battle.battleType === "KAGE") throw serverError("FORBIDDEN", `Cheater`);
             try {
               const newState = performBattleAction({
                 battle: newBattle,
@@ -331,6 +332,7 @@ export const combatRouter = createTRPCRouter({
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),
               updateUser(db, newBattle, result, suid),
+              updateVillage(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
 
@@ -512,7 +514,7 @@ export const initiateBattle = async (
   info: {
     longitude?: number;
     latitude?: number;
-    sector: number;
+    sector?: number;
     userId: string;
     targetId: string;
     client: DrizzleClient;
@@ -633,6 +635,14 @@ export const initiateBattle = async (
       users as BattleUserState[],
     );
 
+    // If this is a kage challenge, convert all to be AIs & set them as not originals
+    if (battleType === "KAGE") {
+      usersState.forEach((u) => {
+        u.isAi = 1;
+        u.isOriginal = false;
+      });
+    }
+
     // If there are any summonAIs defined, then add them to usersState, but disable them
     if (allSummons.length > 0) {
       const uniqueSummons = [...new Set(allSummons)];
@@ -701,8 +711,9 @@ export const initiateBattle = async (
     const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
 
     // When to start the battle
-    const startTime =
-      battleType === "ARENA" ? new Date() : secondsFromNow(COMBAT_LOBBY_SECONDS);
+    const startTime = ["ARENA", "KAGE"].includes(battleType)
+      ? new Date()
+      : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
     // Insert battle entry into DB
     const battleId = nanoid();
@@ -739,7 +750,7 @@ export const initiateBattle = async (
         pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pvpFights} + 1`
           : sql`${userData.pvpFights}`,
-        pveFights: !["SPARRING", "COMBAT"].includes(battleType)
+        pveFights: !["SPARRING", "COMBAT", "KAGE"].includes(battleType)
           ? sql`${userData.pveFights} + 1`
           : sql`${userData.pveFights}`,
         updatedAt: new Date(),
@@ -749,12 +760,15 @@ export const initiateBattle = async (
       })
       .where(
         and(
-          or(eq(userData.userId, userId), eq(userData.userId, targetId)),
+          or(
+            eq(userData.userId, userId),
+            ...(battleType !== "KAGE" ? [eq(userData.userId, targetId)] : []),
+          ),
           eq(userData.status, "AWAKE"),
           ...(battleType === "COMBAT"
             ? [
                 and(
-                  eq(userData.sector, sector),
+                  ...(sector ? [eq(userData.sector, sector)] : []),
                   ...(longitude ? [eq(userData.longitude, longitude)] : []),
                   ...(latitude ? [eq(userData.latitude, latitude)] : []),
                 ),
@@ -762,7 +776,10 @@ export const initiateBattle = async (
             : []),
         ),
       );
-    if (result.rowsAffected !== 2) {
+    if (
+      (battleType === "KAGE" && result.rowsAffected !== 1) ||
+      (battleType !== "KAGE" && result.rowsAffected !== 2)
+    ) {
       return { success: false, message: "Attack failed, did the target move?" };
     }
     // Push websockets message to target

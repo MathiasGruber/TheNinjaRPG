@@ -4,7 +4,7 @@ import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userChallenge } from "@/drizzle/schema";
 import { CHALLENGE_EXPIRY_SECONDS } from "@/libs/combat/constants";
 import { UserRanks } from "@/drizzle/constants";
-import { availableRanks } from "@/libs/train";
+import { availableLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
@@ -43,7 +43,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       .where(and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)));
     await Promise.all(
       UserRanks.map((rank) => {
-        const ranks = availableRanks(rank);
+        const ranks = availableLetterRanks(rank);
         if (ranks.length > 0) {
           void villages.map(async (village) => {
             const newDaily = await drizzleDB.query.quest.findFirst({
