@@ -35,7 +35,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     limit: 10,
     refreshKey: props.refreshKey,
   };
-  console.log("queryKey", queryKey);
 
   const {
     data: comments,
