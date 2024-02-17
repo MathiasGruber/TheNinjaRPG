@@ -176,6 +176,7 @@ export const combatRouter = createTRPCRouter({
 
         // INNER LOOP: Keep updating battle state until all actions have been performed
         while (true) {
+          console.log("Debug: ", attempts, nActions);
           // Update the battle to the correct activeUserId & round. Default to current user
           const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
           if (debug) {
@@ -281,7 +282,7 @@ export const combatRouter = createTRPCRouter({
           // Check if we should let the inner-loop continue
           if (
             newActor.isAi && // Continue new loop if it's an AI
-            nActions < 5 && // and we haven't performed 5 actions yet
+            nActions < 2 && // and we haven't performed 5 actions yet
             !result && // and the battle is not over for the user
             (newActor.userId !== actor.userId || description) // and new actor, or successful attack
           ) {
