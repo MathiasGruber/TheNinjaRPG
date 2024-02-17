@@ -40,7 +40,7 @@ const Arena: NextPage = () => {
       title={title}
       subtitle={subtitle}
       back_href="/village"
-      padding={false}
+      padding={tab === "Arena"}
       topRightContent={
         <NavTabs
           id="arenaSelection"

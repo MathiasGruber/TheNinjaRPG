@@ -233,6 +233,7 @@ export const combatRouter = createTRPCRouter({
               actionEffects.push(...aiState.nextActionEffects);
               battleDescriptions.push(...aiState.aiDescriptions);
               log.info("AIv1-Search", { actions: aiState.searchSize });
+              // console.log("STATE SPACE: ", aiState.searchSize);
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;

@@ -3,7 +3,7 @@ import { performBattleAction } from "@/libs/combat/actions";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { stillInBattle } from "@/libs/combat/actions";
 import { getPossibleActionTiles, PathCalculator, findHex } from "@/libs/hexgrid";
-import type { ActionEffect } from "@/libs/combat/types";
+import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
@@ -43,7 +43,7 @@ export const performAIaction = (
     //   "Action costs: ",
     //   actions.map((a) => {
     //     return { name: a.name, cost: a.actionCostPerc };
-    //   })
+    //   }),
     // );
     // Get a list of all possible actions from this origin and 2 steps forward
     const searchTree = getActionTree(actions, nextBattle, user.userId, grid, aStar);
@@ -159,6 +159,32 @@ const getBestAction = (searchTree: SearchAction[]) => {
   return bestAction;
 };
 
+/** For AI, we restrict the possible action tiles available
+ * for users so as to optimize the search space
+ */
+const getAiTiles = (
+  action: CombatAction,
+  battle: CompleteBattle,
+  userId: string,
+  origin: TerrainHex | undefined,
+  grid: Grid<TerrainHex>,
+  astar: PathCalculator,
+) => {
+  // In case of move action, only show the single tile moving towards an enemy
+  if (action.name === "Move") {
+    const enemy = getEnemies(battle.usersState, userId)[0];
+    if (enemy) {
+      const target = findHex(grid, enemy);
+      if (origin && target) {
+        const path = astar.getShortestPath(origin, target);
+        return path && path[1] ? [path[1]] : [];
+      }
+    }
+  }
+  // Return all available tiles
+  return getPossibleActionTiles(action, origin, grid);
+};
+
 const getActionTree = (
   actions: CombatAction[],
   battle: CompleteBattle,
@@ -185,7 +211,7 @@ const getActionTree = (
     const canAct = actionPointsAfterAction(user, battle, action) >= 0;
     if (canAct) {
       // Go through all the possible tiles where action can be performed
-      const possibleTiles = getPossibleActionTiles(action, origin, grid);
+      const possibleTiles = getAiTiles(action, battle, userId, origin, grid, astar);
       possibleTiles?.forEach((tile) => {
         try {
           const newState = performBattleAction({
@@ -281,47 +307,48 @@ export const evaluateFitness = (
   if (action.id === "wait") {
     fitness -= 10;
   }
-
-  // Determining enemies
-  const villageIds = [
-    ...new Set(newUsersState.filter(stillInBattle).map((u) => u.villageId)),
-  ];
-
   // Go through each user in the battle
   // console.log("============");
   // console.log(newUser.username, newUser.controllerId);
-  newUsersState
+  getEnemies(newUsersState, userId).forEach((newEnemy) => {
+    // Find the enemy in the previous state
+    const curEnemy = curUsersState.find((u) => u.userId === newEnemy.userId);
+
+    // The distance to each enemy is subtracted from the fitness
+    // This will make the AI gravitate towards its enemies
+    const origin = findHex(grid, newUser);
+    const target = findHex(grid, newEnemy);
+    if (origin && target && depth === 0) {
+      const path = astar.getShortestPath(origin, target);
+      if (path) {
+        // console.log(
+        //   newEnemy.username,
+        //   path.length,
+        //   newEnemy.controllerId,
+        //   newUser.controllerId
+        // );
+        fitness -= path.length / 10;
+      }
+    }
+
+    // Damage taken by enemy added to fitness
+    if (curEnemy && curEnemy.curHealth > newEnemy.curHealth) {
+      fitness += curEnemy.curHealth - newEnemy.curHealth;
+    }
+  });
+  return fitness;
+};
+
+const getEnemies = (usersState: BattleUserState[], userId: string) => {
+  const villageIds = [
+    ...new Set(usersState.filter(stillInBattle).map((u) => u.villageId)),
+  ];
+  const user = usersState.find((u) => u.userId === userId);
+  return usersState
     .filter((u) =>
       villageIds.length > 1
-        ? u.villageId !== newUser.villageId
-        : u.controllerId !== newUser.controllerId,
+        ? u.villageId !== user?.villageId
+        : u.controllerId !== user?.controllerId,
     )
-    .filter((u) => stillInBattle(u))
-    .forEach((newEnemy) => {
-      // Find the enemy in the previous state
-      const curEnemy = curUsersState.find((u) => u.userId === newEnemy.userId);
-
-      // The distance to each enemy is subtracted from the fitness
-      // This will make the AI gravitate towards its enemies
-      const origin = findHex(grid, newUser);
-      const target = findHex(grid, newEnemy);
-      if (origin && target && depth === 0) {
-        const path = astar.getShortestPath(origin, target);
-        if (path) {
-          // console.log(
-          //   newEnemy.username,
-          //   path.length,
-          //   newEnemy.controllerId,
-          //   newUser.controllerId
-          // );
-          fitness -= path.length / 10;
-        }
-      }
-
-      // Damage taken by enemy added to fitness
-      if (curEnemy && curEnemy.curHealth > newEnemy.curHealth) {
-        fitness += curEnemy.curHealth - newEnemy.curHealth;
-      }
-    });
-  return fitness;
+    .filter((u) => stillInBattle(u));
 };
