@@ -10,6 +10,14 @@ H.init({
   environment: process.env.NODE_ENV,
 });
 
+// Configure Vercel
+export const config = {
+  // runtime: "edge",
+  regions: ["iad1"],
+  memory: 3008,
+  maxDuration: 10,
+};
+
 // export API handler
 export default createNextApiHandler({
   router: appRouter,
