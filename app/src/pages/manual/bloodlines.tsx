@@ -131,21 +131,20 @@ const ManualBloodlines: NextPage = () => {
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
-        {!totalLoading &&
-          allBloodlines?.map((bloodline, i) => (
-            <div
+        {allBloodlines?.map((bloodline, i) => (
+          <div
+            key={bloodline.id}
+            ref={i === allBloodlines.length - 1 ? setLastElement : null}
+          >
+            <ItemWithEffects
+              item={bloodline}
               key={bloodline.id}
-              ref={i === allBloodlines.length - 1 ? setLastElement : null}
-            >
-              <ItemWithEffects
-                item={bloodline}
-                key={bloodline.id}
-                onDelete={(id: string) => remove({ id })}
-                showEdit="bloodline"
-                showStatistic="bloodline"
-              />
-            </div>
-          ))}
+              onDelete={(id: string) => remove({ id })}
+              showEdit="bloodline"
+              showStatistic="bloodline"
+            />
+          </div>
+        ))}
       </ContentBox>
     </>
   );

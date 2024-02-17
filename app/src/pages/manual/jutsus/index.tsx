@@ -142,21 +142,17 @@ const ManualJutsus: NextPage = () => {
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
-        {!totalLoading &&
-          alljutsus?.map((jutsu, i) => (
-            <div
+        {alljutsus?.map((jutsu, i) => (
+          <div key={i} ref={i === alljutsus.length - 1 ? setLastElement : null}>
+            <ItemWithEffects
+              item={jutsu}
               key={jutsu.id}
-              ref={i === alljutsus.length - 1 ? setLastElement : null}
-            >
-              <ItemWithEffects
-                item={jutsu}
-                key={jutsu.id}
-                onDelete={(id: string) => remove({ id })}
-                showEdit="jutsu"
-                showStatistic="jutsu"
-              />
-            </div>
-          ))}
+              onDelete={(id: string) => remove({ id })}
+              showEdit="jutsu"
+              showStatistic="jutsu"
+            />
+          </div>
+        ))}
         {!totalLoading && alljutsus?.length === 0 && (
           <div>No jutsus found given the search criteria.</div>
         )}

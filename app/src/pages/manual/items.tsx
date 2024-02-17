@@ -149,18 +149,17 @@ const ManualItems: NextPage = () => {
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
-        {!totalLoading &&
-          allItems?.map((item, i) => (
-            <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
-              <ItemWithEffects
-                item={item}
-                key={item.id}
-                onDelete={(id: string) => remove({ id })}
-                showEdit="item"
-                showStatistic="item"
-              />
-            </div>
-          ))}
+        {allItems?.map((item, i) => (
+          <div key={item.id} ref={i === allItems.length - 1 ? setLastElement : null}>
+            <ItemWithEffects
+              item={item}
+              key={item.id}
+              onDelete={(id: string) => remove({ id })}
+              showEdit="item"
+              showStatistic="item"
+            />
+          </div>
+        ))}
       </ContentBox>
     </>
   );

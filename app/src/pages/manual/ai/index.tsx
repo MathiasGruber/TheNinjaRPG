@@ -125,17 +125,16 @@ const ManualAI: NextPage = () => {
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
-        {!totalLoading &&
-          allUsers?.map((user, i) => (
-            <div key={i} ref={i === allUsers.length - 1 ? setLastElement : null}>
-              <ItemWithEffects
-                item={user}
-                onDelete={(id: string) => remove({ id })}
-                showEdit="ai"
-                showStatistic="ai"
-              />
-            </div>
-          ))}
+        {allUsers?.map((user, i) => (
+          <div key={i} ref={i === allUsers.length - 1 ? setLastElement : null}>
+            <ItemWithEffects
+              item={user}
+              onDelete={(id: string) => remove({ id })}
+              showEdit="ai"
+              showStatistic="ai"
+            />
+          </div>
+        ))}
       </ContentBox>
     </>
   );
