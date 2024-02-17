@@ -83,7 +83,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           )}
         />
         <PaperAirplaneIcon
-          className="absolute bottom-10 right-5 h-12 w-12 text-gray-400 hover:cursor-pointer hover:text-gray-600"
+          className="absolute bottom-10 right-5 h-12 w-12 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
           onClick={(e) => props.onSubmit && props.onSubmit(e)}
         />
       </div>
