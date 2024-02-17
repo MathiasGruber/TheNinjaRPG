@@ -92,7 +92,7 @@ const Post: React.FC<PostProps> = (props) => {
         </span>
         {props.user.villageName && props.user.villageHexColor && (
           <span
-            className="p-1 m-1 rounded-md"
+            className="p-1 m-1 rounded-md text-white"
             style={{ backgroundColor: props.user.villageHexColor }}
           >
             {props.user.villageName}
