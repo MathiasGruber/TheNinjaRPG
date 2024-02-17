@@ -90,6 +90,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               conversationId: conversation.id,
               content: newMessage.comment,
               isPinned: 0,
+              villageName: userData.village?.name ?? null,
+              villageHexColor: userData.village?.hexColor ?? null,
               userId: userData.userId,
               username: userData.username,
               avatar: userData.avatar,

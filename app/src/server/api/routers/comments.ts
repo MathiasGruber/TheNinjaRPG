@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
 import {
+  village,
   conversation,
   userReportComment,
   forumPost,
@@ -343,6 +344,8 @@ export const commentsRouter = createTRPCRouter({
           conversationId: conversationComment.conversationId,
           content: conversationComment.content,
           isPinned: conversationComment.isPinned,
+          villageName: village.name,
+          villageHexColor: village.hexColor,
           userId: userData.userId,
           username: userData.username,
           avatar: userData.avatar,
@@ -354,6 +357,7 @@ export const commentsRouter = createTRPCRouter({
         })
         .from(conversationComment)
         .innerJoin(userData, eq(conversationComment.userId, userData.userId))
+        .leftJoin(village, eq(village.id, userData.villageId))
         .where(eq(conversationComment.conversationId, convo.id))
         .orderBy(desc(conversationComment.createdAt))
         .limit(input.limit)

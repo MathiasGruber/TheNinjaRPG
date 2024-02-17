@@ -12,6 +12,8 @@ export interface PostProps {
     level: number;
     rank: UserRank;
     role: UserRole;
+    villageName?: string | null;
+    villageHexColor?: string | null;
     nRecruited?: number | null;
     federalStatus: FederalStatus;
   };
@@ -88,6 +90,14 @@ const Post: React.FC<PostProps> = (props) => {
         <span className="bg-slate-300 p-1 m-1 rounded-md">
           {capitalizeFirstLetter(props.user.rank)}
         </span>
+        {props.user.villageName && props.user.villageHexColor && (
+          <span
+            className="p-1 m-1 rounded-md"
+            style={{ backgroundColor: props.user.villageHexColor }}
+          >
+            {props.user.villageName}
+          </span>
+        )}
       </div>
     </div>
   );
