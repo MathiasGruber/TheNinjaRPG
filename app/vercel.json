@@ -15,7 +15,7 @@
   ],
   "functions": {
     "src/pages/api/trpc/[trpc].ts": {
-      "memory": 3000,
+      "memory": 3008,
       "maxDuration": 10
     }
   },
