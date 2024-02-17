@@ -18,7 +18,7 @@
       "memory": 3000,
       "maxDuration": 10
     },
-    "api/**/*": {
+    "**/*": {
       "memory": 3000,
       "maxDuration": 10
     }
