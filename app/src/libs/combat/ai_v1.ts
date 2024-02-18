@@ -2,6 +2,7 @@ import { availableUserActions } from "@/libs/combat/actions";
 import { performBattleAction } from "@/libs/combat/actions";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { stillInBattle } from "@/libs/combat/actions";
+import { findUser, findBarrier } from "@/libs/combat/util";
 import { getPossibleActionTiles, PathCalculator, findHex } from "@/libs/hexgrid";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -180,6 +181,17 @@ const getAiTiles = (
         return path && path[1] ? [path[1]] : [];
       }
     }
+  } else {
+    const returned: TerrainHex[] = [];
+    getPossibleActionTiles(action, origin, grid)?.forEach((tile) => {
+      if (
+        findUser(battle.usersState, tile.col, tile.row) ||
+        findBarrier(battle.groundEffects, tile.col, tile.row)
+      ) {
+        returned.push(tile);
+      }
+    });
+    return returned;
   }
   // Return all available tiles
   return getPossibleActionTiles(action, origin, grid);
