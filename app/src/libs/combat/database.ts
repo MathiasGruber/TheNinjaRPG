@@ -147,7 +147,6 @@ export const updateVillage = async (
   if (user.villageId !== kage.villageId) return;
   // Apply
   if (result && result.didWin > 0) {
-    console.log("updateVillage", result?.didWin);
     await Promise.all([
       client
         .update(village)

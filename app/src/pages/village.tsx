@@ -4,9 +4,10 @@ import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import StatusBar from "@/layout/StatusBar";
 import Loader from "@/layout/Loader";
+import { UsersIcon } from "@heroicons/react/24/solid";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import type { VillageStructure } from "../../drizzle/schema";
+import type { VillageStructure } from "@/drizzle/schema";
 
 const VillageOverview: NextPage = () => {
   const { data: userData } = useRequiredUserData();
@@ -18,8 +19,17 @@ const VillageOverview: NextPage = () => {
 
   const title = userData?.village ? `${userData.village.name} Village` : "Village";
 
+  const href = userData?.village ? `/users/village/${userData.villageId}` : "/users";
+
   const subtitle =
-    data && userData?.village ? `Population: ${data.population}` : "Your Community";
+    data && userData?.village ? (
+      <div className="hover:text-orange-500 flex flex-row">
+        <UsersIcon className="h-6 w-6 mr-2" />
+        <Link href={href}>Population: {data.population}</Link>
+      </div>
+    ) : (
+      "Your Community"
+    );
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 

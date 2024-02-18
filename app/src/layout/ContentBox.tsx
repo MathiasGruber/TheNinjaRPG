@@ -6,7 +6,7 @@ interface ContentBoxProps {
   children: React.ReactNode;
   title: string;
   back_href?: string;
-  subtitle?: string;
+  subtitle?: string | React.ReactNode;
   topRightCorntentBreakpoint?: "sm" | "md" | "lg" | "xl" | "2xl";
   topRightContent?: React.ReactNode;
   padding?: boolean;

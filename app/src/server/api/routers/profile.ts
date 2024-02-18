@@ -871,6 +871,7 @@ export const profileRouter = createTRPCRouter({
         limit: z.number().min(1).max(100),
         isAi: z.number().min(0).max(1).default(0),
         orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
+        villageId: z.string().optional(),
         username: z
           .string()
           .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
@@ -899,6 +900,9 @@ export const profileRouter = createTRPCRouter({
         where: and(
           ...(input.username !== undefined
             ? [like(userData.username, `%${input.username}%`)]
+            : []),
+          ...(input.villageId !== undefined
+            ? [eq(userData.villageId, input.villageId)]
             : []),
           ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
           ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
