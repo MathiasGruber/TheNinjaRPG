@@ -304,7 +304,9 @@ export const updateBloodline = async (
       ? [
           client
             .update(userJutsu)
-            .set({ finishTraining: null, equipped: 0 })
+            .set({
+              level: sql`CASE WHEN finishTraining > NOW() THEN level - 1 ELSE level END`,
+            })
             .where(
               and(
                 eq(userJutsu.userId, user.userId),
@@ -324,6 +326,15 @@ export const updateBloodline = async (
         and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost)),
       ),
   ]);
+  await client
+    .update(userJutsu)
+    .set({ finishTraining: null, equipped: 0 })
+    .where(
+      and(
+        eq(userJutsu.userId, user.userId),
+        inArray(userJutsu.jutsuId, bloodlineJutsus),
+      ),
+    );
 };
 /**
  * COMMON QUERIES WHICH ARE REUSED
