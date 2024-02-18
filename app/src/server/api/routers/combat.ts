@@ -4,7 +4,8 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
-import { eq, or, and, sql, gt, isNotNull, isNull, desc, inArray } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
@@ -538,7 +539,7 @@ export const initiateBattle = async (
           village: true,
           items: {
             with: { item: true },
-            where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+            where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           },
           jutsus: {
             with: { jutsu: true },
