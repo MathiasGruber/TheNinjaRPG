@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
@@ -156,21 +157,23 @@ const KageHall: React.FC<{
           <div className="grid grid-cols-4 lggrid-cols-5">
             {village.defendedChallenges.map((challenge, i) => (
               <div key={i} className="p-2 text-center">
-                <AvatarImage
-                  href={challenge.user.avatar}
-                  alt={challenge.user.username}
-                  hover_effect={true}
-                  size={200}
-                />
-                <p className="font-bold text-red-500 text-sm">
-                  Lasted {challenge.rounds} rounds
-                </p>
-                <p className="italic text-xs">
-                  {challenge.createdAt.toLocaleDateString()}
-                </p>
-                <p className="italic text-xs">
-                  {challenge.createdAt.toLocaleTimeString()}
-                </p>
+                <Link href={`/users/${challenge.userId}`}>
+                  <AvatarImage
+                    href={challenge.user.avatar}
+                    alt={challenge.user.username}
+                    hover_effect={true}
+                    size={200}
+                  />
+                  <p className="font-bold text-red-500 text-sm">
+                    Lasted {challenge.rounds} rounds
+                  </p>
+                  <p className="italic text-xs">
+                    {challenge.createdAt.toLocaleDateString()}
+                  </p>
+                  <p className="italic text-xs">
+                    {challenge.createdAt.toLocaleTimeString()}
+                  </p>
+                </Link>
               </div>
             ))}
           </div>
