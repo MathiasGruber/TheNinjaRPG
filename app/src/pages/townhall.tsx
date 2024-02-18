@@ -110,20 +110,18 @@ const KageHall: React.FC<{
         </p>
         {canChallengeKage(user) && user.userId !== village.villageData.kageId && (
           <>
-            {user.username === "Terriator" && (
-              <Button
-                id="challenge"
-                className="pt-3"
-                image={<TrophyIcon className="h-6 w-6 mr-2" />}
-                label="Challenge Kage"
-                onClick={() =>
-                  attack({
-                    kageId: village.villageData.kageId,
-                    villageId: village.villageData.id,
-                  })
-                }
-              />
-            )}
+            <Button
+              id="challenge"
+              className="pt-3"
+              image={<TrophyIcon className="h-6 w-6 mr-2" />}
+              label="Challenge Kage"
+              onClick={() =>
+                attack({
+                  kageId: village.villageData.kageId,
+                  villageId: village.villageData.id,
+                })
+              }
+            />
             <p>
               <span className="font-bold">Note 1: </span>
               <span>Kage challenges are executed as AI vs AI</span>
