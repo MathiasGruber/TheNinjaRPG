@@ -157,6 +157,9 @@ export const combatRouter = createTRPCRouter({
         const battle = await fetchBattle(db, input.battleId);
         if (!battle) return { updateClient: true };
 
+        // For kage battles, only allow one move per action
+        const maxActions = battle.battleType === "KAGE" ? 1 : 5;
+
         // Instantiate new state variables
         const history: {
           battleRound: number;
@@ -282,7 +285,7 @@ export const combatRouter = createTRPCRouter({
           // Check if we should let the inner-loop continue
           if (
             newActor.isAi && // Continue new loop if it's an AI
-            nActions < 5 && // and we haven't performed 5 actions yet
+            nActions < maxActions && // and we haven't performed 5 actions yet
             !result && // and the battle is not over for the user
             (newActor.userId !== actor.userId || description) // and new actor, or successful attack
           ) {
