@@ -2,7 +2,7 @@ import { availableUserActions } from "@/libs/combat/actions";
 import { performBattleAction } from "@/libs/combat/actions";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { stillInBattle } from "@/libs/combat/actions";
-import { findUser, findBarrier } from "@/libs/combat/util";
+import { findUser, findBarrier, calcPoolCost } from "@/libs/combat/util";
 import { getPossibleActionTiles, PathCalculator, findHex } from "@/libs/hexgrid";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -30,7 +30,7 @@ export const performAIaction = (
   };
 
   // Find AI users who are in control of themselves (i.e. not controlled by a player)
-  const aiUsers = battle.usersState.filter((user) => user.isAi);
+  const aiUsers = nextBattle.usersState.filter((user) => user.isAi);
 
   // Path finder on grid
   const aStar = new PathCalculator(grid);
@@ -39,7 +39,15 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Possible actions
-    const actions = availableUserActions(nextBattle, user.userId, false);
+    const actions = availableUserActions(nextBattle, user.userId, false).filter(
+      (action) => {
+        const costs = calcPoolCost(action, nextBattle.usersEffects, user);
+        if (user.curHealth < costs.hpCost) return false;
+        if (user.curChakra < costs.cpCost) return false;
+        if (user.curStamina < costs.spCost) return false;
+        return true;
+      },
+    );
     // console.log(
     //   "Action costs: ",
     //   actions.map((a) => {
@@ -70,20 +78,28 @@ export const performAIaction = (
     ) {
       const originalAction = actions.find((a) => a.id === bestAction.action?.id);
       if (originalAction && user.actionPoints >= originalAction.actionCostPerc) {
-        const result = performBattleAction({
-          battle: nextBattle,
-          action: originalAction,
-          grid,
-          contextUserId: user.userId,
-          actorId: user.userId,
-          longitude: bestAction.longitude,
-          latitude: bestAction.latitude,
-        });
-        if (result) {
-          nextBattle = result.newBattle;
-          nextActionEffects.push(...result.actionEffects);
-          aiDescriptions.push(originalAction.battleDescription);
+        // If user decides to end turn and only has two actions (move and end turn, end)
+        if (bestAction?.action?.id === "wait" && actions.length === 2) {
+          originalAction.battleDescription = `${user.username} is exhausted and has to give up`;
+          user.curHealth = 0;
         }
+        if (user.curHealth > 0) {
+          const result = performBattleAction({
+            battle: nextBattle,
+            action: originalAction,
+            grid,
+            contextUserId: user.userId,
+            actorId: user.userId,
+            longitude: bestAction.longitude,
+            latitude: bestAction.latitude,
+          });
+          if (result) {
+            nextBattle = result.newBattle;
+            nextActionEffects.push(...result.actionEffects);
+          }
+        }
+        // Update
+        aiDescriptions.push(originalAction.battleDescription);
       }
     }
   }
