@@ -326,6 +326,8 @@ export const updateBloodline = async (
         and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost)),
       ),
   ]);
+  // Update the training timer & equipped states.
+  // This has to be done after level update, otherwise level update wont use the correct finishTraining value
   await client
     .update(userJutsu)
     .set({ finishTraining: null, equipped: 0 })
