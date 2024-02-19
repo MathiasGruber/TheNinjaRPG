@@ -584,7 +584,7 @@ export const initiateBattle = async (
     if (users[0].status !== "AWAKE") {
       return { success: false, message: "Aggressor is not awake" };
     }
-    if (users[1].status !== "AWAKE") {
+    if (users[1].status !== "AWAKE" && battleType !== "KAGE") {
       return { success: false, message: "Defender is not awake" };
     }
 
