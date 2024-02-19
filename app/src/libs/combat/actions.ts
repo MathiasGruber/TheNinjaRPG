@@ -171,28 +171,30 @@ export const availableUserActions = (
         })
       : []),
     ...(user?.items
-      ? user.items.map((useritem) => {
-          return {
-            id: useritem.item.id,
-            name: useritem.item.name,
-            image: useritem.item.image,
-            battleDescription: useritem.item.battleDescription,
-            type: "item" as const,
-            target: useritem.item.target,
-            method: useritem.item.method,
-            range: useritem.item.range,
-            updatedAt: new Date(useritem.updatedAt).getTime(),
-            cooldown: useritem.item.cooldown,
-            level: user?.level,
-            healthCostPerc: useritem.item.healthCostPerc,
-            chakraCostPerc: useritem.item.chakraCostPerc,
-            staminaCostPerc: useritem.item.staminaCostPerc,
-            actionCostPerc: useritem.item.actionCostPerc,
-            effects: useritem.item.effects,
-            quantity: useritem.quantity,
-            data: useritem.item,
-          };
-        })
+      ? user.items
+          .filter((useritem) => useritem.quantity > 0)
+          .map((useritem) => {
+            return {
+              id: useritem.item.id,
+              name: useritem.item.name,
+              image: useritem.item.image,
+              battleDescription: useritem.item.battleDescription,
+              type: "item" as const,
+              target: useritem.item.target,
+              method: useritem.item.method,
+              range: useritem.item.range,
+              updatedAt: new Date(useritem.updatedAt).getTime(),
+              cooldown: useritem.item.cooldown,
+              level: user?.level,
+              healthCostPerc: useritem.item.healthCostPerc,
+              chakraCostPerc: useritem.item.chakraCostPerc,
+              staminaCostPerc: useritem.item.staminaCostPerc,
+              actionCostPerc: useritem.item.actionCostPerc,
+              effects: useritem.item.effects,
+              quantity: useritem.quantity,
+              data: useritem.item,
+            };
+          })
       : []),
   ];
   // If we only have move & end turn action, also add basic attack
@@ -365,8 +367,16 @@ export const insertAction = (info: {
       updateStatUsage(user, effect as UserEffect);
     });
     user.usedActions.push({ id: action.id, type: action.type });
-    // Update pools & action timer based on action
+    // Check if action affected anything
     if (affectedTiles.size > 0) {
+      // If this was an item, check if we should destroy on use
+      if (action.type === "item") {
+        const useritem = user.items.find((i) => i.item.id === action.id);
+        if (useritem && useritem.item.destroyOnUse) {
+          useritem.quantity -= 1;
+        }
+      }
+      // Update pools & action timer based on action
       user.curChakra -= cpCost;
       user.curChakra = Math.max(0, user.curChakra);
       user.curStamina -= spCost;

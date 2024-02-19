@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
-import { battle, battleAction, userData } from "@/drizzle/schema";
+import { battle, battleAction, userData, userItem } from "@/drizzle/schema";
 import { kageDefendedChallenges, village } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
@@ -203,47 +203,54 @@ export const updateUser = async (
       );
       user.questData = trackers;
     }
+    // Any items to be deleted?
+    const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     // Update user
-    return await client
-      .update(userData)
-      .set({
-        experience: sql`experience + ${result.experience}`,
-        eloPve: sql`eloPve + ${result.eloPve}`,
-        eloPvp: sql`eloPvp + ${result.eloPvp}`,
-        pvpStreak: result.pvpStreak,
-        curHealth: result.curHealth,
-        curStamina: result.curStamina,
-        curChakra: result.curChakra,
-        strength: sql`strength + ${result.strength}`,
-        intelligence: sql`intelligence + ${result.intelligence}`,
-        willpower: sql`willpower + ${result.willpower}`,
-        speed: sql`speed + ${result.speed}`,
-        money: result.money ? sql`money + ${result.money}` : sql`money`,
-        ninjutsuOffence: sql`ninjutsuOffence + ${result.ninjutsuOffence}`,
-        genjutsuOffence: sql`genjutsuOffence + ${result.genjutsuOffence}`,
-        taijutsuOffence: sql`taijutsuOffence + ${result.taijutsuOffence}`,
-        bukijutsuOffence: sql`bukijutsuOffence + ${result.bukijutsuOffence}`,
-        ninjutsuDefence: sql`ninjutsuDefence + ${result.ninjutsuDefence}`,
-        genjutsuDefence: sql`genjutsuDefence + ${result.genjutsuDefence}`,
-        taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
-        bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
-        villagePrestige: sql`villagePrestige + ${result.villagePrestige}`,
-        questData: user.questData,
-        battleId: null,
-        regenAt: new Date(),
-        ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
-          ? {
-              status: "HOSPITALIZED",
-              longitude: HOSPITAL_LONG,
-              latitude: HOSPITAL_LAT,
-              sector: user.village?.sector,
-              immunityUntil:
-                curBattle.battleType === "COMBAT"
-                  ? sql`NOW() + INTERVAL 5 MINUTE`
-                  : sql`immunityUntil`,
-            }
-          : { status: "AWAKE" }),
-      })
-      .where(eq(userData.userId, userId));
+    await Promise.all([
+      ...(deleteItems.length > 0
+        ? [client.delete(userItem).where(inArray(userItem.id, deleteItems))]
+        : []),
+      client
+        .update(userData)
+        .set({
+          experience: sql`experience + ${result.experience}`,
+          eloPve: sql`eloPve + ${result.eloPve}`,
+          eloPvp: sql`eloPvp + ${result.eloPvp}`,
+          pvpStreak: result.pvpStreak,
+          curHealth: result.curHealth,
+          curStamina: result.curStamina,
+          curChakra: result.curChakra,
+          strength: sql`strength + ${result.strength}`,
+          intelligence: sql`intelligence + ${result.intelligence}`,
+          willpower: sql`willpower + ${result.willpower}`,
+          speed: sql`speed + ${result.speed}`,
+          money: result.money ? sql`money + ${result.money}` : sql`money`,
+          ninjutsuOffence: sql`ninjutsuOffence + ${result.ninjutsuOffence}`,
+          genjutsuOffence: sql`genjutsuOffence + ${result.genjutsuOffence}`,
+          taijutsuOffence: sql`taijutsuOffence + ${result.taijutsuOffence}`,
+          bukijutsuOffence: sql`bukijutsuOffence + ${result.bukijutsuOffence}`,
+          ninjutsuDefence: sql`ninjutsuDefence + ${result.ninjutsuDefence}`,
+          genjutsuDefence: sql`genjutsuDefence + ${result.genjutsuDefence}`,
+          taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
+          bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
+          villagePrestige: sql`villagePrestige + ${result.villagePrestige}`,
+          questData: user.questData,
+          battleId: null,
+          regenAt: new Date(),
+          ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
+            ? {
+                status: "HOSPITALIZED",
+                longitude: HOSPITAL_LONG,
+                latitude: HOSPITAL_LAT,
+                sector: user.village?.sector,
+                immunityUntil:
+                  curBattle.battleType === "COMBAT"
+                    ? sql`NOW() + INTERVAL 5 MINUTE`
+                    : sql`immunityUntil`,
+              }
+            : { status: "AWAKE" }),
+        })
+        .where(eq(userData.userId, userId)),
+    ]);
   }
 };
