@@ -182,7 +182,7 @@ export const availableUserActions = (
             method: useritem.item.method,
             range: useritem.item.range,
             updatedAt: new Date(useritem.updatedAt).getTime(),
-            cooldown: 0,
+            cooldown: useritem.item.cooldown,
             level: user?.level,
             healthCostPerc: useritem.item.healthCostPerc,
             chakraCostPerc: useritem.item.chakraCostPerc,

@@ -170,12 +170,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Jutsu Type</b>: {capitalizeFirstLetter(item?.jutsuType)}
               </p>
             )}
-            {"rarity" in item && (
+            {"rarity" in item && item.rarity && (
               <p>
-                <b>Rarity</b>: {item.rarity}
+                <b>Rarity</b>: {capitalizeFirstLetter(item.rarity)}
               </p>
             )}
-            {"level" in item && (
+            {"level" in item && item.level && item.level > 0 && (
               <p>
                 <b>Level</b>: {item.level}
               </p>
@@ -190,9 +190,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Village</b>: {item.village}
               </p>
             )}
-            {"canStack" in item && "stackSize" in item && item.canStack && (
+            {"stackSize" in item && item.stackSize > 0 && (
               <p>
                 <b>Stackable</b>: {item.stackSize}
+              </p>
+            )}
+            {"cooldown" in item && item.cooldown > 0 && (
+              <p>
+                <b>Cooldown</b>: {item.cooldown}
               </p>
             )}
             {"range" in item && item.target !== "CHARACTER" && (
