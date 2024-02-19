@@ -149,5 +149,7 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
 };
 
 export const fetchVillages = async (client: DrizzleClient) => {
-  return await client.query.village.findMany();
+  return await client.query.village.findMany({
+    with: { kage: { columns: { username: true, userId: true, avatar: true } } },
+  });
 };

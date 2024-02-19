@@ -207,9 +207,23 @@ const AllianceHall: React.FC<{
       topRightContent={navTabs}
     >
       <div className="grid grid-cols-7 items-center text-center">
-        <div></div>
+        <div>
+          <p className="font-bold">Kage</p>
+          <p className="py-4">&</p>
+          <p className="font-bold">Village</p>
+        </div>
         {villages.map((village, i) => (
           <div key={i}>
+            {village.kage.avatar && (
+              <Link href={`/users/${village.kageId}`}>
+                <AvatarImage
+                  href={village.kage.avatar}
+                  alt={village.kage.username}
+                  hover_effect={true}
+                  size={200}
+                />
+              </Link>
+            )}
             <p className="font-bold pt-1">{village.name}</p>
             <VillageBlock village={village} user={user} />
           </div>
