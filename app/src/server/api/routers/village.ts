@@ -88,7 +88,7 @@ export const villageRouter = createTRPCRouter({
       if (!village) {
         return { success: false, message: "Village does not exist" };
       }
-      if (user.villageId === village.kageId) {
+      if (user.userId === user.village?.kageId) {
         return { success: false, message: "You can not leave your village when kage" };
       }
       if (user.villageId === village.id) {
