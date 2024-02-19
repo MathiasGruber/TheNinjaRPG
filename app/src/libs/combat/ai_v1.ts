@@ -311,8 +311,26 @@ export const evaluateFitness = (
   if (!newUser || !curUser) return fitness;
 
   // Damage healed is added to the fitness
+  // If over 90% health, do not care
+  // If over 80% health, only with 1/10th of the value
+  // If over 60% health, only with 1/5th of the value
+  // If over 40% health, only with 1/2 of the value
+  // If over 20% health, only with 3/4 of the value
   if (newUser.curHealth > curUser.curHealth) {
-    fitness += newUser.curHealth - curUser.curHealth;
+    const perc = newUser.curHealth / newUser.maxHealth;
+    if (perc < 0.9) {
+      if (perc > 0.8) {
+        fitness += (newUser.curHealth - curUser.curHealth) * 0.1;
+      } else if (perc > 0.6) {
+        fitness += (newUser.curHealth - curUser.curHealth) * 0.2;
+      } else if (perc > 0.4) {
+        fitness += (newUser.curHealth - curUser.curHealth) * 0.5;
+      } else if (perc > 0.2) {
+        fitness += (newUser.curHealth - curUser.curHealth) * 0.75;
+      } else {
+        fitness += newUser.curHealth - curUser.curHealth;
+      }
+    }
   }
 
   // Waiting is penalized
