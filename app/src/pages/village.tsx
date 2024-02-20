@@ -10,7 +10,7 @@ import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import Button from "@/layout/Button";
 import { mutateContentSchema } from "@/validators/comments";
-import { Users } from "lucide-react";
+import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -36,15 +36,10 @@ const VillageOverview: NextPage = () => {
   const isKage = userData?.village?.kageId === userData?.userId;
   const title = userData?.village ? `${userData.village.name} Village` : "Village";
   const href = userData?.village ? `/users/village/${userData.villageId}` : "/users";
-  const subtitle =
-    data && userData?.village ? (
-      <div className="hover:text-orange-500 flex flex-row">
-        <Users className="h-6 w-6 mr-2" />
-        <Link href={href}>Population: {data.population}</Link>
-      </div>
-    ) : (
-      "Your Community"
-    );
+
+  // Specific structures
+  const walls = villageData?.structures.find((s) => s.name === "Walls");
+  const protectors = villageData?.structures.find((s) => s.name === "Protectors");
 
   // Mutations
   const { mutate, isLoading: isUpdating } = api.kage.upsertNotice.useMutation({
@@ -86,10 +81,25 @@ const VillageOverview: NextPage = () => {
     <>
       <ContentBox
         title={title}
-        subtitle={subtitle}
+        subtitle="Your Community"
         topRightContent={
-          <div className="flex flex-row">
-            {villageData?.structures
+          <div className="grid grid-cols-2 gap-1">
+            <div className="flex flex-row">
+              <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
+            </div>
+            <Link href={href}>
+              <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
+                <Users className="w-6 h-6 mr-2" /> {data?.population}
+              </div>
+            </Link>
+            <div className="flex flex-row">
+              <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
+            </div>
+            <div className="ml-3 flex flex-row">
+              <ReceiptJapaneseYen className="w-6 h-6 mr-2" /> {villageData?.funds}
+            </div>
+
+            {/* {villageData?.structures
               .filter((s) => s.hasPage === 0)
               .map((structure, i) => (
                 <div key={i} className="w-32 pb-1 px-2">
@@ -99,7 +109,7 @@ const VillageOverview: NextPage = () => {
                     textPosition="right"
                   />
                 </div>
-              ))}
+              ))} */}
           </div>
         }
       >
