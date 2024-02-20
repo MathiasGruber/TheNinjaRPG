@@ -159,7 +159,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           hideBorder={props.hideBorder}
           onClick={props.onClick}
         />
-        {props.count && (props.labelSingles || props.count > 1) && (
+        {props.count !== undefined && (props.labelSingles || props.count > 1) && (
           <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
             {props.count}
           </div>

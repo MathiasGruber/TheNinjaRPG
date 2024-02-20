@@ -17,9 +17,9 @@ import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
 import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
-import { attributes } from "../../validators/register";
-import { colors, skin_colors } from "../../validators/register";
-import { mutateContentSchema } from "../../validators/comments";
+import { attributes } from "@/validators/register";
+import { colors, skin_colors } from "@/validators/register";
+import { mutateContentSchema } from "@/validators/comments";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { useUserSearch } from "@/utils/search";
@@ -31,10 +31,10 @@ import { COST_SWAP_VILLAGE } from "@/libs/profile";
 import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
 import { statSchema } from "@/libs/combat/types";
-import type { Bloodline, Village } from "../../../drizzle/schema";
+import type { Bloodline, Village } from "@/drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
-import type { MutateContentSchema } from "../../validators/comments";
+import type { MutateContentSchema } from "@/validators/comments";
 
 const EditProfile: NextPage = () => {
   // State
@@ -486,7 +486,7 @@ const AvatarChange: React.FC = () => {
 };
 
 /**
- * Nindo change component
+ * Attribute change component
  */
 const AttributeChange: React.FC = () => {
   // State

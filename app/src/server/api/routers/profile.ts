@@ -717,27 +717,7 @@ export const profileRouter = createTRPCRouter({
     .input(mutateContentSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const nindo = await ctx.drizzle.query.userNindo.findFirst({
-        where: eq(userNindo.userId, ctx.userId),
-      });
-      let result: ExecutedQuery;
-      if (!nindo) {
-        result = await ctx.drizzle.insert(userNindo).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          content: input.content,
-        });
-      } else {
-        result = await ctx.drizzle
-          .update(userNindo)
-          .set({ content: input.content })
-          .where(eq(userNindo.userId, ctx.userId));
-      }
-      if (result.rowsAffected === 0) {
-        return { success: false, message: "Could not update nindo" };
-      } else {
-        return { success: true, message: "Nindo updated" };
-      }
+      return updateNindo(ctx.drizzle, ctx.userId, input.content);
     }),
   // Insert attribute
   insertAttribute: protectedProcedure
@@ -1057,6 +1037,34 @@ export const profileRouter = createTRPCRouter({
       return { success: true, message: "User copied" };
     }),
 });
+
+export const updateNindo = async (
+  client: DrizzleClient,
+  userId: string,
+  content: string,
+) => {
+  const nindo = await client.query.userNindo.findFirst({
+    where: eq(userNindo.userId, userId),
+  });
+  let result: ExecutedQuery;
+  if (!nindo) {
+    result = await client.insert(userNindo).values({
+      id: nanoid(),
+      userId: userId,
+      content: content,
+    });
+  } else {
+    result = await client
+      .update(userNindo)
+      .set({ content: content })
+      .where(eq(userNindo.userId, userId));
+  }
+  if (result.rowsAffected === 0) {
+    return { success: false, message: "Could not update content" };
+  } else {
+    return { success: true, message: "Content updated" };
+  }
+};
 
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
   await client.transaction(async (tx) => {

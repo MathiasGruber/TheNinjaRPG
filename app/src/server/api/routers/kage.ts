@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
-import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
+import { fetchUser, fetchRegeneratedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 
 export const kageRouter = createTRPCRouter({
@@ -80,4 +80,21 @@ export const kageRouter = createTRPCRouter({
     if (result.rowsAffected === 0) return errorResponse("No village found");
     return { success: true, message: "You have taken the kage position" };
   }),
+  upsertNotice: protectedProcedure
+    .input(z.object({ content: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const { user } = await fetchRegeneratedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      const village = user?.village;
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!village) return errorResponse("Village not found");
+      if (village.kageId !== ctx.userId) return errorResponse("Not kage");
+      // Update
+      return updateNindo(ctx.drizzle, village.id, input.content);
+    }),
 });

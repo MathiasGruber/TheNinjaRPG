@@ -1078,6 +1078,10 @@ export const villageRelations = relations(village, ({ many, one }) => ({
     fields: [village.kageId],
     references: [userData.userId],
   }),
+  notice: one(userNindo, {
+    fields: [village.id],
+    references: [userNindo.userId],
+  }),
 }));
 
 export const villageStructure = mysqlTable(

@@ -134,6 +134,7 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
   return await client.query.village.findFirst({
     where: eq(village.id, villageId),
     with: {
+      notice: true,
       structures: {
         orderBy: (structure, { desc }) => desc(structure.name),
       },
