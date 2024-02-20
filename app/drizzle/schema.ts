@@ -1162,6 +1162,10 @@ export const kageDefendedChallengesRelations = relations(
       fields: [kageDefendedChallenges.userId],
       references: [userData.userId],
     }),
+    kage: one(userData, {
+      fields: [kageDefendedChallenges.kageId],
+      references: [userData.userId],
+    }),
   }),
 );
 

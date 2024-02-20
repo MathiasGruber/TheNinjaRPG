@@ -11,9 +11,11 @@ import { show_toast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
 import { TrophyIcon } from "@heroicons/react/24/solid";
 import { HandRaisedIcon } from "@heroicons/react/24/solid";
+import { UserPlusIcon } from "@heroicons/react/24/solid";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { canChangeContent } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
 import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
 import { RANK_REQUIREMENT } from "@/utils/kage";
@@ -100,6 +102,20 @@ const KageHall: React.FC<{
     },
   });
 
+  const { mutate: take, isLoading: isTaking } = api.kage.takeKage.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        await utils.village.get.invalidate();
+        show_toast("Success", data.message, "success");
+      } else {
+        show_toast("Error", data.message, "info");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error", error.message, "error");
+    },
+  });
+
   // Derived
   const isKage = user.userId === village?.villageData.kageId;
 
@@ -108,6 +124,7 @@ const KageHall: React.FC<{
   if (isLoading || !village) return <Loader explanation="Loading village" />;
   if (isAttacking) return <Loader explanation="Attacking Kage" />;
   if (isResigning) return <Loader explanation="Resigning as Kage" />;
+  if (isTaking) return <Loader explanation="Taking Kage" />;
 
   // Render
   return (
@@ -169,6 +186,16 @@ const KageHall: React.FC<{
               {capitalizeFirstLetter(RANK_REQUIREMENT)} rank
             </span>
           </p>
+        )}
+        {!isKage && canChangeContent(user.role) && (
+          <Button
+            id="challenge"
+            color="red"
+            className="pt-3"
+            image={<UserPlusIcon className="h-6 w-6 mr-2" />}
+            label="Take kage as Staff"
+            onClick={() => take()}
+          />
         )}
       </ContentBox>
       <PublicUserComponent

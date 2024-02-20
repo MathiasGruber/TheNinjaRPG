@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { userData, village } from "@/drizzle/schema";
+import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
-import { fetchUser } from "@/routers/profile";
+import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 
 export const kageRouter = createTRPCRouter({
@@ -55,11 +56,28 @@ export const kageRouter = createTRPCRouter({
       if (!uVillage) return errorResponse("Village not found");
       if (user.villageId !== villageId) return errorResponse("Wrong village");
       if (user.userId !== uVillage?.kageId) return errorResponse("Not kage");
-      // Start the battle
+      // Update
       await ctx.drizzle
         .update(village)
         .set({ kageId: elder.userId })
         .where(eq(village.id, user.villageId));
       return { success: true, message: "You have resigned as kage" };
     }),
+  takeKage: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    // Fetch
+    const { user } = await fetchRegeneratedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+    });
+    // Guards
+    if (!user) return errorResponse("User not found");
+    if (!canChangeContent(user.role)) return errorResponse("Not staff");
+    // Update
+    const result = await ctx.drizzle
+      .update(village)
+      .set({ kageId: user.userId })
+      .where(eq(village.id, user.villageId ?? ""));
+    if (result.rowsAffected === 0) return errorResponse("No village found");
+    return { success: true, message: "You have taken the kage position" };
+  }),
 });
