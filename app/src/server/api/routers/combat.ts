@@ -643,6 +643,9 @@ export const initiateBattle = async (
     // If this is a kage challenge, convert all to be AIs & set them as not originals
     if (battleType === "KAGE") {
       usersState.forEach((u) => {
+        u.curHealth = u.maxHealth;
+        u.curChakra = u.maxChakra;
+        u.curStamina = u.maxStamina;
         u.isAi = 1;
         u.isOriginal = false;
       });
