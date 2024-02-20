@@ -10,6 +10,7 @@ import PublicUserComponent from "@/layout/PublicUser";
 import { show_toast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
 import { TrophyIcon } from "@heroicons/react/24/solid";
+import { HandRaisedIcon } from "@heroicons/react/24/solid";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -64,7 +65,7 @@ const KageHall: React.FC<{
     { staleTime: 10000 },
   );
 
-  // Mutation for starting a fight
+  // Mutations
   const { mutate: attack, isLoading: isAttacking } = api.kage.fightKage.useMutation({
     onMutate: () => {
       document.body.style.cursor = "wait";
@@ -85,10 +86,28 @@ const KageHall: React.FC<{
     },
   });
 
+  const { mutate: resign, isLoading: isResigning } = api.kage.resignKage.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        await utils.village.get.invalidate();
+        show_toast("Success", data.message, "success");
+      } else {
+        show_toast("Error", data.message, "info");
+      }
+    },
+    onError: (error) => {
+      show_toast("Error", error.message, "error");
+    },
+  });
+
+  // Derived
+  const isKage = user.userId === village?.villageData.kageId;
+
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
   if (isLoading || !village) return <Loader explanation="Loading village" />;
   if (isAttacking) return <Loader explanation="Attacking Kage" />;
+  if (isResigning) return <Loader explanation="Resigning as Kage" />;
 
   // Render
   return (
@@ -109,7 +128,16 @@ const KageHall: React.FC<{
           generation of warriors. The Kage is a symbol of strength, wisdom, and dignity,
           known to have the power to shape the destiny of the village.
         </p>
-        {canChallengeKage(user) && user.userId !== village.villageData.kageId && (
+        {isKage && (
+          <Button
+            id="challenge"
+            className="pt-3"
+            image={<HandRaisedIcon className="h-6 w-6 mr-2" />}
+            label="Resign as Kage"
+            onClick={() => resign({ villageId: village.villageData.id })}
+          />
+        )}
+        {canChallengeKage(user) && !isKage && (
           <>
             <Button
               id="challenge"
