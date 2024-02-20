@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArchiveBoxXMarkIcon } from "@heroicons/react/24/solid";
+import { Trash2 } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -158,7 +158,7 @@ const MyJutsu: NextPage = () => {
                   id="return"
                   label={`Forget [${forgetRyo} ryo]`}
                   color="red"
-                  image={<ArchiveBoxXMarkIcon className="h-6 w-6 mr-2" />}
+                  image={<Trash2 className="h-6 w-6 mr-2" />}
                   onClick={() => {
                     forget({ id: userjutsu.id });
                   }}

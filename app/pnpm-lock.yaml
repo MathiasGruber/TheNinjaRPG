@@ -8,9 +8,6 @@ dependencies:
   '@clerk/nextjs':
     specifier: 4.29.3
     version: 4.29.3(next@14.1.0)(react-dom@18.2.0)(react@18.2.0)
-  '@heroicons/react':
-    specifier: 2.0.16
-    version: 2.0.16(react@18.2.0)
   '@highlight-run/next':
     specifier: 7.3.5
     version: 7.3.5(@opentelemetry/api@1.6.0)(next@14.1.0)(react-dom@18.2.0)(react@18.2.0)
@@ -110,6 +107,9 @@ dependencies:
   human-object-diff:
     specifier: ^3.0.0
     version: 3.0.0(eslint@8.56.0)
+  lucide-react:
+    specifier: ^0.334.0
+    version: 0.334.0(react@18.2.0)
   mysql2:
     specifier: ^3.3.5
     version: 3.3.5
@@ -811,14 +811,6 @@ packages:
   /@eslint/js@8.56.0:
     resolution: {integrity: sha512-gMsVel9D7f2HLkBma9VbtzZRehRogVRfbr++f06nL2vnCGCNlzOD+/MUov/F4p8myyAHspEhVobgjpX64q5m6A==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
-
-  /@heroicons/react@2.0.16(react@18.2.0):
-    resolution: {integrity: sha512-x89rFxH3SRdYaA+JCXwfe+RkE1SFTo9GcOkZettHer71Y3T7V+ogKmfw5CjTazgS3d0ClJ7p1NA+SP7VQLQcLw==}
-    peerDependencies:
-      react: '>= 16'
-    dependencies:
-      react: 18.2.0
-    dev: false
 
   /@highlight-run/cloudflare@2.1.4(@opentelemetry/api@1.6.0):
     resolution: {integrity: sha512-fVsUReFkm+btRBevdFEyfWKHCncLaHR0ToajoylF44Af2lw55kOVZR57PoHGUz9aC9BgZJaP64FJVTef8NnIhw==}
@@ -4491,6 +4483,14 @@ packages:
     dependencies:
       es5-ext: 0.10.62
     dev: true
+
+  /lucide-react@0.334.0(react@18.2.0):
+    resolution: {integrity: sha512-y0Rv/Xx6qAq4FutZ3L/efl3O9vl6NC/1p0YOg6mBfRbQ4k1JCE2rz0rnV7WC8Moxq1RY99vLATvjcqUegGJTvA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+    dev: false
 
   /map-obj@4.3.0:
     resolution: {integrity: sha512-hdN1wVrZbb29eBGiGjJbeP8JbKjq1urkHJ/LIP/NY48MZ1QVXUsQBV1G1zvYFHn1XE06cwjBsOI2K3Ulnj1YXQ==}

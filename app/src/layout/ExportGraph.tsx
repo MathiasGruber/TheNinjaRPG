@@ -1,5 +1,5 @@
 import Button from "@/layout/Button";
-import { ArrowDownOnSquareIcon } from "@heroicons/react/24/outline";
+import { Download } from "lucide-react";
 
 interface ExportGraphProps {
   canvas: HTMLCanvasElement | undefined | null;
@@ -12,7 +12,7 @@ const ExportGraph: React.FC<ExportGraphProps> = (props) => {
     <Button
       id="save"
       label="Export Graph"
-      image={<ArrowDownOnSquareIcon className="mr-3 h-6 w-6" />}
+      image={<Download className="mr-3 h-6 w-6" />}
       onClick={() => {
         canvas?.toBlob((blob) => {
           if (blob) {

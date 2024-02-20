@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useSafePush } from "@/utils/routing";
 import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
 import type { NextPage } from "next";
-import { BeakerIcon, ScissorsIcon } from "@heroicons/react/24/solid";
-import { ClockIcon, ForwardIcon } from "@heroicons/react/24/solid";
-import { HandRaisedIcon } from "@heroicons/react/24/solid";
+import { Clock, FastForward, Hand, FlaskConical, Scissors } from "lucide-react";
 
 import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
@@ -94,7 +92,7 @@ const Hospital: NextPage = () => {
               id="check"
               disabled={healFinishAt && healFinishAt > new Date()}
               label={<div>Wait ({<Countdown targetDate={healFinishAt} />})</div>}
-              image={<ClockIcon className="mr-3 h-6 w-6" />}
+              image={<Clock className="mr-3 h-6 w-6" />}
               onClick={() => heal()}
             />
             <Button
@@ -104,9 +102,9 @@ const Hospital: NextPage = () => {
               label={<div>Pay {healCost && <span>({healCost} ryo)</span>}</div>}
               image={
                 canAfford ? (
-                  <ForwardIcon className="mr-3 h-6 w-6" />
+                  <FastForward className="mr-3 h-6 w-6" />
                 ) : (
-                  <HandRaisedIcon className="mr-3 h-6 w-6" />
+                  <Hand className="mr-3 h-6 w-6" />
                 )
               }
               onClick={() => heal()}
@@ -316,7 +314,7 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
               <Button
                 id="check"
                 label="Remove Bloodline"
-                image={<ScissorsIcon className="mr-3 h-6 w-6" />}
+                image={<Scissors className="mr-3 h-6 w-6" />}
               />
             }
             onAccept={(e) => {
@@ -400,7 +398,7 @@ const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
               <Button
                 id="check"
                 label="Check Genetics"
-                image={<BeakerIcon className="mr-3 h-6 w-6" />}
+                image={<FlaskConical className="mr-3 h-6 w-6" />}
               />
             }
             onAccept={(e) => {

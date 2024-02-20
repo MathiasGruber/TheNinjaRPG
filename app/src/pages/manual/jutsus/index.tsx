@@ -7,9 +7,7 @@ import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
 import MassEditContent from "@/layout/MassEditContent";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
-import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
+import { FilePlus, SquarePen, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -82,7 +80,7 @@ const ManualJutsus: NextPage = () => {
             <Button
               id="jutsu-statistics"
               label="Balance Statistics"
-              image={<PresentationChartBarIcon className="mr-2 h-6 w-6" />}
+              image={<Presentation className="mr-2 h-6 w-6" />}
             />
           </Link>
         }
@@ -114,7 +112,7 @@ const ManualJutsus: NextPage = () => {
                   id="create-jutsu"
                   className="sm:mr-5"
                   label="New"
-                  image={<DocumentPlusIcon className="mr-2 h-6 w-6" />}
+                  image={<FilePlus className="mr-2 h-6 w-6" />}
                   onClick={() => create()}
                   marginClass=""
                   noJustify={true}
@@ -128,7 +126,7 @@ const ManualJutsus: NextPage = () => {
                       id="create-jutsu"
                       className="sm:mr-5"
                       label="Mass Edit"
-                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      image={<SquarePen className="mr-2 h-6 w-6" />}
                       marginClass="mb-1"
                       noJustify={true}
                       borderClass="rounded-b-md"

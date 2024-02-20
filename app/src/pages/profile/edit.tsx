@@ -15,8 +15,7 @@ import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
-import { ChevronDoubleRightIcon } from "@heroicons/react/24/solid";
-import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
+import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { mutateContentSchema } from "@/validators/comments";
@@ -541,7 +540,7 @@ const AttributeChange: React.FC = () => {
               deleteAttr({ attribute });
             }}
           >
-            <p> - {attribute}</p> <ChevronDoubleRightIcon className="h-5 w-5 ml-1" />
+            <p> - {attribute}</p> <ChevronsRight className="h-5 w-5 ml-1" />
           </div>
         ))}
       </div>
@@ -559,7 +558,7 @@ const AttributeChange: React.FC = () => {
                 insertAttr({ attribute });
               }}
             >
-              <ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />
+              <ChevronsLeft className="h-5 w-5 mr-1" />
               <p> {attribute} </p>
             </div>
           ))}
@@ -570,7 +569,7 @@ const AttributeChange: React.FC = () => {
             placeholder={eyeColor}
             onChange={(e) => setEyeColor(e.target.value as (typeof colors)[number])}
             onButtonClick={() => insertAttr({ attribute: "Eyes", color: eyeColor })}
-            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
           >
             {colors.map((color, i) => (
               <option key={i} value={color}>
@@ -587,7 +586,7 @@ const AttributeChange: React.FC = () => {
               setSkinColor(e.target.value as (typeof skin_colors)[number])
             }
             onButtonClick={() => insertAttr({ attribute: "Skin", color: skinColor })}
-            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
           >
             {skin_colors.map((color, i) => (
               <option key={i} value={color}>
@@ -602,7 +601,7 @@ const AttributeChange: React.FC = () => {
             label="Hair Color"
             onChange={(e) => setHairColor(e.target.value as (typeof colors)[number])}
             onButtonClick={() => insertAttr({ attribute: "Hair", color: hairColor })}
-            button={<ChevronDoubleLeftIcon className="h-5 w-5 mr-1" />}
+            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
           >
             {colors.map((color, i) => (
               <option key={i} value={color}>

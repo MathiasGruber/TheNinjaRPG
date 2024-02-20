@@ -6,7 +6,7 @@ import Loader from "@/layout/Loader";
 import Link from "next/link";
 import Image from "next/image";
 import ReactHtmlParser from "react-html-parser";
-import { PencilSquareIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/solid";
+import { SquarePen, MessagesSquare } from "lucide-react";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
 import { canCreateNews } from "../validators/forum";
@@ -60,7 +60,7 @@ const News: NextPage = () => {
             <Button
               id="conversation"
               label="New"
-              image={<PencilSquareIcon className="mr-2 h-5 w-5" />}
+              image={<SquarePen className="mr-2 h-5 w-5" />}
             />
           </Link>
         )
@@ -98,7 +98,7 @@ const News: NextPage = () => {
                       href={`/forum/${board.id}/${thread.id}`}
                       className="flex flex-row items-center justify-end"
                     >
-                      <ChatBubbleLeftRightIcon className="w-5 h-5 mr-1" />
+                      <MessagesSquare className="w-5 h-5 mr-1" />
                       {thread.nPosts} Comments
                     </Link>
                   </p>

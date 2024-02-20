@@ -1,21 +1,8 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
-import {
-  GlobeAmericasIcon,
-  UserGroupIcon,
-  InboxStackIcon,
-  BookOpenIcon,
-  CurrencyDollarIcon,
-  BuildingStorefrontIcon,
-  FireIcon,
-  UserIcon,
-  NewspaperIcon,
-  ScaleIcon,
-  ChatBubbleLeftRightIcon,
-  BugAntIcon,
-  PaintBrushIcon,
-} from "@heroicons/react/24/solid";
-import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
+import { Atom, Bug, User, Store, Globe2, BookOpenText, Users } from "lucide-react";
+import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
+import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
@@ -37,27 +24,27 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
     {
       href: "/news",
       name: "News",
-      icon: <NewspaperIcon className="h-6 w-6" />,
+      icon: <Newspaper className="h-6 w-6" />,
     },
     {
       href: "/manual",
       name: "Info",
-      icon: <ScaleIcon className="h-6 w-6" />,
+      icon: <Scale className="h-6 w-6" />,
     },
     {
       href: "/forum",
       name: "Forum",
-      icon: <ChatBubbleLeftRightIcon className="h-6 w-6" />,
+      icon: <MessagesSquare className="h-6 w-6" />,
     },
     {
       href: "/help",
       name: "Bugs",
-      icon: <BugAntIcon className="h-6 w-6" />,
+      icon: <Bug className="h-6 w-6" />,
     },
     {
       href: "/conceptart",
       name: "Art",
-      icon: <PaintBrushIcon className="h-6 w-6" />,
+      icon: <Paintbrush className="h-6 w-6" />,
     },
   ];
   // Add login or logout button
@@ -65,7 +52,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
     links.push({
       href: "/login",
       name: "Login",
-      icon: <UserIcon className="h-6 w-6" />,
+      icon: <User className="h-6 w-6" />,
     });
   }
   return links;
@@ -79,45 +66,45 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
     {
       href: "/tavern",
       name: "Tavern",
-      icon: <UserGroupIcon key="tavern" className="h-6 w-6" />,
+      icon: <Users key="tavern" className="h-6 w-6" />,
     },
     {
       href: "/inbox",
       name: "Inbox",
-      icon: <InboxStackIcon key="inbox" className="h-6 w-6" />,
+      icon: <Inbox key="inbox" className="h-6 w-6" />,
     },
     {
       href: "/users",
       name: "Users",
-      icon: <BookOpenIcon key="users" className="h-6 w-6" />,
+      icon: <BookOpenText key="users" className="h-6 w-6" />,
     },
     {
       href: "/reports",
       name: "Reports",
-      icon: <ShieldExclamationIcon key="reports" className="h-6 w-6" />,
+      icon: <Flag key="reports" className="h-6 w-6" />,
     },
     {
       href: "/travel",
       name: "Travel",
       requireAwake: true,
-      icon: <GlobeAmericasIcon key="travel" className="h-6 w-6" />,
+      icon: <Globe2 key="travel" className="h-6 w-6" />,
     },
     {
       href: "/jutsus",
       name: "Jutsus",
       requireAwake: true,
-      icon: <FireIcon key="jutsus" className="h-6 w-6" />,
+      icon: <Atom key="jutsus" className="h-6 w-6" />,
     },
     {
       href: "/items",
       name: "Items",
       requireAwake: true,
-      icon: <UserIcon key="items" className="h-6 w-6" />,
+      icon: <User key="items" className="h-6 w-6" />,
     },
     {
       href: "/points",
       name: "Points",
-      icon: <CurrencyDollarIcon key="travel" className="h-6 w-6" />,
+      icon: <Receipt key="travel" className="h-6 w-6" />,
     },
   ];
 
@@ -150,7 +137,7 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
       name: "Village",
       requireAwake: false,
       className: "block md:hidden",
-      icon: <BuildingStorefrontIcon key="village" className="h-6 w-6" />,
+      icon: <Store key="village" className="h-6 w-6" />,
     });
     // Location display for later screens
     location = {

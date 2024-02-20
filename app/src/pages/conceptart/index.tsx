@@ -12,7 +12,7 @@ import { useSafePush } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { conceptArtPromptSchema, conceptArtFilterSchema } from "@/validators/art";
 import { sortOptions, timeFrame } from "@/validators/art";
-import { SparklesIcon, UserIcon } from "@heroicons/react/24/solid";
+import { User, Sparkles } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -106,8 +106,8 @@ const ConceptArt: NextPage = () => {
       topRightCorntentBreakpoint="sm"
       topRightContent={
         <div className="flex flex-row items-center">
-          <UserIcon
-            className={`h-8 w-8 mr-1 ${only_own ? "fill-orange-500" : ""}`}
+          <User
+            className={`h-8 w-8 mr-1 hover:cursor-pointer ${only_own ? "text-orange-500" : ""}`}
             onClick={() => filterForm.setValue("only_own", !only_own)}
           />
           <SelectField
@@ -152,7 +152,7 @@ const ConceptArt: NextPage = () => {
                   id="new-art"
                   label="New"
                   paddingClass="p-2"
-                  image={<SparklesIcon className="mr-2 h-6 w-6" />}
+                  image={<Sparkles className="mr-2 h-6 w-6" />}
                 />
               }
               proceed_label="Create"

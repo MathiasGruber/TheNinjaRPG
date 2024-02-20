@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import Image from "next/image";
-import { TrashIcon, FlagIcon } from "@heroicons/react/24/solid";
+import { Trash2, Flag, Info } from "lucide-react";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
-import { InformationCircleIcon } from "@heroicons/react/24/solid";
 import ReportUser from "@/layout/Report";
 import type { ImageWithRelations } from "@/routers/conceptart";
 
@@ -112,7 +111,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
         />
         <div className="absolute right-2 top-2">
           {image.userId === user?.userId && (
-            <TrashIcon
+            <Trash2
               className={` cursor-pointer hover:fill-red-500 text-white ${
                 showDetails ? "h-6 w-6" : "h-4 w-4"
               }`}
@@ -132,7 +131,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
                 content: '<img src="' + image.image + '" width="200" />',
               }}
               system="concept_art"
-              button={<FlagIcon className="h-6 w-6 hover:fill-orange-500 text-white" />}
+              button={<Flag className="h-6 w-6 hover:fill-orange-500 text-white" />}
             />
           )}
         </div>
@@ -221,7 +220,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               </a>
 
               <div className="group">
-                <InformationCircleIcon className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
+                <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
                 <span className="absolute bottom-8 right-0 z-50 rounded-md bg-gray-800 p-2 text-sm text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
                   <p>
                     <b>Created by: </b>

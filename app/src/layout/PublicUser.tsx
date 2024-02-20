@@ -10,10 +10,7 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
-import { FlagIcon } from "@heroicons/react/24/outline";
-import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
-import { ArrowPathRoundedSquareIcon } from "@heroicons/react/24/solid";
+import { Flag, CopyCheck, Settings, RefreshCcwDot } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { api } from "@/utils/api";
@@ -106,7 +103,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         topRightContent={
           <div className="flex flex-row gap-1">
             {userData?.username === "Terriator" && (
-              <ClipboardDocumentCheckIcon
+              <CopyCheck
                 className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                 onClick={() => cloneUser.mutate({ userId: profile.userId })}
               />
@@ -123,9 +120,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   "General user behavior, justification must be provided in comments",
               }}
               system="user_profile"
-              button={
-                <FlagIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
-              }
+              button={<Flag className="h-6 w-6 cursor-pointer hover:fill-orange-500" />}
             />
           </div>
         }
@@ -168,7 +163,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   <Confirm
                     title="Confirm Deletion"
                     button={
-                      <ArrowPathRoundedSquareIcon className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 fill-black p-1 hover:fill-orange-500" />
+                      <RefreshCcwDot className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 p-1 hover:text-orange-500" />
                     }
                     onAccept={(e) => {
                       e.preventDefault();
@@ -313,9 +308,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
     <Confirm
       title="Update User Data"
       proceed_label="Done"
-      button={
-        <Cog6ToothIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
-      }
+      button={<Settings className="h-6 w-6 cursor-pointer hover:fill-orange-500" />}
     >
       <EditContent
         currentValues={currentValues}

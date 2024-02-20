@@ -7,8 +7,7 @@ import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import { EditContent } from "@/layout/EditContent";
 import { ObjectiveFormWrapper } from "@/layout/EditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { DocumentMinusIcon } from "@heroicons/react/24/outline";
+import { FilePlus, FileMinus } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
 import { allObjectiveTasks } from "@/validators/objectives";
@@ -102,7 +101,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
 
   // Icon for adding tag
   const AddObjectiveIcon = (
-    <DocumentPlusIcon
+    <FilePlus
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
         setObjectives([
@@ -182,7 +181,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
             topRightContent={
               <div className="flex flex-row">
                 {AddObjectiveIcon}
-                <DocumentMinusIcon
+                <FileMinus
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
                     const newObjectives = [...objectives];

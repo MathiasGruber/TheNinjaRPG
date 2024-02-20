@@ -4,8 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
 import type { NextPage } from "next";
-import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
-
+import { ClipboardCopy } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -91,7 +90,7 @@ const Profile: NextPage = () => {
           }}
         >
           <p className="grow">{recruitUrl}</p>
-          <ClipboardDocumentIcon className="h-8 w-8" />
+          <ClipboardCopy className="h-8 w-8" />
         </div>
       </ContentBox>
       {allUsers && allUsers.length > 0 && (

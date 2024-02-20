@@ -2,12 +2,9 @@ import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
-import type { Grid } from "honeycomb-grid";
 import Button from "./Button";
 import Countdown from "./Countdown";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
-import { ClockIcon } from "@heroicons/react/24/outline";
-import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import { HelpCircle, Clock as ClockIcon, CheckCircle } from "lucide-react";
 import { drawCombatBackground, drawCombatEffects } from "@/libs/combat/drawing";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import { COMBAT_SECONDS, COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
@@ -21,6 +18,7 @@ import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
+import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
 import type { BattleState } from "@/libs/combat/types";
@@ -500,7 +498,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
               Initiative Winner: {initiveWinner?.username}{" "}
               <Link href="/manual/combat">
-                <QuestionMarkCircleIcon className="ml-2 h6 w-6 hover:fill-orange-500" />
+                <HelpCircle className="ml-2 h6 w-6 hover:fill-orange-500" />
               </Link>
             </p>
             <div className="flex flex-row gap-4">
@@ -523,7 +521,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                       </p>
                       <p>{u.username}</p>{" "}
                       {u.iAmHere ? (
-                        <CheckCircleIcon className="h-6 w-6" />
+                        <CheckCircle className="h-6 w-6" />
                       ) : (
                         <ClockIcon className="h-6 w-6" />
                       )}

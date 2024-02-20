@@ -5,8 +5,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
-import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
+import { FilePlus, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -95,7 +94,7 @@ const ManualAI: NextPage = () => {
             <Button
               id="jutsu-statistics"
               label="Balance Statistics"
-              image={<PresentationChartBarIcon className="mr-2 h-6 w-6" />}
+              image={<Presentation className="mr-2 h-6 w-6" />}
             />
           </Link>
         }
@@ -118,7 +117,7 @@ const ManualAI: NextPage = () => {
             <Button
               id="create-ai"
               label="New AI"
-              image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+              image={<FilePlus className="mr-2 h-5 w-5" />}
               onClick={() => create()}
             />
           )

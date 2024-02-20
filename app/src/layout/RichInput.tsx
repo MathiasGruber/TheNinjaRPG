@@ -1,6 +1,6 @@
 import React from "react";
 import { Editor } from "@tinymce/tinymce-react";
-import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
+import { SendHorizontal } from "lucide-react";
 import { Controller } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
@@ -82,7 +82,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             />
           )}
         />
-        <PaperAirplaneIcon
+        <SendHorizontal
           className="absolute bottom-10 right-5 h-12 w-12 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
           onClick={(e) => props.onSubmit && props.onSubmit(e)}
         />

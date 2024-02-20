@@ -14,8 +14,7 @@ import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
 import { sendGTMEvent } from "@next/third-parties/google";
-import { TrashIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
-import { AcademicCapIcon, ShareIcon } from "@heroicons/react/24/outline";
+import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
 
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -139,15 +138,15 @@ const Profile: NextPage = () => {
               </Modal>
             )}
             <Link href="/profile/recruit">
-              <ShareIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+              <Share2 className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
             </Link>
             <Link href="/profile/edit">
-              <WrenchScrewdriverIcon className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+              <Wrench className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
             </Link>
             <Confirm
               title="Confirm Deletion"
               button={
-                <TrashIcon
+                <Trash2
                   className={`h-6 w-6 cursor-pointer hover:fill-orange-500 ${
                     userData.deletionAt ? "fill-red-500" : ""
                   }`}
@@ -245,7 +244,7 @@ const Profile: NextPage = () => {
             id="create"
             color="red"
             label="Level up!"
-            image={<AcademicCapIcon className="h-6 w-6 mr-2" />}
+            image={<GraduationCap className="h-6 w-6 mr-2" />}
             onClick={(e) => {
               e.preventDefault();
               setShowModal(true);

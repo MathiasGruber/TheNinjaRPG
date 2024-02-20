@@ -16,7 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { BoltIcon, CheckIcon, XMarkIcon, TrashIcon } from "@heroicons/react/24/solid";
+import { Swords, Check, X, Trash2 } from "lucide-react";
 import type { z } from "zod";
 import type { UserChallenge } from "@/drizzle/schema";
 import type { ChallengeState, UserRank } from "@/drizzle/constants";
@@ -264,7 +264,7 @@ const ChallengeUser: React.FC = () => {
           <Button
             id="challenge"
             color="green"
-            image={<BoltIcon className="h-5 w-5 mr-1" />}
+            image={<Swords className="h-5 w-5 mr-1" />}
             label="Challenge Now!"
             onClick={() => create({ targetId: targetUser.userId })}
           />
@@ -354,7 +354,7 @@ const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge
           id="cancel"
           color="red"
           label=""
-          image={<TrashIcon className="h-5 w-5" />}
+          image={<Trash2 className="h-5 w-5" />}
           onClick={() => cancel({ challengeId: challenge.id })}
         />
       );
@@ -365,14 +365,14 @@ const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge
             id="accept"
             color="green"
             label=""
-            image={<CheckIcon className="h-5 w-5" />}
+            image={<Check className="h-5 w-5" />}
             onClick={() => accept({ challengeId: challenge.id })}
           />
           <Button
             id="reject"
             color="red"
             label=""
-            image={<XMarkIcon className="h-5 w-5" />}
+            image={<X className="h-5 w-5" />}
             onClick={() => reject({ challengeId: challenge.id })}
           />
         </div>

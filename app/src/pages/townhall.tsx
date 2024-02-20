@@ -9,9 +9,7 @@ import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import { show_toast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
-import { TrophyIcon } from "@heroicons/react/24/solid";
-import { HandRaisedIcon } from "@heroicons/react/24/solid";
-import { UserPlusIcon } from "@heroicons/react/24/solid";
+import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -149,7 +147,7 @@ const KageHall: React.FC<{
           <Button
             id="challenge"
             className="pt-3"
-            image={<HandRaisedIcon className="h-6 w-6 mr-2" />}
+            image={<DoorClosed className="h-6 w-6 mr-2" />}
             label="Resign as Kage"
             onClick={() => resign({ villageId: village.villageData.id })}
           />
@@ -159,7 +157,7 @@ const KageHall: React.FC<{
             <Button
               id="challenge"
               className="pt-3"
-              image={<TrophyIcon className="h-6 w-6 mr-2" />}
+              image={<Swords className="h-6 w-6 mr-2" />}
               label="Challenge Kage"
               onClick={() =>
                 attack({
@@ -192,7 +190,7 @@ const KageHall: React.FC<{
             id="challenge"
             color="red"
             className="pt-3"
-            image={<UserPlusIcon className="h-6 w-6 mr-2" />}
+            image={<ShieldPlus className="h-6 w-6 mr-2" />}
             label="Take kage as Staff"
             onClick={() => take()}
           />

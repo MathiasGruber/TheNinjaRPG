@@ -4,28 +4,27 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useUserData } from "@/utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CloudArrowDownIcon, UsersIcon } from "@heroicons/react/24/solid";
-import { ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/solid";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
-import Toggle from "../../../layout/Toggle";
-import ContentBox from "../../../layout/ContentBox";
-import Button from "../../../layout/Button";
-import InputField from "../../../layout/InputField";
-import SelectField from "../../../layout/SelectField";
-import { damageUser } from "../../../libs/combat/tags";
-import { calcLevel, calcHP } from "../../../libs/profile";
-import { StatType, GeneralType } from "../../../libs/combat/constants";
-import { statSchema, actSchema } from "../../../libs/combat/types";
+import { Save, Users, ClipboardCopy, Trash2, Eye, EyeOff } from "lucide-react";
+import Toggle from "@/layout/Toggle";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import Button from "@/layout/Button";
+import InputField from "@/layout/InputField";
+import SelectField from "@/layout/SelectField";
+import { damageUser } from "@/libs/combat/tags";
+import { calcLevel, calcHP } from "@/libs/profile";
+import { StatType, GeneralType } from "@/libs/combat/constants";
+import { statSchema, actSchema } from "@/libs/combat/types";
 import { api } from "@/utils/api";
-import { show_toast } from "../../../libs/toast";
+import { show_toast } from "@/libs/toast";
 import { Chart as ChartJS } from "chart.js/auto";
 import type { DamageSimulation } from "@/drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
 import type { UseFormReturn } from "react-hook-form";
-import type { UserEffect } from "../../../libs/combat/types";
-import type { BattleUserState } from "../../../libs/combat/types";
-import type { Consequence } from "../../../libs/combat/types";
+import type { UserEffect } from "@/libs/combat/types";
+import type { BattleUserState } from "@/libs/combat/types";
+import type { Consequence } from "@/libs/combat/types";
 
 // Default user
 type StatSchema = z.infer<typeof statSchema>;
@@ -124,6 +123,8 @@ const ManualDamageSimulator: NextPage = () => {
       },
     });
 
+  const isLoading = isSaving || isUpdating || isDeleting;
+
   // Total mutation loading state
   // TODO: USE THIS FOR UX
   // const isMutating = isSaving || isUpdating || isDeleting;
@@ -164,6 +165,7 @@ const ManualDamageSimulator: NextPage = () => {
       statTypes: actValues.statTypes,
       generalTypes: actValues.generalTypes,
       fromGround: false,
+      barrierAbsorb: 0,
     } as UserEffect;
     const consequences = new Map<string, Consequence>();
     damageUser(effect, attacker, defender, consequences, 1);
@@ -298,7 +300,7 @@ const ManualDamageSimulator: NextPage = () => {
             <div className="flex flex-row items-center">
               <p className="px-3 pt-3 text-lg font-bold">Attacker</p>
               <div className="grow"></div>
-              <UsersIcon
+              <Users
                 className="h-5 w-5 mr-3 mt-3"
                 onClick={() => setUserData(attForm)}
               />
@@ -318,7 +320,7 @@ const ManualDamageSimulator: NextPage = () => {
             <div className="flex flex-row items-center">
               <p className="px-3 pt-3 text-lg font-bold">Defender</p>
               <div className="grow"></div>
-              <UsersIcon
+              <Users
                 className="h-5 w-5 mr-3 mt-3"
                 onClick={() => setUserData(defForm)}
               />
@@ -386,13 +388,15 @@ const ManualDamageSimulator: NextPage = () => {
               </p>
             </div>
           )}
-
-          <Button
-            id="return"
-            label="Save Calculation"
-            onClick={onSubmit}
-            image={<CloudArrowDownIcon className="mr-1 h-5 w-5" />}
-          />
+          {!isLoading && (
+            <Button
+              id="return"
+              label="Save Calculation"
+              onClick={onSubmit}
+              image={<Save className="mr-1 h-5 w-5" />}
+            />
+          )}
+          {isLoading && <Loader explanation="Processing" />}
         </div>
       </ContentBox>
       {userData && (
@@ -409,11 +413,11 @@ const ManualDamageSimulator: NextPage = () => {
               <div className="text-lg font-bold flex flex-row">
                 <p>History</p>
                 <div className="grow"></div>
-                <EyeIcon
+                <Eye
                   className={`h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer`}
                   onClick={() => updateEntry({ active: true })}
                 />
-                <EyeSlashIcon
+                <EyeOff
                   className={`h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer`}
                   onClick={() => updateEntry({ active: false })}
                 />
@@ -424,14 +428,14 @@ const ManualDamageSimulator: NextPage = () => {
                 return (
                   <div key={i} className="flex flex-row items-center">
                     {entry.active === 1 && (
-                      <EyeIcon
+                      <Eye
                         className={`h-5 w-5 mr-1 hover:cursor-pointer`}
                         style={{ color: colors[i % colors.length] }}
                         onClick={() => updateEntry({ id: entry.id, active: false })}
                       />
                     )}
                     {entry.active === 0 && (
-                      <EyeSlashIcon
+                      <EyeOff
                         className="h-5 w-5 mr-1 hover:text-orange-500 hover:cursor-pointer"
                         onClick={() => updateEntry({ id: entry.id, active: true })}
                       />
@@ -452,11 +456,11 @@ const ManualDamageSimulator: NextPage = () => {
                     </div>
 
                     <div className="flex-grow" />
-                    <TrashIcon
+                    <Trash2
                       className="mr-1 h-5 w-5 hover:text-orange-500 hover:cursor-pointer"
                       onClick={() => deleteEntry({ id: entry.id })}
                     />
-                    <ArrowTopRightOnSquareIcon
+                    <ClipboardCopy
                       className="ml-1 h-5 w-5 hover:text-orange-900 hover:cursor-pointer"
                       onClick={() => {
                         const origin =

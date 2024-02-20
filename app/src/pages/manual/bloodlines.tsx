@@ -6,8 +6,7 @@ import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
 import MassEditContent from "@/layout/MassEditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
+import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -98,7 +97,7 @@ const ManualBloodlines: NextPage = () => {
                 <Button
                   id="create-bloodline"
                   label="New"
-                  image={<DocumentPlusIcon className="mr-1 h-5 w-5" />}
+                  image={<FilePlus className="mr-1 h-5 w-5" />}
                   onClick={() => create()}
                   marginClass=""
                   noJustify={true}
@@ -112,7 +111,7 @@ const ManualBloodlines: NextPage = () => {
                       id="create-bloodline"
                       className="sm:mr-5"
                       label="Edit"
-                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      image={<SquarePen className="mr-2 h-6 w-6" />}
                       marginClass="mb-1"
                       noJustify={true}
                       borderClass="rounded-r-md"

@@ -12,7 +12,7 @@ import Loader from "@/layout/Loader";
 import InputField from "@/layout/InputField";
 import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
-import { PencilSquareIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { SquarePen, Users, X } from "lucide-react";
 
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -107,12 +107,12 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 className="flex items-center rounded-lg p-2 text-base font-normal"
               >
                 {selectedConvo ? (
-                  <XMarkIcon
+                  <X
                     className="h-6 w-6 hover:fill-orange-500"
                     onClick={() => setSelectedConvo(null)}
                   />
                 ) : (
-                  <UserGroupIcon className="h-6 w-6" />
+                  <Users className="h-6 w-6" />
                 )}
                 <span className="... ml-3 truncate font-bold">Chats</span>
               </a>
@@ -155,7 +155,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                     {convo.createdAt.toDateString()}s
                   </span>
                   <div className="grow"></div>
-                  <XMarkIcon
+                  <X
                     className="ml-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
                     onClick={(e) => {
                       e.preventDefault();
@@ -231,7 +231,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
             <Button
               id="conversation"
               label="New"
-              image={<PencilSquareIcon className="mr-2 h-5 w-5" />}
+              image={<SquarePen className="mr-2 h-5 w-5" />}
             />
           }
           onAccept={onSubmit}

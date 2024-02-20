@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowsPointingInIcon, TrashIcon } from "@heroicons/react/24/solid";
+import { Merge, Trash2 } from "lucide-react";
 import Image from "next/image";
 import NavTabs from "@/layout/NavTabs";
 import ContentBox from "@/layout/ContentBox";
@@ -127,7 +127,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                       id="merge"
                       label="Merge Stacks"
                       color="green"
-                      image={<ArrowsPointingInIcon className="mr-3 h-5 w-5" />}
+                      image={<Merge className="mr-3 h-5 w-5" />}
                       onClick={() => merge({ itemId: item.itemId })}
                     />
                   </>
@@ -137,7 +137,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   id="drop"
                   label="Drop Item"
                   color="red"
-                  image={<TrashIcon className="mr-3 h-5 w-5" />}
+                  image={<Trash2 className="mr-3 h-5 w-5" />}
                   onClick={() => drop({ userItemId: item.id })}
                 />
               </div>

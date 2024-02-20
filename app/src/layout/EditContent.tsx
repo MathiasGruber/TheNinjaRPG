@@ -9,7 +9,7 @@ import AvatarImage from "@/layout/Avatar";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
 import { objectKeys } from "@/utils/typeutils";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { RefreshCw } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { show_toast } from "@/libs/toast";
@@ -283,7 +283,7 @@ export const EditContent = <
                       load ? (
                         <Loader noPadding={true} size={25} />
                       ) : (
-                        <ArrowPathIcon className="mr-1 h-8 w-8" />
+                        <RefreshCw className="mr-1 h-8 w-8" />
                       )
                     }
                     onClick={() => {

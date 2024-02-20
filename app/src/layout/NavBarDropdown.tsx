@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  ShieldExclamationIcon,
-  InformationCircleIcon,
-  ShieldCheckIcon,
-} from "@heroicons/react/24/outline";
+import { ShieldAlert, ShieldCheck, Info } from "lucide-react";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
 interface NavBarDropdownProps {
@@ -39,11 +35,11 @@ const NavBarDropdown: React.FC<NavBarDropdownProps> = (props) => {
             {props.links?.map((link) => {
               if (!link.icon && link.color) {
                 if (link.color === "red") {
-                  link.icon = <ShieldExclamationIcon className="mr-2 h-6 w-6" />;
+                  link.icon = <ShieldAlert className="mr-2 h-6 w-6" />;
                 } else if (link.color === "blue") {
-                  link.icon = <InformationCircleIcon className="mr-2 h-6 w-6" />;
+                  link.icon = <Info className="mr-2 h-6 w-6" />;
                 } else if (link.color === "green") {
-                  link.icon = <ShieldCheckIcon className="mr-2 h-6 w-6" />;
+                  link.icon = <ShieldCheck className="mr-2 h-6 w-6" />;
                 }
               }
               return (

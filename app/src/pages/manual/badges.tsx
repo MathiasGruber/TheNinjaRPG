@@ -7,7 +7,7 @@ import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { ActionSelector } from "@/layout/CombatActions";
 import { api } from "@/utils/api";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
+import { FilePlus } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
@@ -73,7 +73,7 @@ const ManualBadges: NextPage = () => {
           <Button
             id="create-badge"
             label="New"
-            image={<DocumentPlusIcon className="mr-1 h-6 w-6" />}
+            image={<FilePlus className="mr-2 h-6 w-6" />}
             onClick={() => create()}
             marginClass=""
             noJustify={true}

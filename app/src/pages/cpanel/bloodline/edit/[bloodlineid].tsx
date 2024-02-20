@@ -7,8 +7,7 @@ import { api } from "@/utils/api";
 import { DamageTag } from "@/libs/combat/types";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { DocumentMinusIcon } from "@heroicons/react/24/outline";
+import { FilePlus, FileMinus } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { BloodlineValidator } from "@/libs/combat/types";
@@ -77,7 +76,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
 
   // Icon for adding tag
   const AddTagIcon = (
-    <DocumentPlusIcon
+    <FilePlus
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
         setEffects([
@@ -182,7 +181,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             topRightContent={
               <div className="flex flex-row">
                 {AddTagIcon}
-                <DocumentMinusIcon
+                <FileMinus
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
                     const newEffects = [...effects];

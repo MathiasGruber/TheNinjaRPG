@@ -1,6 +1,6 @@
 import { type UseFormSetValue } from "react-hook-form";
 import { type UseFormRegister } from "react-hook-form";
-import { PlusCircleIcon, MinusCircleIcon } from "@heroicons/react/24/solid";
+import { PlusCircle, MinusCircle } from "lucide-react";
 
 interface SliderFieldProps {
   id: string;
@@ -25,8 +25,8 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           : ""}
       </label>
       <div className="flex flex-row items-center">
-        <MinusCircleIcon
-          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+        <MinusCircle
+          className="inline-block h-10 w-10 mr-2 fill-orange-100 text-orange-800 hover:fill-orange-600  hover:cursor-pointer"
           onClick={() =>
             props.watchedValue > props.min
               ? props.setValue(props.id, props.watchedValue - 1)
@@ -41,8 +41,8 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           {...(props.register && props.register(props.id, { valueAsNumber: true }))}
           className="h-5 w-full cursor-pointer appearance-none  rounded-lg bg-orange-200 accent-orange-800"
         />
-        <PlusCircleIcon
-          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+        <PlusCircle
+          className="inline-block h-10 w-10 ml-2 fill-orange-100 text-orange-800 hover:fill-orange-600 hover:cursor-pointer"
           onClick={() =>
             props.watchedValue < props.max
               ? props.setValue(props.id, props.watchedValue + 1)
@@ -74,8 +74,8 @@ export const UncontrolledSliderField: React.FC<UncontrolledSliderFieldProps> = (
         {props.label ? props.label : ""}
       </label>
       <div className="flex flex-row items-center">
-        <MinusCircleIcon
-          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+        <MinusCircle
+          className="inline-block mr-2 h-10 w-10 fill-orange-100 text-orange-800 hover:fill-orange-600 hover:cursor-pointer"
           onClick={() =>
             props.setValue(props.value > props.min ? props.value - 1 : props.value)
           }
@@ -89,8 +89,8 @@ export const UncontrolledSliderField: React.FC<UncontrolledSliderFieldProps> = (
           onChange={(e) => props.setValue(parseInt(e.target.value))}
           className="h-5 w-full cursor-pointer appearance-none  rounded-lg bg-orange-200 accent-orange-800"
         />
-        <PlusCircleIcon
-          className="inline-block h-12 w-12 text-orange-800 hover:fill-orange-600"
+        <PlusCircle
+          className="inline-block ml-2 h-10 w-10 fill-orange-100 text-orange-800 hover:fill-orange-600 hover:cursor-pointer"
           onClick={() =>
             props.setValue(props.value < props.max ? props.value + 1 : props.value)
           }

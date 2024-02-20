@@ -8,10 +8,7 @@ import NavTabs from "@/layout/NavTabs";
 import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
-import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/solid";
-import { EyeIcon } from "@heroicons/react/24/solid";
-import { EyeSlashIcon } from "@heroicons/react/24/solid";
-import { GlobeAltIcon } from "@heroicons/react/24/solid";
+import { UserRoundSearch, Globe2, Eye, EyeOff } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
@@ -183,25 +180,25 @@ const Travel: NextPage = () => {
             {activeTab === sectorLink && (
               <>
                 {showActive ? (
-                  <EyeIcon
-                    className={`h-7 w-7 fill-orange-500`}
+                  <Eye
+                    className={`h-7 w-7 text-orange-500`}
                     onClick={() => setShowActive((prev) => !prev)}
                   />
                 ) : (
-                  <EyeSlashIcon
+                  <EyeOff
                     className={`h-7 w-7`}
                     onClick={() => setShowActive((prev) => !prev)}
                   />
                 )}
                 <div className="px-1"></div>
-                <MagnifyingGlassCircleIcon
-                  className={`h-7 w-7 ${showSorrounding ? "fill-orange-500" : ""}`}
+                <UserRoundSearch
+                  className={`h-7 w-7 hover:text-orange-500 ${showSorrounding ? "fill-orange-500" : ""}`}
                   onClick={() => setShowSorrounding((prev) => !prev)}
                 />
               </>
             )}
-            <GlobeAltIcon
-              className={`h-7 w-7 mx-1 hover:fill-orange-500`}
+            <Globe2
+              className={`h-7 w-7 mx-1 hover:text-orange-500`}
               onClick={() => setShowSelectSector((prev) => !prev)}
             />
             <NavTabs

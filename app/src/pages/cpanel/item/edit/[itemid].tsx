@@ -5,8 +5,7 @@ import { useEffect } from "react";
 import { useSafePush } from "@/utils/routing";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { DocumentMinusIcon } from "@heroicons/react/24/outline";
+import { FilePlus, FileMinus } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { DamageTag } from "@/libs/combat/types";
@@ -72,7 +71,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
 
   // Icon for adding tag
   const AddTagIcon = (
-    <DocumentPlusIcon
+    <FilePlus
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
         setEffects([
@@ -137,7 +136,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             topRightContent={
               <div className="flex flex-row">
                 {AddTagIcon}
-                <DocumentMinusIcon
+                <FileMinus
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
                     const newEffects = [...effects];

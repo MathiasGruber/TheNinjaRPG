@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronDoubleLeftIcon } from "@heroicons/react/24/solid";
+import { ChevronsLeft } from "lucide-react";
 
 interface ContentBoxProps {
   children: React.ReactNode;
@@ -34,7 +34,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
                   className="ml-1 flex flex-row items-center hover:text-orange-700"
                   href={props.back_href}
                 >
-                  <ChevronDoubleLeftIcon className="h-6 w-6" />
+                  <ChevronsLeft className="h-6 w-6" />
                   {props.title}
                 </Link>
               ) : (

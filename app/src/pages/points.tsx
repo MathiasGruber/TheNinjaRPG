@@ -28,9 +28,7 @@ import { buyRepsSchema } from "@/validators/points";
 import { searchPaypalSchema } from "@/validators/points";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
-import { CheckIcon } from "@heroicons/react/24/outline";
-import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import { Check, ChevronsUp, Search } from "lucide-react";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -429,13 +427,13 @@ const PayPalSubscriptionButton = (props: {
           height={512}
         />
         {props.currentUserStatus === props.buttonStatus && (
-          <CheckIcon className="absolute top-0 right-0 h-8 w-8 rounded-full bg-green-500 p-1" />
+          <Check className="absolute top-0 right-0 h-8 w-8 rounded-full bg-green-500 p-1" />
         )}
         {hasSubscription && canUpgrade && (
           <Confirm
             title="Confirm Deletion"
             button={
-              <ChevronDoubleUpIcon className="absolute top-0 right-0 h-8 w-8 rounded-full bg-blue-500 p-1 cursor-pointer hover:bg-green-500" />
+              <ChevronsUp className="absolute top-0 right-0 h-8 w-8 rounded-full bg-blue-500 p-1 cursor-pointer hover:bg-green-500" />
             }
             onAccept={(e) => {
               e.preventDefault();
@@ -769,7 +767,7 @@ const LookupSubscription = () => {
           <Button
             id="submit"
             label="Search"
-            image={<MagnifyingGlassIcon className="mr-1 h-5 w-5" />}
+            image={<Search className="mr-1 h-5 w-5" />}
             onClick={handleSubmitRequest}
           />
         </>

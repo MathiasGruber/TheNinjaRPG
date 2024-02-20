@@ -7,8 +7,7 @@ import Loader from "@/layout/Loader";
 import Button from "@/layout/Button";
 import SelectField from "@/layout/SelectField";
 import MassEditContent from "@/layout/MassEditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
+import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { ItemRarities, ItemTypes } from "../../../drizzle/constants";
 import { api } from "@/utils/api";
@@ -117,7 +116,7 @@ const ManualItems: NextPage = () => {
                 <Button
                   id={`create-${itemType}`}
                   label={`New`}
-                  image={<DocumentPlusIcon className="mr-2 h-6 w-6" />}
+                  image={<FilePlus className="mr-2 h-6 w-6" />}
                   onClick={() => create({ type: itemType })}
                   marginClass="pr-2"
                   noJustify={true}
@@ -130,7 +129,7 @@ const ManualItems: NextPage = () => {
                     <Button
                       id="create-item"
                       label="Edit"
-                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      image={<SquarePen className="mr-2 h-6 w-6" />}
                       marginClass="mb-1 pr-2 w-full"
                       noJustify={true}
                       borderClass="rounded-b-md"

@@ -6,9 +6,8 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Button from "@/layout/Button";
 import Confirm from "@/layout/Confirm";
-import { SparklesIcon } from "@heroicons/react/24/solid";
+import { Sparkles, X, Check } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import { XMarkIcon } from "@heroicons/react/24/solid";
 import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -221,7 +220,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               <Confirm
                 title="Confirm deleting quest"
                 button={
-                  <XMarkIcon className="ml-2 h-6 w-6 hover:fill-orange-500 cursor-pointer" />
+                  <X className="ml-2 h-6 w-6 hover:fill-orange-500 cursor-pointer" />
                 }
                 onAccept={(e) => {
                   e.preventDefault();
@@ -270,7 +269,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
             id="return"
             className="mt-3"
             label={`Collect Reward`}
-            image={<SparklesIcon className="h-6 w-6 mr-2" />}
+            image={<Sparkles className="h-6 w-6 mr-2" />}
             onClick={() => checkRewards({ questId: quest.id })}
           />
         )}

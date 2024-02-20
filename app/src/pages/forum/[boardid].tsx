@@ -13,8 +13,7 @@ import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
 import Confirm from "@/layout/Confirm";
-import { BookmarkIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/solid";
-import { TrashIcon } from "@heroicons/react/24/solid";
+import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 
 import { api } from "@/utils/api";
 import { forumBoardSchema } from "../../validators/forum";
@@ -161,27 +160,25 @@ const Board: NextPage = () => {
       {allThreads &&
         allThreads.map((thread, i) => {
           // Icons, which have to be clickable for moderators+, but just shown otherwise
-          const MyBookmarkIcon = (
-            <BookmarkIcon
+          const MyBookmark = (
+            <Bookmark
               className={`mr-2 h-6 w-6 ${
                 thread.isPinned
-                  ? "fill-orange-500"
+                  ? "text-orange-500"
                   : canEdit
-                    ? "hover:fill-orange-500"
+                    ? "hover:text-orange-500"
                     : ""
               }`}
             />
           );
           const MyLockIcon = thread.isLocked ? (
-            <LockClosedIcon className="h-6 w-6 fill-orange-500" />
+            <Lock className="h-6 w-6 text-orange-500" />
           ) : (
-            <LockOpenIcon
-              className={`h-6 w-6 ${canEdit ? "hover:fill-orange-500" : ""}`}
-            />
+            <Unlock className={`h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`} />
           );
           const MyDeleteIcon = (
-            <TrashIcon
-              className={`ml-2 h-6 w-6 ${canEdit ? "hover:fill-orange-500" : ""}`}
+            <Trash2
+              className={`ml-2 h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`}
             />
           );
           // Dynamic Names
@@ -223,7 +220,7 @@ const Board: NextPage = () => {
                           <>
                             <Confirm
                               title={`Confirm ${pinAction}ning thread`}
-                              button={MyBookmarkIcon}
+                              button={MyBookmark}
                               onAccept={(e) => {
                                 e.preventDefault();
                                 pinThread({
@@ -260,7 +257,7 @@ const Board: NextPage = () => {
                           </>
                         ) : (
                           <>
-                            {MyBookmarkIcon}
+                            {MyBookmark}
                             {MyLockIcon}
                           </>
                         )}

@@ -10,7 +10,7 @@ import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import Button from "@/layout/Button";
 import { mutateContentSchema } from "@/validators/comments";
-import { UsersIcon } from "@heroicons/react/24/solid";
+import { Users } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -39,7 +39,7 @@ const VillageOverview: NextPage = () => {
   const subtitle =
     data && userData?.village ? (
       <div className="hover:text-orange-500 flex flex-row">
-        <UsersIcon className="h-6 w-6 mr-2" />
+        <Users className="h-6 w-6 mr-2" />
         <Link href={href}>Population: {data.population}</Link>
       </div>
     ) : (

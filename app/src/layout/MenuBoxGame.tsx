@@ -1,8 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import MenuBox from "./MenuBox";
-import { ShieldExclamationIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
-import { InformationCircleIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
+import { Megaphone, Info, ShieldAlert, ShieldCheck } from "lucide-react";
 import { getMainGameLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import type { NavBarDropdownLink } from "@/libs/menus";
@@ -26,7 +25,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
         title="Main Menu"
         link={
           <Link href="/notify">
-            <MegaphoneIcon className="h-6 w-6 hover:fill-black" />
+            <Megaphone className="h-6 w-6 hover:fill-black" />
           </Link>
         }
       >
@@ -44,13 +43,11 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
                     }`}
                   >
                     {notification.color === "red" && (
-                      <ShieldExclamationIcon className="mr-2 h-6 w-6" />
+                      <ShieldAlert className="mr-2 h-6 w-6" />
                     )}
-                    {notification.color === "blue" && (
-                      <InformationCircleIcon className="mr-2 h-6 w-6" />
-                    )}
+                    {notification.color === "blue" && <Info className="mr-2 h-6 w-6" />}
                     {notification.color === "green" && (
-                      <ShieldCheckIcon className="mr-2 h-6 w-6" />
+                      <ShieldCheck className="mr-2 h-6 w-6" />
                     )}
                     {notification.name}
                   </div>

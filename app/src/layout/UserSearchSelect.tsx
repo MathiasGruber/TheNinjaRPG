@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import InputField from "./InputField";
 import AvatarImage from "./Avatar";
-import { XMarkIcon } from "@heroicons/react/24/solid";
+import { X } from "lucide-react";
 import { getUnique } from "@/utils/grouping";
 import { api } from "@/utils/api";
 import type { FederalStatus } from "../../drizzle/schema";
@@ -77,7 +77,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
         />
       </div>
       {user.username}
-      <XMarkIcon
+      <X
         className="ml-2 h-6 w-6 rounded-full hover:bg-gray-300"
         onClick={(e) => {
           e.preventDefault();

@@ -4,8 +4,7 @@ import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
 import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
-import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { GiftIcon } from "@heroicons/react/24/solid";
+import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
@@ -33,19 +32,19 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   // Indicator icon
   const indicatorIcons = done ? (
     <div className="flex flex-col items-center gap-1">
-      <CheckIcon className="h-10 w-10 stroke-green-500" />
+      <Check className="h-10 w-10 stroke-green-500" />
       {hasReward(objective) &&
         (canCollect ? (
-          <GiftIcon
+          <Gift
             className="h-7 w-7 cursor-pointer hover:fill-orange-500"
             onClick={checkRewards}
           />
         ) : (
-          <GiftIcon className="h-7 w-7 fill-slate-500" />
+          <Gift className="h-7 w-7 fill-slate-500" />
         ))}
     </div>
   ) : (
-    <XMarkIcon className="h-10 w-10 stroke-red-500" />
+    <X className="h-10 w-10 stroke-red-500" />
   );
 
   // Show the objective

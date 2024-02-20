@@ -7,8 +7,7 @@ import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { api } from "@/utils/api";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
+import { FilePlus, SquarePen } from "lucide-react";
 import { QuestTypes, type QuestType } from "@/drizzle/constants";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
@@ -126,7 +125,7 @@ const ManualTravel: NextPage = () => {
                 <Button
                   id="create-quest"
                   label="New"
-                  image={<DocumentPlusIcon className="mr-1 h-6 w-6" />}
+                  image={<FilePlus className="mr-1 h-6 w-6" />}
                   onClick={() => create()}
                   marginClass=""
                   noJustify={true}
@@ -140,7 +139,7 @@ const ManualTravel: NextPage = () => {
                       id="create-quest"
                       className="sm:mr-5"
                       label="Edit"
-                      image={<PencilSquareIcon className="mr-2 h-6 w-6" />}
+                      image={<SquarePen className="mr-2 h-6 w-6" />}
                       marginClass="mb-1"
                       noJustify={true}
                       borderClass="rounded-r-md"

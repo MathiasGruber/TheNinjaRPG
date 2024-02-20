@@ -4,8 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { DocumentPlusIcon } from "@heroicons/react/24/outline";
-import { DocumentMinusIcon } from "@heroicons/react/24/outline";
+import { FilePlus, FileMinus } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { DamageTag } from "@/libs/combat/types";
@@ -74,7 +73,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
 
   // Icon for adding tag
   const AddTagIcon = (
-    <DocumentPlusIcon
+    <FilePlus
       className="h-6 w-6 cursor-pointer hover:fill-orange-500"
       onClick={() => {
         setEffects([
@@ -139,7 +138,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             topRightContent={
               <div className="flex flex-row">
                 {AddTagIcon}
-                <DocumentMinusIcon
+                <FileMinus
                   className="h-6 w-6 cursor-pointer hover:fill-orange-500"
                   onClick={() => {
                     const newEffects = [...effects];

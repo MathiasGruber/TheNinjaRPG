@@ -4,12 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
-import {
-  ChatBubbleLeftEllipsisIcon,
-  ShieldExclamationIcon,
-  ShieldCheckIcon,
-  RocketLaunchIcon,
-} from "@heroicons/react/24/solid";
+import { ShieldCheck, ShieldAlert, MessagesSquare, Rocket } from "lucide-react";
 
 import Button from "@/layout/Button";
 import ContentBox from "@/layout/ContentBox";
@@ -233,7 +228,7 @@ const Report: NextPage = () => {
                       <Button
                         id="submit_comment"
                         label="Add Comment"
-                        image={<ChatBubbleLeftEllipsisIcon className="mr-1 h-5 w-5" />}
+                        image={<MessagesSquare className="mr-1 h-5 w-5" />}
                       />
                     }
                     onAccept={async () => {
@@ -252,7 +247,7 @@ const Report: NextPage = () => {
                         id="submit_comment"
                         color="blue"
                         label="Escalate"
-                        image={<RocketLaunchIcon className="mr-1 h-5 w-5" />}
+                        image={<Rocket className="mr-1 h-5 w-5" />}
                       />
                     }
                     onAccept={async () => {
@@ -273,7 +268,7 @@ const Report: NextPage = () => {
                         id="submit_resolve"
                         label={canClear ? "Edit Ban" : "Ban User"}
                         color="red"
-                        image={<ShieldExclamationIcon className="mr-1 h-5 w-5" />}
+                        image={<ShieldAlert className="mr-1 h-5 w-5" />}
                       />
                     }
                     onAccept={async () => {
@@ -293,7 +288,7 @@ const Report: NextPage = () => {
                         id="submit_resolve"
                         color="green"
                         label="Clear Report"
-                        image={<ShieldCheckIcon className="mr-1 h-5 w-5" />}
+                        image={<ShieldCheck className="mr-1 h-5 w-5" />}
                       />
                     }
                     onAccept={async () => {

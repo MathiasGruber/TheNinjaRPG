@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PencilSquareIcon, TrashIcon, FlagIcon } from "@heroicons/react/24/outline";
+import { SquarePen, Trash2, Flag } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
@@ -161,7 +161,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
         props.user && (
           <div className="flex flex-row">
             {isAuthor && props.editComment && (
-              <PencilSquareIcon
+              <SquarePen
                 className={`h-6 w-6 ${
                   props.editing ? "fill-orange-500" : "hover:fill-orange-500"
                 }`}
@@ -173,7 +173,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                 user={props.user}
                 content={props.comment}
                 system={props.system}
-                button={<FlagIcon className="h-6 w-6 hover:fill-orange-500" />}
+                button={<Flag className="h-6 w-6 hover:fill-orange-500" />}
               />
             )}
             {userData &&
@@ -181,7 +181,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
               props.deleteComment && (
                 <Confirm
                   title="Confirm Deletion"
-                  button={<TrashIcon className="h-6 w-6 hover:fill-orange-500" />}
+                  button={<Trash2 className="h-6 w-6 hover:fill-orange-500" />}
                   onAccept={(e) => {
                     e.preventDefault();
                     props.deleteComment &&

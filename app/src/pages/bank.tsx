@@ -11,10 +11,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { getSearchValidator } from "@/validators/register";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
-import { BanknotesIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
-import { ChevronDoubleLeftIcon } from "@heroicons/react/24/outline";
-import { ChevronDoubleRightIcon } from "@heroicons/react/24/outline";
-import { ChevronDoubleUpIcon } from "@heroicons/react/24/outline";
+import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -190,7 +187,7 @@ const Bank: NextPage = () => {
         />
         <div className="grid grid-cols-2 text-center my-4">
           <div className="flex flex-col items-center">
-            <BanknotesIcon className="h-20 w-20" />
+            <Coins className="h-20 w-20" />
             <p className="text-lg">{money} ryo</p>
             <h2 className="font-bold text-xl">Money on hand</h2>
             <div className="w-full px-4">
@@ -209,14 +206,14 @@ const Bank: NextPage = () => {
                       await onDeposit();
                     }}
                   >
-                    <ChevronDoubleRightIcon className="h-5 w-5" />
+                    <ChevronsRight className="h-5 w-5" />
                   </button>
                 }
               />
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <BuildingLibraryIcon className="h-20 w-20" />
+            <Landmark className="h-20 w-20" />
             <p className="text-lg">{bank} ryo</p>
             <h2 className="font-bold text-xl">Money in bank</h2>
             <div className="w-full px-4">
@@ -235,7 +232,7 @@ const Bank: NextPage = () => {
                       await onWithdraw();
                     }}
                   >
-                    <ChevronDoubleLeftIcon className="h-5 w-5" />
+                    <ChevronsLeft className="h-5 w-5" />
                   </button>
                 }
               />
@@ -272,7 +269,7 @@ const Bank: NextPage = () => {
                   await onTransfer();
                 }}
               >
-                <ChevronDoubleUpIcon className="h-5 w-5" />
+                <ChevronsUp className="h-5 w-5" />
               </button>
             }
           />

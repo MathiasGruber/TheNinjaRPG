@@ -5,7 +5,7 @@ import Button from "@/layout/Button";
 import AvatarImage from "@/layout/Avatar";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import { Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -182,7 +182,7 @@ const Avatar: NextPage = () => {
                   <Confirm
                     title="Confirm Deletion"
                     button={
-                      <TrashIcon className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:fill-orange-500" />
+                      <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:fill-orange-500" />
                     }
                     onAccept={(e) => {
                       e.preventDefault();

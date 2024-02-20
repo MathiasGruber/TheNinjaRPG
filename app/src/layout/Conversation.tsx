@@ -6,7 +6,7 @@ import { CommentOnConversation } from "@/layout/Comment";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { RefreshCw } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -172,7 +172,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
                 {isCommenting && <Loader />}
               </div>
-              <ArrowPathIcon
+              <RefreshCw
                 className="h-10 w-10 absolute right-5 top-3 z-50 text-gray-400 hover:text-gray-600 hover:cursor-pointer"
                 onClick={() => refetch()}
               />

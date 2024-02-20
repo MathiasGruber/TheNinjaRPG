@@ -6,7 +6,7 @@ import Confirm from "@/layout/Confirm";
 import ReactHtmlParser from "react-html-parser";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
-import { PencilSquareIcon, TrashIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import { SquarePen, Trash2, BarChartBig } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
@@ -120,18 +120,18 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   href={`/cpanel/${showStatistic}/statistics/${item.id}`}
                   className="mr-1"
                 >
-                  <ChartBarIcon className="h-6 w-6 hover:fill-orange-500" />
+                  <BarChartBig className="h-6 w-6 hover:fill-orange-500" />
                 </Link>
               )}
               {showEdit && userData && canChangeContent(userData.role) && (
                 <>
                   <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
-                    <PencilSquareIcon className="h-6 w-6 hover:fill-orange-500" />
+                    <SquarePen className="h-6 w-6 hover:fill-orange-500" />
                   </Link>
                   <Confirm
                     title="Confirm Deletion"
                     button={
-                      <TrashIcon className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
+                      <Trash2 className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
                     }
                     onAccept={(e) => {
                       e.preventDefault();

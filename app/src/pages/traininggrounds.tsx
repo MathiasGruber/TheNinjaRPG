@@ -21,9 +21,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/village";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
-import { BoltIcon, XCircleIcon } from "@heroicons/react/24/solid";
-import { ShieldExclamationIcon } from "@heroicons/react/24/solid";
-import { FingerPrintIcon } from "@heroicons/react/24/solid";
+import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { getUserElements } from "@/validators/user";
@@ -114,7 +112,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
 
   // Convenience definitions
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
-  const iconClassName = "w-5 h-5 absolute top-1 right-1 fill-blue-500";
+  const iconClassName = "w-5 h-5 absolute top-1 right-1 text-blue-500";
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (isLoading) return <Loader explanation="Processing..." />;
@@ -137,11 +135,11 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
           const part = stat.match(/[a-z]+/g)?.[0] as string;
           const label = part.charAt(0).toUpperCase() + part.slice(1);
           const icon = stat.includes("Offence") ? (
-            <BoltIcon className={iconClassName} />
+            <Swords className={iconClassName} />
           ) : stat.includes("Defence") ? (
-            <ShieldExclamationIcon className={iconClassName} />
+            <ShieldAlert className={iconClassName} />
           ) : (
-            <FingerPrintIcon className={iconClassName} />
+            <Fingerprint className={iconClassName} />
           );
           return (
             <div
@@ -432,7 +430,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                     }}
                   />
                 </p>
-                <XCircleIcon
+                <XCircle
                   className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:fill-orange-500"
                   onClick={() => cancel()}
                 />

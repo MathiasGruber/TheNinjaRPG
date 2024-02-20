@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronDoubleDownIcon } from "@heroicons/react/24/outline";
+import { ChevronsDown } from "lucide-react";
 
 interface AccordionProps {
   title: string;
@@ -28,7 +28,7 @@ const Accordion: React.FC<AccordionProps> = (props) => {
           </p>
         </div>
         <div className="grow"></div>
-        <ChevronDoubleDownIcon
+        <ChevronsDown
           className={`h-6 w-6 hover:cursor-pointer ${
             active ? "transform rotate-90" : ""
           }`}

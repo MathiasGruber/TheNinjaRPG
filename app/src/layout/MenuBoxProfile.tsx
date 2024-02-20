@@ -6,11 +6,7 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { energyPerSecond } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
-import { WrenchScrewdriverIcon } from "@heroicons/react/24/solid";
-import { ShieldCheckIcon } from "@heroicons/react/24/solid";
-import { SunIcon } from "@heroicons/react/24/solid";
-import { MoonIcon } from "@heroicons/react/24/solid";
-import { HeartIcon } from "@heroicons/react/24/solid";
+import { Settings, ShieldCheck, Moon, Sun, Heart } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -138,20 +134,20 @@ const MenuBoxProfile: React.FC = () => {
       case "BATTLE":
         return (
           <Link href="/combat" className="flex flex-row hover:text-orange-500">
-            BATTLE <ShieldCheckIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+            BATTLE <ShieldCheck className="ml-1 h-6 w-6 hover:fill-orange-500" />
           </Link>
         );
       case "ASLEEP":
         return (
           <Link href="/home" className="flex flex-row hover:text-orange-500">
-            ASLEEP <SunIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+            ASLEEP <Sun className="ml-1 h-6 w-6 hover:fill-orange-500" />
           </Link>
         );
       case "AWAKE":
         if (location) {
           return (
             <Link href="/home" className="flex flex-row hover:text-orange-500">
-              AWAKE <MoonIcon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+              AWAKE <Moon className="ml-1 h-6 w-6 hover:fill-orange-500" />
             </Link>
           );
         } else {
@@ -168,7 +164,7 @@ const MenuBoxProfile: React.FC = () => {
         title={"Hi " + userData.username}
         link={
           <Link href="/avatar">
-            <WrenchScrewdriverIcon className="h-6 w-6 hover:fill-orange-500" />
+            <Settings className="h-6 w-6 hover:fill-orange-500" />
           </Link>
         }
       >
@@ -250,7 +246,7 @@ const MenuBoxProfile: React.FC = () => {
             <>
               <hr className="my-2" />
               <div className="flex flex-row">
-                <ShieldCheckIcon className="h-6 w-6 mr-2" />
+                <ShieldCheck className="h-6 w-6 mr-2" />
                 <Cooldown
                   createdAt={Date.now()}
                   totalSeconds={immunitySecondsLeft}
@@ -302,10 +298,10 @@ const MenuBoxProfile: React.FC = () => {
                     } else if (effect.type === "reflect") {
                       return showStat(effect, "reflect", i, className, arrow);
                     } else if (effect.type === "damage") {
-                      const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                      const icon = <Heart className="h-6 w-6 mr-2" />;
                       return show(i, `Dmg ${cooldown}`, className, icon);
                     } else if (effect.type === "heal") {
-                      const icon = <HeartIcon className="h-6 w-6 mr-2" />;
+                      const icon = <Heart className="h-6 w-6 mr-2" />;
                       return show(i, `Heal ${cooldown}`, className, icon);
                     } else if (effect.type === "increasearmor") {
                       return showStat(effect, "protection", i, "text-green-500", "↑");
