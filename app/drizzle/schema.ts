@@ -1141,6 +1141,7 @@ export const kageDefendedChallenges = mysqlTable(
     villageId: varchar("villageId", { length: 191 }).notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
+    didWin: tinyint("didWin").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

@@ -206,7 +206,7 @@ const KageHall: React.FC<{
       {village.defendedChallenges && village.defendedChallenges.length > 0 && (
         <ContentBox
           title="Challenge Record"
-          subtitle="Challenges defended by current Kage"
+          subtitle="Kage Challenges & Outcomes"
           initialBreak={true}
         >
           <div className="grid grid-cols-4 lggrid-cols-5">
@@ -219,9 +219,15 @@ const KageHall: React.FC<{
                     hover_effect={true}
                     size={200}
                   />
-                  <p className="font-bold text-red-500 text-sm">
-                    Lasted {challenge.rounds} rounds
-                  </p>
+                  {challenge.didWin > 0 ? (
+                    <p className="font-bold text-green-500 text-sm">
+                      Won, {challenge.rounds} rounds
+                    </p>
+                  ) : (
+                    <p className="font-bold text-red-500 text-sm">
+                      Lost, {challenge.rounds} rounds
+                    </p>
+                  )}
                   <p className="italic text-xs">
                     {challenge.createdAt.toLocaleDateString()}
                   </p>

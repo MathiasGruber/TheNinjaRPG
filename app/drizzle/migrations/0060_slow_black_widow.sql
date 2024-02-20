@@ -1,0 +1,1 @@
+ALTER TABLE `KageDefendedChallenges` ADD `didWin` tinyint DEFAULT 0 NOT NULL;

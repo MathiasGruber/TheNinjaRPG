@@ -147,25 +147,24 @@ export const updateVillage = async (
   if (user.villageId !== kage.villageId) return;
   // Apply
   if (result) {
-    if (result && result.didWin > 0) {
-      await Promise.all([
-        client
-          .update(village)
-          .set({ kageId: user.userId })
-          .where(eq(village.id, user.villageId)),
-        client
-          .delete(kageDefendedChallenges)
-          .where(eq(kageDefendedChallenges.villageId, kage.villageId)),
-      ]);
-    } else {
-      await client.insert(kageDefendedChallenges).values({
+    await Promise.all([
+      ...(result.didWin > 0
+        ? [
+            client
+              .update(village)
+              .set({ kageId: user.userId })
+              .where(eq(village.id, user.villageId)),
+          ]
+        : []),
+      client.insert(kageDefendedChallenges).values({
         id: nanoid(),
         villageId: user.villageId,
         userId: user.userId,
         kageId: kage.userId,
+        didWin: result.didWin,
         rounds: curBattle.round,
-      });
-    }
+      }),
+    ]);
   }
 };
 

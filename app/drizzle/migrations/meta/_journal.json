@@ -421,6 +421,13 @@
       "when": 1708108942157,
       "tag": "0059_orange_lilandra",
       "breakpoints": false
+    },
+    {
+      "idx": 60,
+      "version": "5",
+      "when": 1708424462457,
+      "tag": "0060_slow_black_widow",
+      "breakpoints": false
     }
   ]
 }
