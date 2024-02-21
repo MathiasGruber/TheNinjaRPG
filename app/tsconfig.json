@@ -28,6 +28,7 @@
       "@/server/*": ["src/server/*"],
       "@/api/*": ["src/server/api/*"],
       "@/routers/*": ["src/server/api/routers/*"],
+      "@/components/*": ["src/components/*"],
     },
   },
   "include": [

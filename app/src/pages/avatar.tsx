@@ -1,11 +1,11 @@
 import { type NextPage } from "next";
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
-import Button from "@/layout/Button";
 import AvatarImage from "@/layout/Avatar";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
-import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trash2, SwitchCamera } from "lucide-react";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -138,7 +138,12 @@ const Avatar: NextPage = () => {
                 <p className="italic">- Costs 1 reputation point</p>
                 <Confirm
                   title="Confirm Avatar Change"
-                  button={<Button id="create" label="New Avatar" />}
+                  button={
+                    <Button id="create" className="w-full">
+                      <SwitchCamera className="h-5 w-5 mr-2" />
+                      New Avatar
+                    </Button>
+                  }
                   onAccept={(e) => {
                     e.preventDefault();
                     createAvatar.mutate();

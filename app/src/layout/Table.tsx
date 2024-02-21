@@ -1,5 +1,5 @@
 import AvatarImage from "@/layout/Avatar";
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { useSafePush } from "@/utils/routing";
 import { secondsPassed } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -104,18 +104,19 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                 </td>
               ))}
               {props.buttons && (
-                <td className="flex flex-row px-6 py-4">
+                <td className="px-6 py-4">
                   {props.buttons.map((button, i) => (
                     <Button
                       id={`button-${i}`}
                       key={`button-${i}`}
-                      label={button.label}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         button.onClick(row);
                       }}
-                    />
+                    >
+                      {button.label}
+                    </Button>
                   ))}
                 </td>
               )}

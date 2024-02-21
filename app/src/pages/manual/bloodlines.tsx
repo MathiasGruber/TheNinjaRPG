@@ -4,8 +4,8 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import MassEditContent from "@/layout/MassEditContent";
+import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
@@ -93,29 +93,19 @@ const ManualBloodlines: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-row">
-                <Button
-                  id="create-bloodline"
-                  label="New"
-                  image={<FilePlus className="mr-1 h-5 w-5" />}
-                  onClick={() => create()}
-                  marginClass=""
-                  noJustify={true}
-                  borderClass="rounded-l-md border-r-2 border-orange-900"
-                />
+              <div className="flex flex-row gap-1">
+                <Button id="create-bloodline" onClick={() => create()}>
+                  <FilePlus className="mr-1 h-5 w-5" />
+                  New
+                </Button>
                 <MassEditContent
                   title="Mass Edit Bloodlines"
                   type="bloodline"
                   button={
-                    <Button
-                      id="create-bloodline"
-                      className="sm:mr-5"
-                      label="Edit"
-                      image={<SquarePen className="mr-2 h-6 w-6" />}
-                      marginClass="mb-1"
-                      noJustify={true}
-                      borderClass="rounded-r-md"
-                    />
+                    <Button id="create-bloodline" className="sm:mr-5">
+                      <SquarePen className="mr-2 h-6 w-6" />
+                      Edit
+                    </Button>
                   }
                 />
               </div>

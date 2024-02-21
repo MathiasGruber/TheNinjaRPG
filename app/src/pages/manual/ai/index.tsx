@@ -4,7 +4,7 @@ import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { FilePlus, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
@@ -91,11 +91,10 @@ const ManualAI: NextPage = () => {
         back_href="/manual"
         topRightContent={
           <Link href="/manual/ai/balance">
-            <Button
-              id="jutsu-statistics"
-              label="Balance Statistics"
-              image={<Presentation className="mr-2 h-6 w-6" />}
-            />
+            <Button id="jutsu-statistics">
+              <Presentation className="mr-2 h-6 w-6" />
+              Balance Statistics
+            </Button>
           </Link>
         }
       >
@@ -114,12 +113,9 @@ const ManualAI: NextPage = () => {
         topRightContent={
           userData &&
           canChangeContent(userData.role) && (
-            <Button
-              id="create-ai"
-              label="New AI"
-              image={<FilePlus className="mr-2 h-5 w-5" />}
-              onClick={() => create()}
-            />
+            <Button id="create-ai" onClick={() => create()}>
+              <FilePlus className="mr-2 h-5 w-5" /> New AI
+            </Button>
           )
         }
       >

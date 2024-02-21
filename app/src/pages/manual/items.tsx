@@ -4,9 +4,9 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import SelectField from "@/layout/SelectField";
 import MassEditContent from "@/layout/MassEditContent";
+import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { ItemRarities, ItemTypes } from "../../../drizzle/constants";
@@ -112,28 +112,23 @@ const ManualItems: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-col">
+              <div className="grid grid-cols-1 gap-1 mr-1">
                 <Button
                   id={`create-${itemType}`}
-                  label={`New`}
-                  image={<FilePlus className="mr-2 h-6 w-6" />}
+                  className="w-full"
                   onClick={() => create({ type: itemType })}
-                  marginClass="pr-2"
-                  noJustify={true}
-                  borderClass="rounded-t-md border-b-2 border-orange-900"
-                />
+                >
+                  <FilePlus className="mr-2 h-6 w-6" />
+                  New
+                </Button>
                 <MassEditContent
                   title="Mass Edit Items"
                   type="item"
                   button={
-                    <Button
-                      id="create-item"
-                      label="Edit"
-                      image={<SquarePen className="mr-2 h-6 w-6" />}
-                      marginClass="mb-1 pr-2 w-full"
-                      noJustify={true}
-                      borderClass="rounded-b-md"
-                    />
+                    <Button id="create-item" className="w-full">
+                      <SquarePen className="mr-2 h-6 w-6" />
+                      Edit
+                    </Button>
                   }
                 />
               </div>

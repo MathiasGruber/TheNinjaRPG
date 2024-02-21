@@ -8,7 +8,7 @@ import StatusBar from "@/layout/StatusBar";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { mutateContentSchema } from "@/validators/comments";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -140,7 +140,7 @@ const VillageOverview: NextPage = () => {
             <Confirm
               title="Update Notice"
               proceed_label="Submit"
-              button={<Button id="create" label="Update" />}
+              button={<Button id="create">Update</Button>}
               onAccept={onSubmit}
             >
               <RichInput

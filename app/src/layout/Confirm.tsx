@@ -7,7 +7,7 @@ interface ConfirmProps {
   children: string | React.ReactNode;
   proceed_label?: string;
   isValid?: boolean;
-  onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
+  onAccept?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
 const Confirm: React.FC<ConfirmProps> = (props) => {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import Image from "next/image";
 import InputField, { type InputFieldProps } from "@/layout/InputField";
 import Loader from "@/layout/Loader";
+import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -32,10 +33,10 @@ const ChatInputField: React.FC<ChatInputFieldProps> = (props) => {
         error={errors.freeText?.message}
         autofocus={true}
         options={
-          <button
+          <Button
             type="submit"
-            className={`absolute top-0 right-0 px-2.5 h-full text-white bg-green-600 hover:bg-red-800 border-amber-900 rounded-r-lg border ${
-              props.isLoading ? "disabled opacity-50 cursor-not-allowed" : ""
+            className={`absolute top-0 right-0 h-full bg-green-600 border-primary border ${
+              props.isLoading ? "disabled" : ""
             }`}
             onClick={(e) => {
               e.preventDefault();
@@ -52,7 +53,7 @@ const ChatInputField: React.FC<ChatInputFieldProps> = (props) => {
                 height={20}
               />
             )}
-          </button>
+          </Button>
         }
       />
     </div>

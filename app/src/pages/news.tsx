@@ -1,11 +1,11 @@
 import { type NextPage } from "next";
 import { useState, useEffect } from "react";
 import ContentBox from "@/layout/ContentBox";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import Link from "next/link";
 import Image from "next/image";
 import ReactHtmlParser from "react-html-parser";
+import { Button } from "@/components/ui/button";
 import { SquarePen, MessagesSquare } from "lucide-react";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
@@ -57,11 +57,10 @@ const News: NextPage = () => {
       topRightContent={
         canPost && (
           <Link href={`/forum/${board.id}`}>
-            <Button
-              id="conversation"
-              label="New"
-              image={<SquarePen className="mr-2 h-5 w-5" />}
-            />
+            <Button id="conversation">
+              <SquarePen className="mr-2 h-5 w-5" />
+              New
+            </Button>
           </Link>
         )
       }

@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
 import SelectField from "@/layout/SelectField";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import { Button } from "@/components/ui/button";
 import { api } from "@/utils/api";
 import { FilePlus, SquarePen } from "lucide-react";
 import { QuestTypes, type QuestType } from "@/drizzle/constants";
@@ -121,29 +121,19 @@ const ManualTravel: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-row">
-                <Button
-                  id="create-quest"
-                  label="New"
-                  image={<FilePlus className="mr-1 h-6 w-6" />}
-                  onClick={() => create()}
-                  marginClass=""
-                  noJustify={true}
-                  borderClass="rounded-l-md border-r-2 border-orange-900"
-                />
+              <div className="flex flex-row gap-1">
+                <Button id="create-quest" onClick={() => create()}>
+                  <FilePlus className="mr-1 h-6 w-6" />
+                  New
+                </Button>
                 <MassEditContent
                   title="Mass Edit Quests"
                   type="quest"
                   button={
-                    <Button
-                      id="create-quest"
-                      className="sm:mr-5"
-                      label="Edit"
-                      image={<SquarePen className="mr-2 h-6 w-6" />}
-                      marginClass="mb-1"
-                      noJustify={true}
-                      borderClass="rounded-r-md"
-                    />
+                    <Button id="create-quest">
+                      <SquarePen className="mr-2 h-6 w-6" />
+                      Edit
+                    </Button>
                   }
                 />
               </div>

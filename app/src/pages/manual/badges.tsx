@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { api } from "@/utils/api";
 import { FilePlus } from "lucide-react";
@@ -70,15 +70,10 @@ const ManualBadges: NextPage = () => {
       back_href="/manual"
       topRightContent={
         userData && canChangeContent(userData.role) ? (
-          <Button
-            id="create-badge"
-            label="New"
-            image={<FilePlus className="mr-2 h-6 w-6" />}
-            onClick={() => create()}
-            marginClass=""
-            noJustify={true}
-            borderClass="rounded-md border-2 border-orange-900"
-          />
+          <Button id="create-badge" onClick={() => create()}>
+            <FilePlus className="mr-2 h-6 w-6" />
+            New
+          </Button>
         ) : undefined
       }
     >

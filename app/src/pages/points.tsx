@@ -8,9 +8,9 @@ import Loader from "@/layout/Loader";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
 import InputField from "@/layout/InputField";
-import Button from "@/layout/Button";
 import Post from "@/layout/Post";
 import ReactCountryFlag from "react-country-flag";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
@@ -597,8 +597,8 @@ const SubscriptionsOverview = () => {
   const allSubscriptions = subscriptions?.map((subscription) => {
     return {
       ...subscription,
-      payer: subscription.createdBy.avatar,
-      receiver: subscription.affectedUser.avatar,
+      payer: subscription.createdBy?.avatar,
+      receiver: subscription.affectedUser?.avatar,
     };
   });
   type Subscription = ArrayElement<typeof allSubscriptions>;
@@ -764,12 +764,10 @@ const LookupSubscription = () => {
             register={searchForm.register}
             error={searchForm.formState.errors.text?.message}
           />
-          <Button
-            id="submit"
-            label="Search"
-            image={<Search className="mr-1 h-5 w-5" />}
-            onClick={handleSubmitRequest}
-          />
+          <Button id="submit" className="w-full" onClick={handleSubmitRequest}>
+            <Search className="mr-1 h-5 w-5" />
+            Search
+          </Button>
         </>
       )}
     </ContentBox>

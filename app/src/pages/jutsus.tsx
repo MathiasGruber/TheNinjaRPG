@@ -4,7 +4,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -156,13 +156,14 @@ const MyJutsu: NextPage = () => {
                 <div className="grow"></div>
                 <Button
                   id="return"
-                  label={`Forget [${forgetRyo} ryo]`}
-                  color="red"
-                  image={<Trash2 className="h-6 w-6 mr-2" />}
+                  variant="destructive"
                   onClick={() => {
                     forget({ id: userjutsu.id });
                   }}
-                />
+                >
+                  <Trash2 className="h-6 w-6 mr-2" />
+                  Forget [${forgetRyo} ryo]
+                </Button>
               </div>
             </>
           )}

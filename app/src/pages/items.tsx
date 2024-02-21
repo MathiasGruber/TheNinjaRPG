@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import ContentImage from "@/layout/ContentImage";
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -123,23 +123,21 @@ const Backpack: React.FC<BackpackProps> = (props) => {
               <div className="flex flex-row">
                 {item.canStack && (
                   <>
-                    <Button
-                      id="merge"
-                      label="Merge Stacks"
-                      color="green"
-                      image={<Merge className="mr-3 h-5 w-5" />}
-                      onClick={() => merge({ itemId: item.itemId })}
-                    />
+                    <Button id="merge" onClick={() => merge({ itemId: item.itemId })}>
+                      <Merge className="mr-2 h-5 w-5" />
+                      Merge Stacks
+                    </Button>
                   </>
                 )}
                 <div className="grow"></div>
                 <Button
                   id="drop"
-                  label="Drop Item"
-                  color="red"
-                  image={<Trash2 className="mr-3 h-5 w-5" />}
+                  variant="destructive"
                   onClick={() => drop({ userItemId: item.id })}
-                />
+                >
+                  <Trash2 className="mr-2 h-5 w-5" />
+                  Drop Item
+                </Button>
               </div>
             </>
           )}

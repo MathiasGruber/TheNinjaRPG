@@ -4,9 +4,9 @@ import Image from "next/image";
 import Toggle from "@/layout/Toggle";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import Button from "@/layout/Button";
 import Confirm from "@/layout/Confirm";
-import { Sparkles, X, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, X } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -268,10 +268,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           <Button
             id="return"
             className="mt-3"
-            label={`Collect Reward`}
-            image={<Sparkles className="h-6 w-6 mr-2" />}
             onClick={() => checkRewards({ questId: quest.id })}
-          />
+          >
+            <Sparkles className="h-5 w-5 mr-2" />
+            Collect Reward
+          </Button>
         )}
       </div>
     </Post>

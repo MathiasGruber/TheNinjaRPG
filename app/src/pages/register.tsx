@@ -9,8 +9,9 @@ import ContentBox from "@/layout/ContentBox";
 import InputField from "@/layout/InputField";
 import SelectField from "@/layout/SelectField";
 import CheckBox from "@/layout/CheckBox";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
+import { UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { fetchMap } from "@/libs/travel/globe";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -281,11 +282,10 @@ const Register: React.FC = () => {
               register={register}
               error={errors.read_earlyaccess?.message}
             />
-            <Button
-              id="create"
-              label="Create Character"
-              onClick={handleCreateCharacter}
-            />
+            <Button id="create" onClick={handleCreateCharacter} className="w-full">
+              <UserPlus className="mr-2 h-5 w-5" />
+              Create Character
+            </Button>
           </>
         )}
       </ContentBox>

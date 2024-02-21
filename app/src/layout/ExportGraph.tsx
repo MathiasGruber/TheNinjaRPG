@@ -1,4 +1,4 @@
-import Button from "@/layout/Button";
+import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
 interface ExportGraphProps {
@@ -11,8 +11,7 @@ const ExportGraph: React.FC<ExportGraphProps> = (props) => {
   return (
     <Button
       id="save"
-      label="Export Graph"
-      image={<Download className="mr-3 h-6 w-6" />}
+      className="w-full"
       onClick={() => {
         canvas?.toBlob((blob) => {
           if (blob) {
@@ -24,7 +23,10 @@ const ExportGraph: React.FC<ExportGraphProps> = (props) => {
           }
         });
       }}
-    />
+    >
+      <Download className="mr-3 h-5 w-5" />
+      Export Graph
+    </Button>
   );
 };
 

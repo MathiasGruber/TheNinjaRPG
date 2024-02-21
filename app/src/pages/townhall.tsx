@@ -3,10 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
+import { Button } from "@/components/ui/button";
 import { show_toast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
 import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
@@ -146,26 +146,28 @@ const KageHall: React.FC<{
         {isKage && (
           <Button
             id="challenge"
-            className="pt-3"
-            image={<DoorClosed className="h-6 w-6 mr-2" />}
-            label="Resign as Kage"
+            className="my-2 w-full"
             onClick={() => resign({ villageId: village.villageData.id })}
-          />
+          >
+            <DoorClosed className="h-6 w-6 mr-2" />
+            Resign as Kage
+          </Button>
         )}
         {canChallengeKage(user) && !isKage && (
           <>
             <Button
               id="challenge"
-              className="pt-3"
-              image={<Swords className="h-6 w-6 mr-2" />}
-              label="Challenge Kage"
+              className="my-2 w-full"
               onClick={() =>
                 attack({
                   kageId: village.villageData.kageId,
                   villageId: village.villageData.id,
                 })
               }
-            />
+            >
+              <Swords className="h-6 w-6 mr-2" />
+              Challenge Kage
+            </Button>
             <p>
               <span className="font-bold">Note 1: </span>
               <span>Kage challenges are executed as AI vs AI</span>
@@ -188,12 +190,13 @@ const KageHall: React.FC<{
         {!isKage && canChangeContent(user.role) && (
           <Button
             id="challenge"
-            color="red"
-            className="pt-3"
-            image={<ShieldPlus className="h-6 w-6 mr-2" />}
-            label="Take kage as Staff"
+            variant="destructive"
+            className="my-2 w-full"
             onClick={() => take()}
-          />
+          >
+            <ShieldPlus className="h-6 w-6 mr-2" />
+            Take kage as Staff
+          </Button>
         )}
       </ContentBox>
       <PublicUserComponent

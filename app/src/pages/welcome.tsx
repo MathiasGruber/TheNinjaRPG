@@ -1,7 +1,8 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import Button from "@/layout/Button";
+import { UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Welcome: React.FC = () => {
   return (
@@ -32,8 +33,15 @@ const Welcome: React.FC = () => {
                 and sprinkled with a bit of AI technology.
               </p>
 
-              <Link className="pt-2 text-3xl font-bold text-red-600" href="/login">
-                <Button id="edit_comment" label="Register or Sign In" color="red" />
+              <Link href="/login">
+                <Button
+                  id="edit_comment"
+                  className="font-bold w-full mt-4 text-xl"
+                  size="lg"
+                >
+                  <UserPlus className="h-6 w-6 mr-2" />
+                  Register or Sign In
+                </Button>
               </Link>
             </div>
           </TitledBox>

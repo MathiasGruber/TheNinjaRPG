@@ -4,9 +4,9 @@ import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import MassEditContent from "@/layout/MassEditContent";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
+import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
@@ -77,11 +77,10 @@ const ManualJutsus: NextPage = () => {
         back_href="/manual"
         topRightContent={
           <Link href="/manual/jutsus/balance">
-            <Button
-              id="jutsu-statistics"
-              label="Balance Statistics"
-              image={<Presentation className="mr-2 h-6 w-6" />}
-            />
+            <Button id="jutsu-statistics">
+              <Presentation className="mr-2 h-6 w-6" />
+              Balance Statistics
+            </Button>
           </Link>
         }
       >
@@ -107,30 +106,19 @@ const ManualJutsus: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-col">
-                <Button
-                  id="create-jutsu"
-                  className="sm:mr-5"
-                  label="New"
-                  image={<FilePlus className="mr-2 h-6 w-6" />}
-                  onClick={() => create()}
-                  marginClass=""
-                  noJustify={true}
-                  borderClass="rounded-t-md border-b-2 border-orange-900"
-                />
+              <div className="flex flex-col gap-1 mr-1">
+                <Button id="create-jutsu" onClick={() => create()}>
+                  <FilePlus className="mr-2 h-6 w-6" />
+                  New
+                </Button>
                 <MassEditContent
                   title="Mass Edit Jutsus"
                   type="jutsu"
                   button={
-                    <Button
-                      id="create-jutsu"
-                      className="sm:mr-5"
-                      label="Mass Edit"
-                      image={<SquarePen className="mr-2 h-6 w-6" />}
-                      marginClass="mb-1"
-                      noJustify={true}
-                      borderClass="rounded-b-md"
-                    />
+                    <Button id="create-jutsu">
+                      <SquarePen className="mr-2 h-6 w-6" />
+                      Mass Edit
+                    </Button>
                   }
                 />
               </div>

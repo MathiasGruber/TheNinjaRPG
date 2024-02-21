@@ -5,16 +5,14 @@ import { useRouter } from "next/router";
 import type { NextPage } from "next";
 import Link from "next/link";
 import Image from "next/image";
-
 import Loader from "@/layout/Loader";
 import InputField from "@/layout/InputField";
-import Button from "@/layout/Button";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
 import Confirm from "@/layout/Confirm";
+import { Button } from "@/components/ui/button";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
-
 import { api } from "@/utils/api";
 import { forumBoardSchema } from "../../validators/forum";
 import { show_toast } from "@/libs/toast";
@@ -132,7 +130,7 @@ const Board: NextPage = () => {
               <Confirm
                 title="Create a new thread"
                 proceed_label="Submit"
-                button={<Button id="create" label="New Thread" />}
+                button={<Button id="create">New Thread</Button>}
                 isValid={isValid}
                 onAccept={onSubmit}
               >

@@ -6,8 +6,8 @@ import ContentBox from "@/layout/ContentBox";
 import SelectField from "@/layout/SelectField";
 import ConceptImage from "@/layout/ConceptImage";
 import Confirm from "@/layout/Confirm";
-import Button from "@/layout/Button";
 import InputField from "@/layout/InputField";
+import { Button } from "@/components/ui/button";
 import { useSafePush } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { conceptArtPromptSchema, conceptArtFilterSchema } from "@/validators/art";
@@ -148,12 +148,10 @@ const ConceptArt: NextPage = () => {
             <Confirm
               title="Create New"
               button={
-                <Button
-                  id="new-art"
-                  label="New"
-                  paddingClass="p-2"
-                  image={<Sparkles className="mr-2 h-6 w-6" />}
-                />
+                <Button id="new-art">
+                  <Sparkles className="mr-2 h-6 w-6" />
+                  New
+                </Button>
               }
               proceed_label="Create"
               onAccept={handleCreateNew}

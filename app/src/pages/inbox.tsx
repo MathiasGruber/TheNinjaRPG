@@ -3,17 +3,15 @@ import { useState, useEffect } from "react";
 import { type NextPage } from "next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import Conversation from "@/layout/Conversation";
-import Button from "@/layout/Button";
 import RichInput from "@/layout/RichInput";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import InputField from "@/layout/InputField";
 import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { Button } from "@/components/ui/button";
 import { SquarePen, Users, X } from "lucide-react";
-
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -228,11 +226,10 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
           proceed_label="Submit"
           isValid={create.formState.isValid}
           button={
-            <Button
-              id="conversation"
-              label="New"
-              image={<SquarePen className="mr-2 h-5 w-5" />}
-            />
+            <Button id="conversation">
+              <SquarePen className="mr-2 h-5 w-5" />
+              New
+            </Button>
           }
           onAccept={onSubmit}
         >

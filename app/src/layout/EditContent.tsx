@@ -2,7 +2,6 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect } from "react";
-import Button from "@/layout/Button";
 import InputField from "@/layout/InputField";
 import SelectField from "@/layout/SelectField";
 import AvatarImage from "@/layout/Avatar";
@@ -17,6 +16,7 @@ import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/utils/api";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { sleep } from "@/utils/time";
+import { Button } from "@/components/ui/button";
 import type { Control } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { CombatAssetName } from "@/libs//travel/constants";
@@ -273,19 +273,8 @@ export const EditContent = <
                 <br />
                 <div className="flex flex-row justify-center">
                   <Button
-                    className="text-sm"
-                    marginClass="mr-1"
-                    paddingClass="p-1"
                     id="create"
-                    color="blue"
-                    label="AI"
-                    image={
-                      load ? (
-                        <Loader noPadding={true} size={25} />
-                      ) : (
-                        <RefreshCw className="mr-1 h-8 w-8" />
-                      )
-                    }
+                    className="h-10 mr-1 bg-blue-600"
                     onClick={() => {
                       let prompt = "";
                       // Generate based on name, title and description
@@ -322,7 +311,14 @@ export const EditContent = <
                         });
                       }
                     }}
-                  />
+                  >
+                    {load ? (
+                      <Loader noPadding={true} size={25} />
+                    ) : (
+                      <RefreshCw className="mr-1 p-2 h-10 w-10" />
+                    )}
+                    AI
+                  </Button>
                   <UploadButton
                     endpoint="imageUploader"
                     onClientUploadComplete={(res) => {
@@ -352,7 +348,9 @@ export const EditContent = <
       })}
       {showSubmit && props.onAccept && (
         <div className="col-span-2 items-center mt-3">
-          <Button id="create" label={buttonTxt ?? "Save"} onClick={props.onAccept} />
+          <Button id="create" className="w-full" onClick={props.onAccept}>
+            {buttonTxt ?? "Save"}
+          </Button>
         </div>
       )}
     </>

@@ -2,8 +2,8 @@ import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
-import Button from "./Button";
 import Countdown from "./Countdown";
+import { Button } from "@/components/ui/button";
 import { HelpCircle, Clock as ClockIcon, CheckCircle } from "lucide-react";
 import { drawCombatBackground, drawCombatEffects } from "@/libs/combat/drawing";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
@@ -581,18 +581,18 @@ const Combat: React.FC<CombatProps> = (props) => {
                 href={toHospital ? "/hospital" : "/profile"}
                 className={showNextMatch ? "basis-1/2" : "basis-1/1"}
               >
-                <Button
-                  id="return"
-                  label={`Return to ${toHospital ? "Hospital" : "Profile"}`}
-                />
+                <Button id="return">
+                  Return to {toHospital ? "Hospital" : "Profile"}
+                </Button>
               </Link>
               {showNextMatch && arenaOpponentId && (
                 <Button
-                  className="basis-1/2"
                   id="return"
-                  label={`Go Again`}
+                  className="basis-1/2"
                   onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
-                />
+                >
+                  Go Again
+                </Button>
               )}
             </div>
           </div>

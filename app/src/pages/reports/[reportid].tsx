@@ -6,7 +6,6 @@ import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
 import { ShieldCheck, ShieldAlert, MessagesSquare, Rocket } from "lucide-react";
 
-import Button from "@/layout/Button";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
@@ -16,6 +15,7 @@ import Post from "@/layout/Post";
 import ParsedReportJson from "@/layout/ReportReason";
 import Loader from "@/layout/Loader";
 
+import { Button } from "@/components/ui/button";
 import { CommentOnReport } from "@/layout/Comment";
 import { api } from "@/utils/api";
 import { type ReportCommentSchema } from "../../validators/reports";
@@ -220,16 +220,15 @@ const Report: NextPage = () => {
             )}
             {isLoading && <Loader explanation="Executing action..." />}
             {!isLoading && (
-              <div className="flex flex-row-reverse">
+              <div className="flex flex-row-reverse gap-1 mt-2">
                 {canComment && (
                   <Confirm
                     title="Confirm Posting Comment"
                     button={
-                      <Button
-                        id="submit_comment"
-                        label="Add Comment"
-                        image={<MessagesSquare className="mr-1 h-5 w-5" />}
-                      />
+                      <Button id="submit_comment">
+                        <MessagesSquare className="mr-1 h-5 w-5" />
+                        Add Comment
+                      </Button>
                     }
                     onAccept={async () => {
                       await handleSubmitComment();
@@ -243,12 +242,9 @@ const Report: NextPage = () => {
                   <Confirm
                     title="Confirm Escalating Report"
                     button={
-                      <Button
-                        id="submit_comment"
-                        color="blue"
-                        label="Escalate"
-                        image={<Rocket className="mr-1 h-5 w-5" />}
-                      />
+                      <Button id="submit_comment">
+                        <Rocket className="mr-1 h-5 w-5" /> Escalate
+                      </Button>
                     }
                     onAccept={async () => {
                       await handleSubmitEscalation();
@@ -264,12 +260,10 @@ const Report: NextPage = () => {
                   <Confirm
                     title="Confirm Banning User"
                     button={
-                      <Button
-                        id="submit_resolve"
-                        label={canClear ? "Edit Ban" : "Ban User"}
-                        color="red"
-                        image={<ShieldAlert className="mr-1 h-5 w-5" />}
-                      />
+                      <Button id="submit_resolve" variant="destructive">
+                        <ShieldAlert className="mr-1 h-5 w-5" />
+                        {canClear ? "Edit Ban" : "Ban User"}
+                      </Button>
                     }
                     onAccept={async () => {
                       await handleSubmitBan();
@@ -284,12 +278,10 @@ const Report: NextPage = () => {
                   <Confirm
                     title="Confirm Clearing Report"
                     button={
-                      <Button
-                        id="submit_resolve"
-                        color="green"
-                        label="Clear Report"
-                        image={<ShieldCheck className="mr-1 h-5 w-5" />}
-                      />
+                      <Button id="submit_resolve" variant="destructive">
+                        <ShieldCheck className="mr-2 h-5 w-5" />
+                        Clear Report
+                      </Button>
                     }
                     onAccept={async () => {
                       await handleSubmitClear();

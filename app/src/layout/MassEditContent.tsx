@@ -29,7 +29,7 @@ interface MassEditContentProps {
   title: string;
   type: "jutsu" | "bloodline" | "item" | "quest";
   button: React.ReactNode;
-  onAccept?: (e: React.MouseEvent<HTMLInputElement, MouseEvent>) => void;
+  onAccept?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {

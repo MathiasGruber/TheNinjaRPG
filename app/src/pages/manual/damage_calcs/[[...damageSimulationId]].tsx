@@ -8,9 +8,9 @@ import { Save, Users, ClipboardCopy, Trash2, Eye, EyeOff } from "lucide-react";
 import Toggle from "@/layout/Toggle";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import InputField from "@/layout/InputField";
 import SelectField from "@/layout/SelectField";
+import { Button } from "@/components/ui/button";
 import { damageUser } from "@/libs/combat/tags";
 import { calcLevel, calcHP } from "@/libs/profile";
 import { StatType, GeneralType } from "@/libs/combat/constants";
@@ -377,7 +377,7 @@ const ManualDamageSimulator: NextPage = () => {
           </div>
         </div>
         <hr />
-        <div className="grid grid-cols-2 my-2">
+        <div className="grid grid-cols-2 my-2 mx-2 items-center">
           {selectedDmg && (
             <div>
               <p className="text-2xl text-center mt-3 font-bold">
@@ -389,12 +389,10 @@ const ManualDamageSimulator: NextPage = () => {
             </div>
           )}
           {!isLoading && (
-            <Button
-              id="return"
-              label="Save Calculation"
-              onClick={onSubmit}
-              image={<Save className="mr-1 h-5 w-5" />}
-            />
+            <Button id="return" onClick={onSubmit}>
+              <Save className="mr-2 h-5 w-5" />
+              Save Calculation
+            </Button>
           )}
           {isLoading && <Loader explanation="Processing" />}
         </div>

@@ -7,15 +7,13 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
 import Logbook from "@/layout/Logbook";
-
 import Loader from "@/layout/Loader";
-import Button from "@/layout/Button";
 import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import type { NextPage } from "next";
+import { Button } from "@/components/ui/button";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
-
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
@@ -182,24 +180,24 @@ const Profile: NextPage = () => {
                 {userData.deletionAt && (
                   <Button
                     id="create"
-                    color="red"
                     disabled={
                       userData.deletionAt > new Date() || userData.isBanned === 1
                     }
-                    label={
-                      userData.deletionAt < new Date() ? (
-                        "Disable Deletion Timer"
-                      ) : (
-                        <Countdown targetDate={userData.deletionAt} />
-                      )
-                    }
+                    className="w-full mt-3"
+                    variant="destructive"
                     onClick={(e) => {
                       e.preventDefault();
                       if (userData.deletionAt) {
                         toggleDeletionTimer();
                       }
                     }}
-                  />
+                  >
+                    {userData.deletionAt < new Date() ? (
+                      "Disable Deletion Timer"
+                    ) : (
+                      <Countdown targetDate={userData.deletionAt} />
+                    )}
+                  </Button>
                 )}
               </span>
             </Confirm>
@@ -242,14 +240,15 @@ const Profile: NextPage = () => {
         {expRequired !== undefined && expRequired <= 0 && (
           <Button
             id="create"
-            color="red"
-            label="Level up!"
-            image={<GraduationCap className="h-6 w-6 mr-2" />}
+            className="w-full mt-3"
             onClick={(e) => {
               e.preventDefault();
               setShowModal(true);
             }}
-          />
+          >
+            <GraduationCap className="h-6 w-6 mr-2" />
+            Level up!
+          </Button>
         )}
       </ContentBox>
       <StrengthWeaknesses />

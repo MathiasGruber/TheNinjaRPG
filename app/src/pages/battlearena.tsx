@@ -3,8 +3,8 @@ import SelectField from "@/layout/SelectField";
 import NavTabs from "@/layout/NavTabs";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Button from "@/layout/Button";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { Button } from "@/components/ui/button";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getSearchValidator } from "@/validators/register";
 import { useSafePush } from "@/utils/routing";
@@ -263,11 +263,12 @@ const ChallengeUser: React.FC = () => {
         {targetUser && (
           <Button
             id="challenge"
-            color="green"
-            image={<Swords className="h-5 w-5 mr-1" />}
-            label="Challenge Now!"
+            className="w-full"
             onClick={() => create({ targetId: targetUser.userId })}
-          />
+          >
+            <Swords className="h-5 w-5 mr-2" />
+            Challenge Now!
+          </Button>
         )}
       </div>
 
@@ -351,30 +352,25 @@ const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge
     if (challenge.challengerId === userData?.userId) {
       return (
         <Button
+          className="w-full"
           id="cancel"
-          color="red"
-          label=""
-          image={<Trash2 className="h-5 w-5" />}
           onClick={() => cancel({ challengeId: challenge.id })}
-        />
+        >
+          <Trash2 className="h-5 w-5 mr-2" />
+          Cancel
+        </Button>
       );
     } else {
       return (
-        <div className="flex flex-row">
-          <Button
-            id="accept"
-            color="green"
-            label=""
-            image={<Check className="h-5 w-5" />}
-            onClick={() => accept({ challengeId: challenge.id })}
-          />
-          <Button
-            id="reject"
-            color="red"
-            label=""
-            image={<X className="h-5 w-5" />}
-            onClick={() => reject({ challengeId: challenge.id })}
-          />
+        <div className="grid grid-cols-2 gap-1">
+          <Button id="accept" onClick={() => accept({ challengeId: challenge.id })}>
+            <Check className="h-5 w-5 mr-2" />
+            Accept
+          </Button>
+          <Button id="reject" onClick={() => reject({ challengeId: challenge.id })}>
+            <X className="h-5 w-5 mr-2" />
+            Reject
+          </Button>
         </div>
       );
     }

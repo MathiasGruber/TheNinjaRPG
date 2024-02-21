@@ -8,11 +8,11 @@ import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
 import RichInput from "@/layout/RichInput";
 import SelectField from "@/layout/SelectField";
-import Button from "@/layout/Button";
 import AvatarImage from "@/layout/Avatar";
 import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import { Button } from "@/components/ui/button";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import { ChevronsRight, ChevronsLeft } from "lucide-react";
@@ -419,14 +419,15 @@ const ResetStats: React.FC = () => {
       <div className="grid grid-cols-2">{fields}</div>
       <Button
         id="create"
-        className="my-2"
-        label={buttonText}
+        className="w-full"
         onClick={(e) => {
           e.preventDefault();
           updateStats(formValues);
         }}
         disabled={isDisabled}
-      />
+      >
+        {buttonText}
+      </Button>
     </>
   );
 };
@@ -478,7 +479,9 @@ const AvatarChange: React.FC = () => {
   } else {
     return (
       <Link href="/points">
-        <Button id="create" label="Purchase Federal Support" />
+        <Button id="create" className="w-full my-3">
+          Purchase Federal Support
+        </Button>
       </Link>
     );
   }
@@ -733,9 +736,11 @@ const NameChange: React.FC = () => {
         button={
           <Button
             id="create"
-            label={canBuyUsername ? "Update Username" : "Not enough points"}
+            className="w-full my-3"
             disabled={!canBuyUsername || searchTerm === "" || error !== undefined}
-          />
+          >
+            {canBuyUsername ? "Update Username" : "Not enough points"}
+          </Button>
         }
         onAccept={(e) => {
           e.preventDefault();

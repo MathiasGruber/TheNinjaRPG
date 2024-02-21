@@ -7,8 +7,8 @@ import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import StatusBar from "@/layout/StatusBar";
 import NavTabs from "@/layout/NavTabs";
-import Button from "@/layout/Button";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
+import { Button } from "@/components/ui/button";
 import { energyPerSecond } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/libs/train";
@@ -183,11 +183,12 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                 total={userData.maxEnergy}
               />
               <Button
-                className="mt-3"
+                className="mt-3 w-full"
                 id="return"
-                label="Finish Training"
                 onClick={() => stopTraining()}
-              />
+              >
+                Finish Training
+              </Button>
             </div>
           </div>
         </div>

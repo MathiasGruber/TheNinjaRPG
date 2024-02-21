@@ -8,12 +8,12 @@ import { Clock, FastForward, Hand, FlaskConical, Scissors } from "lucide-react";
 
 import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
-import Button from "@/layout/Button";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
+import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -87,28 +87,28 @@ const Hospital: NextPage = () => {
           strength, spirit, and honor.
         </div>
         {!isLoading && isHospitalized && userData && healFinishAt && (
-          <div className="grid grid-cols-2 py-3">
+          <div className="grid grid-cols-2 py-3 gap-2">
             <Button
               id="check"
               disabled={healFinishAt && healFinishAt > new Date()}
-              label={<div>Wait ({<Countdown targetDate={healFinishAt} />})</div>}
-              image={<Clock className="mr-3 h-6 w-6" />}
               onClick={() => heal()}
-            />
+            >
+              <Clock className="mr-2 h-6 w-6" />
+              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
+            </Button>
             <Button
               id="check"
               color={canAfford ? "default" : "red"}
               disabled={healFinishAt && healFinishAt <= new Date()}
-              label={<div>Pay {healCost && <span>({healCost} ryo)</span>}</div>}
-              image={
-                canAfford ? (
-                  <FastForward className="mr-3 h-6 w-6" />
-                ) : (
-                  <Hand className="mr-3 h-6 w-6" />
-                )
-              }
               onClick={() => heal()}
-            />
+            >
+              {canAfford ? (
+                <FastForward className="mr-3 h-6 w-6" />
+              ) : (
+                <Hand className="mr-3 h-6 w-6" />
+              )}
+              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
+            </Button>
           </div>
         )}
         {!isLoading && !isHospitalized && userData && (
@@ -311,11 +311,10 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
             }
             isValid={!isFetching}
             button={
-              <Button
-                id="check"
-                label="Remove Bloodline"
-                image={<Scissors className="mr-3 h-6 w-6" />}
-              />
+              <Button id="check" className="w-full">
+                <Scissors className="mr-2 h-6 w-6" />
+                Remove Bloodline
+              </Button>
             }
             onAccept={(e) => {
               e.preventDefault();
@@ -395,11 +394,10 @@ const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
             proceed_label="Roll"
             isValid={!isRolling}
             button={
-              <Button
-                id="check"
-                label="Check Genetics"
-                image={<FlaskConical className="mr-3 h-6 w-6" />}
-              />
+              <Button id="check" className="w-full">
+                <FlaskConical className="mr-2 h-6 w-6" />
+                Check Genetics
+              </Button>
             }
             onAccept={(e) => {
               e.preventDefault();
