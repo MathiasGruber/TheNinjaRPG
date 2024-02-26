@@ -1,17 +1,22 @@
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import SelectField from "@/layout/SelectField";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ActionSelector } from "@/layout/CombatActions";
 import { UncontrolledSliderField } from "@/layout/SliderField";
-import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
-import { ItemTypes } from "../../drizzle/constants";
+import { ItemTypes } from "@/drizzle/constants";
 import type { ItemType, Item } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
@@ -22,17 +27,11 @@ const ItemShop: NextPage = () => {
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
   const [itemtype, setItemtype] = useState<ItemType>("WEAPON");
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const isAwake = useAwake(userData);
 
   // Data
-  const {
-    data: items,
-    isFetching,
-    fetchNextPage,
-    hasNextPage,
-  } = api.item.getAll.useInfiniteQuery(
-    { itemType: itemtype, limit: 20 },
+  const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
+    { itemType: itemtype, limit: 500 },
     {
       enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -41,7 +40,6 @@ const ItemShop: NextPage = () => {
     },
   );
   const allItems = items?.pages.map((page) => page.data).flat();
-  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Get user item counts
   const { data: userItems, refetch: refetchUserItems } =
@@ -82,19 +80,25 @@ const ItemShop: NextPage = () => {
           topRightContent={
             <>
               <div className="flex flex-row">
-                <SelectField
-                  id="itemtype"
-                  onChange={(e) => {
-                    setItemtype(e.target.value as ItemType);
+                <Select
+                  onValueChange={(e) => {
+                    setItemtype(e as ItemType);
                     setItem(undefined);
                   }}
+                  defaultValue={itemtype}
+                  value={itemtype}
                 >
-                  {Object.values(ItemTypes).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </SelectField>
+                  <SelectTrigger>
+                    <SelectValue placeholder={`None`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(ItemTypes).map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </>
           }

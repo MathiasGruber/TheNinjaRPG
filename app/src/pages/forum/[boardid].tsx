@@ -6,11 +6,19 @@ import type { NextPage } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import Loader from "@/layout/Loader";
-import InputField from "@/layout/InputField";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
 import Confirm from "@/layout/Confirm";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormLabel,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
@@ -50,14 +58,7 @@ const Board: NextPage = () => {
     lastElement,
   });
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    reset,
-    control,
-    formState: { isValid, errors },
-  } = useForm<ForumBoardSchema>({
+  const form = useForm<ForumBoardSchema>({
     resolver: zodResolver(forumBoardSchema),
   });
 
@@ -65,7 +66,7 @@ const Board: NextPage = () => {
     {
       onSuccess: async () => {
         await refetch();
-        reset();
+        form.reset();
       },
       onError: (error) => {
         show_toast("Error on creating new thread", error.message, "error");
@@ -104,11 +105,11 @@ const Board: NextPage = () => {
 
   useEffect(() => {
     if (board) {
-      setValue("board_id", board.id);
+      form.setValue("board_id", board.id);
     }
-  }, [board, setValue]);
+  }, [board, form]);
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = form.handleSubmit((data) => {
     createThread(data);
   });
 
@@ -131,23 +132,34 @@ const Board: NextPage = () => {
                 title="Create a new thread"
                 proceed_label="Submit"
                 button={<Button id="create">New Thread</Button>}
-                isValid={isValid}
+                isValid={form.formState.isValid}
                 onAccept={onSubmit}
               >
-                <InputField
-                  id="title"
-                  label="Title for your thread"
-                  register={register}
-                  error={errors.title?.message}
-                />
-                <RichInput
-                  id="content"
-                  label="Contents of your thread"
-                  height="300"
-                  placeholder=""
-                  control={control}
-                  error={errors.content?.message}
-                />
+                <Form {...form}>
+                  <form className="space-y-2" onSubmit={onSubmit}>
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Title for your thread" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <RichInput
+                      id="content"
+                      label="Contents of your thread"
+                      height="300"
+                      placeholder=""
+                      control={form.control}
+                      error={form.formState.errors.content?.message}
+                    />
+                  </form>
+                </Form>
               </Confirm>
             </div>
           )}

@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
-import SelectField from "@/layout/SelectField";
 import NavTabs from "@/layout/NavTabs";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getSearchValidator } from "@/validators/register";
@@ -133,14 +139,25 @@ const ChallengeAI: React.FC = () => {
           >
             Enter The Arena
           </h1>
-          <div className="rounded-2xl bg-slate-200 mt-3">
-            <SelectField id="ai_id" onChange={(e) => setAiId(e.target.value)}>
-              {sortedAis?.map((ai) => (
-                <option key={ai.userId} value={ai.userId} defaultValue={aiId}>
-                  {ai.username} (lvl {ai.level})
-                </option>
-              ))}
-            </SelectField>
+          <div className="rounded-2xl mt-3">
+            <div className="mb-1">
+              <Select
+                onValueChange={(e) => setAiId(e)}
+                defaultValue={aiId}
+                value={aiId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={`None`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedAis?.map((ai) => (
+                    <SelectItem key={ai.userId} value={ai.userId}>
+                      {ai.username} (lvl {ai.level})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {ai && (
               <ItemWithEffects
                 item={
@@ -263,7 +280,7 @@ const ChallengeUser: React.FC = () => {
         {targetUser && (
           <Button
             id="challenge"
-            className="w-full"
+            className="mt-2 w-full"
             onClick={() => create({ targetId: targetUser.userId })}
           >
             <Swords className="h-5 w-5 mr-2" />

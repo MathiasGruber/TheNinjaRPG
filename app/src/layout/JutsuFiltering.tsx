@@ -1,9 +1,22 @@
 import { useEffect } from "react";
 import { useState } from "react";
 import { api } from "@/utils/api";
-import SelectField from "@/layout/SelectField";
-import InputField from "@/layout/InputField";
 import NavTabs from "@/layout/NavTabs";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { animationNames } from "@/libs/combat/types";
 import { ElementNames } from "@/drizzle/constants";
 import { mainFilters, statFilters, effectFilters, rarities } from "@/libs/train";
@@ -42,10 +55,11 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   }, [fixedBloodline, setBloodline]);
 
   // Name search schema
-  const searchSchema = useForm<SearchNameSchema>({
+  const form = useForm<SearchNameSchema>({
     resolver: zodResolver(searchNameSchema),
+    defaultValues: { name: "" },
   });
-  const watchName = searchSchema.watch("name", "");
+  const watchName = form.watch("name", "");
 
   // Update the state
   useEffect(() => {
@@ -57,99 +71,114 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
 
   // Show filtering widget
   return (
-    <div className="flex flex-col">
-      <SelectField
-        id={filter}
-        onChange={(e) => setFilter(e.target.value as FilterType)}
+    <div className="flex flex-col gap-1">
+      <Select
+        onValueChange={(e) => setFilter(e as FilterType)}
+        defaultValue={filter}
+        value={filter}
       >
-        {mainFilters.map((filter) => {
-          return (
-            <option key={filter} value={filter}>
+        <SelectTrigger>
+          <SelectValue placeholder={`None`} />
+        </SelectTrigger>
+        <SelectContent>
+          {mainFilters.map((filter) => (
+            <SelectItem key={filter} value={filter}>
               {filter}
-            </option>
-          );
-        })}
-      </SelectField>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {filter === "Name" && (
-        <InputField
-          id="name"
-          register={searchSchema.register}
-          error={searchSchema.formState.errors.name?.message}
-          placeholder="Search for jutsu"
-        />
+        <Form {...form}>
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem className="mx-1">
+                <FormControl>
+                  <Input id="name" placeholder="Search jutsu" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </Form>
       )}
       {filter === "Bloodline" && bloodlines && (
-        <SelectField id={filter} onChange={(e) => setBloodline(e.target.value)}>
-          {!fixedBloodline && (
-            <option key="None" value="None">
-              None
-            </option>
-          )}
-          {bloodlines
-            .sort((a, b) => (a.name < b.name ? -1 : 1))
-            .map((bloodline) => {
-              return (
-                <option key={bloodline.name} value={bloodline.id}>
+        <Select onValueChange={(e) => setBloodline(e)}>
+          <SelectTrigger>
+            <SelectValue placeholder={`None`} />
+          </SelectTrigger>
+          <SelectContent>
+            {bloodlines
+              .sort((a, b) => (a.name < b.name ? -1 : 1))
+              .map((bloodline) => (
+                <SelectItem key={bloodline.name} value={bloodline.id}>
                   {bloodline.name}
-                </option>
-              );
-            })}
-        </SelectField>
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       )}
       {filter === "Stat" && (
-        <SelectField id={filter} onChange={(e) => setStat(e.target.value as StatType)}>
-          {statFilters.map((stat) => {
-            return (
-              <option key={stat} value={stat}>
+        <Select onValueChange={(e) => setStat(e as StatType)}>
+          <SelectTrigger>
+            <SelectValue placeholder={`None`} />
+          </SelectTrigger>
+          <SelectContent>
+            {statFilters.map((stat) => (
+              <SelectItem key={stat} value={stat}>
                 {stat}
-              </option>
-            );
-          })}
-        </SelectField>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
       {filter === "Effect" && (
-        <SelectField
-          id={filter}
-          onChange={(e) => setEffect(e.target.value as EffectType)}
-        >
-          {effectFilters.map((effect) => {
-            return (
-              <option key={effect} value={effect}>
+        <Select onValueChange={(e) => setEffect(e as EffectType)}>
+          <SelectTrigger>
+            <SelectValue placeholder={`None`} />
+          </SelectTrigger>
+          <SelectContent>
+            {effectFilters.map((effect) => (
+              <SelectItem key={effect} value={effect}>
                 {effect}
-              </option>
-            );
-          })}
-        </SelectField>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
       {filter === "Element" && (
-        <SelectField
-          id={filter}
-          onChange={(e) => setElement(e.target.value as ElementName)}
-        >
-          {ElementNames.map((element) => {
-            return (
-              <option key={element} value={element}>
+        <Select onValueChange={(e) => setElement(e as ElementName)}>
+          <SelectTrigger>
+            <SelectValue placeholder={`None`} />
+          </SelectTrigger>
+          <SelectContent>
+            {ElementNames.map((element) => (
+              <SelectItem key={element} value={element}>
                 {element}
-              </option>
-            );
-          })}
-        </SelectField>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
       {["AppearAnimation", "StaticAnimation", "DisappearAnimation"].includes(
         filter,
       ) && (
-        <SelectField
-          id={filter}
-          onChange={(e) => setAnimation(e.target.value as AnimationName)}
-        >
-          {animationNames.map((animation) => {
-            return (
-              <option key={animation} value={animation}>
-                {animation}
-              </option>
-            );
-          })}
-        </SelectField>
+        <Select onValueChange={(e) => setAnimation(e as AnimationName)}>
+          <SelectTrigger>
+            <SelectValue placeholder={`None`} />
+          </SelectTrigger>
+          <SelectContent>
+            {animationNames
+              .filter((a) => a)
+              .map((animation) => (
+                <SelectItem key={animation} value={animation}>
+                  {animation}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       )}
       <NavTabs
         current={rarity}

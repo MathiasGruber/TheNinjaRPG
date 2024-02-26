@@ -33,7 +33,7 @@ export interface SectorUser {
   sector: number;
   longitude: number;
   latitude: number;
-  location: string;
+  location: string | null;
   level: number;
   rank: UserRank;
   immunityUntil: Date;

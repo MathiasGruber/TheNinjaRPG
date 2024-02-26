@@ -6,10 +6,16 @@ import ContentBox from "@/layout/ContentBox";
 import Toggle from "@/layout/Toggle";
 import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
-import InputField from "@/layout/InputField";
 import Loader from "@/layout/Loader";
 import ParsedReportJson from "@/layout/ReportReason";
-
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -21,9 +27,9 @@ const Reports: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showUnhandled, setShowUnhandled] = useState<boolean>(true);
-  const [showAll, setShowAll] = useState<boolean>(true);
-  const { register, errors, searchTerm } = useUserSearch();
+  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(undefined);
+  const [showAll, setShowAll] = useState<boolean | undefined>(undefined);
+  const { form, searchTerm } = useUserSearch();
 
   const {
     data: reports,
@@ -63,18 +69,31 @@ const Reports: NextPage = () => {
         userData?.role !== "USER" && (
           <div className="flex flex-col items-start">
             <div className="w-full">
-              <InputField
-                id="username"
-                placeholder="Search Username"
-                register={register}
-                error={errors.username?.message}
-              />
+              <Form {...form}>
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input placeholder="Search user" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Form>
             </div>
             <div className="pb-2"></div>
-            <div className="w-full flex flex-row pb-2 m-1">
-              <Toggle value={showUnhandled} setShowActive={setShowUnhandled} />
+            <div className="w-full flex flex-row pb-2 m-1 gap-2">
+              <Toggle
+                id="toggle-report-handled"
+                value={showUnhandled}
+                setShowActive={setShowUnhandled}
+              />
               {!showUnhandled && (
                 <Toggle
+                  id="toggle-report-all"
                   value={showAll}
                   setShowActive={setShowAll}
                   labelActive="All"

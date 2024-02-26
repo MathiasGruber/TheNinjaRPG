@@ -6,12 +6,27 @@ import { useSafePush } from "@/utils/routing";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
-import InputField from "@/layout/InputField";
-import SelectField from "@/layout/SelectField";
-import CheckBox from "@/layout/CheckBox";
 import Loader from "@/layout/Loader";
-import { UserPlus } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormLabel,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { UserPlus } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -65,20 +80,13 @@ const Register: React.FC = () => {
     });
 
   // Form handling
-  const {
-    register,
-    watch,
-    setValue,
-    setError,
-    clearErrors,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<RegistrationSchema>({
+  const form = useForm<RegistrationSchema>({
     resolver: zodResolver(registrationSchema),
   });
 
   // Handle username changes
-  const watchUsername = watch("username", "");
+  const watchUsername = form.watch("username", "");
+  const errors = form.formState.errors;
 
   // Checking for unique username
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
@@ -88,21 +96,21 @@ const Register: React.FC = () => {
 
   // If selected username found in database, set error. If not, clear error.
   if (databaseUsername && errors.username === undefined) {
-    setError("username", {
+    form.setError("username", {
       type: "custom",
       message: "The selected username already exists in the database",
     });
   } else if (!databaseUsername && errors.username?.type == "custom") {
-    clearErrors("username");
+    form.clearErrors("username");
   }
 
   // If we have local storage referrer, set it as default value
   useEffect(() => {
     const referrer = localStorage.getItem("ref");
     if (referrer) {
-      setValue("recruiter_userid", referrer);
+      form.setValue("recruiter_userid", referrer);
     }
-  }, [setValue]);
+  }, [form]);
 
   // If we have userdata, we should not be here
   useEffect(() => {
@@ -117,179 +125,315 @@ const Register: React.FC = () => {
   }
 
   // Handle form submit
-  const handleCreateCharacter = handleSubmit(
+  const handleCreateCharacter = form.handleSubmit(
     (data) => createCharacter(data),
     (errors) => console.log(errors),
   );
 
   // Options used for select fields
   const option_attributes = attributes.map((attribute, index) => (
-    <option value={attribute} key={index}>
+    <SelectItem key={index} value={attribute}>
       {attribute}
-    </option>
+    </SelectItem>
   ));
   const option_colors = colors.map((color, index) => (
-    <option value={color} key={index}>
+    <SelectItem key={index} value={color}>
       {color}
-    </option>
+    </SelectItem>
   ));
   const option_skins = skin_colors.map((color, index) => (
-    <option value={color} key={index}>
+    <SelectItem key={index} value={color}>
       {color}
-    </option>
+    </SelectItem>
   ));
 
   return (
-    <form>
-      <ContentBox title="Create your Ninja" subtitle="Avatar created by AI">
-        {isLoading && <Loader explanation="Creating character..." />}
-        {!isLoading && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              <div>
-                <InputField
-                  id="username"
-                  label="Enter Username"
-                  register={register}
-                  error={errors.username?.message}
+    <ContentBox title="Create your Ninja" subtitle="Avatar created by AI">
+      {isLoading && <Loader explanation="Creating character..." />}
+      {!isLoading && (
+        <Form {...form}>
+          <form onSubmit={handleCreateCharacter} className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select username</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <SelectField
-                  id="village"
-                  label="Select Village"
-                  register={register}
-                  error={errors.village?.message}
-                  placeholder="Pick a village"
-                >
-                  {villages?.map((village) => (
-                    <option key={village.id} value={village.id}>
-                      {village.name}
-                    </option>
-                  ))}
-                </SelectField>
+                <FormField
+                  control={form.control}
+                  name="village"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select village</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {villages?.map((option) => (
+                            <SelectItem key={option.name} value={option.id}>
+                              {option.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 {villages && map && (
                   <Map intersection={false} highlights={villages} hexasphere={map} />
                 )}
               </div>
-              <div>
-                <SelectField
-                  id="gender"
-                  label="Gender"
-                  register={register}
-                  error={errors.gender?.message}
-                  placeholder="Select gender"
-                >
-                  {genders.map((gender, index) => (
-                    <option value={gender} key={index}>
-                      {gender}
-                    </option>
-                  ))}
-                </SelectField>
-
-                <SelectField
-                  id="hair_color"
-                  label="Hair Color"
-                  register={register}
-                  error={errors.hair_color?.message}
-                >
-                  {option_colors}
-                </SelectField>
-                <SelectField
-                  id="eye_color"
-                  label="Eye Color"
-                  register={register}
-                  error={errors.eye_color?.message}
-                >
-                  {option_colors}
-                </SelectField>
-                <SelectField
-                  id="skin_color"
-                  label="Skin Color"
-                  register={register}
-                  error={errors.skin_color?.message}
-                >
-                  {option_skins}
-                </SelectField>
-                <SelectField
-                  id="attribute_1"
-                  label="Attribute #1"
-                  register={register}
-                  placeholder="Select Attribute"
-                  error={errors.attribute_1?.message}
-                >
-                  {option_attributes}
-                </SelectField>
-                <SelectField
-                  id="attribute_2"
-                  label="Attribute #2"
-                  register={register}
-                  placeholder="Select Attribute"
-                  error={errors.attribute_2?.message}
-                >
-                  {option_attributes}
-                </SelectField>
-                <SelectField
-                  id="attribute_3"
-                  label="Attribute #3"
-                  register={register}
-                  placeholder="Select Attribute"
-                  error={errors.attribute_3?.message}
-                >
-                  {option_attributes}
-                </SelectField>
+              <div className="space-y-2">
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select gender</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {genders.map((gender, index) => (
+                            <SelectItem key={index} value={gender}>
+                              {gender}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hair_color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hair color</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_colors}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="eye_color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Eye color</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_colors}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="skin_color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Skin color</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_skins}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attribute_1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Attribute #1</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_attributes}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attribute_2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Attribute #2</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_attributes}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attribute_3"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Attribute #3</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={`None`} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>{option_attributes}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
-
-            <CheckBox
-              id="read_tos"
-              label={
-                <Link
-                  href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  I have read & agree to the Terms of Service
-                </Link>
-              }
-              register={register}
-              error={errors.read_tos?.message}
+            <FormField
+              control={form.control}
+              name="read_tos"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      <Link
+                        href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {" "}
+                        I have read & agree to the Terms of Service
+                      </Link>
+                    </FormLabel>
+                  </div>
+                </FormItem>
+              )}
             />
-            <CheckBox
-              id="read_privacy"
-              label={
-                <Link
-                  href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  I have read & agree to the Privacy Policy
-                </Link>
-              }
-              register={register}
-              error={errors.read_privacy?.message}
+            <FormField
+              control={form.control}
+              name="read_privacy"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      <Link
+                        href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        I have read & agree to the Privacy Policy
+                      </Link>
+                    </FormLabel>
+                  </div>
+                </FormItem>
+              )}
             />
-            <CheckBox
-              id="read_earlyaccess"
-              label={
-                <Link
-                  href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  I accept that this is Early Access, and things (even if purchased with
-                  real money) may radically change.
-                </Link>
-              }
-              register={register}
-              error={errors.read_earlyaccess?.message}
+            <FormField
+              control={form.control}
+              name="read_earlyaccess"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>I accept that this is Early Access</FormLabel>
+                    <FormDescription>
+                      Things (even if purchased with real money) may radically change.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
             />
-            <Button id="create" onClick={handleCreateCharacter} className="w-full">
+            <Button id="create" type="submit" className="w-full">
               <UserPlus className="mr-2 h-5 w-5" />
               Create Character
             </Button>
-          </>
-        )}
-      </ContentBox>
-    </form>
+          </form>
+        </Form>
+      )}
+    </ContentBox>
   );
 };
 

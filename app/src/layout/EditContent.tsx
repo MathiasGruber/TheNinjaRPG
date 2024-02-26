@@ -2,11 +2,10 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect } from "react";
-import InputField from "@/layout/InputField";
-import SelectField from "@/layout/SelectField";
 import AvatarImage from "@/layout/Avatar";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
+import { Input } from "@/components/ui/input";
 import { objectKeys } from "@/utils/typeutils";
 import { RefreshCw } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
@@ -17,19 +16,37 @@ import { api } from "@/utils/api";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { sleep } from "@/utils/time";
 import { Button } from "@/components/ui/button";
-import type { Control } from "react-hook-form";
+import { MultiSelect, type OptionType } from "@/components/ui/multi-select";
+import { X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { CombatAssetName } from "@/libs//travel/constants";
 import type { AnimationName } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/libs/combat/types";
-import type { FieldErrors } from "react-hook-form";
-import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
+import type { FieldValues } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
   id: K;
   label?: string;
   doubleWidth?: boolean;
+  resetButton?: boolean;
 } & (
   | { type: "text" }
   | { type: "richinput" }
@@ -42,21 +59,17 @@ export type FormEntry<K> = {
   | { type: "avatar"; href?: string | null }
 );
 
-interface EditContentProps<T, K, S> {
+interface EditContentProps<T, K, S extends FieldValues> {
   schema: T;
-  currentValues?: S;
+  form: UseFormReturn<S, any>;
   formData: FormEntry<K>[];
-  errors: FieldErrors;
   showSubmit: boolean;
+  formClassName?: string;
   buttonTxt?: string;
   allowImageUpload?: boolean;
-  limitSelectHeight?: boolean;
-  fixedWidths?: "basis-32";
+  fixedWidths?: "basis-32" | "basis-64" | "basis-96";
   type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge";
   bgColor?: "bg-slate-600" | "";
-  control?: Control<any>;
-  setValue: UseFormSetValue<any>;
-  register: UseFormRegister<any>;
   onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined,
   ) => Promise<void>;
@@ -69,14 +82,14 @@ interface EditContentProps<T, K, S> {
  */
 export const EditContent = <
   T extends z.AnyZodObject,
-  K extends keyof T["shape"],
+  K extends Path<S>,
   S extends z.infer<T>,
 >(
   props: EditContentProps<T, K, S>,
 ) => {
   // Destructure
-  const { formData, errors, showSubmit, buttonTxt, control, currentValues } = props;
-  const { register, setValue } = props;
+  const { formData, formClassName, form, showSubmit, buttonTxt } = props;
+  const currentValues = form.getValues();
 
   // Event listener for submitting on enter click
   const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -115,7 +128,9 @@ export const EditContent = <
     onSuccess: async (data, variables) => {
       if (data.status !== "failed") {
         if (data.url) {
-          setValue(variables.field, data.url, { shouldDirty: true });
+          form.setValue(variables.field as Path<S>, data.url as PathValue<S, Path<S>>, {
+            shouldDirty: true,
+          });
           if (variables.removeBg) {
             removeBg({ url: data.url, field: variables.field });
           }
@@ -145,215 +160,259 @@ export const EditContent = <
   });
 
   const load = load1 || load2 || load3;
-
   return (
-    <>
-      {formData.map((formEntry) => {
-        const id = formEntry.id as string;
-        return (
-          <div
-            key={id}
-            className={`${formEntry.type === "avatar" ? "row-span-5" : ""} ${
-              formEntry.doubleWidth ? "col-span-2" : ""
-            } ${
-              props.fixedWidths ? `grow-0 shrink-0 pt-3 h-32 ${props.fixedWidths}` : ""
-            } ${props.bgColor ? props.bgColor : ""}`}
-          >
-            {formEntry.type === "text" && (
-              <InputField
-                id={id}
-                label={formEntry.label ? formEntry.label : id}
-                register={register}
-                error={errors[id]?.message as string}
-              />
-            )}
-            {formEntry.type === "richinput" && control && currentValues && (
-              <RichInput
-                id={id}
-                height="200"
-                placeholder={currentValues[id] as string}
-                label={formEntry.label ? formEntry.label : id}
-                control={control}
-                error={errors[id]?.message as string}
-              />
-            )}
-            {formEntry.type === "date" && (
-              <InputField
-                id={id}
-                placeholder="YYYY-MM-DD"
-                label={formEntry.label ? formEntry.label : id}
-                register={register}
-                error={errors[id]?.message as string}
-              />
-            )}
-            {formEntry.type === "number" && (
-              <InputField
-                key={id}
-                id={id}
-                type="number"
-                label={formEntry.label ? formEntry.label : id}
-                register={register}
-                error={errors[id]?.message as string}
-              />
-            )}
-            {(formEntry.type === "str_array" || formEntry.type === "db_values") && (
-              <SelectField
-                key={id}
-                id={id}
-                label={formEntry.label ? formEntry.label : id}
-                register={register}
-                error={errors[id]?.message as string}
-                multiple={formEntry.multiple}
-                limitSelectHeight={props.limitSelectHeight}
-              >
-                {formEntry.type === "str_array" &&
-                  formEntry.values.map((target) => (
-                    <option key={target} value={target}>
-                      {target}
-                    </option>
-                  ))}
-                {formEntry.type === "db_values" &&
-                  formEntry.values?.map((target) => (
-                    <option key={target.id} value={target.id}>
-                      {target.name}
-                    </option>
-                  ))}
-                {formEntry.type === "db_values" && (
-                  <option key={undefined} value={""}>
-                    None
-                  </option>
-                )}
-              </SelectField>
-            )}
-            {(formEntry.type === "animation_array" ||
-              formEntry.type === "statics_array") && (
-              <div className="flex flex-row">
-                <div className="grow">
-                  <SelectField
-                    key={id}
-                    id={id}
-                    label={formEntry.label ? formEntry.label : id}
-                    register={register}
-                    error={errors[id]?.message as string}
-                    limitSelectHeight={props.limitSelectHeight}
-                  >
-                    {formEntry.values.map((target) => (
-                      <option key={target} value={target}>
-                        {target}
-                      </option>
-                    ))}
-                  </SelectField>
-                </div>
-                <div className="w-20">
-                  {formEntry.current && (
-                    <Image
-                      src={
-                        formEntry.type === "animation_array"
-                          ? `/animations/${formEntry.current}.gif`
-                          : `/combat/staticAssets/${formEntry.current}.png`
-                      }
-                      alt={id}
-                      width={100}
-                      height={100}
-                      priority
+    <Form {...form}>
+      <form
+        onSubmit={props.onAccept}
+        className={
+          formClassName ?? "grid grid-cols-1 md:grid-cols-2 items-center gap-2"
+        }
+      >
+        {formData.map((formEntry) => {
+          // Derived
+          const id = formEntry.id;
+          let type = formEntry.type;
+
+          // Options for select & multi-select
+          let options: OptionType[] = [];
+          if (
+            formEntry.type === "animation_array" ||
+            formEntry.type === "statics_array" ||
+            formEntry.type === "str_array"
+          ) {
+            options.push(...formEntry.values?.map((v) => ({ label: v, value: v })));
+          } else if (formEntry.type === "db_values" && formEntry.values) {
+            options.push(
+              ...formEntry.values?.map((v) => ({ label: v.name, value: v.id })),
+            );
+          }
+          options = options.map((o) => ({
+            label: o.label !== "" ? o.label : "None",
+            value: o.value !== "" ? o.value : "None",
+          }));
+
+          // Show richInputs as text if fixedWidths
+          if (props.fixedWidths && formEntry.type === "richinput") {
+            type = "text";
+          }
+
+          // Render
+          return (
+            <div
+              key={id}
+              className={`${type === "avatar" ? "row-span-5" : ""} ${
+                formEntry.doubleWidth ? "md:col-span-2" : ""
+              } ${
+                props.fixedWidths
+                  ? `grow-0 shrink-0 px-2 pt-3 h-32 ${props.fixedWidths}`
+                  : ""
+              } ${props.bgColor ? props.bgColor : ""}`}
+            >
+              {["text", "number", "date"].includes(type) && (
+                <FormField
+                  control={form.control}
+                  name={id}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                      <FormControl>
+                        <Input id={id} type={type} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {type === "richinput" && currentValues && (
+                <RichInput
+                  id={id}
+                  height="200"
+                  placeholder={currentValues[id] as string}
+                  label={formEntry.label ? formEntry.label : id}
+                  control={form.control}
+                  error={form.formState.errors[id]?.message as string}
+                />
+              )}
+              {(type === "str_array" ||
+                type === "db_values" ||
+                type === "animation_array" ||
+                type === "statics_array") && (
+                <div className="flex flex-row items-end">
+                  <div className="grow">
+                    <FormField
+                      control={form.control}
+                      name={id}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {formEntry.label ? formEntry.label : id}
+                          </FormLabel>
+
+                          {"multiple" in formEntry ? (
+                            <MultiSelect
+                              selected={field.value ? field.value : []}
+                              options={options}
+                              onChange={field.onChange}
+                            />
+                          ) : (
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {options.map((option) => (
+                                  <SelectItem key={option.label} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
+                  </div>
+                  {formEntry.resetButton && (
+                    <Button
+                      className="w-8 p-0 ml-1"
+                      type="button"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        form.setValue(id, "" as PathValue<S, K>, {
+                          shouldDirty: true,
+                        });
+                      }}
+                    >
+                      <X className="h-5 w-5 stroke-1" />
+                    </Button>
+                  )}
+                  {"current" in formEntry && formEntry.current && (
+                    <div className="w-12 ml-1">
+                      {formEntry.current && (
+                        <Image
+                          src={
+                            type === "animation_array"
+                              ? `/animations/${formEntry.current}.gif`
+                              : `/combat/staticAssets/${formEntry.current}.png`
+                          }
+                          alt={id}
+                          width={100}
+                          height={100}
+                          priority
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
-            {formEntry.type === "avatar" && props.allowImageUpload && (
-              <>
-                <AvatarImage
-                  href={formEntry.href}
-                  alt={id}
-                  size={100}
-                  hover_effect={true}
-                  priority
-                />
-                <br />
-                <div className="flex flex-row justify-center">
-                  <Button
-                    id="create"
-                    className="h-10 mr-1 bg-blue-600"
-                    onClick={() => {
-                      let prompt = "";
-                      // Generate based on name, title and description
-                      if (currentValues?.["name"]) {
-                        prompt += `${currentValues?.["name"]} `;
-                      }
-                      if (currentValues?.["username"]) {
-                        prompt += `${currentValues?.["username"]} `;
-                      }
-                      if (currentValues?.["title"]) {
-                        prompt += `${currentValues?.["title"]} `;
-                      }
-                      if (prompt && !load) {
-                        // Different qualifiers for different content types
-                        if (props.type === "quest") {
-                          prompt +=
-                            ", epic composition, cinematic, vibrant background, by greg rutkowski and thomas kinkade, Trending on artstation, 8k, hyperrealistic, extremely detailed";
-                        } else if (props.type === "item") {
-                          prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
-                        } else if (props.type === "badge") {
-                          prompt = `${prompt}, concept art design, Ubisoft Inspiration, Profesional Videogame Design, High Quality, 4k, Photoshop.`;
-                        } else if (props.type === "jutsu") {
-                          prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
-                        } else if (props.type === "bloodline") {
-                          prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
-                        } else if (props.type === "ai") {
-                          prompt = `front view, unique tiny ${prompt} figurine, standing character, as supercell character, soft smooth lighting, soft shadows, skottie young, 3d blender render, polycount, modular constructivism, square image​, blue background, centered, pop surrealistic, emotional face`;
+              )}
+              {type === "avatar" && props.allowImageUpload && "href" in formEntry && (
+                <>
+                  <AvatarImage
+                    href={formEntry.href}
+                    alt={id}
+                    size={100}
+                    hover_effect={true}
+                    priority
+                  />
+                  <br />
+                  <div className="flex flex-row justify-center">
+                    <Button
+                      id="create"
+                      className="h-10 mr-1 bg-blue-600"
+                      onClick={() => {
+                        let prompt = "";
+                        // Generate based on name, title and description
+                        if (currentValues?.["name"]) {
+                          prompt += `${currentValues?.["name"]} `;
                         }
-                        // Send of the request for content image
-                        createImg({
-                          prompt: prompt,
-                          field: id,
-                          removeBg: ["item", "ai"].includes(props.type ?? ""),
-                        });
-                      }
-                    }}
-                  >
-                    {load ? (
-                      <Loader noPadding={true} size={25} />
-                    ) : (
-                      <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                    )}
-                    AI
-                  </Button>
-                  <UploadButton
-                    endpoint="imageUploader"
-                    onClientUploadComplete={(res) => {
-                      const url = res?.[0]?.url;
-                      if (url) {
-                        setValue(id, url, { shouldDirty: true });
-                      }
-                    }}
-                    onUploadError={(error: Error) => {
-                      show_toast("Error uploading", error.message, "error");
-                    }}
+                        if (currentValues?.["username"]) {
+                          prompt += `${currentValues?.["username"]} `;
+                        }
+                        if (currentValues?.["title"]) {
+                          prompt += `${currentValues?.["title"]} `;
+                        }
+                        if (prompt && !load) {
+                          // Different qualifiers for different content types
+                          if (props.type === "quest") {
+                            prompt +=
+                              ", epic composition, cinematic, vibrant background, by greg rutkowski and thomas kinkade, Trending on artstation, 8k, hyperrealistic, extremely detailed";
+                          } else if (props.type === "item") {
+                            prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
+                          } else if (props.type === "badge") {
+                            prompt = `${prompt}, concept art design, Ubisoft Inspiration, Profesional Videogame Design, High Quality, 4k, Photoshop.`;
+                          } else if (props.type === "jutsu") {
+                            prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
+                          } else if (props.type === "bloodline") {
+                            prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
+                          } else if (props.type === "ai") {
+                            prompt = `front view, unique tiny ${prompt} figurine, standing character, as supercell character, soft smooth lighting, soft shadows, skottie young, 3d blender render, polycount, modular constructivism, square image​, blue background, centered, pop surrealistic, emotional face`;
+                          }
+                          // Send of the request for content image
+                          createImg({
+                            prompt: prompt,
+                            field: id,
+                            removeBg: ["item", "ai"].includes(props.type ?? ""),
+                          });
+                        }
+                      }}
+                    >
+                      {load ? (
+                        <Loader noPadding={true} size={25} />
+                      ) : (
+                        <RefreshCw className="mr-1 p-2 h-10 w-10" />
+                      )}
+                      AI
+                    </Button>
+                    <UploadButton
+                      endpoint="imageUploader"
+                      onClientUploadComplete={(res) => {
+                        const url = res?.[0]?.url;
+                        if (url) {
+                          form.setValue(id, url as PathValue<S, K>, {
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
+                      onUploadError={(error: Error) => {
+                        show_toast("Error uploading", error.message, "error");
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+              {type === "avatar" && !props.allowImageUpload && "href" in formEntry && (
+                <div className="w-32">
+                  <AvatarImage
+                    href={formEntry.href}
+                    alt={id}
+                    size={100}
+                    hover_effect={true}
+                    priority
                   />
                 </div>
-              </>
-            )}
-            {formEntry.type === "avatar" && !props.allowImageUpload && (
-              <AvatarImage
-                href={formEntry.href}
-                alt={id}
-                size={100}
-                hover_effect={true}
-                priority
-              />
-            )}
+              )}
+            </div>
+          );
+        })}
+        {showSubmit && props.onAccept && (
+          <div className="col-span-2 items-center mt-3">
+            <Button id="create" className="w-full" onClick={props.onAccept}>
+              {buttonTxt ?? "Save"}
+            </Button>
           </div>
-        );
-      })}
-      {showSubmit && props.onAccept && (
-        <div className="col-span-2 items-center mt-3">
-          <Button id="create" className="w-full" onClick={props.onAccept}>
-            {buttonTxt ?? "Save"}
-          </Button>
-        </div>
-      )}
-    </>
+        )}
+      </form>
+    </Form>
   );
 };
 
@@ -361,10 +420,10 @@ interface EffectFormWrapperProps {
   idx: number;
   type: "jutsu" | "bloodline" | "item";
   availableTags: readonly string[];
+  formClassName?: string;
   hideTagType?: boolean;
-  limitSelectHeight?: boolean;
   tag: ZodAllTags;
-  fixedWidths?: "basis-32";
+  fixedWidths?: "basis-32" | "basis-64" | "basis-96";
   bgColor?: "bg-slate-600" | "";
   effects: ZodAllTags[];
   setEffects: (effects: ZodAllTags[]) => void;
@@ -376,7 +435,7 @@ interface EffectFormWrapperProps {
  */
 export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   // Destructure props
-  const { tag, idx, effects, setEffects } = props;
+  const { tag, idx, effects, formClassName, setEffects } = props;
 
   // Get the schema & parse the tag
   const tagSchema = getTagSchema(tag.type);
@@ -390,25 +449,19 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   });
 
   // Form for handling the specific tag
-  const {
-    register,
-    setValue,
-    trigger,
-    watch,
-    handleSubmit,
-    formState: { errors, isDirty },
-  } = useForm<typeof tag>({
+  const form = useForm<typeof tag>({
     values: shownTag,
     resolver: zodResolver(tagSchema),
     mode: "all",
   });
 
   // A few fields we need to watch
-  const watchType = watch("type");
-  const watchStaticPath = watch("staticAssetPath");
-  const watchAppear = watch("appearAnimation");
-  const watchStatic = watch("staticAnimation");
-  const watchDisappear = watch("disappearAnimation");
+  const watchType = form.watch("type");
+  const watchStaticPath = form.watch("staticAssetPath");
+  const watchAppear = form.watch("appearAnimation");
+  const watchStatic = form.watch("staticAnimation");
+  const watchDisappear = form.watch("disappearAnimation");
+  const watchAll = form.watch();
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -431,28 +484,28 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       setEffects(newEffects);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tag, watchType, idx, effects, trigger]);
+  }, [tag, watchType, idx, effects]);
 
   // Trigger re-validation after type changes
   useEffect(() => {
-    void trigger(undefined, { shouldFocus: true });
+    void form.trigger(undefined, { shouldFocus: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tag.type]);
 
   // Automatically update the effects whenever dirty
   useEffect(() => {
-    if (isDirty) {
-      void handleTagupdate();
+    if (tag.type === watchType) {
+      if (form.formState.isDirty) {
+        void form.trigger();
+      }
+      if (form.formState.isValid) {
+        const newEffects = [...effects];
+        newEffects[idx] = watchAll;
+        setEffects(newEffects);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirty]);
-
-  // Form submission
-  const handleTagupdate = handleSubmit((data) => {
-    const newEffects = [...effects];
-    newEffects[idx] = data;
-    setEffects(newEffects);
-  });
+  }, [form.formState.isDirty, form.formState.isValid]);
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof typeof tag;
@@ -492,6 +545,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
             })),
           type: "db_values",
         };
+      } else if ((value as string) === "description") {
+        return { id: value, label: value, type: "richinput", doubleWidth: true };
       } else if (
         innerType instanceof z.ZodEnum &&
         ["appearAnimation", "staticAnimation", "disappearAnimation"].includes(value)
@@ -500,6 +555,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           id: value,
           type: "animation_array",
           values: innerType._def.values as string[],
+          resetButton: true,
           current:
             value === "appearAnimation"
               ? watchAppear
@@ -511,6 +567,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         return {
           id: value,
           type: "statics_array",
+          resetButton: true,
           values: innerType._def.values as string[],
           current: watchStaticPath,
         };
@@ -557,16 +614,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   return (
     <EditContent
       schema={tagSchema}
+      form={form}
+      formData={formData}
+      formClassName={formClassName}
       showSubmit={false}
       buttonTxt="Confirm Changes (No database sync)"
       fixedWidths={props.fixedWidths}
       bgColor={props.bgColor}
-      limitSelectHeight={props.limitSelectHeight}
-      setValue={setValue}
-      register={register}
-      errors={errors}
-      formData={formData}
-      onAccept={handleTagupdate}
     />
   );
 };
@@ -576,9 +630,9 @@ interface ObjectiveFormWrapperProps {
   availableTags: readonly string[];
   hideTagType?: boolean;
   hideRounds?: boolean;
-  limitSelectHeight?: boolean;
   objective: AllObjectivesType;
-  fixedWidths?: "basis-32";
+  formClassName?: string;
+  fixedWidths?: "basis-32" | "basis-64" | "basis-96";
   bgColor?: "bg-slate-600" | "";
   objectives: AllObjectivesType[];
   setObjectives: (content: AllObjectivesType[]) => void;
@@ -590,7 +644,7 @@ interface ObjectiveFormWrapperProps {
  */
 export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props) => {
   // Destructure props
-  const { idx, objective, objectives, setObjectives } = props;
+  const { idx, objective, objectives, formClassName, setObjectives } = props;
 
   // Get the schema & parse the tag
   const objectiveSchema = getObjectiveSchema(objective.task as string);
@@ -621,13 +675,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   // Form for handling the specific tag
-  const {
-    register,
-    setValue,
-    trigger,
-    watch,
-    formState: { errors, isDirty, isValid },
-  } = useForm<AllObjectivesType>({
+  const form = useForm<AllObjectivesType>({
     values: shownTag,
     resolver: zodResolver(objectiveSchema),
     mode: "all",
@@ -635,8 +683,8 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   // A few fields we need to watch
-  const watchTask = watch("task");
-  const watchAll = watch();
+  const watchTask = form.watch("task");
+  const watchAll = form.watch();
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -656,17 +704,17 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Trigger re-validation after type changes
   useEffect(() => {
-    void trigger(undefined, { shouldFocus: true });
+    void form.trigger(undefined, { shouldFocus: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objective.task]);
 
   // Automatically update the effects whenever dirty
   useEffect(() => {
     if (objective.task === watchTask) {
-      if (isDirty) {
-        void trigger();
+      if (form.formState.isDirty) {
+        void form.trigger();
       }
-      if (isValid) {
+      if (form.formState.isValid) {
         const newObjectives = [...objectives];
         newObjectives[idx] = watchAll;
         setObjectives(newObjectives);
@@ -674,7 +722,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirty, isValid]);
+  }, [form.formState.isDirty, form.formState.isValid]);
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof AllObjectivesType;
@@ -803,15 +851,13 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   return (
     <EditContent
       schema={objectiveSchema}
+      form={form}
+      formData={formData}
+      formClassName={formClassName}
       showSubmit={false}
       buttonTxt="Confirm Changes (No database sync)"
       fixedWidths={props.fixedWidths}
       bgColor={props.bgColor}
-      limitSelectHeight={props.limitSelectHeight}
-      setValue={setValue}
-      register={register}
-      errors={errors}
-      formData={formData}
     />
   );
 };

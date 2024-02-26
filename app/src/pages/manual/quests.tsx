@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
 import ContentBox from "@/layout/ContentBox";
-import SelectField from "@/layout/SelectField";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { api } from "@/utils/api";
 import { FilePlus, SquarePen } from "lucide-react";
@@ -116,10 +122,26 @@ const ManualTravel: NextPage = () => {
       </ContentBox>
       <ContentBox
         title="Overview"
-        subtitle={`Review all ${questType}s in the system`}
+        subtitle={`${questType} quests`}
         initialBreak={true}
         topRightContent={
-          <div className="sm:flex sm:flex-row items-center">
+          <div className="flex flex-col gap-1">
+            <Select
+              onValueChange={(e) => setQuestType(e as QuestType)}
+              defaultValue={questType}
+              value={questType}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={`None`} />
+              </SelectTrigger>
+              <SelectContent>
+                {QuestTypes.map((questType) => (
+                  <SelectItem key={questType} value={questType}>
+                    {questType}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {userData && canChangeContent(userData.role) && (
               <div className="flex flex-row gap-1">
                 <Button id="create-quest" onClick={() => create()}>
@@ -138,18 +160,6 @@ const ManualTravel: NextPage = () => {
                 />
               </div>
             )}
-            <SelectField
-              id={questType}
-              onChange={(e) => setQuestType(e.target.value as QuestType)}
-            >
-              {QuestTypes.map((questType) => {
-                return (
-                  <option key={questType} value={questType}>
-                    {questType}
-                  </option>
-                );
-              })}
-            </SelectField>
           </div>
         }
       >

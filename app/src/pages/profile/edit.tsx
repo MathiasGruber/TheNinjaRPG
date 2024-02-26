@@ -7,11 +7,26 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
 import RichInput from "@/layout/RichInput";
-import SelectField from "@/layout/SelectField";
 import AvatarImage from "@/layout/Avatar";
-import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import {
+  Form,
+  FormControl,
+  FormLabel,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
@@ -348,7 +363,9 @@ const ResetStats: React.FC = () => {
     resolver: zodResolver(statSchema),
   });
   const formValues = form.watch();
-  const formSum = Object.values(formValues).reduce((a, b) => a + b, 0);
+  const formSum = Object.values(formValues)
+    .map((v) => Number(v))
+    .reduce((a, b) => a + b, 0);
 
   // Is the form the same as the default values
   const isDefault = Object.keys(formValues).every((key) => {
@@ -383,24 +400,6 @@ const ResetStats: React.FC = () => {
   const misalignment = round(formSum - availableStats);
   const canBuy = userData.reputationPoints >= COST_RESET_STATS;
 
-  // Input filds
-  const fields = statNames.map((stat, i) => {
-    return (
-      <div key={i} className={`pt-1`}>
-        <div className="px-3">
-          <InputField
-            id={stat}
-            inline={false}
-            type="number"
-            label={stat}
-            register={form.register}
-            error={form.formState.errors?.[stat]?.message}
-          />
-        </div>
-      </div>
-    );
-  });
-
   // Figure out what to show on button, and whether it is disabled or not
   const isDisabled = !canBuy || misalignment !== 0 || isDefault;
   const buttonText = isDefault
@@ -413,21 +412,42 @@ const ResetStats: React.FC = () => {
           : `Place ${-misalignment} more points`
       : "Not enough points";
 
+  // Submit handler
+  const onSubmit = form.handleSubmit((data) => {
+    updateStats(data);
+  });
+
   // Show component
   return (
     <>
-      <div className="grid grid-cols-2">{fields}</div>
-      <Button
-        id="create"
-        className="w-full"
-        onClick={(e) => {
-          e.preventDefault();
-          updateStats(formValues);
-        }}
-        disabled={isDisabled}
-      >
-        {buttonText}
-      </Button>
+      <Form {...form}>
+        <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
+          {statNames.map((stat, i) => (
+            <FormField
+              key={i}
+              control={form.control}
+              name={stat}
+              render={({ field }) => (
+                <FormItem className="pt-1">
+                  <FormLabel>{stat}</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder={stat} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ))}
+          <Button
+            id="create"
+            className="w-full col-span-2 my-1"
+            type="submit"
+            disabled={isDisabled}
+          >
+            {buttonText}
+          </Button>
+        </form>
+      </Form>
     </>
   );
 };
@@ -565,53 +585,80 @@ const AttributeChange: React.FC = () => {
               <p> {attribute} </p>
             </div>
           ))}
-        <div className="mt-3">
-          <SelectField
-            id="eyecolor"
-            label="Eye Color"
-            placeholder={eyeColor}
-            onChange={(e) => setEyeColor(e.target.value as (typeof colors)[number])}
-            onButtonClick={() => insertAttr({ attribute: "Eyes", color: eyeColor })}
-            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
+        <div className="mt-3 relative">
+          <Select
+            onValueChange={(e) => setEyeColor(e as (typeof colors)[number])}
+            defaultValue={eyeColor}
+            value={eyeColor}
           >
-            {colors.map((color, i) => (
-              <option key={i} value={color}>
-                {color}
-              </option>
-            ))}
-          </SelectField>
+            <Label htmlFor="eye_color">Eye color</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent id="eye_color">
+              {colors.map((color, i) => (
+                <SelectItem key={i} value={color}>
+                  {color}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => insertAttr({ attribute: "Eyes", color: eyeColor })}
+            className="absolute right-0 bottom-0"
+          >
+            <ChevronsLeft className="h-5 w-5 mr-1" />
+          </Button>
         </div>
-        <div className="mt-3">
-          <SelectField
-            id="skincolor"
-            label="Skin Color"
-            onChange={(e) =>
-              setSkinColor(e.target.value as (typeof skin_colors)[number])
-            }
-            onButtonClick={() => insertAttr({ attribute: "Skin", color: skinColor })}
-            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
+        <div className="mt-3 relative">
+          <Select
+            onValueChange={(e) => setSkinColor(e as (typeof skin_colors)[number])}
+            defaultValue={skinColor}
+            value={skinColor}
           >
-            {skin_colors.map((color, i) => (
-              <option key={i} value={color}>
-                {color}
-              </option>
-            ))}
-          </SelectField>
+            <Label htmlFor="skin_color">Skin color</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent id="skin_color">
+              {skin_colors.map((color, i) => (
+                <SelectItem key={i} value={color}>
+                  {color}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => insertAttr({ attribute: "Skin", color: skinColor })}
+            className="absolute right-0 bottom-0"
+          >
+            <ChevronsLeft className="h-5 w-5 mr-1" />
+          </Button>
         </div>
-        <div className="mt-3">
-          <SelectField
-            id="haircolor"
-            label="Hair Color"
-            onChange={(e) => setHairColor(e.target.value as (typeof colors)[number])}
-            onButtonClick={() => insertAttr({ attribute: "Hair", color: hairColor })}
-            button={<ChevronsLeft className="h-5 w-5 mr-1" />}
+        <div className="mt-3 relative">
+          <Select
+            onValueChange={(e) => setHairColor(e as (typeof colors)[number])}
+            defaultValue={hairColor}
+            value={hairColor}
           >
-            {colors.map((color, i) => (
-              <option key={i} value={color}>
-                {color}
-              </option>
-            ))}
-          </SelectField>
+            <Label htmlFor="hair_color">Hair color</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent id="hair_color">
+              {colors.map((color, i) => (
+                <SelectItem key={i} value={color}>
+                  {color}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => insertAttr({ attribute: "Hair", color: hairColor })}
+            className="absolute right-0 bottom-0"
+          >
+            <ChevronsLeft className="h-5 w-5 mr-1" />
+          </Button>
         </div>
       </div>
     </div>
@@ -689,7 +736,7 @@ const NameChange: React.FC = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
   // Username search
-  const { register, errors, searchTerm } = useUserSearch();
+  const { form, searchTerm } = useUserSearch();
 
   // Queries
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
@@ -718,6 +765,7 @@ const NameChange: React.FC = () => {
   }
 
   // Derived data
+  const errors = form.formState.errors;
   const canBuyUsername = userData.reputationPoints >= COST_CHANGE_USERNAME;
   const error = databaseUsername?.username
     ? `${databaseUsername?.username} already exists`
@@ -725,32 +773,43 @@ const NameChange: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1">
-      <InputField
-        id="username"
-        placeholder="Search"
-        register={register}
-        error={error}
-      />
-      <Confirm
-        title="Confirm New Username"
-        button={
-          <Button
-            id="create"
-            className="w-full my-3"
-            disabled={!canBuyUsername || searchTerm === "" || error !== undefined}
+      <Form {...form}>
+        <form>
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input id="username" placeholder="Search user" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Confirm
+            title="Confirm New Username"
+            button={
+              <Button
+                id="create"
+                type="submit"
+                className="w-full my-3"
+                disabled={!canBuyUsername || searchTerm === "" || error !== undefined}
+              >
+                {canBuyUsername ? "Update Username" : "Not enough points"}
+              </Button>
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+              updateUsername({ username: searchTerm });
+            }}
           >
-            {canBuyUsername ? "Update Username" : "Not enough points"}
-          </Button>
-        }
-        onAccept={(e) => {
-          e.preventDefault();
-          updateUsername({ username: searchTerm });
-        }}
-      >
-        Changing your username costs {COST_CHANGE_USERNAME} reputation points, and can
-        only be reverted by purchasing another name change. Are you sure you want to
-        change your username to {searchTerm}?
-      </Confirm>
+            Changing your username costs {COST_CHANGE_USERNAME} reputation points, and
+            can only be reverted by purchasing another name change. Are you sure you
+            want to change your username to {searchTerm}?
+          </Confirm>
+        </form>
+      </Form>
     </div>
   );
 };

@@ -1,7 +1,14 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import InputField from "./InputField";
 import AvatarImage from "./Avatar";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { X } from "lucide-react";
 import { getUnique } from "@/utils/grouping";
 import { api } from "@/utils/api";
@@ -40,15 +47,10 @@ interface UserSearchSelectProps {
 const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const {
-    watch,
-    register,
-    setValue,
-    formState: { errors },
-  } = props.useFormMethods;
+  const form = props.useFormMethods;
 
-  const watchUsername = watch("username", "");
-  const watchUsers = watch("users", []);
+  const watchUsername = form.watch("username", "");
+  const watchUsers = form.watch("users", []);
 
   const { data: searchResults } = api.profile.searchUsers.useQuery(
     { username: searchTerm, showYourself: props.showYourself },
@@ -65,9 +67,9 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
   const selectedVisual = watchUsers.map((user) => (
     <span
       key={user.userId}
-      className="my-1 mr-2 inline-flex items-center rounded-lg border  border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
+      className="mr-2 inline-flex items-center rounded-lg border  border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
     >
-      <div className="m-1 w-10">
+      <div className="m-1 w-8">
         <AvatarImage
           href={user.avatar}
           userId={user.userId}
@@ -85,62 +87,76 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
             watchUsers.filter((e) => e.userId !== user.userId),
             "userId",
           );
-          setValue("users", newSelected);
+          form.setValue("users", newSelected);
         }}
       />
     </span>
   ));
 
+  console.log(searchResults);
+
   return (
-    <div className="flex flex-row items-center">
-      <InputField
-        id="username"
-        label={props.label}
-        register={register}
-        error={errors.username ? errors.username?.message : errors.users?.message}
-        placeholder="Search for user"
-        options={
-          <>
-            {searchResults && watchUsername && (
-              <div className="relative z-50 my-0.5 block w-full rounded-lg border-2 border-slate-500 bg-slate-100">
-                {searchResults?.map((user) => (
-                  <div
-                    className="flex flex-row items-center p-2.5 hover:bg-slate-200"
-                    key={user.userId}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      let newSelected = getUnique([...watchUsers, user], "userId");
-                      if (props.maxUsers && newSelected.length > props.maxUsers) {
-                        newSelected = newSelected.slice(1);
-                      }
-                      setValue("username", "");
-                      setValue("users", newSelected);
-                    }}
-                  >
-                    <div className="basis-1/12">
-                      <AvatarImage
-                        href={user.avatar}
-                        userId={user.userId}
-                        alt={user.username}
-                        size={100}
-                        priority
-                      />
-                    </div>
-                    <div className="ml-2">
-                      <p>{user.username}</p>
-                      <p>
-                        Lvl. {user.level} {user.rank}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+    <div className="flex flex-col w-full items-center">
+      <div className="flex flex-row w-full items-center">
+        <Form {...form}>
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem className="mx-1 w-full flex flex-col">
+                <FormControl>
+                  <Input
+                    id="username"
+                    placeholder={props.label ?? "Search username"}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-            {!props.inline && selectedVisual}
-          </>
-        }
-      />
-      {props.inline && selectedVisual}
+          />
+        </Form>
+        {props.inline && selectedVisual}
+      </div>
+      {!props.inline && (
+        <div className="flex flex-row mt-1 ml-1 w-full">{selectedVisual}</div>
+      )}
+      {searchResults && watchUsername && (
+        <div className="mt-1 w-full rounded-lg border-2 border-slate-500 bg-slate-100">
+          {searchResults?.map((user) => (
+            <div
+              className="flex flex-row items-center p-2.5 hover:bg-slate-200"
+              key={user.userId}
+              onClick={(e) => {
+                e.preventDefault();
+                let newSelected = getUnique([...watchUsers, user], "userId");
+                if (props.maxUsers && newSelected.length > props.maxUsers) {
+                  newSelected = newSelected.slice(1);
+                }
+                form.setValue("username", "");
+                form.setValue("users", newSelected);
+              }}
+            >
+              <div className="basis-1/12">
+                <AvatarImage
+                  href={user.avatar}
+                  userId={user.userId}
+                  alt={user.username}
+                  size={100}
+                  priority
+                />
+              </div>
+              <div className="ml-2">
+                <p>{user.username}</p>
+                <p>
+                  Lvl. {user.level} {user.rank}
+                </p>
+              </div>
+            </div>
+          ))}
+          {searchResults.length === 0 && <div className="p-2.5">No users found</div>}
+        </div>
+      )}
     </div>
   );
 };

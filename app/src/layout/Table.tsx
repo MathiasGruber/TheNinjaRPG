@@ -72,13 +72,15 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                   }}
                 >
                   {column.type === "avatar" && (
-                    <AvatarImage
-                      href={row[column.key] as string}
-                      alt={row[column.key] as string}
-                      size={100}
-                      hover_effect={true}
-                      priority
-                    />
+                    <div className="w-20">
+                      <AvatarImage
+                        href={row[column.key] as string}
+                        alt={row[column.key] as string}
+                        size={100}
+                        hover_effect={true}
+                        priority
+                      />
+                    </div>
                   )}
                   {column.type === "input" && (
                     <AvatarImage

@@ -58,7 +58,7 @@ const Users: NextPage = () => {
   });
 
   const columns: ColumnDefinitionType<Entry, keyof Entry>[] = [
-    { key: "relatedImage", header: "", type: "avatar", width: 7 },
+    { key: "relatedImage", header: "", type: "avatar" },
     { key: "changes", header: "Changes", type: "string" },
   ];
 

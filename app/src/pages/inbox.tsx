@@ -7,11 +7,20 @@ import Conversation from "@/layout/Conversation";
 import RichInput from "@/layout/RichInput";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
-import InputField from "@/layout/InputField";
 import AvatarImage from "@/layout/Avatar";
+import ContentBox from "@/layout/ContentBox";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormLabel,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { SquarePen, Users, X } from "lucide-react";
+import { SquarePen, Users, X, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -24,34 +33,33 @@ const Inbox: NextPage = () => {
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
   if (!userData) return <Loader explanation="Loading userdata" />;
 
-  return (
-    <div className={`grid grid-cols-4`}>
-      <div className={`mr-3  ${selectedConvo ? "col-span-1" : "col-span-3"}`}>
+  if (selectedConvo) {
+    return (
+      <Conversation
+        refreshKey={0}
+        convo_id={selectedConvo}
+        back_href="/inbox"
+        onBack={() => setSelectedConvo(null)}
+        title="Inbox"
+        subtitle="Private messages"
+        topRightContent={<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
+      />
+    );
+  } else if (!selectedConvo) {
+    return (
+      <ContentBox
+        title="Inbox"
+        subtitle="Private Conversations"
+        padding={false}
+        topRightContent={<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
+      >
         <ShowConversations
           selectedConvo={selectedConvo}
           setSelectedConvo={setSelectedConvo}
         />
-      </div>
-      <div className={`${selectedConvo ? "col-span-3" : "col-span-1"}`}>
-        {selectedConvo ? (
-          <Conversation
-            refreshKey={0}
-            convo_id={selectedConvo}
-            title="Inbox"
-            subtitle="Private messages"
-            topRightContent={
-              <NewConversationPrompt setSelectedConvo={setSelectedConvo} />
-            }
-          />
-        ) : (
-          <div className="flex flex-row">
-            <div className="grow"></div>
-            {<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      </ContentBox>
+    );
+  }
 };
 
 export default Inbox;
@@ -73,18 +81,6 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     isLoading,
   } = api.comments.getUserConversations.useQuery({ selectedConvo: selectedConvo });
 
-  useEffect(() => {
-    if (!isLoading) {
-      const firstConvo = allConversations?.[0];
-      if (selectedConvo && !allConversations?.find((c) => c.id === selectedConvo)) {
-        setSelectedConvo(firstConvo ? firstConvo.id : null);
-      }
-      if (selectedConvo === null && firstConvo) {
-        setSelectedConvo(firstConvo.id);
-      }
-    }
-  }, [isLoading, selectedConvo, allConversations, setSelectedConvo]);
-
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({
     onSuccess: async () => {
       await refetch();
@@ -97,7 +93,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     <div>
       {isLoading && <Loader explanation="Looking for conversations" />}
       {allConversations && (
-        <div className="relative overflow-y-auto">
+        <div className="relative">
           <ul className="space-y-2">
             <li>
               <a
@@ -114,57 +110,59 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 )}
                 <span className="... ml-3 truncate font-bold">Chats</span>
               </a>
-              <hr />
-              {allConversations.map((convo) => (
-                <div
-                  className={`my-3 flex h-12 flex-row items-center rounded-lg p-1 hover:bg-orange-200 ${
-                    selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
-                  }`}
-                  key={convo.id}
-                  onClick={() => setSelectedConvo(convo.id)}
-                >
-                  {convo.users.length > 0 &&
-                    convo.users.map((relation, i) => {
-                      const user = relation.userData;
-                      return (
-                        <div
-                          key={user.userId}
-                          className={`absolute w-14`}
-                          style={{ left: `${i * 2}rem` }}
-                        >
-                          <AvatarImage
-                            href={user.avatar}
-                            userId={user.userId}
-                            alt={user.username}
-                            size={50}
-                            priority
-                          />
-                        </div>
-                      );
-                    })}
-                  <span
-                    className="... truncate text-sm"
-                    style={{
-                      marginLeft: (convo.users.length * 2 + 1.5).toString() + "rem",
-                    }}
-                  >
-                    {convo.title}
-                    <br />
-                    {convo.createdAt.toDateString()}s
-                  </span>
-                  <div className="grow"></div>
-                  <X
-                    className="ml-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      exitConversation({ convo_id: convo.id });
-                    }}
-                  />
-                </div>
-              ))}
             </li>
+
+            <hr />
+            {allConversations.map((convo) => (
+              <li
+                className={`relative mx-3 my-3 flex h-12 flex-row items-center rounded-lg hover:bg-orange-200 ${
+                  selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
+                }`}
+                key={convo.id}
+                onClick={() => setSelectedConvo(convo.id)}
+              >
+                {convo.users.length > 0 &&
+                  convo.users.map((relation, i) => {
+                    const user = relation.userData;
+                    return (
+                      <div
+                        key={user.userId}
+                        className={`absolute w-14`}
+                        style={{ left: `${i * 2}rem` }}
+                      >
+                        <AvatarImage
+                          href={user.avatar}
+                          userId={user.userId}
+                          alt={user.username}
+                          size={50}
+                          priority
+                        />
+                      </div>
+                    );
+                  })}
+                <span
+                  className="... truncate text-sm grow"
+                  style={{
+                    marginLeft: (convo.users.length * 2 + 1.5).toString() + "rem",
+                  }}
+                >
+                  {convo.title}
+                  <br />
+                  {convo.createdAt.toDateString()}s
+                </span>
+                <div className="grow"></div>
+                <Trash2
+                  className="mx-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    exitConversation({ convo_id: convo.id });
+                  }}
+                />
+              </li>
+            ))}
           </ul>
-          <span className="italic">- Messages deleted after 14 days</span>
+          <div className="italic m-3">- Messages deleted after 14 days</div>
         </div>
       )}
     </div>
@@ -233,27 +231,35 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
           }
           onAccept={onSubmit}
         >
-          <UserSearchSelect
-            useFormMethods={userSearchMethods}
-            label="Users to send to"
-            showYourself={false}
-            maxUsers={maxUsers}
-          />
-
-          <InputField
-            id="title"
-            label="Conversation name"
-            register={create.register}
-            error={create.formState.errors.title?.message}
-          />
-          <RichInput
-            id="comment"
-            label="Initial conversation message"
-            height="300"
-            placeholder=""
-            control={create.control}
-            error={create.formState.errors.comment?.message}
-          />
+          <Form {...create}>
+            <UserSearchSelect
+              useFormMethods={userSearchMethods}
+              label="Users to send to"
+              showYourself={false}
+              maxUsers={maxUsers}
+            />
+            <FormField
+              control={create.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem className="mb-2">
+                  <FormLabel>Conversation name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <RichInput
+              id="comment"
+              label="Initial conversation message"
+              height="300"
+              placeholder=""
+              control={create.control}
+              error={create.formState.errors.comment?.message}
+            />
+          </Form>
         </Confirm>
       )}
     </div>

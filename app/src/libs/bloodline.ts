@@ -98,13 +98,13 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
 
   // Object for form values
   const formData: FormEntry<keyof ZodBloodlineType>[] = [
-    { id: "name", label: "Bloodline Name", type: "text" },
-    { id: "image", label: "Image", type: "avatar", href: imageUrl },
+    { id: "name", type: "text" },
+    { id: "image", type: "avatar", href: imageUrl },
     { id: "regenIncrease", type: "number" },
     { id: "hidden", type: "number", label: "Hidden" },
-    { id: "village", label: "Village", type: "db_values", values: villages },
+    { id: "village", type: "db_values", values: villages, resetButton: true },
     { id: "rank", type: "str_array", values: LetterRanks },
-    { id: "description", label: "Description", type: "text", doubleWidth: true },
+    { id: "description", type: "richinput", doubleWidth: true },
   ];
 
   return {

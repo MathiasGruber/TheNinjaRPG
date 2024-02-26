@@ -1,28 +1,31 @@
 import { useState } from "react";
-import { type NextPage } from "next";
-
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import NavTabs from "@/layout/NavTabs";
-import Loader from "@/layout/Loader";
-import InputField from "@/layout/InputField";
-
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserSearch } from "@/utils/search";
-import { type ArrayElement } from "@/utils/typeutils";
+import type { NextPage } from "next";
+import type { ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
   const tabNames = ["Online", "Strongest", "Staff"] as const;
   const [activeTab, setActiveTab] = useState<(typeof tabNames)[number]>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const { register, errors, searchTerm } = useUserSearch();
+  const { form, searchTerm } = useUserSearch();
 
   const {
     data: users,
     fetchNextPage,
     hasNextPage,
-    isFetching,
   } = api.profile.getPublicUsers.useInfiniteQuery(
     {
       limit: 30,
@@ -46,7 +49,7 @@ const Users: NextPage = () => {
   });
 
   const columns: ColumnDefinitionType<User, keyof User>[] = [
-    { key: "avatar", header: "", type: "avatar", width: 7 },
+    { key: "avatar", header: "", type: "avatar" },
     { key: "username", header: "Username", type: "string" },
     { key: "rank", header: "Rank", type: "capitalized" },
   ];
@@ -65,14 +68,23 @@ const Users: NextPage = () => {
       subtitle={`${activeTab} users`}
       padding={false}
       topRightContent={
-        <div className="flex flex-col sm:flex-row">
-          {isFetching && <Loader />}
-          <InputField
-            id="username"
-            placeholder="Search"
-            register={register}
-            error={errors.username?.message}
-          />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="max-w-40">
+            <Form {...form}>
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem className="w-full">
+                    <FormControl>
+                      <Input id="username" placeholder="Search" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </Form>
+          </div>
           <NavTabs
             current={activeTab}
             options={["Online", "Strongest", "Staff"]}

@@ -7,7 +7,6 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
-import InputField from "@/layout/InputField";
 import Post from "@/layout/Post";
 import ReactCountryFlag from "react-country-flag";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,14 @@ import { searchPaypalSchema } from "@/validators/points";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
 import { Check, ChevronsUp, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -615,7 +622,7 @@ const SubscriptionsOverview = () => {
     });
 
   const columns: ColumnDefinitionType<Subscription, keyof Subscription>[] = [
-    { key: "receiver", header: "Receiver", type: "avatar", width: 7 },
+    { key: "receiver", header: "Receiver", type: "avatar" },
     { key: "status", header: "Status", type: "string" },
     { key: "federalStatus", header: "Federal", type: "string" },
     { key: "createdAt", header: "Created", type: "date" },
@@ -687,7 +694,7 @@ const TransactionHistory = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   const columns: ColumnDefinitionType<Transaction, keyof Transaction>[] = [
-    { key: "receiver", header: "Receiver", type: "avatar", width: 7 },
+    { key: "receiver", header: "Receiver", type: "avatar" },
     { key: "transactionId", header: "Transaction ID", type: "string" },
     { key: "reputationPoints", header: "Points", type: "string" },
     { key: "value", header: "Amount", type: "string" },
@@ -756,19 +763,25 @@ const LookupSubscription = () => {
     >
       {isLoading && <Loader explanation="Searching..." />}
       {!isLoading && (
-        <>
-          <InputField
-            id="text"
-            label="Search for Subscription ID"
-            placeholder="Subscription ID"
-            register={searchForm.register}
-            error={searchForm.formState.errors.text?.message}
-          />
-          <Button id="submit" className="w-full" onClick={handleSubmitRequest}>
-            <Search className="mr-1 h-5 w-5" />
-            Search
-          </Button>
-        </>
+        <Form {...searchForm}>
+          <form onSubmit={handleSubmitRequest} className="relative">
+            <FormField
+              control={searchForm.control}
+              name="text"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button className="absolute top-0 right-0" type="submit">
+              <Search className="mr-1 h-5 w-5" />
+            </Button>
+          </form>
+        </Form>
       )}
     </ContentBox>
   );

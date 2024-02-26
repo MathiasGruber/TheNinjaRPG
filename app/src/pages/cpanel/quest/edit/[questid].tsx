@@ -56,20 +56,8 @@ interface SingleEditQuestProps {
 
 const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
   // Form handling
-  const {
-    quest,
-    objectives,
-    form: {
-      control,
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    setObjectives,
-    handleQuestSubmit,
-  } = useQuestEditForm(props.quest, props.refetch);
+  const { quest, objectives, form, formData, setObjectives, handleQuestSubmit } =
+    useQuestEditForm(props.quest, props.refetch);
 
   const { mutate: chatIdea, isLoading } = api.openai.createQuest.useMutation({
     onSuccess: (data) => {
@@ -90,7 +78,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
             .filter((e) => e !== undefined) as AllObjectivesType[];
           setObjectives(objectives);
         } else {
-          setValue(key, data[key]);
+          form.setValue(key, data[key]);
         }
       }
     },
@@ -117,9 +105,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     />
   );
 
-  // Get current form values
-  const currentValues = getValues();
-
   // Show panel controls
   return (
     <>
@@ -131,10 +116,12 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         topRightContent={
           formData.find((e) => e.id === "description") ? (
             <ChatInputField
-              id="chatInput"
-              placeholder="Instruct ChatGPT to edit description & objectives"
-              isLoading={isLoading}
-              onSubmit={(text) => {
+              inputProps={{
+                id: "chatInput",
+                placeholder: "Instruct ChatGPT to edit",
+                disabled: isLoading,
+              }}
+              onChat={(text) => {
                 chatIdea({ questId: quest.id, prompt: text });
               }}
             />
@@ -143,22 +130,16 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
       >
         {!quest && <p>Could not find this item</p>}
         {quest && (
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-            <EditContent
-              currentValues={currentValues}
-              schema={QuestValidator._def.schema.merge(ObjectiveReward)}
-              showSubmit={isDirty}
-              buttonTxt="Save to Database"
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              formData={formData}
-              control={control}
-              type="quest"
-              allowImageUpload={true}
-              onAccept={handleQuestSubmit}
-            />
-          </div>
+          <EditContent
+            schema={QuestValidator._def.schema.merge(ObjectiveReward)}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="quest"
+            allowImageUpload={true}
+            onAccept={handleQuestSubmit}
+          />
         )}
       </ContentBox>
 
@@ -192,15 +173,13 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <ObjectiveFormWrapper
-                idx={i}
-                objective={objective}
-                availableTags={allObjectiveTasks}
-                objectives={objectives}
-                setObjectives={setObjectives}
-              />
-            </div>
+            <ObjectiveFormWrapper
+              idx={i}
+              objective={objective}
+              availableTags={allObjectiveTasks}
+              objectives={objectives}
+              setObjectives={setObjectives}
+            />
           </ContentBox>
         );
       })}

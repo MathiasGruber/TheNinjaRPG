@@ -49,21 +49,10 @@ interface SingleEditBadgeProps {
 
 const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
   // Form handling
-  const {
-    badge,
-    form: {
-      control,
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    handleBadgeSubmit,
-  } = useBadgeEditForm(props.badge, props.refetch);
-
-  // Get current form values
-  const currentValues = getValues();
+  const { badge, form, formData, handleBadgeSubmit } = useBadgeEditForm(
+    props.badge,
+    props.refetch,
+  );
 
   // Mutations
   const { mutate: chatIdea, isLoading } = api.openai.createBadge.useMutation({
@@ -71,7 +60,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
       show_toast("Updated Badge", `Based on response from AI`, "success");
       let key: keyof typeof data;
       for (key in data) {
-        setValue(key, data[key]);
+        form.setValue(key, data[key]);
       }
     },
     onError: (error) => {
@@ -89,10 +78,12 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
       topRightContent={
         formData.find((e) => e.id === "description") ? (
           <ChatInputField
-            id="chatInput"
-            placeholder="Instruct ChatGPT to edit name & description"
-            isLoading={isLoading}
-            onSubmit={(text) => {
+            inputProps={{
+              id: "chatInput",
+              placeholder: "Instruct ChatGPT to edit",
+              disabled: isLoading,
+            }}
+            onChat={(text) => {
               chatIdea({ badgeId: badge.id, prompt: text });
             }}
           />
@@ -101,22 +92,16 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
     >
       {!badge && <p>Could not find this badge</p>}
       {badge && (
-        <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-          <EditContent
-            currentValues={currentValues}
-            schema={BadgeValidator}
-            showSubmit={isDirty}
-            buttonTxt="Save to Database"
-            setValue={setValue}
-            register={register}
-            errors={errors}
-            formData={formData}
-            control={control}
-            type="badge"
-            allowImageUpload={true}
-            onAccept={handleBadgeSubmit}
-          />
-        </div>
+        <EditContent
+          schema={BadgeValidator}
+          form={form}
+          formData={formData}
+          showSubmit={form.formState.isDirty}
+          buttonTxt="Save to Database"
+          type="badge"
+          allowImageUpload={true}
+          onAccept={handleBadgeSubmit}
+        />
       )}
     </ContentBox>
   );

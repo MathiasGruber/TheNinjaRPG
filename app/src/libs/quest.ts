@@ -141,7 +141,12 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
 
   // Add villages if they exist
   if (villages) {
-    formData.push({ id: "requiredVillage", type: "db_values", values: villages });
+    formData.push({
+      id: "requiredVillage",
+      type: "db_values",
+      values: villages,
+      resetButton: true,
+    });
   }
 
   // For everything except daily, add timeframe

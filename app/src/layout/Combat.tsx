@@ -278,17 +278,20 @@ const Combat: React.FC<CombatProps> = (props) => {
   }, [battle, timeDiff, isInLobby]);
 
   useEffect(() => {
-    if (mountRef.current && battle.current && userData?.battleId) {
+    // Reference to the mount
+    const sceneRef = mountRef.current;
+
+    if (sceneRef && battle.current && userData?.battleId) {
       // Used for map size calculations
       const backgroundLengthToWidth = 576 / 1024;
 
       // Map size
-      const WIDTH = mountRef.current.getBoundingClientRect().width;
+      const WIDTH = sceneRef.getBoundingClientRect().width;
       const HEIGHT = WIDTH * backgroundLengthToWidth;
 
       // Listeners
-      mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
-      mountRef.current.addEventListener("mouseleave", onDocumentMouseLeave, false);
+      sceneRef.addEventListener("mousemove", onDocumentMouseMove, false);
+      sceneRef.addEventListener("mouseleave", onDocumentMouseLeave, false);
 
       // Setup scene, renderer and raycaster
       const { scene, renderer, raycaster, handleResize } = setupScene({
@@ -300,7 +303,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         colorAlpha: 1,
         width2height: backgroundLengthToWidth,
       });
-      mountRef.current.appendChild(renderer.domElement);
+      sceneRef.appendChild(renderer.domElement);
 
       // Setup camara
       const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
@@ -458,9 +461,9 @@ const Combat: React.FC<CombatProps> = (props) => {
       return () => {
         void setBattle(undefined);
         window.removeEventListener("resize", handleResize);
-        mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
-        mountRef.current?.removeEventListener("mouseleave", onDocumentMouseLeave);
-        mountRef.current?.removeChild(renderer.domElement);
+        sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
+        sceneRef.removeEventListener("mouseleave", onDocumentMouseLeave);
+        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
       };

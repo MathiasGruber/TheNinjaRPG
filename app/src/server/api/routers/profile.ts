@@ -53,6 +53,7 @@ import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
+import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -512,6 +513,9 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: insertUserDataSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Set empty strings to null
+      setEmptyStringsToNulls(input.data);
+
       // Queries
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const ai = await ctx.drizzle.query.userData.findFirst({

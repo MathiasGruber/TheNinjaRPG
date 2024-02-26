@@ -303,7 +303,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       const jutsuElements: ElementName[] = [];
       j.effects.map((effect) => {
         if ("elements" in effect && effect.elements) {
-          jutsuElements.push(...effect.elements.filter((e) => e !== "None"));
+          jutsuElements.push(
+            ...effect.elements.filter((e) => (e as string) !== "None"),
+          );
         }
       });
       if (jutsuElements.length === 0) {

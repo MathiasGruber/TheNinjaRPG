@@ -4,8 +4,14 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
-import SelectField from "@/layout/SelectField";
 import MassEditContent from "@/layout/MassEditContent";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -78,19 +84,22 @@ const ManualItems: NextPage = () => {
         topRightContent={
           <div className="lg:flex lg:flex-row">
             <div className="grow"></div>
-            <SelectField
-              id="item-type"
-              label=""
-              onChange={(e) =>
-                setItemType(e.target.value as (typeof ItemTypes)[number])
-              }
+            <Select
+              onValueChange={(e) => setItemType(e as (typeof ItemTypes)[number])}
+              defaultValue={itemType}
+              value={itemType}
             >
-              {Object.values(ItemTypes).map((target) => (
-                <option key={target} value={target}>
-                  {target}
-                </option>
-              ))}
-            </SelectField>
+              <SelectTrigger>
+                <SelectValue placeholder={`None`} />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(ItemTypes).map((target) => (
+                  <SelectItem key={target} value={target}>
+                    {target}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         }
       >

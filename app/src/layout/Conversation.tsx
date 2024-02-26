@@ -17,11 +17,13 @@ import type { MutateCommentSchema } from "../validators/comments";
 interface ConversationProps {
   convo_title?: string;
   convo_id?: string;
+  back_href?: string;
   refreshKey: number;
   title: string;
   subtitle: string;
   initialBreak?: boolean;
   topRightContent?: React.ReactNode;
+  onBack?: () => void;
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
@@ -154,8 +156,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         <ContentBox
           title={props.title}
           subtitle={props.subtitle}
+          back_href={props.back_href}
           initialBreak={props.initialBreak}
           topRightContent={props.topRightContent}
+          onBack={props.onBack}
         >
           {conversation && !conversation.isLocked && userData && !userData.isBanned && (
             <div className="relative mb-2">

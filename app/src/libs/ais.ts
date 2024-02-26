@@ -87,8 +87,18 @@ export const useAiEditForm = (
     { id: "willpower", label: "Willpower Focus", type: "number" },
     { id: "speed", label: "Speed Focus", type: "number" },
     { id: "isSummon", type: "number" },
-    { id: "primaryElement", type: "str_array", values: ElementNames },
-    { id: "secondaryElement", type: "str_array", values: ElementNames },
+    {
+      id: "primaryElement",
+      type: "str_array",
+      values: ElementNames,
+      resetButton: true,
+    },
+    {
+      id: "secondaryElement",
+      type: "str_array",
+      values: ElementNames,
+      resetButton: true,
+    },
     {
       id: "jutsus",
       label: "Jutsus",

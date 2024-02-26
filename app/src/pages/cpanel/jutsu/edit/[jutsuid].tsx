@@ -56,20 +56,8 @@ interface SingleEditJutsuProps {
 
 const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   // Form handling
-  const {
-    loading,
-    jutsu,
-    effects,
-    form: {
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    setEffects,
-    handleJutsuSubmit,
-  } = useJutsuEditForm(props.jutsu, props.refetch);
+  const { loading, jutsu, effects, form, formData, setEffects, handleJutsuSubmit } =
+    useJutsuEditForm(props.jutsu, props.refetch);
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -88,9 +76,6 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     />
   );
 
-  // Get current form values
-  const currentValues = getValues();
-
   // Show panel controls
   return (
     <>
@@ -101,21 +86,16 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
       >
         {!jutsu && <p>Could not find this jutsu</p>}
         {!loading && jutsu && (
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-            <EditContent
-              currentValues={currentValues}
-              schema={JutsuValidator._def.schema}
-              showSubmit={isDirty}
-              buttonTxt="Save to Database"
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              formData={formData}
-              type="jutsu"
-              allowImageUpload={true}
-              onAccept={handleJutsuSubmit}
-            />
-          </div>
+          <EditContent
+            schema={JutsuValidator._def.schema}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="jutsu"
+            allowImageUpload={true}
+            onAccept={handleJutsuSubmit}
+          />
         )}
       </ContentBox>
 
@@ -149,16 +129,14 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <EffectFormWrapper
-                idx={i}
-                type="jutsu"
-                tag={tag}
-                availableTags={tagTypes}
-                effects={effects}
-                setEffects={setEffects}
-              />
-            </div>
+            <EffectFormWrapper
+              idx={i}
+              type="jutsu"
+              tag={tag}
+              availableTags={tagTypes}
+              effects={effects}
+              setEffects={setEffects}
+            />
           </ContentBox>
         );
       })}

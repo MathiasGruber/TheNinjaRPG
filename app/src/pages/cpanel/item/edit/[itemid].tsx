@@ -55,19 +55,8 @@ interface SingleEditItemProps {
 
 const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
   // Form handling
-  const {
-    item,
-    effects,
-    form: {
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    setEffects,
-    handleItemSubmit,
-  } = useItemEditForm(props.item, props.refetch);
+  const { item, effects, form, formData, setEffects, handleItemSubmit } =
+    useItemEditForm(props.item, props.refetch);
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -86,9 +75,6 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
     />
   );
 
-  // Get current form values
-  const currentValues = getValues();
-
   // Show panel controls
   return (
     <>
@@ -99,21 +85,16 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
       >
         {!item && <p>Could not find this item</p>}
         {item && (
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-            <EditContent
-              currentValues={currentValues}
-              schema={ItemValidator._def.schema}
-              showSubmit={isDirty}
-              buttonTxt="Save to Database"
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              formData={formData}
-              type="item"
-              allowImageUpload={true}
-              onAccept={handleItemSubmit}
-            />
-          </div>
+          <EditContent
+            schema={ItemValidator._def.schema}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="item"
+            allowImageUpload={true}
+            onAccept={handleItemSubmit}
+          />
         )}
       </ContentBox>
 
@@ -147,16 +128,14 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <EffectFormWrapper
-                idx={i}
-                type="item"
-                tag={tag}
-                availableTags={tagTypes}
-                effects={effects}
-                setEffects={setEffects}
-              />
-            </div>
+            <EffectFormWrapper
+              idx={i}
+              type="item"
+              tag={tag}
+              availableTags={tagTypes}
+              effects={effects}
+              setEffects={setEffects}
+            />
           </ContentBox>
         );
       })}

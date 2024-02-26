@@ -19,7 +19,6 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
 import { api } from "@/utils/api";
-import { useInfinitePagination } from "@/libs/pagination";
 import { show_toast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost } from "@/libs/hospital/hospital";
@@ -137,16 +136,10 @@ const PurchaseBloodline: React.FC = () => {
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
   const [rank, setRank] = useState<BloodlineRank>("S");
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Fetch data
-  const {
-    data: bloodlines,
-    isFetching,
-    fetchNextPage,
-    hasNextPage,
-  } = api.bloodline.getAll.useInfiniteQuery(
-    { rank: rank, limit: 20 },
+  const { data: bloodlines, isFetching } = api.bloodline.getAll.useInfiniteQuery(
+    { rank: rank, limit: 500 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
@@ -154,7 +147,6 @@ const PurchaseBloodline: React.FC = () => {
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
-  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
   const { mutate: purchase, isLoading: isPurchasing } =

@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { HighlightInit } from "@highlight-run/next/client";
 import { ErrorBoundary } from "@highlight-run/react";
 import { GoogleTagManager } from "@next/third-parties/google";
+import { Toaster } from "@/components/ui/toaster";
 import Header from "@/layout/Header";
 import { ToastContainer } from "react-toastify";
 import { type AppType } from "next/app";
@@ -28,6 +29,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
       <Header />
       <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
       <ToastContainer />
+      <Toaster />
       <AxiomWebVitals />
       <HighlightInit
         projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_IO_PROJECT_ID}

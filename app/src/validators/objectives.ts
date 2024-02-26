@@ -39,8 +39,8 @@ export const allObjectiveTasks = [...SimpleTasks, ...LocationTasks] as const;
 export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
 const rewardFields = {
-  reward_money: z.number().default(0),
-  reward_prestige: z.number().default(0),
+  reward_money: z.coerce.number().default(0),
+  reward_prestige: z.coerce.number().default(0),
   reward_rank: z.enum(UserRanks).default("NONE"),
   reward_items: z.array(z.string()).default([]),
   reward_jutsus: z.array(z.string()).default([]),
@@ -64,8 +64,8 @@ export const hasReward = (reward: ObjectiveRewardType) => {
 
 export const attackerFields = {
   attackers: z.array(z.string()).default([]),
-  attackers_chance: z.number().min(0).max(100).default(0),
-  attackers_scaled_to_user: z.number().min(0).max(1).default(0),
+  attackers_chance: z.coerce.number().min(0).max(100).default(0),
+  attackers_scaled_to_user: z.coerce.number().min(0).max(1).default(0),
 };
 
 export const baseObjectiveFields = {
@@ -75,16 +75,16 @@ export const baseObjectiveFields = {
 export const SimpleObjective = z.object({
   ...baseObjectiveFields,
   task: z.enum(SimpleTasks),
-  value: z.number().min(0).default(3),
+  value: z.coerce.number().min(0).default(3),
   ...rewardFields,
   ...attackerFields,
 });
 
 const complexObjectiveFields = {
-  sector: z.number().min(0).default(0),
-  longitude: z.number().min(0).default(0),
-  latitude: z.number().min(0).default(0),
-  completed: z.number().min(0).max(1).default(0),
+  sector: z.coerce.number().min(0).default(0),
+  longitude: z.coerce.number().min(0).default(0),
+  latitude: z.coerce.number().min(0).default(0),
+  completed: z.coerce.number().min(0).max(1).default(0),
   image: z.string().default(""),
   ...rewardFields,
   ...attackerFields,
@@ -111,7 +111,7 @@ export const DefeatOpponents = z.object({
   task: z.literal("defeat_opponents").default("defeat_opponents"),
   opponent_name: z.string().min(3).default("Opponent"),
   opponent_ai: z.string().min(10).optional().nullish(),
-  opponent_scaled_to_user: z.number().min(0).max(1).default(0),
+  opponent_scaled_to_user: z.coerce.number().min(0).max(1).default(0),
   ...complexObjectiveFields,
 });
 
@@ -126,7 +126,7 @@ export type AllObjectivesType = z.infer<typeof AllObjectives>;
 export const ObjectiveTracker = z.object({
   id: z.string(),
   done: z.boolean().default(false),
-  value: z.number().default(0),
+  value: z.coerce.number().default(0),
   collected: z.boolean().default(false),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
@@ -150,13 +150,13 @@ export const QuestValidator = z
     description: z.string().min(1).max(512).optional().nullish(),
     successDescription: z.string().min(1).max(512).optional().nullish(),
     requiredRank: z.enum(LetterRanks).optional(),
-    requiredLevel: z.number().min(0).max(100).optional(),
+    requiredLevel: z.coerce.number().min(0).max(100).optional(),
     requiredVillage: z.string().min(0).max(21).optional().nullish(),
-    tierLevel: z.number().min(0).max(100).optional().nullish(),
+    tierLevel: z.coerce.number().min(0).max(100).optional().nullish(),
     timeFrame: z.enum(TimeFrames),
     questType: z.enum(QuestTypes),
     content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
-    hidden: z.number().min(0).max(1),
+    hidden: z.coerce.number().min(0).max(1),
     expiresAt: z
       .string()
       .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")

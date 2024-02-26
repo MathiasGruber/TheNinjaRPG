@@ -63,12 +63,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     loading,
     bloodline,
     effects,
-    form: {
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
+    form,
     formData,
     setEffects,
     handleBloodlineSubmit,
@@ -109,7 +104,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             .filter((e) => e !== undefined) as ZodAllTags[];
           setEffects(effects);
         } else {
-          setValue(key, data[key]);
+          form.setValue(key, data[key]);
         }
       }
     },
@@ -117,9 +112,6 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
       show_toast("Error from ChatGPT", error.message, "error");
     },
   });
-
-  // Get current form values
-  const currentValues = getValues();
 
   // Show panel controls
   return (
@@ -132,10 +124,12 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
         topRightContent={
           formData.find((e) => e.id === "description") ? (
             <ChatInputField
-              id="chatInput"
-              placeholder="Instruct ChatGPT to edit description & objectives"
-              isLoading={isLoading}
-              onSubmit={(text) => {
+              inputProps={{
+                id: "chatInput",
+                placeholder: "Instruct ChatGPT to edit",
+                disabled: isLoading,
+              }}
+              onChat={(text) => {
                 chatIdea({ bloodlineId: bloodline.id, prompt: text });
               }}
             />
@@ -144,21 +138,16 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
       >
         {!bloodline && <p>Could not find this bloodline</p>}
         {!loading && bloodline && (
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-            <EditContent
-              currentValues={currentValues}
-              schema={BloodlineValidator}
-              showSubmit={isDirty}
-              buttonTxt="Save to Database"
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              formData={formData}
-              type="bloodline"
-              allowImageUpload={true}
-              onAccept={handleBloodlineSubmit}
-            />
-          </div>
+          <EditContent
+            schema={BloodlineValidator}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="bloodline"
+            allowImageUpload={true}
+            onAccept={handleBloodlineSubmit}
+          />
         )}
       </ContentBox>
 
@@ -192,16 +181,14 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-              <EffectFormWrapper
-                idx={i}
-                type="bloodline"
-                tag={tag}
-                availableTags={bloodlineTypes}
-                effects={effects}
-                setEffects={setEffects}
-              />
-            </div>
+            <EffectFormWrapper
+              idx={i}
+              type="bloodline"
+              tag={tag}
+              availableTags={bloodlineTypes}
+              effects={effects}
+              setEffects={setEffects}
+            />
           </ContentBox>
         );
       })}

@@ -299,7 +299,7 @@ class OrbitControls extends EventDispatcher {
     // internals
     //
 
-    const scope = this;
+    const scope = this; // eslint-disable-line @typescript-eslint/no-this-alias
 
     const STATE = {
       NONE: -1,

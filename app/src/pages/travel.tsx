@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
-import InputField from "@/layout/InputField";
 import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
 import { UserRoundSearch, Globe2, Eye, EyeOff } from "lucide-react";
@@ -17,6 +16,14 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { show_toast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import type { NextPage } from "next";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
 
@@ -65,7 +72,7 @@ const Travel: NextPage = () => {
 
   // Selecting sector to highlight form
   const sectorSelect = z.object({
-    sector: z.number().int().min(0).max(492).optional(),
+    sector: z.coerce.number().int().min(0).max(492).optional(),
   });
   const sectorForm = useForm<z.infer<typeof sectorSelect>>({
     mode: "all",
@@ -273,13 +280,24 @@ const Travel: NextPage = () => {
             {highlightedSector ? (
               <p>Currently selected sector {highlightedSector}</p>
             ) : undefined}
-            <InputField
-              type="number"
-              id="sector"
-              register={sectorForm.register}
-              error={sectorForm.formState.errors.sector?.message}
-              placeholder="Sector to highlight on global map"
-            />
+            <Form {...sectorForm}>
+              <FormField
+                control={sectorForm.control}
+                name="sector"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        placeholder="Sector to highlight on global map"
+                        type="number"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </Form>
           </Modal>
         )}
         {userData?.travelFinishAt && (

@@ -290,19 +290,11 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   const utils = api.useUtils();
 
   // Form handling
-  const {
-    form: {
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    handleUserSubmit,
-  } = useUserEditForm(userId, profile, refetchProfile);
-
-  // Get current form values
-  const currentValues = getValues();
+  const { form, formData, handleUserSubmit } = useUserEditForm(
+    userId,
+    profile,
+    refetchProfile,
+  );
 
   return (
     <Confirm
@@ -311,14 +303,12 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
       button={<Settings className="h-6 w-6 cursor-pointer hover:fill-orange-500" />}
     >
       <EditContent
-        currentValues={currentValues}
         schema={updateUserSchema}
-        showSubmit={isDirty}
-        buttonTxt="Save to Database"
-        setValue={setValue}
-        register={register}
-        errors={errors}
+        form={form}
         formData={formData}
+        formClassName="grid grid-cols-1"
+        showSubmit={form.formState.isDirty}
+        buttonTxt="Save to Database"
         type="ai"
         allowImageUpload={true}
         onAccept={handleUserSubmit}

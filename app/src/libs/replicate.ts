@@ -172,7 +172,12 @@ export const fetchReplicateResult = async (replicateId: string) => {
     auth: env.REPLICATE_API_TOKEN,
   });
   const prediction = await replicate.predictions.get(replicateId);
-  const replicateUrl = (prediction.output as string[])?.[0] ?? null;
+  let replicateUrl: string | null = null;
+  if (typeof prediction.output === "string") {
+    replicateUrl = prediction.output;
+  } else {
+    replicateUrl = (prediction.output as string[])?.[0] ?? null;
+  }
   return { prediction, replicateUrl };
 };
 

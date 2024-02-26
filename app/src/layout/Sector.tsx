@@ -263,7 +263,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   }, [target, userData, moves, sector, isMoving, move]);
 
   useEffect(() => {
-    if (mountRef.current && userData && fetchedUsers) {
+    const sceneRef = mountRef.current;
+    if (sceneRef && userData && fetchedUsers) {
       // Update the state containing sorrounding users on first load
       setSorrounding(fetchedUsers || []);
       users.current = fetchedUsers;
@@ -272,7 +273,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       const hexagonLengthToWidth = 0.885;
 
       // Map size
-      const WIDTH = mountRef.current.getBoundingClientRect().width;
+      const WIDTH = sceneRef.getBoundingClientRect().width;
       const HEIGHT = WIDTH * hexagonLengthToWidth;
 
       // Performance monitor
@@ -280,7 +281,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // document.body.appendChild(stats.dom);
 
       // Listeners
-      mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
+      sceneRef.addEventListener("mousemove", onDocumentMouseMove, false);
       document.addEventListener("keydown", onDocumentKeyDown, false);
 
       // Seeded noise generator for map gen
@@ -296,7 +297,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         colorAlpha: 1,
         width2height: hexagonLengthToWidth,
       });
-      mountRef.current.appendChild(renderer.domElement);
+      sceneRef.appendChild(renderer.domElement);
 
       // Setup camara
       const camera = new OrthographicCamera(0, WIDTH, HEIGHT, 0, -10, 10);
@@ -466,8 +467,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       return () => {
         window.removeEventListener("resize", handleResize);
         document.removeEventListener("keydown", onDocumentKeyDown, false);
-        mountRef.current?.removeEventListener("mousemove", onDocumentMouseMove);
-        mountRef.current?.removeChild(renderer.domElement);
+        sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
+        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
         void refetchUser();

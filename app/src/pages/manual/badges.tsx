@@ -98,7 +98,7 @@ const ManualBadges: NextPage = () => {
       />
       {isOpen && userData && badge && (
         <Modal
-          title="Confirm Purchase"
+          title="Badge Details"
           setIsOpen={setIsOpen}
           isValid={false}
           className="max-w-3xl"

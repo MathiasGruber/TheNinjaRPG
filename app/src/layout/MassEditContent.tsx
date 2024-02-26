@@ -1,7 +1,14 @@
 import React, { useState } from "react";
 import Modal from "@/layout/Modal";
-import SelectField from "@/layout/SelectField";
 import Loader from "@/layout/Loader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { api } from "@/utils/api";
@@ -158,56 +165,61 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     return (
       <Modal title={props.title} setIsOpen={setShowModal} onAccept={props.onAccept}>
         {["jutsu", "bloodline", "item"].includes(props.type) && (
-          <>
-            <SelectField
-              id="filter_tag"
-              label="Select Tag"
-              onChange={(e) => setTagType(e.target.value as EffectType)}
+          <div className="flex flex-col">
+            <Select
+              onValueChange={(e) => setTagType(e as EffectType)}
+              defaultValue={tagType}
+              value={tagType}
             >
-              {effectFilters.map((effect) => {
-                return (
-                  <option key={effect} value={effect}>
+              <Label htmlFor="tag_name">Tag Name</Label>
+              <SelectTrigger>
+                <SelectValue placeholder={`None`} />
+              </SelectTrigger>
+              <SelectContent id="tag_name">
+                {effectFilters.map((effect) => (
+                  <SelectItem key={effect} value={effect}>
                     {effect}
-                  </option>
-                );
-              })}
-            </SelectField>
-            <SelectField
-              id="filter_stat"
-              label="Select Stat"
-              onChange={(e) => setStat(e.target.value as StatType)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              onValueChange={(e) => setStat(e as StatType)}
+              defaultValue={stat}
+              value={stat}
             >
-              <option key="" value="">
-                None
-              </option>
-              {statFilters.map((stat) => {
-                return (
-                  <option key={stat} value={stat}>
+              <Label htmlFor="stat_name">Stat Name</Label>
+              <SelectTrigger>
+                <SelectValue placeholder={`None`} />
+              </SelectTrigger>
+              <SelectContent id="stat_name">
+                {statFilters.map((stat) => (
+                  <SelectItem key={stat} value={stat}>
                     {stat}
-                  </option>
-                );
-              })}
-            </SelectField>
-          </>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
         {props.type === "quest" && (
-          <SelectField
-            id="filter_quest"
-            label="Quest Type"
-            placeholder={questType}
-            onChange={(e) => setQuestType(e.target.value as QuestType)}
+          <Select
+            onValueChange={(e) => setQuestType(e as QuestType)}
+            defaultValue={questType}
+            value={questType}
           >
-            <option key="" value="">
-              None
-            </option>
-            {QuestTypes.map((type) => {
-              return (
-                <option key={type} value={type}>
+            <Label htmlFor="quest_name">Quest Name</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent id="quest_name">
+              {QuestTypes.map((type) => (
+                <SelectItem key={type} value={type}>
                   {type}
-                </option>
-              );
-            })}
-          </SelectField>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         <p className="font-bold py-3">
@@ -221,7 +233,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
         {loading ? (
           <Loader explanation="Loading data..." />
         ) : (
-          <div className="overflow-auto">
+          <div>
             {postFiltered?.map((entry, i) => {
               return (
                 <div key={i}>
@@ -288,15 +300,10 @@ interface MassEditQuestRowProps {
 
 const MassEditQuestRow: React.FC<MassEditQuestRowProps> = (props) => {
   // Form handling
-  const {
-    form: {
-      setValue,
-      register,
-      formState: { errors },
-    },
-    formData,
-    handleQuestSubmit,
-  } = useQuestEditForm(props.quest, props.refetch);
+  const { form, formData, handleQuestSubmit } = useQuestEditForm(
+    props.quest,
+    props.refetch,
+  );
 
   // Background color for this row
   const bgColor = props.idx % 2 == 0 ? "bg-slate-600" : "";
@@ -306,15 +313,14 @@ const MassEditQuestRow: React.FC<MassEditQuestRowProps> = (props) => {
     <div className={`flex items-center`}>
       <EditContent
         schema={QuestValidator._def.schema.merge(ObjectiveReward)}
+        form={form}
+        formData={formData}
+        formClassName="flex flex-row w-screen"
         showSubmit={false}
         buttonTxt="Save to Database"
         allowImageUpload={false}
-        fixedWidths="basis-32"
+        fixedWidths="basis-96"
         bgColor={bgColor}
-        setValue={setValue}
-        register={register}
-        errors={errors}
-        formData={formData}
         onEnter={handleQuestSubmit}
       />
     </div>
@@ -330,17 +336,10 @@ interface MassEditJutsuRowProps {
 
 const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
   // Form handling
-  const {
-    effects,
-    form: {
-      setValue,
-      register,
-      formState: { errors },
-    },
-    formData,
-    setEffects,
-    handleJutsuSubmit,
-  } = useJutsuEditForm(props.jutsu, props.refetch);
+  const { effects, form, formData, setEffects, handleJutsuSubmit } = useJutsuEditForm(
+    props.jutsu,
+    props.refetch,
+  );
 
   // Fetch the tag in question
   const idx = effects.findIndex((e) => e.type === props.tagType);
@@ -351,29 +350,28 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
 
   // Show the form
   return (
-    <div className={`flex items-center`}>
+    <div className={`flex flex-col`}>
       <EditContent
         schema={JutsuValidator._def.schema}
+        form={form}
+        formData={formData}
+        formClassName="flex flex-row w-screen"
         showSubmit={false}
         buttonTxt="Save to Database"
         allowImageUpload={false}
-        fixedWidths="basis-32"
+        fixedWidths="basis-96"
         bgColor={bgColor}
-        setValue={setValue}
-        register={register}
-        errors={errors}
-        formData={formData}
         onEnter={handleJutsuSubmit}
       />
       {tag && (
         <EffectFormWrapper
           idx={idx}
           type="jutsu"
+          formClassName="flex flex-row w-screen"
           tag={tag}
           hideTagType={true}
-          fixedWidths="basis-32"
+          fixedWidths="basis-96"
           bgColor={bgColor}
-          limitSelectHeight={true}
           availableTags={tagTypes}
           effects={effects}
           setEffects={setEffects}
@@ -392,17 +390,8 @@ interface MassEditBloodlineRowProps {
 
 const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
   // Form handling
-  const {
-    effects,
-    form: {
-      setValue,
-      register,
-      formState: { errors },
-    },
-    formData,
-    setEffects,
-    handleBloodlineSubmit,
-  } = useBloodlineEditForm(props.bloodline, props.refetch);
+  const { effects, form, formData, setEffects, handleBloodlineSubmit } =
+    useBloodlineEditForm(props.bloodline, props.refetch);
 
   // Fetch the tag in question
   const idx = effects.findIndex((e) => e.type === props.tagType);
@@ -413,29 +402,28 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
 
   // Show the form
   return (
-    <div className={`flex items-center`}>
+    <div className="flex flex-col">
       <EditContent
         schema={BloodlineValidator}
+        form={form}
+        formData={formData}
+        formClassName="flex flex-row w-screen"
         showSubmit={false}
         buttonTxt="Save to Database"
         allowImageUpload={false}
-        fixedWidths="basis-32"
+        fixedWidths="basis-96"
         bgColor={bgColor}
-        setValue={setValue}
-        register={register}
-        errors={errors}
-        formData={formData}
         onEnter={handleBloodlineSubmit}
       />
       {tag && (
         <EffectFormWrapper
           idx={idx}
           type="bloodline"
+          formClassName="flex flex-row w-screen"
           tag={tag}
           hideTagType={true}
-          fixedWidths="basis-32"
+          fixedWidths="basis-96"
           bgColor={bgColor}
-          limitSelectHeight={true}
           availableTags={tagTypes}
           effects={effects}
           setEffects={setEffects}
@@ -454,17 +442,10 @@ interface MassEditItemRowProps {
 
 const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
   // Form handling
-  const {
-    effects,
-    form: {
-      setValue,
-      register,
-      formState: { errors },
-    },
-    formData,
-    setEffects,
-    handleItemSubmit,
-  } = useItemEditForm(props.item, props.refetch);
+  const { effects, form, formData, setEffects, handleItemSubmit } = useItemEditForm(
+    props.item,
+    props.refetch,
+  );
 
   // Fetch the tag in question
   const idx = effects.findIndex((e) => e.type === props.tagType);
@@ -475,29 +456,28 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
 
   // Show the form
   return (
-    <div className={`flex items-center`}>
+    <div className={`flex flex-col`}>
       <EditContent
         schema={ItemValidator._def.schema}
+        form={form}
+        formData={formData}
+        formClassName="flex flex-row w-screen"
         showSubmit={false}
         buttonTxt="Save to Database"
         allowImageUpload={false}
-        fixedWidths="basis-32"
+        fixedWidths="basis-96"
         bgColor={bgColor}
-        setValue={setValue}
-        register={register}
-        errors={errors}
-        formData={formData}
         onEnter={handleItemSubmit}
       />
       {tag && (
         <EffectFormWrapper
           idx={idx}
           type="item"
+          formClassName="flex flex-row w-screen"
           tag={tag}
           hideTagType={true}
-          fixedWidths="basis-32"
+          fixedWidths="basis-96"
           bgColor={bgColor}
-          limitSelectHeight={true}
           availableTags={tagTypes}
           effects={effects}
           setEffects={setEffects}

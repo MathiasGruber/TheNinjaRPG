@@ -8,8 +8,6 @@ import { Save, Users, ClipboardCopy, Trash2, Eye, EyeOff } from "lucide-react";
 import Toggle from "@/layout/Toggle";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import InputField from "@/layout/InputField";
-import SelectField from "@/layout/SelectField";
 import { Button } from "@/components/ui/button";
 import { damageUser } from "@/libs/combat/tags";
 import { calcLevel, calcHP } from "@/libs/profile";
@@ -18,6 +16,16 @@ import { statSchema, actSchema } from "@/libs/combat/types";
 import { api } from "@/utils/api";
 import { show_toast } from "@/libs/toast";
 import { Chart as ChartJS } from "chart.js/auto";
+import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  Form,
+  FormControl,
+  FormLabel,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import type { DamageSimulation } from "@/drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -71,8 +79,7 @@ const ManualDamageSimulator: NextPage = () => {
 
   // Page state
   const [selectedDmg, setSelectedDmg] = useState<number | undefined>(undefined);
-  const [showInline, setShowInline] = useState<boolean>(false);
-  const [showAll, setShowAll] = useState<boolean>(true);
+  const [showAll, setShowAll] = useState<boolean | undefined>(undefined);
 
   // Forms setup
   const conf1 = { defaultValues: defaultsStats, mode: "all" as const };
@@ -131,7 +138,12 @@ const ManualDamageSimulator: NextPage = () => {
 
   // Calculate experience from stats
   const calcExperience = (values: StatSchema) => {
-    return statNames.map((k) => values[k]).reduce((a, b) => a + b, 0) - 120;
+    return (
+      statNames
+        .map((k) => values[k])
+        .map((v) => Number(v))
+        .reduce((a, b) => a + b, 0) - 120
+    );
   };
 
   // Extract information from schema to use for showing forms
@@ -279,20 +291,13 @@ const ManualDamageSimulator: NextPage = () => {
         back_href="/manual"
         padding={false}
         topRightContent={
-          <div className="flex flex-row">
-            <Toggle
-              value={showInline}
-              setShowActive={setShowInline}
-              labelActive="Inline"
-              labelInactive="Inline"
-            />
-            <Toggle
-              value={showAll}
-              setShowActive={setShowAll}
-              labelActive="Focus"
-              labelInactive="Focus"
-            />
-          </div>
+          <Toggle
+            id="toggle-damage-simulator"
+            value={showAll}
+            setShowActive={setShowAll}
+            labelActive="Focus"
+            labelInactive="Focus"
+          />
         }
       >
         <div className="grid grid-cols-2">
@@ -311,7 +316,6 @@ const ManualDamageSimulator: NextPage = () => {
             <hr />
             <UserInput
               id="u1"
-              showInline={showInline}
               ignoreContains={showAll ? "Defence" : "None"}
               selectForm={attForm}
             />
@@ -331,7 +335,6 @@ const ManualDamageSimulator: NextPage = () => {
             <hr />
             <UserInput
               id="u2"
-              showInline={showInline}
               ignoreContains={showAll ? "Offence" : "None"}
               selectForm={defForm}
             />
@@ -340,40 +343,52 @@ const ManualDamageSimulator: NextPage = () => {
         <div className="mb-3">
           <p className="px-3 pt-3 text-lg font-bold">Attack Settings</p>
           <hr />
-          <div className="px-3 grid grid-cols-3">
-            <InputField
-              id="power"
-              type="number"
-              label={`Set Power`}
-              register={actForm.register}
-              error={actForm.formState.errors["power"]?.message}
-            />
-            <SelectField
-              id="statTypes"
-              label="Set Stats"
-              multiple={true}
-              register={actForm.register}
-              error={actForm.formState.errors["statTypes"]?.message}
-            >
-              {StatType.map((target) => (
-                <option key={target} value={target}>
-                  {target}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              id="generalTypes"
-              label="Set Generals"
-              multiple={true}
-              register={actForm.register}
-              error={actForm.formState.errors["generalTypes"]?.message}
-            >
-              {GeneralType.map((target) => (
-                <option key={target} value={target}>
-                  {target}
-                </option>
-              ))}
-            </SelectField>
+          <div className="px-3 space-y-2">
+            <Form {...actForm}>
+              <FormField
+                control={actForm.control}
+                name="power"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Set power</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={actForm.control}
+                name="statTypes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Set Stats</FormLabel>
+                    <MultiSelect
+                      selected={field.value ? field.value : []}
+                      options={StatType.map((o) => ({ label: o, value: o }))}
+                      onChange={field.onChange}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={actForm.control}
+                name="generalTypes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Set Generals</FormLabel>
+                    <MultiSelect
+                      selected={field.value ? field.value : []}
+                      options={GeneralType.map((o) => ({ label: o, value: o }))}
+                      onChange={field.onChange}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </Form>
           </div>
         </div>
         <hr />
@@ -492,13 +507,12 @@ export default ManualDamageSimulator;
 
 interface UserInputProps {
   id: string;
-  showInline: boolean;
   ignoreContains: string;
   selectForm: UseFormReturn<StatSchema>;
 }
 
 const UserInput: React.FC<UserInputProps> = (props) => {
-  const { id, showInline, selectForm } = props;
+  const { id, selectForm } = props;
   const fields = statNames
     .filter((stat) => !stat.includes(props.ignoreContains))
     .map((stat, i) => {
@@ -508,17 +522,22 @@ const UserInput: React.FC<UserInputProps> = (props) => {
           className={`py-2 ${i % 2 === 0 ? "bg-yellow-50" : "bg-amber-100"}`}
         >
           <div className="px-3">
-            <InputField
-              id={stat}
-              inline={showInline}
-              type="number"
-              label={stat}
-              register={selectForm.register}
-              error={selectForm.formState.errors?.[stat]?.message}
+            <FormField
+              control={selectForm.control}
+              name={stat}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{stat}</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
         </div>
       );
     });
-  return <div>{fields}</div>;
+  return <Form {...selectForm}>{fields}</Form>;
 };

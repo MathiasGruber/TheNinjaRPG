@@ -24,8 +24,9 @@ interface LogbookProps {}
 const Logbook: React.FC<LogbookProps> = () => {
   // State
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const [showActive, setShowActive] = useState<boolean | undefined>(undefined);
   const { data: userData } = useRequiredUserData();
-  const [showActive, setShowActive] = useState<boolean>(true);
+  const showState = showActive === null ? true : showActive;
 
   // Queries
   const {
@@ -69,7 +70,7 @@ const Logbook: React.FC<LogbookProps> = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   const columns: ColumnDefinitionType<Entry, keyof Entry>[] = [
-    { key: "image", header: "", type: "avatar", width: 7 },
+    { key: "image", header: "", type: "avatar" },
     { key: "questType", header: "Type", type: "string" },
     { key: "name", header: "Title", type: "string" },
     { key: "info", header: "Info", type: "jsx" },
@@ -80,9 +81,10 @@ const Logbook: React.FC<LogbookProps> = () => {
       title="LogBook"
       subtitle="Current & past activities for your character"
       initialBreak={true}
-      padding={showActive}
+      padding={showState}
       topRightContent={
         <Toggle
+          id="logbook-toggle"
           value={showActive}
           setShowActive={setShowActive}
           labelActive="Active"
@@ -90,7 +92,7 @@ const Logbook: React.FC<LogbookProps> = () => {
         />
       }
     >
-      {showActive && (
+      {showState && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {userData?.userQuests?.map((uq, i) => {
             const tracker = userData?.questData?.find((q) => q.id === uq.questId);
@@ -98,8 +100,8 @@ const Logbook: React.FC<LogbookProps> = () => {
           })}
         </div>
       )}
-      {!showActive && isLoading && <Loader explanation="Loading history..." />}
-      {!showActive && !isLoading && (
+      {!showState && isLoading && <Loader explanation="Loading history..." />}
+      {!showState && !isLoading && (
         <Table data={allHistory} columns={columns} setLastElement={setLastElement} />
       )}
     </ContentBox>

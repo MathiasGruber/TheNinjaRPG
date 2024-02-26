@@ -52,21 +52,10 @@ interface SingleEditUserProps {
 
 const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
   // Form handling
-  const {
-    loading,
-    processedUser,
-    form: {
-      getValues,
-      setValue,
-      register,
-      formState: { isDirty, errors },
-    },
-    formData,
-    handleUserSubmit,
-  } = useAiEditForm(props.user, props.refetch);
-
-  // Get current form values
-  const currentValues = getValues();
+  const { loading, processedUser, form, formData, handleUserSubmit } = useAiEditForm(
+    props.user,
+    props.refetch,
+  );
 
   // Show panel controls
   return (
@@ -78,21 +67,16 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
       >
         {!processedUser && <p>Could not find this AI</p>}
         {!loading && processedUser && (
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center">
-            <EditContent
-              currentValues={currentValues}
-              schema={insertUserDataSchema}
-              showSubmit={isDirty}
-              buttonTxt="Save to Database"
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              formData={formData}
-              type="ai"
-              allowImageUpload={true}
-              onAccept={handleUserSubmit}
-            />
-          </div>
+          <EditContent
+            schema={insertUserDataSchema}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="ai"
+            allowImageUpload={true}
+            onAccept={handleUserSubmit}
+          />
         )}
       </ContentBox>
     </>

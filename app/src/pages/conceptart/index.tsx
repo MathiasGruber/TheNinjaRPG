@@ -3,10 +3,24 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
-import SelectField from "@/layout/SelectField";
 import ConceptImage from "@/layout/ConceptImage";
 import Confirm from "@/layout/Confirm";
-import InputField from "@/layout/InputField";
+import {
+  Form,
+  FormControl,
+  FormLabel,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSafePush } from "@/utils/routing";
 import { api } from "@/utils/api";
@@ -105,45 +119,49 @@ const ConceptArt: NextPage = () => {
       subtitle="Create AI art"
       topRightCorntentBreakpoint="sm"
       topRightContent={
-        <div className="flex flex-row items-center">
-          <User
-            className={`h-8 w-8 mr-1 hover:cursor-pointer ${only_own ? "text-orange-500" : ""}`}
-            onClick={() => filterForm.setValue("only_own", !only_own)}
-          />
-          <SelectField
-            id="filter"
-            onChange={(e) =>
-              filterForm.setValue(
-                "sort",
-                e.target.value as (typeof sortOptions)[number],
-              )
+        <div className="flex flex-row items-center gap-1">
+          <div>
+            <User
+              className={`h-6 w-6 hover:cursor-pointer ${only_own ? "text-orange-500" : ""}`}
+              onClick={() => filterForm.setValue("only_own", !only_own)}
+            />
+          </div>
+          <Select
+            onValueChange={(e) =>
+              filterForm.setValue("sort", e as (typeof sortOptions)[number])
             }
+            defaultValue={sort}
+            value={sort}
           >
-            {sortOptions.map((value) => {
-              return (
-                <option key={value} value={value}>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((value) => (
+                <SelectItem key={value} value={value}>
                   {value}
-                </option>
-              );
-            })}
-          </SelectField>
-          <SelectField
-            id="filter"
-            onChange={(e) =>
-              filterForm.setValue(
-                "time_frame",
-                e.target.value as (typeof timeFrame)[number],
-              )
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            onValueChange={(e) =>
+              filterForm.setValue("time_frame", e as (typeof timeFrame)[number])
             }
+            defaultValue={time_frame}
+            value={time_frame}
           >
-            {timeFrame.map((value) => {
-              return (
-                <option key={value} value={value}>
+            <SelectTrigger>
+              <SelectValue placeholder={`None`} />
+            </SelectTrigger>
+            <SelectContent>
+              {timeFrame.map((value) => (
+                <SelectItem key={value} value={value}>
                   {value}
-                </option>
-              );
-            })}
-          </SelectField>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {userData && (
             <Confirm
               title="Create New"
@@ -162,34 +180,62 @@ const ConceptArt: NextPage = () => {
                   submission costs 1 reputation point! You currently have{" "}
                   {userData.reputationPoints} reputation points.
                 </p>
-                <InputField
-                  id="prompt"
-                  label="Prompt"
-                  register={promptForm.register}
-                  error={promptForm.formState.errors.prompt?.message}
-                />
-                <InputField
-                  id="negative_prompt"
-                  label="Negative Prompt"
-                  register={promptForm.register}
-                  error={promptForm.formState.errors.negative_prompt?.message}
-                />
-                <div className="flex flex-row">
-                  <InputField
-                    id="guidance_scale"
-                    type="number"
-                    label="Guidance Scale"
-                    register={promptForm.register}
-                    error={promptForm.formState.errors.guidance_scale?.message}
+                <Form {...promptForm}>
+                  <FormField
+                    control={promptForm.control}
+                    name="prompt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prompt</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Prompt" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <InputField
-                    id="seed"
-                    type="number"
-                    label="Seed Value"
-                    register={promptForm.register}
-                    error={promptForm.formState.errors.seed?.message}
+                  <FormField
+                    control={promptForm.control}
+                    name="negative_prompt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Negative Prompt</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Negative Prompt" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={promptForm.control}
+                      name="guidance_scale"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Guidance scale</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Adherance" type="number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={promptForm.control}
+                      name="seed"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Seed value</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Seed value" type="number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </Form>
               </div>
             </Confirm>
           )}

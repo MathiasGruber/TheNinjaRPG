@@ -47,7 +47,7 @@ const Profile: NextPage = () => {
   }
 
   const columns: ColumnDefinitionType<User, keyof User>[] = [
-    { key: "avatar", header: "", type: "avatar", width: 7 },
+    { key: "avatar", header: "", type: "avatar" },
     { key: "username", header: "Username", type: "string" },
     { key: "level", header: "Level", type: "string" },
     { key: "reputationPointsTotal", header: "Reputation Points", type: "string" },

@@ -4,7 +4,6 @@ import { z } from "zod";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import InputField from "@/layout/InputField";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -15,6 +14,15 @@ import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import type { ArrayElement } from "@/utils/typeutils";
 
 const Bank: NextPage = () => {
@@ -31,10 +39,10 @@ const Bank: NextPage = () => {
 
   // Schemas
   const fromPocketSchema = z.object({
-    amount: z.number().int().positive().max(money),
+    amount: z.coerce.number().int().positive().max(money),
   });
   const fromBankSchema = z.object({
-    amount: z.number().int().positive().max(bank),
+    amount: z.coerce.number().int().positive().max(bank),
   });
 
   // Forms
@@ -54,6 +62,7 @@ const Bank: NextPage = () => {
       if (data.success) {
         show_toast("Transfer to bank", data.message, "success");
         await utils.profile.getUser.invalidate();
+        toBankForm.reset();
       } else {
         show_toast("Transfer to bank", data.message, "info");
       }
@@ -68,6 +77,7 @@ const Bank: NextPage = () => {
       if (data.success) {
         show_toast("Transfer to pocket", data.message, "success");
         await utils.profile.getUser.invalidate();
+        toPocketForm.reset();
       } else {
         show_toast("Transfer to pocket", data.message, "info");
       }
@@ -82,6 +92,7 @@ const Bank: NextPage = () => {
       if (data.success) {
         show_toast("Transfer to user", data.message, "success");
         await utils.profile.getUser.invalidate();
+        toUserForm.reset();
       } else {
         show_toast("Transfer to user", data.message, "info");
       }
@@ -96,6 +107,7 @@ const Bank: NextPage = () => {
   const userSearchSchema = getSearchValidator({ max: maxUsers });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: { username: "", users: [] },
   });
   const targetUser = userSearchMethods.watch("users", [])?.[0];
 
@@ -103,6 +115,7 @@ const Bank: NextPage = () => {
   const userSearchSchemaFrom = getSearchValidator({ max: maxUsers });
   const userSearchMethodsFrom = useForm<z.infer<typeof userSearchSchemaFrom>>({
     resolver: zodResolver(userSearchSchemaFrom),
+    defaultValues: { username: "", users: [] },
   });
   const targetUserFrom = userSearchMethodsFrom.watch("users", [])?.[0];
 
@@ -110,6 +123,7 @@ const Bank: NextPage = () => {
   const userSearchSchemaTo = getSearchValidator({ max: maxUsers });
   const userSearchMethodsTo = useForm<z.infer<typeof userSearchSchemaTo>>({
     resolver: zodResolver(userSearchSchemaTo),
+    defaultValues: { username: "", users: [] },
   });
   const targetUserTo = userSearchMethodsTo.watch("users", [])?.[0];
 
@@ -190,52 +204,60 @@ const Bank: NextPage = () => {
             <Coins className="h-20 w-20" />
             <p className="text-lg">{money} ryo</p>
             <h2 className="font-bold text-xl">Money on hand</h2>
-            <div className="w-full px-4">
-              <InputField
-                type="number"
-                id="amount"
-                register={toBankForm.register}
-                error={toBankForm.formState.errors.amount?.message}
-                placeholder="Transfer to bank"
-                options={
-                  <button
-                    type="submit"
-                    className={`absolute top-0 right-0 px-2.5 h-full text-white bg-amber-900 hover:bg-red-800 border-amber-900 rounded-r-lg border`}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      await onDeposit();
-                    }}
-                  >
+            <div className="w-full px-4 pt-3">
+              <Form {...toBankForm}>
+                <form onSubmit={onDeposit} className="relative">
+                  <FormField
+                    control={toBankForm.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem className="w-full flex flex-col">
+                        <FormControl>
+                          <Input
+                            id="amount"
+                            placeholder="Transfer to bank"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button className="absolute top-0 right-0" type="submit">
                     <ChevronsRight className="h-5 w-5" />
-                  </button>
-                }
-              />
+                  </Button>
+                </form>
+              </Form>
             </div>
           </div>
           <div className="flex flex-col items-center">
             <Landmark className="h-20 w-20" />
             <p className="text-lg">{bank} ryo</p>
             <h2 className="font-bold text-xl">Money in bank</h2>
-            <div className="w-full px-4">
-              <InputField
-                type="number"
-                id="amount"
-                register={toPocketForm.register}
-                error={toPocketForm.formState.errors.amount?.message}
-                placeholder="Transfer to pocket"
-                options={
-                  <button
-                    type="submit"
-                    className={`absolute top-0 right-0 px-2.5 h-full text-white bg-amber-900 hover:bg-red-800 border-amber-900 rounded-r-lg border`}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      await onWithdraw();
-                    }}
-                  >
+            <div className="w-full px-4 pt-3">
+              <Form {...toPocketForm}>
+                <form onSubmit={onWithdraw} className="relative">
+                  <FormField
+                    control={toPocketForm.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem className="w-full flex flex-col">
+                        <FormControl>
+                          <Input
+                            id="amount"
+                            placeholder="Transfer to pocket"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button className="absolute top-0 right-0" type="submit">
                     <ChevronsLeft className="h-5 w-5" />
-                  </button>
-                }
-              />
+                  </Button>
+                </form>
+              </Form>
             </div>
           </div>
         </div>
@@ -249,30 +271,31 @@ const Bank: NextPage = () => {
         <div className="w-full px-4 py-4">
           <UserSearchSelect
             useFormMethods={userSearchMethods}
+            label="Search for receiver"
             selectedUsers={[]}
             showYourself={false}
             inline={true}
             maxUsers={maxUsers}
           />
-          <InputField
-            type="number"
-            id="amount"
-            register={toUserForm.register}
-            error={toUserForm.formState.errors.amount?.message}
-            placeholder="Amount to transfer"
-            options={
-              <button
-                type="submit"
-                className={`absolute top-0 right-0 px-2.5 h-full text-white bg-amber-900 hover:bg-red-800 border-amber-900 rounded-r-lg border`}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await onTransfer();
-                }}
-              >
+          <Form {...toUserForm}>
+            <form onSubmit={onTransfer} className="relative px-1 mr-1 mt-2">
+              <FormField
+                control={toUserForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem className="w-full flex flex-col">
+                    <FormControl>
+                      <Input id="amount" placeholder="Amount to transfer" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button className="absolute top-0 right-0" type="submit">
                 <ChevronsUp className="h-5 w-5" />
-              </button>
-            }
-          />
+              </Button>
+            </form>
+          </Form>
         </div>
       </ContentBox>
       <ContentBox
@@ -281,19 +304,21 @@ const Bank: NextPage = () => {
         initialBreak={true}
         padding={false}
       >
-        <div className="w-full px-4 py-4">
+        <div className="w-full flex flex-col gap-2 px-2 py-2">
           <UserSearchSelect
             useFormMethods={userSearchMethodsFrom}
+            label="Search sender"
             selectedUsers={[]}
             showYourself={true}
-            inline={false}
+            inline={true}
             maxUsers={maxUsers}
           />
           <UserSearchSelect
             useFormMethods={userSearchMethodsTo}
+            label="Search receiver"
             selectedUsers={[]}
             showYourself={true}
-            inline={false}
+            inline={true}
             maxUsers={maxUsers}
           />
         </div>

@@ -13,16 +13,13 @@ export const useUserSearch = () => {
   // Search term
   const [searchTerm, setSearchTerm] = useState<string>("");
   // Use form for field
-  const {
-    register,
-    watch,
-    formState: { errors },
-  } = useForm<UserSearchSchema>({
+  const form = useForm<UserSearchSchema>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: { username: "" },
     mode: "all",
   });
   // Watch username field
-  const watchUsername = watch("username", "");
+  const watchUsername = form.watch("username", "");
   // Update search term with delay
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -30,9 +27,5 @@ export const useUserSearch = () => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [watchUsername, setSearchTerm]);
-  return {
-    register,
-    errors,
-    searchTerm,
-  };
+  return { form, searchTerm };
 };

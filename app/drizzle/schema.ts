@@ -745,7 +745,7 @@ export const userData = mysqlTable(
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(7).notNull(),
-    location: varchar("location", { length: 191 }).default("").notNull(),
+    location: varchar("location", { length: 191 }).default(""),
     joinedVillageAt: datetime("joinedVillageAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -826,18 +826,14 @@ export const insertUserDataSchema = createInsertSchema(userData)
     questMission: true,
     questData: true,
   })
-  .merge(z.object({ jutsus: z.array(z.string()).optional() }));
-export type InsertUserDataSchema = Omit<
-  InferInsertModel<typeof userData>,
-  | "trainingStartedAt"
-  | "currentlyTraining"
-  | "deletionAt"
-  | "travelFinishAt"
-  | "questTier"
-  | "questDaily"
-  | "questMission"
-  | "questData"
->;
+  .merge(
+    z.object({
+      jutsus: z.array(z.string()).optional(),
+      primaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
+      secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
+    }),
+  );
+export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
 export type UserData = InferSelectModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];

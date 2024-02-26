@@ -51,18 +51,20 @@ const Map: React.FC<MapProps> = (props) => {
   };
 
   useEffect(() => {
-    if (mountRef.current) {
+    // Reference to the mount
+    const sceneRef = mountRef.current;
+    if (sceneRef) {
       // Performance stats
       // const stats = new Stats();
       // document.body.appendChild(stats.dom);
 
       // Interacivity with mouse
       if (props.intersection) {
-        mountRef.current.addEventListener("mousemove", onDocumentMouseMove, false);
+        sceneRef.addEventListener("mousemove", onDocumentMouseMove, false);
       }
       let intersected: HexagonalFaceMesh | undefined = undefined;
 
-      const WIDTH = mountRef.current.getBoundingClientRect().width;
+      const WIDTH = sceneRef.getBoundingClientRect().width;
       const HEIGHT = WIDTH;
 
       const fov = 75;
@@ -80,7 +82,7 @@ const Map: React.FC<MapProps> = (props) => {
         colorAlpha: 0,
         width2height: 1,
       });
-      mountRef.current.appendChild(renderer.domElement);
+      sceneRef.appendChild(renderer.domElement);
 
       // Setup camera
       const camera = new PerspectiveCamera(fov, aspect, near, far);
@@ -331,7 +333,7 @@ const Map: React.FC<MapProps> = (props) => {
           document.removeEventListener("mousemove", onDocumentMouseMove);
         }
         window.removeEventListener("resize", handleResize);
-        mountRef.current?.removeChild(renderer.domElement);
+        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
       };

@@ -106,7 +106,7 @@ const ManualJutsus: NextPage = () => {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-col gap-1 mr-1">
+              <div className="flex flex-col gap-1 mr-2">
                 <Button id="create-jutsu" onClick={() => create()}>
                   <FilePlus className="mr-2 h-6 w-6" />
                   New

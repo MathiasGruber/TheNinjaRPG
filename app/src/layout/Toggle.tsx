@@ -1,29 +1,49 @@
-import React from "react";
+import React, { useEffect, useCallback } from "react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface ToggleProps {
-  value: boolean;
+  id?: string;
   labelActive?: string;
   labelInactive?: string;
-  setShowActive: React.Dispatch<React.SetStateAction<boolean>>;
+  value?: boolean;
+  setShowActive: React.Dispatch<React.SetStateAction<boolean | undefined>>;
 }
 
 const Toggle: React.FC<ToggleProps> = (props) => {
-  const active = props.labelActive ?? "Unhandled";
-  const inactive = props.labelInactive ?? "Resolved";
+  // Destructure
+  const { id, value, labelActive, labelInactive, setShowActive } = props;
+
+  // State
+  const active = labelActive ?? "Unhandled";
+  const inactive = labelInactive ?? "Resolved";
+
+  // Set state
+  const setState = useCallback(
+    (newValue: boolean) => {
+      setShowActive(newValue);
+      if (id) localStorage.setItem(id, newValue.toString());
+    },
+    [id, setShowActive],
+  );
+
+  // If we do not have a current value, get from localStorage or select first one
+  useEffect(() => {
+    if (value === undefined && id) {
+      const select = localStorage.getItem(id) || "true";
+      const newValue = select === "true" ? true : false;
+      setState(newValue);
+    }
+  }, [id, value, setState]);
+
+  // Render
   return (
-    <label className="relative mr-3 inline-flex cursor-pointer items-center">
-      <input
-        type="checkbox"
-        value=""
-        className="peer sr-only"
-        onChange={() => props.setShowActive((prev) => !prev)}
-        checked={props.value}
-      />
-      <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:top-[3px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-orange-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300"></div>
-      <span className="ml-3 text-base text-gray-900">
-        {props.value ? active : inactive}
-      </span>
-    </label>
+    <div className="flex flex-row items-center">
+      <Label htmlFor="tag_name" className="mr-2">
+        {value ? active : inactive}
+      </Label>
+      <Switch onCheckedChange={() => setState(!value)} checked={value} />
+    </div>
   );
 };
 

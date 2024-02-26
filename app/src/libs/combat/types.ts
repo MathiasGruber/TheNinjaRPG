@@ -224,11 +224,11 @@ const BaseAttributes = {
   appearAnimation: z.enum(animationNames).default(""),
   disappearAnimation: z.enum(animationNames).default(""),
   // Timing controls
-  rounds: z.number().int().min(0).max(100).optional(),
-  timeTracker: z.record(z.string(), z.number()).optional(),
+  rounds: z.coerce.number().int().min(0).max(100).optional(),
+  timeTracker: z.record(z.string(), z.coerce.number()).optional(),
   // Power controls. Has different meanings depending on calculation
-  power: z.number().min(-100).max(100).default(1),
-  powerPerLevel: z.number().min(-1).max(1).default(0),
+  power: z.coerce.number().min(-100).max(100).default(1),
+  powerPerLevel: z.coerce.number().min(-1).max(1).default(0),
   // Used for indicating offensive / defensive effect
   direction: type("offence"),
   // Attack target, if different from the default
@@ -240,13 +240,13 @@ const BaseAttributes = {
 };
 
 const PowerAttributes = {
-  power: z.number().min(-100).max(100).default(1),
-  powerPerLevel: z.number().min(-1).max(1).default(0),
+  power: z.coerce.number().min(-100).max(100).default(1),
+  powerPerLevel: z.coerce.number().min(-1).max(1).default(0),
 };
 
 const PositivePowerAttributes = {
-  power: z.number().min(1).max(100).default(1),
-  powerPerLevel: z.number().min(0).max(1).default(0),
+  power: z.coerce.number().min(1).max(100).default(1),
+  powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 };
 
 const PoolAttributes = {
@@ -354,7 +354,7 @@ export const AdjustPoolCostTag = z.object({
   ...PoolAttributes,
   type: z.literal("poolcostadjust").default("poolcostadjust"),
   description: msg("Adjust cost of taking actions"),
-  rounds: z.number().int().min(2).max(20).default(2),
+  rounds: z.coerce.number().int().min(2).max(20).default(2),
   direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -365,7 +365,7 @@ export const IncreasePoolCostTag = z.object({
   ...PoolAttributes,
   type: z.literal("increasepoolcost").default("increasepoolcost"),
   description: msg("Increase cost of taking actions"),
-  rounds: z.number().int().min(2).max(20).default(2),
+  rounds: z.coerce.number().int().min(2).max(20).default(2),
   direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -376,7 +376,7 @@ export const DecreasePoolCostTag = z.object({
   ...PoolAttributes,
   type: z.literal("decreasepoolcost").default("decreasepoolcost"),
   description: msg("Decrease cost of taking actions"),
-  rounds: z.number().int().min(2).max(20).default(2),
+  rounds: z.coerce.number().int().min(2).max(20).default(2),
   direction: type("defence"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -403,9 +403,9 @@ export const BarrierTag = z.object({
   ...BaseAttributes,
   ...PositivePowerAttributes,
   type: z.literal("barrier").default("barrier"),
-  curHealth: z.number().int().min(1).max(100000).default(100),
-  maxHealth: z.number().int().min(1).max(100000).default(100),
-  absorbPercentage: z.number().int().min(1).max(100).default(50),
+  curHealth: z.coerce.number().int().min(1).max(100000).default(100),
+  maxHealth: z.coerce.number().int().min(1).max(100000).default(100),
+  absorbPercentage: z.coerce.number().int().min(1).max(100).default(50),
   direction: type("defence"),
   description: msg("Creates a barrier with level corresponding to power"),
 });
@@ -426,7 +426,7 @@ export const CloneTag = z.object({
   description: msg(
     "Create a temporary clone to fight alongside you for a given number of rounds.",
   ),
-  rounds: z.number().int().min(2).max(100).default(2),
+  rounds: z.coerce.number().int().min(2).max(100).default(2),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 
@@ -437,7 +437,7 @@ export const DamageTag = z.object({
   type: z.literal("damage").default("damage"),
   description: msg("Deals damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
-  residualModifier: z.number().min(0).max(1).default(1).optional(),
+  residualModifier: z.coerce.number().min(0).max(1).default(1).optional(),
 });
 
 export type DamageTagType = z.infer<typeof DamageTag>;
@@ -555,9 +555,9 @@ export const SummonTag = z.object({
   description: msg(
     "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage.",
   ),
-  rounds: z.number().int().min(2).max(100).default(2),
+  rounds: z.coerce.number().int().min(2).max(100).default(2),
   aiId: z.string().default(""),
-  aiHp: z.number().min(100).max(100000).default(100),
+  aiHp: z.coerce.number().min(100).max(100000).default(100),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 
@@ -759,19 +759,19 @@ export const JutsuValidator = z
     image: z.string(),
     description: z.string(),
     battleDescription: z.string(),
-    jutsuWeapon: z.enum(WeaponTypes).optional(),
+    jutsuWeapon: z.enum(WeaponTypes),
     jutsuType: z.enum(JutsuTypes),
     jutsuRank: z.enum(LetterRanks),
     requiredRank: z.enum(UserRanks),
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
-    range: z.number().int().min(0).max(5),
-    hidden: z.number().int().min(0).max(1).optional(),
-    healthCostPerc: z.number().min(0).max(100).optional(),
-    chakraCostPerc: z.number().min(0).max(100).optional(),
-    staminaCostPerc: z.number().min(0).max(100).optional(),
-    actionCostPerc: z.number().int().min(10).max(100).optional(),
-    cooldown: z.number().int().min(0).max(300),
+    range: z.coerce.number().int().min(0).max(5),
+    hidden: z.coerce.number().int().min(0).max(1).optional(),
+    healthCostPerc: z.coerce.number().min(0).max(100).optional(),
+    chakraCostPerc: z.coerce.number().min(0).max(100).optional(),
+    staminaCostPerc: z.coerce.number().min(0).max(100).optional(),
+    actionCostPerc: z.coerce.number().int().min(10).max(100).optional(),
+    cooldown: z.coerce.number().int().min(0).max(300),
     bloodlineId: z.string().nullable().optional(),
     villageId: z.string().nullable().optional(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
@@ -787,9 +787,9 @@ export const BloodlineValidator = z.object({
   image: z.string(),
   description: z.string(),
   rank: z.enum(LetterRanks),
-  regenIncrease: z.number().int().min(0).max(100),
-  village: z.string(),
-  hidden: z.number().int().min(0).max(1).optional(),
+  regenIncrease: z.coerce.number().int().min(0).max(100),
+  village: z.string().optional(),
+  hidden: z.coerce.number().int().min(0).max(1).optional(),
   effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
@@ -803,21 +803,21 @@ export const ItemValidator = z
     image: z.string(),
     description: z.string(),
     battleDescription: z.string().optional(),
-    canStack: z.number().min(0).max(1).optional(),
-    stackSize: z.number().int().min(1).max(100).optional(),
-    destroyOnUse: z.number().min(0).max(1).optional(),
-    chakraCostPerc: z.number().int().min(0).max(100).optional(),
-    healthCostPerc: z.number().int().min(0).max(100).optional(),
-    staminaCostPerc: z.number().int().min(0).max(100).optional(),
-    actionCostPerc: z.number().int().min(1).max(100).optional(),
-    hidden: z.number().int().min(0).max(1).optional(),
-    cooldown: z.number().int().min(0).max(300),
-    cost: z.number().int().min(1),
-    range: z.number().int().min(0).max(10).optional(),
+    canStack: z.coerce.number().min(0).max(1).optional(),
+    stackSize: z.coerce.number().int().min(1).max(100).optional(),
+    destroyOnUse: z.coerce.number().min(0).max(1).optional(),
+    chakraCostPerc: z.coerce.number().int().min(0).max(100).optional(),
+    healthCostPerc: z.coerce.number().int().min(0).max(100).optional(),
+    staminaCostPerc: z.coerce.number().int().min(0).max(100).optional(),
+    actionCostPerc: z.coerce.number().int().min(1).max(100).optional(),
+    hidden: z.coerce.number().int().min(0).max(1).optional(),
+    cooldown: z.coerce.number().int().min(0).max(300),
+    cost: z.coerce.number().int().min(1),
+    range: z.coerce.number().int().min(0).max(10).optional(),
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     itemType: z.enum(ItemTypes),
-    weaponType: z.enum(WeaponTypes).optional(),
+    weaponType: z.enum(WeaponTypes),
     rarity: z.enum(ItemRarities),
     slot: z.enum(ItemSlotTypes),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
@@ -832,22 +832,67 @@ const roundStat = (stat: number) => {
   return Math.round(stat * 100) / 100;
 };
 export const statSchema = z.object({
-  ninjutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  taijutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  genjutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  bukijutsuOffence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  ninjutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  taijutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  genjutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  bukijutsuDefence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  strength: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  speed: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  intelligence: z.number().min(10).max(10000000).transform(roundStat).default(10),
-  willpower: z.number().min(10).max(10000000).transform(roundStat).default(10),
+  ninjutsuOffence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  taijutsuOffence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  genjutsuOffence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  bukijutsuOffence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  ninjutsuDefence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  taijutsuDefence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  genjutsuDefence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  bukijutsuDefence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  strength: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
+  speed: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
+  intelligence: z.coerce
+    .number()
+    .min(10)
+    .max(10000000)
+    .transform(roundStat)
+    .default(10),
+  willpower: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
 });
 
 export const actSchema = z.object({
-  power: z.number().min(1).max(100).default(1),
+  power: z.coerce.number().min(1).max(100).default(1),
   statTypes: z.array(z.enum(StatType)).default(["Ninjutsu"]),
   generalTypes: z.array(z.enum(GeneralType)).default(["Strength"]),
 });

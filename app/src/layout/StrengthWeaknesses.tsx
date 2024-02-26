@@ -11,7 +11,7 @@ interface StrengthWeaknessesProps {}
 const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
   // State
   const { data: userData } = useRequiredUserData();
-  const [showGraphs, setShowGraphs] = useState<boolean>(true);
+  const [showGraphs, setShowGraphs] = useState<boolean | undefined>(undefined);
   const statsChart = useRef<HTMLCanvasElement>(null);
   const generalsChart = useRef<HTMLCanvasElement>(null);
 
@@ -140,6 +140,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       subtitle="Current stats for your character"
       topRightContent={
         <Toggle
+          id="toggle-strength-weaknesses"
           value={showGraphs}
           setShowActive={setShowGraphs}
           labelActive="Graphs"
