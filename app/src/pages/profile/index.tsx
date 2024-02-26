@@ -16,7 +16,6 @@ import { sendGTMEvent } from "@next/third-parties/google";
 import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -35,9 +34,6 @@ const Profile: NextPage = () => {
       onSuccess: async () => {
         await refetchUser();
       },
-      onError: (error) => {
-        show_toast("Error on toggle deletion timer", error.message, "error");
-      },
     });
 
   const { mutate: confirmDeletion, isLoading: isDeleting } =
@@ -45,9 +41,6 @@ const Profile: NextPage = () => {
       onSuccess: async () => {
         await refetchUser();
         await router.push("/");
-      },
-      onError: (error) => {
-        show_toast("Error on performing deletion", error.message, "error");
       },
     });
 
@@ -61,10 +54,8 @@ const Profile: NextPage = () => {
         sendGTMEvent({ event: "levelUp", value: newLevel });
       }
     },
-    onError: (error) => {
-      show_toast("Error on trying to level up", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsLevelling(false);
     },
   });

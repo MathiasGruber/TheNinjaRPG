@@ -9,7 +9,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { NextPage } from "next";
 import type { Jutsu, UserJutsu } from "../../drizzle/schema";
 
@@ -45,10 +45,8 @@ const MyJutsu: NextPage = () => {
     onSuccess: async () => {
       await refetch();
     },
-    onError: (error) => {
-      show_toast("Error during equip", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setUserJutsu(undefined);
     },
@@ -56,17 +54,13 @@ const MyJutsu: NextPage = () => {
 
   const { mutate: forget, isLoading: isForgetting } = api.jutsu.forget.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Jutsu Forgotten", data.message, "success");
         await refetch();
-      } else {
-        show_toast("Error during forget", data.message, "error");
       }
     },
-    onError: (error) => {
-      show_toast("Error during forget", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setUserJutsu(undefined);
     },

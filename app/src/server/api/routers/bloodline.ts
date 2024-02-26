@@ -163,7 +163,7 @@ export const bloodlineRouter = createTRPCRouter({
       return (await fetchBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
     }),
   // Roll a bloodline
-  roll: protectedProcedure.mutation(async ({ ctx }) => {
+  roll: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     const prevRoll = await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
     if (prevRoll) {
       throw serverError("PRECONDITION_FAILED", "You have already rolled a bloodline");
@@ -182,7 +182,6 @@ export const bloodlineRouter = createTRPCRouter({
       bloodlineRank = "D";
     }
     // Update roll & user if successfull
-    let bloodlineId: null | string = null;
     if (bloodlineRank) {
       const randomBloodline = getRandomElement(
         await ctx.drizzle.query.bloodline.findMany({
@@ -190,7 +189,6 @@ export const bloodlineRouter = createTRPCRouter({
         }),
       );
       if (randomBloodline) {
-        bloodlineId = randomBloodline.id;
         await ctx.drizzle
           .update(userData)
           .set({ bloodlineId: randomBloodline.id })
@@ -200,6 +198,10 @@ export const bloodlineRouter = createTRPCRouter({
           userId: ctx.userId,
           bloodlineId: randomBloodline.id,
         });
+        return {
+          success: true,
+          message: "After thorough examination a bloodline was detected",
+        };
       }
     } else {
       await ctx.drizzle.insert(bloodlineRolls).values({
@@ -207,7 +209,10 @@ export const bloodlineRouter = createTRPCRouter({
         userId: ctx.userId,
       });
     }
-    return { bloodlineId: bloodlineId };
+    return {
+      success: false,
+      message: "After thorough examination the doctors conclude you have no bloodline",
+    };
   }),
   // Remove a bloodline from session user
   removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {

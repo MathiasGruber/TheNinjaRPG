@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Loader from "./Loader";
-
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import { sleep } from "@/utils/time";
 
 interface AvatarImageProps {
@@ -32,9 +30,6 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
         await sleep(10000);
         checkAvatar({ userId: props.userId });
       }
-    },
-    onError: (error) => {
-      show_toast("Error fetching avatar", error.message, "error");
     },
   });
 

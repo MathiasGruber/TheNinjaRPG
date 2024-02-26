@@ -20,7 +20,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/village";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
@@ -68,43 +68,30 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   const { mutate: startTraining, isLoading: isStarting } =
     api.profile.startTraining.useMutation({
       onSuccess: async (data) => {
-        show_toast("Training", data.message, "info");
+        showMutationToast(data);
         if (data.success) {
           await utils.profile.getUser.invalidate();
         }
-      },
-      onError: (error) => {
-        show_toast("Error training", error.message, "error");
       },
     });
 
   const { mutate: stopTraining, isLoading: isStopping } =
     api.profile.stopTraining.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
-          show_toast("Training", data.message, "success");
           await utils.profile.getUser.invalidate();
-        } else {
-          show_toast("Training", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error training", error.message, "error");
       },
     });
 
   const { mutate: changeSpeed, isLoading: isChaning } =
     api.profile.updateTrainingSpeed.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
-          show_toast("Training", data.message, "success");
           await utils.profile.getUser.invalidate();
-        } else {
-          show_toast("Training", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error training", error.message, "error");
       },
     });
 
@@ -247,16 +234,14 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const { mutate: train, isLoading: isStartingTrain } =
     api.jutsu.startTraining.useMutation({
       onSuccess: async (data) => {
-        show_toast("Training", data.message, "info");
+        showMutationToast(data);
         if (data.success) {
           await refetchUserJutsu();
           await utils.profile.getUser.invalidate();
         }
       },
-      onError: (error) => {
-        show_toast("Error training", error.message, "error");
-      },
       onSettled: () => {
+        document.body.style.cursor = "default";
         setIsOpen(false);
         setJutsu(undefined);
       },
@@ -265,16 +250,14 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const { mutate: cancel, isLoading: isStoppingTrain } =
     api.jutsu.stopTraining.useMutation({
       onSuccess: async (data) => {
-        show_toast("Training", data.message, "info");
+        showMutationToast(data);
         if (data.success) {
           await refetchUserJutsu();
           await utils.profile.getUser.invalidate();
         }
       },
-      onError: (error) => {
-        show_toast("Error training", error.message, "error");
-      },
       onSettled: () => {
+        document.body.style.cursor = "default";
         setIsOpen(false);
         setJutsu(undefined);
       },

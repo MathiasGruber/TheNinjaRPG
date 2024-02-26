@@ -28,7 +28,7 @@ import { conceptArtPromptSchema, conceptArtFilterSchema } from "@/validators/art
 import { sortOptions, timeFrame } from "@/validators/art";
 import { User, Sparkles } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { NextPage } from "next";
 import type { ConceptPromptType, ConceptFilterType } from "@/validators/art";
@@ -106,7 +106,7 @@ const ConceptArt: NextPage = () => {
         if (userData.reputationPoints > 0) {
           if (!isLoading) create(data);
         } else {
-          show_toast("ConceptArt Error", "No reputation points left.", "error");
+          showMutationToast({ success: false, message: "No reputation points left." });
         }
       }
     },

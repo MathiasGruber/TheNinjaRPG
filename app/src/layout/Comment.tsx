@@ -9,7 +9,6 @@ import ReportUser from "@/layout/Report";
 import { canDeleteComment } from "../validators/reports";
 import { mutateCommentSchema } from "../validators/comments";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
 import type { systems } from "../validators/reports";
 import type { ConversationComment } from "../../drizzle/schema";
@@ -48,18 +47,12 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
       props.refetchComments();
       setEditing(false);
     },
-    onError: (error) => {
-      show_toast("Error on editing comment", error.message, "error");
-    },
   });
 
   const deleteComment = api.comments.deleteConversationComment.useMutation({
     onSuccess: () => {
       props.refetchComments();
       setEditing(false);
-    },
-    onError: (error) => {
-      show_toast("Error on deleting comment", error.message, "error");
     },
   });
 
@@ -90,19 +83,12 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
       props.refetchComments();
       setEditing(false);
     },
-    onError: (error) => {
-      show_toast("Error on editing comment", error.message, "error");
-    },
   });
 
   const deleteComment = api.comments.deleteForumComment.useMutation({
     onSuccess: () => {
       props.refetchComments();
-      show_toast("Deletion", "Comment was deleted", "info");
       setEditing(false);
-    },
-    onError: (error) => {
-      show_toast("Error on deleting comment", error.message, "error");
     },
   });
 

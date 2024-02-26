@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { api } from "@/utils/api";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { LetterRanks } from "@/drizzle/constants";
 import type { Bloodline } from "@/drizzle/schema";
 import type { ZodBloodlineTags, ZodAllTags } from "@/libs/combat/types";
@@ -62,11 +62,8 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   // Mutation for updating bloodline
   const { mutate: updateBloodline, isLoading: l2 } = api.bloodline.update.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated Bloodline", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -79,7 +76,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
         updateBloodline({ id: bloodline.id, data: newBloodline });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch the effects

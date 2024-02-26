@@ -9,7 +9,7 @@ import Loader from "@/layout/Loader";
 import { RefreshCw } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { mutateCommentSchema } from "../validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { MutateCommentSchema } from "../validators/comments";
@@ -127,7 +127,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       },
       onError: (error, _newComment, context) => {
         utils.comments.getConversationComments.setInfiniteData(queryKey, context?.old);
-        show_toast("Error", error.message, "error");
+        showMutationToast({ success: false, message: error.message });
       },
     });
 

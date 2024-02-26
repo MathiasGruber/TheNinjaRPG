@@ -99,6 +99,7 @@ export const paypalRouter = createTRPCRouter({
         orderId: z.string().min(15).max(20),
       }),
     )
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
       const order = await getPaypalOrder({ orderId: input.orderId, token: token });
@@ -162,6 +163,7 @@ export const paypalRouter = createTRPCRouter({
           raw: {},
         });
       }
+      return { success: true, message: "Reputation points purchased" };
     }),
   resolveSubscription: protectedProcedure
     .input(
@@ -287,6 +289,7 @@ export const paypalRouter = createTRPCRouter({
   // Cancel paypal subscription
   cancelPaypalSubscription: protectedProcedure
     .input(z.object({ subscriptionId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
       // Get subscription from paypal & database
@@ -322,7 +325,7 @@ export const paypalRouter = createTRPCRouter({
       }
       // If successfull cancel, update database subscription
       if (status === 204) {
-        return await updateSubscription({
+        await updateSubscription({
           client: ctx.drizzle,
           createdById: createdByUserId,
           affectedUserId: affectedUserId,
@@ -330,6 +333,7 @@ export const paypalRouter = createTRPCRouter({
           status: "CANCELLED",
           subscriptionId: paypalSub.id,
         });
+        return { success: true, message: "Successfully canceled subscription" };
       } else {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not cancel subscription");
       }

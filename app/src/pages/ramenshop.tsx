@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 import type { RamenOption } from "@/utils/ramen";
@@ -16,15 +16,10 @@ const RamenShop: NextPage = () => {
 
   const { mutate, isLoading } = api.village.buyFood.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await refetch();
-        show_toast("Ramen Shop", data.message, "success");
-      } else {
-        show_toast("Ramen Shop", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error purchasing food", error.message, "error");
     },
   });
 
@@ -100,9 +95,9 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
   // Click handler
   const onClick = () => {
     if (!canAfford) {
-      show_toast("Ramen Shop", "You don't have enough money", "info");
+      showMutationToast({ success: false, message: "You don't have enough money" });
     } else if (left === 0 || healTooMuch) {
-      show_toast("Ramen Shop", "You don't need to eat that much", "info");
+      showMutationToast({ success: false, message: "You don't need to eat that much" });
     } else {
       onPurchase();
     }

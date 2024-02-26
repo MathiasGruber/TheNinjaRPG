@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BadgeValidator } from "@/validators/badge";
 import { api } from "@/utils/api";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { Badge } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 import type { ZodBadgeType } from "@/validators/badge";
@@ -25,11 +25,8 @@ export const useBadgeEditForm = (badge: Badge, refetch: () => void) => {
   // Mutation for updating badges
   const { mutate: updateBadge } = api.badge.update.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated Badge", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -42,7 +39,7 @@ export const useBadgeEditForm = (badge: Badge, refetch: () => void) => {
         updateBadge({ id: badge.id, data: newBadge });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch for changes to avatar

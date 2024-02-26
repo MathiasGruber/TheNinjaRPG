@@ -17,7 +17,7 @@ import { FilePlus, SquarePen } from "lucide-react";
 import { QuestTypes, type QuestType } from "@/drizzle/constants";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { NextPage } from "next";
 
@@ -52,22 +52,16 @@ const ManualTravel: NextPage = () => {
   // Mutations
   const { mutate: create, isLoading: load1 } = api.quests.create.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
       await router.push(`/cpanel/quest/edit/${data.message}`);
-      show_toast("Created Quest", "Placeholder Quest Created", "success");
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
   const { mutate: remove, isLoading: load2 } = api.quests.delete.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
-      show_toast("Deleted Quest", "Quest Deleted", "success");
-    },
-    onError: (error) => {
-      show_toast("Error deleting", error.message, "error");
     },
   });
 

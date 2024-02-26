@@ -9,7 +9,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
 import { useBadgeEditForm } from "@/libs/badge";
 import { BadgeValidator } from "@/validators/badge";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { Badge } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -57,14 +57,11 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
   // Mutations
   const { mutate: chatIdea, isLoading } = api.openai.createBadge.useMutation({
     onSuccess: (data) => {
-      show_toast("Updated Badge", `Based on response from AI`, "success");
+      showMutationToast({ success: true, message: "AI Updated Badge" });
       let key: keyof typeof data;
       for (key in data) {
         form.setValue(key, data[key]);
       }
-    },
-    onError: (error) => {
-      show_toast("Error from ChatGPT", error.message, "error");
     },
   });
 

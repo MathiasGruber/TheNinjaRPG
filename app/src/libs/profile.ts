@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
 import { UserRoles } from "@/drizzle/constants";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { updateUserSchema } from "@/validators/user";
 import type { UpdateUserSchema } from "@/validators/user";
 import type { UserData } from "@/drizzle/schema";
@@ -129,11 +129,8 @@ export const useUserEditForm = (
   const { mutate: updateUser, isLoading: loading } = api.profile.updateUser.useMutation(
     {
       onSuccess: (data) => {
+        showMutationToast(data);
         refetch();
-        show_toast("Updated User", data.message, "info");
-      },
-      onError: (error) => {
-        show_toast("Error updating", error.message, "error");
       },
     },
   );
@@ -146,7 +143,7 @@ export const useUserEditForm = (
         updateUser({ id: userId, data: data });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Object for form values

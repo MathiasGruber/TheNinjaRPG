@@ -10,7 +10,7 @@ import { objectKeys } from "@/utils/typeutils";
 import { RefreshCw } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/utils/api";
 import { getObjectiveSchema } from "@/validators/objectives";
@@ -112,15 +112,12 @@ export const EditContent = <
   // Mutations
   const { mutate: removeBg, isLoading: load1 } = api.openai.removeBg.useMutation({
     onSuccess: (data, variables) => {
-      show_toast("Remove Background", "Now processing...", "info");
+      showMutationToast({ success: true, message: "Background removed" });
       fetchImg({
         replicateId: data.replicateId,
         field: variables.field,
         removeBg: false,
       });
-    },
-    onError: (error) => {
-      show_toast("Error removing background", error.message, "error");
     },
   });
 
@@ -140,22 +137,16 @@ export const EditContent = <
         }
       }
     },
-    onError: (error) => {
-      show_toast("Error fetching", error.message, "error");
-    },
   });
 
   const { mutate: createImg, isLoading: load3 } = api.openai.createImg.useMutation({
     onSuccess: (data, variables) => {
-      show_toast("Starting Text2Image", "Now processing...", "info");
+      showMutationToast({ success: true, message: "Image generated. Now fetching" });
       fetchImg({
         replicateId: data.replicateId,
         field: variables.field,
         removeBg: variables.removeBg,
       });
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
@@ -384,7 +375,7 @@ export const EditContent = <
                         }
                       }}
                       onUploadError={(error: Error) => {
-                        show_toast("Error uploading", error.message, "error");
+                        showMutationToast({ success: false, message: error.message });
                       }}
                     />
                   </div>

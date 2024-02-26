@@ -10,12 +10,12 @@ import MenuBoxProfile from "./MenuBoxProfile";
 import MenuBoxGame from "./MenuBoxGame";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
-
+import { ToastAction } from "@/components/ui/toast";
 import { UserContext } from "@/utils/UserContext";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/utils/api";
 import { secondsFromDate } from "@/utils/time";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { UserEvent } from "@/utils/UserContext";
 import type { ReturnedBattle } from "@/libs/combat/types";
 
@@ -124,23 +124,38 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         } else if (data.type === "newInbox") {
           await refetchUser();
         } else if (data.type === "challengeCreated") {
-          show_toast(
-            "Notification!",
-            <Link href="/battlearena">You have been challenged</Link>,
-            "info",
-          );
+          showMutationToast({
+            success: true,
+            message: "You have been challenged",
+            title: "Notification!",
+            action: (
+              <ToastAction altText="To Arena">
+                <Link href="/battlearena">To Arena</Link>
+              </ToastAction>
+            ),
+          });
         } else if (data.type === "challengeAccepted") {
-          show_toast(
-            "Notification!",
-            <Link href="/combat">Your challenge has been accepted</Link>,
-            "success",
-          );
+          showMutationToast({
+            success: true,
+            message: "Your challenge has been accepted",
+            title: "Notification!",
+            action: (
+              <ToastAction altText="To Arena">
+                <Link href="/combat">To Combat</Link>
+              </ToastAction>
+            ),
+          });
         } else if (data.type === "challengeRejected") {
-          show_toast(
-            "Notification!",
-            <Link href="/combat">Your challenge has been rejected</Link>,
-            "error",
-          );
+          showMutationToast({
+            success: true,
+            message: "Your challenge has been rejected",
+            title: "Notification!",
+            action: (
+              <ToastAction altText="To Arena">
+                <Link href="/battlearena">To Arena</Link>
+              </ToastAction>
+            ),
+          });
         }
       });
       return () => {
@@ -155,7 +170,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
     data?.notifications
       .filter((n) => n.color === "toast")
       .map((n) => {
-        show_toast("Notification!", <div>{ReactHtmlParser(n.name)}</div>, "info");
+        showMutationToast({
+          success: true,
+          message: <div>{ReactHtmlParser(n.name)}</div>,
+          title: "Notification!",
+        });
       });
   }, [data?.notifications]);
 

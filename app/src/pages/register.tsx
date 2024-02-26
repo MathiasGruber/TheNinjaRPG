@@ -34,7 +34,7 @@ import { registrationSchema } from "../validators/register";
 import { attributes } from "../validators/register";
 import { colors, skin_colors } from "../validators/register";
 import { genders } from "../validators/register";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { RegistrationSchema } from "../validators/register";
 
 const Map = dynamic(() => import("../layout/Map"));
@@ -67,15 +67,11 @@ const Register: React.FC = () => {
   const { mutate: createCharacter, isLoading } =
     api.register.createCharacter.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await refetchUserData();
           createAvatar.mutate();
-        } else {
-          show_toast("Error on character creation", data.message, "error");
         }
-      },
-      onError: (error) => {
-        show_toast("Error on character creation", error.message, "error");
       },
     });
 

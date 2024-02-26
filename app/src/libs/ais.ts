@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
 import { ElementNames, UserRanks } from "@/drizzle/constants";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import type { InsertUserDataSchema } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
@@ -41,11 +41,8 @@ export const useAiEditForm = (
   // Mutation for updating item
   const { mutate: updateAi, isLoading: l2 } = api.profile.updateAi.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated AI", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -57,7 +54,7 @@ export const useAiEditForm = (
         updateAi({ id: user.userId, data: data });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch for changes to avatar

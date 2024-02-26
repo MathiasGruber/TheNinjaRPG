@@ -16,7 +16,7 @@ import { drawSector, drawVillage, drawUsers, drawQuest } from "@/libs/travel/sec
 import { intersectUsers } from "@/libs/travel/sector";
 import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { isLocationObjective } from "@/libs/quest";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -117,13 +117,13 @@ const Sector: React.FC<SectorProps> = (props) => {
     onSuccess: async (data) => {
       if (data.success) {
         data.notifications.forEach((notification) => {
-          show_toast("Quest Update", notification, "info");
+          showMutationToast({
+            success: true,
+            message: notification,
+          });
         });
         await refetchUser();
       }
-    },
-    onError: (error) => {
-      show_toast("Quest Error", error.message, "error");
     },
   });
 
@@ -192,12 +192,6 @@ const Sector: React.FC<SectorProps> = (props) => {
         }
       }
     },
-    onError: (error) => {
-      show_toast("Error moving", error.message, "error");
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-    },
   });
 
   const { mutate: attack, isLoading: isAttacking } = api.combat.attackUser.useMutation({
@@ -205,14 +199,11 @@ const Sector: React.FC<SectorProps> = (props) => {
       if (data.success) {
         await refetchUser();
       } else {
-        show_toast("Error attacking", data.message, "info");
+        showMutationToast({
+          success: false,
+          message: data.message,
+        });
       }
-    },
-    onError: (error) => {
-      show_toast("Error attacking", error.message, "error");
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
     },
   });
 

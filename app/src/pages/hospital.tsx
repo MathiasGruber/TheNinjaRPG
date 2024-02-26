@@ -19,7 +19,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost } from "@/libs/hospital/hospital";
 
@@ -49,14 +49,11 @@ const Hospital: NextPage = () => {
   // Mutations
   const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await refetchUser();
         await router.push("/profile");
       }
-      show_toast("Hospital", data.message, data.success ? "success" : "error");
-    },
-    onError: (error) => {
-      show_toast("Error healing", error.message, "error");
     },
   });
 
@@ -154,11 +151,9 @@ const PurchaseBloodline: React.FC = () => {
       onSuccess: async () => {
         await refetchUser();
       },
-      onError: (error) => {
-        show_toast("Error rolling", error.message, "error");
-      },
       onSettled: () => {
         setIsOpen(false);
+        document.body.style.cursor = "default";
       },
     });
 
@@ -279,9 +274,6 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
       onSuccess: async () => {
         await refetchUser();
       },
-      onError: (error) => {
-        show_toast("Error purchasing", error.message, "error");
-      },
     });
 
   // Can afford removing
@@ -336,23 +328,10 @@ const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   const { mutate: roll, isLoading: isRolling } = api.bloodline.roll.useMutation({
     onSuccess: async (data) => {
       props.refetch();
-      if (data.bloodlineId) {
+      showMutationToast({ ...data, title: "Bloodline Roll" });
+      if (data.success) {
         await refetchUser();
-        show_toast(
-          "Bloodline confirmed!",
-          "After thorough examination a bloodline was detected",
-          "success",
-        );
-      } else {
-        show_toast(
-          "No bloodline found",
-          "After thorough examination the doctors conclude you have no bloodline",
-          "error",
-        );
       }
-    },
-    onError: (error) => {
-      show_toast("Error rolling", error.message, "error");
     },
   });
 

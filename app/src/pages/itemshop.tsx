@@ -15,7 +15,7 @@ import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
 import type { ItemType, Item } from "../../drizzle/schema";
 import type { NextPage } from "next";
@@ -48,18 +48,14 @@ const ItemShop: NextPage = () => {
   // Mutations
   const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       if (data.success) {
         void refetchUserItems();
         void refetchUser();
-        show_toast("Success", data.message, "success");
-      } else {
-        show_toast("Error purchasing", data.message, "error");
       }
     },
-    onError: (error) => {
-      show_toast("Error purchasing", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setItem(undefined);
     },

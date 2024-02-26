@@ -14,7 +14,7 @@ import { Flag, CopyCheck, Settings, RefreshCcwDot } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { canChangeAvatar } from "@/validators/reports";
 import { useUserData } from "@/utils/UserContext";
 import { useUserEditForm } from "@/libs/profile";
@@ -57,22 +57,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     onSuccess: async () => {
       await utils.profile.getPublicUser.invalidate();
     },
-    onError: (error) => {
-      show_toast("Error on updating avatar", error.message, "error");
-    },
   });
 
   const cloneUser = api.profile.cloneUserForDebug.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await refetchUser();
-        show_toast("User cloned successfully", data.message, "success");
-      } else {
-        show_toast("Error on cloning user", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error on cloning user", error.message, "error");
     },
   });
 

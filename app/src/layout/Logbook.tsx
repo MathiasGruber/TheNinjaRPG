@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Post from "./Post";
 import Image from "next/image";
-import Toggle from "@/layout/Toggle";
+import Toggle from "@/components/control/Toggle";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
@@ -12,7 +12,7 @@ import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import ReactHtmlParser from "react-html-parser";
 import type { QuestTrackerType } from "@/validators/objectives";
@@ -39,7 +39,7 @@ const Logbook: React.FC<LogbookProps> = () => {
       limit: 10,
     },
     {
-      enabled: !showActive,
+      enabled: showActive !== undefined && !showActive,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       keepPreviousData: true,
       staleTime: Infinity,
@@ -178,26 +178,28 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           </div>
         );
         if (resolved) {
-          show_toast(`Finished: ${quest.name}`, reward, "success");
+          showMutationToast({
+            success: true,
+            message: reward,
+            title: `Finished: ${quest.name}`,
+          });
         } else {
-          show_toast(`Reward from ${quest.name}`, reward, "success");
+          showMutationToast({
+            success: true,
+            message: reward,
+            title: `Reward from ${quest.name}`,
+          });
         }
         await utils.profile.getUser.invalidate();
         await utils.quests.getQuestHistory.invalidate();
       }
     },
-    onError: (error) => {
-      show_toast("Error checking rewards", error.message, "error");
-    },
   });
 
   const { mutate: abandon } = api.quests.abandon.useMutation({
-    onSuccess: async ({ message }) => {
-      show_toast("Success", message, "success");
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await utils.profile.getUser.invalidate();
-    },
-    onError: (error) => {
-      show_toast("Error abandoning", error.message, "error");
     },
   });
 

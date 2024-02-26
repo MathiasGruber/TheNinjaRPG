@@ -7,7 +7,7 @@ import Confirm from "@/layout/Confirm";
 import { Button } from "@/components/ui/button";
 import { Trash2, SwitchCamera } from "lucide-react";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -47,14 +47,10 @@ const Avatar: NextPage = () => {
       setLoading(true);
     },
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await refetchUserData();
-      } else {
-        show_toast("Error changing avatar", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error changing avatar", error.message, "error");
     },
     onSettled: () => {
       setLoading(false);
@@ -67,14 +63,10 @@ const Avatar: NextPage = () => {
       setLoading(true);
     },
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await refetchHistoricalAvatars();
-      } else {
-        show_toast("Error deleting avatar", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error deleting avatar", error.message, "error");
     },
     onSettled: () => {
       setLoading(false);
@@ -89,9 +81,6 @@ const Avatar: NextPage = () => {
     onSuccess: async () => {
       await refetchUserData();
       await refetchHistoricalAvatars();
-    },
-    onError: (error) => {
-      show_toast("Error creating avatar", error.message, "error");
     },
     onSettled: () => {
       setLoading(false);

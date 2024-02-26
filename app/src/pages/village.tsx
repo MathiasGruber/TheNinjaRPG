@@ -13,7 +13,7 @@ import { mutateContentSchema } from "@/validators/comments";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { NextPage } from "next";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -44,15 +44,10 @@ const VillageOverview: NextPage = () => {
   // Mutations
   const { mutate, isLoading: isUpdating } = api.kage.upsertNotice.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", data.message, "success");
         await utils.village.get.invalidate();
-      } else {
-        show_toast("Error", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error", error.message, "error");
     },
   });
 

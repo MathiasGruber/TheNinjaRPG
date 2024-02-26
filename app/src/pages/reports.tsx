@@ -3,7 +3,7 @@ import { type NextPage } from "next";
 
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
-import Toggle from "@/layout/Toggle";
+import Toggle from "@/components/control/Toggle";
 import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";

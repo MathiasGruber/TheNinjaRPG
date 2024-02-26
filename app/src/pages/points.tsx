@@ -16,11 +16,11 @@ import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { getScriptID, destroySDKScript } from "@paypal/react-paypal-js";
 import { usePayPalScriptReducer } from "@paypal/react-paypal-js";
-import { api } from "@/utils/api";
+import { api, onError } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reps2dollars, calcFedUgradeCost } from "@/utils/paypal";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";
 import { FederalStatuses } from "@/drizzle/constants";
 import { buyRepsSchema } from "@/validators/points";
@@ -213,12 +213,9 @@ const ReputationStore = (props: { currency: string }) => {
   let invoiceId = nanoid();
 
   const { mutate: buyReps, isLoading } = api.paypal.resolveOrder.useMutation({
-    onSuccess: async () => {
-      show_toast("Successfully bought reputation points", "Order finished", "success");
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetchUser();
-    },
-    onError: (error) => {
-      show_toast("Error on resolving invoice", error.message, "error");
     },
   });
 
@@ -302,11 +299,12 @@ const ReputationStore = (props: { currency: string }) => {
                   buyReps({ orderId: details.id });
                 });
               } else {
-                show_toast(
-                  "No order",
-                  "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
-                  "info",
-                );
+                showMutationToast({
+                  success: false,
+                  message:
+                    "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
+                  title: "No order",
+                });
                 return new Promise(() => {
                   return null;
                 });
@@ -343,13 +341,13 @@ const PayPalSubscriptionButton = (props: {
   // Mutation for starting subscription
   const { mutate: subscribe, isLoading: isSubscribing } =
     api.paypal.resolveSubscription.useMutation({
-      onSuccess: async () => {
-        show_toast("Successfully started subscription", "Order finished", "success");
+      onSuccess: async (data) => {
+        showMutationToast(data);
         await refetchUser();
         props.onSuccess && props.onSuccess();
       },
       onError: (error) => {
-        show_toast("Error on resolving subscription", error.message, "error");
+        onError(error);
         props.onFailure && props.onFailure();
       },
     });
@@ -358,16 +356,14 @@ const PayPalSubscriptionButton = (props: {
   const { mutate: upgrade, isLoading: isUpgrading } =
     api.paypal.upgradeSubscription.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
-          show_toast("Upgraded subscription", "Success", "success");
           await refetchUser();
           props.onSuccess && props.onSuccess();
-        } else {
-          show_toast("Error on upgrading subscription", data.message, "error");
         }
       },
       onError: (error) => {
-        show_toast("Error on resolving subscription", error.message, "error");
+        onError(error);
         props.onFailure && props.onFailure();
       },
     });
@@ -480,11 +476,12 @@ const PayPalSubscriptionButton = (props: {
                 orderId: data.orderID,
               });
             } else {
-              show_toast(
-                "No subscription",
-                "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-                "info",
-              );
+              showMutationToast({
+                success: false,
+                message:
+                  "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
+                title: "No subscription",
+              });
             }
             return new Promise(() => {
               return null;
@@ -612,12 +609,9 @@ const SubscriptionsOverview = () => {
 
   const { mutate: cancelSubscription, isLoading } =
     api.paypal.cancelPaypalSubscription.useMutation({
-      onSuccess: async () => {
+      onSuccess: async (data) => {
+        showMutationToast(data);
         await refetch();
-        show_toast("Successfully canceled subscription", "Canceled", "success");
-      },
-      onError: (error) => {
-        show_toast("Error on cancelling subscription", error.message, "error");
       },
     });
 
@@ -736,15 +730,10 @@ const LookupSubscription = () => {
   // Sync subscription
   const { mutate, isLoading } = api.paypal.resolveSubscription.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Synced with paypal", data.message, "success");
         await refetchUser();
-      } else {
-        show_toast("Error on Sync", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error on Lookup", error.message, "error");
     },
   });
 

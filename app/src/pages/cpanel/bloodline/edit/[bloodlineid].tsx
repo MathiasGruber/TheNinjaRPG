@@ -14,7 +14,7 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/libs/bloodline";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
@@ -87,7 +87,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
 
   const { mutate: chatIdea, isLoading } = api.openai.createBloodline.useMutation({
     onSuccess: (data) => {
-      show_toast("Updated Bloodline", `Based on response from AI`, "success");
+      showMutationToast({ success: true, message: "AI Updated Bloodline" });
       let key: keyof typeof data;
       for (key in data) {
         if (key === "effects") {
@@ -107,9 +107,6 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
           form.setValue(key, data[key]);
         }
       }
-    },
-    onError: (error) => {
-      show_toast("Error from ChatGPT", error.message, "error");
     },
   });
 

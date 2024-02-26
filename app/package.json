@@ -75,7 +75,6 @@
     "react-dropzone": "^14.2.3",
     "react-hook-form": "7.43.0",
     "react-html-parser": "2.0.2",
-    "react-toastify": "9.1.1",
     "replicate": "^0.25.2",
     "sanitize-html": "2.10.0",
     "sharp": "0.32.6",

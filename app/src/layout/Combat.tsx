@@ -17,7 +17,7 @@ import { calcActiveUser } from "@/libs/combat/actions";
 import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -65,24 +65,17 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
-    onMutate: () => {
-      document.body.style.cursor = "wait";
-    },
     onSuccess: async (data) => {
+      showMutationToast({
+        success: data.success,
+        message: "You enter the arena again",
+      });
       if (data.success) {
         setBattle(undefined);
         setBattleState({ battle: undefined, result: null, isLoading: true });
         refetchBattle();
         await refetchUser();
-      } else {
-        show_toast("Error attacking", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error attacking", error.message, "error");
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
     },
   });
 
@@ -90,12 +83,13 @@ const Combat: React.FC<CombatProps> = (props) => {
   const { mutate: performAction, isLoading: isLoadingUser } =
     api.combat.performAction.useMutation({
       onMutate: () => {
+        document.body.style.cursor = "wait";
         setBattleState({ battle: battle.current, result: null, isLoading: true });
       },
       onSuccess: (data) => {
         // Notifications (if any)
         if (data.notification) {
-          show_toast("Notification", data.notification, "info");
+          showMutationToast({ success: true, message: data.notification });
         }
         // Update battle history
         if (battleId && data.logEntries) {
@@ -123,12 +117,6 @@ const Combat: React.FC<CombatProps> = (props) => {
           });
         }
       },
-      onError: (error) => {
-        show_toast("Error acting", error.message, "error");
-      },
-      onSettled: () => {
-        document.body.style.cursor = "default";
-      },
     });
 
   // I am here call
@@ -139,11 +127,8 @@ const Combat: React.FC<CombatProps> = (props) => {
         setBattle(battle.current);
         setBattleState({ battle: data.battle, result: null, isLoading: false });
       } else {
-        show_toast("iAmHere Error", data.message, "info");
+        showMutationToast({ success: false, message: data.message });
       }
-    },
-    onError: (error) => {
-      show_toast("iAmHere Error", error.message, "error");
     },
   });
   useEffect(() => {

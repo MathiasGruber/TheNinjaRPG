@@ -7,7 +7,6 @@ import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import Confirm from "@/layout/Confirm";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromDate } from "@/utils/time";
 import { getQuestCounterFieldName } from "@/validators/user";
@@ -34,9 +33,6 @@ const MissionHall: NextPage = () => {
   const { mutate: startRandom, isLoading } = api.quests.startRandom.useMutation({
     onSuccess: () => {
       void refetch();
-    },
-    onError: (error) => {
-      show_toast("Error getting quest", error.message, "error");
     },
   });
 

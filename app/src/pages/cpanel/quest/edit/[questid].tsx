@@ -14,7 +14,7 @@ import { allObjectiveTasks } from "@/validators/objectives";
 import { useQuestEditForm } from "@/libs/quest";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { SimpleObjective } from "@/validators/objectives";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { getObjectiveSchema } from "@/validators/objectives";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -61,7 +61,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
 
   const { mutate: chatIdea, isLoading } = api.openai.createQuest.useMutation({
     onSuccess: (data) => {
-      show_toast("Updated Quest", `Based on response from AI`, "success");
+      showMutationToast({ success: true, message: "AI Updated Quest" });
       let key: keyof typeof data;
       for (key in data) {
         if (key === "objectives") {
@@ -81,9 +81,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
           form.setValue(key, data[key]);
         }
       }
-    },
-    onError: (error) => {
-      show_toast("Error from ChatGPT", error.message, "error");
     },
   });
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import ContentBox from "@/layout/ContentBox";
-import Toggle from "@/layout/Toggle";
+import Toggle from "@/components/control/Toggle";
 import ElementImage from "@/layout/ElementImage";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { Chart as ChartJS } from "chart.js/auto";

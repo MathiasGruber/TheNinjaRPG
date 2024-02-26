@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 
 interface Pagination {
   fetchNextPage: () => Promise<any>;
@@ -47,11 +47,11 @@ export const useInfinitePagination = ({
     };
     if (hasNextPage) {
       fetchData().catch(() => {
-        show_toast(
-          "Error fetching batch",
-          "Error fetching next batch of data",
-          "error",
-        );
+        showMutationToast({
+          success: false,
+          title: "Error fetching batch",
+          message: "Error fetching next batch of data",
+        });
       });
     }
   }, [fetchNextPage, hasNextPage, page]);

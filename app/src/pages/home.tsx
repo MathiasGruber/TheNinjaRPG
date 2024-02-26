@@ -4,7 +4,7 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 
@@ -15,15 +15,10 @@ const Home: NextPage = () => {
   const { mutate: toggleSleep, isLoading: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await refetch();
-          show_toast("Home", data.message, "success");
-        } else {
-          show_toast("Home", data.message, "error");
         }
-      },
-      onError: (error) => {
-        show_toast("Error toggle sleep status", error.message, "error");
       },
     });
 

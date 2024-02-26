@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FilePlus, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import type { GenericObject } from "@/layout/ItemWithEffects";
@@ -61,22 +61,16 @@ const ManualAI: NextPage = () => {
   // Mutations
   const { mutate: create, isLoading: load1 } = api.profile.create.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
       await router.push(`/cpanel/ai/edit/${data.message}`);
-      show_toast("Created AI", "Placeholder AI Created", "success");
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
   const { mutate: remove, isLoading: load2 } = api.profile.delete.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
-      show_toast("Deleted AI", "AI Deleted", "success");
-    },
-    onError: (error) => {
-      show_toast("Error deleting", error.message, "error");
     },
   });
 

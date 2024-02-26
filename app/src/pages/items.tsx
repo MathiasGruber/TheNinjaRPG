@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import type { Item, UserItem, ItemSlot } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
@@ -75,10 +74,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSuccess: () => {
       props.refetch();
     },
-    onError: (error) => {
-      show_toast("Error merging stacks", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setItem(undefined);
     },
@@ -88,10 +85,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSuccess: () => {
       props.refetch();
     },
-    onError: (error) => {
-      show_toast("Error dropping item", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setItem(undefined);
     },
@@ -179,10 +174,8 @@ const Character: React.FC<CharacterProps> = (props) => {
     onSuccess: () => {
       props.refetch();
     },
-    onError: (error) => {
-      show_toast("Error during equip", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
       setItem(undefined);
     },

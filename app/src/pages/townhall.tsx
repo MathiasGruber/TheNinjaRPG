@@ -7,7 +7,7 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import { Button } from "@/components/ui/button";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
 import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
 import { api } from "@/utils/api";
@@ -67,50 +67,30 @@ const KageHall: React.FC<{
 
   // Mutations
   const { mutate: attack, isLoading: isAttacking } = api.kage.fightKage.useMutation({
-    onMutate: () => {
-      document.body.style.cursor = "wait";
-    },
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await utils.profile.getUser.invalidate();
         await router.push("/combat");
-      } else {
-        show_toast("Error attacking", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error attacking", error.message, "error");
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
     },
   });
 
   const { mutate: resign, isLoading: isResigning } = api.kage.resignKage.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await utils.village.get.invalidate();
-        show_toast("Success", data.message, "success");
-      } else {
-        show_toast("Error", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error", error.message, "error");
     },
   });
 
   const { mutate: take, isLoading: isTaking } = api.kage.takeKage.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
         await utils.village.get.invalidate();
-        show_toast("Success", data.message, "success");
-      } else {
-        show_toast("Error", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error", error.message, "error");
     },
   });
 

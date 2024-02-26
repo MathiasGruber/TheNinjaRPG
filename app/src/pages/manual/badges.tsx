@@ -9,7 +9,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { api } from "@/utils/api";
 import { FilePlus } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import type { NextPage } from "next";
 import type { Badge } from "@/drizzle/schema";
@@ -40,22 +40,16 @@ const ManualBadges: NextPage = () => {
   // Mutations
   const { mutate: create, isLoading: load1 } = api.badge.create.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
       await router.push(`/cpanel/badge/edit/${data.message}`);
-      show_toast("Created Badge", "Placeholder Badge Created", "success");
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
   const { mutate: remove, isLoading: load2 } = api.badge.delete.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
-      show_toast("Deleted Badge", "Badge Deleted", "success");
-    },
-    onError: (error) => {
-      show_toast("Error deleting", error.message, "error");
     },
   });
 

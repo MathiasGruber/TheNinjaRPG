@@ -9,7 +9,7 @@ import { ItemTypes } from "@/drizzle/constants";
 import { ItemRarities } from "@/drizzle/constants";
 import { ItemSlotTypes } from "@/drizzle/constants";
 import { api } from "@/utils/api";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { Item } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
@@ -35,11 +35,8 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
   // Mutation for updating item
   const { mutate: updateItem } = api.item.update.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated Item", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -52,7 +49,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
         updateItem({ id: item.id, data: newItem });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch the effects

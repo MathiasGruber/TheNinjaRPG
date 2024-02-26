@@ -4,12 +4,15 @@
  *
  * We also create a few inference helpers for input and output types.
  */
-import { httpBatchLink, loggerLink } from "@trpc/client";
+
+import { TRPCClientError, httpBatchLink, loggerLink } from "@trpc/client";
 import { createTRPCNext } from "@trpc/next";
+import { toast } from "@/components/ui/use-toast";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 
 import { type AppRouter } from "../server/api/root";
+import { QueryClient, QueryCache, MutationCache } from "@tanstack/react-query";
 
 const getBaseUrl = () => {
   if (typeof window !== "undefined") return ""; // browser should use relative url
@@ -30,6 +33,22 @@ export const api = createTRPCNext<AppRouter>({
 
       // Abort on onmount, see: https://trpc.io/docs/client/react/aborting-procedure-calls
       abortOnUnmount: false,
+
+      // Handle errors by showing a toast
+      queryClient: new QueryClient({
+        queryCache: new QueryCache({
+          onError: onError,
+        }),
+        mutationCache: new MutationCache({
+          onMutate: () => {
+            document.body.style.cursor = "wait";
+          },
+          onSettled: () => {
+            document.body.style.cursor = "default";
+          },
+          onError: onError,
+        }),
+      }),
 
       /**
        * Links used to determine request flow from client to server.
@@ -69,3 +88,19 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  * @example type HelloOutput = RouterOutputs['example']['hello']
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+export const onError = (err: unknown) => {
+  if (err instanceof TRPCClientError) {
+    toast({
+      variant: "destructive",
+      title: err.data.code, // eslint-disable-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      description: err.message,
+    });
+  } else if (err instanceof Error) {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: err.message,
+    });
+  }
+};

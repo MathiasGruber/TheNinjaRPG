@@ -17,7 +17,7 @@ import { useSafePush } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
@@ -95,22 +95,12 @@ const ChallengeAI: React.FC = () => {
   // Mutation for starting a fight
   const { mutate: attack, isLoading: isAttacking } =
     api.combat.startArenaBattle.useMutation({
-      onMutate: () => {
-        document.body.style.cursor = "wait";
-      },
       onSuccess: async (data) => {
+        showMutationToast({ success: data.success, message: "You enter the arena" });
         if (data.success) {
           await utils.profile.getUser.invalidate();
           await router.push("/combat");
-        } else {
-          show_toast("Error attacking", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error attacking", error.message, "error");
-      },
-      onSettled: () => {
-        document.body.style.cursor = "default";
       },
     });
 
@@ -245,16 +235,11 @@ const ChallengeUser: React.FC = () => {
   // Create mutation
   const { mutate: create, isLoading } = api.sparring.createChallenge.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Challenge sent", "success");
         userSearchMethods.setValue("users", []);
         await refetch();
-      } else {
-        show_toast("Arena Error", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Arena Error", error.message, "error");
     },
   });
 
@@ -315,47 +300,32 @@ const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge
   const { mutate: accept, isLoading: isAccepting } =
     api.sparring.acceptChallenge.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await utils.profile.getUser.invalidate();
           await utils.sparring.getUserChallenges.invalidate();
           await router.push("/combat");
-          show_toast("Success", "Challenge accepted", "success");
-        } else {
-          show_toast("Error accepting", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error accepting", error.message, "error");
       },
     });
 
   const { mutate: reject, isLoading: isRejecting } =
     api.sparring.rejectChallenge.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await utils.sparring.getUserChallenges.invalidate();
-          show_toast("Success", "Challenge rejected", "success");
-        } else {
-          show_toast("Error rejecting", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error rejecting", error.message, "error");
       },
     });
 
   const { mutate: cancel, isLoading: isCancelling } =
     api.sparring.cancelChallenge.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await utils.sparring.getUserChallenges.invalidate();
-          show_toast("Success", "Challenge cancelled", "success");
-        } else {
-          show_toast("Error cancelling", data.message, "info");
         }
-      },
-      onError: (error) => {
-        show_toast("Error cancelling", error.message, "error");
       },
     });
 

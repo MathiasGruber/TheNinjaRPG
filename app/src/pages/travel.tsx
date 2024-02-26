@@ -13,7 +13,7 @@ import { api } from "@/utils/api";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -102,6 +102,7 @@ const Travel: NextPage = () => {
   const { mutate: startGlobalMove, isLoading: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success && data.sector) {
           await refetchUser();
           setShowModal(false);
@@ -110,29 +111,18 @@ const Travel: NextPage = () => {
           if (globe) {
             setCurrentTile(globe.tiles[data.sector] as GlobalTile);
           }
-        } else {
-          show_toast("Error travelling", data.message, "error");
         }
-      },
-      onError: (error) => {
-        show_toast("Error travelling", error.message, "error");
-        console.error("Error travelling", error);
       },
     });
 
   const { mutate: finishGlobalMove, isLoading: isFinishingTravel } =
     api.travel.finishGlobalMove.useMutation({
       onSuccess: async (data) => {
+        showMutationToast(data);
         if (data.success) {
           await refetchUser();
           setActiveTab(sectorLink);
-        } else {
-          show_toast("Error travelling", data.message, "error");
         }
-      },
-      onError: (error) => {
-        show_toast("Error travelling", error.message, "error");
-        console.error("Error travelling", error);
       },
     });
 

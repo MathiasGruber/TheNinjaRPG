@@ -3,18 +3,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import { type NextPage } from "next";
-
 import ReactHtmlParser from "react-html-parser";
-
-import Loader from "../../../layout/Loader";
-import Pagination from "../../../layout/Pagination";
-import ContentBox from "../../../layout/ContentBox";
-import RichInput from "../../../layout/RichInput";
-import { CommentOnForum } from "../../../layout/Comment";
-
+import Loader from "@/layout/Loader";
+import Pagination from "@/layout/Pagination";
+import ContentBox from "@/layout/ContentBox";
+import RichInput from "@/layout/RichInput";
+import { CommentOnForum } from "@/layout/Comment";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "../../../libs/toast";
 import { mutateCommentSchema } from "@/validators/comments";
 import { type MutateCommentSchema } from "@/validators/comments";
 
@@ -65,9 +61,6 @@ const Thread: NextPage = () => {
           }
           await refetch();
         }
-      },
-      onError: (error) => {
-        show_toast("Error on creating new comment", error.message, "error");
       },
     });
 

@@ -5,16 +5,16 @@ import { useForm } from "react-hook-form";
 import { useUserData } from "@/utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, Users, ClipboardCopy, Trash2, Eye, EyeOff } from "lucide-react";
-import Toggle from "@/layout/Toggle";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import Toggle from "@/components/control/Toggle";
 import { Button } from "@/components/ui/button";
 import { damageUser } from "@/libs/combat/tags";
 import { calcLevel, calcHP } from "@/libs/profile";
 import { StatType, GeneralType } from "@/libs/combat/constants";
 import { statSchema, actSchema } from "@/libs/combat/types";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { Chart as ChartJS } from "chart.js/auto";
 import { MultiSelect } from "@/components/ui/multi-select";
 import {
@@ -107,27 +107,18 @@ const ManualDamageSimulator: NextPage = () => {
   const { mutate: saveEntry, isLoading: isSaving } =
     api.simulator.createDamageSimulation.useMutation({
       onSuccess: () => refetch(),
-      onError: (error) => {
-        show_toast("Error saving calculation", error.message, "error");
-      },
     });
 
   // Mutation for editing entry
   const { mutate: updateEntry, isLoading: isUpdating } =
     api.simulator.updateDamageSimulation.useMutation({
       onSuccess: () => refetch(),
-      onError: (error) => {
-        show_toast("Error updating calculation", error.message, "error");
-      },
     });
 
   // Mutation for editing entry
   const { mutate: deleteEntry, isLoading: isDeleting } =
     api.simulator.deleteDamageSimulation.useMutation({
       onSuccess: () => refetch(),
-      onError: (error) => {
-        show_toast("Error deleting calculation", error.message, "error");
-      },
     });
 
   const isLoading = isSaving || isUpdating || isDeleting;
@@ -483,10 +474,18 @@ const ManualDamageSimulator: NextPage = () => {
                         const link = `${origin}/manual/damage_calcs/${entry.id}`;
                         navigator.clipboard.writeText(link).then(
                           function () {
-                            show_toast("Saved", "Copied to clipboard!", "info");
+                            showMutationToast({
+                              success: true,
+                              title: "Saved",
+                              message: "Copied to clipboard!",
+                            });
                           },
                           function () {
-                            show_toast("Simulator", "Could not create link", "error");
+                            showMutationToast({
+                              success: false,
+                              title: "Error",
+                              message: "Could not copy to clipboard",
+                            });
                           },
                         );
                       }}

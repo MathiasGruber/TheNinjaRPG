@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import type { LetterRanks } from "@/drizzle/constants";
@@ -45,22 +45,16 @@ const ManualBloodlines: NextPage = () => {
   // Mutations
   const { mutate: create, isLoading: load1 } = api.bloodline.create.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
       await router.push(`/cpanel/bloodline/edit/${data.message}`);
-      show_toast("Created Bloodline", "Placeholder Bloodline Created", "success");
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
   const { mutate: remove, isLoading: load2 } = api.bloodline.delete.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
-      show_toast("Deleted Bloodline", "Bloodline Deleted", "success");
-    },
-    onError: (error) => {
-      show_toast("Error deleting", error.message, "error");
     },
   });
 

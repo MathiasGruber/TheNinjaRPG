@@ -159,6 +159,7 @@ export const questsRouter = createTRPCRouter({
     }),
   abandon: protectedProcedure
     .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const { user } = await fetchRegeneratedUser({
         client: ctx.drizzle,
@@ -189,7 +190,7 @@ export const questsRouter = createTRPCRouter({
           .set({ questFinishAt: new Date() })
           .where(eq(userData.userId, ctx.userId)),
       ]);
-      return { message: `Quest abandoned` };
+      return { success: true, message: `Quest abandoned` };
     }),
   getQuestHistory: protectedProcedure
     .input(

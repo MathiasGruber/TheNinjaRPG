@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { forumBoardSchema } from "../../validators/forum";
-import { show_toast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -68,9 +67,6 @@ const Board: NextPage = () => {
         await refetch();
         form.reset();
       },
-      onError: (error) => {
-        show_toast("Error on creating new thread", error.message, "error");
-      },
     },
   );
 
@@ -78,17 +74,11 @@ const Board: NextPage = () => {
     onSuccess: async () => {
       await refetch();
     },
-    onError: (error) => {
-      show_toast("Error on pinning thread", error.message, "error");
-    },
   });
 
   const { mutate: lockThread, isLoading: load3 } = api.forum.lockThread.useMutation({
     onSuccess: async () => {
       await refetch();
-    },
-    onError: (error) => {
-      show_toast("Error on locking thread", error.message, "error");
     },
   });
 
@@ -96,9 +86,6 @@ const Board: NextPage = () => {
     {
       onSuccess: async () => {
         await refetch();
-      },
-      onError: (error) => {
-        show_toast("Error on deleting thread", error.message, "error");
       },
     },
   );

@@ -5,7 +5,7 @@ import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/constants";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { api } from "@/utils/api";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
 import type { LetterRank } from "@/drizzle/constants";
@@ -60,11 +60,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated Quest", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -110,7 +107,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         updateQuest({ id: quest.id, data: newQuest });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch the effects

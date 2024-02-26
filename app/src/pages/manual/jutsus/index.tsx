@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import type { NextPage } from "next";
@@ -47,22 +47,16 @@ const ManualJutsus: NextPage = () => {
   // Mutations
   const { mutate: create, isLoading: load1 } = api.jutsu.create.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
       await router.push(`/cpanel/jutsu/edit/${data.message}`);
-      show_toast("Created Bloodline", "Placeholder Bloodline Created", "success");
-    },
-    onError: (error) => {
-      show_toast("Error creating", error.message, "error");
     },
   });
 
   const { mutate: remove, isLoading: load2 } = api.jutsu.delete.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
-      show_toast("Deleted Jutsu", "Jutsu Deleted", "success");
-    },
-    onError: (error) => {
-      show_toast("Error deleting", error.message, "error");
     },
   });
 

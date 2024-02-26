@@ -5,12 +5,10 @@ import { ErrorBoundary } from "@highlight-run/react";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Toaster } from "@/components/ui/toaster";
 import Header from "@/layout/Header";
-import { ToastContainer } from "react-toastify";
-import { type AppType } from "next/app";
-
 import { env } from "@/env/client.mjs";
 import { api } from "@/utils/api";
 import Layout from "@/layout/Layout";
+import type { AppType } from "next/app";
 
 import "@uploadthing/react/styles.css";
 import "../styles/globals.css";
@@ -28,7 +26,6 @@ const MyApp: AppType = ({ Component, pageProps }) => {
     >
       <Header />
       <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
-      <ToastContainer />
       <Toaster />
       <AxiomWebVitals />
       <HighlightInit

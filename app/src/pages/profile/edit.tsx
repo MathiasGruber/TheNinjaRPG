@@ -37,7 +37,7 @@ import { mutateContentSchema } from "@/validators/comments";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { useUserSearch } from "@/utils/search";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { COST_CHANGE_USERNAME } from "@/libs/profile";
 import { COST_RESET_STATS } from "@/libs/profile";
 import { COST_SWAP_BLOODLINE } from "@/libs/profile";
@@ -163,17 +163,13 @@ const SwapVillage: React.FC = () => {
   // Mutations
   const { mutate: swap, isLoading: isSwapping } = api.village.swapVillage.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", data.message, "success");
         await refetchUser();
-      } else {
-        show_toast("Error swapping village", data.message, "error");
       }
     },
-    onError: (error) => {
-      show_toast("Error swapping village", error.message, "error");
-    },
     onSettled: () => {
+      document.body.style.cursor = "default";
       setIsOpen(false);
     },
   });
@@ -265,10 +261,8 @@ const SwapBloodline: React.FC = () => {
       onSuccess: async () => {
         await refetchUser();
       },
-      onError: (error) => {
-        show_toast("Error rolling", error.message, "error");
-      },
       onSettled: () => {
+        document.body.style.cursor = "default";
         setIsOpen(false);
       },
     });
@@ -378,15 +372,10 @@ const ResetStats: React.FC = () => {
   // Mutations
   const { mutate: updateStats } = api.profile.updateStats.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Stats updated", "success");
         await refetchUser();
-      } else {
-        show_toast("Error on updating stats", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error on updating stats", error.message, "error");
     },
   });
 
@@ -491,7 +480,7 @@ const AvatarChange: React.FC = () => {
             }
           }}
           onUploadError={(error: Error) => {
-            show_toast("Error uploading", error.message, "error");
+            showMutationToast({ success: false, message: error.message });
           }}
         />
       </div>
@@ -527,26 +516,20 @@ const AttributeChange: React.FC = () => {
   // Mutations
   const { mutate: insertAttr } = api.profile.insertAttribute.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Attribute inserted", "success");
         await refetch();
-      } else {
-        show_toast("Error on insert", data.message, "error");
       }
     },
-    onError: (error) => show_toast("Error on insert", error.message, "error"),
   });
 
   const { mutate: deleteAttr } = api.profile.deleteAttribute.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Attribute deleted", "success");
         await refetch();
-      } else {
-        show_toast("Error on delete", data.message, "error");
       }
     },
-    onError: (error) => show_toast("Error on delete", error.message, "error"),
   });
 
   return (
@@ -681,15 +664,10 @@ const NindoChange: React.FC = () => {
   // Mutations
   const { mutate, isLoading: isUpdating } = api.profile.updateNindo.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Nindo updated", "success");
         await refetch();
-      } else {
-        show_toast("Error on updating nindo", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error on updating nindo", error.message, "error");
     },
   });
 
@@ -747,15 +725,10 @@ const NameChange: React.FC = () => {
   // Mutations
   const { mutate: updateUsername } = api.profile.updateUsername.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Success", "Username updated", "success");
         await refetchUser();
-      } else {
-        show_toast("Error on updating username", data.message, "error");
       }
-    },
-    onError: (error) => {
-      show_toast("Error on updating username", error.message, "error");
     },
   });
 

@@ -20,7 +20,6 @@ import { CommentOnReport } from "@/layout/Comment";
 import { api } from "@/utils/api";
 import { type ReportCommentSchema } from "../../validators/reports";
 import { reportCommentSchema } from "../../validators/reports";
-import { show_toast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentColor } from "@/utils/reports";
@@ -88,9 +87,6 @@ const Report: NextPage = () => {
         reset();
         await refetchComments();
       },
-      onError: (error) => {
-        show_toast("Error on creating comment", error.message, "error");
-      },
     });
 
   const { mutate: banUser, isLoading: load2 } = api.reports.ban.useMutation({
@@ -98,9 +94,6 @@ const Report: NextPage = () => {
       await refetchReport();
       await refetchComments();
       reset();
-    },
-    onError: (error) => {
-      show_toast("Error on creating comment", error.message, "error");
     },
   });
 
@@ -111,9 +104,6 @@ const Report: NextPage = () => {
         await refetchComments();
         reset();
       },
-      onError: (error) => {
-        show_toast("Error on excalating report", error.message, "error");
-      },
     },
   );
 
@@ -123,9 +113,6 @@ const Report: NextPage = () => {
       await refetchComments();
       await refetchUser();
       reset();
-    },
-    onError: (error) => {
-      show_toast("Error on clearing report", error.message, "error");
     },
   });
 

@@ -22,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { SquarePen, Users, X, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createConversationSchema } from "../validators/comments";
 import { type CreateConversationSchema } from "../validators/comments";
@@ -84,9 +83,6 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({
     onSuccess: async () => {
       await refetch();
-    },
-    onError: (error) => {
-      show_toast("Error on exiting conversation", error.message, "error");
     },
   });
   return (
@@ -203,9 +199,6 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     onSuccess: (data) => {
       create.reset();
       props.setSelectedConvo(data.conversationId);
-    },
-    onError: (error) => {
-      show_toast("Error on creating new conversation", error.message, "error");
     },
   });
 

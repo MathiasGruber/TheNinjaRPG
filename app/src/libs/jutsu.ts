@@ -9,7 +9,7 @@ import { LetterRanks } from "@/drizzle/constants";
 import { WeaponTypes } from "@/drizzle/constants";
 import { JutsuTypes } from "@/drizzle/constants";
 import { UserRanks } from "@/drizzle/constants";
-import { show_toast, show_errors } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
@@ -44,11 +44,8 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Mutation for updating jutsu
   const { mutate: updateJutsu, isLoading: l3 } = api.jutsu.update.useMutation({
     onSuccess: (data) => {
+      showMutationToast(data);
       refetch();
-      show_toast("Updated Jutsu", data.message, "info");
-    },
-    onError: (error) => {
-      show_toast("Error updating", error.message, "error");
     },
   });
 
@@ -61,7 +58,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
         updateJutsu({ id: jutsu.id, data: newJutsu });
       }
     },
-    (errors) => show_errors(errors),
+    (errors) => showFormErrorsToast(errors),
   );
 
   // Watch the effects

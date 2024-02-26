@@ -11,7 +11,7 @@ import { type UserReportSchema, type systems } from "../validators/reports";
 import { userReportSchema } from "../validators/reports";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 interface ReportUserProps {
@@ -40,14 +40,11 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
 
   const createReport = api.reports.create.useMutation({
     onSuccess: () => {
-      show_toast(
-        props.user.username + " User Reported",
-        "Your report has been submitted. A moderator will review it asap.",
-        "info",
-      );
-    },
-    onError: (error) => {
-      show_toast("Error on reporting user", error.message, "error");
+      showMutationToast({
+        success: true,
+        title: props.user.username + " User Reported",
+        message: "Your report has been submitted. A moderator will review it asap.",
+      });
     },
   });
 

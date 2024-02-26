@@ -9,7 +9,7 @@ import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { useInfinitePagination } from "@/libs/pagination";
 import { getSearchValidator } from "@/validators/register";
 import { api } from "@/utils/api";
-import { show_toast } from "@/libs/toast";
+import { showMutationToast } from "@/libs/toast";
 import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useForm } from "react-hook-form";
@@ -59,46 +59,31 @@ const Bank: NextPage = () => {
   // Mutations
   const { mutate: toBank, isLoading: l1 } = api.bank.toBank.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Transfer to bank", data.message, "success");
         await utils.profile.getUser.invalidate();
         toBankForm.reset();
-      } else {
-        show_toast("Transfer to bank", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error transferring", error.message, "error");
     },
   });
 
   const { mutate: toPocket, isLoading: l2 } = api.bank.toPocket.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Transfer to pocket", data.message, "success");
         await utils.profile.getUser.invalidate();
         toPocketForm.reset();
-      } else {
-        show_toast("Transfer to pocket", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error transferring", error.message, "error");
     },
   });
 
   const { mutate: transfer, isLoading: l3 } = api.bank.transfer.useMutation({
     onSuccess: async (data) => {
+      showMutationToast(data);
       if (data.success) {
-        show_toast("Transfer to user", data.message, "success");
         await utils.profile.getUser.invalidate();
         toUserForm.reset();
-      } else {
-        show_toast("Transfer to user", data.message, "info");
       }
-    },
-    onError: (error) => {
-      show_toast("Error transferring", error.message, "error");
     },
   });
 
@@ -175,7 +160,7 @@ const Bank: NextPage = () => {
     if (targetUser) {
       transfer({ targetId: targetUser.userId, amount: data.amount });
     } else {
-      show_toast("Transfer to user", "No receiver selected", "info");
+      showMutationToast({ success: false, message: "No receiver selected" });
     }
   });
 
