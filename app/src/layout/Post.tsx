@@ -65,27 +65,25 @@ const Post: React.FC<PostProps> = (props) => {
 
   switch (props.user?.role) {
     case "MODERATOR":
-      userColor =
-        "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent font-black";
+      userColor = "bg-gradient-to-r from-green-800 via-green-500 to-green-800";
       break;
     case "CONTENT":
-      userColor =
-        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent font-black";
+      userColor = "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500";
       break;
     case "CONTENT-ADMIN":
-      userColor =
-        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent font-black";
+      userColor = "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500";
       break;
     case "ADMIN":
-      userColor =
-        "bg-gradient-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent font-black";
+      userColor = "bg-gradient-to-r from-red-500 via-red-400 to-red-500";
       break;
   }
 
   // Blocks
   const UsernameBlock = props.user && (
     <div className="basis-1/4">
-      <div className={userColor}>{props.user.username}</div>
+      <div className={`${userColor} bg-clip-text text-transparent font-black`}>
+        {props.user.username}
+      </div>
       <div className="text-xs pt-1 pb-4">
         <span className="bg-slate-300 p-1 m-1 rounded-md">Lvl. {props.user.level}</span>
         <span className="bg-slate-300 p-1 m-1 rounded-md">
@@ -93,6 +91,11 @@ const Post: React.FC<PostProps> = (props) => {
         </span>
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
           <span className="bg-slate-300 p-1 m-1 rounded-md">Kage</span>
+        )}
+        {props.user?.role !== "USER" && (
+          <span className={`${userColor} bg-slate-300 p-1 m-1 rounded-md`}>
+            {capitalizeFirstLetter(props.user?.role)}
+          </span>
         )}
         {props.user.villageName && props.user.villageHexColor && (
           <span

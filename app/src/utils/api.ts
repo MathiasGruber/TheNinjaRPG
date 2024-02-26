@@ -93,7 +93,7 @@ export const onError = (err: unknown) => {
   if (err instanceof TRPCClientError) {
     toast({
       variant: "destructive",
-      title: err.data.code, // eslint-disable-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      title: err?.data?.code ?? "Unknown", // eslint-disable-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       description: err.message,
     });
   } else if (err instanceof Error) {
