@@ -14,9 +14,9 @@ export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
     case "GENIN":
       return ["D", "C"];
     case "CHUNIN":
-      return ["D", "C", "B"];
-    case "JONIN":
       return ["D", "C", "B", "A"];
+    case "JONIN":
+      return ["D", "C", "B", "A", "S"];
     case "COMMANDER":
       return ["D", "C", "B", "A", "S"];
   }
