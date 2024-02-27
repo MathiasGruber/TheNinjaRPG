@@ -45,6 +45,7 @@ import { COST_SWAP_VILLAGE } from "@/libs/profile";
 import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
 import { statSchema } from "@/libs/combat/types";
+import { capUserStats } from "@/libs/profile";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -344,6 +345,7 @@ const SwapBloodline: React.FC = () => {
 const ResetStats: React.FC = () => {
   // State
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  if (userData) capUserStats(userData);
 
   // Stats Schema
   type StatSchema = z.infer<typeof statSchema>;
