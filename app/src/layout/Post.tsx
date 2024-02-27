@@ -30,6 +30,7 @@ export interface PostProps {
 
 const Post: React.FC<PostProps> = (props) => {
   let userColor = "text-gray-900";
+  let userRole = "bg-slate-300";
   let color = "bg-orange-50";
   let hover = "hover:bg-orange-100";
 
@@ -65,25 +66,31 @@ const Post: React.FC<PostProps> = (props) => {
 
   switch (props.user?.role) {
     case "MODERATOR":
-      userColor = "bg-gradient-to-r from-green-800 via-green-500 to-green-800";
+      userColor =
+        "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent";
+      userRole = "bg-green-500";
       break;
     case "CONTENT":
-      userColor = "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500";
+      userColor =
+        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
+      userRole = "bg-purple-400";
       break;
     case "CONTENT-ADMIN":
-      userColor = "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500";
+      userColor =
+        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
+      userRole = "bg-purple-400";
       break;
     case "ADMIN":
-      userColor = "bg-gradient-to-r from-red-500 via-red-400 to-red-500";
+      userColor =
+        "bg-gradient-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent";
+      userRole = "bg-red-400";
       break;
   }
 
   // Blocks
   const UsernameBlock = props.user && (
     <div className="basis-1/4">
-      <div className={`${userColor} bg-clip-text text-transparent font-black`}>
-        {props.user.username}
-      </div>
+      <div className={`${userColor} font-bold`}>{props.user.username}</div>
       <div className="text-xs pt-1 pb-4">
         <span className="bg-slate-300 p-1 m-1 rounded-md">Lvl. {props.user.level}</span>
         <span className="bg-slate-300 p-1 m-1 rounded-md">
@@ -93,7 +100,7 @@ const Post: React.FC<PostProps> = (props) => {
           <span className="bg-slate-300 p-1 m-1 rounded-md">Kage</span>
         )}
         {props.user?.role !== "USER" && (
-          <span className={`${userColor} bg-slate-300 p-1 m-1 rounded-md`}>
+          <span className={`${userRole} p-1 m-1 rounded-md`}>
             {capitalizeFirstLetter(props.user?.role)}
           </span>
         )}
