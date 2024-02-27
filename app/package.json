@@ -35,6 +35,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-toast": "^1.1.5",
+    "@radix-ui/react-tooltip": "^1.0.7",
     "@tanstack/react-query": "4.28.0",
     "@tinymce/tinymce-react": "4.3.2",
     "@trpc/client": "10.45.0",

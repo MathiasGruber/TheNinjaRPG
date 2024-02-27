@@ -8,6 +8,12 @@ import StatusBar from "@/layout/StatusBar";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { mutateContentSchema } from "@/validators/comments";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
@@ -79,32 +85,49 @@ const VillageOverview: NextPage = () => {
         subtitle="Your Community"
         topRightContent={
           <div className="grid grid-cols-2 gap-1">
-            <div className="flex flex-row">
-              <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
-            </div>
-            <Link href={href}>
-              <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
-                <Users className="w-6 h-6 mr-2" /> {data?.population}
-              </div>
-            </Link>
-            <div className="flex flex-row">
-              <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
-            </div>
-            <div className="ml-3 flex flex-row">
-              <ReceiptJapaneseYen className="w-6 h-6 mr-2" /> {villageData?.funds}
-            </div>
-
-            {/* {villageData?.structures
-              .filter((s) => s.hasPage === 0)
-              .map((structure, i) => (
-                <div key={i} className="w-32 pb-1 px-2">
-                  <Building
-                    structure={structure}
-                    key={structure.id}
-                    textPosition="right"
-                  />
-                </div>
-              ))} */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex flex-row">
+                    <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Village walls which increase defence within village
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Link href={href}>
+                    <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
+                      <Users className="w-6 h-6 mr-2" /> {data?.population}
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total village population</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex flex-row">
+                    <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Ninja protectors that attack intruders within the village
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="ml-3 flex flex-row">
+                    <ReceiptJapaneseYen className="w-6 h-6 mr-2" /> {villageData?.funds}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Ninja funds are earned through PvP and missions. Used by kage to
+                  improve village.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         }
       >

@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { secondsPassed } from "@/utils/time";
-import type { UserStatus } from "../../drizzle/schema";
+import type { UserStatus } from "@/drizzle/schema";
 
 interface StatusBarProps {
   title: string;
@@ -90,19 +96,21 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
         </div>
       )}
 
-      <div className={`h-3 w-full border-2 border-black`}>
-        <div
-          className={`h-full w-3/6 ${color}`}
-          style={{
-            width: state.width.toString() + "%",
-          }}
-        ></div>
-      </div>
-      {props.tooltip && (
-        <span className="absolute z-50 rounded-md bg-gray-800 p-2 text-sm font-bold text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
-          {props.tooltip}
-        </span>
-      )}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger className="w-full">
+            <div className={`h-3 w-full border-2 border-black`}>
+              <div
+                className={`h-full w-3/6 ${color}`}
+                style={{
+                  width: state.width.toString() + "%",
+                }}
+              ></div>
+            </div>
+          </TooltipTrigger>
+          {props.tooltip && <TooltipContent>{props.tooltip}</TooltipContent>}
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };

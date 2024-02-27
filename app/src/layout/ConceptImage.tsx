@@ -1,9 +1,15 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { Trash2, Flag, Info } from "lucide-react";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import ReportUser from "@/layout/Report";
 import type { ImageWithRelations } from "@/routers/conceptart";
 
@@ -219,7 +225,39 @@ const ConceptImage: React.FC<InputProps> = (props) => {
                 ></Image>
               </a>
 
-              <div className="group">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      <b>Created by: </b>
+                      {image.user?.username}
+                    </p>
+                    <p className="mt-2">
+                      <b>Prompt: </b>
+                      {image.prompt}
+                    </p>
+                    {image.negative_prompt && (
+                      <p>
+                        <b>Negative Prompt: </b>
+                        {image.negative_prompt}
+                      </p>
+                    )}
+                    <p className="mt-2">
+                      <b>Seed: </b>
+                      {image.seed}
+                    </p>
+                    <p>
+                      <b>CFG: </b>
+                      {image.guidance_scale}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* <div className="group">
                 <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
                 <span className="absolute bottom-8 right-0 z-50 rounded-md bg-gray-800 p-2 text-sm text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
                   <p>
@@ -245,7 +283,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
                     {image.guidance_scale}
                   </p>
                 </span>
-              </div>
+              </div> */}
             </>
           )}
         </div>
