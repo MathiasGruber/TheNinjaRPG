@@ -17,6 +17,8 @@ export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
 export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
 export const COST_RESET_STATS = 0; // TODO: Should be 5
 export const MAX_ATTRIBUTES = 5;
+export const STATS_CAP = 200000;
+export const GENS_CAP = 100000;
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
@@ -63,6 +65,21 @@ type StatDistribution = {
   willpower: number;
   speed: number;
 };
+
+export function capUserStats(user: UserData) {
+  if (user.ninjutsuOffence > STATS_CAP) user.ninjutsuOffence = STATS_CAP;
+  if (user.genjutsuOffence > STATS_CAP) user.genjutsuOffence = STATS_CAP;
+  if (user.taijutsuOffence > STATS_CAP) user.taijutsuOffence = STATS_CAP;
+  if (user.bukijutsuOffence > STATS_CAP) user.bukijutsuOffence = STATS_CAP;
+  if (user.ninjutsuDefence > STATS_CAP) user.ninjutsuDefence = STATS_CAP;
+  if (user.genjutsuDefence > STATS_CAP) user.genjutsuDefence = STATS_CAP;
+  if (user.taijutsuDefence > STATS_CAP) user.taijutsuDefence = STATS_CAP;
+  if (user.bukijutsuDefence > STATS_CAP) user.bukijutsuDefence = STATS_CAP;
+  if (user.strength > GENS_CAP) user.strength = GENS_CAP;
+  if (user.speed > GENS_CAP) user.speed = GENS_CAP;
+  if (user.intelligence > GENS_CAP) user.intelligence = GENS_CAP;
+  if (user.willpower > GENS_CAP) user.willpower = GENS_CAP;
+}
 
 /** Scale stats of user, and return total number of experience / stat points */
 export function scaleUserStats(user: UserData) {

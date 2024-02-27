@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Toggle from "@/components/control/Toggle";
 import ElementImage from "@/layout/ElementImage";
+import { capUserStats } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { Chart as ChartJS } from "chart.js/auto";
 import { getUserElements } from "@/validators/user";
@@ -14,6 +15,9 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
   const [showGraphs, setShowGraphs] = useState<boolean | undefined>(undefined);
   const statsChart = useRef<HTMLCanvasElement>(null);
   const generalsChart = useRef<HTMLCanvasElement>(null);
+
+  // Implement stats cap
+  if (userData) capUserStats(userData);
 
   useEffect(() => {
     const statsCtx = statsChart?.current?.getContext("2d");

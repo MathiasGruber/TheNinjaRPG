@@ -10,7 +10,6 @@ import Logbook from "@/layout/Logbook";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
-import type { NextPage } from "next";
 import { Button } from "@/components/ui/button";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
@@ -19,6 +18,7 @@ import { api } from "@/utils/api";
 import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import type { NextPage } from "next";
 
 const Profile: NextPage = () => {
   // State

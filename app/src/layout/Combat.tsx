@@ -564,12 +564,12 @@ const Combat: React.FC<CombatProps> = (props) => {
               {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
               {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
             </div>
-            <div className="p-5 flex flex-row justify-center">
+            <div className="p-5 flex flex-row justify-center gap-2">
               <Link
                 href={toHospital ? "/hospital" : "/profile"}
                 className={showNextMatch ? "basis-1/2" : "basis-1/1"}
               >
-                <Button id="return">
+                <Button id="return" className="w-full">
                   Return to {toHospital ? "Hospital" : "Profile"}
                 </Button>
               </Link>

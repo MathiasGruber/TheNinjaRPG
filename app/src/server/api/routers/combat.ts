@@ -31,6 +31,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
+import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
@@ -607,6 +608,9 @@ export const initiateBattle = async (
       users[1].level = users[0].level;
       scaleUserStats(users[1]);
     }
+
+    // Apply caps to user stats
+    users.map((u) => capUserStats(u));
 
     // Get previous battles between these two users within last 60min
     let rewardScaling = 1;

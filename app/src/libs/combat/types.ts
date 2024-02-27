@@ -5,6 +5,7 @@ import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
 import { StatType, GeneralType, PoolType } from "@/libs/combat/constants";
+import { STATS_CAP, GENS_CAP } from "@/libs/profile";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
 import type { Jutsu, Item } from "@/drizzle/schema";
@@ -831,64 +832,65 @@ export type ZodItemType = z.infer<typeof ItemValidator>;
 const roundStat = (stat: number) => {
   return Math.round(stat * 100) / 100;
 };
+
 export const statSchema = z.object({
   ninjutsuOffence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   taijutsuOffence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   genjutsuOffence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   bukijutsuOffence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   ninjutsuDefence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   taijutsuDefence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   genjutsuDefence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
   bukijutsuDefence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(STATS_CAP)
     .transform(roundStat)
     .default(10),
-  strength: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
-  speed: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
+  strength: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
+  speed: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
   intelligence: z.coerce
     .number()
     .min(10)
-    .max(10000000)
+    .max(GENS_CAP)
     .transform(roundStat)
     .default(10),
-  willpower: z.coerce.number().min(10).max(10000000).transform(roundStat).default(10),
+  willpower: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
 });
 
 export const actSchema = z.object({
