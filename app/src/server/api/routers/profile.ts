@@ -1197,7 +1197,8 @@ export const fetchRegeneratedUser = async (props: {
         user.primaryElement = getRandomElement(BasicElementName) ?? null;
       }
       if (rankId >= 2 && !user.secondaryElement) {
-        user.secondaryElement = getRandomElement(BasicElementName) ?? null;
+        const available = BasicElementName.filter((e) => e !== user.primaryElement);
+        user.secondaryElement = getRandomElement(available) ?? null;
       }
       // Update database
       await client
