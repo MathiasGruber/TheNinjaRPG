@@ -239,7 +239,7 @@ export const EditContent = <
                             {formEntry.label ? formEntry.label : id}
                           </FormLabel>
 
-                          {"multiple" in formEntry ? (
+                          {"multiple" in formEntry && formEntry.multiple ? (
                             <MultiSelect
                               selected={field.value ? field.value : []}
                               options={options}
