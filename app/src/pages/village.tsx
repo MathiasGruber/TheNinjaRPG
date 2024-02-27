@@ -119,12 +119,12 @@ const VillageOverview: NextPage = () => {
               <Tooltip>
                 <TooltipTrigger>
                   <div className="ml-3 flex flex-row">
-                    <ReceiptJapaneseYen className="w-6 h-6 mr-2" /> {villageData?.funds}
+                    <ReceiptJapaneseYen className="w-6 h-6 mr-2" />{" "}
+                    {villageData?.tokens}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Ninja funds are earned through PvP and missions. Used by kage to
-                  improve village.
+                  Tokens earned through PvP and quests can be used to improve village.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

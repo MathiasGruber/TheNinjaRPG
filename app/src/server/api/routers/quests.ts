@@ -7,7 +7,7 @@ import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
 import { item, jutsu, badge } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
-import { quest, questHistory, actionLog } from "@/drizzle/schema";
+import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
 import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
@@ -291,6 +291,7 @@ export const questsRouter = createTRPCRouter({
           objectives: [],
           reward: {
             reward_money: 0,
+            reward_tokens: 0,
             reward_prestige: 0,
             reward_jutsus: [],
             reward_badges: [],
@@ -410,6 +411,13 @@ export const questsRouter = createTRPCRouter({
           .update(userData)
           .set(updatedUserData)
           .where(eq(userData.userId, ctx.userId)),
+        // Update village tokens
+        rewards.reward_tokens > 0 && user.villageId
+          ? ctx.drizzle
+              .update(village)
+              .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
+              .where(eq(village.id, user.villageId))
+          : undefined,
         // Update quest history
         resolved
           ? ctx.drizzle

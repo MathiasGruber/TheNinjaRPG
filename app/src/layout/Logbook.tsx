@@ -141,6 +141,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                     <b>Money:</b> {rewards.reward_money} ryo
                   </span>
                 )}
+                {rewards.reward_tokens > 0 && (
+                  <span>
+                    <b>Village tokens:</b> {rewards.reward_tokens}
+                  </span>
+                )}
                 {rewards.reward_prestige > 0 && (
                   <span>
                     <b>Village prestige:</b> {rewards.reward_prestige}
@@ -216,7 +221,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   return (
     <Post
-      className={tierOrDaily ? "" : "col-span-2"}
+      className={`${tierOrDaily ? "" : "col-span-2"} px-3`}
       options={
         <div className="ml-3">
           <div className="mt-2 flex flex-row items-center ">

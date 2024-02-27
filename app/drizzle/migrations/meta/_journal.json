@@ -428,6 +428,13 @@
       "when": 1708424462457,
       "tag": "0060_slow_black_widow",
       "breakpoints": false
+    },
+    {
+      "idx": 61,
+      "version": "5",
+      "when": 1709031380036,
+      "tag": "0061_curly_warpath",
+      "breakpoints": false
     }
   ]
 }

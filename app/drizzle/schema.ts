@@ -1051,7 +1051,7 @@ export const village = mysqlTable(
     sector: int("sector").default(1).notNull(),
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
-    funds: int("funds").default(0).notNull(),
+    tokens: int("tokens").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
