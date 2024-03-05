@@ -24,13 +24,6 @@ const getBaseUrl = () => {
 export const api = createTRPCNext<AppRouter>({
   config() {
     return {
-      /**
-       * Transformer used for data de-serialization from the server.
-       *
-       * @see https://trpc.io/docs/data-transformers
-       */
-      transformer: superjson,
-
       // Abort on onmount, see: https://trpc.io/docs/client/react/aborting-procedure-calls
       abortOnUnmount: false,
 
@@ -63,10 +56,12 @@ export const api = createTRPCNext<AppRouter>({
         }),
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
+          transformer: superjson,
         }),
       ],
     };
   },
+  transformer: superjson,
   /**
    * Whether tRPC should await queries when server rendering pages.
    *

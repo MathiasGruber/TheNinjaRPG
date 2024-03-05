@@ -20,7 +20,7 @@ const Home: NextPage = () => {
   }
 
   useEffect(() => {
-    if (userStatus !== "loading" && !userData) {
+    if (userStatus !== "pending" && !userData) {
       if (userStatus === "error") {
         void router.push("/500");
       } else {

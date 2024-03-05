@@ -104,24 +104,24 @@ const ManualDamageSimulator: NextPage = () => {
   );
 
   // Mutation for creating new entry
-  const { mutate: saveEntry, isLoading: isSaving } =
+  const { mutate: saveEntry, isPending: isSaving } =
     api.simulator.createDamageSimulation.useMutation({
       onSuccess: () => refetch(),
     });
 
   // Mutation for editing entry
-  const { mutate: updateEntry, isLoading: isUpdating } =
+  const { mutate: updateEntry, isPending: isUpdating } =
     api.simulator.updateDamageSimulation.useMutation({
       onSuccess: () => refetch(),
     });
 
   // Mutation for editing entry
-  const { mutate: deleteEntry, isLoading: isDeleting } =
+  const { mutate: deleteEntry, isPending: isDeleting } =
     api.simulator.deleteDamageSimulation.useMutation({
       onSuccess: () => refetch(),
     });
 
-  const isLoading = isSaving || isUpdating || isDeleting;
+  const isPending = isSaving || isUpdating || isDeleting;
 
   // Total mutation loading state
   // TODO: USE THIS FOR UX
@@ -394,13 +394,13 @@ const ManualDamageSimulator: NextPage = () => {
               </p>
             </div>
           )}
-          {!isLoading && (
+          {!isPending && (
             <Button id="return" onClick={onSubmit}>
               <Save className="mr-2 h-5 w-5" />
               Save Calculation
             </Button>
           )}
-          {isLoading && <Loader explanation="Processing" />}
+          {isPending && <Loader explanation="Processing" />}
         </div>
       </ContentBox>
       {userData && (

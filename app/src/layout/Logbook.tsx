@@ -33,7 +33,7 @@ const Logbook: React.FC<LogbookProps> = () => {
     data: history,
     fetchNextPage,
     hasNextPage,
-    isLoading,
+    isPending,
   } = api.quests.getQuestHistory.useInfiniteQuery(
     {
       limit: 10,
@@ -41,7 +41,7 @@ const Logbook: React.FC<LogbookProps> = () => {
     {
       enabled: showActive !== undefined && !showActive,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -100,8 +100,8 @@ const Logbook: React.FC<LogbookProps> = () => {
           })}
         </div>
       )}
-      {!showState && isLoading && <Loader explanation="Loading history..." />}
-      {!showState && !isLoading && (
+      {!showState && isPending && <Loader explanation="Loading history..." />}
+      {!showState && !isPending && (
         <Table data={allHistory} columns={columns} setLastElement={setLastElement} />
       )}
     </ContentBox>

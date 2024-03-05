@@ -99,7 +99,7 @@ const Travel: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData?.status]);
 
-  const { mutate: startGlobalMove, isLoading: isStartingTravel } =
+  const { mutate: startGlobalMove, isPending: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -115,7 +115,7 @@ const Travel: NextPage = () => {
       },
     });
 
-  const { mutate: finishGlobalMove, isLoading: isFinishingTravel } =
+  const { mutate: finishGlobalMove, isPending: isFinishingTravel } =
     api.travel.finishGlobalMove.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);

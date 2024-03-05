@@ -43,7 +43,7 @@ const ManualItems: NextPage = () => {
     { itemType: itemType, itemRarity: rarity, limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -51,7 +51,7 @@ const ManualItems: NextPage = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.item.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.item.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -59,7 +59,7 @@ const ManualItems: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.item.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.item.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();

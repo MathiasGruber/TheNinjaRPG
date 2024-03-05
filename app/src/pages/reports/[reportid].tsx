@@ -52,7 +52,7 @@ const Report: NextPage = () => {
     {
       enabled: report !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const allComments = comments?.pages.map((page) => page.data).flat();
@@ -81,7 +81,7 @@ const Report: NextPage = () => {
 
   const watchedLength = watch("banTime", 0);
 
-  const { mutate: createComment, isLoading: load1 } =
+  const { mutate: createComment, isPending: load1 } =
     api.comments.createReportComment.useMutation({
       onSuccess: async () => {
         reset();
@@ -89,7 +89,7 @@ const Report: NextPage = () => {
       },
     });
 
-  const { mutate: banUser, isLoading: load2 } = api.reports.ban.useMutation({
+  const { mutate: banUser, isPending: load2 } = api.reports.ban.useMutation({
     onSuccess: async () => {
       await refetchReport();
       await refetchComments();
@@ -97,7 +97,7 @@ const Report: NextPage = () => {
     },
   });
 
-  const { mutate: escalateReport, isLoading: load3 } = api.reports.escalate.useMutation(
+  const { mutate: escalateReport, isPending: load3 } = api.reports.escalate.useMutation(
     {
       onSuccess: async () => {
         await refetchReport();
@@ -107,7 +107,7 @@ const Report: NextPage = () => {
     },
   );
 
-  const { mutate: clearReport, isLoading: load4 } = api.reports.clear.useMutation({
+  const { mutate: clearReport, isPending: load4 } = api.reports.clear.useMutation({
     onSuccess: async () => {
       await refetchReport();
       await refetchComments();
@@ -116,7 +116,7 @@ const Report: NextPage = () => {
     },
   });
 
-  const isLoading = load1 || load2 || load3 || load4;
+  const isPending = load1 || load2 || load3 || load4;
 
   useEffect(() => {
     if (report) {
@@ -199,14 +199,14 @@ const Report: NextPage = () => {
               <RichInput
                 id="comment"
                 height="200"
-                disabled={isLoading}
+                disabled={isPending}
                 label="Add information or ask questions"
                 error={errors.comment?.message}
                 control={control}
               />
             )}
-            {isLoading && <Loader explanation="Executing action..." />}
-            {!isLoading && (
+            {isPending && <Loader explanation="Executing action..." />}
+            {!isPending && (
               <div className="flex flex-row-reverse gap-1 mt-2">
                 {canComment && (
                   <Confirm

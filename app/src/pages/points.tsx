@@ -108,7 +108,7 @@ export default PaypalShop;
  */
 const RewardedAds = () => {
   // Fetch all ads
-  const { data: ads, isLoading } = api.paypal.getCpaLeads.useQuery();
+  const { data: ads, isPending } = api.paypal.getCpaLeads.useQuery();
   const [selectedCountry, setSelectedCountry] = useState<string>("US");
 
   // Filter to relevant
@@ -140,7 +140,7 @@ const RewardedAds = () => {
         Select your country to show offers available to you. You may be able to use a
         VPN to fill in offers in other countries.
       </p>
-      {isLoading && <Loader explanation="Loading offers" />}
+      {isPending && <Loader explanation="Loading offers" />}
       {uniqueCountries.map((countryCode, i) => (
         <ReactCountryFlag
           key={i}
@@ -157,7 +157,7 @@ const RewardedAds = () => {
           onClick={() => setSelectedCountry(countryCode)}
         />
       ))}
-      {!isLoading && offersToShow.length === 0 && (
+      {!isPending && offersToShow.length === 0 && (
         <p className="text-3xl text-center font-bold">Sorry, none available</p>
       )}
       {offersToShow.length > 0 && (
@@ -212,7 +212,7 @@ const ReputationStore = (props: { currency: string }) => {
   const maxUsers = 1;
   let invoiceId = nanoid();
 
-  const { mutate: buyReps, isLoading } = api.paypal.resolveOrder.useMutation({
+  const { mutate: buyReps, isPending } = api.paypal.resolveOrder.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetchUser();
@@ -274,7 +274,7 @@ const ReputationStore = (props: { currency: string }) => {
         <div className="bg-slate-500 mx-2 mb-2 rounded-md p-2 font-bold text-center cursor-not-allowed">
           Crypto, Coming Soon
         </div>
-        {isResolved && userData && selectedUser && !isLoading ? (
+        {isResolved && userData && selectedUser && !isPending ? (
           <PayPalButtons
             style={{ layout: "horizontal", tagline: false }}
             forceReRender={[amount, watchedUsers, props.currency]}
@@ -339,7 +339,7 @@ const PayPalSubscriptionButton = (props: {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
 
   // Mutation for starting subscription
-  const { mutate: subscribe, isLoading: isSubscribing } =
+  const { mutate: subscribe, isPending: isSubscribing } =
     api.paypal.resolveSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -353,7 +353,7 @@ const PayPalSubscriptionButton = (props: {
     });
 
   // Mutation for upgrading subscription
-  const { mutate: upgrade, isLoading: isUpgrading } =
+  const { mutate: upgrade, isPending: isUpgrading } =
     api.paypal.upgradeSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -369,10 +369,10 @@ const PayPalSubscriptionButton = (props: {
     });
 
   // Loading status
-  const isLoading = isUpgrading || isSubscribing;
+  const isPending = isUpgrading || isSubscribing;
 
   // If not loaded yet, show loader
-  if (isLoading) return <Loader explanation="Processing..." />;
+  if (isPending) return <Loader explanation="Processing..." />;
 
   const normalBenefits = (
     <>
@@ -607,7 +607,7 @@ const SubscriptionsOverview = () => {
   });
   type Subscription = ArrayElement<typeof allSubscriptions>;
 
-  const { mutate: cancelSubscription, isLoading } =
+  const { mutate: cancelSubscription, isPending } =
     api.paypal.cancelPaypalSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -629,7 +629,7 @@ const SubscriptionsOverview = () => {
       padding={false}
       initialBreak={true}
     >
-      {isLoading ? (
+      {isPending ? (
         <Loader />
       ) : (
         <Table
@@ -669,7 +669,7 @@ const TransactionHistory = () => {
     {
       enabled: !!userId,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const allTransactions = transactions?.pages
@@ -728,7 +728,7 @@ const LookupSubscription = () => {
   });
 
   // Sync subscription
-  const { mutate, isLoading } = api.paypal.resolveSubscription.useMutation({
+  const { mutate, isPending } = api.paypal.resolveSubscription.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -750,8 +750,8 @@ const LookupSubscription = () => {
       subtitle="Missing federal support? Check subscription status here!"
       initialBreak={true}
     >
-      {isLoading && <Loader explanation="Searching..." />}
-      {!isLoading && (
+      {isPending && <Loader explanation="Searching..." />}
+      {!isPending && (
         <Form {...searchForm}>
           <form onSubmit={handleSubmitRequest} className="relative">
             <FormField

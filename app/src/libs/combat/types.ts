@@ -128,7 +128,7 @@ export type CombatAction = {
 export interface BattleState {
   battle?: ReturnedBattle | null | undefined;
   result: CombatResult | null | undefined;
-  isLoading: boolean;
+  isPending: boolean;
 }
 
 /**

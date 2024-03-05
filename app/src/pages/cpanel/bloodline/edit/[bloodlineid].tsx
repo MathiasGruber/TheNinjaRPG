@@ -26,7 +26,7 @@ const BloodlinePanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.bloodline.get.useQuery(
+  const { data, isPending, refetch } = api.bloodline.get.useQuery(
     { id: bloodlineId },
     { staleTime: Infinity, retry: false, enabled: bloodlineId !== undefined },
   );
@@ -43,7 +43,7 @@ const BloodlinePanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
@@ -85,7 +85,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     />
   );
 
-  const { mutate: chatIdea, isLoading } = api.openai.createBloodline.useMutation({
+  const { mutate: chatIdea, isPending } = api.openai.createBloodline.useMutation({
     onSuccess: (data) => {
       showMutationToast({ success: true, message: "AI Updated Bloodline" });
       let key: keyof typeof data;
@@ -124,7 +124,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               inputProps={{
                 id: "chatInput",
                 placeholder: "Instruct ChatGPT to edit",
-                disabled: isLoading,
+                disabled: isPending,
               }}
               onChat={(text) => {
                 chatIdea({ bloodlineId: bloodline.id, prompt: text });

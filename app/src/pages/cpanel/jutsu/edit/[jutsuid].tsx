@@ -23,7 +23,7 @@ const JutsuPanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.jutsu.get.useQuery(
+  const { data, isPending, refetch } = api.jutsu.get.useQuery(
     { id: jutsuId },
     { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined },
   );
@@ -40,7 +40,7 @@ const JutsuPanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 

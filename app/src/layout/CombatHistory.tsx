@@ -24,7 +24,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     },
     {
       enabled: battle.id !== undefined,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );

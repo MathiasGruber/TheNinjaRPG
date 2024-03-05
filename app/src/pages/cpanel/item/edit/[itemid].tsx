@@ -22,7 +22,7 @@ const ItemPanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.item.get.useQuery(
+  const { data, isPending, refetch } = api.item.get.useQuery(
     { id: itemId },
     { staleTime: Infinity, enabled: itemId !== undefined },
   );
@@ -39,7 +39,7 @@ const ItemPanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 

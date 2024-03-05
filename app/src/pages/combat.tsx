@@ -38,7 +38,7 @@ const CombatPage: NextPage = () => {
       setBattle(data.battle);
       setUserId(userData.userId);
       const newResult = results ? results : data?.result;
-      setBattleState({ battle: data?.battle, result: newResult, isLoading: false });
+      setBattleState({ battle: data?.battle, result: newResult, isPending: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, data, setBattle]);
@@ -95,7 +95,7 @@ const CombatPage: NextPage = () => {
             <ActionTimer
               user={user}
               battle={battle}
-              isLoading={battleState.isLoading}
+              isPending={battleState.isPending}
               action={action}
             />
           )

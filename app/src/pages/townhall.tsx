@@ -65,13 +65,13 @@ const KageHall: React.FC<{
   const router = useSafePush();
 
   // Query
-  const { data: village, isLoading } = api.village.get.useQuery(
+  const { data: village, isPending } = api.village.get.useQuery(
     { id: user.villageId ?? "" },
     { staleTime: 10000 },
   );
 
   // Mutations
-  const { mutate: attack, isLoading: isAttacking } = api.kage.fightKage.useMutation({
+  const { mutate: attack, isPending: isAttacking } = api.kage.fightKage.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -81,7 +81,7 @@ const KageHall: React.FC<{
     },
   });
 
-  const { mutate: resign, isLoading: isResigning } = api.kage.resignKage.useMutation({
+  const { mutate: resign, isPending: isResigning } = api.kage.resignKage.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -90,7 +90,7 @@ const KageHall: React.FC<{
     },
   });
 
-  const { mutate: take, isLoading: isTaking } = api.kage.takeKage.useMutation({
+  const { mutate: take, isPending: isTaking } = api.kage.takeKage.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -104,7 +104,7 @@ const KageHall: React.FC<{
 
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
-  if (isLoading || !village) return <Loader explanation="Loading village" />;
+  if (isPending || !village) return <Loader explanation="Loading village" />;
   if (isAttacking) return <Loader explanation="Attacking Kage" />;
   if (isResigning) return <Loader explanation="Resigning as Kage" />;
   if (isTaking) return <Loader explanation="Taking Kage" />;
@@ -238,7 +238,7 @@ const AllianceHall: React.FC<{
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
   // Queries
-  const { data, isLoading } = api.village.getAlliances.useQuery(undefined, {
+  const { data, isPending } = api.village.getAlliances.useQuery(undefined, {
     staleTime: 10000,
   });
 
@@ -273,7 +273,7 @@ const AllianceHall: React.FC<{
     },
   });
 
-  if (isLoading || !data) return <Loader explanation="Loading alliances" />;
+  if (isPending || !data) return <Loader explanation="Loading alliances" />;
 
   const villages = data.villages;
   const relationships = data.relationships;
@@ -367,7 +367,7 @@ const AllianceBlock: React.FC<{
   const utils = api.useUtils();
 
   // Mutations
-  const { mutate: create, isLoading: isCreating } =
+  const { mutate: create, isPending: isCreating } =
     api.village.createRequest.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -377,7 +377,7 @@ const AllianceBlock: React.FC<{
       },
     });
 
-  const { mutate: leave, isLoading: isLeaving } = api.village.leaveAlliance.useMutation(
+  const { mutate: leave, isPending: isLeaving } = api.village.leaveAlliance.useMutation(
     {
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -388,7 +388,7 @@ const AllianceBlock: React.FC<{
     },
   );
 
-  const { mutate: attack, isLoading: isAttacking } = api.village.startWar.useMutation({
+  const { mutate: attack, isPending: isAttacking } = api.village.startWar.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {

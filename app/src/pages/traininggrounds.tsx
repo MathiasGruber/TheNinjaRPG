@@ -65,7 +65,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   const utils = api.useUtils();
 
   // Mutations
-  const { mutate: startTraining, isLoading: isStarting } =
+  const { mutate: startTraining, isPending: isStarting } =
     api.profile.startTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -75,7 +75,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const { mutate: stopTraining, isLoading: isStopping } =
+  const { mutate: stopTraining, isPending: isStopping } =
     api.profile.stopTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -85,7 +85,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const { mutate: changeSpeed, isLoading: isChaning } =
+  const { mutate: changeSpeed, isPending: isChaning } =
     api.profile.updateTrainingSpeed.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -95,14 +95,14 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const isLoading = isStarting || isStopping || isChaning;
+  const isPending = isStarting || isStopping || isChaning;
 
   // Convenience definitions
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
   const iconClassName = "w-5 h-5 absolute top-1 right-1 text-blue-500";
 
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (isLoading) return <Loader explanation="Processing..." />;
+  if (isPending) return <Loader explanation="Processing..." />;
 
   return (
     <ContentBox
@@ -208,7 +208,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     { limit: 500, hideAi: true, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
       enabled: userData !== undefined,
     },
@@ -231,7 +231,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   });
 
   // Mutations
-  const { mutate: train, isLoading: isStartingTrain } =
+  const { mutate: train, isPending: isStartingTrain } =
     api.jutsu.startTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -247,7 +247,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const { mutate: cancel, isLoading: isStoppingTrain } =
+  const { mutate: cancel, isPending: isStoppingTrain } =
     api.jutsu.stopTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -264,7 +264,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     });
 
   // Mutation loading
-  const isLoading = isStartingTrain || isStoppingTrain;
+  const isPending = isStartingTrain || isStoppingTrain;
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -318,7 +318,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
 
   // Label for proceed button
   let proceed_label: string | undefined = undefined;
-  if (!isLoading && !isCapped) {
+  if (!isPending && !isCapped) {
     if (!canAfford) {
       proceed_label = `Need ${cost - userData.money} more ryo`;
     } else if (isCapped) {
@@ -373,7 +373,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                 setIsOpen={setIsOpen}
                 isValid={false}
                 onAccept={() => {
-                  if (canTrain && !isLoading) {
+                  if (canTrain && !isPending) {
                     train({ jutsuId: jutsu.id });
                   } else {
                     setIsOpen(false);
@@ -387,14 +387,14 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
               >
                 <div className="relative">
                   <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-                  {!isLoading && (
+                  {!isPending && (
                     <ItemWithEffects
                       item={jutsu}
                       key={jutsu.id}
                       showStatistic="jutsu"
                     />
                   )}
-                  {isLoading && <Loader explanation={`Training ${jutsu.name}`} />}
+                  {isPending && <Loader explanation={`Training ${jutsu.name}`} />}
                 </div>
               </Modal>
             )}

@@ -45,7 +45,7 @@ const Board: NextPage = () => {
     {
       enabled: board_id !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const allThreads = threads?.pages.map((page) => page.data).flat();
@@ -61,7 +61,7 @@ const Board: NextPage = () => {
     resolver: zodResolver(forumBoardSchema),
   });
 
-  const { mutate: createThread, isLoading: load1 } = api.forum.createThread.useMutation(
+  const { mutate: createThread, isPending: load1 } = api.forum.createThread.useMutation(
     {
       onSuccess: async () => {
         await refetch();
@@ -70,19 +70,19 @@ const Board: NextPage = () => {
     },
   );
 
-  const { mutate: pinThread, isLoading: load2 } = api.forum.pinThread.useMutation({
+  const { mutate: pinThread, isPending: load2 } = api.forum.pinThread.useMutation({
     onSuccess: async () => {
       await refetch();
     },
   });
 
-  const { mutate: lockThread, isLoading: load3 } = api.forum.lockThread.useMutation({
+  const { mutate: lockThread, isPending: load3 } = api.forum.lockThread.useMutation({
     onSuccess: async () => {
       await refetch();
     },
   });
 
-  const { mutate: deleteThread, isLoading: load4 } = api.forum.deleteThread.useMutation(
+  const { mutate: deleteThread, isPending: load4 } = api.forum.deleteThread.useMutation(
     {
       onSuccess: async () => {
         await refetch();
@@ -102,7 +102,7 @@ const Board: NextPage = () => {
 
   if (!board) return <Loader explanation="Loading..."></Loader>;
 
-  const isLoading = load1 || load2 || load3 || load4;
+  const isPending = load1 || load2 || load3 || load4;
   const canEdit = userData && canModerate(userData);
 
   return (
@@ -112,8 +112,8 @@ const Board: NextPage = () => {
       subtitle={board.name}
       topRightContent={
         <>
-          {isLoading && <Loader></Loader>}
-          {userData && !userData.isBanned && !isLoading && (
+          {isPending && <Loader></Loader>}
+          {userData && !userData.isBanned && !isPending && (
             <div className="flex flex-row items-center">
               <Confirm
                 title="Create a new thread"

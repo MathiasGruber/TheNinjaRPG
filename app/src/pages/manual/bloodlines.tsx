@@ -35,7 +35,7 @@ const ManualBloodlines: NextPage = () => {
     { rank: rank, limit: 20, showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -43,7 +43,7 @@ const ManualBloodlines: NextPage = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.bloodline.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.bloodline.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -51,7 +51,7 @@ const ManualBloodlines: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.bloodline.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.bloodline.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();

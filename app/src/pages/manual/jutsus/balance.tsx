@@ -17,7 +17,7 @@ const ManualJutsus: NextPage = () => {
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   // Queries
-  const { data, isLoading } = api.data.getJutsuBalanceStatistics.useQuery(
+  const { data, isPending } = api.data.getJutsuBalanceStatistics.useQuery(
     { battleType: filter },
     { staleTime: Infinity },
   );
@@ -56,7 +56,7 @@ const ManualJutsus: NextPage = () => {
         Here we aim to give an overview of jutsu usage & win-statistics, so as to make
         it transparent if any jutsu or combination of jutsus is over/under-powered and
         in need of balance adjustment.
-        {isLoading && <Loader explanation="Loading data" />}
+        {isPending && <Loader explanation="Loading data" />}
         <div className="relative w-[99%]">
           <canvas ref={chartRef} id="baseUsage"></canvas>
         </div>

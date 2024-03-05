@@ -26,19 +26,19 @@ const NotifyUsers: NextPage = () => {
     refetch: refetchNotifications,
     fetchNextPage,
     hasNextPage,
-    isLoading: isLoadingPrevious,
+    isPending: isPendingPrevious,
   } = api.misc.getPreviousNotifications.useInfiniteQuery(
     { limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
   const notifications = data?.pages.map((page) => page.data).flat();
 
   // Mutations
-  const { mutate, isLoading } = api.misc.submitNotification.useMutation({
+  const { mutate, isPending } = api.misc.submitNotification.useMutation({
     onSuccess: async () => {
       await refetchUser();
       await refetchNotifications();
@@ -79,8 +79,8 @@ const NotifyUsers: NextPage = () => {
     <>
       {canSubmit && (
         <ContentBox title="Submit New" subtitle="Push notifications to all users">
-          {isLoading && <Loader explanation="Submitting notification" />}
-          {!isLoading && (
+          {isPending && <Loader explanation="Submitting notification" />}
+          {!isPending && (
             <div className="grid grid-cols-1">
               <form onSubmit={onSubmit}>
                 <RichInput
@@ -100,8 +100,8 @@ const NotifyUsers: NextPage = () => {
         subtitle="All Previous Notifications"
         initialBreak={true}
       >
-        {isLoadingPrevious && <Loader explanation="Submitting notification" />}
-        {!isLoadingPrevious && (
+        {isPendingPrevious && <Loader explanation="Submitting notification" />}
+        {!isPendingPrevious && (
           <div className="grid grid-cols-1">
             {notifications?.map((entry, i) => {
               return (

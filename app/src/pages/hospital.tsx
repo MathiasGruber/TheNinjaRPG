@@ -37,7 +37,7 @@ const Hospital: NextPage = () => {
   // Get data from DB
   const {
     data: prevRoll,
-    isLoading: isLoadingBlood,
+    isPending: isPendingBlood,
     refetch: refetchBloodline,
   } = api.bloodline.getRolls.useQuery(
     {
@@ -47,7 +47,7 @@ const Hospital: NextPage = () => {
   );
 
   // Mutations
-  const { mutate: heal, isLoading } = api.hospital.heal.useMutation({
+  const { mutate: heal, isPending: isPendingHeal } = api.hospital.heal.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -82,7 +82,7 @@ const Hospital: NextPage = () => {
           patch you up, ensuring fair access for all. Our aim is to help restore your
           strength, spirit, and honor.
         </div>
-        {!isLoading && isHospitalized && userData && healFinishAt && (
+        {!isPendingHeal && isHospitalized && userData && healFinishAt && (
           <div className="grid grid-cols-2 py-3 gap-2">
             <Button
               id="check"
@@ -107,17 +107,17 @@ const Hospital: NextPage = () => {
             </Button>
           </div>
         )}
-        {!isLoading && !isHospitalized && userData && (
+        {!isPendingHeal && !isHospitalized && userData && (
           <p className="py-3">You are not at the hospital.</p>
         )}
-        {isLoading && <Loader explanation="Healing User" />}
+        {isPendingHeal && <Loader explanation="Healing User" />}
       </ContentBox>
       <br />
 
-      {isLoadingBlood && <Loader explanation="Loading bloodlines" />}
-      {!isLoadingBlood && !hasRolled && <RollBloodline refetch={refetchBloodline} />}
-      {!isLoadingBlood && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
-      {!isLoadingBlood && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
+      {isPendingBlood && <Loader explanation="Loading bloodlines" />}
+      {!isPendingBlood && !hasRolled && <RollBloodline refetch={refetchBloodline} />}
+      {!isPendingBlood && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
+      {!isPendingBlood && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
     </>
   );
 };
@@ -139,14 +139,14 @@ const PurchaseBloodline: React.FC = () => {
     { rank: rank, limit: 500 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
 
   // Mutations
-  const { mutate: purchase, isLoading: isPurchasing } =
+  const { mutate: purchase, isPending: isPurchasing } =
     api.bloodline.purchaseBloodline.useMutation({
       onSuccess: async () => {
         await refetchUser();
@@ -269,7 +269,7 @@ const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   );
 
   // Mutations
-  const { mutate: remove, isLoading: isRemoving } =
+  const { mutate: remove, isPending: isRemoving } =
     api.bloodline.removeBloodline.useMutation({
       onSuccess: async () => {
         await refetchUser();
@@ -325,7 +325,7 @@ interface RollBloodlineProps {
 const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   const { refetch: refetchUser } = useRequiredUserData();
   // State
-  const { mutate: roll, isLoading: isRolling } = api.bloodline.roll.useMutation({
+  const { mutate: roll, isPending: isRolling } = api.bloodline.roll.useMutation({
     onSuccess: async (data) => {
       props.refetch();
       showMutationToast({ ...data, title: "Bloodline Roll" });

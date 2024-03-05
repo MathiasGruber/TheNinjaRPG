@@ -35,7 +35,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
   };
 
   // Create a new image
-  const { mutate: check, isLoading: isChecking } = api.conceptart.check.useMutation({
+  const { mutate: check, isPending: isChecking } = api.conceptart.check.useMutation({
     onSuccess: (data, variables) => {
       if (["starting", "processing"].includes(data.status)) {
         setTimeout(() => {

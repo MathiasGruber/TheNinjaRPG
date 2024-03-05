@@ -31,7 +31,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
-  const { userId, sessionId, isSignedIn, isLoaded, getToken, signOut } = useAuth();
+  const { userId, sessionId, isSignedIn, isLoaded, getToken } = useAuth();
   // Set the token from clerk
   useEffect(() => {
     if (isSignedIn && isLoaded) {
@@ -54,40 +54,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       staleTime: Infinity,
       retry: false,
       refetchInterval: 300000,
-      onSuccess: (data) => {
-        // This is used to translate time on client to server side,
-        // i.e. synced_client = client_time - timeDiff
-        if (data?.serverTime) {
-          const discrepancy = Date.now() - data.serverTime;
-          if (data.userData) {
-            // Adjust updatedAt to client-time, effectively making client-time
-            // seem the same as server-time, although server-time is still used
-            // for all calculations
-            data.userData.updatedAt = secondsFromDate(
-              -discrepancy / 1000,
-              data.userData.updatedAt,
-            );
-          }
-          // Save the time-discrepancy between client and server for reference
-          // e.g. in the battle system
-          setTimeDiff(discrepancy);
-        }
-      },
-      onError: async (error) => {
-        console.log("Error from getUser in frontend", error.message);
-        if (error.message === "UNAUTHORIZED") {
-          if (userId) {
-            console.error(`User is not logged in, signing out ${userId}`, error);
-          }
-          await signOut();
-        }
-      },
     },
   );
   // if (timeDiff > 0) {
   //   console.log("Client - Server time diff [ms]: ", timeDiff);
   // }
-
   useEffect(() => {
     if (data?.userData) {
       H.identify(data.userData.username, {
@@ -96,7 +67,22 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
         avatar: data.userData.avatar ?? false,
       });
     }
-  }, [data?.userData]);
+    if (data?.serverTime) {
+      const discrepancy = Date.now() - data.serverTime;
+      if (data.userData) {
+        // Adjust updatedAt to client-time, effectively making client-time
+        // seem the same as server-time, although server-time is still used
+        // for all calculations
+        data.userData.updatedAt = secondsFromDate(
+          -discrepancy / 1000,
+          data.userData.updatedAt,
+        );
+      }
+      // Save the time-discrepancy between client and server for reference
+      // e.g. in the battle system
+      setTimeDiff(discrepancy);
+    }
+  }, [data?.userData, data?.serverTime]);
 
   // Listen on user channel for live updates on things
   useEffect(() => {

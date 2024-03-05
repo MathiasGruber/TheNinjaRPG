@@ -11,12 +11,12 @@ interface ActionTimerProps {
   action: CombatAction | undefined;
   user: ReturnedUserState;
   battle: ReturnedBattle;
-  isLoading: boolean;
+  isPending: boolean;
 }
 
 const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   // Destructure props
-  const { action, user, battle, isLoading } = props;
+  const { action, user, battle, isPending } = props;
 
   // Data from the DB
   const { timeDiff } = useUserData();
@@ -65,7 +65,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
       // Set action points
     }, 100);
     return () => clearInterval(interval);
-  }, [isLoading, battle, user, timeDiff, state, setState]);
+  }, [isPending, battle, user, timeDiff, state, setState]);
 
   return (
     <div className="pl-5">
@@ -109,12 +109,12 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
           width={768}
           height={62}
         />
-        {(isLoading || !user) && (
+        {(isPending || !user) && (
           <div className="absolute">
             <Loader noPadding={true} />
           </div>
         )}
-        {state.label && !isLoading && (
+        {state.label && !isPending && (
           <p
             className={`absolute bottom-0 left-0 right-0 top-0 flex justify-center text-sm font-bold ${
               state.waiting ? "text-red-800" : "text-green-800 "

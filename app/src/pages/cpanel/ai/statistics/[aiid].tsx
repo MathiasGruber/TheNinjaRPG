@@ -10,7 +10,7 @@ const AiStatistics: NextPage = () => {
   const aiId = router.query.aiid as string;
 
   // Queries
-  const { data, isLoading } = api.data.getStatistics.useQuery(
+  const { data, isPending } = api.data.getStatistics.useQuery(
     { id: aiId, type: "ai" },
     { staleTime: Infinity, enabled: aiId !== undefined },
   );
@@ -20,7 +20,7 @@ const AiStatistics: NextPage = () => {
   const name = ai && "username" in ai ? ai.username : "";
 
   // Prevent unauthorized access
-  if (isLoading) {
+  if (isPending) {
     return <Loader explanation="Loading data" />;
   }
 

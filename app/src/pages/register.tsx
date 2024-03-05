@@ -64,7 +64,7 @@ const Register: React.FC = () => {
   const createAvatar = api.avatar.createAvatar.useMutation();
 
   // Create character mutation
-  const { mutate: createCharacter, isLoading } =
+  const { mutate: createCharacter, isPending } =
     api.register.createCharacter.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -116,7 +116,7 @@ const Register: React.FC = () => {
   }, [router, userStatus, userData]);
 
   // If we are still trying to load user data
-  if (userStatus === "loading" || (userStatus === "success" && userData)) {
+  if (userStatus === "pending" || (userStatus === "success" && userData)) {
     return <Loader explanation="Loading page..." />;
   }
 
@@ -145,8 +145,8 @@ const Register: React.FC = () => {
 
   return (
     <ContentBox title="Create your Ninja" subtitle="Avatar created by AI">
-      {isLoading && <Loader explanation="Creating character..." />}
-      {!isLoading && (
+      {isPending && <Loader explanation="Creating character..." />}
+      {!isPending && (
         <Form {...form}>
           <form onSubmit={handleCreateCharacter} className="relative">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

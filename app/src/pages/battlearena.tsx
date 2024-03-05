@@ -92,7 +92,7 @@ const ChallengeAI: React.FC = () => {
     });
 
   // Mutation for starting a fight
-  const { mutate: attack, isLoading: isAttacking } =
+  const { mutate: attack, isPending: isAttacking } =
     api.combat.startArenaBattle.useMutation({
       onSuccess: async (data) => {
         showMutationToast({ success: data.success, message: "You enter the arena" });
@@ -200,7 +200,7 @@ const ChallengeUser: React.FC = () => {
   const utils = api.useUtils();
 
   // Mutations
-  const { mutate: create, isLoading } = api.sparring.createChallenge.useMutation({
+  const { mutate: create, isPending } = api.sparring.createChallenge.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -211,7 +211,7 @@ const ChallengeUser: React.FC = () => {
   });
 
   // If loading
-  if (isLoading) return <Loader explanation="Loading" />;
+  if (isPending) return <Loader explanation="Loading" />;
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Render
@@ -260,7 +260,7 @@ const ActiveChallenges: React.FC = () => {
   const router = useSafePush();
 
   // Mutations
-  const { mutate: accept, isLoading: isAccepting } =
+  const { mutate: accept, isPending: isAccepting } =
     api.sparring.acceptChallenge.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -272,7 +272,7 @@ const ActiveChallenges: React.FC = () => {
       },
     });
 
-  const { mutate: reject, isLoading: isRejecting } =
+  const { mutate: reject, isPending: isRejecting } =
     api.sparring.rejectChallenge.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -282,7 +282,7 @@ const ActiveChallenges: React.FC = () => {
       },
     });
 
-  const { mutate: cancel, isLoading: isCancelling } =
+  const { mutate: cancel, isPending: isCancelling } =
     api.sparring.cancelChallenge.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -293,10 +293,10 @@ const ActiveChallenges: React.FC = () => {
     });
 
   // Derived features
-  const isLoading = isAccepting || isRejecting || isCancelling;
+  const isPending = isAccepting || isRejecting || isCancelling;
 
   // If loading
-  if (isLoading) return <Loader explanation="Loading" />;
+  if (isPending) return <Loader explanation="Loading" />;
   if (!userData) return null;
 
   // Render

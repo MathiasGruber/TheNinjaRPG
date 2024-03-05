@@ -57,7 +57,7 @@ const ConceptArt: NextPage = () => {
   });
 
   // Create a new image
-  const { mutate: create, isLoading } = api.conceptart.create.useMutation({
+  const { mutate: create, isPending } = api.conceptart.create.useMutation({
     onSuccess: async (id) => {
       promptForm.setValue("prompt", "");
       promptForm.setValue("negative_prompt", "");
@@ -82,7 +82,7 @@ const ConceptArt: NextPage = () => {
     { only_own, sort, time_frame, limit: 50 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -104,7 +104,7 @@ const ConceptArt: NextPage = () => {
     (data) => {
       if (userData) {
         if (userData.reputationPoints > 0) {
-          if (!isLoading) create(data);
+          if (!isPending) create(data);
         } else {
           showMutationToast({ success: false, message: "No reputation points left." });
         }

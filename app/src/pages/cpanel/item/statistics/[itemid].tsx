@@ -10,7 +10,7 @@ const ItemStatistics: NextPage = () => {
   const itemId = router.query.itemid as string;
 
   // Queries
-  const { data, isLoading } = api.data.getStatistics.useQuery(
+  const { data, isPending } = api.data.getStatistics.useQuery(
     { id: itemId, type: "item" },
     { staleTime: Infinity, enabled: itemId !== undefined },
   );
@@ -21,7 +21,7 @@ const ItemStatistics: NextPage = () => {
   const name = item && "name" in item ? item.name : "";
 
   // Prevent unauthorized access
-  if (isLoading) {
+  if (isPending) {
     return <Loader explanation="Loading data" />;
   }
 

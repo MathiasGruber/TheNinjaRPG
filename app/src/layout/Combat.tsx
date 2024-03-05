@@ -72,7 +72,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       });
       if (data.success) {
         setBattle(undefined);
-        setBattleState({ battle: undefined, result: null, isLoading: true });
+        setBattleState({ battle: undefined, result: null, isPending: true });
         refetchBattle();
         await refetchUser();
       }
@@ -80,11 +80,11 @@ const Combat: React.FC<CombatProps> = (props) => {
   });
 
   // User Action
-  const { mutate: performAction, isLoading: isLoadingUser } =
+  const { mutate: performAction, isPending: isPendingUser } =
     api.combat.performAction.useMutation({
       onMutate: () => {
         document.body.style.cursor = "wait";
-        setBattleState({ battle: battle.current, result: null, isLoading: true });
+        setBattleState({ battle: battle.current, result: null, isPending: true });
       },
       onSuccess: (data) => {
         // Notifications (if any)
@@ -113,7 +113,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           setBattleState({
             battle: data.battle,
             result: data.result,
-            isLoading: false,
+            isPending: false,
           });
         }
       },
@@ -125,7 +125,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       if (data.success && data.battle) {
         battle.current = data.battle;
         setBattle(battle.current);
-        setBattleState({ battle: data.battle, result: null, isLoading: false });
+        setBattleState({ battle: data.battle, result: null, isPending: false });
       } else {
         showMutationToast({ success: false, message: data.message });
       }
@@ -192,7 +192,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // If user has no actions left / round is over, propagate battle & potentially - perform AI actions
   useEffect(() => {
     const interval = setInterval(() => {
-      if (suid && battle.current && userId.current && !isLoadingUser && !result) {
+      if (suid && battle.current && userId.current && !isPendingUser && !result) {
         const { actor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
         if (actor.isAi) {
@@ -217,7 +217,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingUser, timeDiff, result, suid]);
+  }, [isPendingUser, timeDiff, result, suid]);
 
   useEffect(() => {
     action.current = props.action;

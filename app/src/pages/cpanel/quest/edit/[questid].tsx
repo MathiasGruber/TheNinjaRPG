@@ -26,7 +26,7 @@ const QuestPanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.quests.get.useQuery(
+  const { data, isPending, refetch } = api.quests.get.useQuery(
     { id: questId },
     { staleTime: Infinity, enabled: questId !== undefined },
   );
@@ -40,7 +40,7 @@ const QuestPanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
@@ -59,7 +59,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
   const { quest, objectives, form, formData, setObjectives, handleQuestSubmit } =
     useQuestEditForm(props.quest, props.refetch);
 
-  const { mutate: chatIdea, isLoading } = api.openai.createQuest.useMutation({
+  const { mutate: chatIdea, isPending } = api.openai.createQuest.useMutation({
     onSuccess: (data) => {
       showMutationToast({ success: true, message: "AI Updated Quest" });
       let key: keyof typeof data;
@@ -116,7 +116,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               inputProps={{
                 id: "chatInput",
                 placeholder: "Instruct ChatGPT to edit",
-                disabled: isLoading,
+                disabled: isPending,
               }}
               onChat={(text) => {
                 chatIdea({ questId: quest.id, prompt: text });

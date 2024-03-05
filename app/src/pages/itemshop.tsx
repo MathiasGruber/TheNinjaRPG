@@ -35,7 +35,7 @@ const ItemShop: NextPage = () => {
     {
       enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -46,7 +46,7 @@ const ItemShop: NextPage = () => {
     api.item.getUserItemCounts.useQuery();
 
   // Mutations
-  const { mutate: purchase, isLoading: isPurchasing } = api.item.buy.useMutation({
+  const { mutate: purchase, isPending: isPurchasing } = api.item.buy.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
       if (data.success) {
