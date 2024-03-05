@@ -360,7 +360,6 @@ const AllianceBlock: React.FC<{
 }> = ({ relationships, villages, villageRow, villageCol, user }) => {
   // Default
   const sameVillage = villageRow.id === villageCol.id;
-  const userVillage = villageRow.id === user?.villageId ? villageRow : villageCol;
   const otherVillage = villageRow.id === user?.villageId ? villageCol : villageRow;
   let status: AllianceState = sameVillage ? "ALLY" : "NEUTRAL";
 
