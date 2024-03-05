@@ -16,7 +16,7 @@ const ManualAIs: NextPage = () => {
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   // // Queries
-  const { data, isLoading } = api.data.getAiBalanceStatistics.useQuery(
+  const { data, isPending } = api.data.getAiBalanceStatistics.useQuery(
     { battleType: filter },
     { staleTime: Infinity },
   );
@@ -54,7 +54,7 @@ const ManualAIs: NextPage = () => {
       >
         Here we aim to give an overview of AI usage & win-statistics, so as to make it
         transparent if any AI over/under-powered and in need of balance adjustment.
-        {isLoading && <Loader explanation="Loading data" />}
+        {isPending && <Loader explanation="Loading data" />}
         <div className="relative w-[99%]">
           <canvas ref={chartRef} id="baseUsage"></canvas>
         </div>

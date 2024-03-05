@@ -14,7 +14,7 @@ const RamenShop: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
   useRequireInVillage();
 
-  const { mutate, isLoading } = api.village.buyFood.useMutation({
+  const { mutate, isPending } = api.village.buyFood.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -39,8 +39,8 @@ const RamenShop: NextPage = () => {
         height={221}
         className="w-full"
       />
-      {isLoading && <Loader explanation="Purchasing food" />}
-      {!isLoading && (
+      {isPending && <Loader explanation="Purchasing food" />}
+      {!isPending && (
         <div className="grid grid-cols-3 text-center font-bold italic p-3">
           <MenuEntry
             title="Small Bowl"

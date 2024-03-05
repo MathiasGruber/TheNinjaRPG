@@ -43,14 +43,14 @@ const ManualTravel: NextPage = () => {
     { limit: 20, questType: questType },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const allQuests = quests?.pages.map((page) => page.data).flat();
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.quests.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.quests.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -58,7 +58,7 @@ const ManualTravel: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.quests.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.quests.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();

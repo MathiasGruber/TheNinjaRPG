@@ -10,7 +10,7 @@ const JutsuStatistics: NextPage = () => {
   const jutsuId = router.query.jutsuid as string;
 
   // Queries
-  const { data, isLoading } = api.data.getStatistics.useQuery(
+  const { data, isPending } = api.data.getStatistics.useQuery(
     { id: jutsuId, type: "jutsu" },
     { staleTime: Infinity, enabled: jutsuId !== undefined },
   );
@@ -22,7 +22,7 @@ const JutsuStatistics: NextPage = () => {
   const name = jutsu && "name" in jutsu ? jutsu.name : "";
 
   // Prevent unauthorized access
-  if (isLoading) {
+  if (isPending) {
     return <Loader explanation="Loading data" />;
   }
 

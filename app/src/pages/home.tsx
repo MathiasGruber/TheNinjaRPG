@@ -12,7 +12,7 @@ const Home: NextPage = () => {
   const { data: userData, refetch } = useRequiredUserData();
   useRequireInVillage();
 
-  const { mutate: toggleSleep, isLoading: isTogglingSleep } =
+  const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);

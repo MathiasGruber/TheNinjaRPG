@@ -30,7 +30,7 @@ const MissionHall: NextPage = () => {
     staleTime: Infinity,
   });
 
-  const { mutate: startRandom, isLoading } = api.quests.startRandom.useMutation({
+  const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
     onSuccess: () => {
       void refetch();
     },
@@ -59,13 +59,13 @@ const MissionHall: NextPage = () => {
         className="w-full"
         priority={true}
       />
-      {isLoading && <Loader explanation="Accepting..." />}
+      {isPending && <Loader explanation="Accepting..." />}
       {currentQuest && currentTracker && (
         <div className="p-3">
           <LogbookEntry userQuest={currentQuest} tracker={currentTracker} />
         </div>
       )}
-      {!currentQuest && !isLoading && (
+      {!currentQuest && !isPending && (
         <div className="grid grid-cols-3 italic p-3 gap-4 text-center">
           {missionHallSettings.map((setting, i) => {
             // Count how many of this type and rank are available
@@ -115,8 +115,8 @@ const MissionHall: NextPage = () => {
                   startRandom({ type: setting.type, rank: setting.rank });
                 }}
               >
-                {isLoading && <Loader explanation="Accepting..." />}
-                {!isLoading && (
+                {isPending && <Loader explanation="Accepting..." />}
+                {!isPending && (
                   <div className="flex flex-row items-center gap-4">
                     <div>{setting.description}</div>
                     <Image alt="small" src={setting.image} width={128} height={128} />

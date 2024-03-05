@@ -77,7 +77,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
   const {
     data: allConversations,
     refetch,
-    isLoading,
+    isPending,
   } = api.comments.getUserConversations.useQuery({ selectedConvo: selectedConvo });
 
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({
@@ -87,7 +87,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
   });
   return (
     <div>
-      {isLoading && <Loader explanation="Looking for conversations" />}
+      {isPending && <Loader explanation="Looking for conversations" />}
       {allConversations && (
         <div className="relative">
           <ul className="space-y-2">

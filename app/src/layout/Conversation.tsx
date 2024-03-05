@@ -43,11 +43,11 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     fetchNextPage,
     hasNextPage,
     refetch,
-    isLoading,
+    isPending,
   } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: Infinity,
   });
   const allComments = comments?.pages.map((page) => page.data).flat();
@@ -74,7 +74,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   }, [conversation, setValue]);
 
   // Create comment & optimistically update the interface
-  const { mutate: createComment, isLoading: isCommenting } =
+  const { mutate: createComment, isPending: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onMutate: async (newMessage) => {
         // Get previous data
@@ -151,8 +151,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   return (
     <div key={props.refreshKey}>
-      {isLoading && <Loader explanation="Loading data" />}
-      {!isLoading && allComments && allComments.length > 0 && (
+      {isPending && <Loader explanation="Loading data" />}
+      {!isPending && allComments && allComments.length > 0 && (
         <ContentBox
           title={props.title}
           subtitle={props.subtitle}

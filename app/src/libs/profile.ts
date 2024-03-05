@@ -143,7 +143,7 @@ export const useUserEditForm = (
   });
 
   // Mutation for updating item
-  const { mutate: updateUser, isLoading: loading } = api.profile.updateUser.useMutation(
+  const { mutate: updateUser, isPending: loading } = api.profile.updateUser.useMutation(
     {
       onSuccess: (data) => {
         showMutationToast(data);

@@ -29,7 +29,7 @@ const Profile: NextPage = () => {
     {
       enabled: !!userData?.userId,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: 1000 * 60 * 5, // every 5min
     },
   );

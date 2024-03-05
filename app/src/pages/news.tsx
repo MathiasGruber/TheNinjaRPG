@@ -17,14 +17,14 @@ const News: NextPage = () => {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const {
     data: threads,
-    isLoading,
+    isPending,
     fetchNextPage,
     hasNextPage,
   } = api.forum.getNews.useInfiniteQuery(
     { limit: 10 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -73,8 +73,8 @@ const News: NextPage = () => {
         className="w-full"
         priority={true}
       />
-      {isLoading && <Loader explanation="Loading news" />}
-      {!isLoading && (
+      {isPending && <Loader explanation="Loading news" />}
+      {!isPending && (
         <div className="grid grid-cols-1">
           {allThreads?.map((thread, i) => {
             const post = thread.posts[0];

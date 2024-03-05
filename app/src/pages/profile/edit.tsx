@@ -153,7 +153,7 @@ const SwapVillage: React.FC = () => {
   // Fetch data
   const { data, isFetching } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: Infinity,
   });
   const villages = data?.map((village) => ({
@@ -162,7 +162,7 @@ const SwapVillage: React.FC = () => {
   }));
 
   // Mutations
-  const { mutate: swap, isLoading: isSwapping } = api.village.swapVillage.useMutation({
+  const { mutate: swap, isPending: isSwapping } = api.village.swapVillage.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -250,14 +250,15 @@ const SwapBloodline: React.FC = () => {
     { rank: userData?.bloodline?.rank ?? "D", limit: 50 },
     {
       enabled: !!userData,
-      keepPreviousData: true,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
 
   // Mutations
-  const { mutate: swap, isLoading: isSwapping } =
+  const { mutate: swap, isPending: isSwapping } =
     api.bloodline.swapBloodline.useMutation({
       onSuccess: async () => {
         await refetchUser();
@@ -658,13 +659,13 @@ const NindoChange: React.FC = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, refetch, isLoading } = api.profile.getNindo.useQuery(
+  const { data, refetch, isPending } = api.profile.getNindo.useQuery(
     { userId: userData?.userId as string },
     { enabled: !!userData, staleTime: Infinity },
   );
 
   // Mutations
-  const { mutate, isLoading: isUpdating } = api.profile.updateNindo.useMutation({
+  const { mutate, isPending: isUpdating } = api.profile.updateNindo.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -690,7 +691,7 @@ const NindoChange: React.FC = () => {
     reset();
   });
 
-  if (isLoading || isUpdating) {
+  if (isPending || isUpdating) {
     return <Loader explanation="Loading nindo..." />;
   }
 

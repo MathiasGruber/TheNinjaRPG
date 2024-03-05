@@ -148,7 +148,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     setSorrounding(users.current || []);
   };
 
-  const { mutate: move, isLoading: isMoving } = api.travel.moveInSector.useMutation({
+  const { mutate: move, isPending: isMoving } = api.travel.moveInSector.useMutation({
     onSuccess: async (res) => {
       if (res.success && res.data) {
         const data = res.data;
@@ -194,7 +194,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     },
   });
 
-  const { mutate: attack, isLoading: isAttacking } = api.combat.attackUser.useMutation({
+  const { mutate: attack, isPending: isAttacking } = api.combat.attackUser.useMutation({
     onSuccess: async (data) => {
       if (data.success) {
         await refetchUser();

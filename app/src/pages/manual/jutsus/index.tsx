@@ -37,7 +37,7 @@ const ManualJutsus: NextPage = () => {
     { limit: 50, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
   );
@@ -45,7 +45,7 @@ const ManualJutsus: NextPage = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.jutsu.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.jutsu.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -53,7 +53,7 @@ const ManualJutsus: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.jutsu.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.jutsu.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();

@@ -26,7 +26,7 @@ const Thread: NextPage = () => {
     {
       enabled: thread_id !== undefined,
       staleTime: Infinity,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const thread = comments?.thread;
@@ -50,7 +50,7 @@ const Thread: NextPage = () => {
     }
   }, [thread, setValue]);
 
-  const { mutate: createComment, isLoading } =
+  const { mutate: createComment, isPending } =
     api.comments.createForumComment.useMutation({
       onSuccess: async () => {
         reset();
@@ -102,12 +102,12 @@ const Thread: NextPage = () => {
               refreshKey={totalComments}
               placeholder=""
               control={control}
-              disabled={isLoading}
+              disabled={isPending}
               error={errors.comment?.message}
               onSubmit={handleSubmitComment}
             />
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-              {isLoading && <Loader />}
+              {isPending && <Loader />}
             </div>
           </div>
         )}

@@ -41,7 +41,7 @@ const MyJutsu: NextPage = () => {
   });
 
   // Mutations
-  const { mutate: equip, isLoading: isEquipping } = api.jutsu.toggleEquip.useMutation({
+  const { mutate: equip, isPending: isEquipping } = api.jutsu.toggleEquip.useMutation({
     onSuccess: async () => {
       await refetch();
     },
@@ -52,7 +52,7 @@ const MyJutsu: NextPage = () => {
     },
   });
 
-  const { mutate: forget, isLoading: isForgetting } = api.jutsu.forget.useMutation({
+  const { mutate: forget, isPending: isForgetting } = api.jutsu.forget.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -66,7 +66,7 @@ const MyJutsu: NextPage = () => {
     },
   });
 
-  const isLoading = isEquipping || isForgetting;
+  const isPending = isEquipping || isForgetting;
 
   // Collapse UserItem and Item
   const allJutsu = userJutsus?.map((userjutsu) => {
@@ -139,7 +139,7 @@ const MyJutsu: NextPage = () => {
           }
         >
           <p className="pb-3">You have {userData.money} ryo in your pocket</p>
-          {!isLoading && (
+          {!isPending && (
             <>
               <ItemWithEffects
                 item={userjutsu}
@@ -161,10 +161,10 @@ const MyJutsu: NextPage = () => {
               </div>
             </>
           )}
-          {isLoading && <Loader explanation={`Processing ${userjutsu.name}`} />}
+          {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {isLoading && <Loader explanation="Loading Jutsu" />}
+      {isPending && <Loader explanation="Loading Jutsu" />}
     </ContentBox>
   );
 };

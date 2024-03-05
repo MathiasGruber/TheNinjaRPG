@@ -59,7 +59,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     { limit: 500, effect: tagType, stat: statFilter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
       enabled: props.type === "jutsu" && showModal,
     },
@@ -73,7 +73,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     { limit: 500, effect: tagType, stat: statFilter, showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
       enabled: props.type === "bloodline" && showModal,
     },
@@ -87,7 +87,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     { limit: 500, effect: tagType, stat: statFilter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
       enabled: props.type === "item" && showModal,
     },
@@ -101,7 +101,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     { limit: 500, questType: questType },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: Infinity,
       enabled: props.type === "quest" && showModal,
     },

@@ -32,13 +32,13 @@ const ManualBadges: NextPage = () => {
     { limit: 50 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
     },
   );
   const allBadges = badges?.pages.map((page) => page.data).flat();
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.badge.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.badge.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -46,7 +46,7 @@ const ManualBadges: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.badge.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.badge.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -54,7 +54,7 @@ const ManualBadges: NextPage = () => {
   });
 
   // Derived
-  const isLoading = isFetching || load1 || load2;
+  const isPending = isFetching || load1 || load2;
 
   // Return JSX
   return (
@@ -97,7 +97,7 @@ const ManualBadges: NextPage = () => {
           isValid={false}
           className="max-w-3xl"
         >
-          {!isLoading && (
+          {!isPending && (
             <div className="relative">
               <ItemWithEffects
                 item={badge}
@@ -110,7 +110,7 @@ const ManualBadges: NextPage = () => {
               />
             </div>
           )}
-          {isLoading && <Loader explanation={`Processing ${badge.name}`} />}
+          {isPending && <Loader explanation={`Processing ${badge.name}`} />}
         </Modal>
       )}
     </ContentBox>

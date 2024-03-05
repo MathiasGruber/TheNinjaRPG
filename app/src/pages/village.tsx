@@ -48,7 +48,7 @@ const VillageOverview: NextPage = () => {
   const protectors = villageData?.structures.find((s) => s.name === "Protectors");
 
   // Mutations
-  const { mutate, isLoading: isUpdating } = api.kage.upsertNotice.useMutation({
+  const { mutate, isPending: isUpdating } = api.kage.upsertNotice.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {

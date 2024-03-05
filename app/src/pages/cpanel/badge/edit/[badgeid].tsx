@@ -19,7 +19,7 @@ const BadgePanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.badge.get.useQuery(
+  const { data, isPending, refetch } = api.badge.get.useQuery(
     { id: badgeId },
     { staleTime: Infinity, enabled: badgeId !== undefined },
   );
@@ -33,7 +33,7 @@ const BadgePanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 
@@ -55,7 +55,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
   );
 
   // Mutations
-  const { mutate: chatIdea, isLoading } = api.openai.createBadge.useMutation({
+  const { mutate: chatIdea, isPending } = api.openai.createBadge.useMutation({
     onSuccess: (data) => {
       showMutationToast({ success: true, message: "AI Updated Badge" });
       let key: keyof typeof data;
@@ -78,7 +78,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
             inputProps={{
               id: "chatInput",
               placeholder: "Instruct ChatGPT to edit",
-              disabled: isLoading,
+              disabled: isPending,
             }}
             onChat={(text) => {
               chatIdea({ badgeId: badge.id, prompt: text });

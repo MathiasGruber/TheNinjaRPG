@@ -110,7 +110,7 @@ export const EditContent = <
   }, []);
 
   // Mutations
-  const { mutate: removeBg, isLoading: load1 } = api.openai.removeBg.useMutation({
+  const { mutate: removeBg, isPending: load1 } = api.openai.removeBg.useMutation({
     onSuccess: (data, variables) => {
       showMutationToast({ success: true, message: "Background removed" });
       fetchImg({
@@ -121,7 +121,7 @@ export const EditContent = <
     },
   });
 
-  const { mutate: fetchImg, isLoading: load2 } = api.openai.fetchImg.useMutation({
+  const { mutate: fetchImg, isPending: load2 } = api.openai.fetchImg.useMutation({
     onSuccess: async (data, variables) => {
       if (data.status !== "failed") {
         if (data.url) {
@@ -139,7 +139,7 @@ export const EditContent = <
     },
   });
 
-  const { mutate: createImg, isLoading: load3 } = api.openai.createImg.useMutation({
+  const { mutate: createImg, isPending: load3 } = api.openai.createImg.useMutation({
     onSuccess: (data, variables) => {
       showMutationToast({ success: true, message: "Image generated. Now fetching" });
       fetchImg({

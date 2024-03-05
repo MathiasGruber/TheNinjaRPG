@@ -55,12 +55,12 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: villages, isLoading: l1 } = api.village.getAll.useQuery(undefined, {
+  const { data: villages, isPending: l1 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Mutation for updating bloodline
-  const { mutate: updateBloodline, isLoading: l2 } = api.bloodline.update.useMutation({
+  const { mutate: updateBloodline, isPending: l2 } = api.bloodline.update.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
       refetch();

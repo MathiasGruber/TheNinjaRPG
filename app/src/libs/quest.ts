@@ -41,19 +41,19 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   });
 
   // Query for relations
-  const { data: items, isLoading: l1 } = api.item.getAllNames.useQuery(undefined, {
+  const { data: items, isPending: l1 } = api.item.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
-  const { data: jutsus, isLoading: l2 } = api.jutsu.getAllNames.useQuery(undefined, {
+  const { data: jutsus, isPending: l2 } = api.jutsu.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
-  const { data: ais, isLoading: l3 } = api.profile.getAllAiNames.useQuery(undefined, {
+  const { data: ais, isPending: l3 } = api.profile.getAllAiNames.useQuery(undefined, {
     staleTime: Infinity,
   });
-  const { data: villages, isLoading: l4 } = api.village.getAll.useQuery(undefined, {
+  const { data: villages, isPending: l4 } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
-  const { data: badges, isLoading: l5 } = api.badge.getAll.useQuery(undefined, {
+  const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined, {
     staleTime: Infinity,
   });
 

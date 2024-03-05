@@ -10,7 +10,7 @@ const BloodlineStatistics: NextPage = () => {
   const bloodlineId = router.query.bloodlineid as string;
 
   // Queries
-  const { data, isLoading } = api.data.getStatistics.useQuery(
+  const { data, isPending } = api.data.getStatistics.useQuery(
     { id: bloodlineId, type: "bloodline" },
     { staleTime: Infinity, enabled: bloodlineId !== undefined },
   );
@@ -22,7 +22,7 @@ const BloodlineStatistics: NextPage = () => {
   const name = bloodline && "name" in bloodline ? bloodline.name : "";
 
   // Prevent unauthorized access
-  if (isLoading) {
+  if (isPending) {
     return <Loader explanation="Loading data" />;
   }
 

@@ -29,14 +29,14 @@ const Profile: NextPage = () => {
   // Router for forwarding
   const router = useSafePush();
 
-  const { mutate: toggleDeletionTimer, isLoading: isTogglingDelete } =
+  const { mutate: toggleDeletionTimer, isPending: isTogglingDelete } =
     api.profile.toggleDeletionTimer.useMutation({
       onSuccess: async () => {
         await refetchUser();
       },
     });
 
-  const { mutate: confirmDeletion, isLoading: isDeleting } =
+  const { mutate: confirmDeletion, isPending: isDeleting } =
     api.profile.confirmDeletion.useMutation({
       onSuccess: async () => {
         await refetchUser();

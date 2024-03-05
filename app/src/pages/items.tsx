@@ -70,7 +70,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // Mutations
-  const { mutate: merge, isLoading: isMerging } = api.item.mergeStacks.useMutation({
+  const { mutate: merge, isPending: isMerging } = api.item.mergeStacks.useMutation({
     onSuccess: () => {
       props.refetch();
     },
@@ -81,7 +81,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     },
   });
 
-  const { mutate: drop, isLoading: isDropping } = api.item.dropUserItem.useMutation({
+  const { mutate: drop, isPending: isDropping } = api.item.dropUserItem.useMutation({
     onSuccess: () => {
       props.refetch();
     },
@@ -170,7 +170,7 @@ const Character: React.FC<CharacterProps> = (props) => {
   };
 
   // Mutations
-  const { mutate: equip, isLoading: isEquipping } = api.item.toggleEquip.useMutation({
+  const { mutate: equip, isPending: isEquipping } = api.item.toggleEquip.useMutation({
     onSuccess: () => {
       props.refetch();
     },

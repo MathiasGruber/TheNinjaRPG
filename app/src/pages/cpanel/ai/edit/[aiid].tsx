@@ -19,7 +19,7 @@ const AIPanel: NextPage = () => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data, isLoading, refetch } = api.profile.getAi.useQuery(
+  const { data, isPending, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
     { staleTime: Infinity, enabled: aiId !== undefined },
   );
@@ -36,7 +36,7 @@ const AIPanel: NextPage = () => {
   }, [userData]);
 
   // Prevent unauthorized access
-  if (isLoading || !userData || !canChangeContent(userData.role) || !data) {
+  if (isPending || !userData || !canChangeContent(userData.role) || !data) {
     return <Loader explanation="Loading data" />;
   }
 

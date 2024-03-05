@@ -44,7 +44,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const { data: userData, refetch: refetchUser } = useUserData();
 
   // Queries
-  const { data: profile, isLoading } = api.profile.getPublicUser.useQuery(
+  const { data: profile, isPending } = api.profile.getPublicUser.useQuery(
     { userId: userId },
     { enabled: userId !== undefined, staleTime: Infinity },
   );
@@ -73,7 +73,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const availableRoles = userData && canChangeUserRole(userData.role);
 
   // Loaders
-  if (isLoading) return <Loader explanation="Fetching Public User Data" />;
+  if (isPending) return <Loader explanation="Fetching Public User Data" />;
   if (!userData) return <Loader explanation="Fetching Your User Data" />;
   if (!profile) {
     return (

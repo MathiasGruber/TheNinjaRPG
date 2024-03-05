@@ -57,7 +57,7 @@ const Bank: NextPage = () => {
   });
 
   // Mutations
-  const { mutate: toBank, isLoading: l1 } = api.bank.toBank.useMutation({
+  const { mutate: toBank, isPending: l1 } = api.bank.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -67,7 +67,7 @@ const Bank: NextPage = () => {
     },
   });
 
-  const { mutate: toPocket, isLoading: l2 } = api.bank.toPocket.useMutation({
+  const { mutate: toPocket, isPending: l2 } = api.bank.toPocket.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -77,7 +77,7 @@ const Bank: NextPage = () => {
     },
   });
 
-  const { mutate: transfer, isLoading: l3 } = api.bank.transfer.useMutation({
+  const { mutate: transfer, isPending: l3 } = api.bank.transfer.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -125,7 +125,7 @@ const Bank: NextPage = () => {
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      keepPreviousData: true,
+      placeholderData: (previousData) => previousData,
       staleTime: 1000 * 60 * 5, // every 5min
     },
   );

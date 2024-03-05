@@ -34,12 +34,12 @@ export const useAiEditForm = (
   });
 
   // Query for jutsus
-  const { data: jutsus, isLoading: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
+  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Mutation for updating item
-  const { mutate: updateAi, isLoading: l2 } = api.profile.updateAi.useMutation({
+  const { mutate: updateAi, isPending: l2 } = api.profile.updateAi.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
       refetch();

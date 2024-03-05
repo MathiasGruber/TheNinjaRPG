@@ -59,7 +59,7 @@ const ManualAI: NextPage = () => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
-  const { mutate: create, isLoading: load1 } = api.profile.create.useMutation({
+  const { mutate: create, isPending: load1 } = api.profile.create.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
@@ -67,7 +67,7 @@ const ManualAI: NextPage = () => {
     },
   });
 
-  const { mutate: remove, isLoading: load2 } = api.profile.delete.useMutation({
+  const { mutate: remove, isPending: load2 } = api.profile.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
