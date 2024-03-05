@@ -17,7 +17,7 @@ import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle, updateVillage } from "@/libs/combat/database";
-import { fetchRegeneratedUser } from "./profile";
+import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
@@ -362,7 +362,7 @@ export const combatRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Get information
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

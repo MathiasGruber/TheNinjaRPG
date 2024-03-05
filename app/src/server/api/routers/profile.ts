@@ -81,7 +81,7 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ stat: z.enum(UserStatNames) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         userIp: ctx.userIp,
@@ -122,7 +122,7 @@ export const profileRouter = createTRPCRouter({
   stopTraining: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         forceRegen: true,
@@ -226,7 +226,7 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update user with new level
   levelUp: protectedProcedure.mutation(async ({ ctx }) => {
-    const { user } = await fetchRegeneratedUser({
+    const { user } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
@@ -271,7 +271,7 @@ export const profileRouter = createTRPCRouter({
   getUser: protectedProcedure
     .input(z.object({ token: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      const { user, rewards } = await fetchRegeneratedUser({
+      const { user, rewards } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         // forceRegen: true, // This should be disabled in prod to save on DB calls
@@ -432,7 +432,7 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ speed: z.enum(TrainingSpeeds) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -1099,7 +1099,7 @@ export const fetchUser = async (client: DrizzleClient, userId: string) => {
  * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
  * of pools, or optionally forces regeneration with forceRegen=true
  */
-export const fetchRegeneratedUser = async (props: {
+export const fetchUpdatedUser = async (props: {
   client: DrizzleClient;
   userId: string;
   userIp?: string;

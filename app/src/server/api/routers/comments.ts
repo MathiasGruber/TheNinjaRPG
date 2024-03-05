@@ -259,35 +259,13 @@ export const commentsRouter = createTRPCRouter({
       if (!success) {
         throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
-      const convoId = nanoid();
-      await ctx.drizzle.insert(conversation).values({
-        id: convoId,
-        title: input.title,
-        createdById: ctx.userId,
-        isPublic: 0,
-        isLocked: 0,
-      });
-      void [...input.users, ctx.userId].map(async (user) => {
-        await ctx.drizzle.insert(user2conversation).values({
-          conversationId: convoId,
-          userId: user,
-        });
-      });
-      await ctx.drizzle
-        .update(userData)
-        .set({ inboxNews: sql`${userData.inboxNews} + 1` })
-        .where(inArray(userData.userId, input.users));
-      // Update conversation & update user notifications
-      const pusher = getServerPusher();
-      input.users.forEach(
-        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
+      const convoId = await createConvo(
+        ctx.drizzle,
+        ctx.userId,
+        input.users,
+        input.title,
+        input.comment,
       );
-      await ctx.drizzle.insert(conversationComment).values({
-        id: nanoid(),
-        content: sanitize(input.comment),
-        userId: ctx.userId,
-        conversationId: convoId,
-      });
       return { conversationId: convoId };
     }),
   exitConversation: protectedProcedure
@@ -453,15 +431,19 @@ export const commentsRouter = createTRPCRouter({
     }),
 });
 
-/**
- * Fetches a conversation from the database. Throws an error if not found.
- */
 interface FetchConvoOptions {
   client: DrizzleClient;
   id?: string;
   title?: string;
   userId?: string;
 }
+
+/**
+ * Fetches a conversation based on the provided options.
+ * @param params - The options for fetching the conversation.
+ * @returns The fetched conversation if it exists and the user is authorized, otherwise throws an error.
+ * @throws {ServerError} If the request is invalid or the conversation is not found.
+ */
 export const fetchConversation = async (params: FetchConvoOptions) => {
   const { client, id, title, userId } = params;
   const getConvo = async () => {
@@ -487,4 +469,54 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   } else {
     throw serverError("UNAUTHORIZED", "Conversation not found");
   }
+};
+
+/**
+ * Creates a conversation with the given parameters and performs necessary database operations.
+ * @param client - The DrizzleClient instance used for database operations.
+ * @param senderUserId - The ID of the user who is creating the conversation.
+ * @param receiverUserIds - An array of user IDs who will receive the conversation.
+ * @param title - The title of the conversation.
+ * @param content - The content of the first comment in the conversation.
+ */
+export const createConvo = async (
+  client: DrizzleClient,
+  senderUserId: string,
+  receiverUserIds: string[],
+  title: string,
+  content: string,
+) => {
+  // Push notifications early
+  const pusher = getServerPusher();
+  receiverUserIds.forEach(
+    (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
+  );
+  // Update DB concurrently
+  const convoId = nanoid();
+  await Promise.all([
+    client.insert(conversation).values({
+      id: convoId,
+      title: title,
+      createdById: senderUserId,
+      isPublic: 0,
+      isLocked: 0,
+    }),
+    ...[...receiverUserIds, senderUserId].map((user) =>
+      client.insert(user2conversation).values({
+        conversationId: convoId,
+        userId: user,
+      }),
+    ),
+    client
+      .update(userData)
+      .set({ inboxNews: sql`${userData.inboxNews} + 1` })
+      .where(inArray(userData.userId, receiverUserIds)),
+    client.insert(conversationComment).values({
+      id: nanoid(),
+      content: sanitize(content),
+      userId: senderUserId,
+      conversationId: convoId,
+    }),
+  ]);
+  return convoId;
 };

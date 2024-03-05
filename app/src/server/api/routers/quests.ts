@@ -9,7 +9,7 @@ import { item, jutsu, badge } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
-import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks, QuestTypes } from "@/drizzle/constants";
@@ -73,7 +73,7 @@ export const questsRouter = createTRPCRouter({
       return result;
     }),
   missionHall: protectedProcedure.query(async ({ ctx }) => {
-    const { user } = await fetchRegeneratedUser({
+    const { user } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
@@ -105,7 +105,7 @@ export const questsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch user
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -161,7 +161,7 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -324,7 +324,7 @@ export const questsRouter = createTRPCRouter({
   checkRewards: protectedProcedure
     .input(z.object({ questId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -475,7 +475,7 @@ export const questsRouter = createTRPCRouter({
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))
     .mutation(async ({ ctx }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

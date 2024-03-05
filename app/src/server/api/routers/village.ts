@@ -1,21 +1,35 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { baseServerResponse, serverError } from "../trpc";
-import { village, userData, kageDefendedChallenges } from "@/drizzle/schema";
+import { nanoid } from "nanoid";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
+import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
+import { village, userData, notification } from "@/drizzle/schema";
+import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUser, fetchRegeneratedUser } from "./profile";
+import { fetchUser, fetchUpdatedUser } from "./profile";
+import { fetchRequests } from "./sparring";
+import { insertRequest, updateRequestState } from "./sparring";
+import { createConvo } from "./comments";
+import { isKage } from "@/utils/kage";
+import { findRelationship } from "@/utils/alliance";
+import { canAlly, canWar, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/libs/profile";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
-import type { DrizzleClient } from "../../db";
+import { UserRequestTypes } from "@/drizzle/constants";
+import { WAR_FUNDS_COST } from "@/utils/kage";
+import type { DrizzleClient } from "@/server/db";
+import type { AllianceState } from "@/drizzle/constants";
+import type { VillageAlliance } from "@/drizzle/schema";
+
+const availRequests = ["SURRENDER", "ALLIANCE"];
 
 export const villageRouter = createTRPCRouter({
   // Get all villages
   getAll: publicProcedure.query(async ({ ctx }) => {
     return await fetchVillages(ctx.drizzle);
   }),
-  // Get a specific village & its structures
+  // Get a specific village & its structures∂
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -37,12 +51,17 @@ export const villageRouter = createTRPCRouter({
             },
           },
           where: eq(kageDefendedChallenges.villageId, input.id),
+          limit: 8,
+          orderBy: (table, { desc }) => [desc(table.createdAt)],
         }),
       ]);
+
       // Guards
       if (!villageData) throw serverError("NOT_FOUND", "Village not found");
+
       // Derived
       const population = counts?.[0]?.count || 0;
+
       // Return
       return { villageData, population, defendedChallenges };
     }),
@@ -63,12 +82,12 @@ export const villageRouter = createTRPCRouter({
           })
           .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
         if (result.rowsAffected === 0) {
-          return { success: false, message: "Error trying to buy food. Try again." };
+          return errorResponse("Error trying to buy food. Try again.");
         } else {
           return { success: true, message: "You have bought food" };
         }
       } else {
-        return { success: false, message: "You don't have enough money" };
+        return errorResponse("You don't have enough money");
       }
     }),
   swapVillage: protectedProcedure
@@ -76,31 +95,23 @@ export const villageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Queries
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
-      // Guards
-      if (!user) {
-        return { success: false, message: "User does not exist" };
-      }
+      if (!user) return errorResponse("User does not exist");
       const village = await fetchVillage(ctx.drizzle, input.villageId);
-      if (!village) {
-        return { success: false, message: "Village does not exist" };
-      }
-      if (user.userId === user.village?.kageId) {
-        return { success: false, message: "You can not leave your village when kage" };
-      }
-      if (user.villageId === village.id) {
-        return { success: false, message: "You are already in this village" };
-      }
-      if (user.status !== "AWAKE") {
-        return { success: false, message: "You must be awake." };
-      }
+
+      // Derived
       const cost = COST_SWAP_VILLAGE;
-      if (cost > user.reputationPoints) {
-        return { success: false, message: "You do not have enough reputation points" };
-      }
+
+      // Guards
+      if (!village) return errorResponse("Village does not exist");
+      if (isKage(user)) return errorResponse("You are the kage");
+      if (user.villageId === village.id) return errorResponse("Already in village");
+      if (user.status !== "AWAKE") return errorResponse("You must be awake");
+      if (cost > user.reputationPoints) return errorResponse("Need reputation points");
+
       // Update
       await ctx.drizzle
         .update(userData)
@@ -119,17 +130,301 @@ export const villageRouter = createTRPCRouter({
             eq(userData.status, "AWAKE"),
           ),
         );
+
       return { success: true, message: "You have swapped villages" };
     }),
   getAlliances: publicProcedure.query(async ({ ctx }) => {
-    const [villages, alliances] = await Promise.all([
-      fetchVillages(ctx.drizzle),
-      ctx.drizzle.query.villageAlliance.findMany(),
-    ]);
-    return { villages, alliances };
+    return await fetchPublicAllianceInformation(ctx.drizzle);
   }),
+  createRequest: protectedProcedure
+    .input(z.object({ targetId: z.string(), type: z.enum(UserRequestTypes) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, villages, relationships, requests } = await fetchAllienceInfo(
+        ctx.drizzle,
+        ctx.userId,
+      );
+
+      // Derived
+      const villageId = user?.villageId;
+      const targetId = input.targetId;
+      const target = villages.find((v) => v.id === targetId);
+
+      // General guards
+      if (!target) return errorResponse("Target village not found");
+      if (!user || !villageId) return errorResponse("Not in this village");
+      if (!isKage(user)) return errorResponse("You are not kage");
+
+      // Guards
+      const request = requests
+        .filter((r) => r.status === "PENDING" && r.type === input.type)
+        .find(
+          (r) =>
+            (r.senderId === user.userId && r.receiverId === target.kageId) ||
+            (r.senderId === target.kageId && r.receiverId === user.userId),
+        );
+      if (request) return errorResponse("Already have a pending request");
+      if (!availRequests.includes(input.type)) return errorResponse("Bad r-type");
+
+      // Check if alliance is possible
+      if (input.type === "ALLIANCE") {
+        const check = canAlly(relationships, villages, villageId, targetId);
+        if (!check.success) return check;
+      } else if (input.type === "SURRENDER") {
+        const check = canSurrender(relationships, villageId, targetId);
+        if (!check.success) return check;
+      }
+
+      // Content for private message
+      const title =
+        input.type === "ALLIANCE" ? "Alliance request" : "Surrender request";
+      const content =
+        input.type === "ALLIANCE"
+          ? "I would like to form an alliance with your village. Please accept my request in the town hall."
+          : "I would like to surrender from the war. Please accept my request in the town hall. ";
+
+      // Mutate
+      await Promise.all([
+        insertRequest(ctx.drizzle, user.userId, target.kageId, input.type),
+        createConvo(ctx.drizzle, ctx.userId, [target.kageId], title, content),
+      ]);
+
+      return { success: true, message: "Alliance request sent" };
+    }),
+  acceptRequest: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, villages, relationships, requests } = await fetchAllienceInfo(
+        ctx.drizzle,
+        ctx.userId,
+      );
+
+      // Derived
+      const request = requests.find((r) => r.id === input.requestId);
+      if (!request) return errorResponse("Request not found");
+      const senderVillage = villages.find((v) => v.kageId === request?.senderId);
+      if (!senderVillage) return errorResponse("Request author no longer kage");
+      const senderId = senderVillage?.id;
+      const receiverId = user?.villageId;
+
+      // Guards
+      if (!user || !receiverId) return errorResponse("Not in this village");
+      if (!isKage(user)) return errorResponse("You are not kage");
+      if (request.receiverId !== user.userId) return errorResponse("Go away");
+      if (request.status !== "PENDING") return errorResponse("Request not pending");
+      if (!availRequests.includes(request.type)) return errorResponse("Bad r-type");
+
+      // Check if alliance is possible
+      if (request.type === "ALLIANCE") {
+        const check = canAlly(relationships, villages, senderId, receiverId);
+        if (!check.success) return check;
+      } else if (request.type === "SURRENDER") {
+        const check = canSurrender(relationships, senderId, receiverId);
+        if (!check.success) return check;
+      }
+
+      // Update
+      const state = request.type === "ALLIANCE" ? "ALLY" : "NEUTRAL";
+      await Promise.all([
+        upsertAllianceStatus(ctx.drizzle, relationships, senderId, receiverId, state),
+        updateRequestState(ctx.drizzle, input.requestId, "ACCEPTED", request.type),
+      ]);
+
+      // Return
+      return { success: true, message: "Alliance request accepted" };
+    }),
+  rejectRequest: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, requests } = await fetchAllienceInfo(ctx.drizzle, ctx.userId);
+      // Derived
+      const request = requests.find((r) => r.id === input.requestId);
+      // Guards
+      if (!user) return errorResponse("Not in this village");
+      if (!isKage(user)) return errorResponse("You are not kage");
+      if (!request) return errorResponse("Request not found");
+      if (request.receiverId !== user.userId) return errorResponse("Go away");
+      if (!availRequests.includes(request.type)) return errorResponse("Bad r-type");
+      // Update
+      await updateRequestState(ctx.drizzle, input.requestId, "REJECTED", request.type);
+      return { success: true, message: "Alliance request rejected" };
+    }),
+  cancelRequest: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, requests } = await fetchAllienceInfo(ctx.drizzle, ctx.userId);
+      // Derived
+      const request = requests.find((r) => r.id === input.requestId);
+      // Guards
+      if (!user) return errorResponse("Not in this village");
+      if (!isKage(user)) return errorResponse("You are not kage");
+      if (!request) return errorResponse("Request not found");
+      if (request.senderId !== user.userId) return errorResponse("Go away");
+      if (!availRequests.includes(request.type)) return errorResponse("Bad r-type");
+      // Update
+      await updateRequestState(ctx.drizzle, input.requestId, "CANCELLED", request.type);
+      return { success: true, message: "Alliance request rejected" };
+    }),
+  leaveAlliance: protectedProcedure
+    .input(z.object({ allianceId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, relationships } = await fetchAllienceInfo(ctx.drizzle, ctx.userId);
+      // Derived
+      const alliance = relationships.find((r) => r.id === input.allianceId);
+      // Guards
+      if (!user || !user.villageId) return errorResponse("Not in this village");
+      if (!alliance) return errorResponse("Alliance not found");
+      if (!isKage(user)) return errorResponse("You are not kage");
+      const aId = alliance.villageIdA;
+      const bId = alliance.villageIdB;
+      if (![aId, bId].includes(user.villageId)) return errorResponse("Not in alliance");
+      // Mutate
+      await upsertAllianceStatus(ctx.drizzle, relationships, aId, bId, "NEUTRAL");
+      // Return
+      return { success: true, message: "You have left the alliance" };
+    }),
+  startWar: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const { user, villages, relationships } = await fetchAllienceInfo(
+        ctx.drizzle,
+        ctx.userId,
+      );
+
+      // Derived
+      const villageId = user?.villageId;
+      const targetId = input.villageId;
+      const userVillage = villages.find((v) => v.id === villageId);
+      const target = villages.find((v) => v.id === targetId);
+
+      // General guards
+      if (!userVillage) return errorResponse("User village not found");
+      if (!target) return errorResponse("Target village not found");
+      if (!user || !villageId) return errorResponse("Not in this village");
+      if (!isKage(user)) return errorResponse("You are not kage");
+
+      // Check if war is possible
+      const check = canWar(relationships, villages, villageId, targetId);
+      if (!check.success) return check;
+
+      // Mutate
+      await Promise.all([
+        upsertAllianceStatus(ctx.drizzle, relationships, villageId, targetId, "ENEMY"),
+        ...check.newEnemies.map((id) =>
+          upsertAllianceStatus(ctx.drizzle, relationships, villageId, id, "ENEMY"),
+        ),
+        ...check.newNeutrals.map((id) =>
+          upsertAllianceStatus(ctx.drizzle, relationships, villageId, id, "NEUTRAL"),
+        ),
+        ctx.drizzle.insert(notification).values({
+          userId: ctx.userId,
+          content: `${userVillage.name} has declared war on ${target.name}`,
+        }),
+        ctx.drizzle
+          .update(userData)
+          .set({ unreadNotifications: sql`unreadNotifications + 1` }),
+        ctx.drizzle
+          .update(village)
+          .set({ tokens: sql`${village.tokens} - ${WAR_FUNDS_COST}` })
+          .where(eq(village.id, villageId)),
+      ]);
+      // Return
+      return { success: true, message: "You have declared war" };
+    }),
 });
 
+/**
+ * Upserts the alliance status between two villages.
+ * If an alliance relationship already exists between the villages, updates the status.
+ * Otherwise, creates a new alliance relationship with the specified status.
+ *
+ * @param client - The DrizzleClient instance used to interact with the database.
+ * @param relationships - The array of existing village alliance relationships.
+ * @param villageIdA - The ID of the first village.
+ * @param villageIdB - The ID of the second village.
+ * @param status - The alliance status to set.
+ * @returns A Promise that resolves when the operation is complete.
+ */
+export const upsertAllianceStatus = async (
+  client: DrizzleClient,
+  relationships: VillageAlliance[],
+  villageIdA: string,
+  villageIdB: string,
+  status: AllianceState,
+) => {
+  const alliance = findRelationship(relationships, villageIdA, villageIdB);
+  if (alliance) {
+    await client
+      .update(villageAlliance)
+      .set({ status })
+      .where(eq(villageAlliance.id, alliance.id));
+  } else {
+    await client
+      .insert(villageAlliance)
+      .values({ id: nanoid(), villageIdA, villageIdB, status });
+  }
+};
+
+/**
+ * Fetches alliance information for a given user.
+ *
+ * @param client - The DrizzleClient instance.
+ * @param userId - The ID of the user.
+ * @returns An object containing the user, villages, relationships, and requests.
+ */
+export const fetchAllienceInfo = async (client: DrizzleClient, userId: string) => {
+  const [{ user }, villages, relationships, requests] = await Promise.all([
+    fetchUpdatedUser({ client, userId }),
+    fetchVillages(client),
+    fetchAlliances(client),
+    fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
+  ]);
+  return { user, villages, relationships, requests };
+};
+
+/**
+ * Fetches the information related to villages, alliances, and requests.
+ *
+ * @param client - The DrizzleClient instance used for making queries.
+ * @returns An object containing the fetched villages, alliances, and requests.
+ */
+export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
+  const [villages, relationships, requests] = await Promise.all([
+    fetchVillages(client),
+    fetchAlliances(client),
+    fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
+  ]);
+  return { villages, relationships, requests };
+};
+
+/**
+ * Fetches all alliances from the database.
+ *
+ * @param client - The DrizzleClient instance used to query the database.
+ * @returns A promise that resolves to an array of alliance objects.
+ */
+export const fetchAlliances = async (client: DrizzleClient) => {
+  return await client.query.villageAlliance.findMany();
+};
+
+/**
+ * Fetches a village from the database.
+ *
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param villageId - The ID of the village to fetch.
+ * @returns A Promise that resolves to the fetched village.
+ */
 export const fetchVillage = async (client: DrizzleClient, villageId: string) => {
   return await client.query.village.findFirst({
     where: eq(village.id, villageId),
@@ -149,6 +444,11 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
   });
 };
 
+/**
+ * Fetches villages from the server.
+ * @param client - The DrizzleClient instance used for querying the server.
+ * @returns A promise that resolves to an array of villages, including the associated kage information.
+ */
 export const fetchVillages = async (client: DrizzleClient) => {
   return await client.query.village.findMany({
     with: { kage: { columns: { username: true, userId: true, avatar: true } } },

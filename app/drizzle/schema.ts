@@ -1432,34 +1432,36 @@ export const userBadgeRelations = relations(userBadge, ({ one }) => ({
   }),
 }));
 
-export const userChallenge = mysqlTable(
-  "UserChallenge",
+export const userRequest = mysqlTable(
+  "UserRequest",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    challengerId: varchar("challengerId", { length: 191 }).notNull(),
-    challengedId: varchar("challengedId", { length: 191 }).notNull(),
-    status: mysqlEnum("status", consts.ChallengeStates).notNull(),
+    senderId: varchar("senderId", { length: 191 }).notNull(),
+    receiverId: varchar("receiverId", { length: 191 }).notNull(),
+    status: mysqlEnum("status", consts.UserRequestStates).notNull(),
+    type: mysqlEnum("type", consts.UserRequestTypes).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
   },
   (table) => {
     return {
-      createdAtIdx: index("UserChallenge_createdAt_idx").on(table.createdAt),
-      challengerIdIdx: index("UserChallenge_challengerId_idx").on(table.challengerId),
-      challengedIdIdx: index("UserChallenge_challengedId_idx").on(table.challengedId),
+      createdAtIdx: index("UserRequest_createdAt_idx").on(table.createdAt),
+      challengerIdIdx: index("UserRequest_senderId_idx").on(table.senderId),
+      challengedIdIdx: index("UserRequest_receiverId_idx").on(table.receiverId),
+      typeIdx: index("UserRequest_type_idx").on(table.type),
     };
   },
 );
-export type UserChallenge = InferSelectModel<typeof userChallenge>;
+export type UserRequest = InferSelectModel<typeof userRequest>;
 
-export const userChallengeRelations = relations(userChallenge, ({ one }) => ({
-  challenger: one(userData, {
-    fields: [userChallenge.challengerId],
+export const userRequestRelations = relations(userRequest, ({ one }) => ({
+  sender: one(userData, {
+    fields: [userRequest.senderId],
     references: [userData.userId],
   }),
-  challenged: one(userData, {
-    fields: [userChallenge.challengedId],
+  receiver: one(userData, {
+    fields: [userRequest.receiverId],
     references: [userData.userId],
   }),
 }));

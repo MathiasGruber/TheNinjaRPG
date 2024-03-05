@@ -7,7 +7,7 @@ import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
 import { userJutsu, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
-import { fetchUser, fetchRegeneratedUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
@@ -261,7 +261,7 @@ export const bloodlineRouter = createTRPCRouter({
   swapBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

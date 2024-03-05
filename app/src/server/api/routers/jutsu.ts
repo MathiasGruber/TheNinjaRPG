@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { eq, inArray, isNotNull, sql, and, gte, ne, like, asc } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
-import { fetchUser, fetchRegeneratedUser } from "./profile";
+import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
 import { JUTSU_LEVEL_CAP } from "@/libs/train";
@@ -225,7 +225,7 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

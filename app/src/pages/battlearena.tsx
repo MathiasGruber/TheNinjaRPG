@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import NavTabs from "@/layout/NavTabs";
-import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import {
@@ -11,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getSearchValidator } from "@/validators/register";
 import { useSafePush } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -21,14 +19,12 @@ import { showMutationToast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
+import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
-import { Swords, Check, X, Trash2 } from "lucide-react";
+import { Swords } from "lucide-react";
 import type { z } from "zod";
-import type { UserChallenge } from "@/drizzle/schema";
-import type { ChallengeState, UserRank } from "@/drizzle/constants";
 import type { GenericObject } from "@/layout/ItemWithEffects";
 import type { NextPage } from "next";
-import type { ArrayElement } from "@/utils/typeutils";
 
 const Arena: NextPage = () => {
   // Tab selection
@@ -42,23 +38,26 @@ const Arena: NextPage = () => {
   const subtitle = tab === "Arena" ? "Fight Training" : "PVP Challenges";
 
   return (
-    <ContentBox
-      title={title}
-      subtitle={subtitle}
-      back_href="/village"
-      padding={tab === "Arena"}
-      topRightContent={
-        <NavTabs
-          id="arenaSelection"
-          current={tab}
-          options={["Arena", "Sparring"]}
-          setValue={setTab}
-        />
-      }
-    >
-      {tab === "Arena" && <ChallengeAI />}
-      {tab === "Sparring" && <ChallengeUser />}
-    </ContentBox>
+    <>
+      <ContentBox
+        title={title}
+        subtitle={subtitle}
+        back_href="/village"
+        padding={tab === "Arena"}
+        topRightContent={
+          <NavTabs
+            id="arenaSelection"
+            current={tab}
+            options={["Arena", "Sparring"]}
+            setValue={setTab}
+          />
+        }
+      >
+        {tab === "Arena" && <ChallengeAI />}
+        {tab === "Sparring" && <ChallengeUser />}
+      </ContentBox>
+      {tab === "Sparring" && <ActiveChallenges />}
+    </>
   );
 };
 
@@ -189,41 +188,6 @@ const ChallengeUser: React.FC = () => {
   // Data from database
   const { data: userData } = useRequiredUserData();
 
-  // Queries
-  const { data, refetch } = api.sparring.getUserChallenges.useQuery(undefined, {
-    staleTime: 5000,
-  });
-
-  // Table for challenges sent
-  const challengesSent = data
-    ?.filter((c) => c.challengerId === userData?.userId)
-    .map((c) => ({
-      challenged: <ChallengeUserInfo user={c.challenged} />,
-      status: <ChallengeStatusBox status={c.status} />,
-      actions: <ChallengeActionsBox challenge={c} />,
-    }));
-  type SparSent = ArrayElement<typeof challengesSent>;
-  const sentColumns: ColumnDefinitionType<SparSent, keyof SparSent>[] = [
-    { key: "challenged", header: "Challenged", type: "jsx" },
-    { key: "status", header: "Status", type: "jsx" },
-    { key: "actions", header: "Actions", type: "jsx" },
-  ];
-
-  // Table for challenges received
-  const challengesReceived = data
-    ?.filter((c) => c.challengedId === userData?.userId)
-    .map((c) => ({
-      challenger: <ChallengeUserInfo user={c.challenger} />,
-      status: <ChallengeStatusBox status={c.status} />,
-      actions: <ChallengeActionsBox challenge={c} />,
-    }));
-  type SparReceived = ArrayElement<typeof challengesReceived>;
-  const receivedColumns: ColumnDefinitionType<SparReceived, keyof SparReceived>[] = [
-    { key: "challenger", header: "Challenger", type: "jsx" },
-    { key: "status", header: "Status", type: "jsx" },
-    { key: "actions", header: "Actions", type: "jsx" },
-  ];
-
   // User search
   const maxUsers = 1;
   const userSearchSchema = getSearchValidator({ max: maxUsers });
@@ -232,19 +196,22 @@ const ChallengeUser: React.FC = () => {
   });
   const targetUser = userSearchMethods.watch("users", [])?.[0];
 
-  // Create mutation
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Mutations
   const { mutate: create, isLoading } = api.sparring.createChallenge.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
         userSearchMethods.setValue("users", []);
-        await refetch();
+        await utils.sparring.getUserChallenges.invalidate();
       }
     },
   });
 
-  // Show loaders
-  if (isLoading) return <Loader explanation="Loading challenges" />;
+  // If loading
+  if (isLoading) return <Loader explanation="Loading" />;
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Render
@@ -254,7 +221,7 @@ const ChallengeUser: React.FC = () => {
         You can directly challenging ninja from across the continent to spar against you
         with no consequence to your alliances or village.
       </p>
-      <div className="p-2">
+      <div className="p-2 mb-5">
         <UserSearchSelect
           useFormMethods={userSearchMethods}
           selectedUsers={[]}
@@ -273,22 +240,18 @@ const ChallengeUser: React.FC = () => {
           </Button>
         )}
       </div>
-
-      {challengesSent && challengesSent.length > 0 && (
-        <Table data={challengesSent} columns={sentColumns} />
-      )}
-      {challengesReceived && challengesReceived.length > 0 && (
-        <Table data={challengesReceived} columns={receivedColumns} />
-      )}
     </div>
   );
 };
 
-export default Arena;
-
-const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge }) => {
+const ActiveChallenges: React.FC = () => {
   // Data from database
   const { data: userData } = useRequiredUserData();
+
+  // Queries
+  const { data: challenges } = api.sparring.getUserChallenges.useQuery(undefined, {
+    staleTime: 5000,
+  });
 
   // tRPC utility
   const utils = api.useUtils();
@@ -334,75 +297,28 @@ const ChallengeActionsBox: React.FC<{ challenge: UserChallenge }> = ({ challenge
 
   // If loading
   if (isLoading) return <Loader explanation="Loading" />;
+  if (!userData) return null;
 
-  if (challenge.status === "PENDING") {
-    if (challenge.challengerId === userData?.userId) {
-      return (
-        <Button
-          className="w-full"
-          id="cancel"
-          onClick={() => cancel({ challengeId: challenge.id })}
-        >
-          <Trash2 className="h-5 w-5 mr-2" />
-          Cancel
-        </Button>
-      );
-    } else {
-      return (
-        <div className="grid grid-cols-2 gap-1">
-          <Button id="accept" onClick={() => accept({ challengeId: challenge.id })}>
-            <Check className="h-5 w-5 mr-2" />
-            Accept
-          </Button>
-          <Button id="reject" onClick={() => reject({ challengeId: challenge.id })}>
-            <X className="h-5 w-5 mr-2" />
-            Reject
-          </Button>
-        </div>
-      );
-    }
-  }
-  return null;
-};
-
-const ChallengeStatusBox: React.FC<{ status: ChallengeState }> = ({ status }) => {
-  switch (status) {
-    case "PENDING":
-      return (
-        <div className="bg-amber-300 p-2 rounded-md border-2 border-amber-400 text-amber-600 font-bold">
-          Pending
-        </div>
-      );
-    case "ACCEPTED":
-      return (
-        <div className="bg-green-300 p-2 rounded-md border-2 border-green-400 text-green-600 font-bold">
-          Accepted
-        </div>
-      );
-    case "REJECTED":
-      return (
-        <div className="bg-red-300 p-2 rounded-md border-2 border-red-400 text-red-600 font-bold">
-          Rejected
-        </div>
-      );
-    case "CANCELLED":
-      return (
-        <div className="bg-slate-300 p-2 rounded-md border-2 border-slate-400 text-slate-600 font-bold">
-          Cancelled
-        </div>
-      );
-  }
-};
-
-const ChallengeUserInfo: React.FC<{
-  user: { username: string; level: number; rank: UserRank };
-}> = ({ user }) => {
+  // Render
   return (
-    <div>
-      <p className="font-bold">{user.username}</p>
-      <p>
-        Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
-      </p>
-    </div>
+    challenges &&
+    challenges.length > 0 && (
+      <ContentBox
+        title="Active Challenges"
+        subtitle="Sent to or from you"
+        initialBreak={true}
+        padding={false}
+      >
+        <UserRequestSystem
+          requests={challenges}
+          userId={userData.userId}
+          onAccept={accept}
+          onReject={reject}
+          onCancel={cancel}
+        />
+      </ContentBox>
+    )
   );
 };
+
+export default Arena;

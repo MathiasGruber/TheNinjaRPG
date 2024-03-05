@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
-import { fetchUser, fetchRegeneratedUser, updateNindo } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 
 export const kageRouter = createTRPCRouter({
@@ -65,7 +65,7 @@ export const kageRouter = createTRPCRouter({
     }),
   takeKage: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     // Fetch
-    const { user } = await fetchRegeneratedUser({
+    const { user } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
@@ -85,7 +85,7 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });

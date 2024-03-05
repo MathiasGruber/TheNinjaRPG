@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { quest, questHistory, userData, userChallenge } from "@/drizzle/schema";
-import { CHALLENGE_EXPIRY_SECONDS } from "@/libs/combat/constants";
+import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
+import { SPAR_EXPIRY_SECONDS } from "@/libs/combat/constants";
 import { UserRanks } from "@/drizzle/constants";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";
@@ -26,10 +26,8 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // STEP 2: Clear old challenges
     await drizzleDB
-      .delete(userChallenge)
-      .where(
-        lt(userChallenge.createdAt, secondsFromNow(-CHALLENGE_EXPIRY_SECONDS * 2)),
-      );
+      .delete(userRequest)
+      .where(lt(userRequest.createdAt, secondsFromNow(3600 * 24)));
 
     // STEP 3: Update village prestige
     await drizzleDB

@@ -164,14 +164,23 @@ export const SmileyEmotions = ["like", "love", "laugh"] as const;
 export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
 export type TrainingSpeed = (typeof TrainingSpeeds)[number];
 
-export const ChallengeStates = [
+export const UserRequestStates = [
   "PENDING",
   "ACCEPTED",
   "REJECTED",
   "CANCELLED",
   "EXPIRED",
 ] as const;
-export type ChallengeState = (typeof ChallengeStates)[number];
+export type UserRequestState = (typeof UserRequestStates)[number];
+
+export const UserRequestTypes = [
+  "SPAR",
+  "ALLIANCE",
+  "SURRENDER",
+  "TEACHER",
+  "STUDENT",
+] as const;
+export type UserRequestType = (typeof UserRequestTypes)[number];
 
 export const AllianceStates = ["NEUTRAL", "ALLY", "ENEMY"] as const;
 export type AllianceState = (typeof AllianceStates)[number];
