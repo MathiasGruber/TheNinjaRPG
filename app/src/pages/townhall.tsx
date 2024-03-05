@@ -2,10 +2,13 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
+import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
+import UserRequestSystem from "@/layout/UserRequestSystem";
+import { Handshake, LandPlot, DoorOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
@@ -15,8 +18,10 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
+import { findRelationship } from "@/utils/alliance";
 import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
-import { RANK_REQUIREMENT } from "@/utils/kage";
+import { canAlly, canWar } from "@/utils/alliance";
+import { RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/utils/kage";
 import { PRESTIGE_COST } from "@/utils/kage";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -232,93 +237,261 @@ const AllianceHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  // Queries
   const { data, isLoading } = api.village.getAlliances.useQuery(undefined, {
     staleTime: 10000,
+  });
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Mutations
+  const { mutate: accept } = api.village.acceptRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
+      }
+    },
+  });
+
+  const { mutate: reject } = api.village.rejectRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
+      }
+    },
+  });
+
+  const { mutate: cancel } = api.village.cancelRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
+      }
+    },
   });
 
   if (isLoading || !data) return <Loader explanation="Loading alliances" />;
 
   const villages = data.villages;
-  const alliances = data.alliances;
+  const relationships = data.relationships;
+  const requests = data.requests;
 
   return (
-    <ContentBox
-      title="Town Hall"
-      subtitle="Status between villages"
-      back_href="/village"
-      topRightContent={navTabs}
-    >
-      <div className="grid grid-cols-7 items-center text-center">
-        <div>
-          <p className="font-bold">Kage</p>
-          <p className="py-4">&</p>
-          <p className="font-bold">Village</p>
-        </div>
-        {villages.map((village, i) => (
-          <div key={i}>
-            {village.kage.avatar && (
-              <Link href={`/users/${village.kageId}`}>
-                <AvatarImage
-                  href={village.kage.avatar}
-                  alt={village.kage.username}
-                  hover_effect={true}
-                  size={200}
-                />
-              </Link>
-            )}
-            <p className="font-bold pt-1">{village.name}</p>
-            <VillageBlock village={village} user={user} />
+    <>
+      <ContentBox
+        title="Town Hall"
+        subtitle="Status between villages"
+        back_href="/village"
+        topRightContent={navTabs}
+      >
+        <div className="overflow-auto">
+          <div className="grid grid-cols-7 items-center text-center min-w-[400px]">
+            <div>
+              <p className="font-bold">Kage</p>
+              <p className="py-4">&</p>
+              <p className="font-bold">Village</p>
+            </div>
+            {villages.map((village, i) => (
+              <div key={i}>
+                {village.kage.avatar && (
+                  <Link href={`/users/${village.kageId}`}>
+                    <AvatarImage
+                      href={village.kage.avatar}
+                      alt={village.kage.username}
+                      hover_effect={true}
+                      size={200}
+                    />
+                  </Link>
+                )}
+                <p className="font-bold pt-1">{village.name}</p>
+                <VillageBlock village={village} user={user} />
+              </div>
+            ))}
+            {villages.map((villageRow, i) => {
+              const elements: JSX.Element[] = [
+                <VillageBlock key={`row-${i}`} village={villageRow} user={user} />,
+              ];
+              villages.map((villageCol, j) => {
+                elements.push(
+                  <AllianceBlock
+                    relationships={relationships}
+                    villages={villages}
+                    villageRow={villageRow}
+                    villageCol={villageCol}
+                    user={user}
+                    key={j}
+                  />,
+                );
+              });
+              return elements;
+            })}
           </div>
-        ))}
-        {villages.map((villageRow, i) => {
-          const elements: JSX.Element[] = [
-            <VillageBlock key={`row-${i}`} village={villageRow} user={user} />,
-          ];
-          villages.map((villageCol, j) => {
-            elements.push(
-              <AllianceBlock
-                alliances={alliances}
-                villageRow={villageRow}
-                villageCol={villageCol}
-                user={user}
-                key={j}
-              />,
-            );
-          });
-          return elements;
-        })}
-      </div>
-    </ContentBox>
+        </div>
+      </ContentBox>
+      {requests && requests.length > 0 && (
+        <ContentBox
+          title="Current Requests"
+          subtitle="Sent to or from you"
+          initialBreak={true}
+          padding={false}
+        >
+          <UserRequestSystem
+            requests={requests}
+            userId={user.userId}
+            onAccept={accept}
+            onReject={reject}
+            onCancel={cancel}
+          />
+        </ContentBox>
+      )}
+    </>
   );
 };
 
 const AllianceBlock: React.FC<{
-  alliances: VillageAlliance[];
+  relationships: VillageAlliance[];
+  villages: Village[];
   villageRow: Village;
   villageCol: Village;
   user: UserWithRelations;
-}> = ({ alliances, villageRow, villageCol, user }) => {
+}> = ({ relationships, villages, villageRow, villageCol, user }) => {
   // Default
-  let status: AllianceState = villageRow.id === villageCol.id ? "ALLY" : "NEUTRAL";
-  // Check alliances
-  const alliance = alliances.find(
-    (a) =>
-      (a.villageIdA === villageRow.id && a.villageIdB === villageCol.id) ||
-      (a.villageIdA === villageCol.id && a.villageIdB === villageRow.id),
+  const sameVillage = villageRow.id === villageCol.id;
+  const userVillage = villageRow.id === user?.villageId ? villageRow : villageCol;
+  const otherVillage = villageRow.id === user?.villageId ? villageCol : villageRow;
+  let status: AllianceState = sameVillage ? "ALLY" : "NEUTRAL";
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Mutations
+  const { mutate: create, isLoading: isCreating } =
+    api.village.createRequest.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.getAlliances.invalidate();
+        }
+      },
+    });
+
+  const { mutate: leave, isLoading: isLeaving } = api.village.leaveAlliance.useMutation(
+    {
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.getAlliances.invalidate();
+        }
+      },
+    },
   );
-  if (alliance) status = alliance.status;
+
+  const { mutate: attack, isLoading: isAttacking } = api.village.startWar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
+      }
+    },
+  });
+
+  // Check alliances
+  const relationship = findRelationship(relationships, villageCol.id, villageRow.id);
+  if (relationship) status = relationship.status;
+
+  // Is sending, show loader
+  if (isCreating || isLeaving || isAttacking)
+    return <Loader explanation="Processing" />;
+
   // Box background based on status
   let background = "bg-slate-300";
   if (status === "ALLY") background = "bg-green-300";
   if (status === "ENEMY") background = "bg-red-400";
-  // Highlight
+
+  // Permissions
+  const isKage = [villageRow.kageId, villageCol.kageId].includes(user?.userId ?? "");
+  const ally = canAlly(relationships, villages, villageRow.id, villageCol.id);
+  const war = canWar(relationships, villages, villageRow.id, villageCol.id);
+
+  // Consequences of war
+  const newEnemies = villages.filter((v) => war.newEnemies.includes(v.id));
+  const newNeutrals = villages.filter((v) => war.newNeutrals.includes(v.id));
+
+  // Derived
   const doHighlight = [villageRow.id, villageCol.id].includes(user?.villageId ?? "");
   const highlight = doHighlight ? "" : "opacity-50";
+
+  // Render
   return (
     <div
-      className={`aspect-square ${background} ${highlight} flex items-center justify-center font-bold border-2`}
+      className={`relative aspect-square ${background} ${highlight} flex items-center justify-center font-bold border-2`}
     >
-      {capitalizeFirstLetter(status)}
+      {isKage && relationship && !sameVillage && status === "ALLY" && (
+        <Button
+          className="absolute top-1 left-1 px-1"
+          variant="ghost"
+          onClick={() => leave({ allianceId: relationship.id })}
+        >
+          <DoorOpen className=" h-6 w-6 hover:text-orange-500" />
+        </Button>
+      )}
+      {isKage && !sameVillage && war.success && (
+        <Confirm
+          title="Confirm War Declaration"
+          button={
+            <Button className="absolute top-1 right-1 px-1" variant="ghost">
+              <Swords className=" h-6 w-6 hover:text-orange-500" />
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            attack({ villageId: otherVillage.id });
+          }}
+        >
+          <p>You are about to declare war on {otherVillage.name}. Are you sure?</p>
+          <p>The cost of initiating a war is {WAR_FUNDS_COST} village tokens</p>
+          {newEnemies.length > 0 && (
+            <p>
+              <span className="font-bold">Additional Enemies: </span>
+              <span className="font-normal">
+                {newEnemies.map((v) => v.name).join(", ")} will become enemies
+              </span>
+            </p>
+          )}
+          {newNeutrals.length > 0 && (
+            <p>
+              <span className="font-bold">Broken Alliances: </span>
+              <span className="font-normal">
+                {newNeutrals.map((v) => v.name).join(", ")} will become neutral
+              </span>
+            </p>
+          )}
+        </Confirm>
+      )}
+      {isKage && status === "ENEMY" && (
+        <Button
+          className="absolute top-1 left-1 px-1"
+          variant="ghost"
+          onClick={() => create({ targetId: otherVillage.id, type: "SURRENDER" })}
+        >
+          <LandPlot className=" h-6 w-6 hover:text-orange-500" />
+        </Button>
+      )}
+      {isKage && ally.success && (
+        <Button
+          className="absolute top-1 left-1 px-1"
+          variant="ghost"
+          onClick={() => create({ targetId: otherVillage.id, type: "ALLIANCE" })}
+        >
+          <Handshake className=" h-6 w-6 hover:text-orange-500" />
+        </Button>
+      )}
+      <p className="absolute bottom-3 text-xs sm:text-base md:text-sm">
+        {capitalizeFirstLetter(status)}
+      </p>
     </div>
   );
 };

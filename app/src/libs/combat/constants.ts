@@ -3,7 +3,7 @@ export const COMBAT_HEIGHT = 5;
 export const COMBAT_SECONDS = 10;
 export const COMBAT_LOBBY_SECONDS = 20;
 
-export const CHALLENGE_EXPIRY_SECONDS = 120;
+export const SPAR_EXPIRY_SECONDS = 120;
 
 export const ATK_SCALING = 0.5;
 export const DEF_SCALING = 0.5;

@@ -20,6 +20,8 @@ import type { UserEvent } from "@/utils/UserContext";
 import type { ReturnedBattle } from "@/libs/combat/types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
+  // tRPC utility
+  const utils = api.useUtils();
   // Clerk token
   const [token, setToken] = useState<string | null>(null);
   // Pusher connection
@@ -120,9 +122,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {
         if (data.type === "battle") {
-          await refetchUser();
+          console.log("Received battle event");
         } else if (data.type === "newInbox") {
-          await refetchUser();
+          console.log("Received inbox");
         } else if (data.type === "challengeCreated") {
           showMutationToast({
             success: true,
@@ -157,13 +159,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
             ),
           });
         }
+        await utils.invalidate();
       });
       return () => {
         pusher.unsubscribe(userId);
         pusher.disconnect();
       };
     }
-  }, [userId, refetchUser]);
+  }, [userId, utils, refetchUser]);
 
   // Show user notifications in toast
   useEffect(() => {

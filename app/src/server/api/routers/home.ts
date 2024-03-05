@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, gte, and } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
-import { fetchRegeneratedUser } from "./profile";
+import { fetchUpdatedUser } from "./profile";
 import { getServerPusher } from "../../../libs/pusher";
 import { calcIsInVillage } from "../../../libs/travel/controls";
 
@@ -10,7 +10,7 @@ export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      const { user } = await fetchRegeneratedUser({
+      const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
