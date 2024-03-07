@@ -17,6 +17,7 @@ import { logsRouter } from "./routers/logs";
 import { dataRouter } from "./routers/data";
 import { simulatorRouter } from "./routers/simulator";
 import { miscRouter } from "./routers/misc";
+// import { combatRouter } from "./routers/combat";
 import { questsRouter } from "./routers/quests";
 import { openaiRouter } from "./routers/openai";
 import { conceptartRouter } from "./routers/conceptart";
@@ -46,11 +47,11 @@ export const appRouter = createTRPCRouter({
   jutsu: jutsuRouter,
   home: homeRouter,
   item: itemRouter,
-  combat: lazy(() =>
-    import("./routers/combat.ts").then((m) => {
-      return m.combatRouter;
-    }),
-  ),
+  // combat: combatRouter,
+  combat: lazy(() => {
+    const router = import("./routers/combat.ts").then((m) => m.combatRouter);
+    return router;
+  }),
   hospital: hospitalRouter,
   logs: logsRouter,
   data: dataRouter,
