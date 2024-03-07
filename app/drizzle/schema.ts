@@ -23,7 +23,7 @@ import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import type { QuestContentType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
-
+import { STATS_CAP, GENS_CAP } from "@/libs/profile";
 import * as consts from "./constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 
@@ -831,6 +831,21 @@ export const insertUserDataSchema = createInsertSchema(userData)
       jutsus: z.array(z.string()).optional(),
       primaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
+      level: z.coerce.number().min(1).max(100),
+      regeneration: z.coerce.number().min(1).max(100),
+      ninjutsuOffence: z.coerce.number().min(10).max(STATS_CAP),
+      ninjutsuDefence: z.coerce.number().min(10).max(STATS_CAP),
+      genjutsuOffence: z.coerce.number().min(10).max(STATS_CAP),
+      genjutsuDefence: z.coerce.number().min(10).max(STATS_CAP),
+      taijutsuOffence: z.coerce.number().min(10).max(STATS_CAP),
+      taijutsuDefence: z.coerce.number().min(10).max(STATS_CAP),
+      bukijutsuOffence: z.coerce.number().min(10).max(STATS_CAP),
+      bukijutsuDefence: z.coerce.number().min(10).max(STATS_CAP),
+      strength: z.coerce.number().min(10).max(GENS_CAP),
+      intelligence: z.coerce.number().min(10).max(GENS_CAP),
+      willpower: z.coerce.number().min(10).max(GENS_CAP),
+      speed: z.coerce.number().min(10).max(GENS_CAP),
+      isSummon: z.coerce.number().min(0).max(1),
     }),
   );
 export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
