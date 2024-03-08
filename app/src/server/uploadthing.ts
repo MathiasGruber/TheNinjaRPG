@@ -23,17 +23,17 @@ export const ourFileRouter = {
     .onUploadComplete(({ file }) => {
       return { fileUrl: file.url };
     }),
-  avatarNormalUploader: f({ image: { maxFileSize: "128KB" } })
+  avatarNormalUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
-  avatarSilverUploader: f({ image: { maxFileSize: "256KB" } })
+  avatarSilverUploader: f({ image: { maxFileSize: "1MB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "SILVER"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
-  avatarGoldUploader: f({ image: { maxFileSize: "512KB" } })
+  avatarGoldUploader: f({ image: { maxFileSize: "2MB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "GOLD"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);

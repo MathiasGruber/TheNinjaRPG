@@ -380,7 +380,7 @@ const PayPalSubscriptionButton = (props: {
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Blue username in tavern</li>
         <li>+2 Inventory space</li>
-        <li>Custom avatar (128kb)</li>
+        <li>Custom avatar (512KB)</li>
         <li>One extra jutsu slot</li>
       </ul>
     </>
@@ -392,7 +392,7 @@ const PayPalSubscriptionButton = (props: {
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Silver username in tavern</li>
         <li>+5 Inventory space</li>
-        <li>Custom avatar (256kb)</li>
+        <li>Custom avatar (1MB)</li>
         <li>Two extra jutsu slots</li>
       </ul>
     </>
@@ -404,7 +404,7 @@ const PayPalSubscriptionButton = (props: {
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Gold username in tavern</li>
         <li>+10 Inventory space</li>
-        <li>Custom avatar (512kb)</li>
+        <li>Custom avatar (2MB)</li>
         <li>Three extra jutsu slots</li>
       </ul>
     </>
