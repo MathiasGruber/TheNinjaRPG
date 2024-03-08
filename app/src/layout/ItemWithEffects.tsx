@@ -208,6 +208,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Range</b>: {item.range}
               </p>
             )}
+            {"destroyOnUse" in item && (
+              <p>
+                <b>Destroy on use</b>: {item.destroyOnUse ? "yes" : "no"}
+              </p>
+            )}
             {"chakraCostPerc" in item && item.chakraCostPerc > 0 && (
               <p>
                 <b>CP Use</b>: {item.chakraCostPerc}%
