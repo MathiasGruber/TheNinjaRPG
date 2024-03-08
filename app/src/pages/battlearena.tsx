@@ -218,7 +218,7 @@ const ChallengeUser: React.FC = () => {
   return (
     <div>
       <p className="p-2">
-        You can directly challenging ninja from across the continent to spar against you
+        You can directly challenge ninja from across the continent to spar against you
         with no consequence to your alliances or village.
       </p>
       <div className="p-2 mb-5">
