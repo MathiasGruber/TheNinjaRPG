@@ -152,7 +152,7 @@ export const QuestValidator = z
     successDescription: z.string().min(1).max(512).optional().nullish(),
     requiredRank: z.enum(LetterRanks).optional(),
     requiredLevel: z.coerce.number().min(0).max(100).optional(),
-    requiredVillage: z.string().min(0).max(21).optional().nullish(),
+    requiredVillage: z.string().min(0).max(30).optional().nullish(),
     tierLevel: z.coerce.number().min(0).max(100).optional().nullish(),
     timeFrame: z.enum(TimeFrames),
     questType: z.enum(QuestTypes),
