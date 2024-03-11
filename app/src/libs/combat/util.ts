@@ -355,6 +355,19 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       let deltaPrestige = 0;
       if (battle.battleType === "KAGE" && !didWin) deltaPrestige = -PRESTIGE_COST;
 
+      // Village tokens reward
+      const vilId = user.villageId;
+      let deltaTokens = 0;
+      console.log(didWin, vilId);
+      if (didWin) {
+        targetsLeft.forEach((target) => {
+          console.log(target.relations);
+          deltaTokens += target.relations
+            .filter((r) => r.status === "ENEMY")
+            .filter((r) => r.villageIdA === vilId || r.villageIdB === vilId).length;
+        });
+      }
+
       // Result object
       const result: CombatResult = {
         didWin: didWin ? 1 : 0,
@@ -381,6 +394,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         villagePrestige: deltaPrestige,
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
+        villageTokens: deltaTokens,
       };
 
       // Things to reward for non-spars

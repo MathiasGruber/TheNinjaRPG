@@ -1086,6 +1086,8 @@ export type Village = InferSelectModel<typeof village>;
 
 export const villageRelations = relations(village, ({ many, one }) => ({
   structures: many(villageStructure),
+  relationshipA: many(villageAlliance, { relationName: "villageA" }),
+  relationshipB: many(villageAlliance, { relationName: "villageB" }),
   kage: one(userData, {
     fields: [village.kageId],
     references: [userData.userId],
@@ -1149,6 +1151,19 @@ export const villageAlliance = mysqlTable(
   },
 );
 export type VillageAlliance = InferSelectModel<typeof villageAlliance>;
+
+export const villageAllianceRelations = relations(villageAlliance, ({ one }) => ({
+  villageA: one(village, {
+    fields: [villageAlliance.villageIdA],
+    references: [village.id],
+    relationName: "villageA",
+  }),
+  villageB: one(village, {
+    fields: [villageAlliance.villageIdB],
+    references: [village.id],
+    relationName: "villageB",
+  }),
+}));
 
 export const kageDefendedChallenges = mysqlTable(
   "KageDefendedChallenges",

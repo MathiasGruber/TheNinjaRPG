@@ -16,11 +16,13 @@ import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
-import { updateUser, updateBattle, updateVillage } from "@/libs/combat/database";
+import { updateUser, updateBattle } from "@/libs/combat/database";
+import { updateVillage, updateKage } from "@/libs/combat/database";
 import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
+import { villageAlliance } from "@/drizzle/schema";
 import { performActionSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
@@ -338,6 +340,7 @@ export const combatRouter = createTRPCRouter({
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),
               updateUser(db, newBattle, result, suid),
+              updateKage(db, newBattle, result, suid),
               updateVillage(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
@@ -532,7 +535,8 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userId, targetId, client } = info;
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
-    const [achievements, users] = await Promise.all([
+    const [relations, achievements, users] = await Promise.all([
+      tx.select().from(villageAlliance),
       tx.select().from(quest).where(eq(quest.questType, "achievement")),
       tx.query.userData.findMany({
         with: {
@@ -643,6 +647,16 @@ export const initiateBattle = async (
     const { userEffects, usersState, allSummons } = processUsersForBattle(
       users as BattleUserState[],
     );
+
+    // Add relevant relations to usersState
+    usersState.forEach((u) => {
+      console.log(relations);
+      console.log("-------------------");
+      u.relations = relations.filter(
+        (r) => r.villageIdA === u.villageId || r.villageIdB === u.villageId,
+      );
+      console.log(u.relations);
+    });
 
     // If this is a kage challenge, convert all to be AIs & set them as not originals
     if (battleType === "KAGE") {

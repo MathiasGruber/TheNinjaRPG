@@ -132,7 +132,7 @@ export const createAction = async (
   }
 };
 
-export const updateVillage = async (
+export const updateKage = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
@@ -167,6 +167,25 @@ export const updateVillage = async (
       }),
     ]);
   }
+};
+
+export const updateVillage = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch
+  const user = curBattle.usersState.find((u) => u.userId === userId);
+  // Guards
+  if (!user || !user.villageId) return;
+  if (!result) return;
+  if (result.villageTokens === 0) return;
+  // Mutate
+  await client
+    .update(village)
+    .set({ tokens: sql`tokens + ${result.villageTokens}` })
+    .where(eq(village.id, user.villageId));
 };
 
 /**
