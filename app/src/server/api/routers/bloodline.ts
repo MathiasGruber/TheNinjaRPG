@@ -14,7 +14,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
-import { COST_SWAP_BLOODLINE } from "@/libs/profile";
+import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { BloodlineRank, UserData } from "@/drizzle/schema";

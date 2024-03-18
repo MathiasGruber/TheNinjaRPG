@@ -8,17 +8,13 @@ import { updateUserSchema } from "@/validators/user";
 import type { UpdateUserSchema } from "@/validators/user";
 import type { UserData } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
-
-export const HP_PER_LVL = 50;
-export const SP_PER_LVL = 50;
-export const CP_PER_LVL = 50;
-export const COST_CHANGE_USERNAME = 5;
-export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
-export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
-export const COST_RESET_STATS = 0; // TODO: Should be 5
-export const MAX_ATTRIBUTES = 5;
-export const STATS_CAP = 200000;
-export const GENS_CAP = 100000;
+import {
+  STATS_CAP,
+  GENS_CAP,
+  HP_PER_LVL,
+  SP_PER_LVL,
+  CP_PER_LVL,
+} from "@/drizzle/constants";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;

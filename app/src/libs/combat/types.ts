@@ -5,7 +5,7 @@ import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
 import { StatType, GeneralType, PoolType } from "@/libs/combat/constants";
-import { STATS_CAP, GENS_CAP } from "@/libs/profile";
+import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance } from "@/drizzle/schema";

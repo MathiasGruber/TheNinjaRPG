@@ -14,7 +14,7 @@ import { createConvo } from "./comments";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
-import { COST_SWAP_VILLAGE } from "@/libs/profile";
+import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/utils/kage";
