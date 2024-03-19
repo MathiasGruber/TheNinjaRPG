@@ -140,14 +140,14 @@ const MenuBoxProfile: React.FC = () => {
       case "ASLEEP":
         return (
           <Link href="/home" className="flex flex-row hover:text-orange-500">
-            ASLEEP <Sun className="ml-1 h-6 w-6 hover:fill-orange-500" />
+            ASLEEP <Moon className="ml-1 h-6 w-6 hover:fill-orange-500" />
           </Link>
         );
       case "AWAKE":
         if (location) {
           return (
             <Link href="/home" className="flex flex-row hover:text-orange-500">
-              AWAKE <Moon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+              AWAKE <Sun className="ml-1 h-6 w-6 hover:fill-orange-500" />
             </Link>
           );
         } else {
