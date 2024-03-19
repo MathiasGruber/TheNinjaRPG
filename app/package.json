@@ -14,7 +14,7 @@
     "makemigrations": "drizzle-kit generate:mysql"
   },
   "dependencies": {
-    "@clerk/nextjs": "4.29.3",
+    "@clerk/nextjs": "4.29.9",
     "@highlight-run/next": "7.3.5",
     "@highlight-run/node": "3.7.3",
     "@highlight-run/react": "3.2.1",
