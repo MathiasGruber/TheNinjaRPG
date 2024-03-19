@@ -12,6 +12,7 @@ const PublicProfile: NextPage = () => {
       title="Users"
       back_href="/users"
       showRecruited
+      showStudents
       showBadges
       showNindo
     />

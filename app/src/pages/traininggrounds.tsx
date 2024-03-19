@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import ContentBox from "@/layout/ContentBox";
@@ -7,6 +8,14 @@ import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import StatusBar from "@/layout/StatusBar";
 import NavTabs from "@/layout/NavTabs";
+import AvatarImage from "@/layout/Avatar";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import PublicUserComponent from "@/layout/PublicUser";
+import UserRequestSystem from "@/layout/UserRequestSystem";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { getSearchValidator } from "@/validators/register";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { Button } from "@/components/ui/button";
 import { energyPerSecond } from "@/libs/train";
@@ -25,6 +34,8 @@ import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { getUserElements } from "@/validators/user";
+import { Handshake } from "lucide-react";
+import type { z } from "zod";
 import type { ElementName, TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
@@ -40,11 +51,15 @@ const Training: NextPage = () => {
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
 
+  // Show sensei component
+  const showSenseiSystem = userData.rank === "JONIN" || userData.rank === "GENIN";
+
   // Show components if we have user
   return (
     <>
       <StatsTraining userData={userData} timeDiff={timeDiff} />
       <JutsuTraining userData={userData} timeDiff={timeDiff} />
+      {showSenseiSystem && <SenseiSystem userData={userData} timeDiff={timeDiff} />}
     </>
   );
 };
@@ -55,6 +70,163 @@ interface TrainingProps {
   userData: NonNullable<UserWithRelations>;
   timeDiff: number;
 }
+
+const SenseiSystem: React.FC<TrainingProps> = (props) => {
+  // Settings
+  const { userData } = props;
+
+  // tRPC useUtils
+  const utils = api.useUtils();
+
+  // User search
+  const maxUsers = 1;
+  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+  });
+  const targetUser = userSearchMethods.watch("users", [])?.[0];
+
+  // Queries
+  const { data: students, isFetching } = api.sensei.getStudents.useQuery(
+    { userId: userData.userId },
+    { enabled: userData.rank === "JONIN", staleTime: Infinity },
+  );
+
+  const { data: requests } = api.sensei.getRequests.useQuery(undefined, {
+    staleTime: 5000,
+  });
+
+  // Mutations
+  const { mutate: create, isPending: isCreating } =
+    api.sensei.createRequest.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          await utils.sensei.getRequests.invalidate();
+        }
+      },
+    });
+
+  const { mutate: accept, isPending: isAccepting } =
+    api.sensei.acceptRequest.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          await utils.sensei.getRequests.invalidate();
+        }
+      },
+    });
+
+  const { mutate: reject, isPending: isRejecting } =
+    api.sensei.rejectRequest.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.sensei.getRequests.invalidate();
+        }
+      },
+    });
+
+  const { mutate: cancel, isPending: isCancelling } =
+    api.sensei.cancelRequest.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.sensei.getRequests.invalidate();
+        }
+      },
+    });
+
+  // Derived features
+  const isPending =
+    isFetching || isCreating || isAccepting || isRejecting || isCancelling;
+  const message =
+    userData.rank === "JONIN"
+      ? "Search for Genin to take in as students"
+      : "Search for Jonin to be your sensei";
+  const showRequestSystem = userData.rank === "JONIN" || !userData.senseiId;
+  const showSensei = userData.rank === "GENIN" && userData.senseiId;
+  const showStudents = userData.rank === "JONIN" && students && students.length > 0;
+
+  // If loading
+  if (isPending) return <Loader explanation="Processing..." />;
+
+  // Render
+  return (
+    <>
+      {/* Show Students */}
+      {showStudents && (
+        <ContentBox title="Students" subtitle={`Past and present`} initialBreak={true}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
+            {students.map((user, i) => (
+              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+                <AvatarImage
+                  href={user.avatar}
+                  alt={user.username}
+                  userId={user.userId}
+                  hover_effect={true}
+                  priority={true}
+                  size={100}
+                />
+                <div>
+                  <div className="font-bold">{user.username}</div>
+                  <div>
+                    Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </ContentBox>
+      )}
+      {/* Show Sensei */}
+      {showSensei && (
+        <PublicUserComponent initialBreak userId={showSensei} title="Your Sensei" />
+      )}
+      {/* Show Requests */}
+      {showRequestSystem && (
+        <ContentBox
+          title="Sensei"
+          subtitle="Requests from and to"
+          initialBreak={true}
+          padding={false}
+        >
+          <div className="p-3">
+            <p className="pb-2">{message}</p>
+            <UserSearchSelect
+              useFormMethods={userSearchMethods}
+              selectedUsers={[]}
+              showYourself={false}
+              inline={true}
+              maxUsers={maxUsers}
+            />
+            {targetUser && (
+              <Button
+                id="send"
+                className="mt-2 w-full"
+                onClick={() => create({ targetId: targetUser.userId })}
+              >
+                <Handshake className="h-5 w-5 mr-2" />
+                Send Request
+              </Button>
+            )}
+          </div>
+          {requests && requests.length > 0 && (
+            <UserRequestSystem
+              requests={requests}
+              userId={userData.userId}
+              onAccept={accept}
+              onReject={reject}
+              onCancel={cancel}
+            />
+          )}
+        </ContentBox>
+      )}
+    </>
+  );
+};
 
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings

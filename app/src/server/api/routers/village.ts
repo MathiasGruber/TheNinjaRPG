@@ -18,6 +18,7 @@ import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/utils/kage";
+import { deleteSenseiRequests } from "@/routers/sensei";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -113,23 +114,26 @@ export const villageRouter = createTRPCRouter({
       if (cost > user.reputationPoints) return errorResponse("Need reputation points");
 
       // Update
-      await ctx.drizzle
-        .update(userData)
-        .set({
-          villageId: village.id,
-          reputationPoints: user.reputationPoints - cost,
-          villagePrestige: 0,
-          sector: village.sector,
-          longitude: ALLIANCEHALL_LONG,
-          latitude: ALLIANCEHALL_LAT,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            gte(userData.reputationPoints, cost),
-            eq(userData.status, "AWAKE"),
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villageId: village.id,
+            reputationPoints: user.reputationPoints - cost,
+            villagePrestige: 0,
+            sector: village.sector,
+            longitude: ALLIANCEHALL_LONG,
+            latitude: ALLIANCEHALL_LAT,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gte(userData.reputationPoints, cost),
+              eq(userData.status, "AWAKE"),
+            ),
           ),
-        );
+        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+      ]);
 
       return { success: true, message: "You have swapped villages" };
     }),
@@ -193,7 +197,7 @@ export const villageRouter = createTRPCRouter({
       return { success: true, message: "Alliance request sent" };
     }),
   acceptRequest: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetches
@@ -203,7 +207,7 @@ export const villageRouter = createTRPCRouter({
       );
 
       // Derived
-      const request = requests.find((r) => r.id === input.requestId);
+      const request = requests.find((r) => r.id === input.id);
       if (!request) return errorResponse("Request not found");
       const senderVillage = villages.find((v) => v.kageId === request?.senderId);
       if (!senderVillage) return errorResponse("Request author no longer kage");
@@ -230,20 +234,20 @@ export const villageRouter = createTRPCRouter({
       const state = request.type === "ALLIANCE" ? "ALLY" : "NEUTRAL";
       await Promise.all([
         upsertAllianceStatus(ctx.drizzle, relationships, senderId, receiverId, state),
-        updateRequestState(ctx.drizzle, input.requestId, "ACCEPTED", request.type),
+        updateRequestState(ctx.drizzle, input.id, "ACCEPTED", request.type),
       ]);
 
       // Return
       return { success: true, message: "Alliance request accepted" };
     }),
   rejectRequest: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetches
       const { user, requests } = await fetchAllienceInfo(ctx.drizzle, ctx.userId);
       // Derived
-      const request = requests.find((r) => r.id === input.requestId);
+      const request = requests.find((r) => r.id === input.id);
       // Guards
       if (!user) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
@@ -251,17 +255,17 @@ export const villageRouter = createTRPCRouter({
       if (request.receiverId !== user.userId) return errorResponse("Go away");
       if (!availRequests.includes(request.type)) return errorResponse("Bad r-type");
       // Update
-      await updateRequestState(ctx.drizzle, input.requestId, "REJECTED", request.type);
+      await updateRequestState(ctx.drizzle, input.id, "REJECTED", request.type);
       return { success: true, message: "Alliance request rejected" };
     }),
   cancelRequest: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetches
       const { user, requests } = await fetchAllienceInfo(ctx.drizzle, ctx.userId);
       // Derived
-      const request = requests.find((r) => r.id === input.requestId);
+      const request = requests.find((r) => r.id === input.id);
       // Guards
       if (!user) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
@@ -269,7 +273,7 @@ export const villageRouter = createTRPCRouter({
       if (request.senderId !== user.userId) return errorResponse("Go away");
       if (!availRequests.includes(request.type)) return errorResponse("Bad r-type");
       // Update
-      await updateRequestState(ctx.drizzle, input.requestId, "CANCELLED", request.type);
+      await updateRequestState(ctx.drizzle, input.id, "CANCELLED", request.type);
       return { success: true, message: "Alliance request rejected" };
     }),
   leaveAlliance: protectedProcedure

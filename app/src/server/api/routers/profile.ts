@@ -843,6 +843,15 @@ export const profileRouter = createTRPCRouter({
               avatar: true,
             },
           },
+          students: {
+            columns: {
+              userId: true,
+              username: true,
+              level: true,
+              rank: true,
+              avatar: true,
+            },
+          },
         },
       });
       return user ?? null;

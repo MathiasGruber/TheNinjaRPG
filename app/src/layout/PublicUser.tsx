@@ -26,6 +26,7 @@ interface PublicUserComponentProps {
   back_href?: string;
   initialBreak?: boolean;
   showRecruited?: boolean;
+  showStudents?: boolean;
   showBadges?: boolean;
   showNindo?: boolean;
 }
@@ -36,6 +37,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   back_href,
   initialBreak,
   showRecruited,
+  showStudents,
   showBadges,
   showNindo,
 }) => {
@@ -209,6 +211,31 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.recruitedUsers.map((user, i) => (
+              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+                <AvatarImage
+                  href={user.avatar}
+                  alt={user.username}
+                  userId={user.userId}
+                  hover_effect={true}
+                  priority={true}
+                  size={100}
+                />
+                <div>
+                  <div className="font-bold">{user.username}</div>
+                  <div>
+                    Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </ContentBox>
+      )}
+      {/* STUDENTS */}
+      {showStudents && profile.students.length > 0 && (
+        <ContentBox title="Students" subtitle={`Past and present`} initialBreak={true}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
+            {profile.students.map((user, i) => (
               <Link href={`/users/${user.userId}`} className="text-center" key={i}>
                 <AvatarImage
                   href={user.avatar}

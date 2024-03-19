@@ -782,6 +782,7 @@ export const userData = mysqlTable(
     unreadNotifications: smallint("unreadNotifications").default(0).notNull(),
     unreadNews: tinyint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
+    senseiId: varchar("senseiId", { length: 191 }),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
@@ -876,6 +877,12 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.recruiterId],
     references: [userData.userId],
     relationName: "recruiter",
+  }),
+  students: many(userData, { relationName: "sensei" }),
+  sensei: one(userData, {
+    fields: [userData.senseiId],
+    references: [userData.userId],
+    relationName: "sensei",
   }),
 }));
 

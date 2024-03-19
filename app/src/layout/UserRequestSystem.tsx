@@ -18,9 +18,9 @@ type ReturnedRequest = UserRequest & { receiver: RequestUser; sender: RequestUse
 interface UserRequestSystemProps {
   requests: ReturnedRequest[];
   userId: string;
-  onAccept: (props: { requestId: string }) => void;
-  onReject: (props: { requestId: string }) => void;
-  onCancel: (props: { requestId: string }) => void;
+  onAccept: (props: { id: string }) => void;
+  onReject: (props: { id: string }) => void;
+  onCancel: (props: { id: string }) => void;
 }
 
 const UserRequestSystem: React.FC<UserRequestSystemProps> = (props) => {
@@ -84,7 +84,7 @@ const ChallengeActionsBox: React.FC<ChallengeActionsBoxProps> = (props) => {
         <Button
           className="w-full"
           id="cancel"
-          onClick={() => onCancel({ requestId: challenge.id })}
+          onClick={() => onCancel({ id: challenge.id })}
         >
           <Trash2 className="h-5 w-5 mr-2" />
           Cancel
@@ -93,11 +93,11 @@ const ChallengeActionsBox: React.FC<ChallengeActionsBoxProps> = (props) => {
     } else {
       return (
         <div className="grid grid-cols-2 gap-1">
-          <Button id="accept" onClick={() => onAccept({ requestId: challenge.id })}>
+          <Button id="accept" onClick={() => onAccept({ id: challenge.id })}>
             <Check className="h-5 w-5 mr-2" />
             Accept
           </Button>
-          <Button id="reject" onClick={() => onReject({ requestId: challenge.id })}>
+          <Button id="reject" onClick={() => onReject({ id: challenge.id })}>
             <X className="h-5 w-5 mr-2" />
             Reject
           </Button>

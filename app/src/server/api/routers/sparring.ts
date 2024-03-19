@@ -38,12 +38,12 @@ export const sparringRouter = createTRPCRouter({
       return { success: true, message: "Challenge created" };
     }),
   acceptChallenge: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
       const [challenge, user] = await Promise.all([
-        fetchRequest(ctx.drizzle, input.requestId, "SPAR"),
+        fetchRequest(ctx.drizzle, input.id, "SPAR"),
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
       // Guards
@@ -65,7 +65,7 @@ export const sparringRouter = createTRPCRouter({
         determineArenaBackground("Unknown"),
       );
       if (result.success) {
-        await updateRequestState(ctx.drizzle, input.requestId, "ACCEPTED", "SPAR");
+        await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");
         void pusher.trigger(challenge.senderId, "event", {
           type: "challengeAccepted",
         });
@@ -73,10 +73,10 @@ export const sparringRouter = createTRPCRouter({
       return result;
     }),
   rejectChallenge: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const challenge = await fetchRequest(ctx.drizzle, input.requestId, "SPAR");
+      const challenge = await fetchRequest(ctx.drizzle, input.id, "SPAR");
       if (challenge.receiverId !== ctx.userId) {
         throw serverError("FORBIDDEN", "You can only reject challenge for yourself");
       }
@@ -86,25 +86,20 @@ export const sparringRouter = createTRPCRouter({
       void pusher.trigger(challenge.senderId, "event", {
         type: "challengeRejected",
       });
-      return await updateRequestState(ctx.drizzle, input.requestId, "REJECTED", "SPAR");
+      return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "SPAR");
     }),
   cancelChallenge: protectedProcedure
-    .input(z.object({ requestId: z.string() }))
+    .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const challenge = await fetchRequest(ctx.drizzle, input.requestId, "SPAR");
+      const challenge = await fetchRequest(ctx.drizzle, input.id, "SPAR");
       if (challenge.senderId !== ctx.userId) {
         throw serverError("FORBIDDEN", "You can only cancel challenges created by you");
       }
       if (challenge.status !== "PENDING") {
         throw serverError("FORBIDDEN", "You can only cancel pending challenges");
       }
-      return await updateRequestState(
-        ctx.drizzle,
-        input.requestId,
-        "CANCELLED",
-        "SPAR",
-      );
+      return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "SPAR");
     }),
 });
 
@@ -145,18 +140,18 @@ export const fetchRequests = async (
 /**
  * Fetches a user request from the database based on the request ID and type.
  * @param client - The Drizzle client used to query the database.
- * @param requestId - The ID of the request to fetch.
+ * @param id - The ID of the request to fetch.
  * @param type - The type of the request to fetch.
  * @returns - A promise that resolves to the fetched user request.
  * @throws {ServerError} - If the request is not found in the database.
  */
 export const fetchRequest = async (
   client: DrizzleClient,
-  requestId: string,
+  id: string,
   type: UserRequestType,
 ) => {
   const result = await client.query.userRequest.findFirst({
-    where: and(eq(userRequest.id, requestId), eq(userRequest.type, type)),
+    where: and(eq(userRequest.id, id), eq(userRequest.type, type)),
   });
   if (!result) throw serverError("NOT_FOUND", "Request not found");
   return result;

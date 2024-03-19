@@ -23,6 +23,7 @@ import { openaiRouter } from "./routers/openai";
 import { conceptartRouter } from "./routers/conceptart";
 import { bankRouter } from "./routers/bank";
 import { badgeRouter } from "./routers/badge";
+import { senseiRouter } from "./routers/sensei";
 import { sparringRouter } from "./routers/sparring";
 import { kageRouter } from "./routers/kage";
 
@@ -57,6 +58,7 @@ export const appRouter = createTRPCRouter({
   bank: bankRouter,
   badge: badgeRouter,
   sparring: sparringRouter,
+  sensei: senseiRouter,
   kage: kageRouter,
 });
 

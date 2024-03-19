@@ -122,6 +122,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
               </ToastAction>
             ),
           });
+        } else if (data.type === "sensei") {
+          showMutationToast({
+            success: true,
+            message: "Updates in sensei system",
+            title: "Notification!",
+            action: (
+              <ToastAction altText="To Training Grounds">
+                <Link href="/traininggrounds">To Training Grounds</Link>
+              </ToastAction>
+            ),
+          });
         } else if (data.type === "challengeAccepted") {
           showMutationToast({
             success: true,

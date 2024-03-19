@@ -22,6 +22,7 @@ import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { missionHallSettings } from "@/libs/quest";
 import { secondsPassed } from "@/utils/time";
+import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
@@ -383,11 +384,12 @@ export const questsRouter = createTRPCRouter({
       }
 
       // Update userdata
+      const getNewRank = rewards.reward_rank !== "NONE";
       const updatedUserData: { [key: string]: any } = {
         questData: user.questData,
         money: user.money + rewards.reward_money,
         villagePrestige: user.villagePrestige + rewards.reward_prestige,
-        rank: rewards.reward_rank !== "NONE" ? rewards.reward_rank : user.rank,
+        rank: getNewRank ? rewards.reward_rank : user.rank,
       };
 
       // If the quest is finished, we update additional fields on the userData model
@@ -411,6 +413,8 @@ export const questsRouter = createTRPCRouter({
           .update(userData)
           .set(updatedUserData)
           .where(eq(userData.userId, ctx.userId)),
+        // If new rank, then delete sensei requests
+        getNewRank ? deleteSenseiRequests(ctx.drizzle, ctx.userId) : undefined,
         // Update village tokens
         rewards.reward_tokens > 0 && user.villageId
           ? ctx.drizzle
