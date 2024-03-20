@@ -84,15 +84,15 @@ export const senseiRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [request, user, students] = await Promise.all([
+      const [request, user] = await Promise.all([
         fetchRequest(ctx.drizzle, input.id, "SENSEI"),
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchStudents(ctx.drizzle, ctx.userId),
       ]);
       // Derived
-      const activeStudents = students.filter((s) => s.rank === "GENIN");
       const studentId = user.rank === "GENIN" ? user.userId : request.senderId;
       const senseiId = user.rank === "GENIN" ? request.senderId : user.userId;
+      const students = await fetchStudents(ctx.drizzle, senseiId);
+      const activeStudents = students.filter((s) => s.rank === "GENIN");
       // Guards
       if (request.receiverId !== ctx.userId) {
         return errorResponse("Not your challenge to accept");
@@ -103,8 +103,8 @@ export const senseiRouter = createTRPCRouter({
       if (user.rank === "GENIN" && user.senseiId) {
         return errorResponse("You already have a sensei");
       }
-      if (user.rank === "JONIN" && activeStudents.length > 3) {
-        return errorResponse("Jonin can only have 3 students");
+      if (activeStudents.length > 3) {
+        return errorResponse("Jonin can only have 3 active students");
       }
       // Mutate. If not successfull, assume student already has a sensei
       const result = await ctx.drizzle
