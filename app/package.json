@@ -78,7 +78,7 @@
     "react-hook-form": "7.43.0",
     "react-html-parser": "2.0.2",
     "replicate": "^0.25.2",
-    "sanitize-html": "2.10.0",
+    "sanitize-html": "2.12.1",
     "sharp": "0.32.6",
     "simplex-noise": "4.0.1",
     "superjson": "1.13.1",
