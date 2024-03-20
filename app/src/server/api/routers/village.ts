@@ -132,7 +132,13 @@ export const villageRouter = createTRPCRouter({
               eq(userData.status, "AWAKE"),
             ),
           ),
+        // Clear current sensei requests for this user
         deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        // Remove the user as sensei for any active students
+        ctx.drizzle
+          .update(userData)
+          .set({ senseiId: null })
+          .where(and(eq(userData.senseiId, ctx.userId), eq(userData.rank, "GENIN"))),
       ]);
 
       return { success: true, message: "You have swapped villages" };
