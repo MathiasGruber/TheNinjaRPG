@@ -831,7 +831,7 @@ export const insertUserDataSchema = createInsertSchema(userData)
       jutsus: z.array(z.string()).optional(),
       primaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
-      level: z.coerce.number().min(1).max(100),
+      level: z.coerce.number().min(1).max(200),
       regeneration: z.coerce.number().min(1).max(100),
       ninjutsuOffence: z.coerce.number().min(10).max(consts.STATS_CAP),
       ninjutsuDefence: z.coerce.number().min(10).max(consts.STATS_CAP),
