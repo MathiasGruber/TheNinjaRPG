@@ -405,7 +405,7 @@ export const profileRouter = createTRPCRouter({
         villageId: null,
         approvedTos: 1,
         sector: 0,
-        level: 999,
+        level: 100,
         isAi: 1,
       });
       return { success: true, message: id };
