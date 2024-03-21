@@ -254,8 +254,9 @@ export const paypalRouter = createTRPCRouter({
         where: and(
           or(
             eq(paypalSubscription.status, "ACTIVE"),
-            gte(paypalSubscription.updatedAt, secondsFromNow(-60 * 60 * 24 * 31)),
+            eq(paypalSubscription.status, "CANCELLED"),
           ),
+          eq(paypalSubscription.federalStatus, user.federalStatus),
           eq(paypalSubscription.createdById, input.userId),
           eq(paypalSubscription.affectedUserId, ctx.userId),
         ),
