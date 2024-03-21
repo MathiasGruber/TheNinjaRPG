@@ -50,7 +50,7 @@ const Travel: NextPage = () => {
   const [targetSector, setTargetSector] = useState<number | null>(null);
 
   // Data from database
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
   const { data: villages } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
     enabled: userData !== undefined,
@@ -298,6 +298,7 @@ const Travel: NextPage = () => {
                 Time Left:{" "}
                 <Countdown
                   targetDate={userData?.travelFinishAt}
+                  timeDiff={timeDiff}
                   onFinish={() => {
                     if (!isFinishingTravel) finishGlobalMove();
                   }}
