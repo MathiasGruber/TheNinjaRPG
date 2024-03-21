@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse } from "@/api/trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
@@ -104,6 +104,7 @@ export const questsRouter = createTRPCRouter({
         rank: z.enum(LetterRanks),
       }),
     )
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch user
       const { user } = await fetchUpdatedUser({
@@ -111,34 +112,31 @@ export const questsRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       if (!user) {
-        throw serverError("PRECONDITION_FAILED", "User does not exist");
+        return errorResponse("User does not exist");
       }
       // Fetch settings
       const settings = missionHallSettings.find(
         (s) => s.type === input.type && s.rank === input.rank,
       );
       if (!settings) {
-        throw serverError("PRECONDITION_FAILED", "Settings not found");
+        return errorResponse("Settings not found");
       }
       // Confirm timing, i.e. whether it has been long enough since last quest
       const minutesPassed = secondsPassed(user.questFinishAt) / 60;
       if (minutesPassed < settings.delayMinutes) {
-        throw serverError(
-          "PRECONDITION_FAILED",
-          `Must wait ${settings.delayMinutes} minutes`,
-        );
+        return errorResponse(`Must wait ${settings.delayMinutes} minutes`);
       }
       // Check if user is allowed to perform this rank
       const ranks = availableLetterRanks(user.rank);
       if (!ranks.includes(input.rank)) {
-        throw serverError("PRECONDITION_FAILED", `${input.rank}-rank not allowed`);
+        return errorResponse(`Rank ${input.rank} not allowed`);
       }
       // Confirm user does not have any current active missions/crimes/errands
       const current = user?.userQuests?.find(
         (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,
       );
       if (current) {
-        throw serverError("PRECONDITION_FAILED", `Already active ${current.questType}`);
+        return errorResponse(`Already active ${current.questType}`);
       }
       // Fetch quest
       const result = await ctx.drizzle.query.quest.findFirst({
@@ -152,11 +150,11 @@ export const questsRouter = createTRPCRouter({
         ),
       });
       if (!result) {
-        throw serverError("NOT_FOUND", "No assignments at this level could be found");
+        return errorResponse("No assignments at this level could be found");
       }
       // Insert quest entry
       await upsertQuestEntry(ctx.drizzle, user, result);
-      return result;
+      return { success: true, message: `Quest started: ${result.name}` };
     }),
   abandon: protectedProcedure
     .input(z.object({ id: z.string() }))

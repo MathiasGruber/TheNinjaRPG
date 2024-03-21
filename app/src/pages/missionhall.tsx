@@ -6,6 +6,7 @@ import Countdown from "@/layout/Countdown";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import Confirm from "@/layout/Confirm";
+import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromDate } from "@/utils/time";
@@ -31,7 +32,8 @@ const MissionHall: NextPage = () => {
   });
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      showMutationToast(data);
       void refetch();
     },
   });
