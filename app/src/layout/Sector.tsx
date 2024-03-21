@@ -370,7 +370,8 @@ const Sector: React.FC<SectorProps> = (props) => {
               if (target) {
                 if (
                   target.longitude === origin.current?.col &&
-                  target.latitude === origin.current?.row
+                  target.latitude === origin.current?.row &&
+                  !isAttacking
                 ) {
                   document.body.style.cursor = "wait";
                   setTargetUser(target);
@@ -466,7 +467,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.sector, userData?.questData, fetchedUsers]);
+  }, [props.sector, isAttacking, userData?.questData, fetchedUsers]);
 
   return (
     <>
@@ -480,7 +481,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           attackUser={(userId) => {
             const target = sorrounding.find((u) => u.userId === userId);
 
-            if (target) {
+            if (target && !isAttacking) {
               attack({
                 userId: target.userId,
                 longitude: target.longitude,
