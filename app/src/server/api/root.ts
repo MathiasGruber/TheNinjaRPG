@@ -12,12 +12,12 @@ import { bloodlineRouter } from "./routers/bloodline";
 import { jutsuRouter } from "./routers/jutsu";
 import { homeRouter } from "./routers/home";
 import { itemRouter } from "./routers/item";
-import { combatRouter } from "./routers/combat";
 import { hospitalRouter } from "./routers/hospital";
 import { logsRouter } from "./routers/logs";
 import { dataRouter } from "./routers/data";
 import { simulatorRouter } from "./routers/simulator";
 import { miscRouter } from "./routers/misc";
+// import { combatRouter } from "./routers/combat";
 import { questsRouter } from "./routers/quests";
 import { openaiRouter } from "./routers/openai";
 import { conceptartRouter } from "./routers/conceptart";
@@ -26,6 +26,7 @@ import { badgeRouter } from "./routers/badge";
 import { senseiRouter } from "./routers/sensei";
 import { sparringRouter } from "./routers/sparring";
 import { kageRouter } from "./routers/kage";
+import { lazy } from "@trpc/server/unstable-core-do-not-import";
 
 /**
  * This is the primary router for your server.
@@ -46,7 +47,11 @@ export const appRouter = createTRPCRouter({
   jutsu: jutsuRouter,
   home: homeRouter,
   item: itemRouter,
-  combat: combatRouter,
+  // combat: combatRouter,
+  combat: lazy(() => {
+    const router = import("./routers/combat.ts").then((m) => m.combatRouter);
+    return router;
+  }),
   hospital: hospitalRouter,
   logs: logsRouter,
   data: dataRouter,
