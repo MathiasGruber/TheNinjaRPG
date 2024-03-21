@@ -800,6 +800,7 @@ export const userData = mysqlTable(
     crimesB: smallint("crimesB", { unsigned: true }).default(0).notNull(),
     crimesA: smallint("crimesA", { unsigned: true }).default(0).notNull(),
     crimesS: smallint("crimesS", { unsigned: true }).default(0).notNull(),
+    movedTooFastCount: int("movedTooFastCount").default(0).notNull(),
   },
   (table) => {
     return {

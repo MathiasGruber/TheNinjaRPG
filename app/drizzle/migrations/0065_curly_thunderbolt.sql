@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `movedTooFastCount` int DEFAULT 0 NOT NULL;

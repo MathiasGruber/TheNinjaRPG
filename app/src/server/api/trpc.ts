@@ -74,6 +74,44 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
  * "/src/server/api/routers" directory.
  */
 
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { eq, sql } from "drizzle-orm";
+import { userData } from "@/drizzle/schema";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(1, "10 s"),
+  analytics: true,
+  prefix: "trpc-ratelimit",
+});
+
+export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({
+      message: `No user ID found for rate limit middleware`,
+      code: "UNAUTHORIZED",
+    });
+  }
+  const identifier = `${path}-${ctx.userId}`;
+  const { success } = await ratelimit.limit(identifier);
+  if (!success) {
+    await ctx.drizzle
+      .update(userData)
+      .set({
+        movedTooFastCount: sql`${userData.movedTooFastCount} + 1`,
+        money: sql`${userData.money} * 0.99`,
+        bank: sql`${userData.bank} * 0.99`,
+      })
+      .where(eq(userData.userId, ctx.userId));
+    throw serverError(
+      "TOO_MANY_REQUESTS",
+      "You are acting too fast. Incident logged for review. 1% money reduced.",
+    );
+  }
+  return next({ ctx: { userId: ctx.userId } });
+});
+
 /**
  * This is how you create new routers and sub-routers in your tRPC API.
  *

@@ -1,5 +1,3 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
@@ -12,7 +10,12 @@ import {
   userData,
 } from "@/drizzle/schema";
 import { user2conversation, conversationComment } from "@/drizzle/schema";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+  ratelimitMiddleware,
+} from "@/server/api/trpc";
 import { serverError } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
@@ -27,13 +30,6 @@ import { fetchThread } from "./forum";
 import { fetchUser } from "./profile";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
-
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, "10 s"),
-  analytics: true,
-  prefix: "chat-ratelimit",
-});
 
 export const commentsRouter = createTRPCRouter({
   /**
@@ -78,6 +74,7 @@ export const commentsRouter = createTRPCRouter({
       };
     }),
   createReportComment: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -87,10 +84,6 @@ export const commentsRouter = createTRPCRouter({
       }
       if (!canSeeReport(user, report)) {
         throw serverError("UNAUTHORIZED", "No access to the report");
-      }
-      const { success } = await ratelimit.limit(ctx.userId);
-      if (!success) {
-        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       return await ctx.drizzle.insert(userReportComment).values({
         id: nanoid(),
@@ -149,16 +142,13 @@ export const commentsRouter = createTRPCRouter({
       };
     }),
   createForumComment: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const thread = await fetchThread(ctx.drizzle, input.object_id);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const { success } = await ratelimit.limit(ctx.userId);
-      if (!success) {
-        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       await Promise.all([
         ctx.drizzle.insert(forumPost).values({
@@ -249,15 +239,12 @@ export const commentsRouter = createTRPCRouter({
         .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1));
     }),
   createConversation: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const { success } = await ratelimit.limit(ctx.userId);
-      if (!success) {
-        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       const convoId = await createConvo(
         ctx.drizzle,
@@ -353,6 +340,7 @@ export const commentsRouter = createTRPCRouter({
       };
     }),
   createConversationComment: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const convo = await fetchConversation({
@@ -363,10 +351,6 @@ export const commentsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const { success } = await ratelimit.limit(ctx.userId);
-      if (!success) {
-        throw serverError("TOO_MANY_REQUESTS", "You are commenting too fast");
       }
       const userIds = convo.users.map((u) => u.userId);
       if (userIds.length > 0) {

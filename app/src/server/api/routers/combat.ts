@@ -1,8 +1,10 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  ratelimitMiddleware,
+} from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
 import { desc } from "drizzle-orm";
@@ -42,13 +44,6 @@ import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
-
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, "10 s"),
-  analytics: true,
-  prefix: "combat-ratelimit",
-});
 
 // Debug flag when testing battle
 const debug = false;
@@ -126,6 +121,7 @@ export const combatRouter = createTRPCRouter({
       return entries;
     }),
   performAction: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
       if (debug) console.log("============ Performing action ============");
@@ -146,12 +142,6 @@ export const combatRouter = createTRPCRouter({
         tile.cost = 1;
         return tile;
       });
-
-      // Rate limit the user
-      const { success } = await ratelimit.limit(ctx.userId);
-      if (!success) {
-        throw serverError("TOO_MANY_REQUESTS", "You are acting too fast");
-      }
 
       // OUTER LOOP: Attempt to perform action untill success || error thrown
       // The primary purpose here is that if the battle version was already updated, we retry the user's action
@@ -361,6 +351,7 @@ export const combatRouter = createTRPCRouter({
       }
     }),
   startArenaBattle: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(z.object({ aiId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -407,6 +398,7 @@ export const combatRouter = createTRPCRouter({
       }
     }),
   attackUser: protectedProcedure
+    .use(ratelimitMiddleware)
     .input(
       z.object({
         longitude: z
@@ -532,7 +524,9 @@ export const initiateBattle = async (
   battleType: BattleType,
   background = "forest.webp",
 ): Promise<BaseServerResponse> => {
+  // Destructure
   const { longitude, latitude, sector, userId, targetId, client } = info;
+  // Return result of transaction
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
     const [relations, achievements, users] = await Promise.all([
