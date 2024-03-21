@@ -1082,6 +1082,8 @@ export const updateNindo = async (
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
   await client.transaction(async (tx) => {
     await tx.delete(userData).where(eq(userData.userId, userId));
+    await tx.delete(userJutsu).where(eq(userJutsu.userId, userId));
+    await tx.delete(userItem).where(eq(userItem.userId, userId));
     await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
     await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
     await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
