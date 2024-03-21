@@ -22,12 +22,15 @@ import type { NextPage } from "next";
 
 const ItemShop: NextPage = () => {
   // Settings
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
   const [itemtype, setItemtype] = useState<ItemType>("WEAPON");
   const isAwake = useAwake(userData);
+
+  // tRPC Utility
+  const utils = api.useUtils();
 
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
@@ -42,16 +45,16 @@ const ItemShop: NextPage = () => {
   const allItems = items?.pages.map((page) => page.data).flat();
 
   // Get user item counts
-  const { data: userItems, refetch: refetchUserItems } =
-    api.item.getUserItemCounts.useQuery();
+  const { data: userItems } = api.item.getUserItemCounts.useQuery();
 
   // Mutations
   const { mutate: purchase, isPending: isPurchasing } = api.item.buy.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
       if (data.success) {
-        void refetchUserItems();
-        void refetchUser();
+        void utils.item.getUserItemCounts.invalidate();
+        void utils.profile.getUser.invalidate();
+        void utils.item.getUserItems.invalidate();
       }
     },
     onSettled: () => {
