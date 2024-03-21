@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, or, and, sql, desc } from "drizzle-orm";
+import { eq, or, and, sql, desc, gte } from "drizzle-orm";
+import { secondsFromNow } from "@/utils/time";
 import { paypalTransaction, paypalSubscription } from "@/drizzle/schema";
 import { userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -251,7 +252,10 @@ export const paypalRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const subscription = await ctx.drizzle.query.paypalSubscription.findFirst({
         where: and(
-          eq(paypalSubscription.status, "ACTIVE"),
+          or(
+            eq(paypalSubscription.status, "ACTIVE"),
+            gte(paypalSubscription.updatedAt, secondsFromNow(-60 * 60 * 24 * 31)),
+          ),
           eq(paypalSubscription.createdById, input.userId),
           eq(paypalSubscription.affectedUserId, ctx.userId),
         ),
