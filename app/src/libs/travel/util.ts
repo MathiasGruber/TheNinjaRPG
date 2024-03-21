@@ -1,5 +1,5 @@
 import { type MutableRefObject } from "react";
-import { Scene, WebGLRenderer, Raycaster } from "three";
+import { Scene, WebGLRenderer, WebGL1Renderer, Raycaster } from "three";
 import { type Material, type BufferGeometry } from "three";
 
 /**
@@ -29,7 +29,12 @@ export const setupScene = (info: {
 }) => {
   const scene = new Scene();
   const raycaster = new Raycaster();
-  const renderer = new WebGLRenderer();
+  let renderer: WebGL1Renderer | WebGLRenderer;
+  try {
+    renderer = new WebGLRenderer();
+  } catch {
+    renderer = new WebGL1Renderer();
+  }
 
   renderer.setSize(info.width, info.height);
   renderer.setClearColor(info.color, info.colorAlpha);
