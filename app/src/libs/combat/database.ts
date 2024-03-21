@@ -226,11 +226,23 @@ export const updateUser = async (
     }
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
-    // Update user
+    const updateItems = user.items.filter((ui) => ui.quantity > 0);
+    // Update user & user items
     await Promise.all([
+      // Delete items
       ...(deleteItems.length > 0
         ? [client.delete(userItem).where(inArray(userItem.id, deleteItems))]
         : []),
+      // Update items quantity
+      ...(updateItems.length > 0
+        ? updateItems.map((ui) =>
+            client
+              .update(userItem)
+              .set({ quantity: ui.quantity })
+              .where(eq(userItem.id, ui.id)),
+          )
+        : []),
+      // Update user data
       client
         .update(userData)
         .set({
