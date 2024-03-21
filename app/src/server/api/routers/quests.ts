@@ -280,7 +280,7 @@ export const questsRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(quest).values({
         id: id,
-        name: "Placeholder",
+        name: `New Quest - ${id}`,
         image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
         description: "",
         timeFrame: "all_time",

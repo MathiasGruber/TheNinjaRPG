@@ -44,7 +44,7 @@ export const itemRouter = createTRPCRouter({
         const id = nanoid();
         await ctx.drizzle.insert(item).values({
           id: id,
-          name: "New Item",
+          name: `New Item - ${id}`,
           image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
           description: "New item description",
           itemType: input.type,

@@ -399,7 +399,7 @@ export const profileRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(userData).values({
         userId: id,
-        username: "New AI",
+        username: `New AI - ${id}`,
         gender: "Unknown",
         avatar: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
         villageId: null,

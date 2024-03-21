@@ -119,7 +119,7 @@ export const jutsuRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(jutsu).values({
         id: id,
-        name: "New Jutsu",
+        name: `New Jutsu - ${id}`,
         description: "New jutsu description",
         battleDescription: "%user uses %jutsu on %target",
         effects: [],
