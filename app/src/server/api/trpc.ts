@@ -106,7 +106,7 @@ export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
       .where(eq(userData.userId, ctx.userId));
     throw serverError(
       "TOO_MANY_REQUESTS",
-      "You are acting too fast. Incident logged for review. 1% money reduced.",
+      `You are acting too fast. Incident logged for review on path ${path}. 1% money reduced.`,
     );
   }
   return next({ ctx: { userId: ctx.userId } });
