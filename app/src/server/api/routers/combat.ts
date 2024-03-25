@@ -594,7 +594,7 @@ export const initiateBattle = async (
     } else {
       return { success: false, message: "Failed to set position of right-hand user" };
     }
-    if (users[1].immunityUntil > new Date()) {
+    if (users[1].immunityUntil > new Date() && battleType === "COMBAT") {
       return {
         success: false,
         message:
