@@ -213,16 +213,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
       const isTargetOrNew = e.targetId === actorId || e.isNew;
-      console.log(
-        e.type,
-        e.targetType,
-        e.targetId,
-        e.creatorId,
-        e.isNew,
-        e.castThisRound,
-      );
       if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
-        console.log("applyTimes", applyTimes);
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
 

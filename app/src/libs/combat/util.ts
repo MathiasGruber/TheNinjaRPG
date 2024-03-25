@@ -479,14 +479,19 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
   });
 };
 
+/**
+ * Filters the given BattleEffect for round decrement.
+ * @param effect - The BattleEffect to filter.
+ * @returns True if the BattleEffect has rounds defined and is not new or cast this round, false otherwise.
+ */
+const filterForRoundDecrement = (effect: BattleEffect) => {
+  return effect.rounds !== undefined && !effect.isNew && !effect.castThisRound;
+};
+
 /** Align battle based on timestamp to update:
  * - The proper round & activeUserId
  * - The action points of all users, in case of next round */
-export const alignBattle = (
-  battle: CompleteBattle,
-  userId?: string,
-  countRounds?: boolean,
-) => {
+export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   const now = new Date();
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
@@ -501,20 +506,19 @@ export const alignBattle = (
     refillActionPoints(battle);
     battle.roundStartAt = now;
     battle.round = actionRound;
-    if (countRounds) {
-      battle.usersEffects.forEach((e) => {
-        if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
-          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-          e.rounds = e.rounds - 1;
-        }
-      });
-      battle.groundEffects.forEach((e) => {
-        if (e.rounds !== undefined && e.creatorId === battle.activeUserId && !e.isNew) {
-          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-          e.rounds = e.rounds - 1;
-        }
-      });
-    }
+    // console.log("Action round: ", actionRound);
+    battle.usersEffects.filter(filterForRoundDecrement).forEach((e) => {
+      if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
+        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+        e.rounds = e.rounds - 1;
+      }
+    });
+    battle.groundEffects.filter(filterForRoundDecrement).forEach((e) => {
+      if (e.rounds !== undefined && e.creatorId === battle.activeUserId) {
+        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+        e.rounds = e.rounds - 1;
+      }
+    });
     battle.usersState.forEach((u) => {
       u.items.forEach((i) => {
         if (i.updatedAt) {
