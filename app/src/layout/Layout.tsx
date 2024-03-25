@@ -81,7 +81,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
       // Save the time-discrepancy between client and server for reference
       // e.g. in the battle system
       setTimeDiff(discrepancy);
-      console.log("timeDiff", discrepancy);
     }
   }, [data?.userData, data?.serverTime]);
 
