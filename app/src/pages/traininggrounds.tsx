@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { energyPerSecond } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/libs/train";
+import { hasRequiredRank } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
@@ -454,6 +455,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       const userJutsu = userJutsus?.find((uj) => uj.jutsuId === j.id);
       return userJutsu || !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType);
     })
+    .filter((j) => hasRequiredRank(userData.rank, j.requiredRank))
     .filter((j) => {
       const jutsuElements: ElementName[] = [];
       j.effects.map((effect) => {
@@ -524,6 +526,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
               counts={userJutsuCounts}
               selectedId={jutsu?.id}
               labelSingles={true}
+              emptyText="No jutsu available for your rank"
               onClick={(id) => {
                 if (id == jutsu?.id) {
                   setJutsu(undefined);

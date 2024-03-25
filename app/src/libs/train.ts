@@ -77,6 +77,7 @@ export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData
 
 export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
   return (
+    hasRequiredRank(userdata.rank, jutsu.requiredRank) &&
     checkJutsuRank(jutsu.jutsuRank, userdata.rank) &&
     checkJutsuVillage(jutsu, userdata) &&
     checkJutsuBloodline(jutsu, userdata)
