@@ -83,6 +83,7 @@ const MissionHall: NextPage = () => {
             const coundownComponent = (
               <Countdown
                 targetDate={allowedAt}
+                timeDiff={timeDiff}
                 onFinish={() => setCounter((n) => n + 1)}
               />
             );

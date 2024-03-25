@@ -22,7 +22,7 @@ import type { NextPage } from "next";
 
 const Profile: NextPage = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [isLevelling, setIsLevelling] = useState<boolean>(false);
 
@@ -186,7 +186,7 @@ const Profile: NextPage = () => {
                     {userData.deletionAt < new Date() ? (
                       "Disable Deletion Timer"
                     ) : (
-                      <Countdown targetDate={userData.deletionAt} />
+                      <Countdown targetDate={userData.deletionAt} timeDiff={timeDiff} />
                     )}
                   </Button>
                 )}

@@ -5,7 +5,7 @@ import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 interface CountdownProps {
   targetDate: Date;
   className?: string;
-  timeDiff?: number;
+  timeDiff?: number; // Only used if the targetDate is from the server, and has not been adjusted for timeDiff already
   // NOTE: Careful with this one to avoid infinite loop on re-render
   onFinish?: () => void;
 }
@@ -13,7 +13,7 @@ interface CountdownProps {
 const Countdown: React.FC<CountdownProps> = (props) => {
   let targetTime = props.targetDate.getTime();
   if (props.timeDiff) {
-    targetTime -= props.timeDiff;
+    targetTime += props.timeDiff;
   }
   const [countDown, setCountDown] = useState(targetTime - new Date().getTime());
   const [countString, setCountString] = useState<string | null>(null);

@@ -31,7 +31,7 @@ import { canEscalateBan } from "../../validators/reports";
 import { canClearReport } from "../../validators/reports";
 
 const Report: NextPage = () => {
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -167,7 +167,8 @@ const Report: NextPage = () => {
             <Post user={report.reportedUser} hover_effect={true}>
               {report.banEnd && (
                 <div className="mb-3">
-                  <b>Ban countdown:</b> <Countdown targetDate={report.banEnd} />
+                  <b>Ban countdown:</b>{" "}
+                  <Countdown targetDate={report.banEnd} timeDiff={timeDiff} />
                   <hr />
                 </div>
               )}

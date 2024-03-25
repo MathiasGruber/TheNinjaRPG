@@ -481,7 +481,8 @@ const Combat: React.FC<CombatProps> = (props) => {
           <div className="flex flex-col items-center justify-center text-white h-full">
             <p className="p-5 text-5xl">Waiting for opponent</p>
             <p className="text-3xl">
-              Time Left: <Countdown targetDate={battle.current.createdAt} />
+              Time Left:{" "}
+              <Countdown targetDate={battle.current.createdAt} timeDiff={timeDiff} />
             </p>
             <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
               Initiative Winner: {initiveWinner?.username}{" "}
