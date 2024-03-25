@@ -53,7 +53,7 @@ const socials = [
 ];
 
 const MenuBoxProfile: React.FC = () => {
-  const { data: userData, battle, refetch: refetchUserData } = useUserData();
+  const { data: userData, battle, refetch: refetchUserData, timeDiff } = useUserData();
   const { location } = getMainGameLinks(userData);
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
@@ -191,6 +191,7 @@ const MenuBoxProfile: React.FC = () => {
             status={userData.status}
             current={userData.curHealth}
             total={userData.maxHealth}
+            timeDiff={timeDiff}
           />
           <StatusBar
             title="CP"
@@ -202,6 +203,7 @@ const MenuBoxProfile: React.FC = () => {
             status={userData.status}
             current={userData.curChakra}
             total={userData.maxChakra}
+            timeDiff={timeDiff}
           />
           <StatusBar
             title="SP"
@@ -213,6 +215,7 @@ const MenuBoxProfile: React.FC = () => {
             status={userData.status}
             current={userData.curStamina}
             total={userData.maxStamina}
+            timeDiff={timeDiff}
           />
           <StatusBar
             title="EP"
@@ -230,6 +233,7 @@ const MenuBoxProfile: React.FC = () => {
             status={userData.status}
             current={userData.curEnergy}
             total={userData.maxEnergy}
+            timeDiff={timeDiff}
           />
 
           <div className="mt-4">
