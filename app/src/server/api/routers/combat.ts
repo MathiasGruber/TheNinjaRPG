@@ -269,7 +269,11 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Check if everybody finished their action, and if so, fast-forward the battle
-          const { actor: newActor, progressRound } = alignBattle(newBattle);
+          const { actor: newActor, progressRound } = alignBattle(
+            newBattle,
+            actor.userId,
+            false,
+          );
           if (actionPerformed && progressRound) {
             const dot = description.endsWith(".");
             description += `${dot ? "" : ". "} It is now ${newActor.username}'s turn.`;

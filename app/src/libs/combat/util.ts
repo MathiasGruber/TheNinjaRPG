@@ -482,7 +482,11 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
 /** Align battle based on timestamp to update:
  * - The proper round & activeUserId
  * - The action points of all users, in case of next round */
-export const alignBattle = (battle: CompleteBattle, userId?: string) => {
+export const alignBattle = (
+  battle: CompleteBattle,
+  userId?: string,
+  countRounds?: boolean,
+) => {
   const now = new Date();
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
@@ -497,18 +501,20 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     refillActionPoints(battle);
     battle.roundStartAt = now;
     battle.round = actionRound;
-    battle.usersEffects.forEach((e) => {
-      if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
-        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-        e.rounds = e.rounds - 1;
-      }
-    });
-    battle.groundEffects.forEach((e) => {
-      if (e.rounds !== undefined && e.creatorId === battle.activeUserId && !e.isNew) {
-        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-        e.rounds = e.rounds - 1;
-      }
-    });
+    if (countRounds) {
+      battle.usersEffects.forEach((e) => {
+        if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          e.rounds = e.rounds - 1;
+        }
+      });
+      battle.groundEffects.forEach((e) => {
+        if (e.rounds !== undefined && e.creatorId === battle.activeUserId && !e.isNew) {
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          e.rounds = e.rounds - 1;
+        }
+      });
+    }
     battle.usersState.forEach((u) => {
       u.items.forEach((i) => {
         if (i.updatedAt) {
