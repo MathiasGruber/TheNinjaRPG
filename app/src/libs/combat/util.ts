@@ -483,6 +483,7 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
  * - The proper round & activeUserId
  * - The action points of all users, in case of next round */
 export const alignBattle = (battle: CompleteBattle, userId?: string) => {
+  const now = new Date();
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
@@ -494,7 +495,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   if (progressRound) {
     const timeLeftInPrevRound = COMBAT_SECONDS - secondsPassed(battle.roundStartAt);
     refillActionPoints(battle);
-    battle.roundStartAt = new Date();
+    battle.roundStartAt = now;
     battle.round = actionRound;
     battle.usersEffects.forEach((e) => {
       if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
@@ -523,7 +524,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   }
   // Update the active user on the battle
   battle.activeUserId = actor.userId;
-  battle.updatedAt = new Date();
+  battle.updatedAt = now;
   // Is the new actor stunned?
   const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug

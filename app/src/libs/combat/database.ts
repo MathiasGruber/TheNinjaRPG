@@ -127,7 +127,10 @@ export const createAction = async (
           appliedEffects: entry.appliedEffects,
         };
       });
-    await client.insert(battleAction).values(actions);
+    await client
+      .insert(battleAction)
+      .values(actions)
+      .onDuplicateKeyUpdate({ set: { id: sql`id` } });
     return actions;
   }
 };

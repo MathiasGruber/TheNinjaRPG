@@ -463,6 +463,13 @@
       "when": 1711005331799,
       "tag": "0065_curly_thunderbolt",
       "breakpoints": false
+    },
+    {
+      "idx": 66,
+      "version": "5",
+      "when": 1711361975140,
+      "tag": "0066_curly_kid_colt",
+      "breakpoints": false
     }
   ]
 }

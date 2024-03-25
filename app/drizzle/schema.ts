@@ -75,6 +75,11 @@ export const battleAction = mysqlTable(
   },
   (table) => {
     return {
+      round: uniqueIndex("BattleAction_round_key").on(
+        table.battleId,
+        table.battleVersion,
+        table.battleRound,
+      ),
       battleIdIdx: index("BattleAction_battleId_idx").on(table.battleId),
       battleIdVersionIdx: index("BattleAction_battleId_version_idx").on(
         table.battleId,

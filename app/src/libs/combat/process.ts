@@ -106,7 +106,7 @@ const getVisual = (
   };
 };
 
-export const applyEffects = (battle: CompleteBattle, userId: string) => {
+export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
   // Things we wish to return
@@ -212,8 +212,17 @@ export const applyEffects = (battle: CompleteBattle, userId: string) => {
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
       const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
-      const isTargetOrNew = e.targetId === userId || e.isNew;
+      const isTargetOrNew = e.targetId === actorId || e.isNew;
+      console.log(
+        e.type,
+        e.targetType,
+        e.targetId,
+        e.creatorId,
+        e.isNew,
+        e.castThisRound,
+      );
       if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
+        console.log("applyTimes", applyTimes);
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
 

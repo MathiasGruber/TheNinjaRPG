@@ -1,0 +1,1 @@
+ALTER TABLE `BattleAction` ADD CONSTRAINT `BattleAction_round_key` UNIQUE(`battleId`,`battleVersion`,`battleRound`);

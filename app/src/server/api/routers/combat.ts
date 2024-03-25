@@ -33,6 +33,7 @@ import { BarrierTag } from "@/libs/combat/types";
 import { combatAssetsNames } from "@/libs/travel/constants";
 import { getServerPusher } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
+import { applyEffects } from "@/libs/combat/process";
 import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
@@ -74,22 +75,42 @@ export const combatRouter = createTRPCRouter({
             return { battle: null, result: null };
           }
 
+          // Current state of battle
+          const actId = userBattle.activeUserId;
+          const activeUser = userBattle.usersState.find((u) => u.userId === actId);
+          const hadActivity = userBattle.updatedAt > userBattle.roundStartAt;
+
           // Update the battle to the correct activeUserId & round. Default to current user
           const fetchedVersion = userBattle.version;
-          const { progressRound } = alignBattle(userBattle, ctx.userId);
+          const { progressRound, actionRound } = alignBattle(userBattle, ctx.userId);
           if (progressRound) userBattle.version = userBattle.version + 1;
 
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(userBattle, ctx.userId);
 
-          // Hide private state of non-session user
-          const newMaskedBattle = maskBattle(userBattle, ctx.userId);
-
           // Check if the battle is over, or state was updated
           const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
           if (battleOver || progressRound) {
-            await updateBattle(ctx.drizzle, result, userBattle, fetchedVersion);
+            if (!hadActivity && actId && activeUser) {
+              const { newBattle, actionEffects } = applyEffects(userBattle, actId);
+              await Promise.all([
+                updateBattle(ctx.drizzle, result, newBattle, fetchedVersion),
+                createAction(ctx.drizzle, newBattle, [
+                  {
+                    battleRound: actionRound,
+                    appliedEffects: actionEffects,
+                    description: `${activeUser.username} stands and does nothing. `,
+                    battleVersion: fetchedVersion,
+                  },
+                ]),
+              ]);
+            } else {
+              await updateBattle(ctx.drizzle, result, userBattle, fetchedVersion);
+            }
           }
+
+          // Hide private state of non-session user
+          const newMaskedBattle = maskBattle(userBattle, ctx.userId);
 
           // Update user & delete the battle if it's done
           if (result) {
