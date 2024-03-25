@@ -39,7 +39,7 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Possible actions
-    const actions = availableUserActions(nextBattle, user.userId, false).filter(
+    const actions = availableUserActions(nextBattle, user.userId, false, true).filter(
       (action) => {
         const costs = calcPoolCost(action, nextBattle.usersEffects, user);
         if (user.curHealth < costs.hpCost) return false;

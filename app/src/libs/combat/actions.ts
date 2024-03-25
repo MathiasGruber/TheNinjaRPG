@@ -26,6 +26,7 @@ export const availableUserActions = (
   battle: ReturnedBattle | undefined | null,
   userId: string | undefined,
   basicMoves = true,
+  hideCooldowned = false,
 ): CombatAction[] => {
   const usersState = battle?.usersState;
   const user = usersState?.find((u) => u.userId === userId);
@@ -122,7 +123,7 @@ export const availableUserActions = (
     effects: [FleeTag.parse({ power: 20, rounds: 0 })],
   };
   // Concatenate all actions
-  const availableActions = [
+  let availableActions = [
     ...(basicMoves ? [basicAttack, basicHeal] : []),
     basicMove,
     ...(basicMoves ? [basicFlee] : []),
@@ -201,7 +202,18 @@ export const availableUserActions = (
   if (availableActions.length === 2) {
     availableActions.push(basicAttack);
   }
-  // Return all the actions
+  // If we hide cooldowns, hide then
+  if (hideCooldowned) {
+    availableActions = availableActions.filter((a) => {
+      if (a.cooldown && a.cooldown > 0) {
+        const timePassed = (Date.now() - a.updatedAt) / 1000;
+        return timePassed >= a.cooldown * COMBAT_SECONDS;
+      }
+      return true;
+    });
+  }
+
+  // Return actions
   return availableActions;
 };
 
