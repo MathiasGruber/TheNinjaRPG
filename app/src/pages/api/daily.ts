@@ -68,16 +68,6 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       }),
     );
 
-    // STEP 5: Clearing historical avatars that failed more than 3 hours ago
-    await drizzleDB
-      .delete(historicalAvatar)
-      .where(
-        and(
-          lt(historicalAvatar.createdAt, secondsFromNow(-3600 * 3)),
-          isNull(historicalAvatar.avatar),
-        ),
-      );
-
     // Update timer
     await updateTimer("daily", new Date());
 

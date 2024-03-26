@@ -1,10 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { and, lte, sql, eq } from "drizzle-orm";
+import { and, lte, sql, eq, lt, isNull } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
-import { battleHistory, battleAction } from "@/drizzle/schema";
+import { battleHistory, battleAction, historicalAvatar } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
+import { secondsFromNow } from "@/utils/time";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -21,7 +22,9 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Step 3: Delete from battle action where battles have been deleted
     await drizzleDB.execute(
-      sql`DELETE FROM ${battleAction} a WHERE NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId)`,
+      sql`DELETE FROM ${battleAction} a WHERE 
+          NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId) AND
+          createdAt < DATE_SUB(NOW(), INTERVAL ${3600 * 3} SECOND)`,
     );
 
     // One day in mseconds
@@ -66,6 +69,16 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     await drizzleDB.execute(
       sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${jutsu} b WHERE b.id = a.jutsuId)`,
     );
+
+    // Step 11: Clearing historical avatars that failed more than 3 hours ago
+    await drizzleDB
+      .delete(historicalAvatar)
+      .where(
+        and(
+          lt(historicalAvatar.createdAt, secondsFromNow(-3600 * 3)),
+          isNull(historicalAvatar.avatar),
+        ),
+      );
 
     res.status(200).json("OK");
   } catch (cause) {
