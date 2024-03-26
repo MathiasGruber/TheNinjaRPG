@@ -1,0 +1,14 @@
+DROP INDEX `BattleAction_battleId_idx` ON `BattleAction`;
+DROP INDEX `BattleAction_battleId_version_idx` ON `BattleAction`;
+DROP INDEX `BloodlineRolls_userId_idx` ON `BloodlineRolls`;
+DROP INDEX `image_avatar_idx` ON `ConceptImage`;
+DROP INDEX `HistoricalAvatar_replicateId_idx` ON `HistoricalAvatar`;
+DROP INDEX `HistoricalAvatar_avatar_idx` ON `HistoricalAvatar`;
+DROP INDEX `UsersInConversation_conversationId_idx` ON `UsersInConversation`;
+DROP INDEX `UserJutsu_userId_idx` ON `UserJutsu`;
+ALTER TABLE `Badge` DROP INDEX `Badge_id_key`;
+ALTER TABLE `ConceptImage` DROP INDEX `image_id_key`;
+ALTER TABLE `DataBattleAction` DROP INDEX `DataBattleActions_id`;
+ALTER TABLE `Quest` DROP INDEX `Quest_id`;
+ALTER TABLE `QuestHistory` DROP INDEX `QuestHistory_id_key`;
+CREATE INDEX `UserData_senseiId_idx` ON `UserData` (`senseiId`);

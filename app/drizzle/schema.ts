@@ -80,11 +80,6 @@ export const battleAction = mysqlTable(
         table.battleVersion,
         table.battleRound,
       ),
-      battleIdIdx: index("BattleAction_battleId_idx").on(table.battleId),
-      battleIdVersionIdx: index("BattleAction_battleId_version_idx").on(
-        table.battleId,
-        table.battleVersion,
-      ),
     };
   },
 );
@@ -162,7 +157,6 @@ export const bloodlineRolls = mysqlTable(
     return {
       userIdKey: uniqueIndex("BloodlineRolls_userId_key").on(table.userId),
       bloodlineIdIdx: index("BloodlineRolls_bloodlineId_idx").on(table.bloodlineId),
-      userIdIdx: index("BloodlineRolls_userId_idx").on(table.userId),
     };
   },
 );
@@ -214,9 +208,6 @@ export const user2conversation = mysqlTable(
   (table) => {
     return {
       userIdIdx: index("UsersInConversation_userId_idx").on(table.userId),
-      conversationIdIdx: index("UsersInConversation_conversationId_idx").on(
-        table.conversationId,
-      ),
       usersInConversationConversationIdUserId: primaryKey(
         table.conversationId,
         table.userId,
@@ -405,8 +396,6 @@ export const historicalAvatar = mysqlTable(
       avatarKey: uniqueIndex("HistoricalAvatar_avatar_key").on(table.avatar),
       doneIdx: index("HistoricalAvatar_done_idx").on(table.done),
       userIdIdx: index("HistoricalAvatar_userId_idx").on(table.userId),
-      replicateIdIdx: index("HistoricalAvatar_replicateId_idx").on(table.replicateId),
-      avatarIdx: index("HistoricalAvatar_avatar_idx").on(table.avatar),
     };
   },
 );
@@ -816,6 +805,7 @@ export const userData = mysqlTable(
       battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
       statusIdx: index("UserData_status_idx").on(table.status),
       sectorIdx: index("UserData_sector_idx").on(table.sector),
+      senseiIdx: index("UserData_senseiId_idx").on(table.senseiId),
       latitudeIdx: index("UserData_latitude_idx").on(table.latitude),
       longitudeIdx: index("UserData_longitude_idx").on(table.longitude),
     };
@@ -970,7 +960,6 @@ export const userJutsu = mysqlTable(
         table.userId,
         table.jutsuId,
       ),
-      userIdIdx: index("UserJutsu_userId_idx").on(table.userId),
       jutsuIdIdx: index("UserJutsu_jutsuId_idx").on(table.jutsuId),
       equippedIdx: index("Jutsu_equipped_idx").on(table.equipped),
     };
@@ -1227,7 +1216,6 @@ export const dataBattleAction = mysqlTable(
   },
   (table) => {
     return {
-      idKey: uniqueIndex("DataBattleActions_id").on(table.id),
       contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
       typeIdx: index("DataBattleActions_type").on(table.type),
       battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
@@ -1261,7 +1249,6 @@ export const quest = mysqlTable(
   },
   (table) => {
     return {
-      idKey: uniqueIndex("Quest_id").on(table.id),
       tierLevel: unique("tierLevel").on(table.tierLevel),
       questTypeIdx: index("Quest_questType_idx").on(table.questType),
       requiredRankIdx: index("Quest_requiredRank_idx").on(table.requiredRank),
@@ -1288,7 +1275,6 @@ export const questHistory = mysqlTable(
   },
   (table) => {
     return {
-      idKey: uniqueIndex("QuestHistory_id_key").on(table.id),
       userIdIdx: index("QuestHistory_userId_idx").on(table.userId),
       questIdIdx: index("QuestHistory_questId_idx").on(table.questId),
       completedIdx: index("QuestHistory_completed_idx").on(table.completed),
@@ -1368,11 +1354,9 @@ export const conceptImage = mysqlTable(
   },
   (table) => {
     return {
-      idKey: uniqueIndex("image_id_key").on(table.id),
       avatarKey: uniqueIndex("image_avatar_key").on(table.image),
       doneIdx: index("image_done_idx").on(table.done),
       userIdIdx: index("image_userId_idx").on(table.userId),
-      avatarIdx: index("image_avatar_idx").on(table.image),
     };
   },
 );
@@ -1438,7 +1422,6 @@ export const badge = mysqlTable(
   },
   (table) => {
     return {
-      idKey: uniqueIndex("Badge_id_key").on(table.id),
       nameKey: uniqueIndex("Badge_name_key").on(table.name),
     };
   },

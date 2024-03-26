@@ -470,6 +470,13 @@
       "when": 1711361975140,
       "tag": "0066_curly_kid_colt",
       "breakpoints": false
+    },
+    {
+      "idx": 67,
+      "version": "5",
+      "when": 1711443915097,
+      "tag": "0067_bumpy_the_renegades",
+      "breakpoints": false
     }
   ]
 }
