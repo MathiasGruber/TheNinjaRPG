@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
+import { historicalAvatar } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";
@@ -26,7 +27,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     // STEP 2: Clear old challenges
     await drizzleDB
       .delete(userRequest)
-      .where(lt(userRequest.createdAt, secondsFromNow(3600 * 24)));
+      .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
 
     // STEP 3: Update village prestige
     await drizzleDB
@@ -66,6 +67,16 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
         }
       }),
     );
+
+    // STEP 5: Clearing historical avatars that failed more than 3 hours ago
+    await drizzleDB
+      .delete(historicalAvatar)
+      .where(
+        and(
+          lt(historicalAvatar.createdAt, secondsFromNow(-3600 * 3)),
+          isNull(historicalAvatar.avatar),
+        ),
+      );
 
     // Update timer
     await updateTimer("daily", new Date());

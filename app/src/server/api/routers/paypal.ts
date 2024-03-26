@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, or, and, sql, desc, gte } from "drizzle-orm";
-import { secondsFromNow } from "@/utils/time";
+import { eq, or, and, sql, desc } from "drizzle-orm";
 import { paypalTransaction, paypalSubscription } from "@/drizzle/schema";
 import { userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
