@@ -142,6 +142,23 @@ export const combatRouter = createTRPCRouter({
       });
       return entries;
     }),
+  getBattleHistory: protectedProcedure.query(async ({ ctx }) => {
+    const results = await ctx.drizzle.query.battleHistory.findMany({
+      where: and(
+        or(
+          eq(battleHistory.attackedId, ctx.userId),
+          eq(battleHistory.defenderId, ctx.userId),
+        ),
+        gt(battleHistory.createdAt, secondsFromNow(-3600 * 3)),
+      ),
+      with: {
+        attacker: { columns: { username: true, userId: true, avatar: true } },
+        defender: { columns: { username: true, userId: true, avatar: true } },
+      },
+      orderBy: [desc(battleHistory.createdAt)],
+    });
+    return results;
+  }),
   performAction: protectedProcedure
     .use(ratelimitMiddleware)
     .input(performActionSchema)
@@ -759,65 +776,66 @@ export const initiateBattle = async (
 
     // Insert battle entry into DB
     const battleId = nanoid();
-    await tx.insert(battle).values({
-      id: battleId,
-      battleType: battleType,
-      background: background,
-      usersState: usersState,
-      usersEffects: userEffects,
-      groundEffects: groundEffects,
-      rewardScaling: rewardScaling,
-      createdAt: startTime,
-      updatedAt: startTime,
-      roundStartAt: startTime,
-      activeUserId: activeUserId,
-    });
-
-    // If not arena, create a history entry
-    if (battleType !== "ARENA") {
-      await tx.insert(battleHistory).values({
+    const [, , result] = await Promise.all([
+      // insert battle
+      tx.insert(battle).values({
+        id: battleId,
+        battleType: battleType,
+        background: background,
+        usersState: usersState,
+        usersEffects: userEffects,
+        groundEffects: groundEffects,
+        rewardScaling: rewardScaling,
+        createdAt: startTime,
+        updatedAt: startTime,
+        roundStartAt: startTime,
+        activeUserId: activeUserId,
+      }),
+      // insert battle history
+      tx.insert(battleHistory).values({
         battleId: battleId,
         attackedId: users[0].userId,
         defenderId: users[1].userId,
         createdAt: new Date(),
-      });
-    }
+      }),
+      // update users
+      tx
+        .update(userData)
+        .set({
+          status: sql`CASE WHEN isAi = false THEN "BATTLE" ELSE "AWAKE" END`,
+          battleId: sql`CASE WHEN isAi = false THEN ${battleId} ELSE NULL END`,
+          pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
+            ? sql`${userData.pvpFights} + 1`
+            : sql`${userData.pvpFights}`,
+          pveFights: !["SPARRING", "COMBAT", "KAGE"].includes(battleType)
+            ? sql`${userData.pveFights} + 1`
+            : sql`${userData.pveFights}`,
+          updatedAt: new Date(),
+          immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
+            ? sql`CASE WHEN userId = ${users[0].userId} THEN NOW() ELSE immunityUntil END`
+            : sql`immunityUntil`,
+        })
+        .where(
+          and(
+            or(
+              eq(userData.userId, userId),
+              ...(battleType !== "KAGE" ? [eq(userData.userId, targetId)] : []),
+            ),
+            eq(userData.status, "AWAKE"),
+            ...(battleType === "COMBAT"
+              ? [
+                  and(
+                    ...(sector ? [eq(userData.sector, sector)] : []),
+                    ...(longitude ? [eq(userData.longitude, longitude)] : []),
+                    ...(latitude ? [eq(userData.latitude, latitude)] : []),
+                  ),
+                ]
+              : []),
+          ),
+        ),
+    ]);
 
     // Update users to be in battle, but only if they are currently AWAKE
-    const result = await tx
-      .update(userData)
-      .set({
-        status: sql`CASE WHEN isAi = false THEN "BATTLE" ELSE "AWAKE" END`,
-        battleId: sql`CASE WHEN isAi = false THEN ${battleId} ELSE NULL END`,
-        pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`${userData.pvpFights} + 1`
-          : sql`${userData.pvpFights}`,
-        pveFights: !["SPARRING", "COMBAT", "KAGE"].includes(battleType)
-          ? sql`${userData.pveFights} + 1`
-          : sql`${userData.pveFights}`,
-        updatedAt: new Date(),
-        immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`CASE WHEN userId = ${users[0].userId} THEN NOW() ELSE immunityUntil END`
-          : sql`immunityUntil`,
-      })
-      .where(
-        and(
-          or(
-            eq(userData.userId, userId),
-            ...(battleType !== "KAGE" ? [eq(userData.userId, targetId)] : []),
-          ),
-          eq(userData.status, "AWAKE"),
-          ...(battleType === "COMBAT"
-            ? [
-                and(
-                  ...(sector ? [eq(userData.sector, sector)] : []),
-                  ...(longitude ? [eq(userData.longitude, longitude)] : []),
-                  ...(latitude ? [eq(userData.latitude, latitude)] : []),
-                ),
-              ]
-            : []),
-        ),
-      );
     if (
       (battleType === "KAGE" && result.rowsAffected !== 1) ||
       (battleType !== "KAGE" && result.rowsAffected !== 2)

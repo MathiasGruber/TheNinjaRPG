@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, inArray, isNotNull, sql, and, gte, ne, like, asc } from "drizzle-orm";
+import { eq, inArray, isNotNull, sql, and, gte, ne, like } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "./profile";

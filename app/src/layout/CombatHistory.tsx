@@ -4,26 +4,28 @@ import { api } from "@/utils/api";
 import { groupBy } from "@/utils/grouping";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
-import type { ReturnedBattle } from "@/libs/combat/types";
 
 interface CombatHistoryProps {
-  battle: ReturnedBattle;
-  results: CombatResult | null | undefined;
+  battleId: string;
+  asc?: boolean;
+  battleVersion?: number;
+  battleRound?: number;
+  results?: CombatResult | null;
 }
 
 const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   // State
-  const { battle, results } = props;
+  const { battleId, battleVersion, battleRound, results, asc } = props;
 
   // From database
   const { data: allEntries, isFetching } = api.combat.getBattleEntries.useQuery(
     {
-      battleId: battle.id,
-      refreshKey: battle.version,
+      battleId: battleId,
+      refreshKey: battleVersion ?? 0,
       checkBattle: results ? true : false,
     },
     {
-      enabled: battle.id !== undefined,
+      enabled: battleId !== undefined,
       placeholderData: (previousData) => previousData,
       staleTime: Infinity,
     },
@@ -31,7 +33,11 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   const groups = allEntries && groupBy(allEntries, "battleRound");
 
   // Fill in missing entries
-  for (let i = 1; i < battle.round; i++) {
+  let maxRound = 0;
+  if (allEntries) maxRound = Math.max(...allEntries.map((e) => e.battleRound));
+  if (battleRound) maxRound = battleRound;
+
+  for (let i = 1; i < maxRound; i++) {
     if (!groups?.has(i)) {
       groups?.set(i, [
         {
@@ -39,7 +45,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
           description: "No information on what happened during this round.",
           createdAt: new Date(),
           updatedAt: new Date(),
-          battleId: battle.id,
+          battleId: battleId,
           battleVersion: 0,
           battleRound: i,
           appliedEffects: [],
@@ -50,7 +56,8 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
 
   // Get keys of the groups map, and reverse sort them
   const sortedGroups =
-    groups && new Map([...groups.entries()].sort((a, b) => b[0] - a[0]));
+    groups &&
+    new Map([...groups.entries()].sort((a, b) => (asc ? a[0] - b[0] : b[0] - a[0])));
 
   // Create the history
   const history: React.ReactNode[] = [];
@@ -93,7 +100,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
 
   // Show component
   return (
-    <div className="relative flex flex-col border-b-2 border-l-2 border-r-2 bg-slate-100 max-h-80 overflow-auto">
+    <div className="relative flex flex-col border-b-2 border-l-2 pl-2 border-r-2 bg-slate-100 max-h-80 overflow-auto">
       {isFetching && (
         <div className="absolute right-2 top-2">
           <Loader />

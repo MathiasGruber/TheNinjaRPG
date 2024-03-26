@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server";
 import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
-import { historicalAvatar } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";

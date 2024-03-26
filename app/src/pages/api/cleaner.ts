@@ -35,10 +35,10 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       .delete(dataBattleAction)
       .where(lte(dataBattleAction.createdAt, new Date(Date.now() - oneDay * 7)));
 
-    // Step 5: Delete battle history older than 7 days
+    // Step 5: Delete battle history older than 1 day
     await drizzleDB
       .delete(battleHistory)
-      .where(lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 7)));
+      .where(lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 1)));
 
     // Step 6: Delete conversations older than 14 days
     await drizzleDB

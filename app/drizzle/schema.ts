@@ -84,6 +84,17 @@ export const battleAction = mysqlTable(
   },
 );
 
+export const battleActionRelations = relations(battleAction, ({ one }) => ({
+  battle: one(battle, {
+    fields: [battleAction.battleId, battleAction.battleVersion],
+    references: [battle.id, battle.version],
+  }),
+  historyEntry: one(battleHistory, {
+    fields: [battleAction.battleId],
+    references: [battleHistory.battleId],
+  }),
+}));
+
 export const battleHistory = mysqlTable(
   "BattleHistory",
   {
@@ -103,6 +114,22 @@ export const battleHistory = mysqlTable(
     };
   },
 );
+
+export const battleHistoryRelations = relations(battleHistory, ({ one, many }) => ({
+  battle: one(battle, {
+    fields: [battleHistory.battleId],
+    references: [battle.id],
+  }),
+  actions: many(battleAction),
+  attacker: one(userData, {
+    fields: [battleHistory.attackedId],
+    references: [userData.userId],
+  }),
+  defender: one(userData, {
+    fields: [battleHistory.defenderId],
+    references: [userData.userId],
+  }),
+}));
 
 export const bloodline = mysqlTable(
   "Bloodline",

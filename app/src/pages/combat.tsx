@@ -123,7 +123,14 @@ const CombatPage: NextPage = () => {
           }}
         />
       )}
-      {battle && <CombatHistory battle={battle} results={results} />}
+      {battle && (
+        <CombatHistory
+          battleId={battle.id}
+          battleVersion={battle.version}
+          battleRound={battle.round}
+          results={results}
+        />
+      )}
       <div className="flex flex-row">
         {battle && !results && actionId && (
           <div className="pt-2 text-xs">

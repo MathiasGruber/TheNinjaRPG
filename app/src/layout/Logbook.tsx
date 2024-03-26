@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Post from "./Post";
 import Image from "next/image";
-import Toggle from "@/components/control/Toggle";
+import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
@@ -21,12 +21,101 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 interface LogbookProps {}
 
+const tabs = ["Active", "History", "Battles"] as const;
+type tabType = (typeof tabs)[number];
+
 const Logbook: React.FC<LogbookProps> = () => {
   // State
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showActive, setShowActive] = useState<boolean | undefined>(undefined);
+  const [tab, setTab] = useState<tabType | null>(null);
   const { data: userData } = useRequiredUserData();
-  const showState = showActive === null ? true : showActive;
+
+  return (
+    <ContentBox
+      title="LogBook"
+      subtitle="Character Activites"
+      initialBreak={true}
+      padding={tab === "Active"}
+      topRightContent={
+        <NavTabs
+          id="logbook-toggle"
+          current={tab}
+          options={["Active", "History", "Battles"]}
+          setValue={setTab}
+        />
+      }
+    >
+      {tab === "Active" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {userData?.userQuests?.map((uq, i) => {
+            const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+            return tracker && <LogbookEntry key={i} userQuest={uq} tracker={tracker} />;
+          })}
+        </div>
+      )}
+      {tab === "History" && <LogbookHistory />}
+      {tab === "Battles" && <LogbookBattles />}
+    </ContentBox>
+  );
+};
+
+export default Logbook;
+
+/**
+ * Renders a logbook of battles.
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <LogbookBattles />
+ * ```
+ */
+const LogbookBattles: React.FC = () => {
+  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const allHistory = history?.map((e) => ({
+    attackerUsername: e.attacker.username,
+    attackerUserId: e.attacker.userId,
+    attackerAvatar: e.attacker.avatar,
+    defenderUsername: e.defender.username,
+    defenderUserId: e.defender.userId,
+    defenderAvatar: e.defender.avatar,
+    battleId: e.battleId,
+    createdAt: e.createdAt,
+  }));
+
+  type Entry = ArrayElement<typeof allHistory>;
+
+  const columns: ColumnDefinitionType<Entry, keyof Entry>[] = [
+    { key: "attackerAvatar", header: "Attacker", type: "avatar" },
+    { key: "defenderAvatar", header: "Defender", type: "avatar" },
+    { key: "battleId", header: "Battle ID", type: "string" },
+    { key: "createdAt", header: "Date", type: "date" },
+  ];
+
+  if (isPending) return <Loader explanation="Loading battles..." />;
+
+  return (
+    <Table
+      data={allHistory}
+      columns={columns}
+      linkPrefix="/battlelog/"
+      linkColumn={"battleId"}
+    />
+  );
+};
+
+/**
+ * Renders a logbook history component.
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <LogbookHistory />
+ * ```
+ */
+const LogbookHistory: React.FC = () => {
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Queries
   const {
@@ -39,7 +128,6 @@ const Logbook: React.FC<LogbookProps> = () => {
       limit: 10,
     },
     {
-      enabled: showActive !== undefined && !showActive,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
       staleTime: Infinity,
@@ -76,45 +164,28 @@ const Logbook: React.FC<LogbookProps> = () => {
     { key: "info", header: "Info", type: "jsx" },
   ];
 
-  return (
-    <ContentBox
-      title="LogBook"
-      subtitle="Current & past activities for your character"
-      initialBreak={true}
-      padding={showState}
-      topRightContent={
-        <Toggle
-          id="logbook-toggle"
-          value={showActive}
-          setShowActive={setShowActive}
-          labelActive="Active"
-          labelInactive="History"
-        />
-      }
-    >
-      {showState && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {userData?.userQuests?.map((uq, i) => {
-            const tracker = userData?.questData?.find((q) => q.id === uq.questId);
-            return tracker && <LogbookEntry key={i} userQuest={uq} tracker={tracker} />;
-          })}
-        </div>
-      )}
-      {!showState && isPending && <Loader explanation="Loading history..." />}
-      {!showState && !isPending && (
-        <Table data={allHistory} columns={columns} setLastElement={setLastElement} />
-      )}
-    </ContentBox>
-  );
-};
+  if (isPending) return <Loader explanation="Loading history..." />;
 
-export default Logbook;
+  return <Table data={allHistory} columns={columns} setLastElement={setLastElement} />;
+};
 
 interface LogbookEntryProps {
   userQuest: UserQuest;
   tracker: QuestTrackerType;
 }
 
+/**
+ * Represents a logbook entry component.
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <LogbookEntry userQuest={userQuest} tracker={tracker} />
+ * ```
+ *
+ * @param props - The component props.
+ * @returns The rendered component.
+ */
 export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { userQuest, tracker } = props;
   const quest = userQuest.quest;
