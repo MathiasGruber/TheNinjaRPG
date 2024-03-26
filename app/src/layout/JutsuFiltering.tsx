@@ -194,6 +194,7 @@ export default JutsuFiltering;
 /** tRPC filter to be used on api.jutsu.getAll */
 export const getFilter = (state: JutsuFilteringState) => {
   return {
+    filter: state.filter,
     rarity: state.rarity !== "ALL" ? state.rarity : undefined,
     bloodline: state.filter === "Bloodline" ? state.bloodline : undefined,
     stat: state.filter === "Stat" ? state.stat : undefined,
@@ -209,9 +210,9 @@ export const getFilter = (state: JutsuFilteringState) => {
 /** State for the Jutsu Filtering component */
 export const useFiltering = () => {
   // State variables
+  const [filter, setFilter] = useState(mainFilters[0] as FilterType);
   const [name, setName] = useState<string>("");
   const [bloodline, setBloodline] = useState<string | undefined>(undefined);
-  const [filter, setFilter] = useState(mainFilters[0] as FilterType);
   const [stat, setStat] = useState(statFilters[0] as StatType);
   const [animation, setAnimation] = useState(animationNames[0] as AnimationName);
   const [effect, setEffect] = useState(effectFilters[0] as EffectType);

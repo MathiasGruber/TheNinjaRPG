@@ -157,6 +157,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
 export const mainFilters = [
   "No Filter",
   "Name",
+  "Most Recent",
   "Bloodline",
   "Stat",
   "Effect",
