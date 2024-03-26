@@ -124,6 +124,7 @@ export const villageRouter = createTRPCRouter({
             sector: village.sector,
             longitude: ALLIANCEHALL_LONG,
             latitude: ALLIANCEHALL_LAT,
+            ...(user.rank === "GENIN" && { senseiId: null }),
           })
           .where(
             and(
