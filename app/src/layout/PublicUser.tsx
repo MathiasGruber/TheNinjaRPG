@@ -133,6 +133,16 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <p>Clan: None</p>
             <p>ANBU: None</p>
             <p>Bloodline: {profile.bloodline?.name || "None"}</p>
+            <p>
+              Sensei:{" "}
+              {profile.senseiId && profile.sensei ? (
+                <Link href={`/users/${profile.senseiId}`} className="font-bold">
+                  {profile.sensei?.username}
+                </Link>
+              ) : (
+                "None"
+              )}
+            </p>
             <br />
             <b>Experience</b>
             <p>Experience: {profile.experience}</p>

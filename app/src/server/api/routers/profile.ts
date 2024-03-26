@@ -819,6 +819,7 @@ export const profileRouter = createTRPCRouter({
           maxChakra: true,
           level: true,
           role: true,
+          senseiId: true,
           reputationPoints: true,
           experience: true,
           avatar: true,
@@ -850,6 +851,12 @@ export const profileRouter = createTRPCRouter({
               level: true,
               rank: true,
               avatar: true,
+            },
+          },
+          sensei: {
+            columns: {
+              userId: true,
+              username: true,
             },
           },
         },
