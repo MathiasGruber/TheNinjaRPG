@@ -20,6 +20,12 @@ const Header: React.FC = () => {
       <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
       <link rel="icon" href="/favicon.ico" />
 
+      {/* Google search verification */}
+      <meta
+        name="google-site-verification"
+        content="0yl4KCd6udl9DAo_TMf8esN6snWH0_gqwf2EShlogRU"
+      />
+
       {/* Social Media Sharing */}
       <meta property="og:url" content="https://www.theninja-rpg.com"></meta>
       <meta property="og:type" content="website"></meta>
