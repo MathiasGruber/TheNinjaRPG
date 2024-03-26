@@ -209,8 +209,8 @@ export const HP_PER_LVL = 50;
 export const SP_PER_LVL = 50;
 export const CP_PER_LVL = 50;
 export const MAX_ATTRIBUTES = 5;
-export const STATS_CAP = 200000;
-export const GENS_CAP = 100000;
+export const STATS_CAP = 300000;
+export const GENS_CAP = 150000;
 
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;
