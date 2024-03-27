@@ -225,7 +225,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
                 ></Image>
               </a>
 
-              <TooltipProvider>
+              <TooltipProvider delayDuration={50}>
                 <Tooltip>
                   <TooltipTrigger>
                     <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />

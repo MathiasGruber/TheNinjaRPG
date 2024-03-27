@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { mutateContentSchema } from "@/validators/comments";
-import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
+import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -85,16 +85,16 @@ const VillageOverview: NextPage = () => {
         subtitle="Your Community"
         topRightContent={
           <div className="grid grid-cols-2 gap-1">
-            <TooltipProvider>
+            <TooltipProvider delayDuration={50}>
               <Tooltip>
                 <TooltipTrigger>
                   <div className="flex flex-row">
                     <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  Village walls which increase defence within village
-                </TooltipContent>
+                {walls && (
+                  <TooltipContent>{StructureRewardEntries(walls)}</TooltipContent>
+                )}
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
@@ -112,9 +112,9 @@ const VillageOverview: NextPage = () => {
                     <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  Ninja protectors that attack intruders within the village
-                </TooltipContent>
+                {protectors && (
+                  <TooltipContent>{StructureRewardEntries(protectors)}</TooltipContent>
+                )}
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
@@ -191,17 +191,30 @@ interface BuildingProps {
 }
 
 const Building: React.FC<BuildingProps> = (props) => {
+  // Destructure
+  const { structure, showBar, textPosition } = props;
+
   // Blocks
   const TextBlock = (
     <div className="text-xs">
-      <p className="font-bold">{props.structure.name}</p>
-      <p>Lvl. {props.structure.level}</p>
+      <p className="font-bold">{structure.name}</p>
+      <div className="flex flex-row items-center justify-center gap-2">
+        <p>Lvl. {structure.level}</p>{" "}
+        <TooltipProvider delayDuration={50}>
+          <Tooltip>
+            <TooltipTrigger>
+              <Info className="w-4 h-4" />
+            </TooltipTrigger>
+            <TooltipContent>{StructureRewardEntries(structure)}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
   const ImageBlock = (
     <Image
-      src={props.structure.image}
-      alt={props.structure.name}
+      src={structure.image}
+      alt={structure.name}
       width={200}
       height={200}
       priority={true}
@@ -211,27 +224,78 @@ const Building: React.FC<BuildingProps> = (props) => {
   return (
     <div
       className={`flex flex-col items-center justify-center text-center ${
-        props.structure.level > 0 ? "hover:opacity-80" : "opacity-30"
+        structure.level > 0 ? "hover:opacity-80" : "opacity-30"
       }`}
     >
-      {props.showBar && (
+      {showBar && (
         <div className="w-2/3">
           <StatusBar
             title=""
             tooltip="Health"
             color="bg-red-500"
             showText={false}
-            current={props.structure.curSp}
-            total={props.structure.maxSp}
+            current={structure.curSp}
+            total={structure.maxSp}
           />
         </div>
       )}
       <div
-        className={`grid ${props.textPosition === "right" ? "grid-cols-2" : ""} items-center`}
+        className={`grid ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
       >
         {ImageBlock}
         {TextBlock}
       </div>
     </div>
   );
+};
+
+const StructureRewardEntries = (structure: VillageStructure) => {
+  const { level } = structure;
+  const msgs: string[] = [];
+  if (level > 0) {
+    if (structure.anbuSquadsPerLvl > 0) {
+      msgs.push(`Anbu Squads: +${structure.anbuSquadsPerLvl * level}`);
+    }
+    if (structure.arenaRewardPerLvl > 0) {
+      msgs.push(`Arena Rewards: +${structure.arenaRewardPerLvl * level}%`);
+    }
+    if (structure.bankInterestPerLvl > 0) {
+      msgs.push(`Bank Interest: +${structure.bankInterestPerLvl * level}%`);
+    }
+    if (structure.blackDiscountPerLvl > 0) {
+      msgs.push(`Market discount: ${structure.blackDiscountPerLvl * level}%`);
+    }
+    if (structure.clansPerLvl > 0) {
+      msgs.push(`Clans: +${structure.clansPerLvl * level}`);
+    }
+    if (structure.hospitalSpeedupPerLvl > 0) {
+      msgs.push(`Hospital Speed: +${structure.hospitalSpeedupPerLvl * level}%`);
+    }
+    if (structure.itemDiscountPerLvl > 0) {
+      msgs.push(`Item discount: ${structure.itemDiscountPerLvl * level}%`);
+    }
+    if (structure.patrolsPerLvl > 0) {
+      msgs.push(`NPC Patrols: +${structure.patrolsPerLvl * level}`);
+    }
+    if (structure.ramenDiscountPerLvl > 0) {
+      msgs.push(`Ramen discount: ${structure.ramenDiscountPerLvl * level}%`);
+    }
+    if (structure.regenIncreasePerLvl > 0) {
+      msgs.push(`Regen in Village: +${structure.regenIncreasePerLvl * level}%`);
+    }
+    if (structure.sleepRegenPerLvl > 0) {
+      msgs.push(`Sleep Regen: +${structure.sleepRegenPerLvl * level}%`);
+    }
+    if (structure.structureDiscountPerLvl > 0) {
+      msgs.push(`Structure Discount: ${structure.structureDiscountPerLvl * level}%`);
+    }
+    if (structure.trainSpeedPerLvl > 0) {
+      msgs.push(`Training Speed: +${structure.trainSpeedPerLvl * level}%`);
+    }
+    if (structure.villageDefencePerLvl > 0) {
+      msgs.push(`Village Defence: +${structure.villageDefencePerLvl * level}%`);
+    }
+  }
+  if (msgs.length === 0) msgs.push("No rewards for this structure");
+  return msgs.map((e, i) => <p key={i}>{e}</p>);
 };

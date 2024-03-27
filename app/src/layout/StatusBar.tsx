@@ -96,7 +96,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
         </div>
       )}
 
-      <TooltipProvider>
+      <TooltipProvider delayDuration={50}>
         <Tooltip>
           <TooltipTrigger className="w-full">
             <div className={`h-3 w-full border-2 border-black`}>

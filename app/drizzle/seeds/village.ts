@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
-import { village, villageStructure, conversation } from "../schema";
-import { userData, userAttribute } from "../schema";
+import { village, villageStructure, conversation } from "@/drizzle/schema";
+import { userData, userAttribute } from "@/drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
 
@@ -8,12 +8,12 @@ export const seedVillages = async (client: DrizzleClient) => {
   // Default villages
   const villages = [
     { name: "Konoki", sector: 105, hexColor: "#206625" },
-    { name: "Shroud", sector: 4, hexColor: "#606160" },
+    { name: "Shroud", sector: 4, hexColor: "#3232a8" },
     { name: "Silence", sector: 297, hexColor: "#0a0a0a" },
-    { name: "Current", sector: 300, hexColor: "#3232a8" },
+    { name: "Current", sector: 300, hexColor: "#606160" },
     // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
-    { name: "Glacier", sector: 116, hexColor: "#6b199e" },
-    { name: "Shine", sector: 89, hexColor: "#adab10" },
+    { name: "Glacier", sector: 116, hexColor: "#50A6C5" },
+    { name: "Shine", sector: 89, hexColor: "#ffd966" },
   ];
   // Elders
   const elders = [
@@ -34,6 +34,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 4,
       latitude: 10,
       hasPage: 1,
+      sleepRegenPerLvl: 2,
     },
     {
       name: "Training Grounds",
@@ -42,6 +43,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 4,
       latitude: 5,
       hasPage: 1,
+      trainSpeedPerLvl: 1,
     },
     {
       name: "Clan Hall",
@@ -50,6 +52,8 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 8,
       latitude: 4,
       hasPage: 1,
+      clansPerLvl: 1,
+      villageDefencePerLvl: 1,
     },
     {
       name: "Town Hall",
@@ -58,6 +62,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 10,
       latitude: 7,
       hasPage: 1,
+      structureDiscountPerLvl: 1,
     },
     {
       name: "Battle Arena",
@@ -66,6 +71,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 7,
       latitude: 6,
       hasPage: 1,
+      arenaRewardPerLvl: 5,
     },
     {
       name: "Mission Hall",
@@ -74,6 +80,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 11,
       latitude: 10,
       hasPage: 1,
+      regenIncreasePerLvl: 1,
     },
     {
       name: "Bank",
@@ -82,6 +89,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 15,
       latitude: 10,
       hasPage: 1,
+      bankInterestPerLvl: 1,
     },
     {
       name: "Item shop",
@@ -90,6 +98,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 13,
       latitude: 11,
       hasPage: 1,
+      itemDiscountPerLvl: 5,
     },
     {
       name: "Hospital",
@@ -98,6 +107,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 12,
       latitude: 8,
       hasPage: 1,
+      hospitalSpeedupPerLvl: 2,
     },
     {
       name: "ANBU",
@@ -106,6 +116,8 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 9,
       latitude: 5,
       hasPage: 1,
+      anbuSquadsPerLvl: 1,
+      villageDefencePerLvl: 1,
     },
     // { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
     {
@@ -115,6 +127,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 3,
       latitude: 8,
       hasPage: 1,
+      ramenDiscountPerLvl: 5,
     },
     {
       name: "Black Market",
@@ -123,9 +136,23 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 14,
       latitude: 3,
       hasPage: 1,
+      blackDiscountPerLvl: 5,
     },
-    { name: "Protectors", image: "/buildings/AI.webp", level: 1, hasPage: 0 },
-    { name: "Walls", image: "/buildings/Walls.webp", level: 1, hasPage: 0 },
+    {
+      name: "Protectors",
+      image: "/buildings/AI.webp",
+      level: 1,
+      hasPage: 0,
+      villageDefencePerLvl: 2,
+      patrolsPerLvl: 1,
+    },
+    {
+      name: "Walls",
+      image: "/buildings/Walls.webp",
+      level: 1,
+      hasPage: 0,
+      villageDefencePerLvl: 5,
+    },
   ];
 
   const promises: Promise<void>[] = [];

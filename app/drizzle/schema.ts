@@ -1140,6 +1140,21 @@ export const villageStructure = mysqlTable(
     hasPage: tinyint("hasPage").default(0).notNull(),
     curSp: int("curSp").default(100).notNull(),
     maxSp: int("maxSp").default(100).notNull(),
+    // Per level advantages
+    anbuSquadsPerLvl: tinyint("anbuSquadsPerLvl").default(0).notNull(),
+    arenaRewardPerLvl: tinyint("arenaRewardPerLvl").default(0).notNull(),
+    bankInterestPerLvl: tinyint("bankInterestPerLvl").default(0).notNull(),
+    blackDiscountPerLvl: tinyint("blackDiscountPerLvl").default(0).notNull(),
+    clansPerLvl: tinyint("clansPerLvl").default(0).notNull(),
+    hospitalSpeedupPerLvl: tinyint("hospitalSpeedupPerLvl").default(0).notNull(),
+    itemDiscountPerLvl: tinyint("itemDiscountPerLvl").default(0).notNull(),
+    patrolsPerLvl: tinyint("patrolsPerLvl").default(0).notNull(),
+    ramenDiscountPerLvl: tinyint("ramenDiscountPerLvl").default(0).notNull(),
+    regenIncreasePerLvl: tinyint("regenIncreasePerLvl").default(0).notNull(),
+    sleepRegenPerLvl: tinyint("sleepRegenPerLvl").default(0).notNull(),
+    structureDiscountPerLvl: tinyint("structureDiscountPerLvl").default(0).notNull(),
+    trainSpeedPerLvl: tinyint("trainSpeedPerLvl").default(0).notNull(),
+    villageDefencePerLvl: tinyint("villageDefencePerLvl").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1152,6 +1167,7 @@ export const villageStructure = mysqlTable(
   },
 );
 export type VillageStructure = InferSelectModel<typeof villageStructure>;
+export type VillageStructureInsert = InferInsertModel<typeof villageStructure>;
 
 export const villageStructureRelations = relations(villageStructure, ({ one }) => ({
   village: one(village, {
