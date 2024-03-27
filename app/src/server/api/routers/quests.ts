@@ -5,7 +5,7 @@ import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
-import { item, jutsu, badge } from "@/drizzle/schema";
+import { item, jutsu, badge, bankTransfers } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
@@ -330,9 +330,11 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
+
       // Figure out if any finished quests & get rewards
       const { rewards, trackers, userQuest, resolved } = getReward(user, input.questId);
       user.questData = trackers;
+
       // Update user quest data
       if (resolved && userQuest) {
         // Achievements are only inserted once completed
@@ -344,6 +346,12 @@ export const questsRouter = createTRPCRouter({
           user.questData = trackers;
         }
       }
+
+      // Sensei rewards
+      const hasSensei = user.senseiId && user.rank === "GENIN";
+      const isMission = userQuest?.quest.questType === "mission";
+      const senseiId = hasSensei && isMission ? user.senseiId : null;
+
       // Fetch names from the database
       const [items, jutsus, badges] = await Promise.all([
         // Fetch names from the database
@@ -375,6 +383,7 @@ export const questsRouter = createTRPCRouter({
               )
           : [],
       ]);
+
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
@@ -447,6 +456,21 @@ export const questsRouter = createTRPCRouter({
               })),
             ),
         ],
+        // Update sensei with 1000 ryo for missions
+        ...(senseiId
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ money: sql`${userData.money} + 1000` })
+                .where(eq(userData.userId, senseiId)),
+              ctx.drizzle.insert(bankTransfers).values({
+                senderId: ctx.userId,
+                receiverId: senseiId,
+                amount: 1000,
+              }),
+            ]
+          : []),
+        // Insert items
         ...[
           items.length > 0 &&
             ctx.drizzle.insert(userItem).values(
@@ -457,6 +481,7 @@ export const questsRouter = createTRPCRouter({
               })),
             ),
         ],
+        // Insert achievements/badges
         ...[
           badges.length > 0 &&
             ctx.drizzle.insert(userBadge).values(

@@ -145,8 +145,12 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
     isFetching || isCreating || isAccepting || isRejecting || isCancelling;
   const message =
     userData.rank === "JONIN"
-      ? "Search for Genin to take in as students"
-      : "Search for Jonin to be your sensei";
+      ? "Search for Genin to take in as students."
+      : "Search for Jonin to be your sensei. ";
+  const reward =
+    userData.rank === "JONIN"
+      ? "You receive 1000 ryo every time a student completes a mission."
+      : "Jutsu training will be sped up by 5%.";
   const showRequestSystem = userData.rank === "JONIN" || !userData.senseiId;
   const showSensei = userData.rank === "GENIN" && userData.senseiId;
   const showStudents = userData.rank === "JONIN" && students && students.length > 0;
@@ -196,6 +200,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
         >
           <div className="p-3">
             <p className="pb-2">{message}</p>
+            <p className="pb-2">{reward}</p>
             <UserSearchSelect
               useFormMethods={userSearchMethods}
               selectedUsers={[]}
@@ -481,7 +486,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const level = userJutsuCounts?.find((entry) => entry.id === jutsu?.id)?.quantity || 0;
   const trainSeconds =
     jutsu &&
-    getTimeLeftStr(...getDaysHoursMinutesSeconds(calcJutsuTrainTime(jutsu, level)));
+    getTimeLeftStr(
+      ...getDaysHoursMinutesSeconds(calcJutsuTrainTime(jutsu, level, userData)),
+    );
   const cost = (jutsu && calcJutsuTrainCost(jutsu, level)) || 0;
   const okRank = checkJutsuRank(jutsu?.jutsuRank, userData.rank);
   const okVillage = checkJutsuVillage(jutsu, userData);

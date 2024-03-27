@@ -86,7 +86,9 @@ export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
 
 export const JUTSU_LEVEL_CAP = 20;
 
-export const calcJutsuTrainTime = (jutsu: Jutsu, level: number) => {
+export const SENSEI_JUTSU_TRAINING_BOOST_PERC = 5;
+
+export const calcJutsuTrainTime = (jutsu: Jutsu, level: number, userdata: UserData) => {
   let lvlIncrement = 7;
   if (jutsu.jutsuRank === "C") {
     lvlIncrement = 8;
@@ -97,7 +99,11 @@ export const calcJutsuTrainTime = (jutsu: Jutsu, level: number) => {
   } else if (jutsu.jutsuRank === "S") {
     lvlIncrement = 11;
   }
-  return (1 + level * lvlIncrement) * 60 * 1000;
+  const trainTime = (1 + level * lvlIncrement) * 60 * 1000;
+  if (userdata.senseiId && userdata.rank === "GENIN") {
+    return trainTime * (1 - SENSEI_JUTSU_TRAINING_BOOST_PERC / 100);
+  }
+  return trainTime;
 };
 
 export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {

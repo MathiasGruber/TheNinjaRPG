@@ -12,7 +12,7 @@ import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { JutsuValidator, animationNames } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { createTRPCRouter } from "@/server/api/trpc";
+import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { statFilters, effectFilters, mainFilters } from "@/libs/train";
@@ -229,37 +229,34 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      const info = await fetchJutsu(ctx.drizzle, input.jutsuId);
-      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
+      // Fetch
+      const [data, info, userjutsus] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchJutsu(ctx.drizzle, input.jutsuId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+      ]);
+      // Derived
+      const { user } = data;
       const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
-      if (!user) {
-        return { success: false, message: "User not found" };
-      }
-      if (!info) {
-        return { success: false, message: "Jutsu not found" };
-      }
-      if (info.hidden === 1) {
-        return { success: false, message: "Jutsu can not be trained" };
-      }
-      if (!canTrainJutsu(info, user)) {
-        return { success: false, message: "You cannot train this jutsu" };
-      }
-      if (user.status !== "AWAKE") {
-        return { success: false, message: "Must be awake to start training jutsu" };
-      }
-      if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
-        return { success: false, message: "You are already training a jutsu" };
-      }
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!info) return errorResponse("Jutsu not found");
+      if (info.hidden === 1) return errorResponse("Jutsu can not be trained");
+      if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake");
       const level = userjutsu ? userjutsu.level : 0;
-      const trainTime = calcJutsuTrainTime(info, level);
+      const trainTime = calcJutsuTrainTime(info, level, user);
       const trainCost = calcJutsuTrainCost(info, level);
-      if (level >= JUTSU_LEVEL_CAP) {
-        return { success: false, message: "Jutsu is already at max level" };
+      if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
+        return errorResponse("You are already training a jutsu");
       }
+      if (level >= JUTSU_LEVEL_CAP) {
+        return errorResponse("Jutsu is already at max level");
+      }
+      // Update quest information
       let questData = user.questData;
       if (!userjutsu) {
         const { trackers } = getNewTrackers(user, [
@@ -267,13 +264,13 @@ export const jutsuRouter = createTRPCRouter({
         ]);
         questData = trackers;
       }
-
+      // Mutate
       const moneyUpdate = await ctx.drizzle
         .update(userData)
         .set({ money: sql`${userData.money} - ${trainCost}`, questData: questData })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.money, trainCost)));
       if (moneyUpdate.rowsAffected !== 1) {
-        return { success: false, message: "You don't have enough money" };
+        return errorResponse("You don't have enough money");
       }
       if (userjutsu) {
         await ctx.drizzle
