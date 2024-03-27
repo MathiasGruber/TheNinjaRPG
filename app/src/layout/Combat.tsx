@@ -457,14 +457,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   }, [battleId]);
 
   // Derived variables
-  const outcome = result
-    ? result.curHealth <= 0
-      ? "Lost"
-      : result.experience > 0.01
-        ? "Won"
-        : "Fled"
-    : "Unknown";
-  const showNextMatch = outcome === "Won" && battleType === "ARENA";
+  const showNextMatch = result?.outcome === "Won" && battleType === "ARENA";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.userId;
@@ -525,7 +518,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       {result && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
           <div className="text-center text-white">
-            <p className="p-5 pb-2 text-3xl">You {outcome}</p>
+            <p className="p-5 pb-2 text-3xl">You {result.outcome}</p>
             <div className=" grid grid-cols-2">
               {result.experience > 0 && (
                 <p>Experience Points: {result.experience.toFixed(2)}</p>

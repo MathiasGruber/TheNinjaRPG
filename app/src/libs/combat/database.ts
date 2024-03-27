@@ -68,7 +68,9 @@ export const saveUsage = async (
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
   if (result && user) {
-    const battleWon = result.curHealth <= 0 ? 0 : result.experience > 0.01 ? 1 : 2;
+    // Get state, lost: 0, won: 1, flee: 2
+    const outcome = result.outcome;
+    const battleWon = outcome === "Won" ? 1 : outcome === "Fled" ? 2 : 0;
     // Basic actions from this user
     const data: DataBattleAction[] = [];
     user.usedActions?.map((action) => {

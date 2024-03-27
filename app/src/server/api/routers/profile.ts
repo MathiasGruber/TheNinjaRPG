@@ -55,7 +55,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import HumanDiff from "human-object-diff";
-import type { UserData, Bloodline, Village } from "@/drizzle/schema";
+import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
@@ -1256,7 +1256,7 @@ export const fetchAttributes = async (client: DrizzleClient, userId: string) => 
 export type UserWithRelations =
   | (UserData & {
       bloodline?: Bloodline | null;
-      village?: Village | null;
+      village?: (Village & { structures?: VillageStructure[] }) | null;
       userQuests: UserQuest[];
     })
   | undefined;

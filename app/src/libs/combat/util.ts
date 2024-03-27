@@ -337,9 +337,16 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const didWin = user.curHealth > 0 && !user.fledBattle;
       const maxGain = 32 * battle.rewardScaling;
 
+      // Village structure bonus
+      let structureBoost = 1;
+      user.village?.structures?.forEach((s) => {
+        structureBoost += (s.arenaRewardPerLvl * s.level) / 100;
+      });
+
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
-      const experience = !user.fledBattle ? (didWin ? eloDiff : eloDiff / 2) : 0.01;
+      const experience = didWin ? eloDiff * structureBoost : 0;
+      const outcome = user.fledBattle ? "Fled" : didWin ? "Won" : "Lost";
 
       // Find users who did not leave battle yet
       const friendsLeft = friends.filter((u) => !u.leftBattle && !u.isAi);
@@ -370,6 +377,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Result object
       const result: CombatResult = {
+        outcome: outcome,
         didWin: didWin ? 1 : 0,
         experience: 0.01,
         eloPvp: 0,
@@ -425,7 +433,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           result[stat] += statGain;
         });
         user.usedGenerals.forEach((stat) => {
-          result[stat.toLowerCase() as keyof CombatResult] += statGain;
+          result[
+            stat.toLowerCase() as "strength" | "intelligence" | "speed" | "willpower"
+          ] += statGain;
         });
       }
 

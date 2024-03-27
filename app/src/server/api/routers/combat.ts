@@ -574,7 +574,9 @@ export const initiateBattle = async (
       tx.query.userData.findMany({
         with: {
           bloodline: true,
-          village: true,
+          village: {
+            with: { structures: true },
+          },
           items: {
             with: { item: true },
             where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
@@ -683,12 +685,9 @@ export const initiateBattle = async (
 
     // Add relevant relations to usersState
     usersState.forEach((u) => {
-      console.log(relations);
-      console.log("-------------------");
       u.relations = relations.filter(
         (r) => r.villageIdA === u.villageId || r.villageIdB === u.villageId,
       );
-      console.log(u.relations);
     });
 
     // If this is a kage challenge, convert all to be AIs & set them as not originals

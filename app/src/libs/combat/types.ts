@@ -78,6 +78,7 @@ export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
  * Result type for users when battle is ended
  */
 export type CombatResult = {
+  outcome: "Won" | "Lost" | "Draw" | "Fled";
   didWin: number;
   experience: number;
   pvpStreak: number;
