@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSafePush } from "./routing";
 import { useRequiredUserData } from "./UserContext";
 import { calcIsInVillage } from "@/libs/travel/controls";
+import type { VillageStructure } from "@/drizzle/schema";
 
 /**
  * A hook which requires the user to be in their village,
@@ -22,4 +23,27 @@ export const useRequireInVillage = () => {
       }
     }
   }, [userData, router]);
+};
+
+export type StructureAttribute =
+  | "anbuSquadsPerLvl"
+  | "arenaRewardPerLvl"
+  | "bankInterestPerLvl"
+  | "blackDiscountPerLvl"
+  | "clansPerLvl"
+  | "hospitalSpeedupPerLvl"
+  | "itemDiscountPerLvl"
+  | "patrolsPerLvl"
+  | "ramenDiscountPerLvl"
+  | "regenIncreasePerLvl"
+  | "sleepRegenPerLvl"
+  | "structureDiscountPerLvl"
+  | "trainSpeedPerLvl"
+  | "villageDefencePerLvl";
+
+export const calcStructureContribution = (
+  attribute: StructureAttribute,
+  structures?: VillageStructure[],
+) => {
+  return structures?.reduce((a, b) => a + b[attribute] * b.level, 0) ?? 0;
 };

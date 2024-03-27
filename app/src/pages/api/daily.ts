@@ -8,6 +8,7 @@ import { secondsFromNow } from "@/utils/time";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
+import { calcStructureContribution } from "@/utils/village";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -17,11 +18,24 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(200).json("Ran within the last 23.5 hours");
   }
 
-  const villages = await drizzleDB.query.village.findMany({});
+  const villages = await drizzleDB.query.village.findMany({
+    with: { structures: true },
+  });
 
   try {
-    // STEP 1: Bank interest
-    await drizzleDB.update(userData).set({ bank: sql`${userData.bank} * 1.01` });
+    // STEP 1: Bank interest for each village
+    await Promise.all(
+      villages.map((village) => {
+        const interest = calcStructureContribution(
+          "bankInterestPerLvl",
+          village.structures,
+        );
+        const factor = 1 + interest / 100;
+        return drizzleDB
+          .update(userData)
+          .set({ bank: sql`${userData.bank} * ${factor}` });
+      }),
+    );
 
     // STEP 2: Clear old challenges
     await drizzleDB
