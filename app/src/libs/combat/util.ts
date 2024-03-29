@@ -8,6 +8,10 @@ import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
 import { PRESTIGE_COST } from "@/utils/kage";
+import { calcIsInVillage } from "@/libs/travel/controls";
+import { structureBoost } from "@/utils/village";
+import { DecreaseDamageTakenTag } from "@/libs/combat/types";
+import { StatType, GeneralType } from "@/libs/combat/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -15,8 +19,9 @@ import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
-import type { Battle } from "../../../drizzle/schema";
-import type { Item, UserItem } from "../../../drizzle/schema";
+import type { Battle } from "@/drizzle/schema";
+import type { Item, UserItem } from "@/drizzle/schema";
+import type { BattleType } from "@/drizzle/constants";
 
 /**
  * Finds a user in the battle state based on location
@@ -603,10 +608,20 @@ export const rollInitiative = (
   return roll;
 };
 
-export const processUsersForBattle = (
-  users: BattleUserState[],
-  hide: boolean = false,
-) => {
+/**
+ * Processes the users for a battle.
+ *
+ * @param users - An array of `BattleUserState` objects representing the users participating in the battle.
+ * @param hide - A boolean indicating whether to hide user on map. Defaults to `false`.
+ * @returns An object containing the processed user effects, updated user states, and all summons.
+ */
+export const processUsersForBattle = (info: {
+  users: BattleUserState[];
+  battleType: BattleType;
+  hide: boolean;
+}) => {
+  // Destructure
+  const { users, battleType, hide } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -675,6 +690,26 @@ export const processUsersForBattle = (
     user.usedStats = [];
     user.usedActions = [];
 
+    // If in own village, add defence bonus
+    const ownSector = user.sector === user.village?.sector;
+    const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
+    if (ownSector && inVillage && battleType !== "ARENA") {
+      const boost = structureBoost("villageDefencePerLvl", user.village?.structures);
+      const effect = DecreaseDamageTakenTag.parse({
+        target: "SELF",
+        statTypes: StatType,
+        generalTypes: GeneralType,
+        type: "decreasedamagetaken",
+        power: boost,
+        rounds: undefined,
+      }) as unknown as UserEffect;
+      const realized = realizeTag(effect, user, user.level);
+      realized.isNew = false;
+      realized.castThisRound = false;
+      realized.targetId = user.userId;
+      userEffects.push(realized);
+    }
+
     // Add bloodline efects
     if (user.bloodline?.effects) {
       const effects = user.bloodline.effects as unknown as UserEffect[];
@@ -741,5 +776,6 @@ export const processUsersForBattle = (
     user.initiative = rollInitiative(user, users);
     return user;
   });
+
   return { userEffects, usersState, allSummons };
 };

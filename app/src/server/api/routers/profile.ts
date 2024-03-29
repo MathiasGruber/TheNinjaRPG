@@ -138,7 +138,6 @@ export const profileRouter = createTRPCRouter({
         Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
         user.curEnergy,
       );
-      console.log("factor", factor);
       const trainingAmount =
         factor *
         energySpent *

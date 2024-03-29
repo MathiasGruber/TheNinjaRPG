@@ -679,9 +679,11 @@ export const initiateBattle = async (
     }
 
     // Create the users array to be inserted into the battle
-    const { userEffects, usersState, allSummons } = processUsersForBattle(
-      users as BattleUserState[],
-    );
+    const { userEffects, usersState, allSummons } = processUsersForBattle({
+      users: users as BattleUserState[],
+      battleType: battleType,
+      hide: false,
+    });
 
     // Add relevant relations to usersState
     usersState.forEach((u) => {
@@ -720,7 +722,11 @@ export const initiateBattle = async (
         where: inArray(userData.userId, uniqueSummons),
       });
       const { userEffects: summonEffects, usersState: summonState } =
-        processUsersForBattle(summons as BattleUserState[], true);
+        processUsersForBattle({
+          users: summons as BattleUserState[],
+          battleType: battleType,
+          hide: true,
+        });
       summonState.map((u) => (u.isSummon = 1));
       userEffects.push(...summonEffects);
       usersState.push(...summonState);
