@@ -7,6 +7,7 @@ import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
+import { useStructureBoost } from "@/utils/village";
 import type { RamenOption } from "@/utils/ramen";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
@@ -83,9 +84,13 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
   // Destructure
   const { title, entry, image, userData, onPurchase } = props;
 
+  // Get structures
+  const discount = useStructureBoost("ramenDiscountPerLvl", userData?.villageId);
+
   // Convenience
+  const factor = (100 - discount) / 100;
   const healPerc = getRamenHealPercentage(entry);
-  const cost = calcRamenCost(entry, userData);
+  const cost = calcRamenCost(entry, userData) * factor;
 
   // Checks
   const canAfford = userData.money >= cost;

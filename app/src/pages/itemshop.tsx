@@ -18,7 +18,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
 import { useStructureBoost } from "@/utils/village";
-import type { ItemType, Item } from "../../drizzle/schema";
+import type { ItemType, Item } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
 const ItemShop: NextPage = () => {

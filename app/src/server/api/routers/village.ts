@@ -7,10 +7,11 @@ import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUser, fetchUpdatedUser } from "./profile";
-import { fetchRequests } from "./sparring";
-import { insertRequest, updateRequestState } from "./sparring";
-import { createConvo } from "./comments";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
+import { fetchRequests } from "@/routers/sparring";
+import { insertRequest, updateRequestState } from "@/routers/sparring";
+import { createConvo } from "@/routers/comments";
+import { calcStructureContribution } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
@@ -68,27 +69,33 @@ export const villageRouter = createTRPCRouter({
     }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
-    .input(z.object({ ramen: z.enum(ramenOptions) }))
+    .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Query
+      const [user, structures] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchStructures(ctx.drizzle, input.villageId),
+      ]);
+      // Derived
+      const discount = calcStructureContribution("ramenDiscountPerLvl", structures);
+      const factor = (100 - discount) / 100;
       const healPercentage = getRamenHealPercentage(input.ramen);
-      const cost = calcRamenCost(input.ramen, user);
-      if (user.money >= cost) {
-        const result = await ctx.drizzle
-          .update(userData)
-          .set({
-            money: user.money - cost,
-            curHealth: user.curHealth + (user.maxHealth * healPercentage) / 100,
-          })
-          .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
-        if (result.rowsAffected === 0) {
-          return errorResponse("Error trying to buy food. Try again.");
-        } else {
-          return { success: true, message: "You have bought food" };
-        }
+      const cost = calcRamenCost(input.ramen, user) * factor;
+      // Guard
+      if (user.money < cost) return errorResponse("You don't have enough money");
+      // Mutate with guard
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: user.money - cost,
+          curHealth: user.curHealth + (user.maxHealth * healPercentage) / 100,
+        })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
+      if (result.rowsAffected === 0) {
+        return errorResponse("Error trying to buy food. Try again.");
       } else {
-        return errorResponse("You don't have enough money");
+        return { success: true, message: "You have bought food" };
       }
     }),
   swapVillage: protectedProcedure
