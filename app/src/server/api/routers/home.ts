@@ -1,33 +1,27 @@
-import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { baseServerResponse, errorResponse } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
-import { fetchUpdatedUser } from "./profile";
-import { getServerPusher } from "../../../libs/pusher";
-import { calcIsInVillage } from "../../../libs/travel/controls";
+import { fetchUpdatedUser } from "@/routers/profile";
+import { getServerPusher } from "@/libs/pusher";
+import { calcIsInVillage } from "@/libs/travel/controls";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
+      // Query
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
+        forceRegen: true,
       });
-      if (!user) {
-        return errorResponse("User not found");
-      }
-      if (
-        !calcIsInVillage({
-          x: user.longitude,
-          y: user.latitude,
-        })
-      ) {
-        return errorResponse("You must be in a village to sleep");
-      }
-      if (user.sector !== user.village?.sector) {
-        return errorResponse("You are not in the right sector to sleep");
-      }
+      // Guard
+      if (!user) return errorResponse("User not found");
+      const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
+      if (!inVillage) return errorResponse("You must be in a village to sleep");
+      if (user.sector !== user.village?.sector) return errorResponse("Wrong sector");
+      // Mutate
       const newStatus = user.status === "ASLEEP" ? "AWAKE" : "ASLEEP";
       if (user.status === "ASLEEP") {
         await ctx.drizzle
@@ -49,6 +43,7 @@ export const homeRouter = createTRPCRouter({
           return errorResponse("You can't sleep right now; are you awake and well?");
         }
       }
+      // Push status update to sector
       const output = {
         longitude: user.longitude,
         latitude: user.latitude,
@@ -59,6 +54,7 @@ export const homeRouter = createTRPCRouter({
       };
       const pusher = getServerPusher();
       void pusher.trigger(user.sector.toString(), "event", output);
+      // Done
       return {
         success: true,
         message: newStatus === "AWAKE" ? "You have woken up" : "You have gone to sleep",

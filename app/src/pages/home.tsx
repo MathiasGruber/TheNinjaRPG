@@ -4,6 +4,7 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
+import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
@@ -24,11 +25,13 @@ const Home: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
+  const boost = 1 + structureBoost("sleepRegenPerLvl", userData.village?.structures);
+
   return (
     <>
       <ContentBox
         title="Your Home"
-        subtitle="Train, Eat, Sleep, repeat"
+        subtitle={`Train, eat, sleep. +${boost}% regen sleeping.`}
         back_href="/village"
       >
         <div className="grid grid-cols-3 text-center font-bold italic">

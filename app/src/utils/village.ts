@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useSafePush } from "./routing";
 import { useRequiredUserData } from "./UserContext";
 import { calcIsInVillage } from "@/libs/travel/controls";
-import { api } from "@/utils/api";
 import type { VillageStructure } from "@/drizzle/schema";
 
 /**
@@ -42,7 +41,7 @@ export type StructureAttribute =
   | "trainSpeedPerLvl"
   | "villageDefencePerLvl";
 
-export const calcStructureContribution = (
+export const structureBoost = (
   attribute: StructureAttribute,
   structures?: VillageStructure[],
 ) => {

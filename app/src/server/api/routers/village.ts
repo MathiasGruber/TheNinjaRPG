@@ -11,7 +11,7 @@ import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
-import { calcStructureContribution } from "@/utils/village";
+import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
@@ -78,7 +78,7 @@ export const villageRouter = createTRPCRouter({
         fetchStructures(ctx.drizzle, input.villageId),
       ]);
       // Derived
-      const discount = calcStructureContribution("ramenDiscountPerLvl", structures);
+      const discount = structureBoost("ramenDiscountPerLvl", structures);
       const factor = (100 - discount) / 100;
       const healPercentage = getRamenHealPercentage(input.ramen);
       const cost = calcRamenCost(input.ramen, user) * factor;

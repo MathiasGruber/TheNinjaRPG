@@ -11,7 +11,7 @@ import { ItemValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
-import { calcStructureContribution } from "@/utils/village";
+import { structureBoost } from "@/utils/village";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -264,7 +264,7 @@ export const itemRouter = createTRPCRouter({
           .where(eq(userItem.userId, uid)),
       ]);
       const userItemsCount = counts?.[0]?.count || 0;
-      const discount = calcStructureContribution("itemDiscountPerLvl", structures);
+      const discount = structureBoost("itemDiscountPerLvl", structures);
       const factor = (100 - discount) / 100;
       // Guard
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");

@@ -8,7 +8,7 @@ import { secondsFromNow } from "@/utils/time";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
-import { calcStructureContribution } from "@/utils/village";
+import { structureBoost } from "@/utils/village";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -26,10 +26,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
     // STEP 1: Bank interest for each village
     await Promise.all(
       villages.map((village) => {
-        const interest = calcStructureContribution(
-          "bankInterestPerLvl",
-          village.structures,
-        );
+        const interest = structureBoost("bankInterestPerLvl", village.structures);
         const factor = 1 + interest / 100;
         return drizzleDB
           .update(userData)

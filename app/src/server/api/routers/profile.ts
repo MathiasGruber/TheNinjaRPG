@@ -54,7 +54,7 @@ import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
-import { calcStructureContribution } from "@/utils/village";
+import { structureBoost } from "@/utils/village";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -1158,10 +1158,13 @@ export const fetchUpdatedUser = async (props: {
 
   // Structure regen increase
   if (user) {
-    const boost = calcStructureContribution(
-      "regenIncreasePerLvl",
-      user?.village?.structures,
-    );
+    const boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
+    user.regeneration *= (100 + boost) / 100;
+  }
+
+  // Increase regen when asleep
+  if (user?.status === "ASLEEP") {
+    const boost = structureBoost("sleepRegenPerLvl", user?.village?.structures);
     user.regeneration *= (100 + boost) / 100;
   }
 
