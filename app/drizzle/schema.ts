@@ -1153,7 +1153,7 @@ export const villageStructure = mysqlTable(
     regenIncreasePerLvl: tinyint("regenIncreasePerLvl").default(0).notNull(),
     sleepRegenPerLvl: tinyint("sleepRegenPerLvl").default(0).notNull(),
     structureDiscountPerLvl: tinyint("structureDiscountPerLvl").default(0).notNull(),
-    trainSpeedPerLvl: tinyint("trainSpeedPerLvl").default(0).notNull(),
+    trainBoostPerLvl: tinyint("trainBoostPerLvl").default(0).notNull(),
     villageDefencePerLvl: tinyint("villageDefencePerLvl").default(0).notNull(),
   },
   (table) => {

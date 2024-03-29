@@ -43,7 +43,7 @@ export const seedVillages = async (client: DrizzleClient) => {
       longitude: 4,
       latitude: 5,
       hasPage: 1,
-      trainSpeedPerLvl: 1,
+      trainBoostPerLvl: 1,
     },
     {
       name: "Clan Hall",

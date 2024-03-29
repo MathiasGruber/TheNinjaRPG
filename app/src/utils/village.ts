@@ -38,7 +38,7 @@ export type StructureAttribute =
   | "regenIncreasePerLvl"
   | "sleepRegenPerLvl"
   | "structureDiscountPerLvl"
-  | "trainSpeedPerLvl"
+  | "trainBoostPerLvl"
   | "villageDefencePerLvl";
 
 export const structureBoost = (

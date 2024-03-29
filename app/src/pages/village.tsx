@@ -289,8 +289,8 @@ const StructureRewardEntries = (structure: VillageStructure) => {
     if (structure.structureDiscountPerLvl > 0) {
       msgs.push(`Structure Discount: ${structure.structureDiscountPerLvl * level}%`);
     }
-    if (structure.trainSpeedPerLvl > 0) {
-      msgs.push(`Training Speed: +${structure.trainSpeedPerLvl * level}%`);
+    if (structure.trainBoostPerLvl > 0) {
+      msgs.push(`Training Boost: +${structure.trainBoostPerLvl * level}%`);
     }
     if (structure.villageDefencePerLvl > 0) {
       msgs.push(`Village Defence: +${structure.villageDefencePerLvl * level}%`);

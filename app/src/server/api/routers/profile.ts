@@ -5,7 +5,7 @@ import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "@/utils/time";
 import { round } from "@/utils/math";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
   userData,
   bankTransfers,
@@ -82,27 +82,22 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ stat: z.enum(UserStatNames) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         userIp: ctx.userIp,
         forceRegen: true,
       });
-      if (!user) {
-        throw serverError("NOT_FOUND", "User not found");
-      }
-      if (user.curEnergy < 1) {
-        return { success: false, message: "Not enough energy" };
-      }
-      if (user.status !== "AWAKE") {
-        return { success: false, message: "Must be awake to start training" };
-      }
-      if (
-        !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
-        user.sector !== user.village?.sector
-      ) {
-        return { success: false, message: "Must be in your own village" };
-      }
+      // Derived
+      if (!user) throw serverError("NOT_FOUND", "User not found");
+      const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
+      // Guard
+      if (user.curEnergy < 1) return errorResponse("Not enough energy");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake to train");
+      if (!inVillage) return errorResponse("Must be in your own village");
+      if (user.sector !== user.village?.sector) return errorResponse("Wrong sector");
+      // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set({ trainingStartedAt: new Date(), currentlyTraining: input.stat })
@@ -114,7 +109,7 @@ export const profileRouter = createTRPCRouter({
           ),
         );
       if (result.rowsAffected === 0) {
-        return { success: false, message: "You are already training" };
+        return errorResponse("You are already training");
       } else {
         return { success: true, message: `Started training` };
       }
@@ -123,30 +118,33 @@ export const profileRouter = createTRPCRouter({
   stopTraining: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
+      // Query
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         forceRegen: true,
       });
-      if (!user) {
-        throw serverError("NOT_FOUND", "User not found");
-      }
-      if (user.status !== "AWAKE") {
-        return { success: false, message: "Must be awake to stop training" };
-      }
-      if (!user.trainingStartedAt || !user.currentlyTraining) {
-        return { success: false, message: "You are not currently training anything" };
-      }
+      // Guard
+      if (!user) throw serverError("NOT_FOUND", "User not found");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake");
+      if (!user.trainingStartedAt) return errorResponse("Not currently training");
+      if (!user.currentlyTraining) return errorResponse("Not currently training");
+      // Derived
+      const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
+      const factor = 1 + boost / 100;
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
       const energySpent = Math.min(
         Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
         user.curEnergy,
       );
+      console.log("factor", factor);
       const trainingAmount =
+        factor *
         energySpent *
         trainEfficiency(user.trainingSpeed) *
         trainingMultiplier(user.trainingSpeed);
+      // Mutate
       const { trackers } = getNewTrackers(user, [
         { task: "stats_trained", increment: trainingAmount },
         { task: "minutes_training", increment: minutes },

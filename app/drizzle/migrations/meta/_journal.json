@@ -484,6 +484,13 @@
       "when": 1711540561900,
       "tag": "0068_living_plazm",
       "breakpoints": false
+    },
+    {
+      "idx": 69,
+      "version": "5",
+      "when": 1711726539783,
+      "tag": "0069_damp_living_lightning",
+      "breakpoints": false
     }
   ]
 }
