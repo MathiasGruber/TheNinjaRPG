@@ -204,6 +204,7 @@ const Profile: NextPage = () => {
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
+            <p>Regeneration: {userData.regeneration}</p>
             <p>Gender: {userData.gender}</p>
           </div>
           <div>

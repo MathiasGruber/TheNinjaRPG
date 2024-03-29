@@ -48,15 +48,3 @@ export const calcStructureContribution = (
 ) => {
   return structures?.reduce((a, b) => a + b[attribute] * b.level, 0) ?? 0;
 };
-
-export const useStructureBoost = (
-  attribute: StructureAttribute,
-  villageId?: string | null,
-) => {
-  const { data } = api.village.get.useQuery(
-    { id: villageId ?? "-" },
-    { enabled: !!villageId, staleTime: Infinity },
-  );
-  const structures = data?.villageData?.structures;
-  return calcStructureContribution(attribute, structures);
-};

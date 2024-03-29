@@ -15,7 +15,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
-import { useStructureBoost } from "@/utils/village";
+import { calcStructureContribution } from "@/utils/village";
 
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
@@ -48,7 +48,10 @@ const Hospital: NextPage = () => {
   );
 
   // Current interest
-  const boost = useStructureBoost("hospitalSpeedupPerLvl", userData?.villageId);
+  const boost = calcStructureContribution(
+    "hospitalSpeedupPerLvl",
+    userData?.village?.structures,
+  );
 
   // Mutations
   const { mutate: heal, isPending: isPendingHeal } = api.hospital.heal.useMutation({

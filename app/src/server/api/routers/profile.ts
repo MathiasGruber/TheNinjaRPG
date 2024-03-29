@@ -54,6 +54,7 @@ import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
+import { calcStructureContribution } from "@/utils/village";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -1133,7 +1134,9 @@ export const fetchUpdatedUser = async (props: {
       where: eq(userData.userId, userId),
       with: {
         bloodline: true,
-        village: true,
+        village: {
+          with: { structures: true },
+        },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
@@ -1151,6 +1154,15 @@ export const fetchUpdatedUser = async (props: {
   // Add in achievements
   if (user) {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
+  }
+
+  // Structure regen increase
+  if (user) {
+    const boost = calcStructureContribution(
+      "regenIncreasePerLvl",
+      user?.village?.structures,
+    );
+    user.regeneration *= (100 + boost) / 100;
   }
 
   // const achievements = ;

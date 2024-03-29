@@ -17,7 +17,7 @@ import { useAwake } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
-import { useStructureBoost } from "@/utils/village";
+import { calcStructureContribution } from "@/utils/village";
 import type { ItemType, Item } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -34,7 +34,10 @@ const ItemShop: NextPage = () => {
   const utils = api.useUtils();
 
   // Data
-  const discount = useStructureBoost("itemDiscountPerLvl", userData?.villageId);
+  const discount = calcStructureContribution(
+    "itemDiscountPerLvl",
+    userData?.village?.structures,
+  );
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     { itemType: itemtype, limit: 500 },
     {
