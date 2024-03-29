@@ -472,8 +472,11 @@ export const fetchVillages = async (client: DrizzleClient) => {
  * @param villageId - The ID of the village to fetch structures for.
  * @returns A promise that resolves to an array of structures.
  */
-export const fetchStructures = async (client: DrizzleClient, villageId: string) => {
+export const fetchStructures = async (
+  client: DrizzleClient,
+  villageId?: string | null,
+) => {
   return await client.query.villageStructure.findMany({
-    where: eq(villageStructure.villageId, villageId),
+    where: eq(villageStructure.villageId, villageId ?? "syndicate"),
   });
 };
