@@ -16,7 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { calcStructureContribution } from "@/utils/village";
+import { useStructureBoost } from "@/utils/village";
 import {
   Form,
   FormControl,
@@ -35,13 +35,8 @@ const Bank: NextPage = () => {
   const money = userData?.money ?? 0;
   const bank = userData?.bank ?? 0;
 
-  // Village information
-  const { data } = api.village.get.useQuery(
-    { id: userData?.villageId ?? "-" },
-    { enabled: !!userData?.villageId, staleTime: Infinity },
-  );
-  const structures = data?.villageData?.structures;
-  const interest = calcStructureContribution("bankInterestPerLvl", structures);
+  // Current interest
+  const interest = useStructureBoost("bankInterestPerLvl", userData?.villageId);
 
   // tRPC utils
   const utils = api.useUtils();

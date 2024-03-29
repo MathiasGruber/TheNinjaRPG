@@ -15,6 +15,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
+import { useStructureBoost } from "@/utils/village";
 
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
@@ -46,6 +47,9 @@ const Hospital: NextPage = () => {
     { staleTime: Infinity, enabled: userData !== undefined },
   );
 
+  // Current interest
+  const boost = useStructureBoost("hospitalSpeedupPerLvl", userData?.villageId);
+
   // Mutations
   const { mutate: heal, isPending: isPendingHeal } = api.hospital.heal.useMutation({
     onSuccess: async (data) => {
@@ -62,7 +66,7 @@ const Hospital: NextPage = () => {
   const bloodlineId = userData?.bloodlineId;
 
   // Heal finish time
-  const healFinishAt = userData && calcHealFinish(userData, timeDiff);
+  const healFinishAt = userData && calcHealFinish({ user: userData, timeDiff, boost });
   const healCost = userData && calcHealCost(userData);
   const canAfford = userData && healCost && userData.money >= healCost;
 
@@ -87,7 +91,7 @@ const Hospital: NextPage = () => {
             <Button
               id="check"
               disabled={healFinishAt && healFinishAt > new Date()}
-              onClick={() => heal()}
+              onClick={() => heal({ villageId: userData.villageId })}
             >
               <Clock className="mr-2 h-6 w-6" />
               <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
@@ -96,7 +100,7 @@ const Hospital: NextPage = () => {
               id="check"
               color={canAfford ? "default" : "red"}
               disabled={healFinishAt && healFinishAt <= new Date()}
-              onClick={() => heal()}
+              onClick={() => heal({ villageId: userData.villageId })}
             >
               {canAfford ? (
                 <FastForward className="mr-3 h-6 w-6" />

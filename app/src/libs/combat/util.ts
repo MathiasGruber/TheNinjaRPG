@@ -365,10 +365,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Village tokens reward
       const vilId = user.villageId;
       let deltaTokens = 0;
-      console.log(didWin, vilId);
       if (didWin) {
         targetsLeft.forEach((target) => {
-          console.log(target.relations);
           deltaTokens += target.relations
             .filter((r) => r.status === "ENEMY")
             .filter((r) => r.villageIdA === vilId || r.villageIdB === vilId).length;

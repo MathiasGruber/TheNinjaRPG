@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSafePush } from "./routing";
 import { useRequiredUserData } from "./UserContext";
 import { calcIsInVillage } from "@/libs/travel/controls";
+import { api } from "@/utils/api";
 import type { VillageStructure } from "@/drizzle/schema";
 
 /**
@@ -46,4 +47,16 @@ export const calcStructureContribution = (
   structures?: VillageStructure[],
 ) => {
   return structures?.reduce((a, b) => a + b[attribute] * b.level, 0) ?? 0;
+};
+
+export const useStructureBoost = (
+  attribute: StructureAttribute,
+  villageId?: string | null,
+) => {
+  const { data } = api.village.get.useQuery(
+    { id: villageId ?? "-" },
+    { enabled: !!villageId, staleTime: Infinity },
+  );
+  const structures = data?.villageData?.structures;
+  return calcStructureContribution(attribute, structures);
 };

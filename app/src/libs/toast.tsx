@@ -50,7 +50,6 @@ export const showFormErrorsToast = (errors: FieldErrors<any>) => {
     <>
       {Object.keys(errors).map((key, i) => {
         if (key) {
-          console.log("KEY", key);
           return (
             <ErrorMessage
               key={i}

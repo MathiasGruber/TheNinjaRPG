@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
-import { village, userData, notification } from "@/drizzle/schema";
+import { village, villageStructure, userData, notification } from "@/drizzle/schema";
 import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
@@ -463,5 +463,17 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
 export const fetchVillages = async (client: DrizzleClient) => {
   return await client.query.village.findMany({
     with: { kage: { columns: { username: true, userId: true, avatar: true } } },
+  });
+};
+
+/**
+ * Fetches structures for a given village.
+ * @param client - The DrizzleClient instance used for querying.
+ * @param villageId - The ID of the village to fetch structures for.
+ * @returns A promise that resolves to an array of structures.
+ */
+export const fetchStructures = async (client: DrizzleClient, villageId: string) => {
+  return await client.query.villageStructure.findMany({
+    where: eq(villageStructure.villageId, villageId),
   });
 };
