@@ -17,6 +17,7 @@ import { useAwake } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
+import { useStructureBoost } from "@/utils/village";
 import type { ItemType, Item } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
@@ -33,6 +34,7 @@ const ItemShop: NextPage = () => {
   const utils = api.useUtils();
 
   // Data
+  const discount = useStructureBoost("itemDiscountPerLvl", userData?.villageId);
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     { itemType: itemtype, limit: 500 },
     {
@@ -65,7 +67,9 @@ const ItemShop: NextPage = () => {
   });
 
   // Can user affort selected item
-  const canAfford = item && userData && userData.money >= item.cost;
+  const factor = (100 - discount) / 100;
+  const cost = (item?.cost ?? 0) * stacksize * factor;
+  const canAfford = item && userData && userData.money >= cost;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
@@ -129,14 +133,18 @@ const ItemShop: NextPage = () => {
                     isPurchasing
                       ? undefined
                       : canAfford
-                        ? `Buy for ${item.cost * stacksize} ryo`
-                        : `Need ${item.cost * stacksize - userData.money} more ryo`
+                        ? `Buy for ${cost} ryo`
+                        : `Need ${cost - userData.money} more ryo`
                   }
                   setIsOpen={setIsOpen}
                   isValid={false}
                   onAccept={() => {
                     if (canAfford) {
-                      purchase({ itemId: item.id, stack: stacksize });
+                      purchase({
+                        itemId: item.id,
+                        stack: stacksize,
+                        villageId: userData.villageId,
+                      });
                     } else {
                       setIsOpen(false);
                     }

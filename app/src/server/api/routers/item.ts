@@ -3,13 +3,15 @@ import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { item, userItem, userData, actionLog } from "@/drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
-import { fetchUser } from "./profile";
+import { fetchUser } from "@/routers/profile";
+import { fetchStructures } from "@/routers/village";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
-import { serverError, baseServerResponse } from "@/api/trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { ItemValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
+import { calcStructureContribution } from "@/utils/village";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -244,31 +246,34 @@ export const itemRouter = createTRPCRouter({
       z.object({
         itemId: z.string(),
         stack: z.number().min(1).max(50),
+        villageId: z.string().nullish(),
       }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const iid = input.itemId;
       const uid = ctx.userId;
-      const info = await fetchItem(ctx.drizzle, iid);
-      const counts = await ctx.drizzle
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(userItem)
-        .where(eq(userItem.userId, uid));
+      const [user, info, structures, counts] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchItem(ctx.drizzle, iid),
+        fetchStructures(ctx.drizzle, input.villageId),
+        ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userItem)
+          .where(eq(userItem.userId, uid)),
+      ]);
       const userItemsCount = counts?.[0]?.count || 0;
-      if (input.stack > 1 && !item.canStack) {
-        return { success: false, message: "Item cannot be stacked" };
-      }
-      if (userItemsCount >= calcMaxItems()) {
-        return { success: false, message: "Inventory is full" };
-      }
-      if (!info) {
-        return { success: false, message: "Item not found" };
-      }
-      if (info.hidden === 1) {
-        return { success: false, message: "Item can not be bought" };
-      }
-      const cost = info.cost * input.stack;
+      const discount = calcStructureContribution("itemDiscountPerLvl", structures);
+      const factor = (100 - discount) / 100;
+      // Guard
+      if (user.villageId !== input.villageId) return errorResponse("Wrong village");
+      if (!info) return errorResponse("Item not found");
+      if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
+      if (userItemsCount >= calcMaxItems()) return errorResponse("Inventory is full");
+      if (info.hidden === 1) return errorResponse("Item can not be bought");
+      const cost = info.cost * input.stack * factor;
+      // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set({
