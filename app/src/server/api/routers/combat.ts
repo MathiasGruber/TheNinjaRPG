@@ -633,7 +633,7 @@ export const initiateBattle = async (
       if (users[0].rank === "STUDENT") {
         return { success: false, message: "Need to rank up to do PvP combat" };
       }
-      if (users[1].rank === "STUDENT") {
+      if (users[1].rank === "STUDENT" && users[1].isAi === 0) {
         return { success: false, message: "Cannot attack students" };
       }
     }
@@ -847,6 +847,26 @@ export const initiateBattle = async (
     // Push websockets message to target
     const pusher = getServerPusher();
     void pusher.trigger(targetId, "event", { type: "battle" });
+
+    // Hide users on map when in combat
+    if (battleType !== "KAGE") {
+      void pusher.trigger(users[0].sector.toString(), "event", {
+        userId: users[0].userId,
+        longitude: users[0].longitude,
+        latitude: users[0].latitude,
+        avatar: users[0].avatar,
+        sector: -1,
+        location: users[0].location,
+      });
+      void pusher.trigger(users[1].sector.toString(), "event", {
+        userId: users[1].userId,
+        longitude: users[1].longitude,
+        latitude: users[1].latitude,
+        avatar: users[1].avatar,
+        sector: -1,
+        location: users[1].location,
+      });
+    }
 
     // Return the battle
     return { success: true, message: battleId };

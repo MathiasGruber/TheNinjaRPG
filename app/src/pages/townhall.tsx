@@ -296,7 +296,7 @@ const AllianceHall: React.FC<{
             </div>
             {villages.map((village, i) => (
               <div key={i}>
-                {village.kage.avatar && (
+                {village.kage?.avatar && (
                   <Link href={`/users/${village.kageId}`}>
                     <AvatarImage
                       href={village.kage.avatar}

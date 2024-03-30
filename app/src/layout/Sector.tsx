@@ -150,6 +150,17 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   const { mutate: move, isPending: isMoving } = api.travel.moveInSector.useMutation({
     onSuccess: async (res) => {
+      // Stop moving if failed
+      if (res.success === false) {
+        setTarget(null);
+      }
+      // If success without data, then we got attacked
+      if (res.success && !res.data) {
+        setTarget(null);
+        showMutationToast(res);
+        await refetchUser();
+      }
+      // If success with data, then we moved
       if (res.success && res.data) {
         const data = res.data;
         origin.current = findHex(grid.current, {
@@ -246,6 +257,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           latitude: next.row,
           sector: sector,
           avatar: userData.avatar,
+          villageId: userData.villageId,
           level: userData.level,
         });
       }

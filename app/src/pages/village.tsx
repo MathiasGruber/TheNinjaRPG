@@ -275,7 +275,7 @@ const StructureRewardEntries = (structure: VillageStructure) => {
       msgs.push(`Item discount: ${structure.itemDiscountPerLvl * level}%`);
     }
     if (structure.patrolsPerLvl > 0) {
-      msgs.push(`NPC Patrols: +${structure.patrolsPerLvl * level}`);
+      msgs.push(`Patrol attacking enemies: +${structure.patrolsPerLvl * level}%`);
     }
     if (structure.ramenDiscountPerLvl > 0) {
       msgs.push(`Ramen discount: ${structure.ramenDiscountPerLvl * level}%`);

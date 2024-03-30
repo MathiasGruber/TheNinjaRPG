@@ -2,17 +2,20 @@ import { z } from "zod";
 import { eq, gte, sql, and, or } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
-import { calcGlobalTravelTime } from "../../../libs/travel/controls";
-import { calcIsInVillage } from "../../../libs/travel/controls";
-import { isAtEdge, maxDistance } from "../../../libs/travel/controls";
-import { SECTOR_HEIGHT, SECTOR_WIDTH } from "../../../libs/travel/constants";
+import { calcGlobalTravelTime } from "@/libs/travel/controls";
+import { calcIsInVillage } from "@/libs/travel/controls";
+import { isAtEdge, maxDistance } from "@/libs/travel/controls";
+import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
-import { getServerPusher } from "../../../libs/pusher";
+import { getServerPusher } from "@/libs/pusher";
 import { userData, village } from "@/drizzle/schema";
-import { fetchUser } from "./profile";
-import * as map from "../../../../public/map/hexasphere.json";
+import { fetchUser } from "@/routers/profile";
+import { initiateBattle, determineCombatBackground } from "@/routers/combat";
+import { findRelationship } from "@/utils/alliance";
+import { structureBoost } from "@/utils/village";
+import * as map from "@/public/map/hexasphere.json";
 import type { inferRouterOutputs } from "@trpc/server";
-import type { GlobalMapData } from "../../../libs/travel/types";
+import type { GlobalMapData } from "@/libs/travel/types";
 
 // const redis = Redis.fromEnv();
 
@@ -136,6 +139,7 @@ export const travelRouter = createTRPCRouter({
           .min(0)
           .max(SECTOR_HEIGHT - 1),
         sector: z.number().int(),
+        villageId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
       }),
@@ -157,33 +161,81 @@ export const travelRouter = createTRPCRouter({
       ),
     )
     .mutation(async ({ input, ctx }) => {
-      const { longitude, latitude, sector } = input;
+      // Convenience
+      const { longitude, latitude, sector, villageId } = input;
+      const userId = ctx.userId;
+      const userVillage = villageId ?? "syndicate";
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
       const location = isVillage ? "Village" : "";
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          longitude,
-          latitude,
-          location,
-          updatedAt: sql`Now()`,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            eq(userData.status, "AWAKE"),
-            eq(userData.sector, sector),
-            sql`ABS(longitude - ${longitude}) <= 1`,
-            sql`ABS(latitude - ${latitude}) <= 1`,
+      // Optimistic update & query simultaneously
+      const [result, sectorVillage] = await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            longitude,
+            latitude,
+            location,
+            updatedAt: sql`Now()`,
+          })
+          .where(
+            and(
+              eq(userData.userId, userId),
+              eq(userData.status, "AWAKE"),
+              eq(userData.sector, sector),
+              eq(userData.villageId, userVillage),
+              sql`ABS(longitude - ${longitude}) <= 1`,
+              sql`ABS(latitude - ${latitude}) <= 1`,
+            ),
           ),
-        );
+        isVillage
+          ? ctx.drizzle.query.village.findFirst({
+              with: {
+                structures: true,
+                relationshipA: true,
+                relationshipB: true,
+              },
+              where: eq(village.sector, sector),
+            })
+          : undefined,
+      ]);
+      // Check if move was successful
       if (result.rowsAffected === 1) {
-        const output = { ...input, location, userId: ctx.userId };
+        // Check for encounters / village defence
+        if (isVillage && sectorVillage && sectorVillage.id !== userVillage) {
+          const relations = [
+            ...sectorVillage.relationshipA,
+            ...sectorVillage.relationshipB,
+          ];
+          const relation = findRelationship(relations, userVillage, sectorVillage.id);
+          if (relation?.status === "ENEMY") {
+            const chance = structureBoost("patrolsPerLvl", sectorVillage.structures);
+            if (Math.random() < chance / 100) {
+              const battle = await initiateBattle(
+                {
+                  longitude: longitude,
+                  latitude: latitude,
+                  sector: sector,
+                  userId: ctx.userId,
+                  targetId: "MJMzOE67Cx2YP3NX8SAbh",
+                  client: ctx.drizzle,
+                  scaleTarget: true,
+                },
+                "ARENA",
+                determineCombatBackground("ground"),
+              );
+              if (battle.success) {
+                return { success: true, message: "Attacked by village protector" };
+              }
+            }
+          }
+        }
+        // Final output
+        const output = { ...input, location, userId: userId };
         const pusher = getServerPusher();
         void pusher.trigger(input.sector.toString(), "event", output);
         return { success: true, message: "OK", data: output };
       } else {
-        const userData = await fetchUser(ctx.drizzle, ctx.userId);
+        const userData = await fetchUser(ctx.drizzle, userId);
         if (userData.status !== "AWAKE") {
           return errorResponse(`Status is: ${userData.status.toLowerCase()}`);
         }
