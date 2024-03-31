@@ -61,6 +61,19 @@ export const travelRouter = createTRPCRouter({
       ]);
       return { users, village: villageData };
     }),
+  // Get village & alliance information for a given sector
+  getVillageInSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .query(async ({ input, ctx }) => {
+      return await ctx.drizzle.query.village.findFirst({
+        where: eq(village.sector, input.sector),
+        with: {
+          structures: true,
+          relationshipA: true,
+          relationshipB: true,
+        },
+      });
+    }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))

@@ -10,7 +10,7 @@ import { Settings, ShieldCheck, Moon, Sun, Heart } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
-import { getMainGameLinks } from "@/libs/menus";
+import { useGameMenu } from "@/libs/menus";
 import type { UserStatuses } from "../../drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -54,7 +54,6 @@ const socials = [
 
 const MenuBoxProfile: React.FC = () => {
   const { data: userData, battle, refetch: refetchUserData, timeDiff } = useUserData();
-  const { location } = getMainGameLinks(userData);
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
 
@@ -65,6 +64,12 @@ const MenuBoxProfile: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Get location of user
+  const { location } = useGameMenu(userData);
+
+  // Only show if we have user
+  if (!userData) return null;
 
   /** Convenience methods for showing effects */
   const showStat = (
@@ -118,10 +123,6 @@ const MenuBoxProfile: React.FC = () => {
       </li>
     );
   };
-
-  if (!userData) {
-    return <div></div>;
-  }
 
   // Derived data
   const active = battle?.usersEffects.filter(isEffectActive);

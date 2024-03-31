@@ -4,6 +4,8 @@ import { Atom, Bug, User, Store, Globe2, BookOpenText, Users } from "lucide-reac
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
+import { api } from "@/utils/api";
+import { findRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
 export interface NavBarDropdownLink {
@@ -58,10 +60,7 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
   return links;
 };
 
-/**
- * Get main game links
- */
-export const getMainGameLinks = (userData: UserWithRelations) => {
+export const useGameMenu = (userData: UserWithRelations) => {
   const systems: NavBarDropdownLink[] = [
     {
       href: "/tavern",
@@ -108,56 +107,69 @@ export const getMainGameLinks = (userData: UserWithRelations) => {
     },
   ];
 
-  // For entries that require awake, check if user is awake
-  const inBattle = userData?.status === "BATTLE";
-  const inHospital = userData?.status === "HOSPITALIZED";
-  const inBed = userData?.status === "ASLEEP";
-  const notAwake = inBattle || inHospital || inBed;
-  systems.forEach((system) => {
-    if (system.requireAwake && notAwake) {
-      if (inBattle) system.href = "/combat";
-      if (inHospital) system.href = "/hospital";
-      if (inBed) system.href = "/home";
-    }
-  });
+  // Get information from the sector the user is currently in. No stale time
+  const { data: sector } = api.travel.getVillageInSector.useQuery(
+    { sector: userData?.sector ?? -1 },
+    { enabled: userData?.sector !== undefined, staleTime: Infinity },
+  );
 
-  // Is in village
-  let location: NavBarDropdownLink | undefined = undefined;
-  if (
-    userData &&
-    userData.sector === userData.village?.sector &&
-    calcIsInVillage({
-      x: userData.longitude,
-      y: userData.latitude,
-    })
-  ) {
-    // Village link for small screens
-    systems.push({
-      href: "/village",
-      name: "Village",
-      requireAwake: false,
-      className: "block md:hidden",
-      icon: <Store key="village" className="h-6 w-6" />,
+  // Based on user status, update href of systems
+  if (userData) {
+    // For entries that require awake, check if user is awake
+    const inBattle = userData.status === "BATTLE";
+    const inHospital = userData.status === "HOSPITALIZED";
+    const inBed = userData.status === "ASLEEP";
+    const notAwake = inBattle || inHospital || inBed;
+    systems.forEach((system) => {
+      if (system.requireAwake && notAwake) {
+        if (inBattle) system.href = "/combat";
+        if (inHospital) system.href = "/hospital";
+        if (inBed) system.href = "/home";
+      }
     });
-    // Location display for later screens
-    location = {
-      href: "/village",
-      name: "Village",
-      requireAwake: true,
-      className: "lg:hidden",
-      icon: (
-        <div>
-          <Image
-            src={`/map/${userData.village.name}.webp`}
-            alt={userData.village.name}
-            width={200}
-            height={200}
-            priority={true}
-          />
-          <span className="font-bold">{userData.village.name} Village</span>
-        </div>
-      ),
-    };
+  }
+
+  // Pre-defined location as undefined
+  let location: NavBarDropdownLink | undefined = undefined;
+  if (userData && sector) {
+    // Check if user is in own village, or in
+    const userVillage = userData.villageId ?? "syndicate";
+    const sectorVillage = sector.id;
+    const relationships = [...sector.relationshipA, ...sector.relationshipB];
+    const ownSector = userData.sector === userData.village?.sector;
+    const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
+    const relationship = findRelationship(relationships, userVillage, sectorVillage);
+
+    // Is in village
+    if (inVillage && (ownSector || relationship?.status === "ALLY")) {
+      // Village link for small screens
+      systems.push({
+        href: "/village",
+        name: "Village",
+        requireAwake: false,
+        className: "block md:hidden",
+        icon: <Store key="village" className="h-6 w-6" />,
+      });
+      // Location display for later screens
+      location = {
+        href: "/village",
+        name: "Village",
+        requireAwake: true,
+        className: "lg:hidden",
+        icon: (
+          <div>
+            <Image
+              src={`/map/${sector.name}.webp`}
+              alt={sector.name}
+              width={200}
+              height={200}
+              priority={true}
+            />
+            <span className="font-bold">{sector.name} Village</span>
+          </div>
+        ),
+      };
+    }
   }
 
   return { systems, location };

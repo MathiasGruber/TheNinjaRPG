@@ -12,7 +12,7 @@ import { UserButton } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
 import { useUserData } from "@/utils/UserContext";
 import { getMainNavbarLinks } from "@/libs/menus";
-import { getMainGameLinks } from "@/libs/menus";
+import { useGameMenu } from "@/libs/menus";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
 interface NavBarProps {
@@ -27,7 +27,6 @@ const NavBar: React.FC<NavBarProps> = (props) => {
 
   // Main links
   const navLinks = getMainNavbarLinks(isSignedIn);
-  const { systems } = getMainGameLinks(userData);
 
   // Top element of mobile navbar
   const topElement = userData && (
@@ -93,7 +92,8 @@ const NavBar: React.FC<NavBarProps> = (props) => {
   );
 
   // Links to show on game menu
-  const gameLinks = notifications ? notifications.concat(systems) : navLinks;
+  const { systems } = useGameMenu(userData);
+  const gameLinks = notifications ? [...notifications, ...systems] : systems;
 
   // Return navbar
   return (

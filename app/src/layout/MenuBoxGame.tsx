@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import MenuBox from "./MenuBox";
 import { Megaphone, Info, ShieldAlert, ShieldCheck } from "lucide-react";
-import { getMainGameLinks } from "@/libs/menus";
+import { useGameMenu } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
@@ -11,14 +11,19 @@ interface MenuBoxGameProps {
 }
 
 const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
+  // Get user data, otherwise show nothing
   const { data: userData } = useUserData();
-  const { systems, location } = getMainGameLinks(userData);
-  if (!userData) {
-    return <div></div>;
-  }
 
+  // Get available systems & locations
+  const { systems, location } = useGameMenu(userData);
+
+  // If no user data, show nothing
+  if (!userData) return null;
+
+  // Derived information
   const inBattle = userData.status === "BATTLE";
 
+  // Render
   return (
     <>
       <MenuBox
