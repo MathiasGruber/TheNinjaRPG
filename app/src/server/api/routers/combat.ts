@@ -38,6 +38,7 @@ import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
+import { randomInt } from "@/utils/math";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -602,14 +603,14 @@ export const initiateBattle = async (
 
     // Use long/lat fields for position in combat map
     if (users?.[0]) {
-      users[0]["longitude"] = 4;
-      users[0]["latitude"] = 2;
+      users[0]["longitude"] = randomInt(1, 5);
+      users[0]["latitude"] = randomInt(1, 3);
     } else {
       return { success: false, message: "Failed to set position of left-hand user" };
     }
     if (users?.[1]) {
-      users[1]["longitude"] = 8;
-      users[1]["latitude"] = 2;
+      users[1]["longitude"] = randomInt(7, 11);
+      users[1]["latitude"] = randomInt(1, 3);
     } else {
       return { success: false, message: "Failed to set position of right-hand user" };
     }
