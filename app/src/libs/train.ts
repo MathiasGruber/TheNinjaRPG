@@ -30,11 +30,11 @@ export const hasRequiredRank = (userRank: UserRank, requiredRank: UserRank) => {
     case "STUDENT":
       return true;
     case "GENIN":
-      return ["GENIN", "CHUNIN", "JONIN", "COMMANDER"].includes(userRank);
+      return ["GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"].includes(userRank);
     case "CHUNIN":
-      return ["CHUNIN", "JONIN", "COMMANDER"].includes(userRank);
+      return ["CHUNIN", "JONIN", "ELDER", "COMMANDER"].includes(userRank);
     case "JONIN":
-      return ["JONIN", "COMMANDER"].includes(userRank);
+      return ["JONIN", "ELDER", "COMMANDER"].includes(userRank);
     case "COMMANDER":
       return userRank === "COMMANDER";
   }
@@ -50,11 +50,11 @@ export const availableRanks = (letterRank?: LetterRank): UserRank[] => {
     case "B":
       return ["STUDENT", "GENIN", "CHUNIN"];
     case "A":
-      return ["STUDENT", "GENIN", "CHUNIN", "JONIN"];
+      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER"];
     case "S":
-      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "COMMANDER"];
+      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"];
   }
-  return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "COMMANDER"];
+  return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"];
 };
 
 export const getAvailableLetterRanks = (rank: LetterRank) => {
