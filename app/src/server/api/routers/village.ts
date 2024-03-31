@@ -11,7 +11,7 @@ import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
-import { structureBoost } from "@/utils/village";
+import { structureBoost, calcStructureUpgrade } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
@@ -97,6 +97,50 @@ export const villageRouter = createTRPCRouter({
       } else {
         return { success: true, message: "You have bought food" };
       }
+    }),
+  upgradeStructure: protectedProcedure
+    .input(z.object({ structureId: z.string(), villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, userVillage] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchVillage(ctx.drizzle, input.villageId),
+      ]);
+
+      // Derived
+      const structure = userVillage?.structures.find((s) => s.id === input.structureId);
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!userVillage) return errorResponse("Village not found");
+      if (!structure) return errorResponse("Structure not found");
+      if (userVillage.kageId !== user.userId) return errorResponse("Not the kage");
+      if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
+      if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
+      const cost = calcStructureUpgrade(structure);
+      if (userVillage.tokens < cost) return errorResponse("Not enough tokens");
+
+      // Mutate cost
+      const villageUpdate = await ctx.drizzle
+        .update(village)
+        .set({ tokens: sql`${village.tokens} - ${cost}` })
+        .where(and(eq(village.id, village.id), gte(village.tokens, cost)));
+      if (villageUpdate.rowsAffected === 0) return errorResponse("1st update failed");
+
+      // If success, upgrade structure
+      const result = await ctx.drizzle
+        .update(villageStructure)
+        .set({ level: structure.level + 1 })
+        .where(
+          and(
+            eq(villageStructure.id, input.structureId),
+            eq(villageStructure.villageId, user.villageId),
+          ),
+        );
+      if (result.rowsAffected === 0) return errorResponse("Upgrade failed");
+
+      return { success: true, message: "Structure upgraded" };
     }),
   swapVillage: protectedProcedure
     .input(z.object({ villageId: z.string() }))
@@ -485,5 +529,17 @@ export const fetchStructures = async (
 ) => {
   return await client.query.villageStructure.findMany({
     where: eq(villageStructure.villageId, villageId ?? "syndicate"),
+  });
+};
+
+/**
+ * Fetches a village structure from the database.
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param structureId - The ID of the structure to fetch.
+ * @returns A Promise that resolves to the fetched village structure.
+ */
+export const fetchStructure = async (client: DrizzleClient, structureId: string) => {
+  return await client.query.villageStructure.findFirst({
+    where: eq(villageStructure.id, structureId),
   });
 };

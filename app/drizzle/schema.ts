@@ -1133,13 +1133,15 @@ export const villageStructure = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
-    level: int("level").default(1).notNull(),
-    maxLevel: int("maxLevel").default(10).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(10).notNull(),
     hasPage: tinyint("hasPage").default(0).notNull(),
     curSp: int("curSp").default(100).notNull(),
     maxSp: int("maxSp").default(100).notNull(),
+    // upgrade cust & current level
+    baseCost: int("baseCost").default(5000).notNull(),
+    level: int("level").default(1).notNull(),
+    maxLevel: int("maxLevel").default(10).notNull(),
     // Per level advantages
     anbuSquadsPerLvl: tinyint("anbuSquadsPerLvl").default(0).notNull(),
     arenaRewardPerLvl: tinyint("arenaRewardPerLvl").default(0).notNull(),

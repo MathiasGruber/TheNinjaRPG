@@ -10,7 +10,7 @@ dependencies:
     version: 4.29.9(next@14.1.4)(react-dom@18.2.0)(react@18.2.0)
   '@highlight-run/next':
     specifier: 7.4.6
-    version: 7.4.6(@opentelemetry/api@1.6.0)(next@14.1.4)(react-dom@18.2.0)(react@18.2.0)
+    version: 7.4.6(@opentelemetry/api@1.8.0)(next@14.1.4)(react-dom@18.2.0)(react@18.2.0)
   '@highlight-run/node':
     specifier: 3.8.1
     version: 3.8.1
@@ -133,7 +133,7 @@ dependencies:
     version: 16.1.4
   drizzle-orm:
     specifier: 0.29.3
-    version: 0.29.3(@opentelemetry/api@1.6.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+    version: 0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
   drizzle-zod:
     specifier: 0.5.1
     version: 0.5.1(drizzle-orm@0.29.3)(zod@3.22.4)
@@ -150,8 +150,8 @@ dependencies:
     specifier: ^3.0.0
     version: 3.0.0(eslint@8.57.0)
   lucide-react:
-    specifier: ^0.334.0
-    version: 0.334.0(react@18.2.0)
+    specifier: ^0.363.0
+    version: 0.363.0(react@18.2.0)
   mysql2:
     specifier: ^3.3.5
     version: 3.3.5
@@ -160,7 +160,7 @@ dependencies:
     version: 4.0.2
   next:
     specifier: 14.1.4
-    version: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+    version: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
   next-axiom:
     specifier: 1.1.1
     version: 1.1.1(next@14.1.4)(react@18.2.0)
@@ -375,7 +375,7 @@ packages:
       '@clerk/clerk-sdk-node': 4.13.11(react@18.2.0)
       '@clerk/shared': 1.3.3(react@18.2.0)
       '@clerk/types': 3.62.1
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       path-to-regexp: 6.2.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -889,30 +889,30 @@ packages:
     resolution: {integrity: sha512-9TANp6GPoMtYzQdt54kfAyMmz1+osLlXdg2ENroU7zzrtflTLrrC/lgrIfaSe+Wu0b89GKccT7vxXA0MoAIO+Q==}
     dev: false
 
-  /@highlight-run/cloudflare@2.1.5(@opentelemetry/api@1.6.0):
+  /@highlight-run/cloudflare@2.1.5(@opentelemetry/api@1.8.0):
     resolution: {integrity: sha512-ekBPsCxwMu+bH6r8GW2bdKYod37SNrvEPufL/UAcSEIU7L9JAGebxvb0h+G1hpCrkgqM7Ff5srre7YuJwv1y4g==}
     dependencies:
       '@highlight-run/opentelemetry-sdk-workers': 1.0.6
-      '@opentelemetry/resources': 1.22.0(@opentelemetry/api@1.6.0)
+      '@opentelemetry/resources': 1.22.0(@opentelemetry/api@1.8.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - supports-color
     dev: false
 
-  /@highlight-run/next@7.4.6(@opentelemetry/api@1.6.0)(next@14.1.4)(react-dom@18.2.0)(react@18.2.0):
+  /@highlight-run/next@7.4.6(@opentelemetry/api@1.8.0)(next@14.1.4)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-5gNIl9yoDmY4bgtYtvd+9tXMKMVAwiqfjTtxbmPoy8PyUf59rxVxH5YrrYAPaEVaOzJbUeKDYfMFyVe2Ppk3Yw==}
     peerDependencies:
       next: '>=11'
       react: '>=17'
     dependencies:
-      '@highlight-run/cloudflare': 2.1.5(@opentelemetry/api@1.6.0)
+      '@highlight-run/cloudflare': 2.1.5(@opentelemetry/api@1.8.0)
       '@highlight-run/node': 3.8.1
       '@highlight-run/opentelemetry-sdk-workers': 1.0.6
       '@highlight-run/react': 3.2.1(react-dom@18.2.0)(react@18.2.0)
       '@highlight-run/sourcemap-uploader': 0.6.1
       highlight.run: 8.9.0
       js-cookie: 3.0.5
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -1145,7 +1145,7 @@ packages:
       next: ^13.0.0 || ^14.0.0
       react: ^18.2.0
     dependencies:
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       third-party-capital: 1.0.20
     dev: false
@@ -1175,24 +1175,9 @@ packages:
       '@opentelemetry/api': 1.8.0
     dev: false
 
-  /@opentelemetry/api@1.6.0:
-    resolution: {integrity: sha512-OWlrQAnWn9577PhVgqjUvMr1pg57Bc4jv0iL4w0PRuOSRvq67rvHW9Ie/dZVMvCzhSCB+UxhcY/PmCmFj33Q+g==}
-    engines: {node: '>=8.0.0'}
-    dev: false
-
   /@opentelemetry/api@1.8.0:
     resolution: {integrity: sha512-I/s6F7yKUDdtMsoBWXJe8Qz40Tui5vsuKCWJEWVL+5q9sSWRzzx6v2KeNsOBEwd94j0eWkpWCH4yB6rZg9Mf0w==}
     engines: {node: '>=8.0.0'}
-    dev: false
-
-  /@opentelemetry/core@1.22.0(@opentelemetry/api@1.6.0):
-    resolution: {integrity: sha512-0VoAlT6x+Xzik1v9goJ3pZ2ppi6+xd3aUfg4brfrLkDBHRIVjMP0eBHrKrhB+NKcDyMAg8fAbGL3Npg/F6AwWA==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.9.0'
-    dependencies:
-      '@opentelemetry/api': 1.6.0
-      '@opentelemetry/semantic-conventions': 1.22.0
     dev: false
 
   /@opentelemetry/core@1.22.0(@opentelemetry/api@1.8.0):
@@ -1245,17 +1230,6 @@ packages:
       '@opentelemetry/sdk-logs': 0.49.1(@opentelemetry/api-logs@0.49.1)(@opentelemetry/api@1.8.0)
       '@opentelemetry/sdk-metrics': 1.22.0(@opentelemetry/api@1.8.0)
       '@opentelemetry/sdk-trace-base': 1.22.0(@opentelemetry/api@1.8.0)
-    dev: false
-
-  /@opentelemetry/resources@1.22.0(@opentelemetry/api@1.6.0):
-    resolution: {integrity: sha512-+vNeIFPH2hfcNL0AJk/ykJXoUCtR1YaDUZM+p3wZNU4Hq98gzq+7b43xbkXjadD9VhWIUQqEwXyY64q6msPj6A==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.9.0'
-    dependencies:
-      '@opentelemetry/api': 1.6.0
-      '@opentelemetry/core': 1.22.0(@opentelemetry/api@1.6.0)
-      '@opentelemetry/semantic-conventions': 1.22.0
     dev: false
 
   /@opentelemetry/resources@1.22.0(@opentelemetry/api@1.8.0):
@@ -2390,7 +2364,7 @@ packages:
       '@trpc/client': 11.0.0-next-beta.308(@trpc/server@11.0.0-next-beta.308)
       '@trpc/react-query': 11.0.0-next-beta.308(@tanstack/react-query@5.24.8)(@trpc/client@11.0.0-next-beta.308)(@trpc/server@11.0.0-next-beta.308)(react-dom@18.2.0)(react@18.2.0)
       '@trpc/server': 11.0.0-next-beta.308
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -2849,7 +2823,7 @@ packages:
       '@uploadthing/shared': 6.2.0(@uploadthing/mime-types@0.2.2)
       attr-accept: 2.2.2
       file-selector: 0.6.0
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       tailwind-merge: 1.14.0
       uploadthing: 6.3.1
@@ -3829,7 +3803,7 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.29.3(@opentelemetry/api@1.6.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0):
+  /drizzle-orm@0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0):
     resolution: {integrity: sha512-uSE027csliGSGYD0pqtM+SAQATMREb3eSM/U8s6r+Y0RFwTKwftnwwSkqx3oS65UBgqDOM0gMTl5UGNpt6lW0A==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -3900,7 +3874,7 @@ packages:
       sqlite3:
         optional: true
     dependencies:
-      '@opentelemetry/api': 1.6.0
+      '@opentelemetry/api': 1.8.0
       '@planetscale/database': 1.7.0
       '@types/react': 18.2.48
       mysql2: 3.3.5
@@ -3913,7 +3887,7 @@ packages:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.29.3(@opentelemetry/api@1.6.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+      drizzle-orm: 0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
       zod: 3.22.4
     dev: false
 
@@ -5528,8 +5502,8 @@ packages:
       es5-ext: 0.10.62
     dev: true
 
-  /lucide-react@0.334.0(react@18.2.0):
-    resolution: {integrity: sha512-y0Rv/Xx6qAq4FutZ3L/efl3O9vl6NC/1p0YOg6mBfRbQ4k1JCE2rz0rnV7WC8Moxq1RY99vLATvjcqUegGJTvA==}
+  /lucide-react@0.363.0(react@18.2.0):
+    resolution: {integrity: sha512-AlsfPCsXQyQx7wwsIgzcKOL9LwC498LIMAo+c0Es5PkHJa33xwmYAkkSoKoJWWWSYQEStqu58/jT4tL2gi32uQ==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0
     dependencies:
@@ -5722,7 +5696,7 @@ packages:
       next: '>=13.4'
       react: '>=18.0.0'
     dependencies:
-      next: 14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0)
+      next: 14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       remeda: 1.29.0
       whatwg-fetch: 3.6.2
@@ -5732,7 +5706,7 @@ packages:
     resolution: {integrity: sha512-CXdUiJembsNjuToQvxayPZF9Vqht7hewsvy2sOWafLvi2awflj9mOC6bHIg50orX8IJvWKY9wYQ/zB2kogPslQ==}
     dev: true
 
-  /next@14.1.4(@opentelemetry/api@1.6.0)(react-dom@18.2.0)(react@18.2.0):
+  /next@14.1.4(@opentelemetry/api@1.8.0)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-1WTaXeSrUwlz/XcnhGTY7+8eiaFvdet5z9u3V2jb+Ek1vFo0VhHKSAIJvDWfQpttWjnyw14kBeq28TPq7bTeEQ==}
     engines: {node: '>=18.17.0'}
     hasBin: true
@@ -5748,7 +5722,7 @@ packages:
         optional: true
     dependencies:
       '@next/env': 14.1.4
-      '@opentelemetry/api': 1.6.0
+      '@opentelemetry/api': 1.8.0
       '@swc/helpers': 0.5.2
       busboy: 1.6.0
       caniuse-lite: 1.0.30001579

@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { mutateContentSchema } from "@/validators/comments";
+import { CircleArrowUp } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
+import { calcStructureUpgrade } from "@/utils/village";
 import type { NextPage } from "next";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -136,14 +138,12 @@ const VillageOverview: NextPage = () => {
             .filter((s) => s.hasPage !== 0)
             .map((structure, i) => (
               <div key={i} className="p-2">
-                <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>
-                  <Building
-                    structure={structure}
-                    key={structure.id}
-                    textPosition="bottom"
-                    showBar
-                  />
-                </Link>
+                <Building
+                  structure={structure}
+                  key={structure.id}
+                  textPosition="bottom"
+                  showBar
+                />
               </div>
             ))}
         </div>
@@ -194,11 +194,14 @@ const Building: React.FC<BuildingProps> = (props) => {
   // Destructure
   const { structure, showBar, textPosition } = props;
 
+  // State
+  const { data: userData } = useRequiredUserData();
+
   // Blocks
   const TextBlock = (
     <div className="text-xs">
       <p className="font-bold">{structure.name}</p>
-      <div className="flex flex-row items-center justify-center gap-2">
+      <div className="flex flex-row items-center justify-center gap-1">
         <p>Lvl. {structure.level}</p>{" "}
         <TooltipProvider delayDuration={50}>
           <Tooltip>
@@ -208,25 +211,15 @@ const Building: React.FC<BuildingProps> = (props) => {
             <TooltipContent>{StructureRewardEntries(structure)}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        {userData && userData?.village?.kageId === userData?.userId && (
+          <UpgradeButton structure={structure} />
+        )}
       </div>
     </div>
   );
-  const ImageBlock = (
-    <Image
-      src={structure.image}
-      alt={structure.name}
-      width={200}
-      height={200}
-      priority={true}
-    />
-  );
   // Render
   return (
-    <div
-      className={`flex flex-col items-center justify-center text-center ${
-        structure.level > 0 ? "hover:opacity-80" : "opacity-30"
-      }`}
-    >
+    <div className={`flex flex-col items-center justify-center text-center`}>
       {showBar && (
         <div className="w-2/3">
           <StatusBar
@@ -242,13 +235,73 @@ const Building: React.FC<BuildingProps> = (props) => {
       <div
         className={`grid ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
       >
-        {ImageBlock}
+        <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>
+          <Image
+            className={`${structure.level > 0 ? "hover:opacity-80" : "opacity-30"}`}
+            src={structure.image}
+            alt={structure.name}
+            width={200}
+            height={200}
+            priority={true}
+          />
+        </Link>
         {TextBlock}
       </div>
     </div>
   );
 };
 
+const UpgradeButton = ({ structure }: { structure: VillageStructure }) => {
+  const utils = api.useUtils();
+
+  const { data } = api.village.get.useQuery(
+    { id: structure.villageId },
+    { staleTime: Infinity },
+  );
+
+  const { mutate: purchase } = api.village.upgradeStructure.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.get.invalidate();
+      }
+    },
+  });
+
+  const currentFunds = data?.villageData.tokens ?? 0;
+  const upgradeCost = calcStructureUpgrade(structure);
+  const canAfford = upgradeCost <= currentFunds;
+  const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
+
+  return (
+    <div>
+      {canAfford && canLevel && (
+        <Confirm
+          title="Upgrade Structure"
+          proceed_label="Upgrade"
+          onAccept={() =>
+            purchase({
+              structureId: structure.id,
+              villageId: structure.villageId,
+            })
+          }
+          button={
+            <CircleArrowUp className="h-4 w-4 hover:text-orange-500 hover:cursor-pointer" />
+          }
+        >
+          <p>Upgrading this structure will cost {upgradeCost} village tokens.</p>
+          <p>You currently have {currentFunds} village tokens.</p>
+        </Confirm>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Generates an array of reward messages based on the level of a village structure.
+ * @param structure - The village structure object.
+ * @returns An array of reward messages.
+ */
 const StructureRewardEntries = (structure: VillageStructure) => {
   const { level } = structure;
   const msgs: string[] = [];
