@@ -159,7 +159,6 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId })
               .where(eq(village.id, user.villageId)),
-            client.delete(userNindo).where(eq(userNindo.userId, user.villageId)),
           ]
         : []),
       client.insert(kageDefendedChallenges).values({
