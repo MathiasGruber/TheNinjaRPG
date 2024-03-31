@@ -259,7 +259,7 @@ const UpgradeButton = ({ structure }: { structure: VillageStructure }) => {
     { staleTime: Infinity },
   );
 
-  const { mutate: purchase } = api.village.upgradeStructure.useMutation({
+  const { mutate: purchase } = api.kage.upgradeStructure.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {

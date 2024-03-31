@@ -8,7 +8,9 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import UserSearchSelect from "@/layout/UserSearchSelect";
 import { Handshake, LandPlot, DoorOpen } from "lucide-react";
+import { CircleArrowUp, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { useSafePush } from "@/utils/routing";
@@ -23,6 +25,10 @@ import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
 import { canAlly, canWar } from "@/utils/alliance";
 import { RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/utils/kage";
 import { PRESTIGE_COST } from "@/utils/kage";
+import { getSearchValidator } from "@/validators/register";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
@@ -30,7 +36,7 @@ import type { NextPage } from "next";
 
 const TownHall: NextPage = () => {
   const { data: userData } = useRequiredUserData();
-  const availableTabs = ["Alliance", "Kage"] as const;
+  const availableTabs = ["Alliance", "Kage", "Elders"] as const;
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -48,7 +54,168 @@ const TownHall: NextPage = () => {
     return <AllianceHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Kage") {
     return <KageHall user={userData} navTabs={NavBarBlock} />;
+  } else if (tab === "Elders") {
+    return <ElderHall user={userData} navTabs={NavBarBlock} />;
   }
+};
+
+const ElderHall: React.FC<{
+  user: NonNullable<UserWithRelations>;
+  navTabs: React.ReactNode;
+}> = ({ user, navTabs }) => {
+  // API utility
+  const utils = api.useUtils();
+
+  // Fetch elders
+  const { data: elders, isPending } = api.kage.getElders.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000 },
+  );
+
+  // Mutations for promoting & resigning elders
+  const { mutate: toggleElder } = api.kage.toggleElder.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.kage.getElders.invalidate();
+      }
+    },
+  });
+
+  // User search
+  const maxUsers = 1;
+  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+    defaultValues: { username: "", users: [] },
+  });
+  const targetUser = userSearchMethods.watch("users", [])?.[0];
+
+  // Derived
+  const isKage = user.userId === user.village?.kageId;
+
+  return (
+    <>
+      {/* MAIN INFORMATION */}
+      <ContentBox
+        title="Town Hall"
+        subtitle="Elders Council"
+        back_href="/village"
+        topRightContent={navTabs}
+      >
+        <p className="pb-2">
+          The Elder Council is a group of experienced and respected individuals in the
+          village, tasked with advising the Kage on important matters and ensuring the
+          village&apos;s prosperity. The Elders are known for their wisdom, leadership,
+          and dedication to the village&apos;s well-being. They are responsible for
+          guiding the Kage in making crucial decisions, maintaining order within the
+          village, and upholding the village&apos;s traditions and values. The Elders
+          play a vital role in shaping the village&apos;s future and ensuring its
+          continued success.
+        </p>
+        <p>
+          The Elder Council is composed of the village&apos;s most skilled and
+          experienced ninjas, chosen for their exceptional abilities and dedication to
+          the village. The Elders are responsible for advising the Kage on important
+          matters, ensuring the village&apos;s prosperity, and upholding its traditions
+          and values. The Elder Council plays a crucial role in guiding the village and
+          ensuring its continued success.
+        </p>
+      </ContentBox>
+      {/* SHOW ELDERS */}
+      {elders && elders.length > 0 && (
+        <ContentBox
+          title="Current Elders"
+          initialBreak={true}
+          subtitle="Currently elected elders in the village"
+        >
+          {isPending && <Loader explanation="Loading Elders" />}
+          <div className="grid grid-cols-3 pt-3">
+            {elders?.map((elder, i) => (
+              <div key={i} className="relative">
+                <Link href={`/users/${elder.userId}`} className="text-center">
+                  <AvatarImage
+                    href={elder.avatar}
+                    alt={elder.username}
+                    userId={elder.userId}
+                    hover_effect={true}
+                    priority={true}
+                    size={100}
+                  />
+                  <div>
+                    <div className="font-bold">{elder.username}</div>
+                    <div>
+                      Lvl. {elder.level} {capitalizeFirstLetter(elder.rank)}
+                    </div>
+                  </div>
+                  {isKage && (
+                    <Confirm
+                      title="Confirm Demotion"
+                      button={
+                        <Ban className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 p-1 hover:text-orange-500" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        toggleElder({
+                          userId: elder.userId,
+                          villageId: elder.villageId,
+                        });
+                      }}
+                    >
+                      You are about to remove this user as a village elder. Are you
+                      sure?
+                    </Confirm>
+                  )}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </ContentBox>
+      )}
+      {/* KAGE CONTROL */}
+      {isKage && (
+        <ContentBox
+          title="Appoint Elder"
+          initialBreak={true}
+          subtitle="Search for villages to promote to elder"
+        >
+          <p className="pb-2"></p>
+          <UserSearchSelect
+            useFormMethods={userSearchMethods}
+            label="Search for receiver"
+            selectedUsers={[]}
+            showYourself={false}
+            inline={true}
+            maxUsers={maxUsers}
+          />
+          {targetUser && (
+            <div>
+              {targetUser.rank !== "JONIN" && (
+                <p className="text-red-500 font-bold text-center pt-2">
+                  User must be Jonin!
+                </p>
+              )}
+              {targetUser.rank === "JONIN" && (
+                <Button
+                  id="challenge"
+                  className="mt-2 w-full"
+                  onClick={() =>
+                    toggleElder({
+                      userId: targetUser.userId,
+                      villageId: user.villageId,
+                    })
+                  }
+                >
+                  <CircleArrowUp className="h-5 w-5 mr-2" />
+                  Promote
+                </Button>
+              )}
+            </div>
+          )}
+        </ContentBox>
+      )}
+    </>
+  );
 };
 
 /**
