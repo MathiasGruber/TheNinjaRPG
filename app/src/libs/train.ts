@@ -17,10 +17,12 @@ export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
       return ["D", "C", "B", "A"];
     case "JONIN":
       return ["D", "C", "B", "A", "S"];
+    case "ELDER":
+      return ["D", "C", "B", "A", "S"];
     case "COMMANDER":
       return ["D", "C", "B", "A", "S"];
   }
-  return [];
+  return ["D"];
 };
 
 export const hasRequiredRank = (userRank: UserRank, requiredRank: UserRank) => {
