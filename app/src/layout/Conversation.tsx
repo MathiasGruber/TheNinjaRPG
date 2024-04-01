@@ -152,7 +152,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   return (
     <div key={props.refreshKey}>
       {isPending && <Loader explanation="Loading data" />}
-      {!isPending && allComments && allComments.length > 0 && (
+      {!isPending && (
         <ContentBox
           title={props.title}
           subtitle={props.subtitle}
@@ -182,23 +182,24 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               />
             </div>
           )}
-          {allComments.map((comment, i) => {
-            return (
-              <div
-                key={comment.id}
-                ref={i === allComments.length - 1 ? setLastElement : null}
-              >
-                <CommentOnConversation
-                  user={comment}
-                  hover_effect={false}
-                  comment={comment}
-                  refetchComments={async () => await refetch()}
+          {allComments &&
+            allComments.map((comment, i) => {
+              return (
+                <div
+                  key={comment.id}
+                  ref={i === allComments.length - 1 ? setLastElement : null}
                 >
-                  {ReactHtmlParser(comment.content)}
-                </CommentOnConversation>
-              </div>
-            );
-          })}
+                  <CommentOnConversation
+                    user={comment}
+                    hover_effect={false}
+                    comment={comment}
+                    refetchComments={async () => await refetch()}
+                  >
+                    {ReactHtmlParser(comment.content)}
+                  </CommentOnConversation>
+                </div>
+              );
+            })}
         </ContentBox>
       )}
     </div>

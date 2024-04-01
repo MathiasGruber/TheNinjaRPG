@@ -279,7 +279,7 @@ export const updateUser = async (
                 status: "HOSPITALIZED",
                 longitude: HOSPITAL_LONG,
                 latitude: HOSPITAL_LAT,
-                sector: user.village?.sector,
+                sector: user.allyVillage ? user.sector : user.village?.sector,
                 immunityUntil:
                   curBattle.battleType === "COMBAT"
                     ? sql`NOW() + INTERVAL 5 MINUTE`

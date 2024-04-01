@@ -16,7 +16,7 @@ import Modal from "@/layout/Modal";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { structureBoost } from "@/utils/village";
-
+import { useRequireInVillage } from "@/utils/village";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
 import { api } from "@/utils/api";
@@ -25,8 +25,10 @@ import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost } from "@/libs/hospital/hospital";
 
 const Hospital: NextPage = () => {
+  const util = api.useUtils();
+
   // Settings
-  const { data: userData, timeDiff, refetch: refetchUser } = useRequiredUserData();
+  const { userData, timeDiff, access } = useRequireInVillage("Hospital");
   const isHospitalized = userData?.status === "HOSPITALIZED";
   const hospitalName = userData?.village?.name
     ? userData.village.name + " Hospital"
@@ -55,7 +57,7 @@ const Hospital: NextPage = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await util.profile.getUser.invalidate();
         await router.push("/profile");
       }
     },
@@ -71,6 +73,7 @@ const Hospital: NextPage = () => {
   const canAfford = userData && healCost && userData.money >= healCost;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Hospital" />;
 
   return (
     <>

@@ -12,13 +12,13 @@ import { availableLetterRanks } from "@/libs/train";
 import { secondsFromDate } from "@/utils/time";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
-import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 
 const MissionHall: NextPage = () => {
+  const util = api.useUtils();
+
   const [, setCounter] = useState(0); // NOTE: This is a hack to force re-render
-  const { data: userData, refetch, timeDiff } = useRequiredUserData();
-  useRequireInVillage();
+  const { userData, timeDiff, access } = useRequireInVillage("Mission Hall");
 
   const currentQuest = userData?.userQuests?.find(
     (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,
@@ -32,13 +32,14 @@ const MissionHall: NextPage = () => {
   });
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       showMutationToast(data);
-      void refetch();
+      await util.profile.getUser.invalidate();
     },
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Mission Hall" />;
 
   // Current timestamp synced with server
   const now = new Date(new Date().getTime() - timeDiff);

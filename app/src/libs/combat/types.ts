@@ -39,6 +39,7 @@ export type BattleUserState = UserWithRelations & {
   hex?: TerrainHex;
   originalMoney: number;
   direction: "left" | "right";
+  allyVillage: boolean;
   usedGenerals: (typeof GeneralType)[number][];
   usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];

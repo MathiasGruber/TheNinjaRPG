@@ -5,7 +5,7 @@ import {
   protectedProcedure,
   ratelimitMiddleware,
 } from "@/server/api/trpc";
-import { serverError, baseServerResponse } from "@/server/api/trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
 import { desc } from "drizzle-orm";
 import { Grid, rectangle, Orientation } from "honeycomb-grid";
@@ -24,7 +24,7 @@ import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
-import { villageAlliance } from "@/drizzle/schema";
+import { villageAlliance, village } from "@/drizzle/schema";
 import { performActionSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
@@ -39,6 +39,8 @@ import { scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { randomInt } from "@/utils/math";
+import { canAccessStructure } from "@/utils/village";
+import { fetchSectorVillage } from "@/routers/village";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -400,25 +402,27 @@ export const combatRouter = createTRPCRouter({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
-      const selectedAI = await ctx.drizzle.query.userData.findFirst({
-        where: and(
-          eq(userData.userId, input.aiId),
-          eq(userData.isAi, 1),
-          eq(userData.isSummon, 0),
-        ),
-      });
+      const [selectedAI, sectorVillage] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: and(
+            eq(userData.userId, input.aiId),
+            eq(userData.isAi, 1),
+            eq(userData.isSummon, 0),
+          ),
+        }),
+        fetchSectorVillage(ctx.drizzle, user?.sector ?? -1),
+      ]);
       // Check that user was found
-      if (!user) {
-        return { success: false, message: "Attacking user not found" };
-      }
+      if (!user) return errorResponse("Attacking user not found");
+      if (!sectorVillage) return errorResponse("Arena village not found");
       // Check if location is OK
       if (
         !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
-        user.sector !== user.village?.sector
+        !canAccessStructure(user, "Battle Arena", sectorVillage)
       ) {
         return {
           success: false,
-          message: "Must be in your own village to go to arena",
+          message: "Must be in your allied village to go to arena",
         };
       }
       // Determine battle background
@@ -569,7 +573,8 @@ export const initiateBattle = async (
   // Return result of transaction
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
-    const [relations, achievements, users] = await Promise.all([
+    const [villages, relations, achievements, users] = await Promise.all([
+      tx.select().from(village),
       tx.select().from(villageAlliance),
       tx.select().from(quest).where(eq(quest.questType, "achievement")),
       tx.query.userData.findMany({
@@ -682,15 +687,10 @@ export const initiateBattle = async (
     // Create the users array to be inserted into the battle
     const { userEffects, usersState, allSummons } = processUsersForBattle({
       users: users as BattleUserState[],
+      relations: relations,
+      villages: villages,
       battleType: battleType,
       hide: false,
-    });
-
-    // Add relevant relations to usersState
-    usersState.forEach((u) => {
-      u.relations = relations.filter(
-        (r) => r.villageIdA === u.villageId || r.villageIdB === u.villageId,
-      );
     });
 
     // If this is a kage challenge, convert all to be AIs & set them as not originals
@@ -725,6 +725,8 @@ export const initiateBattle = async (
       const { userEffects: summonEffects, usersState: summonState } =
         processUsersForBattle({
           users: summons as BattleUserState[],
+          relations: relations,
+          villages: villages,
           battleType: battleType,
           hide: true,
         });

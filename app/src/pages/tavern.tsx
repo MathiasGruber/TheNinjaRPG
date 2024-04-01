@@ -1,19 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type NextPage } from "next";
 import ContentBox from "@/layout/ContentBox";
 import WidgetBot from "@widgetbot/react-embed";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import Conversation from "@/layout/Conversation";
+import { api } from "@/utils/api";
+import { findVillageUserRelationship } from "@/utils/alliance";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 const Tavern: NextPage = () => {
+  // State
   const [activeTab, setActiveTab] = useState<string | null>(null);
+
+  // Data
   const { data: userData } = useRequiredUserData();
-  const localTavern = userData?.village ? userData?.village?.name : "Syndicate";
+  const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
+    { sector: userData?.sector ?? -1 },
+    { enabled: userData?.sector !== undefined, staleTime: Infinity },
+  );
+
+  // Tavern name based on user village
+  let localTavern = userData?.village ? userData?.village?.name : "Syndicate";
+
+  // Change to ally tavern if relevant
+  if (sectorVillage && userData) {
+    const relationship = findVillageUserRelationship(
+      sectorVillage,
+      userData.villageId ?? "syndicate",
+    );
+    if (relationship?.status === "ALLY") {
+      localTavern = sectorVillage.name;
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab && !["Global", localTavern, "Discord"].includes(activeTab)) {
+      setActiveTab("Global");
+    }
+  }, [activeTab, localTavern]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isPending) return <Loader explanation="Getting sector information" />;
 
   const navTabs = (
     <NavTabs

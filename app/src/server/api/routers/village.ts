@@ -450,6 +450,36 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
     where: eq(village.id, villageId),
     with: {
       notice: true,
+      relationshipA: true,
+      relationshipB: true,
+      structures: {
+        orderBy: (structure, { desc }) => desc(structure.name),
+      },
+      kage: {
+        columns: {
+          username: true,
+          userId: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+};
+
+/**
+ * Fetches a sector village from the database.
+ *
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param sector - The sector number of the village to fetch.
+ * @returns A Promise that resolves to the fetched village.
+ */
+export const fetchSectorVillage = async (client: DrizzleClient, sector: number) => {
+  return await client.query.village.findFirst({
+    where: eq(village.sector, sector),
+    with: {
+      notice: true,
+      relationshipA: true,
+      relationshipB: true,
       structures: {
         orderBy: (structure, { desc }) => desc(structure.name),
       },

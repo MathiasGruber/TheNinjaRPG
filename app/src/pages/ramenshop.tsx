@@ -5,26 +5,27 @@ import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { showMutationToast } from "@/libs/toast";
-import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
 import type { RamenOption } from "@/utils/ramen";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
 const RamenShop: NextPage = () => {
-  const { data: userData, refetch } = useRequiredUserData();
-  useRequireInVillage();
+  const util = api.useUtils();
+
+  const { userData, access } = useRequireInVillage("Ramen Shop");
 
   const { mutate, isPending } = api.village.buyFood.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetch();
+        await util.profile.getUser.invalidate();
       }
     },
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Ramen Shop" />;
 
   return (
     <ContentBox

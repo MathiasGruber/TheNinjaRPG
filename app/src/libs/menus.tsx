@@ -6,6 +6,7 @@ import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/utils/api";
 import { findRelationship } from "@/utils/alliance";
+import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
 export interface NavBarDropdownLink {
@@ -134,11 +135,9 @@ export const useGameMenu = (userData: UserWithRelations) => {
   if (userData && sector) {
     // Check if user is in own village, or in
     const userVillage = userData.villageId ?? "syndicate";
-    const sectorVillage = sector.id;
-    const relationships = [...sector.relationshipA, ...sector.relationshipB];
     const ownSector = userData.sector === userData.village?.sector;
     const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
-    const relationship = findRelationship(relationships, userVillage, sectorVillage);
+    const relationship = findVillageUserRelationship(sector, userVillage);
 
     // Is in village
     if (inVillage && (ownSector || relationship?.status === "ALLY")) {

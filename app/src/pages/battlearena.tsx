@@ -31,11 +31,13 @@ const Arena: NextPage = () => {
   const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
 
   // Ensure user is in village
-  useRequireInVillage();
+  const { access } = useRequireInVillage("Battle Arena");
 
   // Derived values
   const title = tab === "Arena" ? "Arena" : "Sparring";
   const subtitle = tab === "Arena" ? "Fight Training" : "PVP Challenges";
+
+  if (!access) return <Loader explanation="Accessing Battle Arena" />;
 
   return (
     <>
@@ -95,10 +97,12 @@ const ChallengeAI: React.FC = () => {
   const { mutate: attack, isPending: isAttacking } =
     api.combat.startArenaBattle.useMutation({
       onSuccess: async (data) => {
-        showMutationToast({ success: data.success, message: "You enter the arena" });
         if (data.success) {
           await utils.profile.getUser.invalidate();
           await router.push("/combat");
+          showMutationToast({ ...data, message: "Entering the Arena" });
+        } else {
+          showMutationToast(data);
         }
       },
     });

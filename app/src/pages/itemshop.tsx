@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { ActionSelector } from "@/layout/CombatActions";
 import { UncontrolledSliderField } from "@/layout/SliderField";
-import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -23,7 +23,7 @@ import type { NextPage } from "next";
 
 const ItemShop: NextPage = () => {
   // Settings
-  const { data: userData } = useRequiredUserData();
+  const { userData, access } = useRequireInVillage("Item shop");
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
@@ -72,6 +72,7 @@ const ItemShop: NextPage = () => {
   const canAfford = item && userData && userData.money >= cost;
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Item Shop" />;
 
   return (
     <>

@@ -11,7 +11,7 @@ import { getSearchValidator } from "@/validators/register";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
-import { useRequiredUserData } from "@/utils/UserContext";
+import { useRequireInVillage } from "@/utils/village";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ const Bank: NextPage = () => {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // User data
-  const { data: userData } = useRequiredUserData();
+  const { userData, access } = useRequireInVillage("Bank");
   const money = userData?.money ?? 0;
   const bank = userData?.bank ?? 0;
 
@@ -170,6 +170,7 @@ const Bank: NextPage = () => {
 
   // Loading screens
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Bank" />;
   if (l1 || l2 || l3) return <Loader explanation="Transferring money" />;
 
   return (

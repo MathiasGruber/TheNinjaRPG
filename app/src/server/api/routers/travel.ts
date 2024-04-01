@@ -11,6 +11,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { userData, village } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
+import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
 import * as map from "@/public/map/hexasphere.json";
@@ -65,14 +66,7 @@ export const travelRouter = createTRPCRouter({
   getVillageInSector: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
     .query(async ({ input, ctx }) => {
-      return await ctx.drizzle.query.village.findFirst({
-        where: eq(village.sector, input.sector),
-        with: {
-          structures: true,
-          relationshipA: true,
-          relationshipB: true,
-        },
-      });
+      return await fetchSectorVillage(ctx.drizzle, input.sector);
     }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure

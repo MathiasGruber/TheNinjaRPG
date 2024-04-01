@@ -26,7 +26,6 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/train";
-import { useRequiredUserData } from "@/utils/UserContext";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/village";
 import { api } from "@/utils/api";
@@ -43,17 +42,15 @@ import type { NextPage } from "next";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
 const Training: NextPage = () => {
-  // Get user data
-  const { data: userData, timeDiff } = useRequiredUserData();
-
   // Ensure user is in village
-  useRequireInVillage();
+  const { userData, timeDiff, access } = useRequireInVillage("Training Grounds");
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Training Grounds" />;
 
   // Show sensei component
-  const showSenseiSystem = userData.rank === "JONIN" || userData.rank === "GENIN";
+  const showSenseiSystem = ["JONIN", "GENIN"].includes(userData.rank);
 
   // Show components if we have user
   return (

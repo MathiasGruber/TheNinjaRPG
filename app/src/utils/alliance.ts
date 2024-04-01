@@ -10,13 +10,36 @@ import { WAR_FUNDS_COST } from "@/utils/kage";
  */
 export const findRelationship = (
   relationships: VillageAlliance[],
-  villageIdA: string,
-  villageIdB: string,
+  villageIdA: string | null,
+  villageIdB: string | null,
 ) => {
   const relationship = relationships.find(
     (a) =>
       (a.villageIdA === villageIdA && a.villageIdB === villageIdB) ||
       (a.villageIdA === villageIdB && a.villageIdB === villageIdA),
+  );
+  return relationship;
+};
+
+/**
+ * Finds the relationship between a village and a user.
+ *
+ * @param villageData - The village data including the relationships.
+ * @param userVillageId - The ID of the user's village.
+ * @returns The relationship between the village and the user.
+ */
+export const findVillageUserRelationship = (
+  villageData: Village & {
+    relationshipA: VillageAlliance[];
+    relationshipB: VillageAlliance[];
+  },
+  userVillageId: string,
+) => {
+  const relationships = [...villageData.relationshipA, ...villageData.relationshipB];
+  const relationship = findRelationship(
+    relationships,
+    userVillageId ?? "syndicate",
+    villageData.id,
   );
   return relationship;
 };

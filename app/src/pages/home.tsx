@@ -6,31 +6,32 @@ import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
-import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/village";
 
 const Home: NextPage = () => {
-  const { data: userData, refetch } = useRequiredUserData();
-  useRequireInVillage();
+  const util = api.useUtils();
+
+  const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("Home");
 
   const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetch();
+          await util.profile.getUser.invalidate();
         }
       },
     });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Residence" />;
 
-  const boost = 1 + structureBoost("sleepRegenPerLvl", userData.village?.structures);
+  const boost = 1 + structureBoost("sleepRegenPerLvl", sectorVillage?.structures);
 
   return (
     <>
       <ContentBox
-        title="Your Home"
+        title={ownVillage ? "Your Home" : "Guest Residence"}
         subtitle={`Train, eat, sleep. +${boost}% regen sleeping.`}
         back_href="/village"
       >
@@ -85,16 +86,20 @@ const Home: NextPage = () => {
           )}
         </div>
       </ContentBox>
-      <ContentBox
-        title="Overview"
-        subtitle="Decorate, upgrade, host parties"
-        initialBreak={true}
-      >
-        WIP
-      </ContentBox>
-      <ContentBox title="Item Storage" subtitle="Store items" initialBreak={true}>
-        WIP
-      </ContentBox>
+      {ownVillage && (
+        <>
+          <ContentBox
+            title="Overview"
+            subtitle="Decorate, upgrade, host parties"
+            initialBreak={true}
+          >
+            WIP
+          </ContentBox>
+          <ContentBox title="Item Storage" subtitle="Store items" initialBreak={true}>
+            WIP
+          </ContentBox>
+        </>
+      )}
     </>
   );
 };

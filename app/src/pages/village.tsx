@@ -22,17 +22,19 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { calcStructureUpgrade } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/village";
 import type { NextPage } from "next";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
 
 const VillageOverview: NextPage = () => {
   // State
-  const { data: userData } = useRequiredUserData();
-  const village_id = userData?.village?.id as string;
-  const { data, isFetching } = api.village.get.useQuery(
-    { id: village_id },
-    { enabled: village_id !== undefined, staleTime: Infinity },
+  const { userData, sectorVillage } = useRequireInVillage();
+
+  // Queries
+  const { data, isFetching: isFetchingVillage } = api.village.get.useQuery(
+    { id: sectorVillage?.id as string },
+    { enabled: sectorVillage !== undefined, staleTime: Infinity },
   );
 
   // tRPC utility
@@ -40,10 +42,12 @@ const VillageOverview: NextPage = () => {
 
   // Derived
   const villageData = data?.villageData;
+  const ownSector = userData?.village?.sector === sectorVillage?.sector;
   const notice = villageData?.notice?.content ?? "No notice from the  kage";
-  const isKage = userData?.village?.kageId === userData?.userId;
-  const title = userData?.village ? `${userData.village.name} Village` : "Village";
-  const href = userData?.village ? `/users/village/${userData.villageId}` : "/users";
+  const isKage = villageData?.kageId === userData?.userId;
+  const title = villageData ? `${villageData.name} Village` : "Village";
+  const subtitle = ownSector ? "Your Community" : `Ally of ${userData?.village?.name}`;
+  const href = villageData ? `/users/village/${villageData.id}` : "/users";
 
   // Specific structures
   const walls = villageData?.structures.find((s) => s.name === "Walls");
@@ -78,13 +82,14 @@ const VillageOverview: NextPage = () => {
 
   // Loading states
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!sectorVillage) return <Loader explanation="Loading sector information" />;
 
   // Render
   return (
     <>
       <ContentBox
         title={title}
-        subtitle="Your Community"
+        subtitle={subtitle}
         topRightContent={
           <div className="grid grid-cols-2 gap-1">
             <TooltipProvider delayDuration={50}>
@@ -136,6 +141,7 @@ const VillageOverview: NextPage = () => {
         <div className="grid grid-cols-3 items-center sm:grid-cols-4">
           {villageData?.structures
             .filter((s) => s.hasPage !== 0)
+            .filter((s) => ownSector || s.allyAccess)
             .map((structure, i) => (
               <div key={i} className="p-2">
                 <Building
@@ -147,7 +153,7 @@ const VillageOverview: NextPage = () => {
               </div>
             ))}
         </div>
-        {isFetching && <Loader explanation="Loading Village Information" />}
+        {isFetchingVillage && <Loader explanation="Loading Village Information" />}
       </ContentBox>
       <ContentBox
         title="Notice Board"
@@ -174,7 +180,7 @@ const VillageOverview: NextPage = () => {
         }
       >
         {ReactHtmlParser(notice)}
-        {(isFetching || isUpdating) && (
+        {(isFetchingVillage || isUpdating) && (
           <Loader explanation="Loading Village Information" />
         )}
       </ContentBox>

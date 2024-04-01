@@ -1138,8 +1138,9 @@ export const villageStructure = mysqlTable(
     hasPage: tinyint("hasPage").default(0).notNull(),
     curSp: int("curSp").default(100).notNull(),
     maxSp: int("maxSp").default(100).notNull(),
+    allyAccess: tinyint("allyAccess").default(1).notNull(),
     // upgrade cust & current level
-    baseCost: int("baseCost").default(5000).notNull(),
+    baseCost: int("baseCost").default(3000).notNull(),
     level: int("level").default(1).notNull(),
     maxLevel: int("maxLevel").default(10).notNull(),
     // Per level advantages

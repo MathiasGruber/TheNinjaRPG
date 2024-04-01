@@ -12,6 +12,7 @@ import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatType, GeneralType } from "@/libs/combat/constants";
+import { findRelationship } from "@/utils/alliance";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -19,7 +20,7 @@ import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
-import type { Battle } from "@/drizzle/schema";
+import type { Battle, VillageAlliance, Village } from "@/drizzle/schema";
 import type { Item, UserItem } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
@@ -617,11 +618,13 @@ export const rollInitiative = (
  */
 export const processUsersForBattle = (info: {
   users: BattleUserState[];
+  relations: VillageAlliance[];
+  villages: Village[];
   battleType: BattleType;
   hide: boolean;
 }) => {
   // Destructure
-  const { users, battleType, hide } = info;
+  const { users, relations, battleType, hide } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -768,12 +771,37 @@ export const processUsersForBattle = (info: {
       }
     });
     user.items = items;
+
     // Base values
     user.armor = 0;
     user.fledBattle = false;
     user.leftBattle = false;
+
     // Roll initiative
     user.initiative = rollInitiative(user, users);
+
+    // Add relevant relations to usersState
+    user.relations = relations.filter(
+      (r) => r.villageIdA === user.villageId || r.villageIdB === user.villageId,
+    );
+
+    // Check if we are in ally village or not
+    user.allyVillage = false;
+    console.log("Not ally village");
+    if (inVillage && !ownSector) {
+      console.log("1");
+      const sector = info.villages.find((v) => v.sector === user.sector);
+      if (sector) {
+        console.log("sector", sector);
+        const relationship = findRelationship(relations, user.villageId, sector.id);
+        console.log("relationship", relationship);
+        if (relationship?.status === "ALLY") {
+          console.log("Ally village");
+          user.allyVillage = true;
+        }
+      }
+    }
+
     return user;
   });
 
