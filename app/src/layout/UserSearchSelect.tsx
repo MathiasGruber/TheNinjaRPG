@@ -93,8 +93,6 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     </span>
   ));
 
-  console.log(searchResults);
-
   return (
     <div className="flex flex-col w-full items-center">
       <div className="flex flex-row w-full items-center">

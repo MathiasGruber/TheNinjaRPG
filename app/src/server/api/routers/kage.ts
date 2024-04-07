@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, sql, gte } from "drizzle-orm";
+import { eq, and, ne, sql, gte } from "drizzle-orm";
 import { userData, village, villageStructure } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -26,6 +26,7 @@ export const kageRouter = createTRPCRouter({
       if (!village) return errorResponse("Village not found");
       if (kage.villageId !== village.id) return errorResponse("No longer kage");
       if (kage.villageId !== user.villageId) return errorResponse("Wrong village");
+      if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
       // Start the battle
       return await initiateBattle(
@@ -49,7 +50,11 @@ export const kageRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
         ctx.drizzle.query.userData.findMany({
-          where: and(eq(userData.villageId, villageId), eq(userData.rank, "ELDER")),
+          where: and(
+            eq(userData.villageId, villageId),
+            eq(userData.rank, "ELDER"),
+            ne(userData.userId, ctx.userId),
+          ),
         }),
       ]);
       // Derived
@@ -75,6 +80,7 @@ export const kageRouter = createTRPCRouter({
     });
     // Guards
     if (!user) return errorResponse("User not found");
+    if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
     if (!canChangeContent(user.role)) return errorResponse("Not staff");
     // Update
     const result = await ctx.drizzle
@@ -122,6 +128,7 @@ export const kageRouter = createTRPCRouter({
       if (!kage) return errorResponse("User not found");
       if (!prospect) return errorResponse("Target not found");
       if (!village) return errorResponse("Village not found");
+      if (prospect.anbuId) return errorResponse("Cannot promote ANBU to elder");
       if (prospect.isAi) return errorResponse("Do not touch the AI");
       if (kage.villageId !== village.id) return errorResponse("Wrong village");
       if (village.kageId !== kage.userId) return errorResponse("Not kage");

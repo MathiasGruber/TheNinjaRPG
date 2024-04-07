@@ -1,31 +1,32 @@
 import { createTRPCRouter } from "./trpc";
-import { profileRouter } from "./routers/profile";
-import { registerRouter } from "./routers/register";
+import { anbuRouter } from "./routers/anbu";
 import { avatarRouter } from "./routers/avatar";
-import { commentsRouter } from "./routers/comments";
-import { villageRouter } from "./routers/village";
-import { reportsRouter } from "./routers/reports";
-import { forumRouter } from "./routers/forum";
-import { travelRouter } from "./routers/travel";
-import { paypalRouter } from "./routers/paypal";
-import { bloodlineRouter } from "./routers/bloodline";
-import { jutsuRouter } from "./routers/jutsu";
-import { homeRouter } from "./routers/home";
-import { itemRouter } from "./routers/item";
-import { combatRouter } from "./routers/combat";
-import { hospitalRouter } from "./routers/hospital";
-import { logsRouter } from "./routers/logs";
-import { dataRouter } from "./routers/data";
-import { simulatorRouter } from "./routers/simulator";
-import { miscRouter } from "./routers/misc";
-import { questsRouter } from "./routers/quests";
-import { openaiRouter } from "./routers/openai";
-import { conceptartRouter } from "./routers/conceptart";
-import { bankRouter } from "./routers/bank";
 import { badgeRouter } from "./routers/badge";
-import { senseiRouter } from "./routers/sensei";
-import { sparringRouter } from "./routers/sparring";
+import { bankRouter } from "./routers/bank";
+import { bloodlineRouter } from "./routers/bloodline";
+import { combatRouter } from "./routers/combat";
+import { commentsRouter } from "./routers/comments";
+import { conceptartRouter } from "./routers/conceptart";
+import { dataRouter } from "./routers/data";
+import { forumRouter } from "./routers/forum";
+import { homeRouter } from "./routers/home";
+import { hospitalRouter } from "./routers/hospital";
+import { itemRouter } from "./routers/item";
+import { jutsuRouter } from "./routers/jutsu";
 import { kageRouter } from "./routers/kage";
+import { logsRouter } from "./routers/logs";
+import { miscRouter } from "./routers/misc";
+import { openaiRouter } from "./routers/openai";
+import { paypalRouter } from "./routers/paypal";
+import { profileRouter } from "./routers/profile";
+import { questsRouter } from "./routers/quests";
+import { registerRouter } from "./routers/register";
+import { reportsRouter } from "./routers/reports";
+import { senseiRouter } from "./routers/sensei";
+import { simulatorRouter } from "./routers/simulator";
+import { sparringRouter } from "./routers/sparring";
+import { travelRouter } from "./routers/travel";
+import { villageRouter } from "./routers/village";
 
 /**
  * This is the primary router for your server.
@@ -33,33 +34,34 @@ import { kageRouter } from "./routers/kage";
  * All routers added in /api/routers should be manually added here
  */
 export const appRouter = createTRPCRouter({
-  profile: profileRouter,
-  village: villageRouter,
+  anbu: anbuRouter,
   avatar: avatarRouter,
-  reports: reportsRouter,
-  comments: commentsRouter,
-  forum: forumRouter,
-  paypal: paypalRouter,
-  travel: travelRouter,
-  register: registerRouter,
-  bloodline: bloodlineRouter,
-  jutsu: jutsuRouter,
-  home: homeRouter,
-  item: itemRouter,
-  combat: combatRouter,
-  hospital: hospitalRouter,
-  logs: logsRouter,
-  data: dataRouter,
-  simulator: simulatorRouter,
-  misc: miscRouter,
-  quests: questsRouter,
-  openai: openaiRouter,
-  conceptart: conceptartRouter,
-  bank: bankRouter,
   badge: badgeRouter,
-  sparring: sparringRouter,
-  sensei: senseiRouter,
+  bank: bankRouter,
+  bloodline: bloodlineRouter,
+  combat: combatRouter,
+  comments: commentsRouter,
+  conceptart: conceptartRouter,
+  data: dataRouter,
+  forum: forumRouter,
+  home: homeRouter,
+  hospital: hospitalRouter,
+  item: itemRouter,
+  jutsu: jutsuRouter,
   kage: kageRouter,
+  logs: logsRouter,
+  misc: miscRouter,
+  openai: openaiRouter,
+  paypal: paypalRouter,
+  profile: profileRouter,
+  quests: questsRouter,
+  register: registerRouter,
+  reports: reportsRouter,
+  sensei: senseiRouter,
+  simulator: simulatorRouter,
+  sparring: sparringRouter,
+  travel: travelRouter,
+  village: villageRouter,
 });
 
 // export type definition of API

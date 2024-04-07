@@ -173,7 +173,13 @@ export const UserRequestStates = [
 ] as const;
 export type UserRequestState = (typeof UserRequestStates)[number];
 
-export const UserRequestTypes = ["SPAR", "ALLIANCE", "SURRENDER", "SENSEI"] as const;
+export const UserRequestTypes = [
+  "SPAR",
+  "ALLIANCE",
+  "SURRENDER",
+  "SENSEI",
+  "ANBU",
+] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
 export const AllianceStates = ["NEUTRAL", "ALLY", "ENEMY"] as const;

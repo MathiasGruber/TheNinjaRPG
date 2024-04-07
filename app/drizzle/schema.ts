@@ -26,6 +26,39 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import * as consts from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 
+export const anbuSquad = mysqlTable(
+  "AnbuSquad",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    leaderId: varchar("leaderId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    pvpActivity: int("pvpActivity").default(0).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("AnbuSquad_name_key").on(table.name),
+      leaderIdIdx: index("AnbuSquad_leaderId_idx").on(table.leaderId),
+      villageIdIdx: index("AnbuSquad_villageId_idx").on(table.villageId),
+    };
+  },
+);
+
+export const anbuSquadRelations = relations(anbuSquad, ({ one, many }) => ({
+  leader: one(userData, {
+    fields: [anbuSquad.leaderId],
+    references: [userData.userId],
+  }),
+  members: many(userData),
+}));
+
 export const battle = mysqlTable(
   "Battle",
   {
@@ -721,6 +754,7 @@ export const userData = mysqlTable(
   {
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
     recruiterId: varchar("recruiterId", { length: 191 }),
+    anbuId: varchar("anbuId", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
@@ -906,6 +940,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.senseiId],
     references: [userData.userId],
     relationName: "sensei",
+  }),
+  anbuSquad: one(anbuSquad, {
+    fields: [userData.anbuId],
+    references: [anbuSquad.id],
   }),
 }));
 

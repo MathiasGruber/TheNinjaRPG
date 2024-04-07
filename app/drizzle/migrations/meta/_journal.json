@@ -505,6 +505,13 @@
       "when": 1711877545283,
       "tag": "0071_unknown_mercury",
       "breakpoints": false
+    },
+    {
+      "idx": 72,
+      "version": "5",
+      "when": 1712309992263,
+      "tag": "0072_high_forge",
+      "breakpoints": false
     }
   ]
 }

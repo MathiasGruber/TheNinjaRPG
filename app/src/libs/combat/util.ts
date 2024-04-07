@@ -379,6 +379,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         });
       }
 
+      // ANBU boost to tokens
+      if (user.anbuId) deltaTokens *= 2;
+
       // Result object
       const result: CombatResult = {
         outcome: outcome,
