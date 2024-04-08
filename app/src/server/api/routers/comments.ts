@@ -491,10 +491,14 @@ export const createConvo = async (
         userId: user,
       }),
     ),
-    client
-      .update(userData)
-      .set({ inboxNews: sql`${userData.inboxNews} + 1` })
-      .where(inArray(userData.userId, receiverUserIds)),
+    ...(receiverUserIds.length > 0
+      ? [
+          client
+            .update(userData)
+            .set({ inboxNews: sql`${userData.inboxNews} + 1` })
+            .where(inArray(userData.userId, receiverUserIds)),
+        ]
+      : []),
     client.insert(conversationComment).values({
       id: nanoid(),
       content: sanitize(content),

@@ -335,7 +335,6 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
         schema={updateUserSchema}
         form={form}
         formData={formData}
-        formClassName="grid grid-cols-1"
         showSubmit={form.formState.isDirty}
         buttonTxt="Save to Database"
         type="ai"

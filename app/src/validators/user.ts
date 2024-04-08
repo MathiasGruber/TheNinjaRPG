@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRoles } from "@/drizzle/constants";
+import { UserRoles, UserRanks } from "@/drizzle/constants";
 import type { LetterRank, QuestType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { ElementName } from "@/drizzle/constants";
@@ -7,6 +7,7 @@ import type { ZodAllTags } from "@/libs/combat/types";
 
 export const updateUserSchema = z.object({
   role: z.enum(UserRoles),
+  rank: z.enum(UserRanks),
 });
 
 export type UpdateUserSchema = z.infer<typeof updateUserSchema>;

@@ -2,7 +2,7 @@ import HumanDiff from "human-object-diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
-import { UserRoles } from "@/drizzle/constants";
+import { UserRoles, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { updateUserSchema } from "@/validators/user";
 import type { UpdateUserSchema } from "@/validators/user";
@@ -162,6 +162,7 @@ export const useUserEditForm = (
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
     { id: "role", type: "str_array", values: UserRoles },
+    { id: "rank", type: "str_array", values: UserRanks },
   ];
 
   return { user, loading, form, formData, handleUserSubmit };
