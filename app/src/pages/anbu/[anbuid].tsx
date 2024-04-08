@@ -25,7 +25,6 @@ import {
 import { anbuRenameSchema } from "@/validators/anbu";
 import { hasRequiredRank } from "@/libs/train";
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
 import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { BaseServerResponse } from "@/server/api/trpc";
@@ -47,10 +46,6 @@ const ANBU: NextPage = () => {
     { id: squadId },
     { enabled: !!squadId },
   );
-  const members = squad?.members.map((member) => ({
-    ...member,
-    rank: member.userId === squad.leaderId ? "Leader" : member.rank,
-  }));
   const { data: requests } = api.anbu.getRequests.useQuery(undefined, {
     staleTime: 5000,
   });
@@ -70,6 +65,7 @@ const ANBU: NextPage = () => {
   const { mutate: reject } = api.anbu.rejectRequest.useMutation({ onSuccess });
   const { mutate: cancel } = api.anbu.cancelRequest.useMutation({ onSuccess });
   const { mutate: rename } = api.anbu.renameSquad.useMutation({ onSuccess });
+  const { mutate: kick } = api.anbu.kickMember.useMutation({ onSuccess });
   const { mutate: leave } = api.anbu.leaveSquad.useMutation({
     onSuccess: async (data) => {
       await onSuccess(data);
@@ -103,14 +99,6 @@ const ANBU: NextPage = () => {
   if (!squad) return <Loader explanation="Loading ANBU squad" />;
   if (!requests) return <Loader explanation="Loading requests" />;
 
-  // Table
-  type Member = ArrayElement<typeof members>;
-  const columns: ColumnDefinitionType<Member, keyof Member>[] = [
-    { key: "avatar", header: "", type: "avatar" },
-    { key: "username", header: "Username", type: "string" },
-    { key: "rank", header: "Rank", type: "capitalized" },
-  ];
-
   // Derived
   const isKage = userData.userId === userData.village?.kageId;
   const isElder = userData.rank === "ELDER";
@@ -121,6 +109,41 @@ const ANBU: NextPage = () => {
   const showRequestSystem = (isLeader && requests.length > 0) || !hasAnbu;
   const shownRequests = requests.filter((r) => !isLeader || r.status === "PENDING");
   const sufficientRank = hasRequiredRank(userData.rank, ANBU_MEMBER_RANK_REQUIREMENT);
+
+  // Adjust members for table
+  const members = squad?.members.map((member) => ({
+    ...member,
+    rank: member.userId === squad.leaderId ? "Leader" : member.rank,
+    kickBtn:
+      member.userId !== userData.userId ? (
+        <Confirm
+          title="Kick Member"
+          proceed_label="Submit"
+          button={
+            <Button id={`kick-${member.userId}`}>
+              <DoorOpen className="mr-2 h-5 w-5" />
+              Kick
+            </Button>
+          }
+          onAccept={() => kick({ squadId, memberId: member.userId })}
+        >
+          Confirm that you want to kick this member from the squad.
+        </Confirm>
+      ) : (
+        <></>
+      ),
+  }));
+
+  // Table
+  type Member = ArrayElement<typeof members>;
+  const columns: ColumnDefinitionType<Member, keyof Member>[] = [
+    { key: "avatar", header: "", type: "avatar" },
+    { key: "username", header: "Username", type: "string" },
+    { key: "rank", header: "Rank", type: "capitalized" },
+  ];
+  if (isLeader) {
+    columns.push({ key: "kickBtn", header: "Action", type: "jsx" });
+  }
 
   return (
     <>

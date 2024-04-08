@@ -311,6 +311,32 @@ export const anbuRouter = createTRPCRouter({
       // Create
       return { success: true, message: "Squad name changed" };
     }),
+  kickMember: protectedProcedure
+    .input(z.object({ squadId: z.string(), memberId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, squad, member] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchSquad(ctx.drizzle, input.squadId),
+        fetchUser(ctx.drizzle, input.memberId),
+      ]);
+      // Guards
+      if (!squad) return errorResponse("Squad not found");
+      if (!user) return errorResponse("User not found");
+      if (!member) return errorResponse("Member not found");
+      if (squad.villageId !== user.villageId) return errorResponse("Wrong village");
+      if (user.anbuId !== squad.id) return errorResponse("Not in squad");
+      if (user.userId !== squad.leaderId) return errorResponse("Not squad leader");
+      if (member.userId === squad.leaderId) return errorResponse("Cannot kick leader");
+      // Mutate
+      await ctx.drizzle
+        .update(userData)
+        .set({ anbuId: null })
+        .where(eq(userData.userId, member.userId));
+      // Create
+      return { success: true, message: "Member kicked" };
+    }),
   leaveSquad: protectedProcedure
     .input(z.object({ squadId: z.string() }))
     .output(baseServerResponse)
