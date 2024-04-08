@@ -795,11 +795,8 @@ export const processUsersForBattle = (info: {
       console.log("1");
       const sector = info.villages.find((v) => v.sector === user.sector);
       if (sector) {
-        console.log("sector", sector);
         const relationship = findRelationship(relations, user.villageId, sector.id);
-        console.log("relationship", relationship);
         if (relationship?.status === "ALLY") {
-          console.log("Ally village");
           user.allyVillage = true;
         }
       }

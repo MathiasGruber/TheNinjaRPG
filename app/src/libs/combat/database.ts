@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
 import { battle, battleAction, userData, userItem } from "@/drizzle/schema";
-import { kageDefendedChallenges, village } from "@/drizzle/schema";
+import { kageDefendedChallenges, village, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
@@ -186,10 +186,20 @@ export const updateVillage = async (
   if (!result) return;
   if (result.villageTokens === 0) return;
   // Mutate
-  await client
-    .update(village)
-    .set({ tokens: sql`tokens + ${result.villageTokens}` })
-    .where(eq(village.id, user.villageId));
+  await Promise.all([
+    client
+      .update(village)
+      .set({ tokens: sql`tokens + ${result.villageTokens}` })
+      .where(eq(village.id, user.villageId)),
+    ...(user.anbuId
+      ? [
+          client
+            .update(anbuSquad)
+            .set({ pvpActivity: sql`${anbuSquad.pvpActivity} + 1` })
+            .where(eq(anbuSquad.id, user.anbuId)),
+        ]
+      : []),
+  ]);
 };
 
 /**
