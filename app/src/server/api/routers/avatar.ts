@@ -5,6 +5,7 @@ import { baseServerResponse, errorResponse } from "../trpc";
 import { updateAvatar, checkAvatar } from "../../../libs/replicate";
 import { fetchUser } from "./profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
+import type { DrizzleClient } from "@/server/db";
 
 export const avatarRouter = createTRPCRouter({
   createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
@@ -64,9 +65,7 @@ export const avatarRouter = createTRPCRouter({
     .input(z.object({ avatar: z.number() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const avatar = await ctx.drizzle.query.historicalAvatar.findFirst({
-        where: eq(historicalAvatar.id, input.avatar),
-      });
+      const avatar = await fetchAvatar(ctx.drizzle, input.avatar);
       if (!avatar) {
         return errorResponse("Avatar not found");
       }
@@ -83,9 +82,7 @@ export const avatarRouter = createTRPCRouter({
     .input(z.object({ avatar: z.number() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const avatar = await ctx.drizzle.query.historicalAvatar.findFirst({
-        where: eq(historicalAvatar.id, input.avatar),
-      });
+      const avatar = await fetchAvatar(ctx.drizzle, input.avatar);
       if (!avatar) {
         return errorResponse("Avatar not found");
       }
@@ -98,3 +95,16 @@ export const avatarRouter = createTRPCRouter({
       return { success: true, message: "Avatar deleted" };
     }),
 });
+
+/**
+ * Fetches the avatar with the specified ID from the database.
+ *
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param id - The ID of the avatar to fetch.
+ * @returns A promise that resolves to the fetched avatar.
+ */
+export const fetchAvatar = async (client: DrizzleClient, id: number) => {
+  return await client.query.historicalAvatar.findFirst({
+    where: eq(historicalAvatar.id, id),
+  });
+};

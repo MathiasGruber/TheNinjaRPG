@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
-import { anbuSquad, userData } from "@/drizzle/schema";
+import { anbuSquad, userData, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { fetchVillage } from "@/routers/village";
@@ -304,25 +304,30 @@ export const anbuRouter = createTRPCRouter({
       // Create
       return { success: true, message: "Squad disbanded" };
     }),
-  renameSquad: protectedProcedure
-    .input(z.object({ squadId: z.string(), name: z.string() }))
+  editSquad: protectedProcedure
+    .input(z.object({ squadId: z.string(), name: z.string(), image: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, squad] = await Promise.all([
+      const [user, squad, image] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchSquad(ctx.drizzle, input.squadId),
+        ctx.drizzle.query.historicalAvatar.findFirst({
+          where: eq(historicalAvatar.avatar, input.image),
+        }),
       ]);
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!user) return errorResponse("User not found");
+      if (!image) return errorResponse("Image not found");
+      if (!image.avatar) return errorResponse("Image not found");
       if (squad.leaderId !== user.userId) return errorResponse("Not squad leader");
       if (squad.villageId !== user.villageId) return errorResponse("Wrong village");
       if (user.anbuId !== squad.id) return errorResponse("Wrong squad");
       // Mutate
       await ctx.drizzle
         .update(anbuSquad)
-        .set({ name: input.name })
+        .set({ name: input.name, image: image.avatar })
         .where(eq(anbuSquad.id, squad.id));
       // Create
       return { success: true, message: "Squad name changed" };

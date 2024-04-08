@@ -6,6 +6,7 @@ import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import RichInput from "@/layout/RichInput";
+import AvatarImage from "@/layout/Avatar";
 import { mutateContentSchema } from "@/validators/comments";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/router";
@@ -25,6 +26,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { UploadButton } from "@/utils/uploadthing";
 import { anbuRenameSchema } from "@/validators/anbu";
 import { hasRequiredRank } from "@/libs/train";
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
@@ -135,7 +137,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   };
 
   // Request mutations
-  const { mutate: rename } = api.anbu.renameSquad.useMutation({ onSuccess });
+  const { mutate: edit } = api.anbu.editSquad.useMutation({ onSuccess });
   const { mutate: kick } = api.anbu.kickMember.useMutation({ onSuccess });
   const { mutate: leave } = api.anbu.leaveSquad.useMutation({
     onSuccess: async (data) => {
@@ -153,9 +155,10 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   // Rename Form
   const renameForm = useForm<AnbuRenameSchema>({
     resolver: zodResolver(anbuRenameSchema),
-    defaultValues: { name: squad?.name },
+    defaultValues: { name: squad.name, image: squad.image },
   });
-  const onRename = renameForm.handleSubmit((data) => rename({ ...data, squadId }));
+  const onEdit = renameForm.handleSubmit((data) => edit({ ...data, squadId }));
+  const currentImage = renameForm.watch("image");
 
   // Set squad name
   useEffect(() => {
@@ -165,7 +168,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   }, [renameForm, squad]);
 
   // Adjust members for table
-  const members = squad?.members.map((member) => ({
+  const members = squad.members.map((member) => ({
     ...member,
     rank: member.userId === squad.leaderId ? "Leader" : member.rank,
     kickBtn:
@@ -214,14 +217,39 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
               button={
                 <Button id="rename-anbu-squad">
                   <FilePenLine className="mr-2 h-5 w-5" />
-                  Rename
+                  Edit
                 </Button>
               }
               isValid={renameForm.formState.isValid}
-              onAccept={onRename}
+              onAccept={onEdit}
             >
               <Form {...renameForm}>
-                <form className="space-y-2" onSubmit={onRename}>
+                <form className="space-y-2 grid grid-cols-2" onSubmit={onEdit}>
+                  <div>
+                    <FormLabel>Squad Image</FormLabel>
+                    <AvatarImage
+                      href={currentImage}
+                      alt={squad.id}
+                      size={100}
+                      hover_effect={true}
+                      priority
+                    />
+                    <UploadButton
+                      endpoint="anbuUploader"
+                      onClientUploadComplete={(res) => {
+                        console.log(res);
+                        const url = res?.[0]?.serverData?.fileUrl;
+                        if (url) {
+                          renameForm.setValue("image", url, {
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
+                      onUploadError={(error: Error) => {
+                        showMutationToast({ success: false, message: error.message });
+                      }}
+                    />
+                  </div>
                   <FormField
                     control={renameForm.control}
                     name="name"

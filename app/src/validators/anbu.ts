@@ -10,6 +10,7 @@ export type AnbuCreateSchema = z.infer<typeof anbuCreateSchema>;
 
 export const anbuRenameSchema = z.object({
   name: z.string().trim().min(3).max(88),
+  image: z.string(),
 });
 
 export type AnbuRenameSchema = z.infer<typeof anbuRenameSchema>;
