@@ -5,7 +5,6 @@ import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-re
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/utils/api";
-import { findRelationship } from "@/utils/alliance";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "../server/api/routers/profile";
 

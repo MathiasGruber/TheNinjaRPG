@@ -131,7 +131,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <br />
             <b>Associations</b>
             <p>Clan: None</p>
-            <p>ANBU: {profile.anbuSquad?.name ?? "None"}</p>
+            <p>ANBU: {profile.anbuSquad?.name || "None"}</p>
             <p>Bloodline: {profile.bloodline?.name || "None"}</p>
             <p>
               Sensei:{" "}

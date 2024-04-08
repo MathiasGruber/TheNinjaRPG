@@ -1137,6 +1137,9 @@ export const fetchUpdatedUser = async (props: {
         village: {
           with: { structures: true },
         },
+        anbuSquad: {
+          columns: { name: true },
+        },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
@@ -1271,6 +1274,7 @@ export const fetchAttributes = async (client: DrizzleClient, userId: string) => 
 export type UserWithRelations =
   | (UserData & {
       bloodline?: Bloodline | null;
+      anbuSquad?: { name: string } | null;
       village?: (Village & { structures?: VillageStructure[] }) | null;
       userQuests: UserQuest[];
     })

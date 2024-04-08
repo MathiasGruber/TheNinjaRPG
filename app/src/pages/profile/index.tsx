@@ -226,6 +226,7 @@ const Profile: NextPage = () => {
             <b>Associations</b>
             <p>Village: {userData.village?.name}</p>
             <p>Bloodline: {userData.bloodline?.name || "None"}</p>
+            <p>ANBU: {userData.anbuSquad?.name || "None"}</p>
             <p>Clan: None</p>
           </div>
         </div>

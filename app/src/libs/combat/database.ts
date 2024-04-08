@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
-import { battle, battleAction, userData, userNindo, userItem } from "@/drizzle/schema";
+import { battle, battleAction, userData, userItem } from "@/drizzle/schema";
 import { kageDefendedChallenges, village } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
