@@ -857,6 +857,9 @@ export const profileRouter = createTRPCRouter({
               username: true,
             },
           },
+          anbuSquad: {
+            columns: { name: true },
+          },
         },
       });
       return user ?? null;
