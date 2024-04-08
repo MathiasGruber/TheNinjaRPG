@@ -8,12 +8,16 @@ import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { anbuCreateSchema } from "@/validators/anbu";
+import { hasRequiredRank } from "@/libs/train";
 import {
   fetchRequest,
   fetchRequests,
   insertRequest,
   updateRequestState,
 } from "@/routers/sparring";
+import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
+import { ANBU_LEADER_RANK_REQUIREMENT } from "@/drizzle/constants";
+import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 const pusher = getServerPusher();
@@ -72,6 +76,9 @@ export const anbuRouter = createTRPCRouter({
       if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (user.anbuId) return errorResponse("Already in a squad");
       if (isKage || isElder) return errorResponse("Kage or elder cannot join");
+      if (!hasRequiredRank(user.rank, ANBU_MEMBER_RANK_REQUIREMENT)) {
+        return errorResponse(`Rank must be at least ${ANBU_MEMBER_RANK_REQUIREMENT}`);
+      }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, squad.leaderId, "ANBU");
       void pusher.trigger(squad.leaderId, "event", { type: "anbu" });
@@ -118,16 +125,21 @@ export const anbuRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, request.senderId),
         fetchUser(ctx.drizzle, request.receiverId),
       ]);
+      // Derived
+      const nMembers = squad?.members.length || 0;
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!requester) return errorResponse("Requester not found");
       if (!leader) return errorResponse("Leader not found");
-      if (squad.members.length >= 10) return errorResponse("Squad is full");
+      if (nMembers >= ANBU_MAX_MEMBERS) return errorResponse("Squad is full");
       if (ctx.userId !== request.receiverId) return errorResponse("Not your request");
       if (ctx.userId !== squad.leaderId) return errorResponse("Not squad leader");
       if (requester.anbuId) return errorResponse("Requester already in a squad");
       if (requester.villageId !== leader.villageId) return errorResponse("!= village");
       if (requester.anbuId) return errorResponse("Already in a squad");
+      if (!hasRequiredRank(leader.rank, ANBU_MEMBER_RANK_REQUIREMENT)) {
+        return errorResponse(`Rank must be at least ${ANBU_MEMBER_RANK_REQUIREMENT}`);
+      }
       // Mutate
       await Promise.all([
         updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "ANBU"),
@@ -173,6 +185,9 @@ export const anbuRouter = createTRPCRouter({
       if (leader.isAi) return errorResponse("AI cannot be leader");
       if (leader.userId === village.kageId) return errorResponse("Cannot choose kage");
       if (leader.rank === "ELDER") return errorResponse("Cannot choose elder");
+      if (!hasRequiredRank(leader.rank, ANBU_LEADER_RANK_REQUIREMENT)) {
+        return errorResponse("Leader rank too low");
+      }
       // Mutate
       const anbuId = nanoid();
       await Promise.all([
@@ -220,6 +235,9 @@ export const anbuRouter = createTRPCRouter({
       if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (prospect.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (!isKage && !isElder) return errorResponse("Must be kage or elder");
+      if (!hasRequiredRank(prospect.rank, ANBU_LEADER_RANK_REQUIREMENT)) {
+        return errorResponse("Leader rank too low");
+      }
       // Mutate
       await Promise.all([
         ctx.drizzle

@@ -23,6 +23,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { anbuRenameSchema } from "@/validators/anbu";
+import { hasRequiredRank } from "@/libs/train";
+import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
+import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
 import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { BaseServerResponse } from "@/server/api/trpc";
@@ -117,6 +120,7 @@ const ANBU: NextPage = () => {
   const hasPending = requests?.some((req) => req.status === "PENDING");
   const showRequestSystem = (isLeader && requests.length > 0) || !hasAnbu;
   const shownRequests = requests.filter((r) => !isLeader || r.status === "PENDING");
+  const sufficientRank = hasRequiredRank(userData.rank, ANBU_MEMBER_RANK_REQUIREMENT);
 
   return (
     <>
@@ -202,7 +206,7 @@ const ANBU: NextPage = () => {
           padding={false}
         >
           {/* FOR THOSE WHO CAN SEND REQUESTS */}
-          {!hasAnbu && !hasPending && (
+          {sufficientRank && !hasAnbu && !hasPending && (
             <div className="p-2">
               <p>Send a request to join this squad</p>
               <Button
