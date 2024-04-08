@@ -58,7 +58,7 @@ const ANBU: NextPage = () => {
     leaderInfo: (
       <div className="w-20 text-center">
         <AvatarImage
-          href={squad.image}
+          href={squad.leader.avatar}
           alt={squad.name}
           size={100}
           hover_effect={true}
