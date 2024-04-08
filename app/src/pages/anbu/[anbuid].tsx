@@ -1,9 +1,12 @@
 import { useEffect } from "react";
+import ReactHtmlParser from "react-html-parser";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import RichInput from "@/layout/RichInput";
+import { mutateContentSchema } from "@/validators/comments";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
@@ -25,15 +28,16 @@ import {
 import { anbuRenameSchema } from "@/validators/anbu";
 import { hasRequiredRank } from "@/libs/train";
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
+import type { UserRank } from "@/drizzle/constants";
 import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { AnbuRenameSchema } from "@/validators/anbu";
+import type { MutateContentSchema } from "@/validators/comments";
+import type { UserNindo } from "@/drizzle/schema";
+import type { AnbuRouter } from "@/routers/anbu";
 
 const ANBU: NextPage = () => {
-  // Get react query utility
-  const utils = api.useUtils();
-
   // Get ID
   const router = useRouter();
   const squadId = router.query.anbuid as string;
@@ -46,9 +50,80 @@ const ANBU: NextPage = () => {
     { id: squadId },
     { enabled: !!squadId },
   );
-  const { data: requests } = api.anbu.getRequests.useQuery(undefined, {
-    staleTime: 5000,
-  });
+
+  // Loading states
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing ANBU" />;
+  if (!squad) return <Loader explanation="Loading ANBU squad" />;
+
+  // Derived
+  const isKage = userData.userId === userData.village?.kageId;
+  const isElder = userData.rank === "ELDER";
+  const isLeader = userData.userId === squad.leaderId;
+  const inSquad = userData.anbuId === squadId;
+
+  return (
+    <>
+      {/* MEMBER OVERVIEW  */}
+      <AnbuMembers
+        isKage={isKage}
+        isElder={isElder}
+        isLeader={isLeader}
+        inSquad={inSquad}
+        userId={userData.userId}
+        squadId={squadId}
+        squad={squad}
+      />
+      {/* ANBU ORDERS */}
+      <AnbuOrders
+        squadId={squadId}
+        title="Superior Orders"
+        subtitle={`From kage or elders`}
+        type="KAGE"
+        order={squad.kageOrder}
+        canPost={isKage || isElder}
+      />
+      <AnbuOrders
+        squadId={squadId}
+        title="Leader Orders"
+        subtitle={`From leader ${squad?.leader?.username}`}
+        type="LEADER"
+        order={squad.leaderOrder}
+        canPost={isLeader}
+      />
+      {/* REQUESTS SYSTEM  */}
+      <AnbuRequests
+        squadId={squadId}
+        isLeader={isLeader}
+        userId={userData.userId}
+        userRank={userData.rank}
+        userAnbu={userData.anbuId}
+      />
+    </>
+  );
+};
+
+export default ANBU;
+
+interface AnbuMembersProps {
+  isKage: boolean;
+  isElder: boolean;
+  isLeader: boolean;
+  inSquad: boolean;
+  userId: string;
+  squadId: string;
+  squad: NonNullable<AnbuRouter["get"]>;
+}
+
+const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
+  // Destructure
+  const { userId, squad, squadId, isKage, isElder, isLeader, inSquad } = props;
+
+  // Get router
+  const router = useRouter();
+
+  // Get react query utility
+  const utils = api.useUtils();
 
   // Mutations
   const onSuccess = async (data: BaseServerResponse) => {
@@ -60,10 +135,6 @@ const ANBU: NextPage = () => {
   };
 
   // Request mutations
-  const { mutate: create } = api.anbu.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.anbu.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.anbu.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.anbu.cancelRequest.useMutation({ onSuccess });
   const { mutate: rename } = api.anbu.renameSquad.useMutation({ onSuccess });
   const { mutate: kick } = api.anbu.kickMember.useMutation({ onSuccess });
   const { mutate: leave } = api.anbu.leaveSquad.useMutation({
@@ -93,29 +164,12 @@ const ANBU: NextPage = () => {
     }
   }, [renameForm, squad]);
 
-  // Loading states
-  if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!access) return <Loader explanation="Accessing ANBU" />;
-  if (!squad) return <Loader explanation="Loading ANBU squad" />;
-  if (!requests) return <Loader explanation="Loading requests" />;
-
-  // Derived
-  const isKage = userData.userId === userData.village?.kageId;
-  const isElder = userData.rank === "ELDER";
-  const isLeader = userData.userId === squad.leaderId;
-  const hasAnbu = userData.anbuId;
-  const inSquad = userData.anbuId === squadId;
-  const hasPending = requests?.some((req) => req.status === "PENDING");
-  const showRequestSystem = (isLeader && requests.length > 0) || !hasAnbu;
-  const shownRequests = requests.filter((r) => !isLeader || r.status === "PENDING");
-  const sufficientRank = hasRequiredRank(userData.rank, ANBU_MEMBER_RANK_REQUIREMENT);
-
   // Adjust members for table
   const members = squad?.members.map((member) => ({
     ...member,
     rank: member.userId === squad.leaderId ? "Leader" : member.rank,
     kickBtn:
-      member.userId !== userData.userId ? (
+      member.userId !== userId ? (
         <Confirm
           title="Kick Member"
           proceed_label="Submit"
@@ -146,119 +200,242 @@ const ANBU: NextPage = () => {
   }
 
   return (
-    <>
-      {/* MEMBER OVERVIEW  */}
-      <ContentBox
-        title={`Squad: ${squad.name}`}
-        subtitle={`PVP Activity: ${squad.pvpActivity}`}
-        back_href="/anbu"
-        padding={false}
-        topRightContent={
-          <div className="flex flex-row items-center gap-1">
-            {isLeader && (
-              <Confirm
-                title="Rename Squad"
-                proceed_label="Submit"
-                button={
-                  <Button id="rename-anbu-squad">
-                    <FilePenLine className="mr-2 h-5 w-5" />
-                    Rename
-                  </Button>
-                }
-                isValid={renameForm.formState.isValid}
-                onAccept={onRename}
-              >
-                <Form {...renameForm}>
-                  <form className="space-y-2" onSubmit={onRename}>
-                    <FormField
-                      control={renameForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Name of the new squad" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </form>
-                </Form>
-              </Confirm>
-            )}
-            {inSquad && (
-              <Button id="send" onClick={() => leave({ squadId })}>
-                <DoorOpen className="h-5 w-5 mr-2" />
-                Leave
-              </Button>
-            )}
-            {(isKage || isElder) && (
-              <Confirm
-                title="Disband Squad"
-                proceed_label="Submit"
-                button={
-                  <Button id="rename-anbu-squad">
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    Disband
-                  </Button>
-                }
-                isValid={renameForm.formState.isValid}
-                onAccept={() => disband({ squadId })}
-              >
-                Confirm that you want to disband this entire squad. Everyone will be
-                removed from the squad!
-              </Confirm>
-            )}
-          </div>
-        }
-      >
-        <Table
-          data={members}
-          columns={columns}
-          linkPrefix="/users/"
-          linkColumn={"userId"}
-        />
-      </ContentBox>
-      {/* REQUESTS SYSTEM  */}
-      {showRequestSystem && (
-        <ContentBox
-          title="Request"
-          subtitle="Requests for ANBU squad"
-          initialBreak={true}
-          padding={false}
-        >
-          {/* FOR THOSE WHO CAN SEND REQUESTS */}
-          {sufficientRank && !hasAnbu && !hasPending && (
-            <div className="p-2">
-              <p>Send a request to join this squad</p>
-              <Button
-                id="send"
-                className="mt-2 w-full"
-                onClick={() => create({ squadId })}
-              >
-                <SendHorizontal className="h-5 w-5 mr-2" />
-                Send Request
-              </Button>
-            </div>
+    <ContentBox
+      title={`Squad: ${squad.name}`}
+      subtitle={`PVP Activity: ${squad.pvpActivity}`}
+      back_href="/anbu"
+      padding={false}
+      topRightContent={
+        <div className="flex flex-row items-center gap-1">
+          {isLeader && (
+            <Confirm
+              title="Rename Squad"
+              proceed_label="Submit"
+              button={
+                <Button id="rename-anbu-squad">
+                  <FilePenLine className="mr-2 h-5 w-5" />
+                  Rename
+                </Button>
+              }
+              isValid={renameForm.formState.isValid}
+              onAccept={onRename}
+            >
+              <Form {...renameForm}>
+                <form className="space-y-2" onSubmit={onRename}>
+                  <FormField
+                    control={renameForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Name of the new squad" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </Confirm>
           )}
-          {/* SHOW REQUESTS */}
-          {shownRequests.length === 0 && (
-            <p className="p-2 italic">No current requests</p>
+          {inSquad && (
+            <Button id="send" onClick={() => leave({ squadId })}>
+              <DoorOpen className="h-5 w-5 mr-2" />
+              Leave
+            </Button>
           )}
-          {shownRequests.length > 0 && (
-            <UserRequestSystem
-              requests={shownRequests}
-              userId={userData.userId}
-              onAccept={accept}
-              onReject={reject}
-              onCancel={cancel}
-            />
+          {(isKage || isElder) && (
+            <Confirm
+              title="Disband Squad"
+              proceed_label="Submit"
+              button={
+                <Button id="rename-anbu-squad">
+                  <Trash2 className="mr-2 h-5 w-5" />
+                  Disband
+                </Button>
+              }
+              isValid={renameForm.formState.isValid}
+              onAccept={() => disband({ squadId })}
+            >
+              Confirm that you want to disband this entire squad. Everyone will be
+              removed from the squad!
+            </Confirm>
           )}
-        </ContentBox>
-      )}
-    </>
+        </div>
+      }
+    >
+      <Table
+        data={members}
+        columns={columns}
+        linkPrefix="/users/"
+        linkColumn={"userId"}
+      />
+    </ContentBox>
   );
 };
 
-export default ANBU;
+/**
+ * Renders the Anbu Orders component.
+ *
+ * @param props - The component props.
+ * @returns The rendered component.
+ */
+interface AnbuOrdersProps {
+  squadId: string;
+  title: string;
+  subtitle: string;
+  type: "KAGE" | "LEADER";
+  order: UserNindo | null;
+  canPost: boolean;
+}
+
+const AnbuOrders: React.FC<AnbuOrdersProps> = (props) => {
+  // Destructure
+  const { squadId, title, subtitle, type, canPost, order } = props;
+
+  // utils
+  const utils = api.useUtils();
+
+  // Mutations
+  const { mutate: notice } = api.anbu.upsertNotice.useMutation({
+    onSuccess: async (data: BaseServerResponse) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.anbu.get.invalidate();
+      }
+    },
+  });
+
+  // Content
+  const content = order?.content ?? "No current orders";
+
+  // Order form
+  const {
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<MutateContentSchema>({
+    defaultValues: { content },
+    resolver: zodResolver(mutateContentSchema),
+  });
+  const onUpdateOrder = handleSubmit((data) => notice({ ...data, type, squadId }));
+
+  return (
+    <ContentBox
+      title={title}
+      subtitle={subtitle}
+      initialBreak={true}
+      topRightContent={
+        <div>
+          {canPost && (
+            <Confirm
+              title="Update Orders"
+              proceed_label="Submit"
+              button={<Button id="create">Edit</Button>}
+              onAccept={onUpdateOrder}
+            >
+              <RichInput
+                id="content"
+                label="Contents of your orders"
+                height="300"
+                placeholder={content}
+                control={control}
+                error={errors.content?.message}
+              />
+            </Confirm>
+          )}
+        </div>
+      }
+    >
+      {ReactHtmlParser(content)}
+    </ContentBox>
+  );
+};
+
+/**
+ * Renders a component that displays ANBU requests for a squad.
+ *
+ * @component
+ * @param {AnbuRequestsProps} props - The component props.
+ * @returns {JSX.Element} The rendered component.
+ */
+interface AnbuRequestsProps {
+  squadId: string;
+  isLeader: boolean;
+  userId: string;
+  userRank: UserRank;
+  userAnbu: string | null;
+}
+
+const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
+  // Destructure
+  const { squadId, isLeader, userId, userRank, userAnbu } = props;
+
+  // Get utils
+  const utils = api.useUtils();
+
+  // Query
+  const { data: requests } = api.anbu.getRequests.useQuery(undefined, {
+    staleTime: 5000,
+  });
+
+  // How to deal with success responses
+  const onSuccess = async (data: BaseServerResponse) => {
+    showMutationToast(data);
+    if (data.success) {
+      await utils.anbu.get.invalidate();
+      await utils.anbu.getRequests.invalidate();
+    }
+  };
+
+  // Mutation
+  const { mutate: create } = api.anbu.createRequest.useMutation({ onSuccess });
+  const { mutate: accept } = api.anbu.acceptRequest.useMutation({ onSuccess });
+  const { mutate: reject } = api.anbu.rejectRequest.useMutation({ onSuccess });
+  const { mutate: cancel } = api.anbu.cancelRequest.useMutation({ onSuccess });
+
+  // Loaders
+  if (!requests) return <Loader explanation="Loading requests" />;
+
+  // Derived
+  const hasPending = requests?.some((req) => req.status === "PENDING");
+  const showRequestSystem = (isLeader && requests.length > 0) || !userAnbu;
+  const shownRequests = requests.filter((r) => !isLeader || r.status === "PENDING");
+  const sufficientRank = hasRequiredRank(userRank, ANBU_MEMBER_RANK_REQUIREMENT);
+
+  // Do not show?
+  if (!showRequestSystem) return null;
+
+  // Render
+  return (
+    <ContentBox
+      title="Request"
+      subtitle="Requests for ANBU squad"
+      initialBreak={true}
+      padding={false}
+    >
+      {/* FOR THOSE WHO CAN SEND REQUESTS */}
+      {sufficientRank && !userAnbu && !hasPending && (
+        <div className="p-2">
+          <p>Send a request to join this squad</p>
+          <Button id="send" className="mt-2 w-full" onClick={() => create({ squadId })}>
+            <SendHorizontal className="h-5 w-5 mr-2" />
+            Send Request
+          </Button>
+        </div>
+      )}
+      {/* SHOW REQUESTS */}
+      {shownRequests.length === 0 && <p className="p-2 italic">No current requests</p>}
+      {shownRequests.length > 0 && (
+        <UserRequestSystem
+          requests={shownRequests}
+          userId={userId}
+          onAccept={accept}
+          onReject={reject}
+          onCancel={cancel}
+        />
+      )}
+    </ContentBox>
+  );
+};

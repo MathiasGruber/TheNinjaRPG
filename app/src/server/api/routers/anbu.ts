@@ -5,7 +5,7 @@ import { anbuSquad, userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { fetchVillage } from "@/routers/village";
-import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { anbuCreateSchema } from "@/validators/anbu";
 import { hasRequiredRank } from "@/libs/train";
@@ -18,6 +18,7 @@ import {
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_LEADER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
+import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 
 const pusher = getServerPusher();
@@ -27,10 +28,23 @@ export const anbuRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       // Query
-      const [squad, user] = await Promise.all([
+      const [updatedUser, squad] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
         fetchSquad(ctx.drizzle, input.id),
-        fetchUser(ctx.drizzle, ctx.userId),
       ]);
+      // Derived
+      const { user } = updatedUser;
+      const isKage = user?.userId === user?.village?.kageId;
+      const isElder = user?.rank === "ELDER";
+      const inSquad = user?.anbuId === squad?.id;
+      // Hide orders if not kage or elder
+      if (squad && !isKage && !isElder && !inSquad) {
+        if (squad.kageOrder?.content) squad.kageOrder.content = "Hidden";
+        if (squad.leaderOrder?.content) squad.leaderOrder.content = "Hidden";
+      }
       // Guard
       if (squad && user && squad.villageId === user.villageId) {
         return squad;
@@ -197,6 +211,8 @@ export const anbuRouter = createTRPCRouter({
           villageId: village.id,
           name: input.name,
           leaderId: leader.userId,
+          kageOrderId: nanoid(),
+          leaderOrderId: nanoid(),
         }),
         ctx.drizzle
           .update(userData)
@@ -371,6 +387,43 @@ export const anbuRouter = createTRPCRouter({
       // Create
       return { success: true, message: "User left squad" };
     }),
+  upsertNotice: protectedProcedure
+    .input(
+      z.object({
+        content: z.string(),
+        squadId: z.string(),
+        type: z.enum(["KAGE", "LEADER"]),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [updatedUser, squad] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchSquad(ctx.drizzle, input.squadId),
+      ]);
+      // Derived
+      const { user } = updatedUser;
+      const isKage = user?.userId === user?.village?.kageId;
+      const isElder = user?.rank === "ELDER";
+      const isLeader = user?.userId === squad?.leaderId;
+      const village = user?.village;
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!squad) return errorResponse("Squad not found");
+      if (!village) return errorResponse("Village not found");
+      if (input.type === "KAGE") {
+        if (!isKage && !isElder) return errorResponse("Not allowed");
+      } else if (input.type === "LEADER") {
+        if (!isLeader) return errorResponse("Not allowed");
+      }
+      const orderId = input.type === "KAGE" ? squad.kageOrderId : squad.leaderOrderId;
+      // Update
+      return updateNindo(ctx.drizzle, orderId, input.content);
+    }),
 });
 
 /**
@@ -415,6 +468,15 @@ export const fetchSquads = async (client: DrizzleClient, villageId: string) => {
 export const fetchSquad = async (client: DrizzleClient, squadId: string) => {
   return await client.query.anbuSquad.findFirst({
     with: {
+      leader: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
       members: {
         columns: {
           userId: true,
@@ -424,6 +486,8 @@ export const fetchSquad = async (client: DrizzleClient, squadId: string) => {
           avatar: true,
         },
       },
+      kageOrder: true,
+      leaderOrder: true,
     },
     where: eq(anbuSquad.id, squadId),
   });
@@ -451,3 +515,5 @@ export const fetchSquadByLeader = async (client: DrizzleClient, leaderId: string
     where: eq(anbuSquad.leaderId, leaderId),
   });
 };
+
+export type AnbuRouter = inferRouterOutputs<typeof anbuRouter>;

@@ -35,6 +35,8 @@ export const anbuSquad = mysqlTable(
     leaderId: varchar("leaderId", { length: 191 }).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
+    kageOrderId: varchar("kageOrderId", { length: 191 }).notNull(),
+    leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -50,6 +52,7 @@ export const anbuSquad = mysqlTable(
     };
   },
 );
+export type AnbuSquad = InferSelectModel<typeof anbuSquad>;
 
 export const anbuSquadRelations = relations(anbuSquad, ({ one, many }) => ({
   leader: one(userData, {
@@ -57,6 +60,14 @@ export const anbuSquadRelations = relations(anbuSquad, ({ one, many }) => ({
     references: [userData.userId],
   }),
   members: many(userData),
+  kageOrder: one(userNindo, {
+    fields: [anbuSquad.kageOrderId],
+    references: [userNindo.userId],
+  }),
+  leaderOrder: one(userNindo, {
+    fields: [anbuSquad.leaderOrderId],
+    references: [userNindo.userId],
+  }),
 }));
 
 export const battle = mysqlTable(
@@ -964,6 +975,7 @@ export const userNindo = mysqlTable(
     return { userIdIdx: index("UserNindo_userId_idx").on(table.userId) };
   },
 );
+export type UserNindo = InferSelectModel<typeof userNindo>;
 
 export const userItem = mysqlTable(
   "UserItem",
