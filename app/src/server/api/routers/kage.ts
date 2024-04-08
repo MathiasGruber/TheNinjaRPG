@@ -172,7 +172,7 @@ export const kageRouter = createTRPCRouter({
       const villageUpdate = await ctx.drizzle
         .update(village)
         .set({ tokens: sql`${village.tokens} - ${cost}` })
-        .where(and(eq(village.id, village.id), gte(village.tokens, cost)));
+        .where(and(eq(village.id, input.villageId), gte(village.tokens, cost)));
       if (villageUpdate.rowsAffected === 0) return errorResponse("1st update failed");
 
       // If success, upgrade structure
