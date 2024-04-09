@@ -375,7 +375,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         targetsLeft.forEach((target) => {
           deltaTokens += target.relations
             .filter((r) => r.status === "ENEMY")
-            .filter((r) => r.villageIdA === vilId || r.villageIdB === vilId).length;
+            .filter(
+              (r) =>
+                (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
+                (r.villageIdA === target.villageId && r.villageIdB === vilId),
+            ).length;
         });
       }
 
