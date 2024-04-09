@@ -475,7 +475,7 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
  * @returns A Promise that resolves to the fetched village.
  */
 export const fetchSectorVillage = async (client: DrizzleClient, sector: number) => {
-  return await client.query.village.findFirst({
+  const result = await client.query.village.findFirst({
     where: eq(village.sector, sector),
     with: {
       notice: true,
@@ -493,6 +493,7 @@ export const fetchSectorVillage = async (client: DrizzleClient, sector: number) 
       },
     },
   });
+  return result || null;
 };
 
 /**
