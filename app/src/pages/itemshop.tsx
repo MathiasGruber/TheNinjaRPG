@@ -18,6 +18,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
+import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import type { ItemType, Item } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -34,7 +35,6 @@ const ItemShop: NextPage = () => {
   const utils = api.useUtils();
 
   // Data
-  const discount = structureBoost("itemDiscountPerLvl", userData?.village?.structures);
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     { itemType: itemtype, limit: 500 },
     {
@@ -67,7 +67,9 @@ const ItemShop: NextPage = () => {
   });
 
   // Can user affort selected item
-  const factor = (100 - discount) / 100;
+  const sDiscount = structureBoost("itemDiscountPerLvl", userData?.village?.structures);
+  const aDiscount = userData?.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
+  const factor = (100 - sDiscount - aDiscount) / 100;
   const cost = (item?.cost ?? 0) * stacksize * factor;
   const canAfford = item && userData && userData.money >= cost;
 

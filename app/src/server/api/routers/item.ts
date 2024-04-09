@@ -12,6 +12,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
 import { structureBoost } from "@/utils/village";
+import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -264,8 +265,9 @@ export const itemRouter = createTRPCRouter({
           .where(eq(userItem.userId, uid)),
       ]);
       const userItemsCount = counts?.[0]?.count || 0;
-      const discount = structureBoost("itemDiscountPerLvl", structures);
-      const factor = (100 - discount) / 100;
+      const sDiscount = structureBoost("itemDiscountPerLvl", structures);
+      const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
+      const factor = (100 - sDiscount - aDiscount) / 100;
       // Guard
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
