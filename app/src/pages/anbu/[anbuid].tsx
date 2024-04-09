@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/village";
 import { SendHorizontal, DoorOpen, FilePenLine } from "lucide-react";
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowBigUpDash } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -139,6 +139,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   // Request mutations
   const { mutate: edit } = api.anbu.editSquad.useMutation({ onSuccess });
   const { mutate: kick } = api.anbu.kickMember.useMutation({ onSuccess });
+  const { mutate: promote } = api.anbu.promoteMember.useMutation({ onSuccess });
   const { mutate: leave } = api.anbu.leaveSquad.useMutation({
     onSuccess: async (data) => {
       await onSuccess(data);
@@ -171,24 +172,40 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   const members = squad.members.map((member) => ({
     ...member,
     rank: member.userId === squad.leaderId ? "Leader" : member.rank,
-    kickBtn:
-      member.userId !== userId ? (
-        <Confirm
-          title="Kick Member"
-          proceed_label="Submit"
-          button={
-            <Button id={`kick-${member.userId}`}>
-              <DoorOpen className="mr-2 h-5 w-5" />
-              Kick
-            </Button>
-          }
-          onAccept={() => kick({ squadId, memberId: member.userId })}
-        >
-          Confirm that you want to kick this member from the squad.
-        </Confirm>
-      ) : (
-        <></>
-      ),
+    kickBtn: (
+      <div className="flex flex-row gap-1">
+        {member.userId !== userId && (
+          <Confirm
+            title="Kick Member"
+            proceed_label="Submit"
+            button={
+              <Button id={`kick-${member.userId}`}>
+                <DoorOpen className="mr-2 h-5 w-5" />
+                Kick
+              </Button>
+            }
+            onAccept={() => kick({ squadId, memberId: member.userId })}
+          >
+            Confirm that you want to kick this member from the squad.
+          </Confirm>
+        )}
+        {(isKage || isElder) && (
+          <Confirm
+            title="Promote Member"
+            proceed_label="Submit"
+            button={
+              <Button id={`promote-${member.userId}`}>
+                <ArrowBigUpDash className="mr-2 h-5 w-5" />
+                Promote
+              </Button>
+            }
+            onAccept={() => promote({ squadId, memberId: member.userId })}
+          >
+            Confirm that you want to promote this member to leader of the squad.
+          </Confirm>
+        )}
+      </div>
+    ),
   }));
 
   // Table
@@ -198,7 +215,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
     { key: "username", header: "Username", type: "string" },
     { key: "rank", header: "Rank", type: "capitalized" },
   ];
-  if (isLeader) {
+  if (isLeader || isKage || isElder) {
     columns.push({ key: "kickBtn", header: "Action", type: "jsx" });
   }
 

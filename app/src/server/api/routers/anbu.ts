@@ -18,6 +18,8 @@ import {
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_LEADER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
+import type { UserWithRelations } from "@/routers/profile";
+import type { AnbuSquad } from "@/drizzle/schema";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 
@@ -37,9 +39,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
-      const inSquad = user?.anbuId === squad?.id;
+      const { isKage, isElder, inSquad } = getConvenienceStatus(user, squad);
       // Hide orders if not kage or elder
       if (squad && !isKage && !isElder && !inSquad) {
         if (squad.kageOrder?.content) squad.kageOrder.content = "Hidden";
@@ -82,8 +82,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
+      const { isKage, isElder } = getConvenienceStatus(user, squad);
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!user) return errorResponse("User not found");
@@ -183,8 +182,7 @@ export const anbuRouter = createTRPCRouter({
       // Derived
       const { user } = updatedUser;
       const villageId = village?.id;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
+      const { isKage, isElder } = getConvenienceStatus(user);
       const structure = village?.structures.find((s) => s.name === "ANBU");
       // Guards
       if (!user) return errorResponse("User not found");
@@ -242,8 +240,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
+      const { isKage, isElder } = getConvenienceStatus(user, squad);
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!prospect) return errorResponse("New leader not found");
@@ -286,8 +283,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
+      const { isKage, isElder } = getConvenienceStatus(user, squad);
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!user) return errorResponse("User not found");
@@ -332,29 +328,64 @@ export const anbuRouter = createTRPCRouter({
       // Create
       return { success: true, message: "Squad name changed" };
     }),
+  promoteMember: protectedProcedure
+    .input(z.object({ squadId: z.string(), memberId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [updatedUser, squad, member] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchSquad(ctx.drizzle, input.squadId),
+        fetchUser(ctx.drizzle, input.memberId),
+      ]);
+      // Derived
+      const { user } = updatedUser;
+      const { isKage, isElder } = getConvenienceStatus(user, squad);
+      // Guards
+      if (!squad) return errorResponse("Squad not found");
+      if (!user) return errorResponse("User not found");
+      if (!member) return errorResponse("Member not found");
+      if (!isKage && !isElder) return errorResponse("Not allowed");
+      if (member.rank === "ELDER") return errorResponse("Cannot promote elder");
+      if (member.anbuId !== squad.id) return errorResponse("Not in ANBU");
+      if (!hasRequiredRank(member.rank, ANBU_LEADER_RANK_REQUIREMENT)) {
+        return errorResponse("Leader rank too low");
+      }
+      // Mutate
+      await ctx.drizzle
+        .update(anbuSquad)
+        .set({ leaderId: member.userId })
+        .where(eq(anbuSquad.id, squad.id));
+      // Create
+      return { success: true, message: "Member promoted to leader" };
+    }),
   kickMember: protectedProcedure
     .input(z.object({ squadId: z.string(), memberId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, squad, member] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [updatedUser, squad, member] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
         fetchSquad(ctx.drizzle, input.squadId),
         fetchUser(ctx.drizzle, input.memberId),
       ]);
+      // Derived
+      const { user } = updatedUser;
+      const { isKage, isElder, isLeader } = getConvenienceStatus(user, squad);
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
       if (squad.villageId !== user.villageId) return errorResponse("Wrong village");
-      if (user.anbuId !== squad.id) return errorResponse("Not in squad");
-      if (user.userId !== squad.leaderId) return errorResponse("Not squad leader");
-      if (member.userId === squad.leaderId) return errorResponse("Cannot kick leader");
+      if (!isLeader && !isElder && !isKage) return errorResponse("Not allowed");
       // Mutate
-      await ctx.drizzle
-        .update(userData)
-        .set({ anbuId: null })
-        .where(eq(userData.userId, member.userId));
+      await removeFromSquad(ctx.drizzle, squad, member.userId);
       // Create
       return { success: true, message: "Member kicked" };
     }),
@@ -374,21 +405,7 @@ export const anbuRouter = createTRPCRouter({
       if (!user.anbuId) return errorResponse("Not in a squad");
       if (user.anbuId !== squad.id) return errorResponse("Wrong squad");
       // Derived
-      const otherUser = squad.members.find((m) => m.userId !== user.userId);
-      // Mutate
-      // Note: If another user exists, potentially set them as leader, otherwies delete squad
-      await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({ anbuId: null })
-          .where(eq(userData.userId, user.userId)),
-        otherUser
-          ? ctx.drizzle
-              .update(anbuSquad)
-              .set({ leaderId: otherUser.userId })
-              .where(eq(anbuSquad.leaderId, ctx.userId))
-          : ctx.drizzle.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)),
-      ]);
+      await removeFromSquad(ctx.drizzle, squad, user.userId);
       // Create
       return { success: true, message: "User left squad" };
     }),
@@ -412,10 +429,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
-      const isKage = user?.userId === user?.village?.kageId;
-      const isElder = user?.rank === "ELDER";
-      const isLeader = user?.userId === squad?.leaderId;
-      const village = user?.village;
+      const { isKage, isElder, isLeader, village } = getConvenienceStatus(user, squad);
       // Guards
       if (!user) return errorResponse("User not found");
       if (!squad) return errorResponse("Squad not found");
@@ -430,6 +444,51 @@ export const anbuRouter = createTRPCRouter({
       return updateNindo(ctx.drizzle, orderId, input.content);
     }),
 });
+
+/**
+ * Removes a user from an ANBU squad.
+ *
+ * @param client - The DrizzleClient instance used for database operations.
+ * @param squad - The ANBU squad from which the user will be removed.
+ * @param userId - The ID of the user to be removed from the squad.
+ */
+const removeFromSquad = async (
+  client: DrizzleClient,
+  squad: AnbuRouter["get"],
+  userId: string,
+) => {
+  // Derived
+  const otherUser = squad?.members.find((m) => m.userId !== userId);
+  // Mutate
+  // Note: If another user exists, potentially set them as leader, otherwies delete squad
+  await Promise.all([
+    client.update(userData).set({ anbuId: null }).where(eq(userData.userId, userId)),
+    otherUser && squad
+      ? client
+          .update(anbuSquad)
+          .set({ leaderId: otherUser.userId })
+          .where(eq(anbuSquad.id, squad.id))
+      : client.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)),
+  ]);
+};
+
+/**
+ * Retrieves the convenience status of a user in an Anbu squad.
+ * @param user - The user object with relations.
+ * @param squad - The Anbu squad object.
+ * @returns An object containing convenience status properties.
+ */
+const getConvenienceStatus = (
+  user: UserWithRelations,
+  squad: AnbuSquad | null = null,
+) => {
+  const isKage = user?.userId === user?.village?.kageId;
+  const isElder = user?.rank === "ELDER";
+  const isLeader = user?.userId === squad?.leaderId;
+  const village = user?.village;
+  const inSquad = user?.anbuId === squad?.id;
+  return { isKage, isElder, isLeader, inSquad, village };
+};
 
 /**
  * Fetches squads based on the provided village ID.
