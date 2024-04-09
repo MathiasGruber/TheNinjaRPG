@@ -223,19 +223,23 @@ export const questsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const entry = await fetchQuest(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
+        // Prepare data for insertion into database
+        const data = input.data;
+        // Check we only give ranks with exams
+        if (data.content.reward.reward_rank !== "NONE" && data.questType !== "exam") {
+          data.content.reward.reward_rank = "NONE";
+        }
+        data.content.objectives.forEach((objective) => {
+          if (objective.reward_rank !== "NONE" && data.questType !== "exam") {
+            objective.reward_rank = "NONE";
+          }
+        });
         // Calculate diff
         const diff = new HumanDiff({ objectName: "item" }).diff(entry, {
           id: entry.id,
           expiresAt: entry.expiresAt,
           createdAt: entry.createdAt,
           ...input.data,
-        });
-        // Prepare data for insertion into database
-        const data = input.data;
-        data.content.objectives = data.content.objectives.map((objective) => {
-          if (objective.task === "defeat_opponents") {
-          }
-          return objective;
         });
         // Check if quest is changed to be an event
         if (entry.questType !== "event" && input.data.questType === "event") {
