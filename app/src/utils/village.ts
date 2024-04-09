@@ -26,7 +26,7 @@ export const useRequireInVillage = (structureName?: StructureName) => {
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
   const router = useSafePush();
   useEffect(() => {
-    if (userData && !isPending) {
+    if (userData && sectorVillage && !isPending) {
       // Check structure access
       const access = canAccessStructure(userData, structureName, sectorVillage);
       // If not in village or village not exist
