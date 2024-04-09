@@ -812,6 +812,9 @@ export const initiateBattle = async (
       .set({
         status: sql`CASE WHEN isAi = false THEN "BATTLE" ELSE "AWAKE" END`,
         battleId: sql`CASE WHEN isAi = false THEN ${battleId} ELSE NULL END`,
+        pvpActivity: ["COMBAT"].includes(battleType)
+          ? sql`${userData.pvpActivity} + 1`
+          : sql`${userData.pvpActivity}`,
         pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pvpFights} + 1`
           : sql`${userData.pvpFights}`,

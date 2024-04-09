@@ -454,7 +454,7 @@ export const anbuRouter = createTRPCRouter({
  */
 const removeFromSquad = async (
   client: DrizzleClient,
-  squad: AnbuRouter["get"],
+  squad: NonNullable<AnbuRouter["get"]>,
   userId: string,
 ) => {
   // Derived
@@ -463,7 +463,7 @@ const removeFromSquad = async (
   // Note: If another user exists, potentially set them as leader, otherwies delete squad
   await Promise.all([
     client.update(userData).set({ anbuId: null }).where(eq(userData.userId, userId)),
-    otherUser && squad
+    otherUser
       ? client
           .update(anbuSquad)
           .set({ leaderId: otherUser.userId })
@@ -548,6 +548,7 @@ export const fetchSquad = async (client: DrizzleClient, squadId: string) => {
           level: true,
           rank: true,
           avatar: true,
+          pvpActivity: true,
         },
       },
       kageOrder: true,

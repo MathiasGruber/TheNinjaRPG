@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
+import { anbuSquad } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
 import { availableLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";
@@ -77,6 +78,16 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
         }
       }),
     );
+
+    // STEP 5: decaying PvP activity counters
+    await Promise.all([
+      drizzleDB.update(userData).set({
+        pvpActivity: sql`${userData.pvpActivity} * 0.95`,
+      }),
+      drizzleDB.update(anbuSquad).set({
+        pvpActivity: sql`${anbuSquad.pvpActivity} * 0.95`,
+      }),
+    ]);
 
     // Update timer
     await updateTimer("daily", new Date());

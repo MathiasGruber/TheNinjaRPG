@@ -83,8 +83,6 @@ export type CombatResult = {
   didWin: number;
   experience: number;
   pvpStreak: number;
-  eloPvp: number;
-  eloPve: number;
   curHealth: number;
   curStamina: number;
   curChakra: number;

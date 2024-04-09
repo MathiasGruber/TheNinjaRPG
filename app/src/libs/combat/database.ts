@@ -261,8 +261,6 @@ export const updateUser = async (
         .update(userData)
         .set({
           experience: sql`experience + ${result.experience}`,
-          eloPve: sql`eloPve + ${result.eloPve}`,
-          eloPvp: sql`eloPvp + ${result.eloPvp}`,
           pvpStreak: result.pvpStreak,
           curHealth: result.curHealth,
           curStamina: result.curStamina,

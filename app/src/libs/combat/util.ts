@@ -387,8 +387,6 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         outcome: outcome,
         didWin: didWin ? 1 : 0,
         experience: 0.01,
-        eloPvp: 0,
-        eloPve: 0,
         pvpStreak: didWin && battle.battleType === "COMBAT" ? user.pvpStreak + 1 : 0,
         curHealth: user.curHealth,
         curStamina: user.curStamina,

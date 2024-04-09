@@ -30,8 +30,6 @@ export const publicState = [
   "sector",
   "updatedAt",
   "initiative",
-  "eloPvp",
-  "eloPve",
   "regeneration",
   "village",
   "fledBattle",

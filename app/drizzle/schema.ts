@@ -852,8 +852,7 @@ export const userData = mysqlTable(
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
-    eloPve: smallint("eloPve", { unsigned: true }).default(1).notNull(),
-    eloPvp: smallint("eloPvp", { unsigned: true }).default(1).notNull(),
+    pvpActivity: int("pvpActivity").default(0).notNull(),
     pvpStreak: smallint("pvpStreak", { unsigned: true }).default(0).notNull(),
     errands: smallint("errands", { unsigned: true }).default(0).notNull(),
     missionsD: smallint("missionsD", { unsigned: true }).default(0).notNull(),

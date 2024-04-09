@@ -214,6 +214,7 @@ const Profile: NextPage = () => {
             <p>PVP Fights: {userData.pvpFights}</p>
             <p>PvE Fights: {userData.pveFights}</p>
             <p>PvP Streak: {userData.pvpStreak}</p>
+            <p>PvP Activity: {userData.pvpActivity}</p>
           </div>
           <div>
             <b>Reputation</b>
