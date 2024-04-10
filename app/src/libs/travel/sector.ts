@@ -25,7 +25,7 @@ import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { UserData } from "../../../drizzle/schema";
+import { userData, type UserData } from "../../../drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, SectorPoint, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
@@ -37,8 +37,10 @@ export const drawQuest = (info: {
 }) => {
   const { user, grid, group_quest } = info;
   const activeObjectives = getActiveObjectives(user);
+  console.log(activeObjectives);
   activeObjectives
     .filter((o) => LocationTasks.find((t) => t === o.task))
+    .filter((o) => "sector" in o && o.sector === user.sector)
     .map((objective) => {
       if (!("image" in objective) || !objective.image) return null;
       const { latitude: y, longitude: x } = objective as ComplexObjectiveFields;
