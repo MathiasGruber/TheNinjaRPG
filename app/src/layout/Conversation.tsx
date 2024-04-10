@@ -149,6 +149,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     (errors) => console.error(errors),
   );
 
+  const unique = new Set();
+
   return (
     <div key={props.refreshKey}>
       {isPending && <Loader explanation="Loading data" />}
@@ -183,23 +185,30 @@ const Conversation: React.FC<ConversationProps> = (props) => {
             </div>
           )}
           {allComments &&
-            allComments.map((comment, i) => {
-              return (
-                <div
-                  key={comment.id}
-                  ref={i === allComments.length - 1 ? setLastElement : null}
-                >
-                  <CommentOnConversation
-                    user={comment}
-                    hover_effect={false}
-                    comment={comment}
-                    refetchComments={async () => await refetch()}
+            allComments
+              .filter((c) => c.conversationId === conversation?.id)
+              .filter((c) => {
+                const duplicate = unique.has(c.id);
+                unique.add(c.id);
+                return !duplicate;
+              })
+              .map((comment, i) => {
+                return (
+                  <div
+                    key={comment.id}
+                    ref={i === allComments.length - 1 ? setLastElement : null}
                   >
-                    {ReactHtmlParser(comment.content)}
-                  </CommentOnConversation>
-                </div>
-              );
-            })}
+                    <CommentOnConversation
+                      user={comment}
+                      hover_effect={false}
+                      comment={comment}
+                      refetchComments={async () => await refetch()}
+                    >
+                      {ReactHtmlParser(comment.content)}
+                    </CommentOnConversation>
+                  </div>
+                );
+              })}
         </ContentBox>
       )}
     </div>
