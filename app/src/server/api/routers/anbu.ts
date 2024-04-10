@@ -86,6 +86,7 @@ export const anbuRouter = createTRPCRouter({
       // Guards
       if (!squad) return errorResponse("Squad not found");
       if (!user) return errorResponse("User not found");
+      if (!squad.leaderId) return errorResponse("No leader currently");
       if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (user.anbuId) return errorResponse("Already in a squad");
       if (isKage || isElder) return errorResponse("Kage or elder cannot join");
@@ -219,55 +220,6 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Create
       return { success: true, message: "Squad created" };
-    }),
-  swapLeader: protectedProcedure
-    .input(
-      z.object({
-        squadId: z.string(),
-        newLeaderId: z.string(),
-      }),
-    )
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      // Fetch
-      const [updatedUser, squad, prospect] = await Promise.all([
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-        }),
-        fetchSquad(ctx.drizzle, input.squadId),
-        fetchUser(ctx.drizzle, input.newLeaderId),
-      ]);
-      // Derived
-      const { user } = updatedUser;
-      const { isKage, isElder } = getConvenienceStatus(user, squad);
-      // Guards
-      if (!squad) return errorResponse("Squad not found");
-      if (!prospect) return errorResponse("New leader not found");
-      if (!user) return errorResponse("User not found");
-      if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
-      if (prospect.villageId !== squad.villageId) return errorResponse("Wrong village");
-      if (!isKage && !isElder) return errorResponse("Must be kage or elder");
-      if (!hasRequiredRank(prospect.rank, ANBU_LEADER_RANK_REQUIREMENT)) {
-        return errorResponse("Leader rank too low");
-      }
-      // Mutate
-      await Promise.all([
-        ctx.drizzle
-          .update(anbuSquad)
-          .set({ leaderId: prospect.userId })
-          .where(eq(anbuSquad.id, squad.id)),
-        ctx.drizzle
-          .update(userData)
-          .set({ anbuId: squad.id })
-          .where(eq(userData.userId, prospect.userId)),
-        ctx.drizzle
-          .update(userData)
-          .set({ anbuId: null })
-          .where(eq(userData.userId, squad.leaderId)),
-      ]);
-      // Create
-      return { success: true, message: "Leader swapped" };
     }),
   disbandSquad: protectedProcedure
     .input(z.object({ squadId: z.string() }))
@@ -458,17 +410,18 @@ const removeFromSquad = async (
   userId: string,
 ) => {
   // Derived
-  const otherUser = squad?.members.find((m) => m.userId !== userId);
+  const nMembers = squad?.members.length || 0;
+  const otherUser = squad?.members
+    .filter((m) => hasRequiredRank(m.rank, ANBU_LEADER_RANK_REQUIREMENT))
+    .find((m) => m.userId !== userId);
   // Mutate
-  // Note: If another user exists, potentially set them as leader, otherwies delete squad
   await Promise.all([
     client.update(userData).set({ anbuId: null }).where(eq(userData.userId, userId)),
-    otherUser
-      ? client
-          .update(anbuSquad)
-          .set({ leaderId: otherUser.userId })
-          .where(eq(anbuSquad.id, squad.id))
-      : client.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)),
+    client
+      .update(anbuSquad)
+      .set({ leaderId: otherUser?.userId ?? null })
+      .where(eq(anbuSquad.id, squad.id)),
+    nMembers <= 1 ? client.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)) : null,
   ]);
 };
 

@@ -32,7 +32,7 @@ export const anbuSquad = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     name: varchar("name", { length: 191 }).notNull(),
-    leaderId: varchar("leaderId", { length: 191 }).notNull(),
+    leaderId: varchar("leaderId", { length: 191 }),
     villageId: varchar("villageId", { length: 191 }).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
     kageOrderId: varchar("kageOrderId", { length: 191 }).notNull(),

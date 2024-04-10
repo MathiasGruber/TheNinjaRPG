@@ -57,14 +57,18 @@ const ANBU: NextPage = () => {
     ),
     leaderInfo: (
       <div className="w-20 text-center">
-        <AvatarImage
-          href={squad.leader.avatar}
-          alt={squad.name}
-          size={100}
-          hover_effect={true}
-          priority
-        />
-        {squad.leader.username}
+        {squad.leader && (
+          <div>
+            <AvatarImage
+              href={squad.leader.avatar}
+              alt={squad.name}
+              size={100}
+              hover_effect={true}
+              priority
+            />
+            {squad.leader.username}
+          </div>
+        )}
       </div>
     ),
   }));
