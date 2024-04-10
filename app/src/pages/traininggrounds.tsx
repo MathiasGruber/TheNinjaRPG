@@ -35,6 +35,7 @@ import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { getUserElements } from "@/validators/user";
 import { Handshake } from "lucide-react";
+import { SENSEI_RANKS } from "@/drizzle/constants";
 import type { z } from "zod";
 import type { ElementName, TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
@@ -50,7 +51,7 @@ const Training: NextPage = () => {
   if (!access) return <Loader explanation="Accessing Training Grounds" />;
 
   // Show sensei component
-  const showSenseiSystem = ["JONIN", "GENIN"].includes(userData.rank);
+  const showSenseiSystem = [...SENSEI_RANKS, "GENIN"].includes(userData.rank);
 
   // Show components if we have user
   return (
@@ -87,7 +88,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   // Queries
   const { data: students, isFetching } = api.sensei.getStudents.useQuery(
     { userId: userData.userId },
-    { enabled: userData.rank === "JONIN", staleTime: Infinity },
+    { enabled: SENSEI_RANKS.includes(userData.rank), staleTime: Infinity },
   );
 
   const { data: requests } = api.sensei.getRequests.useQuery(undefined, {
@@ -140,17 +141,16 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   // Derived features
   const isPending =
     isFetching || isCreating || isAccepting || isRejecting || isCancelling;
-  const message =
-    userData.rank === "JONIN"
-      ? "Search for Genin to take in as students."
-      : "Search for Jonin to be your sensei. ";
-  const reward =
-    userData.rank === "JONIN"
-      ? "You receive 1000 ryo every time a student completes a mission."
-      : "Jutsu training will be sped up by 5%.";
-  const showRequestSystem = userData.rank === "JONIN" || !userData.senseiId;
+  const canSensei = SENSEI_RANKS.includes(userData.rank);
+  const message = canSensei
+    ? "Search for Genin to take in as students."
+    : "Search for Jonin to be your sensei. ";
+  const reward = canSensei
+    ? "You receive 1000 ryo every time a student completes a mission."
+    : "Jutsu training will be sped up by 5%.";
+  const showRequestSystem = canSensei || !userData.senseiId;
   const showSensei = userData.rank === "GENIN" && userData.senseiId;
-  const showStudents = userData.rank === "JONIN" && students && students.length > 0;
+  const showStudents = canSensei && students && students.length > 0;
 
   // If loading
   if (isPending) return <Loader explanation="Processing..." />;

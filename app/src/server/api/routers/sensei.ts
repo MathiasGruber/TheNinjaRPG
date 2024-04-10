@@ -11,6 +11,7 @@ import {
   insertRequest,
   updateRequestState,
 } from "@/routers/sparring";
+import { SENSEI_RANKS } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 const pusher = getServerPusher();
@@ -41,11 +42,11 @@ export const senseiRouter = createTRPCRouter({
       if (target.villageId !== user.villageId) {
         return errorResponse("Sensei must be from same village");
       }
-      if (user.rank === "JONIN" && target.rank !== "GENIN") {
-        return errorResponse("Jonin can only teach Genin");
+      if (SENSEI_RANKS.includes(user.rank) && target.rank !== "GENIN") {
+        return errorResponse("Can only teach Genin");
       }
-      if (user.rank === "GENIN" && target.rank !== "JONIN") {
-        return errorResponse("Genin can only learn from Jonin");
+      if (user.rank === "GENIN" && !SENSEI_RANKS.includes(target.rank)) {
+        return errorResponse("Genin can only learn from Jonin and higher");
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, target.userId, "SENSEI");
@@ -104,7 +105,7 @@ export const senseiRouter = createTRPCRouter({
         return errorResponse("You already have a sensei");
       }
       if (activeStudents.length > 3) {
-        return errorResponse("Jonin can only have 3 active students");
+        return errorResponse("Can only have 3 active students");
       }
       // Mutate. If not successfull, assume student already has a sensei
       const result = await ctx.drizzle

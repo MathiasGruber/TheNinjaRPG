@@ -230,3 +230,6 @@ export const ANBU_LEADER_RANK_REQUIREMENT = "JONIN";
 export const ANBU_MAX_MEMBERS = 20;
 export const ANBU_HOSPITAL_DISCOUNT_PERC = 5;
 export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
+
+// Sensei config
+export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
