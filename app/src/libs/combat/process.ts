@@ -213,7 +213,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       // Remember the effect
       const idx = `${e.type}-${e.creatorId}-${e.targetId}`;
       const isApplied = appliedEffects.has(idx) && !e.fromBloodline;
-      appliedEffects.add(idx);
       // Get the user && effect details
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
@@ -221,9 +220,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       const isSealed = sealCheck(e, sealEffects);
       const isTargetOrNew = e.targetId === actorId || e.isNew;
       if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
+        appliedEffects.add(idx);
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
-
         // Tags only applied when target is user or new
         if (isTargetOrNew) {
           if (e.type === "damage" && isTargetOrNew) {
