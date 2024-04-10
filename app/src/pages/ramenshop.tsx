@@ -7,6 +7,7 @@ import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
+import { useAwake } from "@/utils/routing";
 import type { RamenOption } from "@/utils/ramen";
 import type { UserWithRelations } from "../server/api/routers/profile";
 
@@ -23,6 +24,8 @@ const RamenShop: NextPage = () => {
       }
     },
   });
+
+  useAwake(userData);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Ramen Shop" />;

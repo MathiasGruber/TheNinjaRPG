@@ -83,6 +83,7 @@ export const villageRouter = createTRPCRouter({
       const healPercentage = getRamenHealPercentage(input.ramen);
       const cost = calcRamenCost(input.ramen, user) * factor;
       // Guard
+      if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.money < cost) return errorResponse("You don't have enough money");
       // Mutate with guard
       const result = await ctx.drizzle
