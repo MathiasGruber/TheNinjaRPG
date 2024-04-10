@@ -212,7 +212,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     } else if (e.targetType === "user") {
       // Remember the effect
       const idx = `${e.type}-${e.creatorId}-${e.targetId}`;
-      const isApplied = appliedEffects.has(idx);
+      const isApplied = appliedEffects.has(idx) && !e.fromBloodline;
       appliedEffects.add(idx);
       // Get the user && effect details
       const curTarget = usersState.find((u) => u.userId === e.targetId);
