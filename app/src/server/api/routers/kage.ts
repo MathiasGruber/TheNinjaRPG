@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, ne, sql, gte } from "drizzle-orm";
+import { eq, and, ne, sql, gte, isNull } from "drizzle-orm";
 import { userData, village, villageStructure } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -54,6 +54,7 @@ export const kageRouter = createTRPCRouter({
             eq(userData.villageId, villageId),
             eq(userData.rank, "ELDER"),
             ne(userData.userId, ctx.userId),
+            isNull(userData.anbuId),
           ),
         }),
       ]);

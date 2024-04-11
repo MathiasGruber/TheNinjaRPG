@@ -25,7 +25,7 @@ import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import { userData, type UserData } from "../../../drizzle/schema";
+import type { UserData } from "@/drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, SectorPoint, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
