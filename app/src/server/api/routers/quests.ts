@@ -24,6 +24,7 @@ import { missionHallSettings } from "@/libs/quest";
 import { secondsPassed } from "@/utils/time";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
+import { getRandomElement } from "@/utils/array";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
@@ -139,19 +140,20 @@ export const questsRouter = createTRPCRouter({
         return errorResponse(`Already active ${current.questType}`);
       }
       // Fetch quest
-      const result = await ctx.drizzle.query.quest.findFirst({
+      const results = await ctx.drizzle.query.quest.findMany({
         where: and(
           eq(quest.questType, input.type),
           eq(quest.requiredRank, input.rank),
           or(
             isNull(quest.requiredVillage),
             eq(quest.requiredVillage, user.villageId ?? ""),
+            eq(quest.hidden, 0),
           ),
         ),
       });
-      if (!result) {
-        return errorResponse("No assignments at this level could be found");
-      }
+      const result = getRandomElement(results);
+      if (!result) return errorResponse("No assignments at this level could be found");
+
       // Insert quest entry
       await upsertQuestEntry(ctx.drizzle, user, result);
       return { success: true, message: `Quest started: ${result.name}` };
