@@ -377,6 +377,7 @@ const PayPalSubscriptionButton = (props: {
   const normalBenefits = (
     <>
       <h2 className="font-bold">Normal Support</h2>
+      <h3 className="font-bold italic">$5 / Month</h3>
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Blue username in tavern</li>
         <li>+2 Inventory space</li>
@@ -389,6 +390,7 @@ const PayPalSubscriptionButton = (props: {
   const silverBenefits = (
     <>
       <h2 className="font-bold">Silver Support</h2>
+      <h3 className="font-bold italic">$10 / Month</h3>
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Silver username in tavern</li>
         <li>+5 Inventory space</li>
@@ -401,6 +403,7 @@ const PayPalSubscriptionButton = (props: {
   const goldBenefits = (
     <>
       <h2 className="font-bold">Gold Support</h2>
+      <h3 className="font-bold italic">$15 / Month</h3>
       <ul className="m-2 ml-6 list-disc text-xs">
         <li>Gold username in tavern</li>
         <li>+10 Inventory space</li>
@@ -417,13 +420,17 @@ const PayPalSubscriptionButton = (props: {
   const hasSubscription = props.currentUserStatus !== "NONE";
   const upgradeCost = calcFedUgradeCost(props.currentUserStatus, props.buttonStatus);
 
+  console.log(props.currentUserStatus, props.buttonStatus);
+
   return (
-    <>
+    <div
+      className={`p-2 m-1 ${
+        props.currentUserStatus === props.buttonStatus ? "bg-orange-200 rounded-lg" : ""
+      }`}
+    >
       <div className="relative">
         <Image
-          className={`mb-3 ${
-            props.currentUserStatus === props.buttonStatus ? "" : "opacity-30"
-          }`}
+          className={`mb-3`}
           src={props.imageSrc}
           alt="Silver"
           width={512}
@@ -452,9 +459,7 @@ const PayPalSubscriptionButton = (props: {
           </Confirm>
         )}
       </div>
-      <div
-        className={props.currentUserStatus === props.buttonStatus ? "" : "opacity-30"}
-      >
+      <div>
         {props.buttonStatus === "NORMAL" && normalBenefits}
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
@@ -489,7 +494,7 @@ const PayPalSubscriptionButton = (props: {
           }}
         />
       )}
-    </>
+    </div>
   );
 };
 
@@ -535,7 +540,7 @@ const FederalStore = () => {
       )}
 
       <div className="flex flex-col lg:flex-row">
-        <div className="m-3 basis-1/3">
+        <div className="basis-1/3">
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
@@ -553,7 +558,7 @@ const FederalStore = () => {
           )}
         </div>
 
-        <div className="m-3 basis-1/3">
+        <div className="basis-1/3">
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
@@ -571,7 +576,7 @@ const FederalStore = () => {
           )}
         </div>
 
-        <div className="m-3 basis-1/3">
+        <div className="basis-1/3">
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}
