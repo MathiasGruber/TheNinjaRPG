@@ -135,6 +135,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         info = clone(newUsersState, e);
       } else if (e.type === "summon") {
         info = summon(newUsersState, e);
+      } else if (e.type === "barrier") {
+        const user = findUser(newUsersState, e.longitude, e.latitude);
+        if (user) e.rounds = 0;
       } else {
         // Apply all other ground effects to user
         const user = findUser(newUsersState, e.longitude, e.latitude);
