@@ -33,8 +33,8 @@ dependencies:
     specifier: 7.8.2
     version: 7.8.2(react-dom@18.2.0)(react@18.2.0)
   '@planetscale/database':
-    specifier: ^1.7.0
-    version: 1.7.0
+    specifier: ^1.16.0
+    version: 1.16.0
   '@pusher/push-notifications-server':
     specifier: ^1.2.6
     version: 1.2.6
@@ -132,11 +132,11 @@ dependencies:
     specifier: ^16.1.4
     version: 16.1.4
   drizzle-orm:
-    specifier: 0.29.3
-    version: 0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+    specifier: 0.30.8
+    version: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
   drizzle-zod:
     specifier: 0.5.1
-    version: 0.5.1(drizzle-orm@0.29.3)(zod@3.22.4)
+    version: 0.5.1(drizzle-orm@0.30.8)(zod@3.22.4)
   highlight.run:
     specifier: 8.9.0
     version: 8.9.0
@@ -1353,8 +1353,8 @@ packages:
       tslib: 2.6.2
     dev: true
 
-  /@planetscale/database@1.7.0:
-    resolution: {integrity: sha512-lWR6biXChUyQnxsT4RT1CIeR3ZJvwTQXiQ+158MnY3VjLwjHEGakDzdH9kwUGPk6CHvu6UeqRXp1DgUOVHJFTw==}
+  /@planetscale/database@1.16.0:
+    resolution: {integrity: sha512-HNUrTqrd8aTRZYMDcsoZ62s36sIWkMMmKZBOehoCWR2WrfNPKq+Q1yQef5okl3pSVlldFnu2h/dbHjOsDTHXug==}
     engines: {node: '>=16'}
     dev: false
 
@@ -3803,20 +3803,23 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0):
-    resolution: {integrity: sha512-uSE027csliGSGYD0pqtM+SAQATMREb3eSM/U8s6r+Y0RFwTKwftnwwSkqx3oS65UBgqDOM0gMTl5UGNpt6lW0A==}
+  /drizzle-orm@0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0):
+    resolution: {integrity: sha512-9pBJA0IjnpPpzZ6s9jlS1CQAbKoBmbn2GJesPhXaVblAA/joOJ4AWWevYcqvLGj9SvThBAl7WscN8Zwgg5mnTw==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=3'
+      '@electric-sql/pglite': '>=0.1.1'
       '@libsql/client': '*'
       '@neondatabase/serverless': '>=0.1'
+      '@op-engineering/op-sqlite': '>=2'
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1'
       '@types/better-sqlite3': '*'
       '@types/pg': '*'
       '@types/react': '>=18'
       '@types/sql.js': '*'
-      '@vercel/postgres': '*'
+      '@vercel/postgres': '>=0.8.0'
+      '@xata.io/client': '*'
       better-sqlite3: '>=7'
       bun-types: '*'
       expo-sqlite: '>=13.2.0'
@@ -3833,9 +3836,13 @@ packages:
         optional: true
       '@cloudflare/workers-types':
         optional: true
+      '@electric-sql/pglite':
+        optional: true
       '@libsql/client':
         optional: true
       '@neondatabase/serverless':
+        optional: true
+      '@op-engineering/op-sqlite':
         optional: true
       '@opentelemetry/api':
         optional: true
@@ -3850,6 +3857,8 @@ packages:
       '@types/sql.js':
         optional: true
       '@vercel/postgres':
+        optional: true
+      '@xata.io/client':
         optional: true
       better-sqlite3:
         optional: true
@@ -3875,19 +3884,19 @@ packages:
         optional: true
     dependencies:
       '@opentelemetry/api': 1.8.0
-      '@planetscale/database': 1.7.0
+      '@planetscale/database': 1.16.0
       '@types/react': 18.2.48
       mysql2: 3.3.5
       react: 18.2.0
     dev: false
 
-  /drizzle-zod@0.5.1(drizzle-orm@0.29.3)(zod@3.22.4):
+  /drizzle-zod@0.5.1(drizzle-orm@0.30.8)(zod@3.22.4):
     resolution: {integrity: sha512-C/8bvzUH/zSnVfwdSibOgFjLhtDtbKYmkbPbUCq46QZyZCH6kODIMSOgZ8R7rVjoI+tCj3k06MRJMDqsIeoS4A==}
     peerDependencies:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.29.3(@opentelemetry/api@1.8.0)(@planetscale/database@1.7.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+      drizzle-orm: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
       zod: 3.22.4
     dev: false
 

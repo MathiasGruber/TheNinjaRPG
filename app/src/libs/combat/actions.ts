@@ -291,12 +291,24 @@ export const insertAction = (info: {
         tile,
       );
 
-      // ADD USER EFFECTS
+      // ADD EFFECTS
       if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
         // ADD GROUND EFFECTS
         const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
         action.effects.forEach((tag) => {
-          if (!tag.target || tag.target === "INHERIT") {
+          if (tag.target === "SELF") {
+            const effect = realizeTag(
+              tag as UserEffect,
+              user,
+              action.level,
+              battle.round,
+              totalAbsorb,
+            );
+            if (effect && checkFriendlyFire(effect, user, alive)) {
+              effect.targetId = user.userId;
+              usersEffects.push(effect);
+            }
+          } else if (!tag.target || tag.target === "INHERIT") {
             const effect = realizeTag(
               tag as GroundEffect,
               user,
@@ -304,23 +316,21 @@ export const insertAction = (info: {
               battle.round,
               totalAbsorb,
             );
-            if (effect) {
-              effect.longitude = tile.col;
-              effect.latitude = tile.row;
-              groundEffects.push({ ...effect });
-              if (
-                target &&
-                effect.type !== "move" &&
-                checkFriendlyFire(effect, target, alive)
-              ) {
-                targetUsernames.push(target.username);
-                targetGenders.push(target.gender);
-              }
+            effect.longitude = tile.col;
+            effect.latitude = tile.row;
+            groundEffects.push({ ...effect });
+            if (
+              target &&
+              effect.type !== "move" &&
+              checkFriendlyFire(effect, target, alive)
+            ) {
+              targetUsernames.push(target.username);
+              targetGenders.push(target.gender);
             }
           }
         });
       } else {
-        // Apply effects
+        // ADD USER EFFECTS
         const target = getTargetUser(alive, action.target, tile, user.userId);
         action.effects.forEach((tag) => {
           const effect = realizeTag(

@@ -792,9 +792,7 @@ export const processUsersForBattle = (info: {
 
     // Check if we are in ally village or not
     user.allyVillage = false;
-    console.log("Not ally village");
     if (inVillage && !ownSector) {
-      console.log("1");
       const sector = info.villages.find((v) => v.sector === user.sector);
       if (sector) {
         const relationship = findRelationship(relations, user.villageId, sector.id);

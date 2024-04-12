@@ -574,10 +574,10 @@ export const initiateBattle = async (
   return await client.transaction(async (tx) => {
     // Get user & target data, to be inserted into battle
     const [villages, relations, achievements, users] = await Promise.all([
-      tx.select().from(village),
-      tx.select().from(villageAlliance),
-      tx.select().from(quest).where(eq(quest.questType, "achievement")),
-      tx.query.userData.findMany({
+      client.select().from(village),
+      client.select().from(villageAlliance),
+      client.select().from(quest).where(eq(quest.questType, "achievement")),
+      client.query.userData.findMany({
         with: {
           bloodline: true,
           village: {
@@ -660,7 +660,7 @@ export const initiateBattle = async (
     // Get previous battles between these two users within last 60min
     let rewardScaling = 1;
     if (battleType !== "ARENA") {
-      const results = await tx
+      const results = await client
         .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(battleHistory)
         .where(
@@ -707,7 +707,7 @@ export const initiateBattle = async (
     // If there are any summonAIs defined, then add them to usersState, but disable them
     if (allSummons.length > 0) {
       const uniqueSummons = [...new Set(allSummons)];
-      const summons = await tx.query.userData.findMany({
+      const summons = await client.query.userData.findMany({
         with: {
           bloodline: true,
           village: true,
@@ -844,10 +844,14 @@ export const initiateBattle = async (
             : []),
         ),
       );
+    // Check if success
     if (
       (battleType === "KAGE" && result.rowsAffected !== 1) ||
       (battleType !== "KAGE" && result.rowsAffected !== 2)
     ) {
+      try {
+        tx.rollback();
+      } catch (e) {}
       return { success: false, message: "Attack failed, did the target move?" };
     }
     // Push websockets message to target
