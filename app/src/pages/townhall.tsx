@@ -328,6 +328,12 @@ const KageHall: React.FC<{
               <span className="font-bold">Note 2: </span>
               <span>Losing the challenge costs {PRESTIGE_COST} village prestige</span>
             </p>
+            {user.rank === "ELDER" && (
+              <p>
+                <span className="font-bold">Note 3: </span>
+                <span>You will lose the rank of Elder in the village</span>
+              </p>
+            )}
           </>
         )}
         {!canChallengeKage(user) && (

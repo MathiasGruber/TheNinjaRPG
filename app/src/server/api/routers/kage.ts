@@ -84,10 +84,18 @@ export const kageRouter = createTRPCRouter({
     if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
     if (!canChangeContent(user.role)) return errorResponse("Not staff");
     // Update
-    const result = await ctx.drizzle
-      .update(village)
-      .set({ kageId: user.userId })
-      .where(eq(village.id, user.villageId ?? ""));
+    const [result] = await Promise.all([
+      ctx.drizzle
+        .update(village)
+        .set({ kageId: user.userId })
+        .where(eq(village.id, user.villageId ?? "")),
+      ctx.drizzle
+        .update(userData)
+        .set({
+          rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
+        })
+        .where(eq(userData.userId, user.userId)),
+    ]);
     if (result.rowsAffected === 0) return errorResponse("No village found");
     return { success: true, message: "You have taken the kage position" };
   }),

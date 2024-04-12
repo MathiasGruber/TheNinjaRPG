@@ -238,6 +238,8 @@ export const updateUser = async (
       );
       user.questData = trackers;
     }
+    // Is it a kage challenge
+    const isKageChallenge = curBattle.battleType === "KAGE";
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
@@ -282,6 +284,11 @@ export const updateUser = async (
           questData: user.questData,
           battleId: null,
           regenAt: new Date(),
+          ...(isKageChallenge
+            ? {
+                rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
+              }
+            : {}),
           ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
             ? {
                 status: "HOSPITALIZED",
