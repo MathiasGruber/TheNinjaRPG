@@ -88,7 +88,7 @@ export const getAffected = (effect: UserEffect) => {
   }
   let result = `${stats.join(", ")}`;
   if ("elements" in effect && effect.elements && effect.elements.length > 0) {
-    result += ` with elements ${effect.elements.join(", ")}`;
+    result += ` and elements ${effect.elements.join(", ")}`;
   }
   return result;
 };
