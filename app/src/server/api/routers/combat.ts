@@ -490,7 +490,10 @@ export const combatRouter = createTRPCRouter({
       userBattle.updatedAt = new Date();
       userBattle.version = userBattle.version + 1;
       const allHere = userBattle.usersState.every((u) => u.iAmHere);
-      if (allHere) userBattle.createdAt = new Date();
+      if (allHere) {
+        userBattle.createdAt = new Date();
+        userBattle.roundStartAt = new Date();
+      }
       // Mutate
       const result = await ctx.drizzle
         .update(battle)
@@ -498,6 +501,8 @@ export const combatRouter = createTRPCRouter({
           usersState: userBattle.usersState,
           version: userBattle.version,
           createdAt: userBattle.createdAt,
+          updatedAt: userBattle.updatedAt,
+          roundStartAt: userBattle.roundStartAt,
         })
         .where(
           and(

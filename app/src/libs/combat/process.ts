@@ -204,6 +204,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     // Get user now and next
     const curUser = usersState.find((u) => u.userId === e.creatorId);
     const newUser = newUsersState.find((u) => u.userId === e.creatorId);
+    // Remember the effect
+    const idx = `${e.type}-${e.creatorId}-${e.targetId}-${e.fromBloodline}`;
+    const cacheCheck = !appliedEffects.has(idx) || e.fromBloodline;
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier" && curUser) {
       const result = damageBarrier(newGroundEffects, curUser, e);
@@ -212,14 +215,11 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         latitude = result.barrier.latitude;
         actionEffects.push(result.info);
       }
-    } else if (e.targetType === "user") {
-      // Remember the effect
-      const idx = `${e.type}-${e.creatorId}-${e.targetId}`;
-      const isApplied = appliedEffects.has(idx) && !e.fromBloodline;
+    } else if (e.targetType === "user" && cacheCheck) {
       // Get the user && effect details
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
-      const applyTimes = isApplied ? 0 : shouldApplyEffectTimes(e, battle, e.targetId);
+      const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
       const isTargetOrNew = e.targetId === actorId || e.isNew;
       if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
