@@ -854,9 +854,17 @@ export const initiateBattle = async (
       (battleType === "KAGE" && result.rowsAffected !== 1) ||
       (battleType !== "KAGE" && result.rowsAffected !== 2)
     ) {
+      // First do roll-back;
       try {
         tx.rollback();
-      } catch (e) {}
+      } catch (e) {
+        // If rollback fails, explicitly run update to clear
+        await client
+          .update(userData)
+          .set({ status: "AWAKE", battleId: null })
+          .where(eq(userData.battleId, battleId));
+      }
+
       return { success: false, message: "Attack failed, did the target move?" };
     }
     // Push websockets message to target
