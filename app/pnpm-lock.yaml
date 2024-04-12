@@ -133,7 +133,7 @@ dependencies:
     version: 16.1.4
   drizzle-orm:
     specifier: 0.30.8
-    version: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+    version: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0)
   drizzle-zod:
     specifier: 0.5.1
     version: 0.5.1(drizzle-orm@0.30.8)(zod@3.22.4)
@@ -153,8 +153,8 @@ dependencies:
     specifier: ^0.363.0
     version: 0.363.0(react@18.2.0)
   mysql2:
-    specifier: ^3.3.5
-    version: 3.3.5
+    specifier: ^3.9.4
+    version: 3.9.4
   nanoid:
     specifier: ^4.0.2
     version: 4.0.2
@@ -198,8 +198,8 @@ dependencies:
     specifier: ^0.25.2
     version: 0.25.2
   sanitize-html:
-    specifier: 2.10.0
-    version: 2.10.0
+    specifier: 2.13.0
+    version: 2.13.0
   sharp:
     specifier: 0.32.6
     version: 0.32.6
@@ -219,8 +219,8 @@ dependencies:
     specifier: 0.160.1
     version: 0.160.1
   tinymce:
-    specifier: ^6.8.3
-    version: 6.8.3
+    specifier: ^7.0.1
+    version: 7.0.1
   uploadthing:
     specifier: 6.3.1
     version: 6.3.1
@@ -3803,7 +3803,7 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0):
+  /drizzle-orm@0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0):
     resolution: {integrity: sha512-9pBJA0IjnpPpzZ6s9jlS1CQAbKoBmbn2GJesPhXaVblAA/joOJ4AWWevYcqvLGj9SvThBAl7WscN8Zwgg5mnTw==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -3886,7 +3886,7 @@ packages:
       '@opentelemetry/api': 1.8.0
       '@planetscale/database': 1.16.0
       '@types/react': 18.2.48
-      mysql2: 3.3.5
+      mysql2: 3.9.4
       react: 18.2.0
     dev: false
 
@@ -3896,7 +3896,7 @@ packages:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.3.5)(react@18.2.0)
+      drizzle-orm: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0)
       zod: 3.22.4
     dev: false
 
@@ -5652,8 +5652,8 @@ packages:
   /ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  /mysql2@3.3.5:
-    resolution: {integrity: sha512-ZTQGAzxGeaX1PyeSiZFCgQ34uiXguaEpn3aTFN9Enm9JDnbwWo+4/CJnDdQZ3n0NaMeysi8vwtW/jNUb9VqVDw==}
+  /mysql2@3.9.4:
+    resolution: {integrity: sha512-OEESQuwxMza803knC1YSt7NMuc1BrK9j7gZhCSs2WAyxr1vfiI7QLaLOKTh5c9SWGz98qVyQUbK8/WckevNQhg==}
     engines: {node: '>= 8.0'}
     dependencies:
       denque: 2.1.0
@@ -6617,8 +6617,8 @@ packages:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
     dev: false
 
-  /sanitize-html@2.10.0:
-    resolution: {integrity: sha512-JqdovUd81dG4k87vZt6uA6YhDfWkUGruUu/aPmXLxXi45gZExnt9Bnw/qeQU8oGf82vPyaE0vO4aH0PbobB9JQ==}
+  /sanitize-html@2.13.0:
+    resolution: {integrity: sha512-Xff91Z+4Mz5QiNSLdLWwjgBDm5b1RU6xBT0+12rapjiaR7SwfRdjw8f+6Rir2MXKLrDicRFHdb51hGOAxmsUIA==}
     dependencies:
       deepmerge: 4.3.1
       escape-string-regexp: 4.0.0
@@ -7132,6 +7132,10 @@ packages:
 
   /tinymce@6.8.3:
     resolution: {integrity: sha512-3fCHKAeqT+xNwBVESf6iDbDV0VNwZNmfrkx9c/6Gz5iB8piMfaO6s7FvoiTrj1hf1gVbfyLTnz1DooI6DhgINQ==}
+    dev: false
+
+  /tinymce@7.0.1:
+    resolution: {integrity: sha512-0a7DJnhniBx2psRuKcVQ9g4hujN6PAR4fPS0NSF1T1luH1RBDZVVEn2pGND6Ly+AW1lUm/cHOHjsasqBelMhbw==}
     dev: false
 
   /titleize@2.1.0:

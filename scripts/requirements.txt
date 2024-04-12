@@ -1,8 +1,8 @@
-Pillow==10.2.0
-numpy==1.24.1
-pandas==2.0.0
-pyarrow==14.0.2
-seaborn==0.12.2
+Pillow
+numpy
+pandas
+pyarrow
+seaborn
 ipykernel
 mysqlclient
 openai
