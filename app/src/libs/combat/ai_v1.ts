@@ -39,15 +39,30 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Possible actions
-    const actions = availableUserActions(nextBattle, user.userId, false, true).filter(
-      (action) => {
+    const actions = availableUserActions(nextBattle, user.userId, false, true)
+      .filter((action) => {
         const costs = calcPoolCost(action, nextBattle.usersEffects, user);
         if (user.curHealth < costs.hpCost) return false;
         if (user.curChakra < costs.cpCost) return false;
         if (user.curStamina < costs.spCost) return false;
         return true;
-      },
-    );
+      })
+      .sort((a, b) => {
+        if (a.name === "Move") return -1;
+        if (b.name === "Move") return 1;
+        const aDam = a.effects.find((e) => e.type === "damage");
+        const bDam = b.effects.find((e) => e.type === "damage");
+        if (aDam && !bDam) return -1;
+        if (!aDam && bDam) return 1;
+        if (aDam && bDam) {
+          if (aDam.power > bDam.power) return -1;
+          if (aDam.power < bDam.power) return 1;
+        }
+        if (a.name === "End Turn") return 1;
+        if (b.name === "End Turn") return -1;
+        return 1;
+      });
+
     // console.log(
     //   "Action costs: ",
     //   actions.map((a) => {
@@ -222,6 +237,7 @@ const getActionTree = (
   initialFitness = 0,
   curDepth = 0,
   searchDepth = 1,
+  curSize = 0,
 ): SearchAction[] => {
   // Destructure
   const user = battle.usersState.find((u) => u.userId === userId);
@@ -242,19 +258,62 @@ const getActionTree = (
       const possibleTiles = getAiTiles(action, battle, userId, origin, grid, astar);
       possibleTiles?.forEach((tile) => {
         try {
-          const newState = performBattleAction({
-            battle: structuredClone(battle),
-            action: structuredClone(action),
-            grid,
-            contextUserId: user.userId,
-            actorId: user.userId,
-            longitude: tile.col,
-            latitude: tile.row,
-          });
-          if (!newState) {
-            throw new Error("Action not possible");
+          if (curSize < 20) {
+            const newState = performBattleAction({
+              battle: structuredClone(battle),
+              action: structuredClone(action),
+              grid,
+              contextUserId: user.userId,
+              actorId: user.userId,
+              longitude: tile.col,
+              latitude: tile.row,
+            });
+            curSize += 1;
+
+            // Error when no new state
+            if (!newState) {
+              throw new Error("Action not possible");
+            }
+            const { newBattle } = newState;
+
+            // Calculate the fitness
+            const fitness =
+              evaluateFitness(
+                battle,
+                newBattle,
+                user.userId,
+                grid,
+                astar,
+                action,
+                curDepth,
+              ) + initialFitness;
+
+            // If we are not at the end of the depth, calculate the next actions
+            const nextActions =
+              curDepth < searchDepth
+                ? getActionTree(
+                    availableActions,
+                    newBattle,
+                    userId,
+                    grid,
+                    astar,
+                    fitness,
+                    curDepth + 1,
+                    searchDepth,
+                  )
+                : undefined;
+            curSize += nextActions?.length ?? 0;
+
+            // Add to the list of searched actions
+            searcedActions.push({
+              action,
+              longitude: tile.col,
+              latitude: tile.row,
+              fitness,
+              futureFitness: 0,
+              nextActions,
+            });
           }
-          const { newBattle } = newState;
 
           // Update all future actions to have zero cost -
           // This is a hack to lets the AI plan more carefully,
@@ -262,42 +321,6 @@ const getActionTree = (
           // ERROR: This will cause a constant-attack from AI from frontend,
           //        since it will think it can still use actions
           // availableActions.forEach((a) => (a.actionCostPerc = 0));
-
-          // Calculate the fitness
-          const fitness =
-            evaluateFitness(
-              battle,
-              newBattle,
-              user.userId,
-              grid,
-              astar,
-              action,
-              curDepth,
-            ) + initialFitness;
-
-          // If we are not at the end of the depth, calculate the next actions
-          const nextActions =
-            curDepth < searchDepth
-              ? getActionTree(
-                  availableActions,
-                  newBattle,
-                  userId,
-                  grid,
-                  astar,
-                  fitness,
-                  curDepth + 1,
-                  searchDepth,
-                )
-              : undefined;
-          // Add to the list of searched actions
-          searcedActions.push({
-            action,
-            longitude: tile.col,
-            latitude: tile.row,
-            fitness,
-            futureFitness: 0,
-            nextActions,
-          });
         } catch (e) {
           // No worries, ignore that this action was a dud
         }
