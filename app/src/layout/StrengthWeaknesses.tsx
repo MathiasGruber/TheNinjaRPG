@@ -60,7 +60,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
           ],
           datasets: [
             {
-              label: "Offense",
+              label: "Value",
               data: [
                 userData.ninjutsuOffence,
                 userData.genjutsuOffence,
