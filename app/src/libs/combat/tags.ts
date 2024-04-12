@@ -80,13 +80,24 @@ export const decreaseArmor = (effect: UserEffect, target: BattleUserState) => {
   return adjustArmor(effect, target);
 };
 
+export const getAffected = (effect: UserEffect) => {
+  const stats: string[] = [];
+  if ("statTypes" in effect || "generalTypes" in effect) {
+    if (effect.statTypes) stats.push(...effect.statTypes);
+    if (effect.generalTypes) stats.push(...effect.generalTypes);
+  }
+  let result = `${stats.join(", ")}`;
+  if ("elements" in effect && effect.elements) {
+    result += ` with elements ${effect.elements.join(", ")}`;
+  }
+  return result;
+};
+
 /** Adjust stats of target based on effect */
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
-  const affected: string[] = [];
+  const affected = getAffected(effect);
   if ("statTypes" in effect || "generalTypes" in effect) {
-    if (effect.statTypes) affected.push(...effect.statTypes);
-    if (effect.generalTypes) affected.push(...effect.generalTypes);
     if (!effect.isNew && !effect.castThisRound) {
       effect.statTypes?.forEach((stat) => {
         if (stat === "Highest") {
@@ -212,7 +223,7 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
       });
     }
   }
-  return getInfo(target, effect, `${affected.join(", ")} is ${adverb} by ${qualifier}`);
+  return getInfo(target, effect, `${affected} is ${adverb} by ${qualifier}`);
 };
 
 export const increaseStats = (effect: UserEffect, target: BattleUserState) => {
@@ -233,6 +244,7 @@ export const adjustDamageGiven = (
   target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
+  const affected = getAffected(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.userId === effect.targetId && consequence.damage) {
@@ -248,7 +260,11 @@ export const adjustDamageGiven = (
       }
     });
   }
-  return getInfo(target, effect, `damage given is ${adverb} by up to ${qualifier}`);
+  return getInfo(
+    target,
+    effect,
+    `damage given [${affected}] is ${adverb} by up to ${qualifier}`,
+  );
 };
 
 export const increaseDamageGiven = (
@@ -279,6 +295,7 @@ export const adjustDamageTaken = (
   target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
+  const affected = getAffected(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId && consequence.damage) {
@@ -294,7 +311,11 @@ export const adjustDamageTaken = (
       }
     });
   }
-  return getInfo(target, effect, `damage taken is ${adverb} by up to ${qualifier}`);
+  return getInfo(
+    target,
+    effect,
+    `damage taken [${affected}] is ${adverb} by up to ${qualifier}`,
+  );
 };
 
 export const increaseDamageTaken = (
