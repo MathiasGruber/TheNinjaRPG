@@ -87,7 +87,7 @@ export const getAffected = (effect: UserEffect) => {
     if (effect.generalTypes) stats.push(...effect.generalTypes);
   }
   let result = `${stats.join(", ")}`;
-  if ("elements" in effect && effect.elements) {
+  if ("elements" in effect && effect.elements && effect.elements.length > 0) {
     result += ` with elements ${effect.elements.join(", ")}`;
   }
   return result;
