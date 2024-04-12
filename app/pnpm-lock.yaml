@@ -78,8 +78,8 @@ dependencies:
     specifier: ^5.24.8
     version: 5.24.8(@tanstack/react-query@5.24.8)(react@18.2.0)
   '@tinymce/tinymce-react':
-    specifier: 4.3.2
-    version: 4.3.2(react-dom@18.2.0)(react@18.2.0)
+    specifier: 5.0.1
+    version: 5.0.1(react-dom@18.2.0)(react@18.2.0)
   '@trpc/client':
     specifier: 11.0.0-next-beta.308
     version: 11.0.0-next-beta.308(@trpc/server@11.0.0-next-beta.308)
@@ -2338,8 +2338,8 @@ packages:
       react: 18.2.0
     dev: false
 
-  /@tinymce/tinymce-react@4.3.2(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-wJHZhPf2Mk3yTtdVC/uIGh+kvDgKuTw/qV13uzdChTNo68JI1l7jYMrSQOpyimDyn5LHAw0E1zFByrm1WHAVeA==}
+  /@tinymce/tinymce-react@5.0.1(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-tw6yNRqrMGP1iJNeY14wvGsUayC9fc1QpJa7tAvdmeBrUlllyF9PpsrbfvYd+2k8t+w0r2Hq+foTzLZ1d27Fyw==}
     peerDependencies:
       react: ^18.0.0 || ^17.0.1 || ^16.7.0
       react-dom: ^18.0.0 || ^17.0.1 || ^16.7.0
@@ -2347,7 +2347,7 @@ packages:
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
-      tinymce: 6.8.3
+      tinymce: 7.0.1
     dev: false
 
   /@trpc/client@11.0.0-next-beta.308(@trpc/server@11.0.0-next-beta.308):
@@ -7153,10 +7153,6 @@ packages:
 
   /tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
-    dev: false
-
-  /tinymce@6.8.3:
-    resolution: {integrity: sha512-3fCHKAeqT+xNwBVESf6iDbDV0VNwZNmfrkx9c/6Gz5iB8piMfaO6s7FvoiTrj1hf1gVbfyLTnz1DooI6DhgINQ==}
     dev: false
 
   /tinymce@7.0.1:
