@@ -72,8 +72,8 @@ const ManualJutsus: NextPage = () => {
         topRightContent={
           <Link href="/manual/jutsus/balance">
             <Button id="jutsu-statistics">
-              <Presentation className="mr-2 h-6 w-6" />
-              Balance Statistics
+              <Presentation className="sm:mr-2 h-6 w-6" />
+              <p className="hidden sm:block">Balance Statistics</p>
             </Button>
           </Link>
         }
@@ -98,24 +98,24 @@ const ManualJutsus: NextPage = () => {
         subtitle="All known jutsu"
         initialBreak={true}
         topRightContent={
-          <div className="sm:flex sm:flex-row items-center">
+          <div className="flex flex-row gap-1 items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-col gap-1 mr-2">
+              <>
                 <Button id="create-jutsu" onClick={() => create()}>
-                  <FilePlus className="mr-2 h-6 w-6" />
-                  New
+                  <FilePlus className="sm:mr-2 h-6 w-6" />
+                  <p className="hidden sm:block">New</p>
                 </Button>
                 <MassEditContent
                   title="Mass Edit Jutsus"
                   type="jutsu"
                   button={
                     <Button id="create-jutsu">
-                      <SquarePen className="mr-2 h-6 w-6" />
-                      Mass Edit
+                      <SquarePen className="sm:mr-2 h-6 w-6" />
+                      <p className="hidden sm:block">Edit</p>
                     </Button>
                   }
                 />
-              </div>
+              </>
             )}
             <JutsuFiltering state={state} />
           </div>
