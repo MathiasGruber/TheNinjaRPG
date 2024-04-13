@@ -575,221 +575,223 @@ export const initiateBattle = async (
 ): Promise<BaseServerResponse> => {
   // Destructure
   const { longitude, latitude, sector, userId, targetId, client } = info;
-  // Return result of transaction
-  return await client.transaction(async (tx) => {
-    // Get user & target data, to be inserted into battle
-    const [villages, relations, achievements, users] = await Promise.all([
-      client.select().from(village),
-      client.select().from(villageAlliance),
-      client.select().from(quest).where(eq(quest.questType, "achievement")),
-      client.query.userData.findMany({
-        with: {
-          bloodline: true,
-          village: {
-            with: { structures: true },
-          },
-          items: {
-            with: { item: true },
-            where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
-          },
-          jutsus: {
-            with: { jutsu: true },
-            where: (jutsus) => eq(jutsus.equipped, 1),
-          },
-          userQuests: {
-            where: or(
-              and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-              eq(questHistory.questType, "achievement"),
-            ),
-            with: {
-              quest: true,
-            },
-          },
+
+  // Get user & target data, to be inserted into battle
+  const [villages, relations, achievements, users] = await Promise.all([
+    client.select().from(village),
+    client.select().from(villageAlliance),
+    client.select().from(quest).where(eq(quest.questType, "achievement")),
+    client.query.userData.findMany({
+      with: {
+        bloodline: true,
+        village: {
+          with: { structures: true },
         },
-        where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
-      }),
-    ]);
-    users.sort((a) => (a.userId === userId ? -1 : 1));
-
-    // Use long/lat fields for position in combat map
-    if (users?.[0]) {
-      users[0]["longitude"] = randomInt(1, 5);
-      users[0]["latitude"] = randomInt(1, 3);
-    } else {
-      return { success: false, message: "Failed to set position of left-hand user" };
-    }
-    if (users?.[1]) {
-      users[1]["longitude"] = randomInt(7, 11);
-      users[1]["latitude"] = randomInt(1, 3);
-    } else {
-      return { success: false, message: "Failed to set position of right-hand user" };
-    }
-    if (users[1].immunityUntil > new Date() && battleType === "COMBAT") {
-      return {
-        success: false,
-        message:
-          "Target is immune from combat until " +
-          users[1].immunityUntil.toLocaleTimeString(),
-      };
-    }
-    if (users[0].status !== "AWAKE") {
-      return { success: false, message: "Aggressor is not awake" };
-    }
-    if (users[1].status !== "AWAKE" && battleType !== "KAGE") {
-      return { success: false, message: "Defender is not awake" };
-    }
-
-    // If defender is student it is a no-go
-    if (battleType === "COMBAT") {
-      if (users[0].rank === "STUDENT") {
-        return { success: false, message: "Need to rank up to do PvP combat" };
-      }
-      if (users[1].rank === "STUDENT" && users[1].isAi === 0) {
-        return { success: false, message: "Cannot attack students" };
-      }
-    }
-
-    // Add achievements to users for tracking
-    users[0].userQuests.push(...mockAchievementHistoryEntries(achievements, users[0]));
-    users[1].userQuests.push(...mockAchievementHistoryEntries(achievements, users[1]));
-
-    // If requested scale the target user to the same level & stats as attacker
-    if (info?.scaleTarget) {
-      users[1].level = users[0].level;
-      scaleUserStats(users[1]);
-    }
-
-    // Apply caps to user stats
-    users.map((u) => capUserStats(u));
-
-    // Get previous battles between these two users within last 60min
-    let rewardScaling = 1;
-    if (battleType !== "ARENA") {
-      const results = await client
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(battleHistory)
-        .where(
-          and(
-            or(
-              and(
-                eq(battleHistory.attackedId, users[0]["userId"]),
-                eq(battleHistory.defenderId, users[1]["userId"]),
-              ),
-              and(
-                eq(battleHistory.attackedId, users[1]["userId"]),
-                eq(battleHistory.defenderId, users[0]["userId"]),
-              ),
-            ),
-            gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+        items: {
+          with: { item: true },
+          where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
+        },
+        jutsus: {
+          with: { jutsu: true },
+          where: (jutsus) => eq(jutsus.equipped, 1),
+        },
+        userQuests: {
+          where: or(
+            and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+            eq(questHistory.questType, "achievement"),
           ),
-        );
-      const previousBattles = results?.[0]?.count || 0;
-      if (previousBattles > 0) {
-        rewardScaling = 1 / (previousBattles + 1);
-      }
-    }
-
-    // Create the users array to be inserted into the battle
-    const { userEffects, usersState, allSummons } = processUsersForBattle({
-      users: users as BattleUserState[],
-      relations: relations,
-      villages: villages,
-      battleType: battleType,
-      hide: false,
-    });
-
-    // If this is a kage challenge, convert all to be AIs & set them as not originals
-    if (battleType === "KAGE") {
-      usersState.forEach((u) => {
-        u.curHealth = u.maxHealth;
-        u.curChakra = u.maxChakra;
-        u.curStamina = u.maxStamina;
-        u.isAi = 1;
-        u.isOriginal = false;
-      });
-    }
-
-    // If there are any summonAIs defined, then add them to usersState, but disable them
-    if (allSummons.length > 0) {
-      const uniqueSummons = [...new Set(allSummons)];
-      const summons = await client.query.userData.findMany({
-        with: {
-          bloodline: true,
-          village: true,
-          items: {
-            with: { item: true },
-            where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
-          },
-          jutsus: {
-            with: { jutsu: true },
-            where: (jutsus) => eq(jutsus.equipped, 1),
+          with: {
+            quest: true,
           },
         },
-        where: inArray(userData.userId, uniqueSummons),
-      });
-      const { userEffects: summonEffects, usersState: summonState } =
-        processUsersForBattle({
-          users: summons as BattleUserState[],
-          relations: relations,
-          villages: villages,
-          battleType: battleType,
-          hide: true,
-        });
-      summonState.map((u) => (u.isSummon = 1));
-      userEffects.push(...summonEffects);
-      usersState.push(...summonState);
-    }
+      },
+      where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
+    }),
+  ]);
+  users.sort((a) => (a.userId === userId ? -1 : 1));
 
-    // Starting ground effects
-    const groundEffects: GroundEffect[] = [];
-    const assets = Object.values(combatAssetsNames);
-    for (let col = 0; col < COMBAT_WIDTH; col++) {
-      for (let row = 0; row < COMBAT_HEIGHT; row++) {
-        // Ignore the spots where we placed users
-        const foundUser = usersState.find(
-          (u) => u.longitude === col && u.latitude === row,
-        );
-        if (!foundUser) {
-          const rand = Math.random();
-          if (rand < 0.1) {
-            const asset = getRandomElement(assets);
-            if (asset) {
-              const tag: GroundEffect = {
-                ...BarrierTag.parse({
-                  power: 2,
-                  staticAssetPath: asset,
-                }),
-                id: `initial-${col}-${row}`,
-                creatorId: "ground",
-                createdRound: 0,
-                level: 0,
-                longitude: col,
-                latitude: row,
-                isNew: false,
-                barrierAbsorb: 0,
-                castThisRound: false,
-              };
-              groundEffects.push(tag);
-            }
+  // Use long/lat fields for position in combat map
+  if (users?.[0]) {
+    users[0]["longitude"] = randomInt(1, 5);
+    users[0]["latitude"] = randomInt(1, 3);
+  } else {
+    return { success: false, message: "Failed to set position of left-hand user" };
+  }
+  if (users?.[1]) {
+    users[1]["longitude"] = randomInt(7, 11);
+    users[1]["latitude"] = randomInt(1, 3);
+  } else {
+    return { success: false, message: "Failed to set position of right-hand user" };
+  }
+  if (users[1].immunityUntil > new Date() && battleType === "COMBAT") {
+    return {
+      success: false,
+      message:
+        "Target is immune from combat until " +
+        users[1].immunityUntil.toLocaleTimeString(),
+    };
+  }
+  if (users[0].status !== "AWAKE") {
+    return { success: false, message: "Aggressor is not awake" };
+  }
+  if (users[1].status !== "AWAKE" && battleType !== "KAGE") {
+    return { success: false, message: "Defender is not awake" };
+  }
+
+  // If defender is student it is a no-go
+  if (battleType === "COMBAT") {
+    if (users[0].rank === "STUDENT") {
+      return { success: false, message: "Need to rank up to do PvP combat" };
+    }
+    if (users[1].rank === "STUDENT" && users[1].isAi === 0) {
+      return { success: false, message: "Cannot attack students" };
+    }
+  }
+
+  // Add achievements to users for tracking
+  users[0].userQuests.push(...mockAchievementHistoryEntries(achievements, users[0]));
+  users[1].userQuests.push(...mockAchievementHistoryEntries(achievements, users[1]));
+
+  // If requested scale the target user to the same level & stats as attacker
+  if (info?.scaleTarget) {
+    users[1].level = users[0].level;
+    scaleUserStats(users[1]);
+  }
+
+  // Apply caps to user stats
+  users.map((u) => capUserStats(u));
+
+  // Get previous battles between these two users within last 60min
+  let rewardScaling = 1;
+  if (battleType !== "ARENA") {
+    const results = await client
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(battleHistory)
+      .where(
+        and(
+          or(
+            and(
+              eq(battleHistory.attackedId, users[0]["userId"]),
+              eq(battleHistory.defenderId, users[1]["userId"]),
+            ),
+            and(
+              eq(battleHistory.attackedId, users[1]["userId"]),
+              eq(battleHistory.defenderId, users[0]["userId"]),
+            ),
+          ),
+          gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+        ),
+      );
+    const previousBattles = results?.[0]?.count || 0;
+    if (previousBattles > 0) {
+      rewardScaling = 1 / (previousBattles + 1);
+    }
+  }
+
+  // Create the users array to be inserted into the battle
+  const { userEffects, usersState, allSummons } = processUsersForBattle({
+    users: users as BattleUserState[],
+    relations: relations,
+    villages: villages,
+    battleType: battleType,
+    hide: false,
+  });
+
+  // If this is a kage challenge, convert all to be AIs & set them as not originals
+  if (battleType === "KAGE") {
+    usersState.forEach((u) => {
+      u.curHealth = u.maxHealth;
+      u.curChakra = u.maxChakra;
+      u.curStamina = u.maxStamina;
+      u.isAi = 1;
+      u.isOriginal = false;
+    });
+  }
+
+  // If there are any summonAIs defined, then add them to usersState, but disable them
+  if (allSummons.length > 0) {
+    const uniqueSummons = [...new Set(allSummons)];
+    const summons = await client.query.userData.findMany({
+      with: {
+        bloodline: true,
+        village: true,
+        items: {
+          with: { item: true },
+          where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+        },
+        jutsus: {
+          with: { jutsu: true },
+          where: (jutsus) => eq(jutsus.equipped, 1),
+        },
+      },
+      where: inArray(userData.userId, uniqueSummons),
+    });
+    const { userEffects: summonEffects, usersState: summonState } =
+      processUsersForBattle({
+        users: summons as BattleUserState[],
+        relations: relations,
+        villages: villages,
+        battleType: battleType,
+        hide: true,
+      });
+    summonState.map((u) => (u.isSummon = 1));
+    userEffects.push(...summonEffects);
+    usersState.push(...summonState);
+  }
+
+  // Starting ground effects
+  const groundEffects: GroundEffect[] = [];
+  const assets = Object.values(combatAssetsNames);
+  for (let col = 0; col < COMBAT_WIDTH; col++) {
+    for (let row = 0; row < COMBAT_HEIGHT; row++) {
+      // Ignore the spots where we placed users
+      const foundUser = usersState.find(
+        (u) => u.longitude === col && u.latitude === row,
+      );
+      if (!foundUser) {
+        const rand = Math.random();
+        if (rand < 0.1) {
+          const asset = getRandomElement(assets);
+          if (asset) {
+            const tag: GroundEffect = {
+              ...BarrierTag.parse({
+                power: 2,
+                staticAssetPath: asset,
+              }),
+              id: `initial-${col}-${row}`,
+              creatorId: "ground",
+              createdRound: 0,
+              level: 0,
+              longitude: col,
+              latitude: row,
+              isNew: false,
+              barrierAbsorb: 0,
+              castThisRound: false,
+            };
+            groundEffects.push(tag);
           }
         }
       }
     }
+  }
 
-    // Figure out who starts in the battle
-    const attRoll = (users[0] as BattleUserState).initiative;
-    const defRoll = (users[1] as BattleUserState).initiative;
-    const attackerFirst = attRoll >= defRoll || battleType === "ARENA";
-    const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
+  // Figure out who starts in the battle
+  const attRoll = (users[0] as BattleUserState).initiative;
+  const defRoll = (users[1] as BattleUserState).initiative;
+  const attackerFirst = attRoll >= defRoll || battleType === "ARENA";
+  const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
 
-    // When to start the battle
-    const startTime = ["ARENA", "KAGE"].includes(battleType)
-      ? new Date()
-      : secondsFromNow(COMBAT_LOBBY_SECONDS);
+  // When to start the battle
+  const startTime = ["ARENA", "KAGE"].includes(battleType)
+    ? new Date()
+    : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
-    // Insert battle entry into DB
-    const battleId = nanoid();
-    await tx.insert(battle).values({
+  // Insert battle entry into DB
+  const battleId = nanoid();
+
+  // Insert data
+  const [, , userResult] = await Promise.all([
+    client.insert(battle).values({
       id: battleId,
       battleType: battleType,
       background: background,
@@ -801,18 +803,14 @@ export const initiateBattle = async (
       updatedAt: startTime,
       roundStartAt: startTime,
       activeUserId: activeUserId,
-    });
-
-    // If not arena, create a history entry
-    await tx.insert(battleHistory).values({
+    }),
+    client.insert(battleHistory).values({
       battleId: battleId,
       attackedId: users[0].userId,
       defenderId: users[1].userId,
       createdAt: new Date(),
-    });
-
-    // Update users to be in battle, but only if they are currently AWAKE
-    const result = await tx
+    }),
+    client
       .update(userData)
       .set({
         status: sql`CASE WHEN isAi = false THEN "BATTLE" ELSE "AWAKE" END`,
@@ -848,50 +846,48 @@ export const initiateBattle = async (
               ]
             : []),
         ),
-      );
-    // Check if success
-    if (
-      (battleType === "KAGE" && result.rowsAffected !== 1) ||
-      (battleType !== "KAGE" && result.rowsAffected !== 2)
-    ) {
-      // First do roll-back;
-      try {
-        tx.rollback();
-      } catch (e) {
-        // If rollback fails, explicitly run update to clear
-        await client
-          .update(userData)
-          .set({ status: "AWAKE", battleId: null })
-          .where(eq(userData.battleId, battleId));
-      }
+      ),
+  ]);
 
-      return { success: false, message: "Attack failed, did the target move?" };
-    }
-    // Push websockets message to target
-    const pusher = getServerPusher();
-    void pusher.trigger(targetId, "event", { type: "battle" });
+  // Check if success
+  if (
+    (battleType === "KAGE" && userResult.rowsAffected !== 1) ||
+    (battleType !== "KAGE" && userResult.rowsAffected !== 2)
+  ) {
+    await Promise.all([
+      client
+        .update(userData)
+        .set({ status: "AWAKE", battleId: null })
+        .where(eq(userData.battleId, battleId)),
+      client.delete(battle).where(eq(battle.id, battleId)),
+      client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
+    ]);
+    return { success: false, message: "Attack failed, did the target move?" };
+  }
+  // Push websockets message to target
+  const pusher = getServerPusher();
+  void pusher.trigger(targetId, "event", { type: "battle" });
 
-    // Hide users on map when in combat
-    if (battleType !== "KAGE") {
-      void pusher.trigger(users[0].sector.toString(), "event", {
-        userId: users[0].userId,
-        longitude: users[0].longitude,
-        latitude: users[0].latitude,
-        avatar: users[0].avatar,
-        sector: -1,
-        location: users[0].location,
-      });
-      void pusher.trigger(users[1].sector.toString(), "event", {
-        userId: users[1].userId,
-        longitude: users[1].longitude,
-        latitude: users[1].latitude,
-        avatar: users[1].avatar,
-        sector: -1,
-        location: users[1].location,
-      });
-    }
+  // Hide users on map when in combat
+  if (battleType !== "KAGE") {
+    void pusher.trigger(users[0].sector.toString(), "event", {
+      userId: users[0].userId,
+      longitude: users[0].longitude,
+      latitude: users[0].latitude,
+      avatar: users[0].avatar,
+      sector: -1,
+      location: users[0].location,
+    });
+    void pusher.trigger(users[1].sector.toString(), "event", {
+      userId: users[1].userId,
+      longitude: users[1].longitude,
+      latitude: users[1].latitude,
+      avatar: users[1].avatar,
+      sector: -1,
+      location: users[1].location,
+    });
+  }
 
-    // Return the battle
-    return { success: true, message: battleId };
-  });
+  // Return the battle
+  return { success: true, message: battleId };
 };
