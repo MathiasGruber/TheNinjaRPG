@@ -254,7 +254,7 @@ const ReputationStore = (props: { currency: string }) => {
           default={20}
           min={5}
           max={1000}
-          unit={`reputation points for $${amount}`}
+          unit={`reputation points for $${amount} USD`}
           register={repFormMethods.register}
           setValue={repFormMethods.setValue}
           watchedValue={watchedPoints}
