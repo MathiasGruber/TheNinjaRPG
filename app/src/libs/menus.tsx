@@ -91,13 +91,13 @@ export const useGameMenu = (userData: UserWithRelations) => {
     {
       href: "/jutsus",
       name: "Jutsus",
-      requireAwake: true,
+      requireAwake: false,
       icon: <Atom key="jutsus" className="h-6 w-6" />,
     },
     {
       href: "/items",
       name: "Items",
-      requireAwake: true,
+      requireAwake: false,
       icon: <User key="items" className="h-6 w-6" />,
     },
     {
