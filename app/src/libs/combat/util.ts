@@ -316,6 +316,7 @@ export const maskBattle = (battle: Battle, userId: string) => {
  * Figure out if user is still in battle, and if not whether the user won or lost
  */
 export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
+  const battleType = battle.battleType;
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
@@ -366,12 +367,12 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Prestige calculation
       let deltaPrestige = 0;
-      if (battle.battleType === "KAGE" && !didWin) deltaPrestige = -PRESTIGE_COST;
+      if (battleType === "KAGE" && !didWin) deltaPrestige = -PRESTIGE_COST;
 
       // Village tokens reward
       const vilId = user.villageId;
       let deltaTokens = 0;
-      if (didWin && battle.battleType === "COMBAT") {
+      if (didWin && battleType === "COMBAT") {
         targetsLeft.forEach((target) => {
           deltaTokens += target.relations
             .filter((r) => r.status === "ENEMY")
@@ -391,7 +392,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         outcome: outcome,
         didWin: didWin ? 1 : 0,
         experience: 0.01,
-        pvpStreak: didWin && battle.battleType === "COMBAT" ? user.pvpStreak + 1 : 0,
+        pvpStreak:
+          battleType === "COMBAT" ? (didWin ? user.pvpStreak + 1 : 0) : user.pvpStreak,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
@@ -415,7 +417,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       };
 
       // Things to reward for non-spars
-      if (battle.battleType !== "SPARRING") {
+      if (battleType !== "SPARRING") {
         // Experience
         result["experience"] = experience;
         // Money stolen/given
