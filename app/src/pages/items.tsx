@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Merge, Trash2 } from "lucide-react";
+import { Merge, CircleDollarSign } from "lucide-react";
 import Image from "next/image";
 import NavTabs from "@/layout/NavTabs";
 import ContentBox from "@/layout/ContentBox";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { showMutationToast } from "@/libs/toast";
 import type { Item, UserItem, ItemSlot } from "../../drizzle/schema";
 import type { NextPage } from "next";
 
@@ -37,6 +38,7 @@ const MyItems: NextPage = () => {
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <ContentBox
       title="Item Management"
@@ -46,9 +48,7 @@ const MyItems: NextPage = () => {
       {!isFetching && screen === "Character" && (
         <Character items={allItems} refetch={() => refetch()} />
       )}
-      {!isFetching && screen === "Backpack" && (
-        <Backpack items={allItems} refetch={() => refetch()} />
-      )}
+      {!isFetching && screen === "Backpack" && <Backpack items={allItems} />}
       {isFetching && <Loader explanation="Loading items" />}
     </ContentBox>
   );
@@ -61,7 +61,6 @@ export default MyItems;
  */
 interface BackpackProps {
   items: (UserItem & Item)[] | undefined;
-  refetch: () => void;
 }
 
 const Backpack: React.FC<BackpackProps> = (props) => {
@@ -69,10 +68,16 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   const [item, setItem] = useState<(UserItem & Item) | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Mutations
   const { mutate: merge, isPending: isMerging } = api.item.mergeStacks.useMutation({
-    onSuccess: () => {
-      props.refetch();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.item.getUserItems.invalidate();
+      }
     },
     onSettled: () => {
       document.body.style.cursor = "default";
@@ -81,9 +86,12 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     },
   });
 
-  const { mutate: drop, isPending: isDropping } = api.item.dropUserItem.useMutation({
-    onSuccess: () => {
-      props.refetch();
+  const { mutate: sell, isPending: isSelling } = api.item.sellUserItem.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.item.getUserItems.invalidate();
+      }
     },
     onSettled: () => {
       document.body.style.cursor = "default";
@@ -112,7 +120,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       />
       {isOpen && item && (
         <Modal title="Item Details" setIsOpen={setIsOpen} isValid={false}>
-          {!isMerging && !isDropping && (
+          {!isMerging && !isSelling && (
             <>
               <ItemWithEffects item={item} key={item.id} showStatistic="item" />
               <div className="flex flex-row">
@@ -126,19 +134,18 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                 )}
                 <div className="grow"></div>
                 <Button
-                  id="drop"
+                  id="sell"
                   variant="destructive"
-                  onClick={() => drop({ userItemId: item.id })}
+                  onClick={() => sell({ userItemId: item.id })}
                 >
-                  <Trash2 className="mr-2 h-5 w-5" />
-                  Drop Item
+                  <CircleDollarSign className="mr-2 h-5 w-5" />
+                  Sell Item
                 </Button>
               </div>
             </>
           )}
-          {(isMerging || isDropping) && (
-            <Loader explanation={`Merging ${item.name} stacks`} />
-          )}
+          {isMerging && <Loader explanation={`Merging ${item.name} stacks`} />}
+          {isSelling && <Loader explanation={`Selling ${item.name}`} />}
         </Modal>
       )}
     </>

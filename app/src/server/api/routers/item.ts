@@ -168,6 +168,7 @@ export const itemRouter = createTRPCRouter({
   // Merge item stacks
   mergeStacks: protectedProcedure
     .input(z.object({ itemId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const info = await fetchItem(ctx.drizzle, input.itemId);
       const userItems = await ctx.drizzle.query.userItem.findMany({
@@ -191,20 +192,41 @@ export const itemRouter = createTRPCRouter({
             }
           }
         }
+        return { success: true, message: `Merged stacks of ${info.name}` };
       }
+      return { success: false, message: "Failed to merge stacks" };
     }),
   // Drop user item
-  dropUserItem: protectedProcedure
+  sellUserItem: protectedProcedure
     .input(z.object({ userItemId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const useritem = await fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId);
-      if (useritem) {
-        return await ctx.drizzle
-          .delete(userItem)
-          .where(eq(userItem.id, input.userItemId));
-      } else {
-        throw serverError("NOT_FOUND", "User item not found");
-      }
+      // Fetch
+      const [user, useritem] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
+      ]);
+      const structures = await fetchStructures(ctx.drizzle, user.villageId);
+      // Guard
+      if (!useritem) return errorResponse("User item not found");
+      if (useritem.userId !== user.userId) return errorResponse("Not yours to sell");
+      // Mutate
+      const sDiscount = structureBoost("itemDiscountPerLvl", structures);
+      const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
+      const discount = Math.max(sDiscount + aDiscount, 50);
+      const factor = (100 - discount) / 100;
+      const cost = useritem.item.cost * useritem.quantity * factor;
+      await Promise.all([
+        ctx.drizzle.delete(userItem).where(eq(userItem.id, input.userItemId)),
+        ctx.drizzle
+          .update(userData)
+          .set({ money: sql`${userData.money} + ${cost}` })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      return {
+        success: true,
+        message: `You sold ${useritem.item.name} for ${cost} ryo`,
+      };
     }),
   // Use user item
   toggleEquip: protectedProcedure
