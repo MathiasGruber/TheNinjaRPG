@@ -38,7 +38,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   return (
     <>
       <div
-        className={`grid grid-cols-6 text-xs md:grid-cols-8 ${
+        className={`grid gap-1 grid-cols-3 sm:grid-cols-5 md:grid-cols-8 text-xs ${
           props.showBgColor ? "border-b-2 border-l-2 border-r-2 bg-slate-50" : ""
         }`}
       >
@@ -69,8 +69,8 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           return (
             <div key={i} ref={i === filtered.length - 1 ? props.setLastElement : null}>
               <ActionOption
-                className={`pr-1 ${
-                  isHighlight ? "rounded-xl border-4 border-amber-500 bg-amber-300" : ""
+                className={`pr-1 h-full  ${
+                  isHighlight ? "rounded-xl border-2 border-amber-500 bg-amber-300" : ""
                 } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
                 src={item.image}
                 isGreyed={isGreyed}

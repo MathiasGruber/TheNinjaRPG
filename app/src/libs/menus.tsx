@@ -6,7 +6,7 @@ import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
-import type { UserWithRelations } from "../server/api/routers/profile";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export interface NavBarDropdownLink {
   href: string;

@@ -12,7 +12,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
-import type { Item, UserItem, ItemSlot } from "../../drizzle/schema";
+import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
 const MyItems: NextPage = () => {
@@ -124,13 +124,11 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             <>
               <ItemWithEffects item={item} key={item.id} showStatistic="item" />
               <div className="flex flex-row">
-                {item.canStack && (
-                  <>
-                    <Button id="merge" onClick={() => merge({ itemId: item.itemId })}>
-                      <Merge className="mr-2 h-5 w-5" />
-                      Merge Stacks
-                    </Button>
-                  </>
+                {item.canStack > 0 && (
+                  <Button id="merge" onClick={() => merge({ itemId: item.itemId })}>
+                    <Merge className="mr-2 h-5 w-5" />
+                    Merge Stacks
+                  </Button>
                 )}
                 <div className="grow"></div>
                 <Button
@@ -139,7 +137,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   onClick={() => sell({ userItemId: item.id })}
                 >
                   <CircleDollarSign className="mr-2 h-5 w-5" />
-                  Sell Item
+                  Sell Item [{Math.floor(item.cost / 2)} ryo]
                 </Button>
               </div>
             </>
