@@ -57,11 +57,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     : data;
   const bloodlineData = bloodlines?.find((b) => b.id === bloodline);
 
-  // If fixed bloodline, set the bloodline state to that
-  useEffect(() => {
-    if (fixedBloodline) setBloodline(fixedBloodline);
-  }, [fixedBloodline, setBloodline]);
-
   // Name search schema
   const form = useForm<SearchNameSchema>({
     resolver: zodResolver(searchNameSchema),
