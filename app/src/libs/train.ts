@@ -3,7 +3,7 @@ import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
 import type { LetterRank } from "@/drizzle/constants";
-import type { TrainingSpeed } from "@/drizzle/constants";
+import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 
@@ -236,4 +236,15 @@ export const energyPerSecond = (speed: TrainingSpeed) => {
     default:
       throw Error("Invalid training speed");
   }
+};
+
+// Jutsu experience gain based on battle type
+export const battleJutsuExp = (battleType: BattleType) => {
+  switch (battleType) {
+    case "COMBAT":
+      return 30;
+    case "ARENA":
+      return 20;
+  }
+  return 0;
 };

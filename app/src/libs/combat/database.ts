@@ -1,11 +1,13 @@
 import { nanoid } from "nanoid";
-import { eq, and, sql, inArray } from "drizzle-orm";
-import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs//travel/constants";
-import { battle, battleAction, userData, userItem } from "@/drizzle/schema";
+import { eq, and, sql, lt, gte, inArray } from "drizzle-orm";
+import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs/travel/constants";
+import { battle, battleAction, userData, userItem, userJutsu } from "@/drizzle/schema";
 import { kageDefendedChallenges, village, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
+import { battleJutsuExp } from "@/libs/train";
+import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { Battle } from "@/drizzle/schema";
@@ -243,6 +245,10 @@ export const updateUser = async (
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
+    // Any jutsus to be updated
+    const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
+    const jUnique = [...new Set(jUsage)];
+    const jExp = battleJutsuExp(curBattle.battleType);
     // Update user & user items
     await Promise.all([
       // Delete items
@@ -257,6 +263,31 @@ export const updateUser = async (
               .set({ quantity: ui.quantity })
               .where(eq(userItem.id, ui.id)),
           )
+        : []),
+      // Jutsu experience & level from experience
+      ...(jUnique.length > 0 && jExp > 0
+        ? [
+            client
+              .update(userJutsu)
+              .set({ experience: sql`${userJutsu.experience} + ${jExp}` })
+              .where(
+                and(
+                  eq(userJutsu.userId, user.userId),
+                  lt(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
+                  inArray(userJutsu.jutsuId, jUnique),
+                ),
+              ),
+            client
+              .update(userJutsu)
+              .set({ level: sql`${userJutsu.level} + 1`, experience: 0 })
+              .where(
+                and(
+                  eq(userJutsu.userId, user.userId),
+                  gte(userJutsu.experience, JUTSU_XP_TO_LEVEL),
+                  inArray(userJutsu.jutsuId, jUnique),
+                ),
+              ),
+          ]
         : []),
       // Update user data
       client

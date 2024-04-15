@@ -10,8 +10,9 @@ import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
+import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import type { NextPage } from "next";
-import type { Jutsu, UserJutsu } from "../../drizzle/schema";
+import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 
 const MyJutsu: NextPage = () => {
   // Settings
@@ -138,7 +139,10 @@ const MyJutsu: NextPage = () => {
               : "bg-red-600 text-white hover:bg-red-700"
           }
         >
-          <p className="pb-3">You have {userData.money} ryo in your pocket</p>
+          <p>- You have {userData.money} ryo in your pocket</p>
+          <p className="pb-3">
+            - Need {JUTSU_XP_TO_LEVEL - userjutsu.experience} XP more to level
+          </p>
           {!isPending && (
             <>
               <ItemWithEffects

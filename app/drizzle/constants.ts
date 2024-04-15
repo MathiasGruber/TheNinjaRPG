@@ -233,3 +233,6 @@ export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
 
 // Sensei config
 export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
+
+// Training config
+export const JUTSU_XP_TO_LEVEL = 1000;

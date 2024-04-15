@@ -1027,6 +1027,7 @@ export const userJutsu = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     level: int("level").default(1).notNull(),
+    experience: int("experience").default(0).notNull(),
     equipped: tinyint("equipped").default(0).notNull(),
     finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
   },
