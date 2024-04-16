@@ -20,7 +20,7 @@ interface RichInputProps {
 
 const RichInput: React.FC<RichInputProps> = (props) => {
   // Reference for emoji element
-  const emojiRef = useRef<HTMLElement | null>(null);
+  const emojiRef = useRef<HTMLDivElement | null>(null);
 
   // Is emoji popover open
   const [emojiOpen, setEmojiOpen] = useState(false);
