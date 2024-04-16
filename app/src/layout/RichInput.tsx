@@ -80,7 +80,12 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           rules={{ required: true }}
           render={({ field }) => {
             return (
-              <Textarea {...field} placeholder={props.placeholder} className="w-full" />
+              <Textarea
+                {...field}
+                autoFocus
+                placeholder={props.placeholder}
+                className="w-full"
+              />
             );
           }}
         />

@@ -421,7 +421,15 @@ const removeFromSquad = async (
       .update(anbuSquad)
       .set({ leaderId: otherUser?.userId ?? null })
       .where(eq(anbuSquad.id, squad.id)),
-    nMembers <= 1 ? client.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)) : null,
+    ...(nMembers <= 1
+      ? [
+          client.delete(anbuSquad).where(eq(anbuSquad.id, squad.id)),
+          client
+            .update(userData)
+            .set({ anbuId: null })
+            .where(eq(userData.anbuId, squad.id)),
+        ]
+      : []),
   ]);
 };
 
