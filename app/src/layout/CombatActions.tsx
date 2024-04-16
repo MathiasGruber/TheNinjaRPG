@@ -38,7 +38,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   return (
     <>
       <div
-        className={`grid gap-1 grid-cols-3 sm:grid-cols-5 md:grid-cols-8 text-xs ${
+        className={`grid gap-1 grid-cols-6 md:grid-cols-8 text-xs ${
           props.showBgColor ? "border-b-2 border-l-2 border-r-2 bg-slate-50" : ""
         }`}
       >
