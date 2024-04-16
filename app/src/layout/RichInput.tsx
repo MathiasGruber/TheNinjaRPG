@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { SendHorizontal, PartyPopper } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
@@ -20,6 +19,9 @@ interface RichInputProps {
 }
 
 const RichInput: React.FC<RichInputProps> = (props) => {
+  // Reference for emoji element
+  const emojiRef = useRef<HTMLElement | null>(null);
+
   // Is emoji popover open
   const [emojiOpen, setEmojiOpen] = useState(false);
 
@@ -43,6 +45,21 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Handler for clicks outside emoji selector
+  const handleOutsideClick = (e: MouseEvent) => {
+    if (emojiRef.current && !emojiRef.current.contains(e.target as HTMLElement)) {
+      setEmojiOpen(false);
+    }
+  };
+
+  // Handle clicks outside of the emoji element
+  useEffect(() => {
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  });
 
   const { field } = useController({
     name: props.id,
@@ -68,21 +85,25 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           }}
         />
 
-        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-          <PopoverTrigger>
-            <PartyPopper className="absolute top-[50%] translate-y-[-50%] right-14 h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50" />
-          </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={0}>
-            <EmojiPicker
-              onEmojiClick={(emojiData) => {
-                const current = (field.value as string) || "";
-                field.onChange(current + emojiData.emoji);
-                setEmojiOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+        <div
+          className="z-50 absolute top-0 left-[50%] translate-x-[-50%]"
+          ref={emojiRef}
+        >
+          <EmojiPicker
+            open={emojiOpen}
+            lazyLoadEmojis={true}
+            onEmojiClick={(emojiData) => {
+              const current = (field.value as string) || "";
+              field.onChange(current + emojiData.emoji);
+              setEmojiOpen(false);
+            }}
+          />
+        </div>
 
+        <PartyPopper
+          className="absolute top-[50%] translate-y-[-50%] right-14 h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+          onClick={() => setEmojiOpen(!emojiOpen)}
+        />
         <SendHorizontal
           className="absolute top-[50%] translate-y-[-50%] right-5 h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
           onClick={(e) => props.onSubmit && props.onSubmit(e)}
