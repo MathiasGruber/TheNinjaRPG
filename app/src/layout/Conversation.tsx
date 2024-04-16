@@ -170,7 +170,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                 refreshKey={editorKey}
                 height="120"
                 disabled={isCommenting}
-                placeholder=""
+                placeholder="Write comment..."
                 control={control}
                 error={errors.comment?.message}
                 onSubmit={handleSubmitComment}
@@ -179,7 +179,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                 {isCommenting && <Loader />}
               </div>
               <RefreshCw
-                className="h-10 w-10 absolute right-5 top-3 z-50 text-gray-400 hover:text-gray-600 hover:cursor-pointer"
+                className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-50 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
                 onClick={() => refetch()}
               />
             </div>

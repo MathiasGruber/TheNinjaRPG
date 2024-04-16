@@ -77,9 +77,6 @@ dependencies:
   '@tanstack/react-query-devtools':
     specifier: ^5.24.8
     version: 5.24.8(@tanstack/react-query@5.24.8)(react@18.2.0)
-  '@tinymce/tinymce-react':
-    specifier: 5.0.1
-    version: 5.0.1(react-dom@18.2.0)(react@18.2.0)
   '@trpc/client':
     specifier: 11.0.0-next-beta.308
     version: 11.0.0-next-beta.308(@trpc/server@11.0.0-next-beta.308)
@@ -137,6 +134,9 @@ dependencies:
   drizzle-zod:
     specifier: 0.5.1
     version: 0.5.1(drizzle-orm@0.30.8)(zod@3.22.4)
+  emoji-picker-react:
+    specifier: ^4.9.2
+    version: 4.9.2(react@18.2.0)
   highlight.run:
     specifier: 8.9.0
     version: 8.9.0
@@ -218,9 +218,6 @@ dependencies:
   three:
     specifier: 0.160.1
     version: 0.160.1
-  tinymce:
-    specifier: ^7.0.1
-    version: 7.0.1
   uploadthing:
     specifier: 6.3.1
     version: 6.3.1
@@ -2338,18 +2335,6 @@ packages:
       react: 18.2.0
     dev: false
 
-  /@tinymce/tinymce-react@5.0.1(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-tw6yNRqrMGP1iJNeY14wvGsUayC9fc1QpJa7tAvdmeBrUlllyF9PpsrbfvYd+2k8t+w0r2Hq+foTzLZ1d27Fyw==}
-    peerDependencies:
-      react: ^18.0.0 || ^17.0.1 || ^16.7.0
-      react-dom: ^18.0.0 || ^17.0.1 || ^16.7.0
-    dependencies:
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      tinymce: 7.0.1
-    dev: false
-
   /@trpc/client@11.0.0-next-beta.308(@trpc/server@11.0.0-next-beta.308):
     resolution: {integrity: sha512-bg8EV6qVZZl6/v9HhfmntEbPcjtzi3MFhdHUv9l24HLkLAJPvBCMMsjjFZG6PX+jwyXTFjSBGzaXwpnNtdE1tQ==}
     peerDependencies:
@@ -3935,6 +3920,16 @@ packages:
     resolution: {integrity: sha512-EeS1oQDCmnYsRDRy2zTeC336a/4LZ6WKqvSaM1jLocEk5ZuyszkQtCpsqvuvaIXGOUjwtvF6LTcS8WueibXvSw==}
     dev: true
 
+  /emoji-picker-react@4.9.2(react@18.2.0):
+    resolution: {integrity: sha512-pdvLKpto0DMrjE+/8V9QeYjrMcOkJmqBn3GyCSG2zanY32rN2cnWzBUmzArvapAjzBvgf7hNmJP8xmsdu0cmJA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>=16'
+    dependencies:
+      flairup: 0.0.38
+      react: 18.2.0
+    dev: false
+
   /emoji-regex@10.3.0:
     resolution: {integrity: sha512-QpLs9D9v9kArv4lfDEgg1X/gN5XLnf/A6l9cs8SPZLRZR3ZkY9+kwIQTxm+fsSej5UMYGE8fdoaZVIBlqG0XTw==}
     dev: false
@@ -4619,6 +4614,10 @@ packages:
     dependencies:
       locate-path: 6.0.0
       path-exists: 4.0.0
+
+  /flairup@0.0.38:
+    resolution: {integrity: sha512-W9QA5TM7eYNlGoBYwfVn/o6v4yWBCxfq4+EJ5w774oFeyWvVWnYq6Dgt4CJltjG9y/lPwbOqz3jSSr8K66ToGg==}
+    dev: false
 
   /flat-cache@3.0.4:
     resolution: {integrity: sha512-dm9s5Pw7Jc0GvMYbshN6zchCA9RgQlzzEZX3vylR9IqFfS8XciblUXOKfW6SiuJ0e13eDYZoZV5wdrev7P3Nwg==}
@@ -7153,10 +7152,6 @@ packages:
 
   /tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
-    dev: false
-
-  /tinymce@7.0.1:
-    resolution: {integrity: sha512-0a7DJnhniBx2psRuKcVQ9g4hujN6PAR4fPS0NSF1T1luH1RBDZVVEn2pGND6Ly+AW1lUm/cHOHjsasqBelMhbw==}
     dev: false
 
   /titleize@2.1.0:

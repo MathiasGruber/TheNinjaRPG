@@ -38,7 +38,6 @@
     "@radix-ui/react-tooltip": "^1.0.7",
     "@tanstack/react-query": "5.24.8",
     "@tanstack/react-query-devtools": "^5.24.8",
-    "@tinymce/tinymce-react": "5.0.1",
     "@trpc/client": "11.0.0-next-beta.308",
     "@trpc/next": "11.0.0-next-beta.308",
     "@trpc/react-query": "11.0.0-next-beta.308",
@@ -58,6 +57,7 @@
     "dotenv": "^16.1.4",
     "drizzle-orm": "0.30.8",
     "drizzle-zod": "0.5.1",
+    "emoji-picker-react": "^4.9.2",
     "highlight.run": "8.9.0",
     "honeycomb-grid": "4.1.1",
     "html2canvas": "1.4.1",
@@ -85,7 +85,6 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "three": "0.160.1",
-    "tinymce": "^7.0.1",
     "uploadthing": "6.3.1",
     "zod": "3.22.4"
   },
