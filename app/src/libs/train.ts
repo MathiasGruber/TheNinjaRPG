@@ -239,12 +239,12 @@ export const energyPerSecond = (speed: TrainingSpeed) => {
 };
 
 // Jutsu experience gain based on battle type
-export const battleJutsuExp = (battleType: BattleType) => {
+export const battleJutsuExp = (battleType: BattleType, experienceGain: number) => {
   switch (battleType) {
     case "COMBAT":
-      return 30;
+      return experienceGain;
     case "ARENA":
-      return 20;
+      return experienceGain * 0.5;
   }
   return 0;
 };
