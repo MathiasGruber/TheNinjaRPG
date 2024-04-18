@@ -213,14 +213,19 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Destroy on use</b>: {item.destroyOnUse ? "yes" : "no"}
               </p>
             )}
-            {"chakraCostPerc" in item && item.chakraCostPerc > 0 && (
+            {"chakraCost" in item && item.chakraCost > 0 && (
               <p>
-                <b>CP Use</b>: {item.chakraCostPerc}%
+                <b>CP Use</b>: {item.chakraCost}
               </p>
             )}
-            {"staminaCostPerc" in item && item.staminaCostPerc > 0 && (
+            {"staminaCost" in item && item.staminaCost > 0 && (
               <p>
-                <b>SP Use</b>: {item.staminaCostPerc}%
+                <b>SP Use</b>: {item.staminaCost}
+              </p>
+            )}
+            {"healthCost" in item && item.healthCost > 0 && (
+              <p>
+                <b>HP Use</b>: {item.healthCost}
               </p>
             )}
             {"target" in item && (

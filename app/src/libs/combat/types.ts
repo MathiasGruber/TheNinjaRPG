@@ -114,9 +114,9 @@ export type CombatAction = {
   target: (typeof AttackTargets)[number];
   method: (typeof AttackMethods)[number];
   range: number;
-  healthCostPerc: number;
-  chakraCostPerc: number;
-  staminaCostPerc: number;
+  healthCost: number;
+  chakraCost: number;
+  staminaCost: number;
   actionCostPerc: number;
   updatedAt: number;
   cooldown: number;
@@ -770,9 +770,9 @@ export const JutsuValidator = z
     target: z.enum(AttackTargets),
     range: z.coerce.number().int().min(0).max(5),
     hidden: z.coerce.number().int().min(0).max(1).optional(),
-    healthCostPerc: z.coerce.number().min(0).max(100).optional(),
-    chakraCostPerc: z.coerce.number().min(0).max(100).optional(),
-    staminaCostPerc: z.coerce.number().min(0).max(100).optional(),
+    healthCost: z.coerce.number().min(0).max(10000).optional(),
+    chakraCost: z.coerce.number().min(0).max(10000).optional(),
+    staminaCost: z.coerce.number().min(0).max(10000).optional(),
     actionCostPerc: z.coerce.number().int().min(10).max(100).optional(),
     cooldown: z.coerce.number().int().min(0).max(300),
     bloodlineId: z.string().nullable().optional(),
@@ -809,9 +809,9 @@ export const ItemValidator = z
     canStack: z.coerce.number().min(0).max(1).optional(),
     stackSize: z.coerce.number().int().min(1).max(100).optional(),
     destroyOnUse: z.coerce.number().min(0).max(1).optional(),
-    chakraCostPerc: z.coerce.number().int().min(0).max(100).optional(),
-    healthCostPerc: z.coerce.number().int().min(0).max(100).optional(),
-    staminaCostPerc: z.coerce.number().int().min(0).max(100).optional(),
+    chakraCost: z.coerce.number().int().min(0).max(100).optional(),
+    healthCost: z.coerce.number().int().min(0).max(100).optional(),
+    staminaCost: z.coerce.number().int().min(0).max(100).optional(),
     actionCostPerc: z.coerce.number().int().min(1).max(100).optional(),
     hidden: z.coerce.number().int().min(0).max(1).optional(),
     cooldown: z.coerce.number().int().min(0).max(300),

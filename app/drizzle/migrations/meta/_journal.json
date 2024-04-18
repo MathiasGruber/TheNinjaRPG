@@ -540,6 +540,13 @@
       "when": 1713210546379,
       "tag": "0076_last_mesmero",
       "breakpoints": false
+    },
+    {
+      "idx": 77,
+      "version": "5",
+      "when": 1713439994562,
+      "tag": "0077_warm_scorpion",
+      "breakpoints": false
     }
   ]
 }

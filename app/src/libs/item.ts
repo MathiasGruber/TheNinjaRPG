@@ -81,10 +81,10 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "stackSize", type: "number" },
     { id: "destroyOnUse", type: "number" },
     { id: "range", type: "number" },
-    { id: "chakraCostPerc", type: "number" },
-    { id: "staminaCostPerc", type: "number" },
+    { id: "chakraCost", type: "number" },
+    { id: "staminaCost", type: "number" },
     { id: "actionCostPerc", type: "number" },
-    { id: "healthCostPerc", type: "number" },
+    { id: "healthCost", type: "number" },
     { id: "hidden", type: "number", label: "Hidden" },
   ];
 

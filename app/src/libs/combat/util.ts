@@ -214,9 +214,9 @@ export const calcPoolCost = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  let hpCost = (action.healthCostPerc * target.maxHealth) / 100;
-  let cpCost = (action.chakraCostPerc * target.maxChakra) / 100;
-  let spCost = (action.staminaCostPerc * target.maxStamina) / 100;
+  let hpCost = action.healthCost;
+  let cpCost = action.chakraCost;
+  let spCost = action.staminaCost;
   usersEffects
     .filter(
       (e) =>
