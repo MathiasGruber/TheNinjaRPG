@@ -286,7 +286,7 @@ export const updateUser = async (
               .where(
                 and(
                   eq(userJutsu.userId, user.userId),
-                  gte(userJutsu.experience, JUTSU_XP_TO_LEVEL),
+                  gte(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
                   inArray(userJutsu.jutsuId, jUnique),
                 ),
               ),
