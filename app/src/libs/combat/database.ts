@@ -8,6 +8,7 @@ import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
 import { battleJutsuExp } from "@/libs/train";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
+import { JUTSU_LEVEL_CAP } from "@/libs/train";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { Battle } from "@/drizzle/schema";
@@ -249,9 +250,6 @@ export const updateUser = async (
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
     const jExp = battleJutsuExp(curBattle.battleType, result.experience);
-    console.log("=========");
-    console.log(jUnique, jExp);
-    console.log("=========");
     // Update user & user items
     await Promise.all([
       // Delete items
@@ -277,6 +275,7 @@ export const updateUser = async (
                 and(
                   eq(userJutsu.userId, user.userId),
                   lt(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
+                  lt(userJutsu.level, JUTSU_LEVEL_CAP),
                   inArray(userJutsu.jutsuId, jUnique),
                 ),
               ),
@@ -286,6 +285,7 @@ export const updateUser = async (
               .where(
                 and(
                   eq(userJutsu.userId, user.userId),
+                  lt(userJutsu.level, JUTSU_LEVEL_CAP),
                   gte(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
                   inArray(userJutsu.jutsuId, jUnique),
                 ),
