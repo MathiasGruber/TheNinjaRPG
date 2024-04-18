@@ -87,6 +87,7 @@ export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
 };
 
 export const JUTSU_LEVEL_CAP = 20;
+export const JUTSU_TRAIN_LEVEL_CAP = 30;
 
 export const SENSEI_JUTSU_TRAINING_BOOST_PERC = 5;
 

@@ -8,7 +8,7 @@ import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
 import { battleJutsuExp } from "@/libs/train";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
-import { JUTSU_LEVEL_CAP } from "@/libs/train";
+import { JUTSU_TRAIN_LEVEL_CAP } from "@/libs/train";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { Battle } from "@/drizzle/schema";
@@ -275,7 +275,7 @@ export const updateUser = async (
                 and(
                   eq(userJutsu.userId, user.userId),
                   lt(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
-                  lt(userJutsu.level, JUTSU_LEVEL_CAP),
+                  lt(userJutsu.level, JUTSU_TRAIN_LEVEL_CAP),
                   inArray(userJutsu.jutsuId, jUnique),
                 ),
               ),
@@ -285,7 +285,7 @@ export const updateUser = async (
               .where(
                 and(
                   eq(userJutsu.userId, user.userId),
-                  lt(userJutsu.level, JUTSU_LEVEL_CAP),
+                  lt(userJutsu.level, JUTSU_TRAIN_LEVEL_CAP),
                   gte(userJutsu.experience, JUTSU_XP_TO_LEVEL - jExp),
                   inArray(userJutsu.jutsuId, jUnique),
                 ),
