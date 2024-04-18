@@ -215,17 +215,22 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             )}
             {"chakraCost" in item && item.chakraCost > 0 && (
               <p>
-                <b>CP Use</b>: {item.chakraCost}
+                <b>Chakra Usage</b>: {item.chakraCost}
               </p>
             )}
             {"staminaCost" in item && item.staminaCost > 0 && (
               <p>
-                <b>SP Use</b>: {item.staminaCost}
+                <b>Stamina Usage</b>: {item.staminaCost}
               </p>
             )}
             {"healthCost" in item && item.healthCost > 0 && (
               <p>
-                <b>HP Use</b>: {item.healthCost}
+                <b>Health Usage</b>: {item.healthCost}
+              </p>
+            )}
+            {"actionCostPerc" in item && item.actionCostPerc > 0 && (
+              <p>
+                <b>Action Usage</b>: {item.actionCostPerc}%
               </p>
             )}
             {"target" in item && (
