@@ -957,7 +957,7 @@ export const seal = (
 
 /** Check if a given effect is sealed based on a list of pre-filtered user effects */
 export const sealCheck = (effect: UserEffect, sealEffects: UserEffect[]) => {
-  if (sealEffects.length > 0 && effect.fromBloodline) {
+  if (sealEffects.length > 0 && effect.fromType === "bloodline") {
     const sealEffect = sealEffects.find((e) => e.targetId === effect.targetId);
     if (sealEffect) {
       return true;

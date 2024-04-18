@@ -343,6 +343,7 @@ export const insertAction = (info: {
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;
+            effect.fromType = action.type;
             if (target && (!tag.target || tag.target === "INHERIT")) {
               // Apply UserEffect to target
               if (checkFriendlyFire(effect, target, alive)) {

@@ -728,7 +728,7 @@ export const processUsersForBattle = (info: {
         realized.isNew = false;
         realized.castThisRound = false;
         realized.targetId = user.userId;
-        realized.fromBloodline = true;
+        realized.fromType = "bloodline";
         userEffects.push(realized);
       });
     }
