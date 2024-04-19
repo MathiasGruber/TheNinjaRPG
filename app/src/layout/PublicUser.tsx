@@ -135,7 +135,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <p>Bloodline: {profile.bloodline?.name || "None"}</p>
             <p>
               Sensei:{" "}
-              {profile.senseiId && profile.sensei ? (
+              {profile.rank === "GENIN" && profile.senseiId && profile.sensei ? (
                 <Link href={`/users/${profile.senseiId}`} className="font-bold">
                   {profile.sensei?.username}
                 </Link>
