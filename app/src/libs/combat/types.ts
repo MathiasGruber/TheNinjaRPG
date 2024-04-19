@@ -534,6 +534,7 @@ export const StunPreventTag = z.object({
   ...BaseAttributes,
   ...PositivePowerAttributes,
   type: z.literal("stunprevent").default("stunprevent"),
+  calculation: z.enum(["percentage"]).default("percentage"),
   description: msg("Prevents being stunned"),
 });
 
