@@ -20,13 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { animationNames } from "@/libs/combat/types";
-import { ElementNames } from "@/drizzle/constants";
+import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters, rarities } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchNameSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
-import type { ElementName } from "@/drizzle/constants";
+import type { ElementName, UserRank } from "@/drizzle/constants";
 import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { StatType, EffectType, RarityType } from "@/libs/train";
@@ -40,10 +40,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity } = props.state;
   const { setAppearAnim, setRemoveAnim, setStaticAnim } = props.state;
-  const { setName, setElement } = props.state;
+  const { setName, setElement, setRank } = props.state;
 
   const { name, bloodline, stat, effect, rarity, element } = props.state;
-  const { appearAnim, staticAnim, removeAnim } = props.state;
+  const { rank, appearAnim, staticAnim, removeAnim } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines
@@ -89,7 +89,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         {/* RARITY */}
         <div>
           <Select onValueChange={(e) => setRarity(e as RarityType)}>
-            <Label htmlFor="rank">Rank</Label>
+            <Label htmlFor="rank">Rarity</Label>
             <SelectTrigger>
               <SelectValue placeholder={rarity} />
             </SelectTrigger>
@@ -97,6 +97,22 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               {rarities.map((rarity) => (
                 <SelectItem key={rarity} value={rarity}>
                   {rarity}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Rank */}
+        <div>
+          <Select onValueChange={(e) => setRank(e as UserRank)}>
+            <Label htmlFor="rank">Required Rank</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={rank} />
+            </SelectTrigger>
+            <SelectContent>
+              {UserRanks.map((rank) => (
+                <SelectItem key={rank} value={rank}>
+                  {rank}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -276,6 +292,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     stat: state.stat !== "None" ? state.stat : undefined,
     effect: state.effect !== "None" ? state.effect : undefined,
     element: state.element !== "None" ? state.element : undefined,
+    rank: state.rank !== "NONE" ? state.rank : undefined,
     rarity: state.rarity !== "ALL" ? state.rarity : undefined,
     appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
     disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
@@ -287,12 +304,13 @@ export const getFilter = (state: JutsuFilteringState) => {
 export const useFiltering = () => {
   // State variables
   type None = "None";
+  const [rarity, setRarity] = useState<RarityType>("ALL");
+  const [rank, setRank] = useState<UserRank>("NONE");
   const [name, setName] = useState<string>("");
   const [bloodline, setBloodline] = useState<string>("None");
   const [stat, setStat] = useState<StatType | None>("None");
   const [effect, setEffect] = useState<EffectType | None>("None");
   const [element, setElement] = useState<ElementName | None>("None");
-  const [rarity, setRarity] = useState<RarityType>("ALL");
   const [appearAnim, setAppearAnim] = useState<AnimationName | None>("None");
   const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
   const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
@@ -304,6 +322,7 @@ export const useFiltering = () => {
     stat,
     effect,
     rarity,
+    rank,
     appearAnim,
     staticAnim,
     removeAnim,
@@ -313,6 +332,7 @@ export const useFiltering = () => {
     setStat,
     setEffect,
     setRarity,
+    setRank,
     setAppearAnim,
     setStaticAnim,
     setRemoveAnim,

@@ -15,7 +15,8 @@ import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
-import { statFilters, effectFilters, mainFilters } from "@/libs/train";
+import { statFilters, effectFilters } from "@/libs/train";
+import { UserRanks } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -41,8 +42,8 @@ export const jutsuRouter = createTRPCRouter({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
         hideAi: z.boolean().optional(),
-        filter: z.enum(mainFilters).optional(),
         rarity: z.enum(LetterRanks).optional(),
+        rank: z.enum(UserRanks).optional(),
         bloodline: z.string().optional(),
         stat: z.enum(statFilters).optional(),
         effect: z.string().optional(),
@@ -65,6 +66,11 @@ export const jutsuRouter = createTRPCRouter({
             input.rarity
               ? eq(jutsu.jutsuRank, input.rarity)
               : isNotNull(jutsu.jutsuRank),
+          ],
+          ...[
+            input.rank
+              ? eq(jutsu.requiredRank, input.rank)
+              : isNotNull(jutsu.requiredRank),
           ],
           ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
           ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
@@ -96,10 +102,7 @@ export const jutsuRouter = createTRPCRouter({
               ]
             : []),
         ),
-        orderBy: (table, { desc, asc }) =>
-          input.filter === "Most Recent"
-            ? desc(table.createdAt)
-            : asc(table.bloodlineId),
+        orderBy: (table, { desc }) => desc(table.updatedAt),
         offset: skip,
         with: {
           bloodline: {
