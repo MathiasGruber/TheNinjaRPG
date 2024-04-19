@@ -312,8 +312,6 @@ const MenuBoxProfile: React.FC = () => {
                       return showStat(effect, "protection", i, "text-green-500", "↑");
                     } else if (effect.type === "decreasearmor") {
                       return showStat(effect, "protection", i, "text-red-500", "↓");
-                    } else if (effect.type === "poolcostadjust") {
-                      return show(i, `Action cost ${cooldown}`, className, arrow);
                     } else if (effect.type === "increasepoolcost") {
                       return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
                     } else if (effect.type === "decreasepoolcost") {
@@ -337,6 +335,10 @@ const MenuBoxProfile: React.FC = () => {
                       return show(i, `Seal immunity ${cooldown}`, "text-blue-500", "-");
                     } else if (effect.type === "seal" && effect.rounds) {
                       return show(i, `BL Sealed ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "clear") {
+                      return show(i, `Clearing positive effects`, "text-blue-500", "-");
+                    } else if (effect.type === "cleanse") {
+                      return show(i, `Clearing negative effects`, "text-blue-500", "-");
                     } else {
                       return <div key={i}>Unparsed: {effect.type}</div>;
                     }

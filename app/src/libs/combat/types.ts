@@ -243,11 +243,6 @@ const BaseAttributes = {
 };
 
 const PowerAttributes = {
-  power: z.coerce.number().min(-100).max(100).default(1),
-  powerPerLevel: z.coerce.number().min(-1).max(1).default(0),
-};
-
-const PositivePowerAttributes = {
   power: z.coerce.number().min(1).max(100).default(1),
   powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 };
@@ -272,7 +267,7 @@ const IncludeStats = {
 export const AbsorbTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("absorb").default("absorb"),
   calculation: z.enum(["percentage"]).default("percentage"),
   direction: type("defence"),
@@ -284,7 +279,7 @@ export const AbsorbTag = z.object({
 export const IncreaseArmorTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("increasearmor").default("increasearmor"),
   description: msg("Increase armor rating of target"),
 });
@@ -292,7 +287,7 @@ export const IncreaseArmorTag = z.object({
 export const DecreaseArmorTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("decreasearmor").default("decreasearmor"),
   description: msg("Decrease armor rating of target"),
 });
@@ -300,7 +295,7 @@ export const DecreaseArmorTag = z.object({
 export const IncreaseDamageGivenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("increasedamagegiven").default("increasedamagegiven"),
   description: msg("Increase damage given by target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -309,7 +304,7 @@ export const IncreaseDamageGivenTag = z.object({
 export const DecreaseDamageGivenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("decreasedamagegiven").default("decreasedamagegiven"),
   description: msg("Decrease damage given by target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -318,7 +313,7 @@ export const DecreaseDamageGivenTag = z.object({
 export const IncreaseDamageTakenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("increasedamagetaken").default("increasedamagetaken"),
   description: msg("Increase damage taken of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -327,7 +322,7 @@ export const IncreaseDamageTakenTag = z.object({
 export const DecreaseDamageTakenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("decreasedamagetaken").default("decreasedamagetaken"),
   description: msg("Decrease damage taken of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -336,7 +331,7 @@ export const DecreaseDamageTakenTag = z.object({
 export const IncreaseHealGivenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("increaseheal").default("increaseheal"),
   description: msg("Increase how much target can heal others"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -345,26 +340,15 @@ export const IncreaseHealGivenTag = z.object({
 export const DecreaseHealGivenTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("decreaseheal").default("decreaseheal"),
   description: msg("Decrease how much target can heal others"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
-export const AdjustPoolCostTag = z.object({
-  ...BaseAttributes,
-  ...PowerAttributes,
-  ...PoolAttributes,
-  type: z.literal("poolcostadjust").default("poolcostadjust"),
-  description: msg("Adjust cost of taking actions"),
-  rounds: z.coerce.number().int().min(2).max(20).default(2),
-  direction: type("defence"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
-});
-
 export const IncreasePoolCostTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   ...PoolAttributes,
   type: z.literal("increasepoolcost").default("increasepoolcost"),
   description: msg("Increase cost of taking actions"),
@@ -375,7 +359,7 @@ export const IncreasePoolCostTag = z.object({
 
 export const DecreasePoolCostTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   ...PoolAttributes,
   type: z.literal("decreasepoolcost").default("decreasepoolcost"),
   description: msg("Decrease cost of taking actions"),
@@ -387,7 +371,7 @@ export const DecreasePoolCostTag = z.object({
 export const IncreaseStatTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("increasestat").default("increasestat"),
   description: msg("Increase stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -396,7 +380,7 @@ export const IncreaseStatTag = z.object({
 export const DecreaseStatTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("decreasestat").default("decreasestat"),
   description: msg("Decrease stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -404,7 +388,7 @@ export const DecreaseStatTag = z.object({
 
 export const BarrierTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("barrier").default("barrier"),
   curHealth: z.coerce.number().int().min(1).max(100000).default(100),
   maxHealth: z.coerce.number().int().min(1).max(100000).default(100),
@@ -417,14 +401,21 @@ export type BarrierTagType = z.infer<typeof BarrierTag>;
 
 export const ClearTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("clear").default("clear"),
-  description: msg("Clears all effects from the target"),
+  description: msg("Clears all positive effects from the target"),
+});
+
+export const CleanseTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("cleanse").default("cleanse"),
+  description: msg("Clears all negative effects from the target"),
 });
 
 export const CloneTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("clone").default("clone"),
   description: msg(
     "Create a temporary clone to fight alongside you for a given number of rounds.",
@@ -436,7 +427,7 @@ export const CloneTag = z.object({
 export const DamageTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("damage").default("damage"),
   description: msg("Deals damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
@@ -447,14 +438,14 @@ export type DamageTagType = z.infer<typeof DamageTag>;
 
 export const FleeTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("flee").default("flee"),
   description: msg("Flee the battle"),
 });
 
 export const FleePreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("fleeprevent").default("fleeprevent"),
   description: msg("Prevents fleeing"),
 });
@@ -462,7 +453,7 @@ export const FleePreventTag = z.object({
 export const HealTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("heal").default("heal"),
   description: msg("Heals the target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -470,7 +461,7 @@ export const HealTag = z.object({
 
 export const MoveTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("move").default("move"),
   description: msg("Move on the battlefield"),
 });
@@ -479,14 +470,14 @@ export type MoveTagType = z.infer<typeof MoveTag>;
 
 export const OneHitKillTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("onehitkill").default("onehitkill"),
   description: msg("Instantly kills the target"),
 });
 
 export const OneHitKillPreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("onehitkillprevent").default("onehitkillprevent"),
   description: msg("Prevents instant kill effects"),
 });
@@ -494,7 +485,7 @@ export const OneHitKillPreventTag = z.object({
 export const ReflectTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("reflect").default("reflect"),
   description: msg("Reflect damage taken"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
@@ -502,7 +493,7 @@ export const ReflectTag = z.object({
 
 export const RobPreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("robprevent").default("robprevent"),
   description: msg("Prevents robbing of the target"),
 });
@@ -510,7 +501,7 @@ export const RobPreventTag = z.object({
 export const RobTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("rob").default("rob"),
   description: msg("Robs money from the target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
@@ -518,21 +509,21 @@ export const RobTag = z.object({
 
 export const SealPreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("sealprevent").default("sealprevent"),
   description: msg("Prevents bloodline from being sealed"),
 });
 
 export const SealTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("seal").default("seal"),
   description: msg("Seals the target's bloodline effects"),
 });
 
 export const StunPreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("stunprevent").default("stunprevent"),
   calculation: z.enum(["percentage"]).default("percentage"),
   description: msg("Prevents being stunned"),
@@ -540,21 +531,21 @@ export const StunPreventTag = z.object({
 
 export const StunTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("stun").default("stun"),
   description: msg("Stuns the target"),
 });
 
 export const SummonPreventTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("summonprevent").default("summonprevent"),
   description: msg("Prevents summoning"),
 });
 
 export const SummonTag = z.object({
   ...BaseAttributes,
-  ...PositivePowerAttributes,
+  ...PowerAttributes,
   type: z.literal("summon").default("summon"),
   description: msg(
     "Summon an ally for a certain number of rounds. Its stats are scaled to same total as the summoner, modified by the power of the jutsu as a percentage.",
@@ -590,13 +581,13 @@ const AllTags = z.union([
   DecreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
   DecreaseHealGivenTag.default({}),
-  AdjustPoolCostTag.default({}),
   IncreasePoolCostTag.default({}),
   DecreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   DecreaseStatTag.default({}),
   BarrierTag.default({}),
   ClearTag.default({}),
+  CleanseTag.default({}),
   CloneTag.default({}),
   DamageTag.default({}),
   FleeTag.default({}),
@@ -622,6 +613,67 @@ export const tagTypes = AllTags._def.options
   .map((o) => o._def.innerType.shape.type._def.innerType._def.value)
   .filter((t) => t !== "unknown");
 
+/**
+ * Returns true if it is a positive user effect
+ * @param tag
+ * @returns
+ */
+export const isPositiveUserEffect = (tag: ZodAllTags) => {
+  if (
+    [
+      "absorb",
+      "increasearmor",
+      "increasedamagegiven",
+      "decreasedamagetaken",
+      "increaseheal",
+      "decreasepoolcost",
+      "increasestat",
+      "heal",
+      "move",
+      "onehitkillprevent",
+      "reflect",
+      "robprevent",
+      "sealprevent",
+      "stunprevent",
+      "summon",
+    ].includes(tag.type)
+  ) {
+    return true;
+  }
+  // Default to return true
+  return false;
+};
+
+/**
+ * Returns true if it is a negative user effect
+ * @param tag
+ * @returns
+ */
+export const isNegativeUserEffect = (tag: ZodAllTags) => {
+  if (
+    [
+      "decreasearmor",
+      "decreasedamagegiven",
+      "increasedamagetaken",
+      "decreasehealgiven",
+      "increasepoolcost",
+      "decreasestat",
+      "clear",
+      "damage",
+      "flee",
+      "fleeprevent",
+      "onehitkill",
+      "rob",
+      "seal",
+      "stun",
+      "summonprevent",
+    ].includes(tag.type)
+  ) {
+    return true;
+  }
+  return false;
+};
+
 const BloodlineTags = z.union([
   AbsorbTag.default({}),
   IncreaseArmorTag.default({}),
@@ -632,7 +684,6 @@ const BloodlineTags = z.union([
   DecreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
   DecreaseHealGivenTag.default({}),
-  AdjustPoolCostTag.default({}),
   IncreasePoolCostTag.default({}),
   DecreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),

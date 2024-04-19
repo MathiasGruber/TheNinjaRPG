@@ -13,8 +13,8 @@ import { increaseArmor, decreaseArmor } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
-import { seal, sealPrevent, sealCheck, pooladjust, rob, robPrevent } from "./tags";
-import { clear, summon, summonPrevent } from "./tags";
+import { seal, sealPrevent, sealCheck, rob, robPrevent } from "./tags";
+import { clear, cleanse, summon, summonPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
@@ -234,14 +234,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = heal(e, curTarget, consequences, applyTimes);
           } else if (e.type === "flee" && isTargetOrNew) {
             info = flee(e, newUsersEffects, newTarget);
-          } else if (e.type === "poolcostadjust" && isTargetOrNew) {
-            info = pooladjust(e, curTarget);
           } else if (e.type === "increasepoolcost" && isTargetOrNew) {
             info = increasepoolcost(e, curTarget);
           } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
             info = decreasepoolcost(e, curTarget);
           } else if (e.type === "clear" && isTargetOrNew) {
             info = clear(e, usersEffects, curTarget);
+          } else if (e.type === "cleanse" && isTargetOrNew) {
+            info = cleanse(e, usersEffects, curTarget);
           } else if (e.type === "increasedamagegiven") {
             info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
           } else if (e.type === "decreasedamagegiven") {

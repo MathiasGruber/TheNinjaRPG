@@ -96,7 +96,6 @@ export const shouldApplyEffectTimes = (
     "decreasedamagetaken",
     "increaseheal",
     "decreaseheal",
-    "poolcostadjust",
     "increasepoolcost",
     "decreasepoolcost",
     "increasestat",
@@ -163,9 +162,9 @@ export const sortEffects = (
   const ordered: ZodAllTags["type"][] = [
     // Pre-modifiers
     "clear",
+    "cleanse",
     "increasearmor",
     "decreasearmor",
-    "poolcostadjust",
     "increasepoolcost",
     "decreasepoolcost",
     "increasestat",
@@ -220,7 +219,7 @@ export const calcPoolCost = (
   usersEffects
     .filter(
       (e) =>
-        ["poolcostadjust", "increasepoolcost", "decreasepoolcost"].includes(e.type) &&
+        ["increasepoolcost", "decreasepoolcost"].includes(e.type) &&
         e.targetId === target.userId,
     )
     .forEach((e) => {

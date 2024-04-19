@@ -2,6 +2,7 @@ import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants"
 import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
 import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
+import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames } from "./constants";
@@ -384,37 +385,56 @@ export const decreaseHealGiven = (
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
-export const clear = (
+const removeEffects = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   target: BattleUserState,
+  type: "positive" | "negative",
 ) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
 
   let text =
     effect.isNew && effect.rounds && effect.rounds > 0
-      ? `All status effects may be cleared from ${target.username} during the next ${effect.rounds} rounds. `
+      ? `All ${type} status effects may be cleared from ${target.username} during the next ${effect.rounds} rounds. `
       : "";
 
   if (mainCheck) {
-    text = `${target.username} will be cleared of status effects on their next round. `;
+    text = `${target.username} will be cleared of ${type} status effects on their next round. `;
     effect.rounds = 2;
     effect.power = 100;
   } else {
-    text += `${target.username} could not be cleared of status effects this round. `;
+    text += `${target.username} could not be cleared of ${type} status effects this round. `;
   }
 
   if (!effect.castThisRound && effect.power === 100) {
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
+      .filter((e) => e.fromType !== "bloodline")
+      .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .map((e) => {
         e.rounds = 0;
       });
-    text = `${target.username} was cleared of all status effects. `;
+    text = `${target.username} was cleared of all ${type} status effects. `;
     effect.rounds = 0;
   }
   return { txt: text, color: "blue" } as ActionEffect;
+};
+
+export const clear = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  return removeEffects(effect, usersEffects, target, "positive");
+};
+
+export const cleanse = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  return removeEffects(effect, usersEffects, target, "negative");
 };
 
 /** Clone user on the battlefield */
