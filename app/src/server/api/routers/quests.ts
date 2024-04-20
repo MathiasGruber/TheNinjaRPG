@@ -144,10 +144,10 @@ export const questsRouter = createTRPCRouter({
         where: and(
           eq(quest.questType, input.type),
           eq(quest.requiredRank, input.rank),
+          eq(quest.hidden, 0),
           or(
             isNull(quest.requiredVillage),
             eq(quest.requiredVillage, user.villageId ?? ""),
-            eq(quest.hidden, 0),
           ),
         ),
       });
