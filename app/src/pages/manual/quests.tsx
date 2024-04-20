@@ -46,7 +46,10 @@ const ManualTravel: NextPage = () => {
       placeholderData: (previousData) => previousData,
     },
   );
-  const allQuests = quests?.pages.map((page) => page.data).flat();
+  const allQuests = quests?.pages
+    .map((page) => page.data)
+    .flat()
+    .map((q) => ({ ...q, village: q.village?.name ?? "Any" }));
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations

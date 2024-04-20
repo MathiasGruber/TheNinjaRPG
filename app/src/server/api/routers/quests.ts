@@ -44,6 +44,7 @@ export const questsRouter = createTRPCRouter({
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.quest.findMany({
+        with: { village: true },
         where: and(
           ...[
             input.questType

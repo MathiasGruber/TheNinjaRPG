@@ -1355,6 +1355,13 @@ export const quest = mysqlTable(
 );
 export type Quest = InferSelectModel<typeof quest>;
 
+export const questRelations = relations(quest, ({ one }) => ({
+  village: one(village, {
+    fields: [quest.requiredVillage],
+    references: [village.id],
+  }),
+}));
+
 export const questHistory = mysqlTable(
   "QuestHistory",
   {
