@@ -707,13 +707,15 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       }
       if (form.formState.isValid) {
         const newObjectives = [...objectives];
-        newObjectives[idx] = watchAll;
+        const parsedTag = objectiveSchema.safeParse(watchAll);
+        const shownTag = parsedTag.success ? parsedTag.data : watchAll;
+        newObjectives[idx] = shownTag;
         setObjectives(newObjectives);
       }
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.formState.isDirty, form.formState.isValid]);
+  }, [objectiveSchema, form.formState.isDirty, form.formState.isValid]);
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof AllObjectivesType;

@@ -25,6 +25,8 @@ import { secondsPassed } from "@/utils/time";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
+import { fetchUserItems } from "@/routers/item";
+import type { CollectItemType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
@@ -359,8 +361,14 @@ export const questsRouter = createTRPCRouter({
       const isMission = userQuest?.quest.questType === "mission";
       const senseiId = hasSensei && isMission ? user.senseiId : null;
 
+      // Get potential items to delete
+      const itemQuests = userQuest?.quest.content.objectives.filter(
+        (o) => o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
+      ) as CollectItemType[];
+      const deleteItemIds = itemQuests.map((o) => o.collect_item_id) as string[];
+
       // Fetch names from the database
-      const [items, jutsus, badges] = await Promise.all([
+      const [items, jutsus, badges, useritems] = await Promise.all([
         // Fetch names from the database
         rewards.reward_items.length > 0
           ? ctx.drizzle
@@ -389,7 +397,13 @@ export const questsRouter = createTRPCRouter({
                 and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
               )
           : [],
+        deleteItemIds.length > 0 ? fetchUserItems(ctx.drizzle, ctx.userId) : null,
       ]);
+
+      // Filter down the items to be deleted to only those the user has
+      const deleteUserItemIds = deleteItemIds
+        .filter((id) => useritems?.find((i) => i.itemId === id))
+        .map((id) => useritems?.find((i) => i.itemId === id)?.id) as string[];
 
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
@@ -449,6 +463,17 @@ export const questsRouter = createTRPCRouter({
                 and(
                   eq(questHistory.questId, input.questId),
                   eq(questHistory.userId, ctx.userId),
+                ),
+              )
+          : undefined,
+        // Delete quest items
+        deleteItemIds.length > 0
+          ? ctx.drizzle
+              .delete(userItem)
+              .where(
+                and(
+                  eq(userItem.userId, ctx.userId),
+                  inArray(userItem.id, deleteUserItemIds),
                 ),
               )
           : undefined,

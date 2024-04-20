@@ -104,8 +104,10 @@ export const CollectItem = z.object({
   task: z.literal("collect_item").default("collect_item"),
   item_name: z.string().min(3).default("Secret scroll"),
   collect_item_id: z.string().optional().nullish(),
+  delete_on_complete: z.coerce.number().min(0).max(1).default(0),
   ...complexObjectiveFields,
 });
+export type CollectItemType = z.infer<typeof CollectItem>;
 
 export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
