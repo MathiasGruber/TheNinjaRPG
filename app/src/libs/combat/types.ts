@@ -154,6 +154,7 @@ export type Consequence = {
   heal?: number;
   damage?: number;
   reflect?: number;
+  recoil?: number;
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
@@ -474,6 +475,15 @@ export const ReflectTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
+export const RecoilTag = z.object({
+  ...BaseAttributes,
+  ...IncludeStats,
+  ...PowerAttributes,
+  type: z.literal("recoil").default("recoil"),
+  description: msg("Recoil damage given back to self"),
+  calculation: z.enum(["static", "percentage"]).default("percentage"),
+});
+
 export const RobPreventTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -578,6 +588,7 @@ const AllTags = z.union([
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   ReflectTag.default({}),
+  RecoilTag.default({}),
   RobPreventTag.default({}),
   RobTag.default({}),
   SealPreventTag.default({}),
@@ -639,6 +650,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "decreasestat",
       "clear",
       "damage",
+      "recoil",
       "flee",
       "fleeprevent",
       "onehitkill",
@@ -668,6 +680,7 @@ const BloodlineTags = z.union([
   DamageTag.default({}),
   HealTag.default({}),
   ReflectTag.default({}),
+  RecoilTag.default({}),
   RobPreventTag.default({}),
   SealPreventTag.default({}),
   StunPreventTag.default({}),

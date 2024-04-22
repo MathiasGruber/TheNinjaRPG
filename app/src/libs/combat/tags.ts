@@ -768,6 +768,36 @@ export const reflect = (
   return getInfo(target, effect, `will reflect ${qualifier} damage`);
 };
 
+/** Recoil damage back to attacker */
+export const recoil = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  const { power, qualifier } = getPower(effect);
+  if (!effect.isNew && !effect.castThisRound) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.userId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const convert =
+            Math.floor(
+              effect.calculation === "percentage"
+                ? consequence.damage * (power / 100)
+                : power > consequence.damage
+                  ? consequence.damage
+                  : power,
+            ) * ratio;
+          consequence.recoil = convert;
+        }
+      }
+    });
+  }
+  return getInfo(target, effect, `will recoil ${qualifier} damage`);
+};
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect

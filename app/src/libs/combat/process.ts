@@ -4,7 +4,8 @@ import { collapseConsequences, sortEffects } from "./util";
 import { shouldApplyEffectTimes } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damageUser, absorb, reflect } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser } from "./tags";
+import { absorb, reflect, recoil } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -273,6 +274,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           info = decreaseHealGiven(e, usersEffects, consequences, curTarget);
         } else if (e.type === "reflect") {
           info = reflect(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "recoil") {
+          info = recoil(e, usersEffects, consequences, curTarget);
         } else if (e.type === "fleeprevent") {
           info = fleePrevent(e, curTarget);
         } else if (e.type === "onehitkillprevent") {
@@ -341,6 +344,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           user.curHealth = Math.max(0, user.curHealth);
           actionEffects.push({
             txt: `${user.username} takes ${c.reflect.toFixed(2)} reflect damage`,
+            color: "red",
+          });
+        }
+        if (c.recoil && c.recoil > 0) {
+          user.curHealth -= c.recoil;
+          user.curHealth = Math.max(0, user.curHealth);
+          actionEffects.push({
+            txt: `${user.username} takes ${c.recoil.toFixed(2)} recoil damage`,
             color: "red",
           });
         }

@@ -101,6 +101,7 @@ export const shouldApplyEffectTimes = (
     "fleeprevent",
     "onehitkillprevent",
     "reflect",
+    "recoil",
     "robprevent",
     "sealprevent",
     "stunprevent",
@@ -191,6 +192,7 @@ export const sortEffects = (
     "increaseheal",
     "decreaseheal",
     "reflect",
+    "recoil",
     // End-modifiers
     "move",
     "visual",
@@ -262,6 +264,9 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     }
     if (val.reflect) {
       current.reflect = current.reflect ? current.reflect + val.reflect : val.reflect;
+    }
+    if (val.recoil) {
+      current.recoil = current.recoil ? current.recoil + val.recoil : val.recoil;
     }
     if (val.absorb_hp) {
       current.absorb_hp = current.absorb_hp

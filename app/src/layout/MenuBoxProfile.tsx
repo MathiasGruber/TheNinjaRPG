@@ -316,6 +316,8 @@ const MenuBoxProfile: React.FC = () => {
                       return show(i, `Cannot flee ${cooldown}`, "text-blue-500", "-");
                     } else if (effect.type === "robprevent") {
                       return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
+                    } else if (effect.type === "recoil") {
+                      return show(i, `Dmg recoiled ${cooldown}`, "text-red-500", "-");
                     } else if (effect.type === "stunprevent") {
                       return show(
                         i,
