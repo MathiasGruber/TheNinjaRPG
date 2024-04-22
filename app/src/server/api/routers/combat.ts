@@ -12,6 +12,7 @@ import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
+import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import { secondsFromDate, secondsFromNow } from "@/utils/time";
 import { defineHex } from "@/libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
@@ -640,11 +641,11 @@ export const initiateBattle = async (
 
   // If defender is student it is a no-go
   if (battleType === "COMBAT") {
-    if (users[0].rank === "STUDENT") {
+    if (RANKS_RESTRICTED_FROM_PVP.includes(users[0].rank)) {
       return { success: false, message: "Need to rank up to do PvP combat" };
     }
-    if (users[1].rank === "STUDENT" && users[1].isAi === 0) {
-      return { success: false, message: "Cannot attack students" };
+    if (RANKS_RESTRICTED_FROM_PVP.includes(users[1].rank) && users[1].isAi === 0) {
+      return { success: false, message: "Cannot attack students & genin" };
     }
   }
 

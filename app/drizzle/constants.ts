@@ -236,3 +236,6 @@ export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
 
 // Training config
 export const JUTSU_XP_TO_LEVEL = 1000;
+
+// Combat config
+export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
