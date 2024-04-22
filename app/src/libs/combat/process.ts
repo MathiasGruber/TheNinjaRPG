@@ -9,7 +9,6 @@ import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
 import { increaseHealGiven, decreaseHealGiven } from "./tags";
-import { increaseArmor, decreaseArmor } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
@@ -260,10 +259,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         // Tags to apply always
         if (e.type === "absorb") {
           info = absorb(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "increasearmor") {
-          info = increaseArmor(e, curTarget);
-        } else if (e.type === "decreasearmor") {
-          info = decreaseArmor(e, curTarget);
         } else if (e.type === "increasestat") {
           info = increaseStats(e, curTarget);
         } else if (e.type === "decreasestat") {

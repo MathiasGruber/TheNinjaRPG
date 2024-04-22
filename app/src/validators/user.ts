@@ -57,7 +57,6 @@ export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
   // Certains tags are negative in a bloodline context
   if (
     [
-      "decreasearmor",
       "decreasedamagegiven",
       "increasedamagetaken",
       "decreaseheal",

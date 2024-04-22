@@ -29,7 +29,6 @@ export type BattleUserState = UserWithRelations & {
   highestDefence: (typeof StatNames)[number];
   iAmHere: boolean;
   actionPoints: number;
-  armor: number;
   hidden?: boolean;
   isOriginal: boolean;
   controllerId: string;
@@ -274,22 +273,6 @@ export const AbsorbTag = z.object({
   description: msg("Absorb damage taken & convert to health, chakra or stamina"),
   poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
   target: z.enum(BaseTagTargets).optional().default("SELF"),
-});
-
-export const IncreaseArmorTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("increasearmor").default("increasearmor"),
-  description: msg("Increase armor rating of target"),
-});
-
-export const DecreaseArmorTag = z.object({
-  ...BaseAttributes,
-  ...IncludeStats,
-  ...PowerAttributes,
-  type: z.literal("decreasearmor").default("decreasearmor"),
-  description: msg("Decrease armor rating of target"),
 });
 
 export const IncreaseDamageGivenTag = z.object({
@@ -573,8 +556,6 @@ export const UnknownTag = z.object({
 /******************** */
 const AllTags = z.union([
   AbsorbTag.default({}),
-  IncreaseArmorTag.default({}),
-  DecreaseArmorTag.default({}),
   IncreaseDamageGivenTag.default({}),
   DecreaseDamageGivenTag.default({}),
   IncreaseDamageTakenTag.default({}),
@@ -622,7 +603,6 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
   if (
     [
       "absorb",
-      "increasearmor",
       "increasedamagegiven",
       "decreasedamagetaken",
       "increaseheal",
@@ -652,7 +632,6 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
-      "decreasearmor",
       "decreasedamagegiven",
       "increasedamagetaken",
       "decreasehealgiven",
@@ -676,8 +655,6 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
 
 const BloodlineTags = z.union([
   AbsorbTag.default({}),
-  IncreaseArmorTag.default({}),
-  DecreaseArmorTag.default({}),
   IncreaseDamageGivenTag.default({}),
   DecreaseDamageGivenTag.default({}),
   IncreaseDamageTakenTag.default({}),

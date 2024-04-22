@@ -66,25 +66,6 @@ export const absorb = (
   );
 };
 
-/** Adjust armor by a static amount */
-export const adjustArmor = (effect: UserEffect, target: BattleUserState) => {
-  const { power, adverb, qualifier } = getPower(effect);
-  if (!effect.isNew && !effect.castThisRound) {
-    target.armor += power;
-  }
-  return getInfo(target, effect, `armor is ${adverb} by ${qualifier}`);
-};
-
-export const increaseArmor = (effect: UserEffect, target: BattleUserState) => {
-  return adjustArmor(effect, target);
-};
-
-export const decreaseArmor = (effect: UserEffect, target: BattleUserState) => {
-  effect.power = -Math.abs(effect.power);
-  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
-  return adjustArmor(effect, target);
-};
-
 export const getAffected = (effect: UserEffect) => {
   const stats: string[] = [];
   if ("statTypes" in effect || "generalTypes" in effect) {

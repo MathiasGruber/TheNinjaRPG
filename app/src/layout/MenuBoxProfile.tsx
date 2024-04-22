@@ -308,10 +308,6 @@ const MenuBoxProfile: React.FC = () => {
                     } else if (effect.type === "heal") {
                       const icon = <Heart className="h-6 w-6 mr-2" />;
                       return show(i, `Heal ${cooldown}`, className, icon);
-                    } else if (effect.type === "increasearmor") {
-                      return showStat(effect, "protection", i, "text-green-500", "↑");
-                    } else if (effect.type === "decreasearmor") {
-                      return showStat(effect, "protection", i, "text-red-500", "↓");
                     } else if (effect.type === "increasepoolcost") {
                       return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
                     } else if (effect.type === "decreasepoolcost") {

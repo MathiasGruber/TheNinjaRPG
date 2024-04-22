@@ -88,8 +88,6 @@ export const shouldApplyEffectTimes = (
   // Certain buff/debuffs are applied always (e.g. resolving against each attack)
   const alwaysApply: ZodAllTags["type"][] = [
     "absorb",
-    "increasearmor",
-    "decreasearmor",
     "increasedamagegiven",
     "decreasedamagegiven",
     "increasedamagetaken",
@@ -163,8 +161,6 @@ export const sortEffects = (
     // Pre-modifiers
     "clear",
     "cleanse",
-    "increasearmor",
-    "decreasearmor",
     "increasepoolcost",
     "decreasepoolcost",
     "increasestat",
@@ -779,7 +775,6 @@ export const processUsersForBattle = (info: {
     user.items = items;
 
     // Base values
-    user.armor = 0;
     user.fledBattle = false;
     user.leftBattle = false;
 
