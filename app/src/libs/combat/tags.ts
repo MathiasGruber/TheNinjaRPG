@@ -771,7 +771,7 @@ export const reflect = (
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
           const convert =
-            Math.ceil(
+            Math.floor(
               effect.calculation === "percentage"
                 ? consequence.damage * (power / 100)
                 : power > consequence.damage
