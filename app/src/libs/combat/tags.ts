@@ -1165,7 +1165,10 @@ const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
 
 /** Convenience method used by a lot of tags */
 export const getPower = (effect: UserEffect | GroundEffect) => {
-  const power = effect.power + effect.level * effect.powerPerLevel;
+  let power = effect.power + effect.level * effect.powerPerLevel;
+  if (effect.calculation === "percentage") {
+    power = power > 100 ? 100 : power;
+  }
   const adverb = power > 0 ? "increased" : "decreased";
   const value = Math.abs(power);
   const qualifier = effect.calculation === "percentage" ? `${value}%` : value;
