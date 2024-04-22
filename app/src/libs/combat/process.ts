@@ -5,7 +5,7 @@ import { shouldApplyEffectTimes } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser } from "./tags";
-import { absorb, reflect, recoil } from "./tags";
+import { absorb, reflect, recoil, lifesteal } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -276,6 +276,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           info = reflect(e, usersEffects, consequences, curTarget);
         } else if (e.type === "recoil") {
           info = recoil(e, usersEffects, consequences, curTarget);
+        } else if (e.type === "lifesteal") {
+          info = lifesteal(e, usersEffects, consequences, curTarget);
         } else if (e.type === "fleeprevent") {
           info = fleePrevent(e, curTarget);
         } else if (e.type === "onehitkillprevent") {
@@ -353,6 +355,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           actionEffects.push({
             txt: `${user.username} takes ${c.recoil.toFixed(2)} recoil damage`,
             color: "red",
+          });
+        }
+        if (c.lifesteal_hp && c.lifesteal_hp > 0) {
+          user.curHealth += c.lifesteal_hp;
+          user.curHealth = Math.max(0, user.curHealth);
+          actionEffects.push({
+            txt: `${user.username} steals ${c.lifesteal_hp.toFixed(2)} damage as health`,
+            color: "green",
           });
         }
         if (c.absorb_hp && c.absorb_hp > 0 && target.curHealth > 0) {

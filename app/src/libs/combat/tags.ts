@@ -798,6 +798,29 @@ export const recoil = (
   return getInfo(target, effect, `will recoil ${qualifier} damage`);
 };
 
+/** Steal damage back to attacker as HP */
+export const lifesteal = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  const { power, qualifier } = getPower(effect);
+  if (!effect.isNew && !effect.castThisRound) {
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.userId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
+          consequence.lifesteal_hp = convert;
+        }
+      }
+    });
+  }
+  return getInfo(target, effect, `will steal ${qualifier} damage as health`);
+};
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect

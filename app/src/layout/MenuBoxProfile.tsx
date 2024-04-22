@@ -318,6 +318,8 @@ const MenuBoxProfile: React.FC = () => {
                       return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
                     } else if (effect.type === "recoil") {
                       return show(i, `Dmg recoiled ${cooldown}`, "text-red-500", "-");
+                    } else if (effect.type === "lifesteal") {
+                      return show(i, `Steal life ${cooldown}`, "text-green-500", "-");
                     } else if (effect.type === "stunprevent") {
                       return show(
                         i,

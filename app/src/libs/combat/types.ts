@@ -155,6 +155,7 @@ export type Consequence = {
   damage?: number;
   reflect?: number;
   recoil?: number;
+  lifesteal_hp?: number;
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
@@ -443,6 +444,14 @@ export const HealTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
+export const LifeStealTag = z.object({
+  ...BaseAttributes,
+  ...IncludeStats,
+  ...PowerAttributes,
+  type: z.literal("lifesteal").default("lifesteal"),
+  description: msg("Heal based on damage given"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+});
 export const MoveTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -584,6 +593,7 @@ const AllTags = z.union([
   FleeTag.default({}),
   FleePreventTag.default({}),
   HealTag.default({}),
+  LifeStealTag.default({}),
   MoveTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
@@ -620,6 +630,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "decreasepoolcost",
       "increasestat",
       "heal",
+      "lifesteal",
       "move",
       "onehitkillprevent",
       "reflect",
@@ -679,6 +690,7 @@ const BloodlineTags = z.union([
   DecreaseStatTag.default({}),
   DamageTag.default({}),
   HealTag.default({}),
+  LifeStealTag.default({}),
   ReflectTag.default({}),
   RecoilTag.default({}),
   RobPreventTag.default({}),
