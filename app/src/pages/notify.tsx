@@ -1,18 +1,22 @@
 import { type NextPage } from "next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
 import AvatarImage from "@/layout/Avatar";
 import ReactHtmlParser from "react-html-parser";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import { showMutationToast } from "@/libs/toast";
+import { getSearchValidator } from "@/validators/register";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canSubmitNotification } from "@/utils/permissions";
 import { mutateContentSchema } from "../validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
+import type { z } from "zod";
 import type { MutateContentSchema } from "../validators/comments";
 
 const NotifyUsers: NextPage = () => {
@@ -39,7 +43,8 @@ const NotifyUsers: NextPage = () => {
 
   // Mutations
   const { mutate, isPending } = api.misc.submitNotification.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetchUser();
       await refetchNotifications();
     },
@@ -62,10 +67,28 @@ const NotifyUsers: NextPage = () => {
     resolver: zodResolver(mutateContentSchema),
   });
 
+  // User search
+  const maxUsers = 1;
+  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+    defaultValues: { username: "", users: [] },
+  });
+  const watchedUsers = userSearchMethods.watch("users", []);
+  const targetUser = userSearchMethods.watch("users", [])?.[0];
+
+  useEffect(() => {
+    if (userData && userData.username && watchedUsers.length === 0) {
+      userSearchMethods.setValue("users", [userData]);
+    }
+  }, [userData, userSearchMethods, watchedUsers]);
+
   // Handling submit
   const onSubmit = handleSubmit((data) => {
-    mutate(data);
-    reset();
+    if (targetUser) {
+      mutate({ ...data, senderId: targetUser.userId });
+      reset();
+    }
   });
 
   // Show loading indicator when loading user data
@@ -83,6 +106,14 @@ const NotifyUsers: NextPage = () => {
           {!isPending && (
             <div className="grid grid-cols-1">
               <form onSubmit={onSubmit}>
+                <UserSearchSelect
+                  useFormMethods={userSearchMethods}
+                  label="Sender (AI, or yourself)"
+                  selectedUsers={[]}
+                  showYourself={true}
+                  inline={true}
+                  maxUsers={maxUsers}
+                />
                 <RichInput
                   id="content"
                   height="200"

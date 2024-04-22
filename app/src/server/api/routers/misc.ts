@@ -4,19 +4,25 @@ import { NodeHtmlMarkdown } from "node-html-markdown";
 import { notification, userData } from "@/drizzle/schema";
 import { canSubmitNotification } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
-import { baseServerResponse } from "../trpc";
+import { baseServerResponse, errorResponse } from "../trpc";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { mutateContentSchema } from "@/validators/comments";
 import PushNotifications from "@pusher/push-notifications-server";
 
 export const miscRouter = createTRPCRouter({
   submitNotification: protectedProcedure
-    .input(mutateContentSchema)
+    .input(z.object({ content: z.string().min(2).max(5000), senderId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canSubmitNotification(user.role)) {
-        return { success: false, message: "You do not have permission" };
+      // Query data
+      const [user, sender] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.senderId),
+      ]);
+      // Guards
+      if (!canSubmitNotification(user.role)) return errorResponse("Not allowed");
+      if (!user || !sender) return errorResponse("User not found");
+      if (user.userId !== sender.userId && sender.isAi === 0) {
+        return errorResponse("You or an AI must be marked as sender");
       }
       // Push notifications
       const instanceId = process.env.NEXT_PUBLIC_PUSHER_BEAM_ID;
@@ -44,7 +50,7 @@ export const miscRouter = createTRPCRouter({
       // Update database
       const [result] = await Promise.all([
         ctx.drizzle.insert(notification).values({
-          userId: ctx.userId,
+          userId: sender.userId,
           content: input.content,
         }),
         ctx.drizzle
