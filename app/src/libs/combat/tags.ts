@@ -24,7 +24,11 @@ export const absorb = (
   // Apply the absorb effect the round after the effect is applied
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
-      if (consequence.targetId === effect.targetId && consequence.damage) {
+      if (
+        consequence.targetId === effect.targetId &&
+        consequence.damage &&
+        consequence.damage > 0
+      ) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
@@ -36,7 +40,7 @@ export const absorb = (
                   ? consequence.damage
                   : power,
             ) * ratio;
-          consequence.damage -= convert;
+          // consequence.damage -= convert;
           pools.map((pool) => {
             switch (pool) {
               case "Health":
