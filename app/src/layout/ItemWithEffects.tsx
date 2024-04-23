@@ -173,6 +173,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Jutsu Type</b>: {capitalizeFirstLetter(item?.jutsuType)}
               </p>
             )}
+            {"jutsuWeapon" in item && item.jutsuWeapon !== "NONE" && (
+              <p>
+                <b>Jutsu Weapon</b>: {capitalizeFirstLetter(item?.jutsuWeapon)}
+              </p>
+            )}
             {"rarity" in item && item.rarity && (
               <p>
                 <b>Rarity</b>: {capitalizeFirstLetter(item.rarity)}

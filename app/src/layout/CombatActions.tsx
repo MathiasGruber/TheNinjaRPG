@@ -2,13 +2,21 @@ import React, { useState, useEffect } from "react";
 import ContentImage from "./ContentImage";
 import { useUserData } from "@/utils/UserContext";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
-import type { ItemRarity } from "../../drizzle/schema";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { ItemRarity } from "@/drizzle/schema";
 
 interface ActionSelectorProps {
   items?: {
     id: string;
     name: string;
     image: string;
+    warning?: string;
     rarity?: ItemRarity;
     type?: "jutsu" | "item" | "basic";
     highlight?: boolean;
@@ -75,6 +83,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 src={item.image}
                 isGreyed={isGreyed}
                 alt="sp"
+                warning={item?.warning}
                 roundFull={props.roundFull}
                 hideBorder={props.hideBorder}
                 rarity={item.rarity}
@@ -104,6 +113,7 @@ interface ActionOptionProps {
   src: string;
   alt: string;
   txt: string;
+  warning?: string;
   rarity?: ItemRarity;
   count?: number;
   isGreyed: boolean;
@@ -160,8 +170,20 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           onClick={props.onClick}
         />
         {props.count !== undefined && (props.labelSingles || props.count > 1) && (
-          <div className="absolute bottom-0 right-0 flex h-8 w-8 flex-row items-center justify-center rounded-md border-2 border-slate-400 bg-slate-500 text-base font-bold text-white">
+          <div className="absolute bottom-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-amber-300 bg-slate-300 text-base font-bold text-amber-600">
             {props.count}
+          </div>
+        )}
+        {props.warning !== undefined && props.warning && (
+          <div className="absolute top-0 right-0">
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-7 w-7 cursor-pointer hover:fill-orange-500 fill-red-600 text-white" />
+                </TooltipTrigger>
+                <TooltipContent>{props.warning}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
         {cooldownPerc > 0 && (

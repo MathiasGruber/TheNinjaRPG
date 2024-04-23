@@ -15,6 +15,9 @@ import type { NextPage } from "next";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 
 const MyJutsu: NextPage = () => {
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Settings
   const now = new Date();
   const { data: userData } = useRequiredUserData();
@@ -23,14 +26,16 @@ const MyJutsu: NextPage = () => {
     undefined,
   );
 
-  // User Jutsus
-  const {
-    data: userJutsus,
-    refetch,
-    isFetching,
-  } = api.jutsu.getUserJutsus.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  // User Jutsus & items
+  const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
+    undefined,
+    { staleTime: Infinity },
+  );
+  const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
+    undefined,
+    { staleTime: Infinity },
+  );
+
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {
       id: userJutsu.id,
@@ -44,7 +49,7 @@ const MyJutsu: NextPage = () => {
   // Mutations
   const { mutate: equip, isPending: isEquipping } = api.jutsu.toggleEquip.useMutation({
     onSuccess: async () => {
-      await refetch();
+      await utils.jutsu.getUserJutsus.invalidate();
     },
     onSettled: () => {
       document.body.style.cursor = "default";
@@ -57,7 +62,7 @@ const MyJutsu: NextPage = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetch();
+        await utils.jutsu.getUserJutsus.invalidate();
       }
     },
     onSettled: () => {
@@ -68,13 +73,26 @@ const MyJutsu: NextPage = () => {
   });
 
   const isPending = isEquipping || isForgetting;
+  const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
   const allJutsu = userJutsus?.map((userjutsu) => {
+    let warning = "";
+    if (userjutsu.jutsu.jutsuWeapon !== "NONE") {
+      const equippedItem = userItems?.find(
+        (useritem) =>
+          useritem.item.weaponType === userjutsu.jutsu.jutsuWeapon &&
+          useritem.equipped !== "NONE",
+      );
+      if (!equippedItem) {
+        warning = `No ${userjutsu.jutsu.jutsuWeapon.toLowerCase()} weapon equipped.`;
+      }
+    }
     return {
       ...userjutsu.jutsu,
       ...userjutsu,
       highlight: userjutsu.equipped ? true : false,
+      warning: warning,
     };
   });
 

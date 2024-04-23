@@ -743,7 +743,17 @@ export const processUsersForBattle = (info: {
     // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
     user.jutsus = user.jutsus
       .filter((userjutsu) => {
-        if (!userjutsu.jutsu) return false;
+        if (!userjutsu.jutsu) {
+          return false;
+        }
+        if (userjutsu.jutsu.jutsuWeapon !== "NONE") {
+          const equippedWeapon = user.items.find(
+            (useritem) =>
+              useritem.item.weaponType === userjutsu.jutsu.jutsuWeapon &&
+              useritem.equipped !== "NONE",
+          );
+          if (!equippedWeapon) return false;
+        }
         const effects = userjutsu.jutsu.effects as UserEffect[];
         effects
           .filter((e) => e.type === "summon")
