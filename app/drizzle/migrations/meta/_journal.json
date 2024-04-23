@@ -547,6 +547,13 @@
       "when": 1713439994562,
       "tag": "0077_warm_scorpion",
       "breakpoints": false
+    },
+    {
+      "idx": 78,
+      "version": "5",
+      "when": 1713874298216,
+      "tag": "0078_talented_omega_red",
+      "breakpoints": false
     }
   ]
 }
