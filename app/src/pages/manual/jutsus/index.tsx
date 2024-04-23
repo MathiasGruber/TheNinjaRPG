@@ -34,7 +34,7 @@ const ManualJutsus: NextPage = () => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 50, ...getFilter(state) },
+    { limit: 500, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

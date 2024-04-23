@@ -47,16 +47,13 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [tagType, setTagType] = useState(effectFilters[0] as EffectType);
   const [stat, setStat] = useState<StatType | undefined>(undefined);
 
-  // Stat filter
-  const statFilter = stat ? stat : undefined;
-
   // Data queries
   const {
     data: jutsus,
     refetch: refetchJutsus,
     isFetching: fetchingJutsu,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType, stat: statFilter },
+    { limit: 500, effect: [tagType], stat: stat ? [stat] : undefined },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -70,7 +67,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchBloodlines,
     isFetching: fetchingBloodline,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType, stat: statFilter, showHidden: true },
+    { limit: 500, effect: tagType, stat: stat, showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -84,7 +81,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchItems,
     isFetching: fetchingItem,
   } = api.item.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType, stat: statFilter },
+    { limit: 500, effect: tagType, stat: stat },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

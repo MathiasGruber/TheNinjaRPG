@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { animationNames } from "@/libs/combat/types";
 import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters, rarities } from "@/libs/train";
@@ -157,63 +158,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             </SelectContent>
           </Select>
         </div>
-        {/* Stat */}
-        <div>
-          <Select onValueChange={(e) => setStat(e as StatType)}>
-            <Label htmlFor="stat">Stat</Label>
-            <SelectTrigger>
-              <SelectValue placeholder={stat || "None"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem key={"None"} value="None">
-                None
-              </SelectItem>
-              {statFilters.map((stat) => (
-                <SelectItem key={stat} value={stat}>
-                  {stat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {/* Effect */}
-        <div>
-          <Select onValueChange={(e) => setEffect(e as EffectType)}>
-            <Label htmlFor="effect">Effect</Label>
-            <SelectTrigger>
-              <SelectValue placeholder={effect || "None"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem key={"None"} value="None">
-                None
-              </SelectItem>
-              {effectFilters.map((effect) => (
-                <SelectItem key={effect} value={effect}>
-                  {effect}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {/* Element */}
-        <div>
-          <Select onValueChange={(e) => setElement(e as ElementName)}>
-            <Label htmlFor="element">Element</Label>
-            <SelectTrigger>
-              <SelectValue placeholder={element || "None"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem key={"None"} value="None">
-                None
-              </SelectItem>
-              {ElementNames.map((element) => (
-                <SelectItem key={element} value={element}>
-                  {element}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+
         {/* ANIMATION */}
         <div>
           <Select onValueChange={(e) => setAppearAnim(e as AnimationName)}>
@@ -277,6 +222,37 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             </Select>
           </div>
         </div>
+        {/* Element */}
+        <div>
+          <Label htmlFor="element">Elements</Label>
+          <MultiSelect
+            selected={element}
+            options={ElementNames.map((element) => ({
+              value: element,
+              label: element,
+            }))}
+            onChange={setElement}
+          />
+        </div>
+        {/* Effect */}
+        <div className="">
+          <Label htmlFor="effect">Effects</Label>
+          <MultiSelect
+            selected={effect}
+            options={effectFilters.map((effect) => ({ value: effect, label: effect }))}
+            onChange={setEffect}
+          />
+        </div>
+
+        {/* Stat */}
+        <div className="">
+          <Label htmlFor="stat">Stat</Label>
+          <MultiSelect
+            selected={stat}
+            options={statFilters.map((stat) => ({ value: stat, label: stat }))}
+            onChange={setStat}
+          />
+        </div>
       </div>
     </Confirm>
   );
@@ -289,14 +265,15 @@ export const getFilter = (state: JutsuFilteringState) => {
   return {
     name: state.name ? state.name : undefined,
     bloodline: state.bloodline !== "None" ? state.bloodline : undefined,
-    stat: state.stat !== "None" ? state.stat : undefined,
-    effect: state.effect !== "None" ? state.effect : undefined,
-    element: state.element !== "None" ? state.element : undefined,
     rank: state.rank !== "NONE" ? state.rank : undefined,
     rarity: state.rarity !== "ALL" ? state.rarity : undefined,
     appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
     disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
     static: state.staticAnim !== "None" ? state.staticAnim : undefined,
+    // Multiple selects
+    element: state.element.length !== 0 ? (state.element as ElementName[]) : undefined,
+    stat: state.stat.length !== 0 ? (state.stat as StatType[]) : undefined,
+    effect: state.effect.length !== 0 ? (state.effect as EffectType[]) : undefined,
   };
 };
 
@@ -308,12 +285,13 @@ export const useFiltering = () => {
   const [rank, setRank] = useState<UserRank>("NONE");
   const [name, setName] = useState<string>("");
   const [bloodline, setBloodline] = useState<string>("None");
-  const [stat, setStat] = useState<StatType | None>("None");
-  const [effect, setEffect] = useState<EffectType | None>("None");
-  const [element, setElement] = useState<ElementName | None>("None");
   const [appearAnim, setAppearAnim] = useState<AnimationName | None>("None");
   const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
   const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
+  // Multiple selects
+  const [element, setElement] = useState<string[]>([]);
+  const [stat, setStat] = useState<string[]>([]);
+  const [effect, setEffect] = useState<string[]>([]);
 
   // Return all
   return {

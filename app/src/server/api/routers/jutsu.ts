@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, inArray, isNotNull, sql, and, gte, ne, like } from "drizzle-orm";
+import { eq, inArray, isNotNull, sql, and, or, gte, ne, like } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "./profile";
@@ -15,7 +15,7 @@ import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
-import { statFilters, effectFilters } from "@/libs/train";
+import { statFilters } from "@/libs/train";
 import { UserRanks } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -45,9 +45,9 @@ export const jutsuRouter = createTRPCRouter({
         rarity: z.enum(LetterRanks).optional(),
         rank: z.enum(UserRanks).optional(),
         bloodline: z.string().optional(),
-        stat: z.enum(statFilters).optional(),
-        effect: z.string().optional(),
-        element: z.string().optional(),
+        stat: z.array(z.enum(statFilters)).optional(),
+        effect: z.array(z.string()).optional(),
+        element: z.array(z.string()).optional(),
         appear: z.enum(animationNames).optional(),
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
@@ -55,9 +55,6 @@ export const jutsuRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
-        throw serverError("PRECONDITION_FAILED", `Invalid filter: ${input.effect}`);
-      }
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.jutsu.findMany({
@@ -75,20 +72,37 @@ export const jutsuRouter = createTRPCRouter({
           ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
           ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
           ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
-          ...(input.stat
-            ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.stat}) IS NOT NULL`]
+          ...(input.stat && input.stat.length > 0
+            ? [
+                and(
+                  ...input.stat.map(
+                    (s) => sql`JSON_SEARCH(${jutsu.effects},'one',${s}) IS NOT NULL`,
+                  ),
+                ),
+              ]
             : []),
-          ...(input.effect
-            ? [sql`JSON_SEARCH(${jutsu.effects},'one',${input.effect}) IS NOT NULL`]
+          ...(input.effect && input.effect.length > 0
+            ? [
+                or(
+                  ...input.effect.map(
+                    (e) => sql`JSON_SEARCH(${jutsu.effects},'one',${e}) IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
+          ...(input.element && input.element.length > 0
+            ? [
+                and(
+                  ...input.element.map(
+                    (e) =>
+                      sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
+                  ),
+                ),
+              ]
             : []),
           ...(input.appear
             ? [
                 sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.element
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.element},NULL,'$[*].elements') IS NOT NULL`,
               ]
             : []),
           ...(input.static
@@ -113,9 +127,43 @@ export const jutsuRouter = createTRPCRouter({
         },
         limit: input.limit,
       });
+      // Post-filter to make sure we get entries where all the filters match on the same tag
+      const filtered = results.filter((jutsu) => {
+        if (
+          input.stat ||
+          input.effect ||
+          input.element ||
+          input.appear ||
+          input.static ||
+          input.disappear
+        ) {
+          return jutsu.effects.some((e) => {
+            // Convenience vars for searching in
+            const asString = JSON.stringify(e);
+            const effectStats = [
+              ...("statTypes" in e && e.statTypes ? e.statTypes : []),
+              ...("generalTypes" in e && e.generalTypes ? e.generalTypes : []),
+            ];
+            const effectElements = [
+              ...("elements" in e && e.elements ? e.elements : []),
+            ] as string[];
+            // Perform check within single effects
+            return (
+              (!input.stat || input.stat.every((x) => effectStats.includes(x))) &&
+              (!input.effect || input.effect.some((x) => x === e.type)) &&
+              (!input.element ||
+                input.element.every((x) => effectElements.includes(x))) &&
+              (!input.appear || asString.includes(input.appear)) &&
+              (!input.static || asString.includes(input.static)) &&
+              (!input.disappear || asString.includes(input.disappear))
+            );
+          });
+        }
+        return true;
+      });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
-        data: results,
+        data: filtered,
         nextCursor: nextCursor,
       };
     }),
