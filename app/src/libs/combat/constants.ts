@@ -72,18 +72,6 @@ export const privateState = [
 
 export const allState = [...publicState, ...privateState] as const;
 
-export const StatType = [
-  "Highest",
-  "Ninjutsu",
-  "Genjutsu",
-  "Taijutsu",
-  "Bukijutsu",
-] as const;
-
-export const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
-
-export const PoolType = ["Health", "Chakra", "Stamina"] as const;
-
 export const StatNames = [
   "ninjutsuOffence",
   "ninjutsuDefence",

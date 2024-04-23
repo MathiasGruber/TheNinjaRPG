@@ -9,6 +9,7 @@ import { LetterRanks } from "@/drizzle/constants";
 import { WeaponTypes } from "@/drizzle/constants";
 import { JutsuTypes } from "@/drizzle/constants";
 import { UserRanks } from "@/drizzle/constants";
+import { StatTypes } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
@@ -85,6 +86,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "healthCost", type: "number" },
     { id: "description", type: "text", doubleWidth: true },
     { id: "battleDescription", type: "text", doubleWidth: true },
+    { id: "statClassification", type: "str_array", values: StatTypes },
     { id: "range", type: "number" },
     { id: "cooldown", type: "number" },
     { id: "hidden", type: "number" },

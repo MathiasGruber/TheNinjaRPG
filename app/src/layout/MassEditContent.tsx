@@ -25,7 +25,7 @@ import { statFilters } from "@/libs/train";
 import { QuestTypes } from "@/drizzle/constants";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import type { QuestType } from "@/drizzle/constants";
-import type { StatType } from "@/libs/train";
+import type { StatGenType } from "@/libs/train";
 import type { EffectType } from "@/libs/train";
 import type { Jutsu } from "@/drizzle/schema";
 import type { Bloodline } from "@/drizzle/schema";
@@ -45,7 +45,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [questType, setQuestType] = useState(QuestTypes[0] as QuestType);
   // For AI, item, jutsus
   const [tagType, setTagType] = useState(effectFilters[0] as EffectType);
-  const [stat, setStat] = useState<StatType | undefined>(undefined);
+  const [stat, setStat] = useState<StatGenType | undefined>(undefined);
 
   // Data queries
   const {
@@ -181,7 +181,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
               </SelectContent>
             </Select>
             <Select
-              onValueChange={(e) => setStat(e as StatType)}
+              onValueChange={(e) => setStat(e as StatGenType)}
               defaultValue={stat}
               value={stat}
             >

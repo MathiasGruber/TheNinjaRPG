@@ -11,7 +11,7 @@ import Toggle from "@/components/control/Toggle";
 import { Button } from "@/components/ui/button";
 import { damageUser } from "@/libs/combat/tags";
 import { calcLevel, calcHP } from "@/libs/profile";
-import { StatType, GeneralType } from "@/libs/combat/constants";
+import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { statSchema, actSchema } from "@/libs/combat/types";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -357,7 +357,7 @@ const ManualDamageSimulator: NextPage = () => {
                     <FormLabel>Set Stats</FormLabel>
                     <MultiSelect
                       selected={field.value ? field.value : []}
-                      options={StatType.map((o) => ({ label: o, value: o }))}
+                      options={StatTypes.map((o) => ({ label: o, value: o }))}
                       onChange={field.onChange}
                     />
                     <FormMessage />

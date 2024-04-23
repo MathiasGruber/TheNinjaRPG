@@ -540,6 +540,7 @@ export const jutsu = mysqlTable(
     jutsuType: mysqlEnum("jutsuType", consts.JutsuTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     jutsuWeapon: mysqlEnum("jutsuWeapon", consts.WeaponTypes).default("NONE").notNull(),
+    statClassification: mysqlEnum("statClassification", consts.StatTypes),
     battleDescription: text("battleDescription").notNull(),
     jutsuRank: mysqlEnum("jutsuRank", consts.LetterRanks).default("D").notNull(),
     actionCostPerc: double("actionCostPerc").default(80).notNull(),

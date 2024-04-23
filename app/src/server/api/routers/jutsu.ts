@@ -16,7 +16,7 @@ import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { statFilters } from "@/libs/train";
-import { UserRanks } from "@/drizzle/constants";
+import { UserRanks, StatTypes } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -51,6 +51,7 @@ export const jutsuRouter = createTRPCRouter({
         appear: z.enum(animationNames).optional(),
         static: z.enum(animationNames).optional(),
         disappear: z.enum(animationNames).optional(),
+        classification: z.enum(StatTypes).optional(),
         name: z.string().min(0).max(256).optional(),
       }),
     )
@@ -70,6 +71,9 @@ export const jutsuRouter = createTRPCRouter({
               : isNotNull(jutsu.requiredRank),
           ],
           ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+          ...(input.classification
+            ? [eq(jutsu.statClassification, input.classification)]
+            : []),
           ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
           ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
           ...(input.stat && input.stat.length > 0

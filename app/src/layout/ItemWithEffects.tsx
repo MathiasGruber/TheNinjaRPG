@@ -183,6 +183,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Rarity</b>: {capitalizeFirstLetter(item.rarity)}
               </p>
             )}
+            {"statClassification" in item && item.statClassification && (
+              <p>
+                <b>Class</b>: {capitalizeFirstLetter(item.statClassification)}
+              </p>
+            )}
             {"level" in item && item.level && item.level > 0 && (
               <p>
                 <b>Level</b>: {item.level}

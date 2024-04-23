@@ -11,7 +11,7 @@ import { PRESTIGE_COST } from "@/utils/kage";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
-import { StatType, GeneralType } from "@/libs/combat/constants";
+import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
@@ -714,7 +714,7 @@ export const processUsersForBattle = (info: {
       const boost = structureBoost("villageDefencePerLvl", user.village?.structures);
       const effect = DecreaseDamageTakenTag.parse({
         target: "SELF",
-        statTypes: StatType,
+        statTypes: StatTypes,
         generalTypes: GeneralType,
         type: "decreasedamagetaken",
         power: boost,

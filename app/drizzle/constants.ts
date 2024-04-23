@@ -1,6 +1,19 @@
 export const LetterRanks = ["D", "C", "B", "A", "S"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
+export const StatTypes = [
+  "Highest",
+  "Ninjutsu",
+  "Genjutsu",
+  "Taijutsu",
+  "Bukijutsu",
+] as const;
+export type StatType = (typeof StatTypes)[number];
+
+export const GeneralType = ["Strength", "Intelligence", "Willpower", "Speed"] as const;
+
+export const PoolType = ["Health", "Chakra", "Stamina"] as const;
+
 export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 
 export const ItemSlotTypes = [

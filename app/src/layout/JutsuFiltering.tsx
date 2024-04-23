@@ -27,10 +27,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchNameSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
-import type { ElementName, UserRank } from "@/drizzle/constants";
+import { StatTypes } from "@/drizzle/constants";
+import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
 import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
-import type { StatType, EffectType, RarityType } from "@/libs/train";
+import type { StatGenType, EffectType, RarityType } from "@/libs/train";
 
 interface JutsuFilteringProps {
   state: JutsuFilteringState;
@@ -41,10 +42,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity } = props.state;
   const { setAppearAnim, setRemoveAnim, setStaticAnim } = props.state;
-  const { setName, setElement, setRank } = props.state;
+  const { setName, setElement, setRank, setClassification } = props.state;
 
   const { name, bloodline, stat, effect, rarity, element } = props.state;
-  const { rank, appearAnim, staticAnim, removeAnim } = props.state;
+  const { rank, appearAnim, staticAnim, removeAnim, classification } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines
@@ -87,6 +88,40 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
       }}
     >
       <div className="grid grid-cols-2 gap-1 gap-x-3">
+        {/* JUTSU NAME */}
+        <div>
+          <Form {...form}>
+            <Label htmlFor="rank">Name</Label>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input id="name" placeholder="Search jutsu" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </Form>
+        </div>
+        {/* Stat Classification */}
+        <div>
+          <Select onValueChange={(e) => setClassification(e as StatType)}>
+            <Label htmlFor="rank">Stat Classification</Label>
+            <SelectTrigger>
+              <SelectValue placeholder={classification} />
+            </SelectTrigger>
+            <SelectContent>
+              {StatTypes.map((stat) => (
+                <SelectItem key={stat} value={stat}>
+                  {stat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {/* RARITY */}
         <div>
           <Select onValueChange={(e) => setRarity(e as RarityType)}>
@@ -118,24 +153,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        {/* JUTSU NAME */}
-        <div>
-          <Form {...form}>
-            <Label htmlFor="rank">Name</Label>
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input id="name" placeholder="Search jutsu" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </Form>
         </div>
         {/* Bloodline */}
         <div>
@@ -270,9 +287,10 @@ export const getFilter = (state: JutsuFilteringState) => {
     appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
     disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
     static: state.staticAnim !== "None" ? state.staticAnim : undefined,
+    classification: state.classification !== "None" ? state.classification : undefined,
     // Multiple selects
     element: state.element.length !== 0 ? (state.element as ElementName[]) : undefined,
-    stat: state.stat.length !== 0 ? (state.stat as StatType[]) : undefined,
+    stat: state.stat.length !== 0 ? (state.stat as StatGenType[]) : undefined,
     effect: state.effect.length !== 0 ? (state.effect as EffectType[]) : undefined,
   };
 };
@@ -288,6 +306,7 @@ export const useFiltering = () => {
   const [appearAnim, setAppearAnim] = useState<AnimationName | None>("None");
   const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
   const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
+  const [classification, setClassification] = useState<StatType | None>("None");
   // Multiple selects
   const [element, setElement] = useState<string[]>([]);
   const [stat, setStat] = useState<string[]>([]);
@@ -296,6 +315,7 @@ export const useFiltering = () => {
   // Return all
   return {
     name,
+    classification,
     bloodline,
     stat,
     effect,
@@ -306,6 +326,7 @@ export const useFiltering = () => {
     removeAnim,
     element,
     setName,
+    setClassification,
     setBloodline,
     setStat,
     setEffect,

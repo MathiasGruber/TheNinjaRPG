@@ -4,7 +4,7 @@ import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
-import { StatType, GeneralType, PoolType } from "@/libs/combat/constants";
+import { StatTypes, GeneralType, PoolType } from "@/drizzle/constants";
 import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
@@ -257,7 +257,7 @@ const IncludeStats = {
   // static: directly equates to the amount returned
   // percentage: power is returned as a percentage
   // formula: power is used in stats-based formula to calculate return value
-  statTypes: z.array(z.enum(StatType)).optional(),
+  statTypes: z.array(z.enum(StatTypes)).optional(),
   generalTypes: z.array(z.enum(GeneralType)).optional(),
   elements: z.array(z.enum(ElementNames)).optional(),
 };
@@ -823,6 +823,7 @@ export const JutsuValidator = z
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     range: z.coerce.number().int().min(0).max(5),
+    statClassification: z.enum(StatTypes).optional().nullish(),
     hidden: z.coerce.number().int().min(0).max(1).optional(),
     healthCost: z.coerce.number().min(0).max(10000).optional(),
     chakraCost: z.coerce.number().min(0).max(10000).optional(),
@@ -951,6 +952,6 @@ export const statSchema = z.object({
 
 export const actSchema = z.object({
   power: z.coerce.number().min(1).max(100).default(1),
-  statTypes: z.array(z.enum(StatType)).default(["Ninjutsu"]),
+  statTypes: z.array(z.enum(StatTypes)).default(["Ninjutsu"]),
   generalTypes: z.array(z.enum(GeneralType)).default(["Strength"]),
 });
