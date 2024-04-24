@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
+import BanInfo from "@/layout/BanInfo";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
@@ -40,6 +41,7 @@ const TownHall: NextPage = () => {
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (userData.isBanned) return <BanInfo />;
 
   const NavBarBlock = (
     <NavTabs

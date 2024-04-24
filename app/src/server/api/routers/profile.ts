@@ -97,6 +97,10 @@ export const profileRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("Must be awake to train");
       if (!inVillage) return errorResponse("Must be in your own village");
       if (user.sector !== user.village?.sector) return errorResponse("Wrong sector");
+      if (user.trainingSpeed !== "8hrs" && user.isBanned) {
+        return errorResponse("Only 8hrs training interval allowed when banned");
+      }
+
       // Mutate
       const result = await ctx.drizzle
         .update(userData)

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, or, and, gte, ne, like, notInArray, inArray } from "drizzle-orm";
+import { eq, or, and, gte, ne, gt, like, notInArray, inArray } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment } from "@/drizzle/schema";
 import { userReport, userReportComment, userData } from "@/drizzle/schema";
@@ -82,6 +82,40 @@ export const reportsRouter = createTRPCRouter({
         nextCursor: nextCursor,
       };
     }),
+  // Get user report
+  getBan: protectedProcedure.query(async ({ ctx }) => {
+    const report = await ctx.drizzle.query.userReport.findFirst({
+      where: and(
+        eq(userReport.reportedUserId, ctx.userId),
+        gt(userReport.banEnd, new Date()),
+      ),
+      with: {
+        reporterUser: {
+          columns: {
+            userId: true,
+            username: true,
+            avatar: true,
+            rank: true,
+            level: true,
+            role: true,
+            federalStatus: true,
+          },
+        },
+        reportedUser: {
+          columns: {
+            userId: true,
+            username: true,
+            avatar: true,
+            rank: true,
+            level: true,
+            role: true,
+            federalStatus: true,
+          },
+        },
+      },
+    });
+    return report ?? null;
+  }),
   // Get a single report
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -148,7 +182,7 @@ export const reportsRouter = createTRPCRouter({
       if (report.reportedUserId) {
         await ctx.drizzle
           .update(userData)
-          .set({ isBanned: 1 })
+          .set({ isBanned: 1, status: "AWAKE" })
           .where(eq(userData.userId, report.reportedUserId));
       }
       await ctx.drizzle

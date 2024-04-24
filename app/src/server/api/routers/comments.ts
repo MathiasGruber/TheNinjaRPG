@@ -343,12 +343,16 @@ export const commentsRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const convo = await fetchConversation({
-        client: ctx.drizzle,
-        id: input.object_id,
-        userId: ctx.userId,
-      });
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Fetch data
+      const [convo, user] = await Promise.all([
+        fetchConversation({
+          client: ctx.drizzle,
+          id: input.object_id,
+          userId: ctx.userId,
+        }),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
       if (user.isBanned) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }

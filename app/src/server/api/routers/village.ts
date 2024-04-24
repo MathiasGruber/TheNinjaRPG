@@ -121,6 +121,7 @@ export const villageRouter = createTRPCRouter({
       if (user.villageId === village.id) return errorResponse("Already in village");
       if (user.anbuId) return errorResponse("Leave ANBU squad first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
+      if (user.isBanned) return errorResponse("Canot leave while banned");
       if (cost > user.reputationPoints) return errorResponse("Need reputation points");
 
       // Update

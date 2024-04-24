@@ -416,6 +416,7 @@ export const combatRouter = createTRPCRouter({
       // Check that user was found
       if (!user) return errorResponse("Attacking user not found");
       if (!sectorVillage) return errorResponse("Arena village not found");
+      if (user.isBanned) return errorResponse("No arena while banned");
       // Check if location is OK
       if (
         !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||

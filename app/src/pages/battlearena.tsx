@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import BanInfo from "@/layout/BanInfo";
 import {
   Select,
   SelectContent,
@@ -31,13 +32,14 @@ const Arena: NextPage = () => {
   const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
 
   // Ensure user is in village
-  const { access } = useRequireInVillage("Battle Arena");
+  const { userData, access } = useRequireInVillage("Battle Arena");
 
   // Derived values
   const title = tab === "Arena" ? "Arena" : "Sparring";
   const subtitle = tab === "Arena" ? "Fight Training" : "PVP Challenges";
 
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
+  if (userData?.isBanned) return <BanInfo />;
 
   return (
     <>

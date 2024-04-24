@@ -9,6 +9,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
 import Post from "@/layout/Post";
 import ReactCountryFlag from "react-country-flag";
+import BanInfo from "@/layout/BanInfo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
@@ -108,6 +109,7 @@ export default PaypalShop;
  */
 const RewardedAds = () => {
   // Fetch all ads
+  const { data: userData } = useRequiredUserData();
   const { data: ads, isPending } = api.paypal.getCpaLeads.useQuery();
   const [selectedCountry, setSelectedCountry] = useState<string>("US");
 
@@ -133,6 +135,9 @@ const RewardedAds = () => {
 
   // Offers to show to user
   const offersToShow = relevantAds.filter((ad) => ad.country.includes(selectedCountry));
+
+  // No ads for banned players
+  if (userData?.isBanned) return <BanInfo hideContentBox />;
 
   return (
     <div>
@@ -245,6 +250,9 @@ const ReputationStore = (props: { currency: string }) => {
       userSearchMethods.setValue("users", [userData]);
     }
   }, [userData, userSearchMethods, watchedUsers]);
+
+  // No reps for banned users
+  if (userData?.isBanned) return <BanInfo hideContentBox />;
 
   return (
     <>
@@ -420,8 +428,6 @@ const PayPalSubscriptionButton = (props: {
   const hasSubscription = props.currentUserStatus !== "NONE";
   const upgradeCost = calcFedUgradeCost(props.currentUserStatus, props.buttonStatus);
 
-  console.log(props.currentUserStatus, props.buttonStatus);
-
   return (
     <div
       className={`p-2 m-1 ${
@@ -518,6 +524,9 @@ const FederalStore = () => {
   }, [userData, userSearchMethods, watchedUsers]);
 
   const status = selectedUser?.federalStatus;
+
+  // No fed for banned users
+  if (userData?.isBanned) return <BanInfo hideContentBox />;
 
   return (
     <>

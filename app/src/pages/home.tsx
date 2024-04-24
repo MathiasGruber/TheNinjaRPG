@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import BanInfo from "@/layout/BanInfo";
 import { api } from "@/utils/api";
 import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
@@ -25,6 +26,7 @@ const Home: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Residence" />;
+  if (userData.isBanned) return <BanInfo />;
 
   const boost = 1 + structureBoost("sleepRegenPerLvl", sectorVillage?.structures);
 
