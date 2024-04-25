@@ -5,6 +5,7 @@ import WidgetBot from "@widgetbot/react-embed";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import Conversation from "@/layout/Conversation";
+import BanInfo from "@/layout/BanInfo";
 import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -42,6 +43,7 @@ const Tavern: NextPage = () => {
   }, [activeTab, localTavern]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (userData.isBanned) return <BanInfo />;
   if (isPending) return <Loader explanation="Getting sector information" />;
 
   const navTabs = (
