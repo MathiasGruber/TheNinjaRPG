@@ -1,6 +1,7 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Confirm from "@/layout/Confirm";
+import BanInfo from "@/layout/BanInfo";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import {
   Form,
@@ -112,6 +113,7 @@ const ANBU: NextPage = () => {
   if (!sectorVillage) return <Loader explanation="Loading sector village" />;
   if (!structure) return <Loader explanation="Can not find structure" />;
   if (isCreating) return <Loader explanation="Creating squad" />;
+  if (userData.isBanned) return <BanInfo />;
 
   // Form handlers
   const onSubmit = createForm.handleSubmit((data) => {

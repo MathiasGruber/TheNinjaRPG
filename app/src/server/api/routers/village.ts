@@ -85,6 +85,7 @@ export const villageRouter = createTRPCRouter({
       // Guard
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.money < cost) return errorResponse("You don't have enough money");
+      if (user.isBanned) return errorResponse("You are banned");
       // Mutate with guard
       const result = await ctx.drizzle
         .update(userData)

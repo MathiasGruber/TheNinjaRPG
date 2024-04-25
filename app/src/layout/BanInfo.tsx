@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import Post from "@/layout/Post";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";

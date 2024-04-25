@@ -2,6 +2,7 @@ import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
+import BanInfo from "@/layout/BanInfo";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   Select,
@@ -75,6 +76,7 @@ const ItemShop: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Item Shop" />;
+  if (userData.isBanned) return <BanInfo />;
 
   return (
     <>

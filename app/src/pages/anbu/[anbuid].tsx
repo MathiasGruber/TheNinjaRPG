@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import ReactHtmlParser from "react-html-parser";
+import BanInfo from "@/layout/BanInfo";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -57,6 +58,7 @@ const ANBU: NextPage = () => {
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing ANBU" />;
   if (!squad) return <Loader explanation="Loading ANBU squad" />;
+  if (userData.isBanned) return <BanInfo />;
 
   // Derived
   const isKage = userData.userId === userData.village?.kageId;

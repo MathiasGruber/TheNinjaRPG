@@ -2,6 +2,7 @@ import { type NextPage } from "next";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import BanInfo from "@/layout/BanInfo";
 import { api } from "@/utils/api";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { showMutationToast } from "@/libs/toast";
@@ -29,6 +30,7 @@ const RamenShop: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Ramen Shop" />;
+  if (userData.isBanned) return <BanInfo />;
 
   return (
     <ContentBox

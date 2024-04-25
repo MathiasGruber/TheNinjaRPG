@@ -296,6 +296,7 @@ export const itemRouter = createTRPCRouter({
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
       if (userItemsCount >= calcMaxItems()) return errorResponse("Inventory is full");
       if (info.hidden === 1) return errorResponse("Item can not be bought");
+      if (user.isBanned === 1) return errorResponse("You are banned");
       const cost = info.cost * input.stack * factor;
       // Mutate
       const result = await ctx.drizzle

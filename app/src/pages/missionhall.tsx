@@ -3,6 +3,7 @@ import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
+import BanInfo from "@/layout/BanInfo";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import Confirm from "@/layout/Confirm";
@@ -40,6 +41,7 @@ const MissionHall: NextPage = () => {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Mission Hall" />;
+  if (userData.isBanned) return <BanInfo />;
 
   // Current timestamp synced with server
   const now = new Date(new Date().getTime() - timeDiff);

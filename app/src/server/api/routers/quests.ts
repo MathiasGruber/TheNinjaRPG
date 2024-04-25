@@ -125,6 +125,8 @@ export const questsRouter = createTRPCRouter({
       if (!settings) {
         return errorResponse("Settings not found");
       }
+      // Guards
+      if (user.isBanned) return errorResponse("You are banned");
       // Confirm timing, i.e. whether it has been long enough since last quest
       const minutesPassed = secondsPassed(user.questFinishAt) / 60;
       if (minutesPassed < settings.delayMinutes) {

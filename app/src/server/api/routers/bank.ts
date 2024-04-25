@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure, baseServerResponse } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { errorResponse, baseServerResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
 import { eq, or, and, gte, sql, desc } from "drizzle-orm";
 import { userData, bankTransfers } from "@/drizzle/schema";
@@ -10,9 +11,8 @@ export const bankRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.money < input.amount) {
-        return { success: false, message: "Not enough money in pocket" };
-      }
+      if (user.money < input.amount) return errorResponse("Not enough money in pocket");
+      if (user.isBanned) return errorResponse("You are banned");
       const result = await ctx.drizzle
         .update(userData)
         .set({
@@ -30,9 +30,8 @@ export const bankRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.bank < input.amount) {
-        return { success: false, message: "Not enough money in bank" };
-      }
+      if (user.bank < input.amount) return errorResponse("Not enough money in bank");
+      if (user.isBanned) return errorResponse("You are banned");
       const result = await ctx.drizzle
         .update(userData)
         .set({
@@ -51,16 +50,13 @@ export const bankRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const target = await fetchUser(ctx.drizzle, input.targetId);
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.bank < input.amount) {
-        return { success: false, message: "Not enough money in bank" };
-      }
+      if (user.bank < input.amount) return errorResponse("Not enough money in bank");
+      if (user.isBanned) return errorResponse("You are banned");
       const result = await ctx.drizzle
         .update(userData)
         .set({ bank: sql`${userData.bank} - ${input.amount}` })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.bank, input.amount)));
-      if (result.rowsAffected === 0) {
-        return { success: false, message: "Not enough money in bank" };
-      }
+      if (result.rowsAffected === 0) return errorResponse("Not enough money in bank");
       await Promise.all([
         ctx.drizzle
           .update(userData)

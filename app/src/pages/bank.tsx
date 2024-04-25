@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { type NextPage } from "next";
 import { z } from "zod";
+import BanInfo from "@/layout/BanInfo";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -171,6 +172,7 @@ const Bank: NextPage = () => {
   // Loading screens
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Bank" />;
+  if (userData.isBanned) return <BanInfo />;
   if (l1 || l2 || l3) return <Loader explanation="Transferring money" />;
 
   return (
