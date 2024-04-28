@@ -315,9 +315,9 @@ const ReputationStore = (props: { currency: string }) => {
                     sendGTMEvent({ ecommerce: null });
                     sendGTMEvent({
                       event: "purchase",
-                      transaction_id,
-                      currency,
-                      value,
+                      transaction_id: transaction_id,
+                      currency: currency,
+                      value: Number(value),
                     });
                   }
                 });
@@ -495,7 +495,7 @@ const PayPalSubscriptionButton = (props: {
               custom_id: `${props.buyerId}-${props.userId}`,
             });
           }}
-          onApprove={(data) => {
+          onApprove={(data, actions) => {
             if (data.subscriptionID) {
               subscribe({
                 subscriptionId: data.subscriptionID,
@@ -509,9 +509,28 @@ const PayPalSubscriptionButton = (props: {
                 title: "No subscription",
               });
             }
-            return new Promise(() => {
-              return null;
-            });
+            // Send GTM event with conversion data
+            if (actions.order) {
+              return actions.order.capture().then((details) => {
+                const purchaseUnit = details.purchase_units[0];
+                const transaction_id = purchaseUnit?.invoice_id;
+                const currency = purchaseUnit?.amount?.currency_code;
+                const value = purchaseUnit?.amount?.value;
+                if (transaction_id && currency && value) {
+                  sendGTMEvent({ ecommerce: null });
+                  sendGTMEvent({
+                    event: "purchase",
+                    transaction_id: transaction_id,
+                    currency: currency,
+                    value: Number(value),
+                  });
+                }
+              });
+            } else {
+              return new Promise(() => {
+                return null;
+              });
+            }
           }}
         />
       )}
