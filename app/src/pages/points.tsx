@@ -306,7 +306,20 @@ const ReputationStore = (props: { currency: string }) => {
               if (actions.order) {
                 return actions.order.capture().then((details) => {
                   buyReps({ orderId: details.id });
-                  sendGTMEvent({ event: "purchase", ...details });
+                  // Send GTM event with conversion data
+                  const purchaseUnit = details.purchase_units[0];
+                  const transaction_id = purchaseUnit?.invoice_id;
+                  const currency = purchaseUnit?.amount?.currency_code;
+                  const value = purchaseUnit?.amount?.value;
+                  if (transaction_id && currency && value) {
+                    sendGTMEvent({ ecommerce: null });
+                    sendGTMEvent({
+                      event: "purchase",
+                      transaction_id,
+                      currency,
+                      value,
+                    });
+                  }
                 });
               } else {
                 showMutationToast({
