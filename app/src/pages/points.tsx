@@ -30,6 +30,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
 import { Check, ChevronsUp, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { sendGTMEvent } from "@next/third-parties/google";
 import {
   Form,
   FormControl,
@@ -305,6 +306,7 @@ const ReputationStore = (props: { currency: string }) => {
               if (actions.order) {
                 return actions.order.capture().then((details) => {
                   buyReps({ orderId: details.id });
+                  sendGTMEvent({ event: "repPurchase", ...details });
                 });
               } else {
                 showMutationToast({
