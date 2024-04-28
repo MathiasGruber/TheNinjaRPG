@@ -306,7 +306,7 @@ const ReputationStore = (props: { currency: string }) => {
               if (actions.order) {
                 return actions.order.capture().then((details) => {
                   buyReps({ orderId: details.id });
-                  sendGTMEvent({ event: "repPurchase", ...details });
+                  sendGTMEvent({ event: "purchase", ...details });
                 });
               } else {
                 showMutationToast({
