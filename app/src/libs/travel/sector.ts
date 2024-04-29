@@ -23,6 +23,7 @@ import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
+import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
@@ -206,7 +207,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(sprite);
 
   // Attack button
-  if (userData.rank !== "STUDENT") {
+  if (!RANKS_RESTRICTED_FROM_PVP.includes(userData.rank)) {
     const attack = loadTexture("map/attack.png");
     const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
     const attackSprite = new Sprite(attackMat);

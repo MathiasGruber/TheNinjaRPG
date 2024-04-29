@@ -18,6 +18,7 @@ import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { isLocationObjective } from "@/libs/quest";
+import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
@@ -548,13 +549,15 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
         {users.map((user, i) => (
           <div key={i} className="relative">
             <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80">
-              <Image
-                src={"/map/attack.png"}
-                onClick={() => props.attackUser(user.userId)}
-                width={40}
-                height={40}
-                alt={`Attack-${user.userId}`}
-              />
+              {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (
+                <Image
+                  src={"/map/attack.png"}
+                  onClick={() => props.attackUser(user.userId)}
+                  width={40}
+                  height={40}
+                  alt={`Attack-${user.userId}`}
+                />
+              )}
             </div>
             <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80">
               <Link href={`/users/${user.userId}`}>
