@@ -51,7 +51,11 @@ const Profile: NextPage = () => {
     onSuccess: async (newLevel) => {
       if (userData && newLevel !== userData.level) {
         await refetchUser();
-        sendGTMEvent({ event: "levelUp", value: newLevel });
+        sendGTMEvent({
+          event: "level_up",
+          level: newLevel,
+          character: userData.userId,
+        });
       }
     },
     onSettled: () => {
