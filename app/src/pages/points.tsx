@@ -318,6 +318,12 @@ const ReputationStore = (props: { currency: string }) => {
                       transaction_id: transaction_id,
                       currency: currency,
                       value: Number(value),
+                      items: [
+                        {
+                          item_id: "BASIC_REPS",
+                          item_name: "REPUTATION POINTS",
+                        },
+                      ],
                     });
                   }
                 });
@@ -523,6 +529,12 @@ const PayPalSubscriptionButton = (props: {
                     transaction_id: transaction_id,
                     currency: currency,
                     value: Number(value),
+                    items: [
+                      {
+                        item_id: data.subscriptionID,
+                        item_name: props.buttonStatus,
+                      },
+                    ],
                   });
                 }
               });
