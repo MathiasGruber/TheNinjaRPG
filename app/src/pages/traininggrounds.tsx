@@ -8,6 +8,7 @@ import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import StatusBar from "@/layout/StatusBar";
 import NavTabs from "@/layout/NavTabs";
+import Confirm from "@/layout/Confirm";
 import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import PublicUserComponent from "@/layout/PublicUser";
@@ -96,6 +97,18 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   });
 
   // Mutations
+  const { mutate: remove, isPending: isRemoving } =
+    api.sensei.removeStudent.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          await utils.sensei.getRequests.invalidate();
+          await utils.sensei.getStudents.invalidate();
+        }
+      },
+    });
+
   const { mutate: create, isPending: isCreating } =
     api.sensei.createRequest.useMutation({
       onSuccess: async (data) => {
@@ -114,6 +127,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
         if (data.success) {
           await utils.profile.getUser.invalidate();
           await utils.sensei.getRequests.invalidate();
+          await utils.sensei.getStudents.invalidate();
         }
       },
     });
@@ -140,7 +154,12 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
 
   // Derived features
   const isPending =
-    isFetching || isCreating || isAccepting || isRejecting || isCancelling;
+    isFetching ||
+    isCreating ||
+    isAccepting ||
+    isRejecting ||
+    isCancelling ||
+    isRemoving;
   const canSensei = SENSEI_RANKS.includes(userData.rank);
   const message = canSensei
     ? "Search for Genin to take in as students."
@@ -163,22 +182,38 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
         <ContentBox title="Students" subtitle={`Past and present`} initialBreak={true}>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {students.map((user, i) => (
-              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
-                <AvatarImage
-                  href={user.avatar}
-                  alt={user.username}
-                  userId={user.userId}
-                  hover_effect={true}
-                  priority={true}
-                  size={100}
-                />
-                <div>
-                  <div className="font-bold">{user.username}</div>
+              <div className="relative" key={i}>
+                <Link href={`/users/${user.userId}`} className="text-center">
+                  <AvatarImage
+                    href={user.avatar}
+                    alt={user.username}
+                    userId={user.userId}
+                    hover_effect={true}
+                    priority={true}
+                    size={100}
+                  />
+                  {user.rank === "GENIN" && (
+                    <Confirm
+                      title="Remove Student"
+                      button={
+                        <XCircle className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 p-1 hover:text-orange-500" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        remove({ studentId: user.userId });
+                      }}
+                    >
+                      You are about to remove this user as your student. Confirm?
+                    </Confirm>
+                  )}
                   <div>
-                    Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                    <div className="font-bold">{user.username}</div>
+                    <div>
+                      Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             ))}
           </div>
         </ContentBox>

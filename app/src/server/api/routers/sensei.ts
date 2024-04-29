@@ -119,6 +119,29 @@ export const senseiRouter = createTRPCRouter({
       }
       return errorResponse("Student already has a sensei");
     }),
+  removeStudent: protectedProcedure
+    .input(z.object({ studentId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [student, sensei] = await Promise.all([
+        fetchUser(ctx.drizzle, input.studentId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
+      if (student.senseiId !== sensei.userId) {
+        return errorResponse("Student is not yours");
+      }
+      if (student.rank !== "GENIN") {
+        return errorResponse("Can only remove Genin students");
+      }
+      // Update
+      await ctx.drizzle
+        .update(userData)
+        .set({ senseiId: null })
+        .where(eq(userData.userId, student.userId));
+      return { success: true, message: "Student removed" };
+    }),
 });
 
 /**
