@@ -81,8 +81,6 @@ export const availableUserActions = (
         power: 5,
         powerPerLevel: 0.1,
         calculation: "static",
-        statTypes: ["Ninjutsu", "Genjutsu"],
-        generalTypes: ["Willpower", "Intelligence"],
         rounds: 0,
         appearAnimation: "heal",
       }),

@@ -315,7 +315,6 @@ export const DecreaseDamageTakenTag = z.object({
 
 export const IncreaseHealGivenTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("increaseheal").default("increaseheal"),
   description: msg("Increase how much target can heal others"),
@@ -324,7 +323,6 @@ export const IncreaseHealGivenTag = z.object({
 
 export const DecreaseHealGivenTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("decreaseheal").default("decreaseheal"),
   description: msg("Decrease how much target can heal others"),
@@ -437,7 +435,6 @@ export const FleePreventTag = z.object({
 
 export const HealTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("heal").default("heal"),
   description: msg("Heals the target"),

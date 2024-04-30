@@ -334,15 +334,26 @@ export const adjustHealGiven = (
   const { power, adverb, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
+      // Adjust heal
       if (consequence.userId === effect.targetId && consequence.heal) {
         const healEffect = usersEffects.find((e) => e.id === effectId);
         if (healEffect) {
-          const ratio = getEfficiencyRatio(healEffect, effect);
           const change =
             effect.calculation === "percentage"
               ? (power / 100) * consequence.heal
               : power;
-          consequence.heal = consequence.heal + change * ratio;
+          consequence.heal = consequence.heal + change;
+        }
+      }
+      // Adjust lifesteal
+      if (consequence.userId === effect.targetId && consequence.lifesteal_hp) {
+        const stealEffect = usersEffects.find((e) => e.id === effectId);
+        if (stealEffect) {
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.lifesteal_hp
+              : power;
+          consequence.lifesteal_hp = consequence.lifesteal_hp + change;
         }
       }
     });
