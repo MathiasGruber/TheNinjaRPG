@@ -40,6 +40,8 @@ export const publicState = [
   "controllerId",
   "actionPoints",
   "direction",
+  "rank",
+  "medicalExperience",
 ] as const;
 
 /**

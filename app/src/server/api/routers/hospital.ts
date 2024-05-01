@@ -1,16 +1,137 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
-import { sql, eq, gte, and } from "drizzle-orm";
+import { sql, eq, gte, lte, and } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
+import { hasRequiredRank } from "@/libs/train";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost } from "@/libs/hospital/hospital";
-import { fetchUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { structureBoost } from "@/utils/village";
+import { calcIsInVillage } from "@/libs/travel/controls";
+import { getServerPusher } from "@/libs/pusher";
+import { calcHealthToChakra } from "@/libs/hospital/hospital";
+import { MEDNIN_MIN_RANK, MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
 import type { ExecutedQuery } from "@planetscale/database";
 
+const pusher = getServerPusher();
+
 export const hospitalRouter = createTRPCRouter({
+  getHospitalizedUsers: protectedProcedure.query(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    return await ctx.drizzle.query.userData.findMany({
+      columns: {
+        userId: true,
+        avatar: true,
+        username: true,
+        curHealth: true,
+        maxHealth: true,
+        regeneration: true,
+        regenAt: true,
+        level: true,
+        status: true,
+        sector: true,
+        rank: true,
+      },
+      where: and(
+        eq(userData.sector, user.sector),
+        lte(userData.curHealth, userData.maxHealth),
+        sql`(${userData.maxHealth} - ${userData.curHealth}) > 0`,
+      ),
+      limit: 10,
+      orderBy: sql`RAND()`,
+    });
+  }),
+  // Let users heal other users if they are GENIN or above
+  userHeal: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        healPercentage: z.number().int().min(1).max(100),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query for fetching latest user & target
+      const [updatedUser, updatedTarget] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+          userIp: ctx.userIp,
+          forceRegen: true,
+        }),
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: input.userId,
+          forceRegen: true,
+        }),
+      ]);
+      // Extract user & target to shorthand variables
+      const { user: u } = updatedUser;
+      const { user: t } = updatedTarget;
+      if (!u) return errorResponse("Your user was not found");
+      if (!t) return errorResponse("Your target was not found");
+      // Derived
+      const uInVillage = calcIsInVillage({ x: u.longitude, y: u.latitude });
+      const tInVillage = calcIsInVillage({ x: t.longitude, y: t.latitude });
+      const inVillage = uInVillage && tInVillage;
+      const sameLocation = u.longitude === t.longitude && u.latitude === t.latitude;
+      const toHeal = t.maxHealth * (input.healPercentage / 100);
+      const chakraCost = calcHealthToChakra(u, toHeal);
+      const expGain = MEDNIN_HEAL_TO_EXP * toHeal;
+      // Guard
+      if (u.status !== "AWAKE") {
+        return errorResponse("You can't heal while you're not awake");
+      }
+      if (t.maxHealth - t.curHealth <= 0) {
+        return errorResponse("User did not need this healing anymore");
+      }
+      if (!hasRequiredRank(u.rank, MEDNIN_MIN_RANK)) {
+        return errorResponse("You need to be at least a GENIN to heal other users");
+      }
+      if (u.sector !== t.sector) {
+        return errorResponse("You can only heal users in the same sector as you");
+      }
+      if (!inVillage && !sameLocation) {
+        return errorResponse("Target user is not in your village");
+      }
+      if (chakraCost > u.curChakra) {
+        return errorResponse("You don't have enough chakra to heal this much");
+      }
+      // Reduce chakra & give med exp
+      const uResult = await ctx.drizzle
+        .update(userData)
+        .set({
+          medicalExperience: sql`${userData.medicalExperience} + ${expGain}`,
+          curChakra: sql`${userData.curChakra} - ${chakraCost}`,
+        })
+        .where(and(eq(userData.userId, u.userId), gte(userData.curChakra, chakraCost)));
+      // If successful deduction
+      if (uResult.rowsAffected === 1) {
+        const tResult = await ctx.drizzle
+          .update(userData)
+          .set({
+            curHealth: sql`LEAST(${t.curHealth + toHeal}, ${t.maxHealth})`,
+            regenAt: new Date(),
+            status: "AWAKE",
+          })
+          .where(eq(userData.userId, t.userId));
+        if (tResult.rowsAffected === 1) {
+          void pusher.trigger(t.userId, "event", {
+            type: "userMessage",
+            message: `You've been healed for ${toHeal}HP by ${u.username}`,
+            route: "/profile",
+            routeText: "To profile",
+          });
+          return { success: true, message: "You have healed the target user" };
+        } else {
+          return { success: false, message: "Could not heal target" };
+        }
+      } else {
+        return { success: false, message: "Could not heal - failed to update healer" };
+      }
+    }),
   // Pay to heal & get out of hospital
   heal: protectedProcedure
     .input(z.object({ villageId: z.string().nullish() }))

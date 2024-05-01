@@ -111,47 +111,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = (props) => {
           console.log("Received battle event");
         } else if (data.type === "newInbox") {
           console.log("Received inbox");
-        } else if (data.type === "challengeCreated") {
+        } else if (data.type === "userMessage") {
           showMutationToast({
             success: true,
-            message: "You have been challenged",
+            message: data.message ?? "You have a new message",
             title: "Notification!",
             action: (
               <ToastAction altText="To Arena">
-                <Link href="/battlearena">To Arena</Link>
-              </ToastAction>
-            ),
-          });
-        } else if (data.type === "sensei") {
-          showMutationToast({
-            success: true,
-            message: "Updates in sensei system",
-            title: "Notification!",
-            action: (
-              <ToastAction altText="To Training Grounds">
-                <Link href="/traininggrounds">To Training Grounds</Link>
-              </ToastAction>
-            ),
-          });
-        } else if (data.type === "challengeAccepted") {
-          showMutationToast({
-            success: true,
-            message: "Your challenge has been accepted",
-            title: "Notification!",
-            action: (
-              <ToastAction altText="To Arena">
-                <Link href="/combat">To Combat</Link>
-              </ToastAction>
-            ),
-          });
-        } else if (data.type === "challengeRejected") {
-          showMutationToast({
-            success: true,
-            message: "Your challenge has been rejected",
-            title: "Notification!",
-            action: (
-              <ToastAction altText="To Arena">
-                <Link href="/battlearena">To Arena</Link>
+                <Link href={data.route ?? "/battlearena"}>
+                  {data.routeText ?? "To Profile"}
+                </Link>
               </ToastAction>
             ),
           });

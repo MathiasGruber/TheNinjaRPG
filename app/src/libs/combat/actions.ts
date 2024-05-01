@@ -1,23 +1,24 @@
-import { MoveTag, DamageTag, FleeTag, HealTag } from "./types";
+import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
-import { getAffectedTiles } from "./movement";
-import { COMBAT_SECONDS } from "./constants";
-import { realizeTag, checkFriendlyFire } from "./process";
-import { applyEffects } from "./process";
-import { calcPoolCost } from "./util";
-import { hasNoAvailableActions } from "./util";
-import { calcIsStunned } from "./util";
-import { isEffectActive, getBarriersBetween } from "./util";
-import { updateStatUsage } from "./tags";
-import { getPossibleActionTiles } from "../hexgrid";
-import { PathCalculator } from "../hexgrid";
-import type { AttackTargets } from "../../../drizzle/constants";
-import type { BattleUserState, ReturnedUserState } from "./types";
-import type { CompleteBattle, ReturnedBattle } from "./types";
+import { getAffectedTiles } from "@/libs/combat/movement";
+import { COMBAT_SECONDS } from "@/libs/combat/constants";
+import { realizeTag, checkFriendlyFire } from "@/libs/combat/process";
+import { applyEffects } from "@/libs/combat/process";
+import { calcPoolCost } from "@/libs/combat/util";
+import { hasNoAvailableActions } from "@/libs/combat/util";
+import { calcIsStunned } from "@/libs/combat/util";
+import { isEffectActive, getBarriersBetween } from "@/libs/combat/util";
+import { updateStatUsage } from "@/libs/combat/tags";
+import { getPossibleActionTiles } from "@/libs/hexgrid";
+import { PathCalculator } from "@/libs/hexgrid";
+import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
+import type { AttackTargets } from "@/drizzle/constants";
+import type { BattleUserState, ReturnedUserState } from "@/libs/combat/types";
+import type { CompleteBattle, ReturnedBattle } from "@/libs/combat/types";
 import type { Grid } from "honeycomb-grid";
-import type { TerrainHex } from "../hexgrid";
-import type { CombatAction } from "./types";
-import type { GroundEffect, UserEffect } from "./types";
+import type { TerrainHex } from "@/libs/hexgrid";
+import type { CombatAction } from "@/libs/combat/types";
+import type { GroundEffect, UserEffect } from "@/libs/combat/types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -78,9 +79,9 @@ export const availableUserActions = (
     level: user?.level,
     effects: [
       HealTag.parse({
-        power: 5,
-        powerPerLevel: 0.1,
-        calculation: "static",
+        power: calcCombatHealPercentage(user),
+        powerPerLevel: 0.0,
+        calculation: "percentage",
         rounds: 0,
         appearAnimation: "heal",
       }),

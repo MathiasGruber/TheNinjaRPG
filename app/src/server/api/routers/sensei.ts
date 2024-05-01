@@ -50,7 +50,12 @@ export const senseiRouter = createTRPCRouter({
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, target.userId, "SENSEI");
-      void pusher.trigger(input.targetId, "event", { type: "sensei" });
+      void pusher.trigger(input.targetId, "event", {
+        type: "userMessage",
+        message: "Updates in sensei system",
+        route: "/traininggrounds",
+        routeText: "To Training Grounds",
+      });
       return { success: true, message: "Request created" };
     }),
   rejectRequest: protectedProcedure
@@ -64,7 +69,12 @@ export const senseiRouter = createTRPCRouter({
       if (request.status !== "PENDING") {
         return errorResponse("You can only reject pending requests");
       }
-      void pusher.trigger(request.senderId, "event", { type: "sensei" });
+      void pusher.trigger(request.senderId, "event", {
+        type: "userMessage",
+        message: "Updates in sensei system",
+        route: "/traininggrounds",
+        routeText: "To Training Grounds",
+      });
       return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "SENSEI");
     }),
   cancelRequest: protectedProcedure
@@ -114,7 +124,12 @@ export const senseiRouter = createTRPCRouter({
         .where(and(eq(userData.userId, studentId), isNull(userData.senseiId)));
       if (result.rowsAffected !== 0) {
         await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SENSEI");
-        void pusher.trigger(request.senderId, "event", { type: "sensei" });
+        void pusher.trigger(request.senderId, "event", {
+          type: "userMessage",
+          message: "Updates in sensei system",
+          route: "/traininggrounds",
+          routeText: "To Training Grounds",
+        });
         return { success: true, message: "Request accepted" };
       }
       return errorResponse("Student already has a sensei");

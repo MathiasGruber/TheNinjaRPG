@@ -34,7 +34,12 @@ export const sparringRouter = createTRPCRouter({
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, target.userId, "SPAR");
-      void pusher.trigger(input.targetId, "event", { type: "challengeCreated" });
+      void pusher.trigger(input.targetId, "event", {
+        type: "userMessage",
+        message: "You have been challenged",
+        route: "/battlearena",
+        routeText: "To Arena",
+      });
       return { success: true, message: "Challenge created" };
     }),
   acceptChallenge: protectedProcedure
@@ -67,7 +72,10 @@ export const sparringRouter = createTRPCRouter({
       if (result.success) {
         await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");
         void pusher.trigger(challenge.senderId, "event", {
-          type: "challengeAccepted",
+          type: "userMessage",
+          message: "Your challenge has been accepted",
+          route: "/combat",
+          routeText: "To Combat",
         });
       }
       return result;
@@ -84,7 +92,10 @@ export const sparringRouter = createTRPCRouter({
         throw serverError("FORBIDDEN", "You can only reject pending challenges");
       }
       void pusher.trigger(challenge.senderId, "event", {
-        type: "challengeRejected",
+        type: "userMessage",
+        message: "Your challenge has been rejected",
+        route: "/battlearena",
+        routeText: "To Arena",
       });
       return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "SPAR");
     }),

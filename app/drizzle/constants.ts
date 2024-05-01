@@ -247,6 +247,18 @@ export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
 // Sensei config
 export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
 
+// Medical Ninja config
+export const MEDNIN_MIN_RANK = "GENIN";
+export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER"] as const;
+export const MEDNIN_HEAL_TO_EXP = 0.1;
+export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
+export const MEDNIN_REQUIRED_EXP = {
+  NONE: 0,
+  NOVICE: 0,
+  APPRENTICE: 5000,
+  MASTER: 10000,
+} as { [key in MEDNIN_RANK]: number };
+
 // Training config
 export const JUTSU_XP_TO_LEVEL = 1000;
 

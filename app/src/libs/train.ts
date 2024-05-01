@@ -25,7 +25,9 @@ export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
   return ["D"];
 };
 
-export const hasRequiredRank = (userRank: UserRank, requiredRank: UserRank) => {
+export const hasRequiredRank = (userRank?: UserRank, requiredRank?: UserRank) => {
+  if (!userRank) return false;
+  if (!requiredRank) return true;
   switch (requiredRank) {
     case "STUDENT":
       return true;

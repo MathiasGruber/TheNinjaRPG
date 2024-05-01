@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `medicalExperience` int DEFAULT 0 NOT NULL;

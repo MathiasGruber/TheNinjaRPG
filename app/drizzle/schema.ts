@@ -851,6 +851,7 @@ export const userData = mysqlTable(
     unreadNews: tinyint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
     senseiId: varchar("senseiId", { length: 191 }),
+    medicalExperience: int("medicalExperience").default(0).notNull(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),

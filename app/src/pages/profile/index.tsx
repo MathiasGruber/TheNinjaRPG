@@ -15,6 +15,7 @@ import { sendGTMEvent } from "@next/third-parties/google";
 import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -219,6 +220,7 @@ const Profile: NextPage = () => {
             <p>PvE Fights: {userData.pveFights}</p>
             <p>PvP Streak: {userData.pvpStreak}</p>
             <p>PvP Activity: {userData.pvpActivity}</p>
+            <p>Medical Exp: {userData.medicalExperience}</p>
           </div>
           <div>
             <b>Reputation</b>
@@ -232,7 +234,7 @@ const Profile: NextPage = () => {
             <p>Village: {userData.village?.name}</p>
             <p>Bloodline: {userData.bloodline?.name || "None"}</p>
             <p>ANBU: {userData.anbuSquad?.name || "None"}</p>
-            <p>Clan: None</p>
+            <p>Medical: {capitalizeFirstLetter(calcMedninRank(userData))}</p>
           </div>
         </div>
         {expRequired !== undefined && expRequired <= 0 && (

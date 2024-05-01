@@ -8,7 +8,10 @@ import type { ReturnedBattle } from "@/libs/combat/types";
 
 // Events sent to the user from websockets
 export type UserEvent = {
-  type: "battle";
+  type: string;
+  message?: string;
+  route?: string;
+  routeText?: string;
 };
 
 // User (& current battle) context
