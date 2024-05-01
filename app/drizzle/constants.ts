@@ -248,6 +248,7 @@ export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
 export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
 
 // Medical Ninja config
+export const MEDNIN_HEALABLE_STATES = ["HOSPITALIZED", "AWAKE"] as const;
 export const MEDNIN_MIN_RANK = "GENIN";
 export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER"] as const;
 export const MEDNIN_HEAL_TO_EXP = 0.1;

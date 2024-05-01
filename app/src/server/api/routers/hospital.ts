@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
-import { sql, eq, gte, lte, and } from "drizzle-orm";
+import { sql, eq, gte, lte, and, or } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { hasRequiredRank } from "@/libs/train";
 import { calcHealFinish } from "@/libs/hospital/hospital";
@@ -12,7 +12,9 @@ import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { getServerPusher } from "@/libs/pusher";
 import { calcHealthToChakra } from "@/libs/hospital/hospital";
-import { MEDNIN_MIN_RANK, MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
+import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
+import { MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
+import { MEDNIN_HEALABLE_STATES } from "@/drizzle/constants";
 import type { ExecutedQuery } from "@planetscale/database";
 
 const pusher = getServerPusher();
@@ -37,6 +39,7 @@ export const hospitalRouter = createTRPCRouter({
       where: and(
         eq(userData.sector, user.sector),
         lte(userData.curHealth, userData.maxHealth),
+        or(...MEDNIN_HEALABLE_STATES.map((s) => eq(userData.status, s))),
         sql`(${userData.maxHealth} - ${userData.curHealth}) > 0`,
       ),
       limit: 10,
@@ -83,6 +86,9 @@ export const hospitalRouter = createTRPCRouter({
       // Guard
       if (u.status !== "AWAKE") {
         return errorResponse("You can't heal while you're not awake");
+      }
+      if (!MEDNIN_HEALABLE_STATES.find((s) => s === t.status)) {
+        return errorResponse("Target user must be awake or hospitalized");
       }
       if (t.maxHealth - t.curHealth <= 0) {
         return errorResponse("User did not need this healing anymore");
