@@ -118,9 +118,9 @@ const MainHospitalPage: React.FC = () => {
   const { mutate: userHeal, isPending: isHealing } = api.hospital.userHeal.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
+      await util.hospital.getHospitalizedUsers.invalidate();
       if (data.success) {
         await util.profile.getUser.invalidate();
-        await util.hospital.getHospitalizedUsers.invalidate();
       }
     },
   });
