@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
-import { sql, eq, gte, lte, and, or } from "drizzle-orm";
+import { sql, eq, gte, lte, and, or, inArray, isNull } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { hasRequiredRank } from "@/libs/train";
 import { calcHealFinish } from "@/libs/hospital/hospital";
@@ -21,7 +21,21 @@ const pusher = getServerPusher();
 
 export const hospitalRouter = createTRPCRouter({
   getHospitalizedUsers: protectedProcedure.query(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    // Query
+    const [user, alliances] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      ctx.drizzle.query.villageAlliance.findMany(),
+    ]);
+    // Derived
+    const allies = alliances
+      .filter((a) => a.villageIdA === user.villageId || a.villageIdB === user.villageId)
+      .filter((a) => a.status === "ALLY")
+      .map((a) => [a.villageIdA, a.villageIdB])
+      .flat();
+    const uniqueVillageIds = user.villageId
+      ? [...new Set([user.villageId, ...allies])]
+      : [];
+    // Return filtered data
     return await ctx.drizzle.query.userData.findMany({
       columns: {
         userId: true,
@@ -38,6 +52,9 @@ export const hospitalRouter = createTRPCRouter({
       },
       where: and(
         eq(userData.sector, user.sector),
+        user.villageId
+          ? inArray(userData.villageId, uniqueVillageIds)
+          : isNull(userData.villageId),
         lte(userData.curHealth, userData.maxHealth),
         or(...MEDNIN_HEALABLE_STATES.map((s) => eq(userData.status, s))),
         sql`(${userData.maxHealth} - ${userData.curHealth}) > 0`,
