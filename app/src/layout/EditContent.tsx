@@ -542,19 +542,26 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         innerType instanceof z.ZodEnum &&
         ["appearAnimation", "staticAnimation", "disappearAnimation"].includes(value)
       ) {
+        const typedValue = value as
+          | "appearAnimation"
+          | "staticAnimation"
+          | "disappearAnimation";
         return {
           id: value,
           type: "animation_array",
           values: innerType._def.values as string[],
           resetButton: true,
           current:
-            value === "appearAnimation"
+            typedValue === "appearAnimation"
               ? watchAppear
-              : value === "staticAnimation"
+              : typedValue === "staticAnimation"
                 ? watchStatic
                 : watchDisappear,
         };
-      } else if (innerType instanceof z.ZodEnum && value === "staticAssetPath") {
+      } else if (
+        innerType instanceof z.ZodEnum &&
+        (value as string) === "staticAssetPath"
+      ) {
         return {
           id: value,
           type: "statics_array",

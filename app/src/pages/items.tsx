@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Merge, CircleDollarSign } from "lucide-react";
+import { Merge, CircleDollarSign, Cookie } from "lucide-react";
 import Image from "next/image";
 import NavTabs from "@/layout/NavTabs";
 import ContentBox from "@/layout/ContentBox";
@@ -7,11 +7,13 @@ import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import ContentImage from "@/layout/ContentImage";
+import { nonCombatConsume } from "@/libs/item";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
 import type { NextPage } from "next";
 
@@ -48,7 +50,9 @@ const MyItems: NextPage = () => {
       {!isFetching && screen === "Character" && (
         <Character items={allItems} refetch={() => refetch()} />
       )}
-      {!isFetching && screen === "Backpack" && <Backpack items={allItems} />}
+      {!isFetching && screen === "Backpack" && (
+        <Backpack userData={userData} items={allItems} />
+      )}
       {isFetching && <Loader explanation="Loading items" />}
     </ContentBox>
   );
@@ -61,6 +65,7 @@ export default MyItems;
  */
 interface BackpackProps {
   items: (UserItem & Item)[] | undefined;
+  userData: NonNullable<UserWithRelations>;
 }
 
 const Backpack: React.FC<BackpackProps> = (props) => {
@@ -71,6 +76,13 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   // tRPC utility
   const utils = api.useUtils();
 
+  // Handler for when mutations are settled
+  const onSettled = () => {
+    document.body.style.cursor = "default";
+    setIsOpen(false);
+    setItem(undefined);
+  };
+
   // Mutations
   const { mutate: merge, isPending: isMerging } = api.item.mergeStacks.useMutation({
     onSuccess: async (data) => {
@@ -79,11 +91,17 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         await utils.item.getUserItems.invalidate();
       }
     },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-      setIsOpen(false);
-      setItem(undefined);
+    onSettled,
+  });
+
+  const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.item.getUserItems.invalidate();
+      }
     },
+    onSettled,
   });
 
   const { mutate: sell, isPending: isSelling } = api.item.sellUserItem.useMutation({
@@ -93,18 +111,16 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         await utils.item.getUserItems.invalidate();
       }
     },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-      setIsOpen(false);
-      setItem(undefined);
-    },
+    onSettled,
   });
+
+  const nonEquipped = props.items?.filter((item) => item.equipped === "NONE");
 
   return (
     <>
       <ActionSelector
-        items={props.items}
-        counts={props.items}
+        items={nonEquipped}
+        counts={nonEquipped}
         selectedId={item?.id}
         showBgColor={false}
         showLabels={false}
@@ -113,7 +129,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             setItem(undefined);
             setIsOpen(false);
           } else {
-            setItem(props.items?.find((item) => item.id === id));
+            setItem(nonEquipped?.find((item) => item.id === id));
             setIsOpen(true);
           }
         }}
@@ -123,11 +139,20 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           {!isMerging && !isSelling && (
             <>
               <ItemWithEffects item={item} key={item.id} showStatistic="item" />
-              <div className="flex flex-row">
+              <div className="flex flex-row gap-1">
                 {item.canStack > 0 && (
-                  <Button id="merge" onClick={() => merge({ itemId: item.itemId })}>
+                  <Button variant="info" onClick={() => merge({ itemId: item.itemId })}>
                     <Merge className="mr-2 h-5 w-5" />
                     Merge Stacks
+                  </Button>
+                )}
+                {nonCombatConsume(item, props.userData) && (
+                  <Button
+                    variant="info"
+                    onClick={() => consume({ userItemId: item.id })}
+                  >
+                    <Cookie className="mr-2 h-5 w-5" />
+                    Consume
                   </Button>
                 )}
                 <div className="grow"></div>
@@ -143,6 +168,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             </>
           )}
           {isMerging && <Loader explanation={`Merging ${item.name} stacks`} />}
+          {isConsuming && <Loader explanation={`Using ${item.name}`} />}
           {isSelling && <Loader explanation={`Selling ${item.name}`} />}
         </Modal>
       )}

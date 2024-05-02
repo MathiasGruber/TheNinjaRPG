@@ -99,7 +99,7 @@ export const hospitalRouter = createTRPCRouter({
       const sameLocation = u.longitude === t.longitude && u.latitude === t.latitude;
       const toHeal = t.maxHealth * (input.healPercentage / 100);
       const chakraCost = calcHealthToChakra(u, toHeal);
-      const expGain = MEDNIN_HEAL_TO_EXP * toHeal;
+      const expGain = t.userId !== u.userId ? MEDNIN_HEAL_TO_EXP * toHeal : 0;
       // Guard
       if (u.status !== "AWAKE") {
         return errorResponse("You can't heal while you're not awake");

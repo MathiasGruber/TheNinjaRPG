@@ -84,6 +84,7 @@ export const ItemTypes = [
   "EVENT",
   "OTHER",
 ] as const;
+export type ItemType = (typeof ItemTypes)[number];
 
 export const WeaponTypes = [
   "STAFF",
@@ -256,8 +257,8 @@ export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
 export const MEDNIN_REQUIRED_EXP = {
   NONE: 0,
   NOVICE: 0,
-  APPRENTICE: 5000,
-  MASTER: 10000,
+  APPRENTICE: 200000,
+  MASTER: 400000,
 } as { [key in MEDNIN_RANK]: number };
 
 // Training config

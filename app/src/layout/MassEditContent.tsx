@@ -349,7 +349,7 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
   return (
     <div className={`flex flex-col`}>
       <EditContent
-        schema={JutsuValidator._def.schema}
+        schema={JutsuValidator._def.schema._def.schema}
         form={form}
         formData={formData}
         formClassName="flex flex-row w-screen"
@@ -455,7 +455,7 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
   return (
     <div className={`flex flex-col`}>
       <EditContent
-        schema={ItemValidator._def.schema}
+        schema={ItemValidator._def.schema._def.schema}
         form={form}
         formData={formData}
         formClassName="flex flex-row w-screen"

@@ -87,7 +87,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
         {!jutsu && <p>Could not find this jutsu</p>}
         {!loading && jutsu && (
           <EditContent
-            schema={JutsuValidator._def.schema}
+            schema={JutsuValidator._def.schema._def.schema}
             form={form}
             formData={formData}
             showSubmit={form.formState.isDirty}

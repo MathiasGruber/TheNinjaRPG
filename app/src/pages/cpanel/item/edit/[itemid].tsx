@@ -86,7 +86,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
         {!item && <p>Could not find this item</p>}
         {item && (
           <EditContent
-            schema={ItemValidator._def.schema}
+            schema={ItemValidator._def.schema._def.schema}
             form={form}
             formData={formData}
             showSubmit={form.formState.isDirty}

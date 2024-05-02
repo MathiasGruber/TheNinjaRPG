@@ -10,7 +10,7 @@ import { ItemRarities } from "@/drizzle/constants";
 import { ItemSlotTypes } from "@/drizzle/constants";
 import { api } from "@/utils/api";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
-import type { Item } from "@/drizzle/schema";
+import type { Item, UserData } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
 import type { ZodItemType } from "@/libs/combat/types";
@@ -76,6 +76,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "target", type: "str_array", values: AttackTargets },
     { id: "method", type: "str_array", values: AttackMethods },
     { id: "cost", type: "number" },
+    { id: "repsCost", type: "number" },
     { id: "cooldown", label: "cooldown", type: "number" },
     { id: "canStack", type: "number" },
     { id: "stackSize", type: "number" },
@@ -89,4 +90,32 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };
+};
+
+/**
+ * Checks if an item is consumable outside of combat.
+ * @param item - The item to check.
+ * @param userData - The user data.
+ * @returns True if the item is consumable outside of combat, false otherwise.
+ */
+/**
+ * Checks if an item is consumable outside of combat.
+ * @param item - The item to check.
+ * @param userData - The user data.
+ * @returns True if the item is consumable outside of combat, false otherwise.
+ */
+export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
+  if (item.itemType !== "CONSUMABLE") {
+    return false;
+  }
+
+  for (const effect of item.effects) {
+    if (effect.type === "rollbloodline") {
+      return true;
+    } else if (effect.type === "removebloodline" && userData.bloodlineId) {
+      return true;
+    }
+  }
+
+  return false;
 };

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
-import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import {
@@ -76,7 +75,7 @@ const ManualItems: NextPage = () => {
         subtitle="Content"
         back_href="/manual"
         topRightContent={
-          <div className="lg:flex lg:flex-row">
+          <div className="lg:flex lg:flex-row gap-1">
             <div className="grow"></div>
             <Select
               onValueChange={(e) => setItemType(e as (typeof ItemTypes)[number])}
@@ -88,6 +87,22 @@ const ManualItems: NextPage = () => {
               </SelectTrigger>
               <SelectContent>
                 {Object.values(ItemTypes).map((target) => (
+                  <SelectItem key={target} value={target}>
+                    {target}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              onValueChange={(e) => setRarity(e as (typeof ItemRarities)[number])}
+              defaultValue={rarity}
+              value={rarity}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={`None`} />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(ItemRarities).map((target) => (
                   <SelectItem key={target} value={target}>
                     {target}
                   </SelectItem>
@@ -111,11 +126,10 @@ const ManualItems: NextPage = () => {
         title="Database"
         subtitle={`Category: ${itemType.toLowerCase()}`}
         initialBreak={true}
-        topRightCorntentBreakpoint="sm"
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="grid grid-cols-1 gap-1 mr-1">
+              <div className="flex flex-row gap-1">
                 <Button
                   id={`create-${itemType}`}
                   className="w-full"
@@ -136,12 +150,6 @@ const ManualItems: NextPage = () => {
                 />
               </div>
             )}
-            <div className="grow"></div>
-            <NavTabs
-              current={rarity}
-              options={Object.values(ItemRarities)}
-              setValue={setRarity}
-            />
           </div>
         }
       >

@@ -28,8 +28,8 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const form = useForm<ZodJutsuType>({
     mode: "all",
     criteriaMode: "all",
-    values: jutsu,
-    defaultValues: jutsu,
+    values: jutsu as ZodJutsuType,
+    defaultValues: jutsu as ZodJutsuType,
     resolver: zodResolver(JutsuValidator),
   });
 

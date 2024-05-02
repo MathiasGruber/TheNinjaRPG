@@ -481,6 +481,14 @@ export const ReflectTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
+export const RemoveBloodline = z.object({
+  ...BaseAttributes,
+  type: z.literal("removebloodline").default("removebloodline"),
+  description: msg("Remove bloodline"),
+  power: z.coerce.number().int().min(0).max(100).default(1),
+  calculation: z.enum(["percentage"]).default("percentage"),
+});
+
 export const RecoilTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -504,6 +512,15 @@ export const RobTag = z.object({
   type: z.literal("rob").default("rob"),
   description: msg("Robs money from the target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+});
+
+export const RollRandomBloodline = z.object({
+  ...BaseAttributes,
+  rank: z.enum(LetterRanks).default("D"),
+  description: msg("Receive a random bloodline"),
+  power: z.coerce.number().int().min(0).max(100).default(1),
+  type: z.literal("rollbloodline").default("rollbloodline"),
+  calculation: z.enum(["percentage"]).default("percentage"),
 });
 
 export const SealPreventTag = z.object({
@@ -595,9 +612,11 @@ const AllTags = z.union([
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   ReflectTag.default({}),
+  RemoveBloodline.default({}),
   RecoilTag.default({}),
   RobPreventTag.default({}),
   RobTag.default({}),
+  RollRandomBloodline.default({}),
   SealPreventTag.default({}),
   SealTag.default({}),
   StunPreventTag.default({}),
@@ -745,13 +764,26 @@ export type ActionEffect = {
 /**
  * Refiner object, which is used to refine the data in the battle object
  */
-type ActionValidatorType = {
+interface ContentBaseValidatorType {
   target: (typeof AttackTargets)[number];
   method: (typeof AttackMethods)[number];
   range?: number;
   effects: ZodAllTags[];
-};
+}
 
+interface ItemValidatorType
+  extends Omit<Item, "id" | "createdAt" | "updatedAt" | "hidden"> {
+  effects: ZodAllTags[];
+}
+
+interface JutsuValidatorType
+  extends Omit<Jutsu, "id" | "createdAt" | "updatedAt" | "hidden"> {
+  effects: ZodAllTags[];
+}
+
+/**
+ * Convenience method for adding a custom zod validation error
+ */
 const addIssue = (ctx: z.RefinementCtx, message: string) => {
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
@@ -759,23 +791,10 @@ const addIssue = (ctx: z.RefinementCtx, message: string) => {
   });
 };
 
-const SuperRefineEffects = (
-  effects: ZodAllTags[] | ZodBloodlineTags[],
-  ctx: z.RefinementCtx,
-) => {
-  effects.forEach((e) => {
-    if (e.type === "barrier" && e.staticAssetPath === "") {
-      addIssue(ctx, "BarrierTag needs a staticAssetPath");
-    } else if (e.type === "clone" && e.rounds === 0) {
-      addIssue(
-        ctx,
-        "CloneTag can only be set to 0 rounds, indicating a single clone creation",
-      );
-    }
-  });
-};
-
-const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
+/**
+ * Validator for using a specific item/jutsu action
+ */
+const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) => {
   // Pick out various effect types
   const hasMove = data.effects.find((e) => e.type === "move");
   const hasClone = data.effects.find((e) => e.type === "clone");
@@ -805,6 +824,68 @@ const SuperRefineAction = (data: ActionValidatorType, ctx: z.RefinementCtx) => {
 };
 
 /**
+ * Validator specific to items
+ */
+const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
+  const hasBloodlineRoll = data.effects.find((e) => e.type === "rollbloodline");
+  const hasRemoveBloodline = data.effects.find((e) => e.type === "removebloodline");
+  if (data.cost === 0 && data.repsCost === 0) {
+    addIssue(ctx, "Must have either a ryo or reputation points cost");
+  }
+  if (data.cost > 0 && data.repsCost > 0) {
+    addIssue(ctx, "Cannot have both ryo and reputation points cost");
+  }
+  if (data.itemType === "CONSUMABLE" && data.destroyOnUse === 0) {
+    addIssue(ctx, "Consumable items must be destroyed on use");
+  }
+  if (hasBloodlineRoll || hasRemoveBloodline) {
+    if (data.itemType !== "CONSUMABLE") {
+      addIssue(ctx, "Items with bloodline roll must be consumable.");
+    }
+    if (data.target !== "SELF") {
+      addIssue(ctx, "Items with bloodline roll must target self");
+    }
+    if (data.method !== "SINGLE") {
+      addIssue(ctx, "Items with bloodline roll must have single method");
+    }
+  }
+};
+
+/**
+ * Validator specific to jutsus
+ */
+const SuperRefineJutsu = (data: JutsuValidatorType, ctx: z.RefinementCtx) => {
+  const hasBloodlineRoll = data.effects.find((e) => e.type === "rollbloodline");
+  const hasRemoveBloodline = data.effects.find((e) => e.type === "removebloodline");
+  if (hasBloodlineRoll || hasRemoveBloodline) {
+    addIssue(ctx, "Cannot have bloodline add/remove effects on jutsu");
+  }
+};
+
+/**
+ * Validator specific to effects
+ */
+const SuperRefineEffects = (
+  effects: ZodAllTags[] | ZodBloodlineTags[],
+  ctx: z.RefinementCtx,
+) => {
+  effects.forEach((e) => {
+    if (e.type === "barrier" && e.staticAssetPath === "") {
+      addIssue(ctx, "BarrierTag needs a staticAssetPath");
+    } else if (e.type === "rollbloodline" && e.powerPerLevel > 0) {
+      addIssue(ctx, "powerPerLevel must be 0 for rollbloodline effect");
+    } else if (e.type === "removebloodline" && e.powerPerLevel > 0) {
+      addIssue(ctx, "powerPerLevel must be 0 for removebloodline effect");
+    } else if (e.type === "clone" && e.rounds === 0) {
+      addIssue(
+        ctx,
+        "CloneTag can only be set to 0 rounds, indicating a single clone creation",
+      );
+    }
+  });
+};
+
+/**
  * Jutsu Type. Used for validating a jutsu object is set up properly
  */
 export const JutsuValidator = z
@@ -820,18 +901,19 @@ export const JutsuValidator = z
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     range: z.coerce.number().int().min(0).max(5),
-    statClassification: z.enum(StatTypes).optional().nullish(),
+    statClassification: z.enum(StatTypes),
     hidden: z.coerce.number().int().min(0).max(1).optional(),
-    healthCost: z.coerce.number().min(0).max(10000).optional(),
-    chakraCost: z.coerce.number().min(0).max(10000).optional(),
-    staminaCost: z.coerce.number().min(0).max(10000).optional(),
-    actionCostPerc: z.coerce.number().int().min(10).max(100).optional(),
+    healthCost: z.coerce.number().min(0).max(10000),
+    chakraCost: z.coerce.number().min(0).max(10000),
+    staminaCost: z.coerce.number().min(0).max(10000),
+    actionCostPerc: z.coerce.number().int().min(10).max(100),
     cooldown: z.coerce.number().int().min(0).max(300),
-    bloodlineId: z.string().nullable().optional(),
-    villageId: z.string().nullable().optional(),
+    bloodlineId: z.string().nullable(),
+    villageId: z.string().nullable(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
-  .superRefine(SuperRefineAction);
+  .superRefine(SuperRefineBase)
+  .superRefine(SuperRefineJutsu);
 export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 
 /**
@@ -857,18 +939,19 @@ export const ItemValidator = z
     name: z.string(),
     image: z.string(),
     description: z.string(),
-    battleDescription: z.string().optional(),
-    canStack: z.coerce.number().min(0).max(1).optional(),
-    stackSize: z.coerce.number().int().min(1).max(100).optional(),
-    destroyOnUse: z.coerce.number().min(0).max(1).optional(),
-    chakraCost: z.coerce.number().int().min(0).max(10000).optional(),
-    healthCost: z.coerce.number().int().min(0).max(10000).optional(),
-    staminaCost: z.coerce.number().int().min(0).max(10000).optional(),
-    actionCostPerc: z.coerce.number().int().min(1).max(100).optional(),
+    battleDescription: z.string(),
+    canStack: z.coerce.number().min(0).max(1),
+    stackSize: z.coerce.number().int().min(1).max(100),
+    destroyOnUse: z.coerce.number().min(0).max(1),
+    chakraCost: z.coerce.number().int().min(0).max(10000),
+    healthCost: z.coerce.number().int().min(0).max(10000),
+    staminaCost: z.coerce.number().int().min(0).max(10000),
+    actionCostPerc: z.coerce.number().int().min(1).max(100),
     hidden: z.coerce.number().int().min(0).max(1).optional(),
     cooldown: z.coerce.number().int().min(0).max(300),
-    cost: z.coerce.number().int().min(1),
-    range: z.coerce.number().int().min(0).max(10).optional(),
+    cost: z.coerce.number().int().min(0),
+    repsCost: z.coerce.number().int().min(0),
+    range: z.coerce.number().int().min(0).max(10),
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     itemType: z.enum(ItemTypes),
@@ -877,7 +960,8 @@ export const ItemValidator = z
     slot: z.enum(ItemSlotTypes),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
-  .superRefine(SuperRefineAction);
+  .superRefine(SuperRefineBase)
+  .superRefine(SuperRefineItem);
 export type ZodItemType = z.infer<typeof ItemValidator>;
 
 /****************************** */

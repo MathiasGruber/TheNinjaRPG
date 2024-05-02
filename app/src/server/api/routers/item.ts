@@ -2,6 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
 import { item, userItem, userData, actionLog } from "@/drizzle/schema";
+import { bloodline } from "@/drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
 import { fetchUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
@@ -13,6 +14,8 @@ import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
+import { nonCombatConsume } from "@/libs/item";
+import { getRandomElement } from "@/utils/array";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -120,6 +123,8 @@ export const itemRouter = createTRPCRouter({
         itemRarity: z.enum(ItemRarities).optional(),
         effect: z.string().optional(),
         stat: z.enum(statFilters).optional(),
+        minCost: z.number().default(0),
+        minRepsCost: z.number().default(0),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -140,6 +145,8 @@ export const itemRouter = createTRPCRouter({
           ...(input.stat
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.stat}) IS NOT NULL`]
             : []),
+          gte(item.cost, input.minCost),
+          gte(item.repsCost, input.minRepsCost),
         ),
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
@@ -263,6 +270,75 @@ export const itemRouter = createTRPCRouter({
           .where(eq(userItem.id, useritem.id));
       }
     }),
+  // Consume item
+  consume: protectedProcedure
+    .input(z.object({ userItemId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, useritem, bloodlines] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
+        ctx.drizzle.query.bloodline.findMany({
+          columns: { id: true, name: true, rank: true },
+          where: eq(bloodline.hidden, 0),
+        }),
+      ]);
+
+      // Guard
+      if (!useritem) return errorResponse("User item not found");
+      if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
+      if (!nonCombatConsume(useritem.item, user)) {
+        return errorResponse("Not consumable");
+      }
+
+      // Bookkeeping
+      const messages: string[] = [];
+      const updates = {
+        bloodlineId: user.bloodlineId,
+        curHealth: user.curHealth,
+      };
+
+      // Calculations
+      useritem.item.effects.forEach((effect) => {
+        if (effect.type === "rollbloodline") {
+          const randomBloodline = getRandomElement(
+            bloodlines.filter((b) => b.rank === effect.rank),
+          );
+          if (Math.random() * 100 < effect.power && randomBloodline) {
+            updates.bloodlineId = randomBloodline.id;
+            messages.push(`You rolled a new bloodline: ${randomBloodline.name}. `);
+          } else {
+            messages.push(`You rolled for a new bloodline, but none was found. `);
+          }
+        } else if (effect.type === "removebloodline") {
+          if (Math.random() * 100 < effect.power) {
+            updates.bloodlineId = null;
+            messages.push(`Your bloodline was removed. `);
+          } else {
+            messages.push(`Your bloodline could not be removed successfully.`);
+          }
+        }
+      });
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ bloodlineId: updates.bloodlineId })
+          .where(eq(userData.userId, ctx.userId)),
+        useritem.quantity > 1
+          ? ctx.drizzle
+              .update(userItem)
+              .set({ quantity: sql`${userItem.quantity} - 1` })
+              .where(eq(userItem.id, input.userItemId))
+          : ctx.drizzle.delete(userItem).where(eq(userItem.id, input.userItemId)),
+      ]);
+      // Return
+      return {
+        success: true,
+        message: `You used ${useritem.item.name}. ${messages.join(". ")}`,
+      };
+    }),
   // Buy user item
   buy: protectedProcedure
     .input(
@@ -284,8 +360,9 @@ export const itemRouter = createTRPCRouter({
         ctx.drizzle
           .select({ count: sql<number>`count(*)`.mapWith(Number) })
           .from(userItem)
-          .where(eq(userItem.userId, uid)),
+          .where(and(eq(userItem.userId, uid), eq(userItem.equipped, "NONE"))),
       ]);
+      // Derived
       const userItemsCount = counts?.[0]?.count || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
@@ -297,16 +374,24 @@ export const itemRouter = createTRPCRouter({
       if (userItemsCount >= calcMaxItems()) return errorResponse("Inventory is full");
       if (info.hidden === 1) return errorResponse("Item can not be bought");
       if (user.isBanned === 1) return errorResponse("You are banned");
-      const cost = info.cost * input.stack * factor;
+      const ryoCost = info.cost * input.stack * factor;
+      const repsCost = info.repsCost * input.stack;
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          money: sql`${userData.money} - ${cost}`,
+          money: sql`${userData.money} - ${ryoCost}`,
+          reputationPoints: sql`${userData.reputationPoints} - ${repsCost}`,
         })
-        .where(and(eq(userData.userId, uid), gte(userData.money, cost)));
+        .where(
+          and(
+            eq(userData.userId, uid),
+            gte(userData.money, ryoCost),
+            gte(userData.reputationPoints, repsCost),
+          ),
+        );
       if (result.rowsAffected !== 1) {
-        return { success: false, message: "Not enough money" };
+        return { success: false, message: "Insufficient funds for this purchase" };
       }
       await ctx.drizzle.insert(userItem).values({
         id: nanoid(),

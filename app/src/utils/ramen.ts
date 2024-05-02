@@ -24,5 +24,5 @@ export const getRamenHealPercentage = (option: RamenOption) => {
 export const calcRamenCost = (option: RamenOption, user: UserData) => {
   const totalHealth = user.maxHealth;
   const healPercentage = getRamenHealPercentage(option);
-  return (totalHealth * healPercentage) / 2000;
+  return (totalHealth * healPercentage) / 500;
 };

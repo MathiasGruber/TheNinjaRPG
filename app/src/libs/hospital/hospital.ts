@@ -11,7 +11,7 @@ import type { UserData } from "@/drizzle/schema";
  * @returns The cost of healing.
  */
 export const calcHealCost = (user: UserData) => {
-  let cost = (user.maxHealth - user.curHealth) / 5;
+  let cost = (user.maxHealth - user.curHealth) / 2.5;
   if (user.anbuId) {
     cost *= 1 - ANBU_HOSPITAL_DISCOUNT_PERC / 100;
   }

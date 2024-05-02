@@ -31,7 +31,8 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
         const factor = 1 + interest / 100;
         return drizzleDB
           .update(userData)
-          .set({ bank: sql`${userData.bank} * ${factor}` });
+          .set({ bank: sql`${userData.bank} * ${factor}` })
+          .where(eq(userData.villageId, village.id));
       }),
     );
 

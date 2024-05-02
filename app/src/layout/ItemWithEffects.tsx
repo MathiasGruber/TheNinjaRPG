@@ -208,6 +208,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Stackable</b>: {item.stackSize}
               </p>
             )}
+            {"itemType" in item && (
+              <p>
+                <b>Item type</b>: {item.itemType.toLowerCase()}
+              </p>
+            )}
             {"cooldown" in item && item.cooldown > 0 && (
               <p>
                 <b>Cooldown</b>: {item.cooldown}
@@ -293,6 +298,16 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Reward:</b> {rewards.join(", ")}
               </div>
             )}
+            {"cost" in item && item.cost > 0 && (
+              <div className="col-span-2">
+                <b>Shop Price:</b> {item.cost} ryo
+              </div>
+            )}
+            {"repsCost" in item && item.repsCost > 0 && (
+              <div className="col-span-2">
+                <b>Shop Price:</b> {item.repsCost} reputation points
+              </div>
+            )}
           </div>
           {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-orange-100 p-2`}>
@@ -347,12 +362,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       <b>Effect {i + 1}: </b> <i>{parsedEffect.description}</i>
                     </div>
                     <div className="grid grid-cols-2">
-                      {parsedEffect.rounds !== undefined && (
-                        <span>
-                          <b>Rounds: </b> {parsedEffect.rounds}
-                        </span>
-                      )}
-                      {parsedEffect.calculation && (
+                      {"rounds" in parsedEffect &&
+                        parsedEffect.rounds !== undefined && (
+                          <span>
+                            <b>Rounds: </b> {parsedEffect.rounds}
+                          </span>
+                        )}
+                      {"calculation" in parsedEffect && (
                         <span>
                           <b>Calculation: </b>
                           {parsedEffect.calculation}
@@ -362,6 +378,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                         <span>
                           <b>Effect Power: </b>
                           {parsedEffect.power}
+                        </span>
+                      )}
+                      {"rank" in parsedEffect && (
+                        <span>
+                          <b>Rank: </b>
+                          {parsedEffect.rank}
                         </span>
                       )}
                       {"aiHp" in parsedEffect && (

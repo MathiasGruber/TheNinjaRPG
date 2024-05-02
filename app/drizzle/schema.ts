@@ -493,6 +493,7 @@ export const item = mysqlTable(
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     cost: int("cost").default(1).notNull(),
+    repsCost: int("reputationCost").default(0).notNull(),
     canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
     image: varchar("image", { length: 191 }).notNull(),

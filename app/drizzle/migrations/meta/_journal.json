@@ -568,6 +568,13 @@
       "when": 1714541228918,
       "tag": "0080_giant_cyclops",
       "breakpoints": false
+    },
+    {
+      "idx": 81,
+      "version": "5",
+      "when": 1714672690559,
+      "tag": "0081_hesitant_the_fallen",
+      "breakpoints": false
     }
   ]
 }
