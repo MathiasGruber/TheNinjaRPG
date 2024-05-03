@@ -723,6 +723,11 @@ export const profileRouter = createTRPCRouter({
     .input(mutateContentSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      // Mutate
       return updateNindo(ctx.drizzle, ctx.userId, input.content);
     }),
   // Insert attribute

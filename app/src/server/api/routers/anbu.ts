@@ -384,6 +384,7 @@ export const anbuRouter = createTRPCRouter({
       const { isKage, isElder, isLeader, village } = getConvenienceStatus(user, squad);
       // Guards
       if (!user) return errorResponse("User not found");
+      if (user.isBanned) return errorResponse("User is banned");
       if (!squad) return errorResponse("Squad not found");
       if (!village) return errorResponse("Village not found");
       if (input.type === "KAGE") {
