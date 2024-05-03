@@ -626,19 +626,24 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ username: usernameSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Fetch
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          columns: { username: true },
+          where: eq(userData.username, input.username),
+        }),
+      ]);
+      // Guard
       if (user.username === input.username) {
-        return { success: false, message: "Username is the same" };
-      } else if (user.reputationPoints < COST_CHANGE_USERNAME) {
-        return { success: false, message: "Not enough reputation points" };
+        return errorResponse("Username is the same");
       }
-      const username = await ctx.drizzle.query.userData.findFirst({
-        columns: { username: true },
-        where: eq(userData.username, input.username),
-      });
-      if (username) {
-        return { success: false, message: "Username already taken!" };
+      if (user.reputationPoints < COST_CHANGE_USERNAME) {
+        return errorResponse("Not enough reputation points");
       }
+      if (user.isBanned) return errorResponse("You are banned");
+      if (target) return errorResponse("Username already taken");
+      // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set({
