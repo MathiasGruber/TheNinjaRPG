@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { promise, z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gt, and, asc, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -131,10 +131,16 @@ export const blackMarketRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return errorResponse("Not enough ryo");
       }
-      await ctx.drizzle
-        .update(ryoTrade)
-        .set({ purchaserUserId: ctx.userId })
-        .where(eq(ryoTrade.id, input.offerId));
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+          .where(eq(userData.userId, offer.creatorUserId)),
+        ctx.drizzle
+          .update(ryoTrade)
+          .set({ purchaserUserId: ctx.userId })
+          .where(eq(ryoTrade.id, input.offerId)),
+      ]);
       // Response
       return {
         success: true,
