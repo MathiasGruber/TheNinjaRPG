@@ -236,7 +236,7 @@ export const GENS_CAP = 150000;
 export const COST_CHANGE_USERNAME = 5;
 export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
 export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
-export const COST_RESET_STATS = 0; // TODO: Should be 5
+export const COST_RESET_STATS = 10;
 
 // ANBU config
 export const ANBU_MEMBER_RANK_REQUIREMENT = "CHUNIN";
@@ -266,3 +266,12 @@ export const JUTSU_XP_TO_LEVEL = 1000;
 
 // Combat config
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
+
+// Black market config
+export const RYO_FOR_REP_DAYS_FROZEN = 7;
+export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
+
+// Points config
+export const FED_NORMAL_REPS_COST = 15;
+export const FED_SILVER_REPS_COST = 35;
+export const FED_GOLD_REPS_COST = 50;

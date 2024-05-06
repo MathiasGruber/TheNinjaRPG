@@ -700,6 +700,33 @@ export const paypalWebhookMessage = mysqlTable("PaypalWebhookMessage", {
   handled: tinyint("handled").default(0).notNull(),
 });
 
+export const ryoTrade = mysqlTable(
+  "RyoTrade",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    creatorUserId: varchar("creatorUserId", { length: 191 }).notNull(),
+    repsForSale: int("repsForSale").notNull(),
+    requestedRyo: bigint("requestedRyo", { mode: "number" }).notNull(),
+    ryoPerRep: double("ryoPerRep").notNull(),
+    purchaserUserId: varchar("purchaserUserId", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      creatorUserIdIdx: index("RyoTrade_creatorUserId_idx").on(table.creatorUserId),
+    };
+  },
+);
+
+export const ryoTradeRelations = relations(ryoTrade, ({ one }) => ({
+  creator: one(userData, {
+    fields: [ryoTrade.creatorUserId],
+    references: [userData.userId],
+  }),
+}));
+
 export const reportLog = mysqlTable(
   "ReportLog",
   {

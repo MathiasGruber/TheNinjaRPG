@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, or, and, sql, desc } from "drizzle-orm";
+import { eq, or, gte, and, sql, desc } from "drizzle-orm";
 import { paypalTransaction, paypalSubscription } from "@/drizzle/schema";
 import { userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { dollars2reps, calcFedUgradeCost } from "@/utils/paypal";
-import { plan2FedStatus } from "@/utils/paypal";
+import { plan2FedStatus, fedStatusRepsCost } from "@/utils/paypal";
 import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
@@ -243,6 +243,45 @@ export const paypalRouter = createTRPCRouter({
       orderBy: desc(paypalSubscription.createdAt),
     });
   }),
+  // Buy subscription with reputation points
+  subscribeWithReps: protectedProcedure
+    .input(z.object({ userId: z.string(), status: z.enum(FederalStatuses) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // DERIVED
+      const cost = fedStatusRepsCost(input.status);
+      // Guard
+      if (!cost || cost < 0) return errorResponse("Negative cost?");
+      if (user.reputationPoints < cost) return errorResponse(`Insufficient funds`);
+      if (user.federalStatus !== "NONE") return errorResponse(`Already subscribed`);
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            federalStatus: input.status,
+            reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              eq(userData.federalStatus, "NONE"),
+              gte(userData.reputationPoints, cost),
+            ),
+          ),
+        ctx.drizzle.insert(paypalSubscription).values({
+          id: nanoid(),
+          createdById: ctx.userId,
+          affectedUserId: input.userId,
+          federalStatus: input.status,
+          subscriptionId: nanoid(),
+          status: "ACTIVE",
+        }),
+      ]);
+      return { success: true, message: "OK" };
+    }),
   // Upgrade a subscription for a user. Can only be done by the user who created the subscription
   upgradeSubscription: protectedProcedure
     .input(z.object({ userId: z.string(), plan: z.enum(FederalStatuses) }))

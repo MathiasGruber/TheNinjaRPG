@@ -3,6 +3,7 @@ import { anbuRouter } from "./routers/anbu";
 import { avatarRouter } from "./routers/avatar";
 import { badgeRouter } from "./routers/badge";
 import { bankRouter } from "./routers/bank";
+import { blackMarketRouter } from "./routers/blackmarket";
 import { bloodlineRouter } from "./routers/bloodline";
 import { combatRouter } from "./routers/combat";
 import { commentsRouter } from "./routers/comments";
@@ -38,6 +39,7 @@ export const appRouter = createTRPCRouter({
   avatar: avatarRouter,
   badge: badgeRouter,
   bank: bankRouter,
+  blackmarket: blackMarketRouter,
   bloodline: bloodlineRouter,
   combat: combatRouter,
   comments: commentsRouter,

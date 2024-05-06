@@ -20,7 +20,7 @@ import { usePayPalScriptReducer } from "@paypal/react-paypal-js";
 import { api, onError } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { reps2dollars, calcFedUgradeCost } from "@/utils/paypal";
+import { reps2dollars, calcFedUgradeCost, fedStatusRepsCost } from "@/utils/paypal";
 import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";
 import { FederalStatuses } from "@/drizzle/constants";
@@ -397,8 +397,25 @@ const PayPalSubscriptionButton = (props: {
       },
     });
 
+  // Mutation for buyins with reputation points
+  const { mutate: buy, isPending: isBuying } = api.paypal.subscribeWithReps.useMutation(
+    {
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await refetchUser();
+          props.onSuccess && props.onSuccess();
+        }
+      },
+      onError: (error) => {
+        onError(error);
+        props.onFailure && props.onFailure();
+      },
+    },
+  );
+
   // Loading status
-  const isPending = isUpgrading || isSubscribing;
+  const isPending = isUpgrading || isSubscribing || isBuying;
 
   // If not loaded yet, show loader
   if (isPending) return <Loader explanation="Processing..." />;
@@ -406,8 +423,7 @@ const PayPalSubscriptionButton = (props: {
   const normalBenefits = (
     <>
       <h2 className="font-bold">Normal Support</h2>
-      <h3 className="font-bold italic">$5 / Month</h3>
-      <ul className="m-2 ml-6 list-disc text-xs">
+      <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Blue username in tavern</li>
         <li>+2 Inventory space</li>
         <li>Custom avatar (512KB)</li>
@@ -419,8 +435,7 @@ const PayPalSubscriptionButton = (props: {
   const silverBenefits = (
     <>
       <h2 className="font-bold">Silver Support</h2>
-      <h3 className="font-bold italic">$10 / Month</h3>
-      <ul className="m-2 ml-6 list-disc text-xs">
+      <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Silver username in tavern</li>
         <li>+5 Inventory space</li>
         <li>Custom avatar (1MB)</li>
@@ -432,8 +447,7 @@ const PayPalSubscriptionButton = (props: {
   const goldBenefits = (
     <>
       <h2 className="font-bold">Gold Support</h2>
-      <h3 className="font-bold italic">$15 / Month</h3>
-      <ul className="m-2 ml-6 list-disc text-xs">
+      <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Gold username in tavern</li>
         <li>+10 Inventory space</li>
         <li>Custom avatar (2MB)</li>
@@ -449,9 +463,12 @@ const PayPalSubscriptionButton = (props: {
   const hasSubscription = props.currentUserStatus !== "NONE";
   const upgradeCost = calcFedUgradeCost(props.currentUserStatus, props.buttonStatus);
 
+  // Loaders
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
   return (
     <div
-      className={`p-2 m-1 ${
+      className={`${
         props.currentUserStatus === props.buttonStatus ? "bg-orange-200 rounded-lg" : ""
       }`}
     >
@@ -459,7 +476,7 @@ const PayPalSubscriptionButton = (props: {
         <Image
           className={`mb-3`}
           src={props.imageSrc}
-          alt="Silver"
+          alt={props.buttonStatus}
           width={512}
           height={512}
         />
@@ -492,59 +509,93 @@ const PayPalSubscriptionButton = (props: {
         {props.buttonStatus === "GOLD" && goldBenefits}
       </div>
       {!hasSubscription && (
-        <PayPalButtons
-          style={{ layout: "horizontal", label: "subscribe" }}
-          forceReRender={[props.userId]}
-          createSubscription={(data, actions) => {
-            return actions.subscription.create({
-              plan_id: props.subscriptionPlan,
-              custom_id: `${props.buyerId}-${props.userId}`,
-            });
-          }}
-          onApprove={(data, actions) => {
-            if (data.subscriptionID) {
-              subscribe({
-                subscriptionId: data.subscriptionID,
-                orderId: data.orderID,
+        <div className="bg-amber-200 border-2 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
+          <PayPalButtons
+            style={{ layout: "horizontal", label: "subscribe", tagline: false }}
+            forceReRender={[props.userId]}
+            createSubscription={(data, actions) => {
+              return actions.subscription.create({
+                plan_id: props.subscriptionPlan,
+                custom_id: `${props.buyerId}-${props.userId}`,
               });
-            } else {
-              showMutationToast({
-                success: false,
-                message:
-                  "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-                title: "No subscription",
-              });
-            }
-            // Send GTM event with conversion data
-            if (actions.order) {
-              return actions.order.capture().then((details) => {
-                const purchaseUnit = details.purchase_units[0];
-                const transaction_id = purchaseUnit?.invoice_id;
-                const currency = purchaseUnit?.amount?.currency_code;
-                const value = purchaseUnit?.amount?.value;
-                if (transaction_id && currency && value) {
-                  sendGTMEvent({ ecommerce: null });
-                  sendGTMEvent({
-                    event: "purchase",
-                    transaction_id: transaction_id,
-                    currency: currency,
-                    value: Number(value),
-                    items: [
-                      {
-                        item_id: data.subscriptionID,
-                        item_name: props.buttonStatus,
-                      },
-                    ],
-                  });
-                }
-              });
-            } else {
-              return new Promise(() => {
-                return null;
-              });
-            }
-          }}
-        />
+            }}
+            onApprove={(data, actions) => {
+              if (data.subscriptionID) {
+                subscribe({
+                  subscriptionId: data.subscriptionID,
+                  orderId: data.orderID,
+                });
+              } else {
+                showMutationToast({
+                  success: false,
+                  message:
+                    "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
+                  title: "No subscription",
+                });
+              }
+              // Send GTM event with conversion data
+              if (actions.order) {
+                return actions.order.capture().then((details) => {
+                  const purchaseUnit = details.purchase_units[0];
+                  const transaction_id = purchaseUnit?.invoice_id;
+                  const currency = purchaseUnit?.amount?.currency_code;
+                  const value = purchaseUnit?.amount?.value;
+                  if (transaction_id && currency && value) {
+                    sendGTMEvent({ ecommerce: null });
+                    sendGTMEvent({
+                      event: "purchase",
+                      transaction_id: transaction_id,
+                      currency: currency,
+                      value: Number(value),
+                      items: [
+                        {
+                          item_id: data.subscriptionID,
+                          item_name: props.buttonStatus,
+                        },
+                      ],
+                    });
+                  }
+                });
+              } else {
+                return new Promise(() => {
+                  return null;
+                });
+              }
+            }}
+          />
+          {props.buttonStatus === "NORMAL" && (
+            <h3 className="font-bold italic">$5 / Month</h3>
+          )}
+          {props.buttonStatus === "SILVER" && (
+            <h3 className="font-bold italic">$10 / Month</h3>
+          )}
+          {props.buttonStatus === "GOLD" && (
+            <h3 className="font-bold italic">$15 / Month</h3>
+          )}
+        </div>
+      )}
+      {!hasSubscription && (
+        <div
+          className="bg-amber-200 border-2 border-black p-2 mt-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200"
+          onClick={() => buy({ userId: userData.userId, status: props.buttonStatus })}
+        >
+          Or, buy with
+          {props.buttonStatus === "NORMAL" && (
+            <h3 className="font-bold italic">
+              {fedStatusRepsCost("NORMAL")} Reputation Points
+            </h3>
+          )}
+          {props.buttonStatus === "SILVER" && (
+            <h3 className="font-bold italic">
+              {fedStatusRepsCost("SILVER")} Reputation Points
+            </h3>
+          )}
+          {props.buttonStatus === "GOLD" && (
+            <h3 className="font-bold italic">
+              {fedStatusRepsCost("GOLD")} Reputation Points
+            </h3>
+          )}
+        </div>
       )}
     </div>
   );
@@ -594,8 +645,8 @@ const FederalStore = () => {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row">
-        <div className="basis-1/3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+        <div>
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
@@ -613,7 +664,7 @@ const FederalStore = () => {
           )}
         </div>
 
-        <div className="basis-1/3">
+        <div>
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
@@ -631,7 +682,7 @@ const FederalStore = () => {
           )}
         </div>
 
-        <div className="basis-1/3">
+        <div>
           {selectedUser && userData ? (
             <PayPalSubscriptionButton
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}

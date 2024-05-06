@@ -5,6 +5,7 @@ interface ConfirmProps {
   title: string;
   button: React.ReactNode;
   children: string | React.ReactNode;
+  confirmClassName?: string;
   proceed_label?: string;
   isValid?: boolean;
   onAccept?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
@@ -18,6 +19,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
         title={props.title}
         setIsOpen={setShowModal}
         proceed_label={props.proceed_label ? props.proceed_label : "Proceed"}
+        confirmClassName={props.confirmClassName}
         onAccept={props.onAccept}
         isValid={props.isValid}
       >
