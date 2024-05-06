@@ -12,6 +12,7 @@ export interface PostProps {
     level: number;
     rank: UserRank;
     role: UserRole;
+    customTitle?: string | null;
     villageKageId?: string | null;
     villageName?: string | null;
     villageHexColor?: string | null;
@@ -101,6 +102,11 @@ const Post: React.FC<PostProps> = (props) => {
         <span className="bg-slate-300 p-1 m-1 rounded-md">
           {capitalizeFirstLetter(props.user.rank)}
         </span>
+        {props.user.customTitle && (
+          <span className="bg-gray-500 p-1 m-1 rounded-md text-white">
+            {props.user.customTitle}
+          </span>
+        )}
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
           <span className="bg-slate-300 p-1 m-1 rounded-md">Kage</span>
         )}

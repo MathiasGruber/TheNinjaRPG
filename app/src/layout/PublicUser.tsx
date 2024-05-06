@@ -85,6 +85,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     );
   }
 
+  // Profile name
+  let profileName = `${profile.username}`;
+  if (profile.customTitle) profileName += ` [${profile.customTitle}]`;
+
   // Render
   return (
     <>
@@ -92,7 +96,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
       <ContentBox
         title={title}
         back_href={back_href}
-        subtitle={"Public Profile: " + profile.username}
+        subtitle={`Profile: ${profileName}`}
         initialBreak={initialBreak}
         topRightContent={
           <div className="flex flex-row gap-1">

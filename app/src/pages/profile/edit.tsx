@@ -1,3 +1,4 @@
+import { z } from "zod";
 import React, { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -39,6 +40,7 @@ import { api } from "@/utils/api";
 import { useUserSearch } from "@/utils/search";
 import { showMutationToast } from "@/libs/toast";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
+import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_RESET_STATS } from "@/drizzle/constants";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
@@ -47,7 +49,6 @@ import { UploadButton } from "@/utils/uploadthing";
 import { statSchema } from "@/libs/combat/types";
 import { capUserStats } from "@/libs/profile";
 import type { Bloodline, Village } from "@/drizzle/schema";
-import type { z } from "zod";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "@/validators/comments";
 
@@ -85,6 +86,16 @@ const EditProfile: NextPage = () => {
           onClick={setActiveElement}
         >
           <NameChange />
+        </Accordion>
+        <Accordion
+          title="Custom Title"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Set a custom title shown next to username"
+          selectedSubtitle={`You can set your custom title for ${COST_CUSTOM_TITLE} reputation points. You
+          have ${userData.reputationPoints} reputation points.`}
+          onClick={setActiveElement}
+        >
+          <CustomTitle />
         </Accordion>
         <Accordion
           title="Custom Avatar"
@@ -783,6 +794,83 @@ const NameChange: React.FC = () => {
             Changing your username costs {COST_CHANGE_USERNAME} reputation points, and
             can only be reverted by purchasing another name change. Are you sure you
             want to change your username to {searchTerm}?
+          </Confirm>
+        </form>
+      </Form>
+    </div>
+  );
+};
+
+/**
+ * Custom Title component
+ */
+const CustomTitle: React.FC = () => {
+  // State
+  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+
+  // Mutations
+  const { mutate: updateUsername } = api.blackmarket.updateCustomTitle.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await refetchUser();
+      }
+    },
+  });
+
+  // Title form
+  const FormSchema = z.object({ title: z.string().min(1).max(15) });
+  type FormSchemaType = z.infer<typeof FormSchema>;
+  const form = useForm<FormSchemaType>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: { title: "" },
+  });
+  const curTitle = form.watch("title");
+
+  // Only show if we have userData
+  if (!userData) return <Loader explanation="Loading profile page..." />;
+
+  // Derived data
+  const canBuyUsername = userData.reputationPoints >= COST_CHANGE_USERNAME;
+  const disabled = curTitle === "" || !canBuyUsername;
+
+  return (
+    <div className="grid grid-cols-1">
+      <Form {...form}>
+        <form>
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input id="username" placeholder="Your title" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Confirm
+            title="Confirm Custom Title"
+            disabled={disabled}
+            button={
+              <Button
+                id="create"
+                type="submit"
+                className="w-full my-3"
+                disabled={disabled}
+              >
+                {canBuyUsername ? "Set custom title" : "Not enough points"}
+              </Button>
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+              updateUsername({ title: curTitle });
+            }}
+          >
+            Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
+            can only be changed by requesting another change. Are you sure you want to
+            change your title to {curTitle}?
           </Confirm>
         </form>
       </Form>

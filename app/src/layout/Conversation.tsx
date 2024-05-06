@@ -101,6 +101,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               rank: userData.rank,
               level: userData.level,
               role: userData.role,
+              customTitle: userData.customTitle,
               federalStatus: userData.federalStatus,
               nRecruited: userData.nRecruited,
             };

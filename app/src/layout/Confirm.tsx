@@ -8,6 +8,7 @@ interface ConfirmProps {
   confirmClassName?: string;
   proceed_label?: string;
   isValid?: boolean;
+  disabled?: boolean;
   onAccept?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
@@ -30,6 +31,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
     return (
       <div
         onClick={(e) => {
+          if (props?.disabled) return;
           e.preventDefault();
           e.stopPropagation();
           setShowModal(true);

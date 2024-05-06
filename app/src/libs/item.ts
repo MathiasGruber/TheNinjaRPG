@@ -119,3 +119,14 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
 
   return false;
 };
+
+/**
+ * Calculates the maximum number of items for a user.
+ *
+ * @param user - The user data.
+ * @returns The maximum number of items.
+ */
+export const calcMaxItems = (user: UserData) => {
+  const base = 20;
+  return base + user.extraItemSlots;
+};

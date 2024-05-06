@@ -16,14 +16,10 @@ import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
+import { calcMaxItems } from "@/libs/item";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
-
-const calcMaxItems = () => {
-  const base = 20;
-  return base;
-};
 
 export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
@@ -371,9 +367,11 @@ export const itemRouter = createTRPCRouter({
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
-      if (userItemsCount >= calcMaxItems()) return errorResponse("Inventory is full");
       if (info.hidden === 1) return errorResponse("Item can not be bought");
       if (user.isBanned === 1) return errorResponse("You are banned");
+      if (userItemsCount >= calcMaxItems(user)) {
+        return errorResponse("Inventory is full");
+      }
       const ryoCost = info.cost * input.stack * factor;
       const repsCost = info.repsCost * input.stack;
       // Mutate

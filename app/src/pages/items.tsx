@@ -6,6 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
+import Confirm from "@/layout/Confirm";
 import ContentImage from "@/layout/ContentImage";
 import { nonCombatConsume } from "@/libs/item";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,9 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
+import { calcMaxItems } from "@/libs/item";
+import { CircleArrowUp } from "lucide-react";
+import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
 import type { NextPage } from "next";
@@ -22,6 +26,9 @@ const MyItems: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   const tabs = ["Character", "Backpack"];
   const [screen, setScreen] = useState<(typeof tabs)[number]>("Character");
+
+  // tRPC utils
+  const utils = api.useUtils();
 
   // Data from DB
   useRequiredUserData();
@@ -34,24 +41,74 @@ const MyItems: NextPage = () => {
     enabled: userData !== undefined,
   });
 
+  // Mutations
+  const { mutate: buyItemSlot, isPending } = api.blackmarket.buyItemSlot.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+      }
+    },
+  });
+
   // Collapse UserItem and Item
   const allItems = userItems?.map((useritem) => {
     return { ...useritem.item, ...useritem };
   });
 
+  // Subtitle
+  const nonEquipped = allItems?.filter((item) => item.equipped === "NONE");
+
+  // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Can afford removing
+  const canAfford =
+    userData.reputationPoints && userData.reputationPoints >= COST_EXTRA_ITEM_SLOT;
+
+  // Subtitle
+  const subtitle =
+    screen === "Character" ? (
+      "Equip for battle"
+    ) : (
+      <div className="flex flex-row items-center">
+        Inventory {nonEquipped?.length}/{calcMaxItems(userData)}
+        <Confirm
+          title="Extra Item Slot"
+          proceed_label={
+            canAfford
+              ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
+              : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
+          }
+          isValid={!isPending}
+          button={
+            <CircleArrowUp className="h-5 w-5 ml-2 hover:text-orange-500 hover:cursor-pointer" />
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            if (canAfford) buyItemSlot();
+          }}
+        >
+          <p>
+            You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
+            reputation points. You currently have {userData.reputationPoints} points.
+            Are you sure?
+          </p>
+        </Confirm>
+      </div>
+    );
 
   return (
     <ContentBox
       title="Item Management"
-      subtitle="Equip for battle"
+      subtitle={subtitle}
       topRightContent={<NavTabs current={screen} options={tabs} setValue={setScreen} />}
     >
       {!isFetching && screen === "Character" && (
         <Character items={allItems} refetch={() => refetch()} />
       )}
       {!isFetching && screen === "Backpack" && (
-        <Backpack userData={userData} items={allItems} />
+        <Backpack userData={userData} items={nonEquipped} />
       )}
       {isFetching && <Loader explanation="Loading items" />}
     </ContentBox>
@@ -114,13 +171,11 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSettled,
   });
 
-  const nonEquipped = props.items?.filter((item) => item.equipped === "NONE");
-
   return (
     <>
       <ActionSelector
-        items={nonEquipped}
-        counts={nonEquipped}
+        items={props.items}
+        counts={props.items}
         selectedId={item?.id}
         showBgColor={false}
         showLabels={false}
@@ -129,7 +184,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             setItem(undefined);
             setIsOpen(false);
           } else {
-            setItem(nonEquipped?.find((item) => item.id === id));
+            setItem(props.items?.find((item) => item.id === id));
             setIsOpen(true);
           }
         }}

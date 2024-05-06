@@ -318,6 +318,7 @@ export const commentsRouter = createTRPCRouter({
           rank: userData.rank,
           level: userData.level,
           role: userData.role,
+          customTitle: userData.customTitle,
           federalStatus: userData.federalStatus,
           nRecruited: userData.nRecruited,
         })

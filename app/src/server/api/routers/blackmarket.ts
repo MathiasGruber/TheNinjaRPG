@@ -2,11 +2,13 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gt, and, asc, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { errorResponse } from "../trpc";
 import { fetchUser } from "./profile";
-import { userData, ryoTrade } from "@/drizzle/schema";
+import { userData, ryoTrade, actionLog } from "@/drizzle/schema";
 import { secondsFromDate } from "@/utils/time";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
+import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
+import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { baseServerResponse, errorResponse } from "../trpc";
 import type { DrizzleClient } from "@/server/db";
 
 export const blackMarketRouter = createTRPCRouter({
@@ -138,6 +140,73 @@ export const blackMarketRouter = createTRPCRouter({
         success: true,
         message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
       };
+    }),
+  // Update custom title
+  updateCustomTitle: protectedProcedure
+    .input(z.object({ title: z.string().min(1).max(15) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_CUSTOM_TITLE) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (user.isBanned) return errorResponse("You are banned");
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          customTitle: input.title,
+          reputationPoints: sql`reputationPoints - ${COST_CUSTOM_TITLE}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: [`Custom title changed from ${user.customTitle} to ${input.title}`],
+          relatedId: ctx.userId,
+          relatedMsg: `Update: ${user.customTitle} -> ${input.title}`,
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Custom title updated" };
+      }
+    }),
+  buyItemSlot: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_EXTRA_ITEM_SLOT) {
+        return errorResponse("Not enough reputation points");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          extraItemSlots: sql`extraItemSlots + 1`,
+          reputationPoints: sql`reputationPoints - ${COST_EXTRA_ITEM_SLOT}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: ["Item slot purchased"],
+          relatedId: ctx.userId,
+          relatedMsg: "Update: Item slot purchased",
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Item slot purchased" };
+      }
     }),
 });
 
