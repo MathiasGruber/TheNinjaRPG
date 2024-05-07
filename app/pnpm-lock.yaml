@@ -130,7 +130,7 @@ dependencies:
     version: 16.1.4
   drizzle-orm:
     specifier: 0.30.8
-    version: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0)
+    version: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.7)(react@18.2.0)
   drizzle-zod:
     specifier: 0.5.1
     version: 0.5.1(drizzle-orm@0.30.8)(zod@3.22.4)
@@ -153,8 +153,8 @@ dependencies:
     specifier: ^0.363.0
     version: 0.363.0(react@18.2.0)
   mysql2:
-    specifier: ^3.9.4
-    version: 3.9.4
+    specifier: ^3.9.7
+    version: 3.9.7
   nanoid:
     specifier: ^4.0.2
     version: 4.0.2
@@ -260,8 +260,8 @@ devDependencies:
     specifier: ^10.4.17
     version: 10.4.17(postcss@8.4.36)
   drizzle-kit:
-    specifier: 0.20.14
-    version: 0.20.14
+    specifier: 0.20.18
+    version: 0.20.18
   eslint:
     specifier: ^8.57.0
     version: 8.57.0
@@ -404,12 +404,6 @@ packages:
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
     engines: {node: '>=10.0.0'}
     dev: false
-
-  /@drizzle-team/studio@0.0.39:
-    resolution: {integrity: sha512-c5Hkm7MmQC2n5qAsKShjQrHoqlfGslB8+qWzsGGZ+2dHMRTNG60UuzalF0h0rvBax5uzPXuGkYLGaQ+TUX3yMw==}
-    dependencies:
-      superjson: 2.2.1
-    dev: true
 
   /@esbuild-kit/core-utils@3.1.0:
     resolution: {integrity: sha512-Uuk8RpCg/7fdHSceR1M6XbSZFSuMrxcePFuGgyvsBn+u339dk5OeL4jv2EojwTN2st/unJGsVm4qHWjWNmJ/tw==}
@@ -978,6 +972,21 @@ packages:
       glob: 9.3.5
     transitivePeerDependencies:
       - encoding
+    dev: true
+
+  /@hono/node-server@1.11.1:
+    resolution: {integrity: sha512-GW1Iomhmm1o4Z+X57xGby8A35Cu9UZLL7pSMdqDBkD99U5cywff8F+8hLk5aBTzNubnsFAvWQ/fZjNwPsEn9lA==}
+    engines: {node: '>=18.14.1'}
+    dev: true
+
+  /@hono/zod-validator@0.2.1(hono@4.3.2)(zod@3.22.4):
+    resolution: {integrity: sha512-HFoxln7Q6JsE64qz2WBS28SD33UB2alp3aRKmcWnNLDzEL1BLsWfbdX6e1HIiUprHYTIXf5y7ax8eYidKUwyaA==}
+    peerDependencies:
+      hono: '>=3.9.0'
+      zod: ^3.19.1
+    dependencies:
+      hono: 4.3.2
+      zod: 3.22.4
     dev: true
 
   /@hookform/error-message@2.0.1(react-dom@18.2.0)(react-hook-form@7.43.0)(react@18.2.0):
@@ -3796,12 +3805,13 @@ packages:
       wordwrap: 1.0.0
     dev: true
 
-  /drizzle-kit@0.20.14:
-    resolution: {integrity: sha512-0fHv3YIEaUcSVPSGyaaBfOi9bmpajjhbJNdPsRMIUvYdLVxBu9eGjH8mRc3Qk7HVmEidFc/lhG1YyJhoXrn5yA==}
+  /drizzle-kit@0.20.18:
+    resolution: {integrity: sha512-fLTwcnLqtBxGd+51H/dEm9TC0FW6+cIX/RVPyNcitBO77X9+nkogEfMAJebpd/8Yl4KucmePHRYRWWvUlW0rqg==}
     hasBin: true
     dependencies:
-      '@drizzle-team/studio': 0.0.39
       '@esbuild-kit/esm-loader': 2.5.5
+      '@hono/node-server': 1.11.1
+      '@hono/zod-validator': 0.2.1(hono@4.3.2)(zod@3.22.4)
       camelcase: 7.0.1
       chalk: 5.2.0
       commander: 9.5.0
@@ -3810,15 +3820,17 @@ packages:
       esbuild-register: 3.5.0(esbuild@0.19.12)
       glob: 8.1.0
       hanji: 0.0.5
+      hono: 4.3.2
       json-diff: 0.9.0
       minimatch: 7.4.6
       semver: 7.5.4
+      superjson: 2.2.1
       zod: 3.22.4
     transitivePeerDependencies:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0):
+  /drizzle-orm@0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.7)(react@18.2.0):
     resolution: {integrity: sha512-9pBJA0IjnpPpzZ6s9jlS1CQAbKoBmbn2GJesPhXaVblAA/joOJ4AWWevYcqvLGj9SvThBAl7WscN8Zwgg5mnTw==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -3901,7 +3913,7 @@ packages:
       '@opentelemetry/api': 1.8.0
       '@planetscale/database': 1.16.0
       '@types/react': 18.2.48
-      mysql2: 3.9.4
+      mysql2: 3.9.7
       react: 18.2.0
     dev: false
 
@@ -3911,7 +3923,7 @@ packages:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.4)(react@18.2.0)
+      drizzle-orm: 0.30.8(@opentelemetry/api@1.8.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.9.7)(react@18.2.0)
       zod: 3.22.4
     dev: false
 
@@ -4949,6 +4961,11 @@ packages:
     engines: {node: '>=16'}
     dev: false
 
+  /hono@4.3.2:
+    resolution: {integrity: sha512-wiZcF5N06tc232U11DnqW6hP8DNoypjsrxslKXfvOqOAkTdh7K1HLZJH/92Mf+urxUTGi96f1w4xx/1Qozoqiw==}
+    engines: {node: '>=16.0.0'}
+    dev: true
+
   /html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
     dev: false
@@ -5685,8 +5702,8 @@ packages:
   /ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  /mysql2@3.9.4:
-    resolution: {integrity: sha512-OEESQuwxMza803knC1YSt7NMuc1BrK9j7gZhCSs2WAyxr1vfiI7QLaLOKTh5c9SWGz98qVyQUbK8/WckevNQhg==}
+  /mysql2@3.9.7:
+    resolution: {integrity: sha512-KnJT8vYRcNAZv73uf9zpXqNbvBG7DJrs+1nACsjZP1HMJ1TgXEy8wnNilXAn/5i57JizXKtrUtwDB7HxT9DDpw==}
     engines: {node: '>= 8.0'}
     dependencies:
       denque: 2.1.0
