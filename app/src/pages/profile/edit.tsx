@@ -44,10 +44,12 @@ import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_RESET_STATS } from "@/drizzle/constants";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
+import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
 import { statSchema } from "@/libs/combat/types";
 import { capUserStats } from "@/libs/profile";
+import { getUserElements } from "@/validators/user";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -57,9 +59,11 @@ const EditProfile: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   const [activeElement, setActiveElement] = useState("Nindo");
 
-  if (!userData) {
-    return <Loader explanation="Loading profile page..." />;
-  }
+  // Loaders
+  if (!userData) return <Loader explanation="Loading profile page..." />;
+
+  // Derived
+  const activeElements = getUserElements(userData);
 
   return (
     <ContentBox
@@ -126,6 +130,39 @@ const EditProfile: NextPage = () => {
           onClick={setActiveElement}
         >
           <ResetStats />
+        </Accordion>
+        <Accordion
+          title="Re-Roll Elements"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Re-roll your primary elements"
+          selectedSubtitle={
+            <div>
+              <p className="pb-3">
+                You can re-roll your elements for {COST_REROLL_ELEMENT} reputation
+                points. You have {userData.reputationPoints} reputation points. You can
+                only re-roll elements which are not currently overwritten by a
+                bloodline.
+              </p>
+
+              {userData.primaryElement ? (
+                <p>
+                  Current primary element: {userData.primaryElement}{" "}
+                  {activeElements[0] === userData.primaryElement ||
+                    `- Overwritten by bloodline`}
+                </p>
+              ) : undefined}
+              {userData.secondaryElement ? (
+                <p>
+                  Current secondary element: {userData.secondaryElement}{" "}
+                  {activeElements[1] === userData.secondaryElement ||
+                    `- Overwritten by bloodline`}
+                </p>
+              ) : undefined}
+            </div>
+          }
+          onClick={setActiveElement}
+        >
+          <RerollElement />
         </Accordion>
         <Accordion
           title="Swap Bloodline"
@@ -717,6 +754,54 @@ const NindoChange: React.FC = () => {
         error={errors.content?.message}
       />
     </form>
+  );
+};
+
+/**
+ * Re-Roll Primary Element
+ */
+const RerollElement: React.FC = () => {
+  // State
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utils
+  const utils = api.useUtils();
+
+  // Derived
+  const activeElements = getUserElements(userData);
+
+  // Mutations
+  const { mutate: roll, isPending: isRolling } =
+    api.blackmarket.rerollElement.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
+      },
+    });
+
+  // Loaders
+  if (isRolling) return <Loader explanation="Rerolling elements..." />;
+
+  // Guards
+  const canAfford = userData && userData.reputationPoints >= COST_REROLL_ELEMENT;
+  const canChangeFirst =
+    userData?.primaryElement && activeElements[0] === userData.primaryElement;
+  const canChangeSecond =
+    userData?.secondaryElement && activeElements[1] === userData.secondaryElement;
+  const disabled = !canAfford || (!canChangeFirst && !canChangeSecond);
+
+  return (
+    <Button
+      id="create"
+      type="submit"
+      className="w-full my-3"
+      disabled={disabled}
+      onClick={() => roll()}
+    >
+      Re-Roll Both Elements
+    </Button>
   );
 };
 

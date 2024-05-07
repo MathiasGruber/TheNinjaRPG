@@ -239,6 +239,7 @@ export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
 export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
 export const COST_RESET_STATS = 10;
 export const COST_EXTRA_ITEM_SLOT = 10;
+export const COST_REROLL_ELEMENT = 15;
 
 // ANBU config
 export const ANBU_MEMBER_RANK_REQUIREMENT = "CHUNIN";

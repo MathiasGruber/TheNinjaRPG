@@ -1,4 +1,4 @@
-import { promise, z } from "zod";
+import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gt, and, asc, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -8,6 +8,9 @@ import { secondsFromDate } from "@/utils/time";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
+import { UserRanks, BasicElementName } from "@/drizzle/constants";
+import { getRandomElement } from "@/utils/array";
 import { baseServerResponse, errorResponse } from "../trpc";
 import type { DrizzleClient } from "@/server/db";
 
@@ -212,6 +215,48 @@ export const blackMarketRouter = createTRPCRouter({
           relatedImage: user.avatar,
         });
         return { success: true, message: "Item slot purchased" };
+      }
+    }),
+  rerollElement: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_REROLL_ELEMENT) {
+        return errorResponse("Not enough reputation points");
+      }
+      // Get the updated elements
+      const rankId = UserRanks.findIndex((r) => r === user.rank);
+      if (rankId >= 1) {
+        user.primaryElement = getRandomElement(BasicElementName) ?? null;
+      }
+      if (rankId >= 2) {
+        const available = BasicElementName.filter((e) => e !== user.primaryElement);
+        user.secondaryElement = getRandomElement(available) ?? null;
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          primaryElement: user.primaryElement,
+          secondaryElement: user.secondaryElement,
+          reputationPoints: sql`reputationPoints - ${COST_REROLL_ELEMENT}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: ["Element rerolled"],
+          relatedId: ctx.userId,
+          relatedMsg: "Update: Element rerolled",
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Element rerolled" };
       }
     }),
 });

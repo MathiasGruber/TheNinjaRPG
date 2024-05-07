@@ -5,7 +5,7 @@ interface AccordionProps {
   title: string;
   selectedTitle: string;
   unselectedSubtitle: string;
-  selectedSubtitle?: string;
+  selectedSubtitle?: string | React.ReactNode;
   children: string | React.ReactNode;
   onClick: React.Dispatch<React.SetStateAction<string>>;
 }
@@ -23,9 +23,9 @@ const Accordion: React.FC<AccordionProps> = (props) => {
       <div className="flex flex-row items-center">
         <div>
           <h2 className="font-bold mt-2">{title}</h2>
-          <p className="italic">
+          <div className="italic">
             {active && selectedSubtitle ? selectedSubtitle : unselectedSubtitle}
-          </p>
+          </div>
         </div>
         <div className="grow"></div>
         <ChevronsDown

@@ -35,6 +35,16 @@ export const getUserElements = (user: UserWithRelations) => {
   if (user?.primaryElement) userElements.push(user.primaryElement);
   if (user?.secondaryElement) userElements.push(user.secondaryElement);
   // Bloodline elements
+  const bloodlineElements = getBloodlineElements(user);
+  // Create final list of elements
+  const finalElements = bloodlineElements.length > 0 ? bloodlineElements : userElements;
+  if (bloodlineElements.length === 1 && userElements.length === 2) {
+    finalElements.push(userElements[1] as ElementName);
+  }
+  return Array.from(new Set(finalElements));
+};
+
+export const getBloodlineElements = (user: UserWithRelations) => {
   const bloodlineElements: ElementName[] = [];
   user?.bloodline?.effects.map((effect) => {
     if ("elements" in effect && effect.elements) {
@@ -43,12 +53,7 @@ export const getUserElements = (user: UserWithRelations) => {
       }
     }
   });
-  // Create final list of elements
-  const finalElements = bloodlineElements.length > 0 ? bloodlineElements : userElements;
-  if (bloodlineElements.length === 1 && userElements.length === 2) {
-    finalElements.push(userElements[1] as ElementName);
-  }
-  return Array.from(new Set(finalElements));
+  return bloodlineElements;
 };
 
 export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
