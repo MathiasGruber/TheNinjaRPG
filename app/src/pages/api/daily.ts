@@ -10,6 +10,9 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
 import { structureBoost } from "@/utils/village";
+import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
+import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
+import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -29,10 +32,50 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       villages.map((village) => {
         const interest = structureBoost("bankInterestPerLvl", village.structures);
         const factor = 1 + interest / 100;
-        return drizzleDB
-          .update(userData)
-          .set({ bank: sql`${userData.bank} * ${factor}` })
-          .where(eq(userData.villageId, village.id));
+        return Promise.all([
+          drizzleDB
+            .update(userData)
+            .set({ bank: sql`${userData.bank} * ${factor}` })
+            .where(
+              and(
+                eq(userData.villageId, village.id),
+                eq(userData.federalStatus, "NONE"),
+              ),
+            ),
+          drizzleDB
+            .update(userData)
+            .set({
+              bank: sql`${userData.bank} * ${factor + FED_NORMAL_BANK_INTEREST / 100}`,
+            })
+            .where(
+              and(
+                eq(userData.villageId, village.id),
+                eq(userData.federalStatus, "NORMAL"),
+              ),
+            ),
+          drizzleDB
+            .update(userData)
+            .set({
+              bank: sql`${userData.bank} * ${factor + FED_SILVER_BANK_INTEREST / 100}`,
+            })
+            .where(
+              and(
+                eq(userData.villageId, village.id),
+                eq(userData.federalStatus, "SILVER"),
+              ),
+            ),
+          drizzleDB
+            .update(userData)
+            .set({
+              bank: sql`${userData.bank} * ${factor + FED_GOLD_BANK_INTEREST / 100}`,
+            })
+            .where(
+              and(
+                eq(userData.villageId, village.id),
+                eq(userData.federalStatus, "GOLD"),
+              ),
+            ),
+        ]);
       }),
     );
 

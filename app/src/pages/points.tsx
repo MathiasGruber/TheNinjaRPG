@@ -31,6 +31,15 @@ import { nanoid } from "nanoid";
 import { Check, ChevronsUp, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { sendGTMEvent } from "@next/third-parties/google";
+import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
+import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
+import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
+import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
+import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
+import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
 import {
   Form,
   FormControl,
@@ -425,9 +434,10 @@ const PayPalSubscriptionButton = (props: {
       <h2 className="font-bold">Normal Support</h2>
       <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Blue username in tavern</li>
-        <li>+2 Inventory space</li>
+        <li>+{FED_NORMAL_INVENTORY_SLOTS} Inventory space</li>
+        <li>+{FED_NORMAL_JUTSU_SLOTS} Jutsu slot</li>
+        <li>+{FED_NORMAL_BANK_INTEREST}% bank interest</li>
         <li>Custom avatar (512KB)</li>
-        <li>One extra jutsu slot</li>
       </ul>
     </>
   );
@@ -437,9 +447,10 @@ const PayPalSubscriptionButton = (props: {
       <h2 className="font-bold">Silver Support</h2>
       <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Silver username in tavern</li>
-        <li>+5 Inventory space</li>
+        <li>+{FED_SILVER_INVENTORY_SLOTS} Inventory space</li>
+        <li>+{FED_SILVER_JUTSU_SLOTS} Jutsu slots</li>
+        <li>+{FED_SILVER_BANK_INTEREST}% bank interest</li>
         <li>Custom avatar (1MB)</li>
-        <li>Two extra jutsu slots</li>
       </ul>
     </>
   );
@@ -449,9 +460,10 @@ const PayPalSubscriptionButton = (props: {
       <h2 className="font-bold">Gold Support</h2>
       <ul className="mx-2 mb-2 ml-6 list-disc text-xs">
         <li>Gold username in tavern</li>
-        <li>+10 Inventory space</li>
+        <li>+{FED_GOLD_INVENTORY_SLOTS} Inventory space</li>
+        <li>+{FED_GOLD_JUTSU_SLOTS} Jutsu slots</li>
+        <li>+{FED_GOLD_BANK_INTEREST}% bank interest</li>
         <li>Custom avatar (2MB)</li>
-        <li>Three extra jutsu slots</li>
       </ul>
     </>
   );

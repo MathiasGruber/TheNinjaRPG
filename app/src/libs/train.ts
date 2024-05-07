@@ -2,6 +2,9 @@ import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
+import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
+import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
+import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
@@ -155,11 +158,11 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     const status = getUserFederalStatus(userdata);
     switch (status) {
       case "NORMAL":
-        return 1;
+        return FED_NORMAL_JUTSU_SLOTS;
       case "SILVER":
-        return 2;
+        return FED_SILVER_JUTSU_SLOTS;
       case "GOLD":
-        return 3;
+        return FED_GOLD_JUTSU_SLOTS;
     }
     return 0;
   };

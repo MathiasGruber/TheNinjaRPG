@@ -10,6 +10,10 @@ import { ItemRarities } from "@/drizzle/constants";
 import { ItemSlotTypes } from "@/drizzle/constants";
 import { api } from "@/utils/api";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
+import { getUserFederalStatus } from "@/utils/paypal";
+import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
 import type { Item, UserData } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
@@ -128,5 +132,17 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
  */
 export const calcMaxItems = (user: UserData) => {
   const base = 20;
-  return base + user.extraItemSlots;
+  const fedContrib = (user: UserData) => {
+    const status = getUserFederalStatus(user);
+    switch (status) {
+      case "NORMAL":
+        return FED_NORMAL_INVENTORY_SLOTS;
+      case "SILVER":
+        return FED_SILVER_INVENTORY_SLOTS;
+      case "GOLD":
+        return FED_GOLD_INVENTORY_SLOTS;
+    }
+    return 0;
+  };
+  return base + user.extraItemSlots + fedContrib(user);
 };

@@ -274,7 +274,16 @@ export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 export const RYO_FOR_REP_DAYS_FROZEN = 7;
 export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
 
-// Points config
+// Federal config
 export const FED_NORMAL_REPS_COST = 15;
 export const FED_SILVER_REPS_COST = 35;
 export const FED_GOLD_REPS_COST = 50;
+export const FED_NORMAL_BANK_INTEREST = 2;
+export const FED_SILVER_BANK_INTEREST = 5;
+export const FED_GOLD_BANK_INTEREST = 8;
+export const FED_NORMAL_INVENTORY_SLOTS = 2;
+export const FED_SILVER_INVENTORY_SLOTS = 5;
+export const FED_GOLD_INVENTORY_SLOTS = 10;
+export const FED_NORMAL_JUTSU_SLOTS = 1;
+export const FED_SILVER_JUTSU_SLOTS = 2;
+export const FED_GOLD_JUTSU_SLOTS = 3;
