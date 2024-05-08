@@ -900,6 +900,7 @@ export const userData = mysqlTable(
     dailyArenaFights: smallint("dailyArenaFights", { unsigned: true })
       .default(0)
       .notNull(),
+    dailyMissions: smallint("dailyMissions", { unsigned: true }).default(0).notNull(),
     movedTooFastCount: int("movedTooFastCount").default(0).notNull(),
     extraItemSlots: smallint("extraItemSlots", { unsigned: true }).default(0).notNull(),
     customTitle: varchar("customTitle", { length: 191 }),

@@ -2,7 +2,6 @@ import { type NextPage } from "next";
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Countdown from "@/layout/Countdown";
 import BanInfo from "@/layout/BanInfo";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
@@ -10,10 +9,10 @@ import Confirm from "@/layout/Confirm";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableLetterRanks } from "@/libs/train";
-import { secondsFromDate } from "@/utils/time";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/village";
+import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 
 const MissionHall: NextPage = () => {
   const util = api.useUtils();
@@ -43,16 +42,14 @@ const MissionHall: NextPage = () => {
   if (!access) return <Loader explanation="Accessing Mission Hall" />;
   if (userData.isBanned) return <BanInfo />;
 
-  // Current timestamp synced with server
-  const now = new Date(new Date().getTime() - timeDiff);
-
-  // Get available letter ranks for user
+  // Derived
   const availableUserRanks = availableLetterRanks(userData.rank);
+  const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
 
   return (
     <ContentBox
       title="Mission Hall"
-      subtitle="Complete missions for great rewards"
+      subtitle={`Daily missions [${userData.dailyMissions} / ${MISSIONS_PER_DAY}]`}
       back_href="/village"
       padding={false}
     >
@@ -78,19 +75,6 @@ const MissionHall: NextPage = () => {
               hallData?.find(
                 (point) => point.type === setting.type && point.rank === setting.rank,
               )?.count ?? 0;
-            // Based on last quest finish, create countdown if applicable
-            const allowedAt = secondsFromDate(
-              setting.delayMinutes * 60,
-              userData.questFinishAt,
-            );
-            const coundownComponent = (
-              <Countdown
-                targetDate={allowedAt}
-                timeDiff={timeDiff}
-                onFinish={() => setCounter((n) => n + 1)}
-              />
-            );
-            const timer = allowedAt > now ? coundownComponent : null;
             // Check is user rank is high enough for this quest
             const isRankAllowed = availableUserRanks.includes(setting.rank);
             // Completed field on user model
@@ -105,14 +89,14 @@ const MissionHall: NextPage = () => {
                 button={
                   <div
                     className={
-                      count === 0 || timer !== null || !isRankAllowed
+                      count === 0 || missionsLeft <= 0 || !isRankAllowed
                         ? "filter grayscale"
                         : "hover:cursor-pointer hover:opacity-30"
                     }
                   >
                     <Image alt="small" src={setting.image} width={256} height={256} />
                     <p className="font-bold">{setting.name}</p>
-                    <p>{timer ?? <>[{count} available]</>}</p>
+                    <p>[{count} available]</p>
                     {completedField && <p>[{userData[completedField]} completed]</p>}
                   </div>
                 }

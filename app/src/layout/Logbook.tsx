@@ -312,9 +312,8 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                   void abandon({ id: quest.id });
                 }}
               >
-                Are you sure you want to abandon this quest? Note that if you abandon
-                the quest, there will be a 10-minute timeout during which you cannot
-                start a new quest.
+                Are you sure you want to abandon this quest? Note that even though you
+                abandon this quest, you have still used one of your daily attempts.
               </Confirm>
             )}
           </div>

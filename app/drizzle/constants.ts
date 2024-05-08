@@ -291,3 +291,6 @@ export const FED_GOLD_INVENTORY_SLOTS = 10;
 export const FED_NORMAL_JUTSU_SLOTS = 1;
 export const FED_SILVER_JUTSU_SLOTS = 2;
 export const FED_GOLD_JUTSU_SLOTS = 3;
+
+// Missions config
+export const MISSIONS_PER_DAY = 50;

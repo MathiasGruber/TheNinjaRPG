@@ -26,6 +26,7 @@ import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
+import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import type { CollectItemType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
@@ -127,6 +128,7 @@ export const questsRouter = createTRPCRouter({
       }
       // Guards
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.dailyMissions >= MISSIONS_PER_DAY) return errorResponse("Limit reached");
       // Confirm timing, i.e. whether it has been long enough since last quest
       const minutesPassed = secondsPassed(user.questFinishAt) / 60;
       if (minutesPassed < settings.delayMinutes) {
@@ -160,7 +162,13 @@ export const questsRouter = createTRPCRouter({
       if (!result) return errorResponse("No assignments at this level could be found");
 
       // Insert quest entry
-      await upsertQuestEntry(ctx.drizzle, user, result);
+      await Promise.all([
+        upsertQuestEntry(ctx.drizzle, user, result),
+        ctx.drizzle
+          .update(userData)
+          .set({ dailyMissions: sql`${userData.dailyMissions} + 1` })
+          .where(eq(userData.userId, user.userId)),
+      ]);
       return { success: true, message: `Quest started: ${result.name}` };
     }),
   abandon: protectedProcedure

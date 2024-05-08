@@ -84,10 +84,14 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       .delete(userRequest)
       .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
 
-    // STEP 3: Update village prestige
+    // STEP 3: Update village prestige & daily limits
     await drizzleDB
       .update(userData)
-      .set({ villagePrestige: sql`${userData.villagePrestige} + 1` });
+      .set({
+        villagePrestige: sql`${userData.villagePrestige} + 1`,
+        dailyArenaFights: 0,
+        dailyMissions: 0,
+      });
 
     // STEP 4: Update daily quests
     await drizzleDB
