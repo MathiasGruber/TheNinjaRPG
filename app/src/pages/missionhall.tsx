@@ -1,5 +1,4 @@
 import { type NextPage } from "next";
-import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
@@ -17,8 +16,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 const MissionHall: NextPage = () => {
   const util = api.useUtils();
 
-  const [, setCounter] = useState(0); // NOTE: This is a hack to force re-render
-  const { userData, timeDiff, access } = useRequireInVillage("Mission Hall");
+  const { userData, access } = useRequireInVillage("Mission Hall");
 
   const currentQuest = userData?.userQuests?.find(
     (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,

@@ -21,7 +21,6 @@ import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { missionHallSettings } from "@/libs/quest";
-import { secondsPassed } from "@/utils/time";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
@@ -129,11 +128,6 @@ export const questsRouter = createTRPCRouter({
       // Guards
       if (user.isBanned) return errorResponse("You are banned");
       if (user.dailyMissions >= MISSIONS_PER_DAY) return errorResponse("Limit reached");
-      // Confirm timing, i.e. whether it has been long enough since last quest
-      const minutesPassed = secondsPassed(user.questFinishAt) / 60;
-      if (minutesPassed < settings.delayMinutes) {
-        return errorResponse(`Must wait ${settings.delayMinutes} minutes`);
-      }
       // Check if user is allowed to perform this rank
       const ranks = availableLetterRanks(user.rank);
       if (!ranks.includes(input.rank)) {
