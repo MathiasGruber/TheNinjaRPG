@@ -67,6 +67,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { structureBoost } from "@/utils/village";
+import { capUserStats } from "@/libs/profile";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -688,36 +689,48 @@ export const profileRouter = createTRPCRouter({
     }),
   // Use earned experience points for stats
   useUnusedExperiencePoints: protectedProcedure
-    .input(createStatSchema(0))
+    .input(createStatSchema(0, 0))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Derived
-      const schema = createStatSchema(0, 0, user);
-      const parsedInput = schema.parse(input);
       const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
       // Guard
       if (user.earnedExperience <= 0) return errorResponse("No experience left");
       if (inputSum > user.earnedExperience) {
         return errorResponse("Trying to assign more stats than available");
       }
+      // Mutate & cap
+      user.ninjutsuOffence += input.ninjutsuOffence;
+      user.taijutsuOffence += input.taijutsuOffence;
+      user.genjutsuOffence += input.genjutsuOffence;
+      user.bukijutsuOffence += input.bukijutsuOffence;
+      user.ninjutsuDefence += input.ninjutsuDefence;
+      user.taijutsuDefence += input.taijutsuDefence;
+      user.genjutsuDefence += input.genjutsuDefence;
+      user.bukijutsuDefence += input.bukijutsuDefence;
+      user.strength += input.strength;
+      user.speed += input.speed;
+      user.intelligence += input.intelligence;
+      user.willpower += input.willpower;
+      capUserStats(user);
       // Update
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          ninjutsuOffence: sql`ninjutsuOffence + ${parsedInput.ninjutsuOffence}`,
-          taijutsuOffence: sql`taijutsuOffence + ${parsedInput.taijutsuOffence}`,
-          genjutsuOffence: sql`genjutsuOffence + ${parsedInput.genjutsuOffence}`,
-          bukijutsuOffence: sql`bukijutsuOffence + ${parsedInput.bukijutsuOffence}`,
-          ninjutsuDefence: sql`ninjutsuDefence + ${parsedInput.ninjutsuDefence}`,
-          taijutsuDefence: sql`taijutsuDefence + ${parsedInput.taijutsuDefence}`,
-          genjutsuDefence: sql`genjutsuDefence + ${parsedInput.genjutsuDefence}`,
-          bukijutsuDefence: sql`bukijutsuDefence + ${parsedInput.bukijutsuDefence}`,
-          strength: sql`strength + ${parsedInput.strength}`,
-          speed: sql`speed + ${parsedInput.speed}`,
-          intelligence: sql`intelligence + ${parsedInput.intelligence}`,
-          willpower: sql`willpower + ${parsedInput.willpower}`,
+          ninjutsuOffence: user.ninjutsuOffence,
+          taijutsuOffence: user.taijutsuOffence,
+          genjutsuOffence: user.genjutsuOffence,
+          bukijutsuOffence: user.bukijutsuOffence,
+          ninjutsuDefence: user.ninjutsuDefence,
+          taijutsuDefence: user.taijutsuDefence,
+          genjutsuDefence: user.genjutsuDefence,
+          bukijutsuDefence: user.bukijutsuDefence,
+          strength: user.strength,
+          speed: user.speed,
+          intelligence: user.intelligence,
+          willpower: user.willpower,
           earnedExperience: sql`earnedExperience - ${inputSum}`,
         })
         .where(
