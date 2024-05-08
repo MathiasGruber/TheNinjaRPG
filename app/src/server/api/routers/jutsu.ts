@@ -421,6 +421,7 @@ export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => 
       },
     },
     where: eq(userJutsu.userId, userId),
+    orderBy: (table, { desc }) => desc(table.level),
   });
   // CORRECTOR START: This code fixes if anyone has an AI jutsu equipped
   const equippedAiJutsus = userjutsus
