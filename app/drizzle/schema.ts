@@ -810,6 +810,7 @@ export const userData = mysqlTable(
     money: bigint("money", { mode: "number" }).default(100).notNull(),
     bank: bigint("bank", { mode: "number" }).default(100).notNull(),
     experience: int("experience").default(0).notNull(),
+    earnedExperience: int("earnedExperience").default(0).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     level: tinyint("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
@@ -896,6 +897,9 @@ export const userData = mysqlTable(
     crimesB: smallint("crimesB", { unsigned: true }).default(0).notNull(),
     crimesA: smallint("crimesA", { unsigned: true }).default(0).notNull(),
     crimesS: smallint("crimesS", { unsigned: true }).default(0).notNull(),
+    dailyArenaFights: smallint("dailyArenaFights", { unsigned: true })
+      .default(0)
+      .notNull(),
     movedTooFastCount: int("movedTooFastCount").default(0).notNull(),
     extraItemSlots: smallint("extraItemSlots", { unsigned: true }).default(0).notNull(),
     customTitle: varchar("customTitle", { length: 191 }),

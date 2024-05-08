@@ -301,6 +301,7 @@ export const questsRouter = createTRPCRouter({
           objectives: [],
           reward: {
             reward_money: 0,
+            reward_exp: 0,
             reward_tokens: 0,
             reward_prestige: 0,
             reward_jutsus: [],
@@ -418,6 +419,7 @@ export const questsRouter = createTRPCRouter({
       const updatedUserData: { [key: string]: any } = {
         questData: user.questData,
         money: user.money + rewards.reward_money,
+        earnedExperience: user.earnedExperience + rewards.reward_exp,
         villagePrestige: user.villagePrestige + rewards.reward_prestige,
         rank: getNewRank ? rewards.reward_rank : user.rank,
       };

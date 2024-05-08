@@ -9,7 +9,7 @@ import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance } from "@/drizzle/schema";
-import type { UserJutsu, UserItem } from "@/drizzle/schema";
+import type { UserJutsu, UserItem, UserData } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
@@ -971,65 +971,90 @@ const roundStat = (stat: number) => {
   return Math.round(stat * 100) / 100;
 };
 
-export const statSchema = z.object({
-  ninjutsuOffence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  taijutsuOffence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  genjutsuOffence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  bukijutsuOffence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  ninjutsuDefence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  taijutsuDefence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  genjutsuDefence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  bukijutsuDefence: z.coerce
-    .number()
-    .min(10)
-    .max(STATS_CAP)
-    .transform(roundStat)
-    .default(10),
-  strength: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
-  speed: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
-  intelligence: z.coerce
-    .number()
-    .min(10)
-    .max(GENS_CAP)
-    .transform(roundStat)
-    .default(10),
-  willpower: z.coerce.number().min(10).max(GENS_CAP).transform(roundStat).default(10),
-});
+/**
+ * Create a stats schema. Used for validating user stats, either starting stats,
+ * stat changes, or stat differences
+ * @returns - zod schema
+ */
+export const createStatSchema = (min = 10, start = 10, user?: UserData) => {
+  return z.object({
+    ninjutsuOffence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.ninjutsuOffence || 0))
+      .transform(roundStat)
+      .default(start),
+    taijutsuOffence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.taijutsuOffence || 0))
+      .transform(roundStat)
+      .default(start),
+    genjutsuOffence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.genjutsuOffence || 0))
+      .transform(roundStat)
+      .default(start),
+    bukijutsuOffence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.bukijutsuOffence || 0))
+      .transform(roundStat)
+      .default(start),
+    ninjutsuDefence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.ninjutsuDefence || 0))
+      .transform(roundStat)
+      .default(start),
+    taijutsuDefence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.taijutsuDefence || 0))
+      .transform(roundStat)
+      .default(start),
+    genjutsuDefence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.genjutsuDefence || 0))
+      .transform(roundStat)
+      .default(start),
+    bukijutsuDefence: z.coerce
+      .number()
+      .min(min)
+      .max(STATS_CAP - (user?.bukijutsuDefence || 0))
+      .transform(roundStat)
+      .default(start),
+    strength: z.coerce
+      .number()
+      .min(min)
+      .max(GENS_CAP - (user?.strength || 0))
+      .transform(roundStat)
+      .default(start),
+    speed: z.coerce
+      .number()
+      .min(min)
+      .max(GENS_CAP - (user?.speed || 0))
+      .transform(roundStat)
+      .default(start),
+    intelligence: z.coerce
+      .number()
+      .min(min)
+      .max(GENS_CAP - (user?.intelligence || 0))
+      .transform(roundStat)
+      .default(start),
+    willpower: z.coerce
+      .number()
+      .min(min)
+      .max(GENS_CAP - (user?.willpower || 0))
+      .transform(roundStat)
+      .default(start),
+  });
+};
+
+export const statSchema = createStatSchema();
+export type StatSchemaType = z.infer<typeof statSchema>;
 
 export const actSchema = z.object({
   power: z.coerce.number().min(1).max(100).default(1),

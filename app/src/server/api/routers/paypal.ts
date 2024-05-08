@@ -205,6 +205,25 @@ export const paypalRouter = createTRPCRouter({
         message: `Synced with data from Paypal. UsedID ${affectedUserId} set to have ${newStatus} federal subscription.`,
       };
     }),
+  // Get reps from the last 30 days
+  getRecentRepsCount: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = await ctx.drizzle
+        .select({
+          count: sql<number>`SUM(${paypalTransaction.reputationPoints})`.mapWith(
+            Number,
+          ),
+        })
+        .from(paypalTransaction)
+        .where(
+          and(
+            eq(paypalTransaction.createdById, input.userId),
+            gte(paypalTransaction.createdAt, sql`NOW() - INTERVAL 30 DAY`),
+          ),
+        );
+      return result?.[0]?.count ?? 0;
+    }),
   // Get all paypal transactions by this user
   getPaypalTransactions: protectedProcedure
     .input(

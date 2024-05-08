@@ -212,6 +212,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                     <b>Money:</b> {rewards.reward_money} ryo
                   </span>
                 )}
+                {rewards.reward_exp > 0 && (
+                  <span>
+                    <b>Experience:</b> {rewards.reward_exp}
+                  </span>
+                )}
                 {rewards.reward_tokens > 0 && (
                   <span>
                     <b>Village tokens:</b> {rewards.reward_tokens}

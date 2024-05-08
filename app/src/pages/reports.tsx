@@ -3,6 +3,7 @@ import { type NextPage } from "next";
 
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
+import AvatarImage from "@/layout/Avatar";
 import Toggle from "@/components/control/Toggle";
 import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
@@ -123,7 +124,16 @@ const Reports: NextPage = () => {
                     <Post
                       title={reportCommentExplain(report.status)}
                       color={reportCommentColor(report.status)}
-                      user={reportedUser}
+                      image={
+                        <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
+                          <AvatarImage
+                            href={reportedUser.avatar}
+                            userId={reportedUser.userId}
+                            alt={reportedUser.username}
+                            size={100}
+                          />
+                        </div>
+                      }
                       hover_effect={true}
                     >
                       {report.banEnd && (

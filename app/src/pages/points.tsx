@@ -31,6 +31,7 @@ import { nanoid } from "nanoid";
 import { Check, ChevronsUp, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { sendGTMEvent } from "@next/third-parties/google";
+import { MAX_REPS_PER_MONTH } from "@/drizzle/constants";
 import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
@@ -72,6 +73,11 @@ const PaypalShop: NextPage = () => {
     destroySDKScript(getScriptID(OPTIONS));
   }, [activeTab]);
 
+  const { data: purchasedReps } = api.paypal.getRecentRepsCount.useQuery(
+    { userId: userData?.userId ?? "-" },
+    { enabled: !!userData },
+  );
+
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
@@ -86,7 +92,7 @@ const PaypalShop: NextPage = () => {
         >
           <ContentBox
             title={activeTab}
-            subtitle="Premium features"
+            subtitle={`Monthly Reps [${purchasedReps ?? 0} / ${MAX_REPS_PER_MONTH}]`}
             padding={activeTab === "Log" ? false : true}
             topRightContent={
               <>
@@ -234,6 +240,11 @@ const ReputationStore = (props: { currency: string }) => {
     },
   });
 
+  const { data: purchasedReps } = api.paypal.getRecentRepsCount.useQuery(
+    { userId: userData?.userId ?? "-" },
+    { enabled: !!userData },
+  );
+
   const repFormMethods = useForm<BuyRepsSchema>({
     defaultValues: { reputationPoints: 20 },
     resolver: zodResolver(buyRepsSchema),
@@ -264,6 +275,11 @@ const ReputationStore = (props: { currency: string }) => {
   // No reps for banned users
   if (userData?.isBanned) return <BanInfo hideContentBox />;
 
+  // Set the maximum number of purchaseable points
+  const maxPoints = purchasedReps
+    ? MAX_REPS_PER_MONTH - purchasedReps
+    : MAX_REPS_PER_MONTH;
+
   return (
     <>
       <div className="text-center text-2xl">
@@ -271,7 +287,7 @@ const ReputationStore = (props: { currency: string }) => {
           id="reputationPoints"
           default={20}
           min={5}
-          max={1000}
+          max={maxPoints}
           unit={`reputation points for $${amount} USD`}
           register={repFormMethods.register}
           setValue={repFormMethods.setValue}

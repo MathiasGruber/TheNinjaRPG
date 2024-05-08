@@ -71,6 +71,11 @@ interface TrainingProps {
   timeDiff: number;
 }
 
+/**
+ * Component for sensei system
+ * @param props
+ * @returns
+ */
 const SenseiSystem: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData } = props;
@@ -266,6 +271,11 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   );
 };
 
+/**
+ * Component for stats training
+ * @param props
+ * @returns
+ */
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
@@ -394,6 +404,11 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   );
 };
 
+/**
+ * Component for jutsu training
+ * @param props
+ * @returns
+ */
 const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
@@ -507,7 +522,13 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       } else {
         return jutsuElements.find((e) => userElements.has(e));
       }
-    });
+    })
+    .map((j) => {
+      const uj = userJutsus?.find((uj) => uj.jutsuId === j.id);
+      return { ...j, level: uj?.level || 0 };
+    })
+    .filter((j) => j.level < JUTSU_LEVEL_CAP)
+    .sort((a, b) => b.level - a.level);
 
   // Training time
   const finishTrainingAt = userJutsus?.find(

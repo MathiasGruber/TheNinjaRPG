@@ -98,6 +98,6 @@ export const canClearReport = (user: UserData, report: UserReport) => {
 /**
  * Can change another user's avatar
  */
-export const canChangeAvatar = (user: UserData) => {
+export const canChangePublicUser = (user: UserData) => {
   return ["MODERATOR", "ADMIN"].includes(user.role);
 };

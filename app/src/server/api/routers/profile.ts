@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, ne, sql, and, or, like, asc, desc, isNull, isNotNull } from "drizzle-orm";
+import {
+  eq,
+  ne,
+  sql,
+  gte,
+  and,
+  or,
+  like,
+  asc,
+  desc,
+  isNull,
+  isNotNull,
+} from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed } from "@/utils/time";
 import { round } from "@/utils/math";
@@ -43,9 +55,9 @@ import { energyPerSecond } from "@/libs/train";
 import { trainingMultiplier } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
-import { COST_CHANGE_USERNAME, COST_RESET_STATS } from "@/drizzle/constants";
+import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
-import { statSchema } from "@/libs/combat/types";
+import { createStatSchema } from "@/libs/combat/types";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
@@ -317,6 +329,14 @@ export const profileRouter = createTRPCRouter({
             href: "/reports",
             name: "Banned!",
             color: "red",
+          });
+        }
+        // Unused experience points
+        if (user.earnedExperience > 0) {
+          notifications.push({
+            href: "/profile/experience",
+            name: `Earned exp: ${user.earnedExperience}`,
+            color: "blue",
           });
         }
         // Add deletion timer to notifications
@@ -666,51 +686,49 @@ export const profileRouter = createTRPCRouter({
         return { success: true, message: "Username updated" };
       }
     }),
-  // Update username
-  updateStats: protectedProcedure
-    .input(statSchema)
+  // Use earned experience points for stats
+  useUnusedExperiencePoints: protectedProcedure
+    .input(createStatSchema(0))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.reputationPoints < COST_RESET_STATS) {
-        return { success: false, message: "Not enough reputation points" };
-      }
+      // Derived
       const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
-      const availableStats = round(user.experience + 120);
-      if (inputSum !== availableStats) {
-        const message = `Requested points ${inputSum} for not match experience points ${availableStats}`;
-        return { success: false, message };
+      const schema = createStatSchema(0, 0, user);
+      const parsedInput = schema.parse(input);
+      // Guard
+      if (user.earnedExperience <= 0) return errorResponse("No experience left");
+      if (inputSum > user.earnedExperience) {
+        return errorResponse("Trying to assign more stats than available");
       }
+      // Update
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          ninjutsuOffence: input.ninjutsuOffence,
-          taijutsuOffence: input.taijutsuOffence,
-          genjutsuOffence: input.genjutsuOffence,
-          bukijutsuOffence: input.bukijutsuOffence,
-          ninjutsuDefence: input.ninjutsuDefence,
-          taijutsuDefence: input.taijutsuDefence,
-          genjutsuDefence: input.genjutsuDefence,
-          bukijutsuDefence: input.bukijutsuDefence,
-          strength: input.strength,
-          speed: input.speed,
-          intelligence: input.intelligence,
-          willpower: input.willpower,
-          reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
+          ninjutsuOffence: sql`ninjutsuOffence + ${parsedInput.ninjutsuOffence}`,
+          taijutsuOffence: sql`taijutsuOffence + ${parsedInput.taijutsuOffence}`,
+          genjutsuOffence: sql`genjutsuOffence + ${parsedInput.genjutsuOffence}`,
+          bukijutsuOffence: sql`bukijutsuOffence + ${parsedInput.bukijutsuOffence}`,
+          ninjutsuDefence: sql`ninjutsuDefence + ${parsedInput.ninjutsuDefence}`,
+          taijutsuDefence: sql`taijutsuDefence + ${parsedInput.taijutsuDefence}`,
+          genjutsuDefence: sql`genjutsuDefence + ${parsedInput.genjutsuDefence}`,
+          bukijutsuDefence: sql`bukijutsuDefence + ${parsedInput.bukijutsuDefence}`,
+          strength: sql`strength + ${parsedInput.strength}`,
+          speed: sql`speed + ${parsedInput.speed}`,
+          intelligence: sql`intelligence + ${parsedInput.intelligence}`,
+          willpower: sql`willpower + ${parsedInput.willpower}`,
+          earnedExperience: sql`earnedExperience - ${inputSum}`,
         })
-        .where(eq(userData.userId, ctx.userId));
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            gte(userData.earnedExperience, inputSum),
+          ),
+        );
       if (result.rowsAffected === 0) {
-        return { success: false, message: "Could not update user" };
+        return errorResponse("Could not update user");
       } else {
-        await ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "userData",
-          changes: [`User stats distribution changed`],
-          relatedId: ctx.userId,
-          relatedMsg: `Update: ${user.username} stats redistribution`,
-          relatedImage: user.avatar,
-        });
         return { success: true, message: "User stats updated" };
       }
     }),

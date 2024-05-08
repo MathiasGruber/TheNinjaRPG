@@ -23,6 +23,7 @@ import ContentBox from "@/layout/ContentBox";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
 import { Swords } from "lucide-react";
+import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import type { z } from "zod";
 import type { GenericObject } from "@/layout/ItemWithEffects";
 import type { NextPage } from "next";
@@ -34,12 +35,17 @@ const Arena: NextPage = () => {
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("Battle Arena");
 
+  // Guards
+  if (!access) return <Loader explanation="Accessing Battle Arena" />;
+  if (!userData) return <Loader explanation="Loading user" />;
+  if (userData?.isBanned) return <BanInfo />;
+
   // Derived values
   const title = tab === "Arena" ? "Arena" : "Sparring";
-  const subtitle = tab === "Arena" ? "Fight Training" : "PVP Challenges";
-
-  if (!access) return <Loader explanation="Accessing Battle Arena" />;
-  if (userData?.isBanned) return <BanInfo />;
+  const subtitle =
+    tab === "Arena"
+      ? `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`
+      : "PVP Challenges";
 
   return (
     <>
@@ -119,14 +125,23 @@ const ChallengeAI: React.FC = () => {
     }
   }, [sortedAis, aiId]);
 
+  // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Derived
+  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
 
   return (
     <div>
       The arena is a fairly basic circular and raw battleground, where you can train &
       test your skills as a ninja. Opponents are various creatures or ninja deemed to be
       at your level.
-      {!isAttacking && (
+      {!canDoArena && (
+        <h1 className="pb-3 pt-5 text-center font-fontasia text-8xl">
+          Wait till tomorrow
+        </h1>
+      )}
+      {!isAttacking && canDoArena && (
         <>
           <h1
             className="cursor-pointer pb-3 pt-5 text-center font-fontasia text-8xl hover:text-orange-800"

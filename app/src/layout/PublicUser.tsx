@@ -10,12 +10,12 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
-import { Flag, CopyCheck, Settings, RefreshCcwDot } from "lucide-react";
+import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
-import { canChangeAvatar } from "@/validators/reports";
+import { canChangePublicUser } from "@/validators/reports";
 import { useUserData } from "@/utils/UserContext";
 import { useUserEditForm } from "@/libs/profile";
 import type { UpdateUserSchema } from "@/validators/user";
@@ -43,7 +43,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
-  const { data: userData, refetch: refetchUser } = useUserData();
+  const { data: userData } = useUserData();
 
   // Queries
   const { data: profile, isPending } = api.profile.getPublicUser.useQuery(
@@ -56,8 +56,20 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
 
   // Mutations
   const updateAvatar = api.reports.updateUserAvatar.useMutation({
-    onSuccess: async () => {
-      await utils.profile.getPublicUser.invalidate();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+    },
+  });
+
+  const clearNindo = api.reports.clearNindo.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
     },
   });
 
@@ -65,13 +77,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
 
   // Derived
-  const canChange = isSignedIn && userData && canChangeAvatar(userData);
+  const canChange = isSignedIn && userData && canChangePublicUser(userData);
   const availableRoles = userData && canChangeUserRole(userData.role);
 
   // Loaders
@@ -300,8 +312,26 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           title="Nindo"
           subtitle={`${profile.username}'s Ninja Way`}
           initialBreak={true}
+          topRightContent={
+            <div className="flex flex-row gap-1">
+              {canChange && (
+                <Confirm
+                  title="Clear User Nindo"
+                  proceed_label="Done"
+                  button={
+                    <Trash2 className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+                  }
+                  onAccept={() => clearNindo.mutate({ userId: profile.userId })}
+                >
+                  Confirm that you wish to clear this nindo. The action will be logged.
+                </Confirm>
+              )}
+            </div>
+          }
         >
-          {ReactHtmlParser(profile.nindo.content)}
+          <div className="overflow-x-scroll">
+            {ReactHtmlParser(profile.nindo.content)}
+          </div>
         </ContentBox>
       )}
     </>

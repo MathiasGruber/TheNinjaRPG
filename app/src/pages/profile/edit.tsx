@@ -10,11 +10,11 @@ import Accordion from "@/layout/Accordion";
 import RichInput from "@/layout/RichInput";
 import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
+import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   Form,
   FormControl,
-  FormLabel,
   FormField,
   FormItem,
   FormMessage,
@@ -47,7 +47,6 @@ import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
-import { statSchema } from "@/libs/combat/types";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
 import type { Bloodline, Village } from "@/drizzle/schema";
@@ -396,32 +395,8 @@ const ResetStats: React.FC = () => {
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   if (userData) capUserStats(userData);
 
-  // Stats Schema
-  type StatSchema = z.infer<typeof statSchema>;
-  const defaultValues = statSchema.parse(userData);
-  const statNames = Object.keys(defaultValues) as (keyof typeof defaultValues)[];
-
-  // Form setup
-  const form = useForm<StatSchema>({
-    defaultValues,
-    mode: "all",
-    resolver: zodResolver(statSchema),
-  });
-  const formValues = form.watch();
-  const formSum = Object.values(formValues)
-    .map((v) => Number(v))
-    .reduce((a, b) => a + b, 0);
-
-  // Is the form the same as the default values
-  const isDefault = Object.keys(formValues).every((key) => {
-    return (
-      formValues[key as keyof typeof formValues] ===
-      defaultValues[key as keyof typeof defaultValues]
-    );
-  });
-
   // Mutations
-  const { mutate: updateStats } = api.profile.updateStats.useMutation({
+  const { mutate: updateStats } = api.blackmarket.updateStats.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -431,64 +406,17 @@ const ResetStats: React.FC = () => {
   });
 
   // Only show if we have userData
-  if (!userData) {
-    return <Loader explanation="Loading profile page..." />;
-  }
-
-  // Derived data
-  const availableStats = round(userData.experience + 120);
-  const misalignment = round(formSum - availableStats);
-  const canBuy = userData.reputationPoints >= COST_RESET_STATS;
-
-  // Figure out what to show on button, and whether it is disabled or not
-  const isDisabled = !canBuy || misalignment !== 0 || isDefault;
-  const buttonText = isDefault
-    ? "Nothing changed"
-    : canBuy
-      ? misalignment === 0
-        ? "Reset Stats"
-        : misalignment > 0
-          ? `Remove ${misalignment} points`
-          : `Place ${-misalignment} more points`
-      : "Not enough points";
-
-  // Submit handler
-  const onSubmit = form.handleSubmit((data) => {
-    updateStats(data);
-  });
+  if (!userData) return <Loader explanation="Loading user" />;
 
   // Show component
   return (
-    <>
-      <Form {...form}>
-        <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
-          {statNames.map((stat, i) => (
-            <FormField
-              key={i}
-              control={form.control}
-              name={stat}
-              render={({ field }) => (
-                <FormItem className="pt-1">
-                  <FormLabel>{stat}</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder={stat} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ))}
-          <Button
-            id="create"
-            className="w-full col-span-2 my-1"
-            type="submit"
-            disabled={isDisabled}
-          >
-            {buttonText}
-          </Button>
-        </form>
-      </Form>
-    </>
+    <DistributeStatsForm
+      forceUseAll
+      isRedistribution
+      userData={userData}
+      onAccept={updateStats}
+      availableStats={round(userData.experience + 120)}
+    />
   );
 };
 
@@ -739,9 +667,9 @@ const NindoChange: React.FC = () => {
     reset();
   });
 
-  if (isPending || isUpdating) {
-    return <Loader explanation="Loading nindo..." />;
-  }
+  console.log(data);
+  if (isUpdating) return <Loader explanation="Updating nindo..." />;
+  if (isPending) return <Loader explanation="Loading nindo..." />;
 
   return (
     <form onSubmit={onSubmit}>

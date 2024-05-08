@@ -3,9 +3,10 @@ import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { eq, or, and, gte, ne, gt, like, notInArray, inArray } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
-import { forumPost, conversationComment } from "@/drizzle/schema";
+import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData } from "@/drizzle/schema";
-import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
 import { updateAvatar } from "../../../libs/replicate";
@@ -13,7 +14,7 @@ import { canModerateReports } from "@/validators/reports";
 import { canSeeReport } from "@/validators/reports";
 import { canClearReport } from "@/validators/reports";
 import { canEscalateBan } from "@/validators/reports";
-import { canChangeAvatar } from "@/validators/reports";
+import { canChangePublicUser } from "@/validators/reports";
 import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import type { DrizzleClient } from "../../db";
@@ -47,11 +48,11 @@ export const reportsRouter = createTRPCRouter({
         .where(
           and(
             // Handled or not
-            input.isUnhandled !== undefined && input.isUnhandled === true
+            input.isUnhandled === true
               ? inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"])
               : notInArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]),
             // Active or Closed
-            ...(input.showAll !== undefined && input.showAll === true
+            ...(input.isUnhandled === true || input.showAll === true
               ? []
               : [eq(userReport.status, "BAN_ACTIVATED")]),
             // Pertaining to user (if user)
@@ -267,24 +268,53 @@ export const reportsRouter = createTRPCRouter({
     }),
   updateUserAvatar: protectedProcedure
     .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (canChangeAvatar(user)) {
-        const target = await fetchUser(ctx.drizzle, input.userId);
-        void updateAvatar(ctx.drizzle, target);
-        await ctx.drizzle.insert(reportLog).values({
+      // Query
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!canChangePublicUser(user)) return errorResponse("You cannot clear nindos");
+      // Mutate
+      void updateAvatar(ctx.drizzle, target);
+      await Promise.all([
+        ctx.drizzle.insert(reportLog).values({
           id: nanoid(),
           staffUserId: ctx.userId,
           action: "AVATAR_CHANGE",
           targetUserId: input.userId,
-        });
-        return await ctx.drizzle
+        }),
+        ctx.drizzle
           .update(userData)
           .set({ avatar: null })
-          .where(eq(userData.userId, input.userId));
-      } else {
-        throw serverError("UNAUTHORIZED", "You cannot avatars");
-      }
+          .where(eq(userData.userId, input.userId)),
+      ]);
+      return { success: true, message: "Avatar update request sent" };
+    }),
+  clearNindo: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!canChangePublicUser(user)) return errorResponse("You cannot clear nindos");
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.insert(reportLog).values({
+          id: nanoid(),
+          staffUserId: ctx.userId,
+          action: "NINDO_CLEARED",
+          targetUserId: input.userId,
+        }),
+        ctx.drizzle.delete(userNindo).where(eq(userNindo.userId, target.userId)),
+      ]);
+      return { success: true, message: "Nindo cleared" };
     }),
 });
 

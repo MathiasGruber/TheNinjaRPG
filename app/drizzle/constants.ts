@@ -268,11 +268,15 @@ export const MEDNIN_REQUIRED_EXP = {
 export const JUTSU_XP_TO_LEVEL = 1000;
 
 // Combat config
+export const BATTLE_ARENA_DAILY_LIMIT = 2;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 
 // Black market config
 export const RYO_FOR_REP_DAYS_FROZEN = 7;
 export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
+
+// Reputation purchase config
+export const MAX_REPS_PER_MONTH = 1000;
 
 // Federal config
 export const FED_NORMAL_REPS_COST = 15;

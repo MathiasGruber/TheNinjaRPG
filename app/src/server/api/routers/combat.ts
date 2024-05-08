@@ -42,6 +42,7 @@ import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { randomInt } from "@/utils/math";
 import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
+import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -417,6 +418,9 @@ export const combatRouter = createTRPCRouter({
       if (!user) return errorResponse("Attacking user not found");
       if (!sectorVillage) return errorResponse("Arena village not found");
       if (user.isBanned) return errorResponse("No arena while banned");
+      if (user.dailyArenaFights >= BATTLE_ARENA_DAILY_LIMIT) {
+        return errorResponse("Daily arena limit reached");
+      }
       // Check if location is OK
       if (
         !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||

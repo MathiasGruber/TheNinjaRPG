@@ -109,6 +109,9 @@ export const Reward: React.FC<RewardProps> = (props) => {
   if (info?.reward_tokens) {
     rewards += `${rewards ? ", " : ""} ${info.reward_tokens} Tokens`;
   }
+  if (info?.reward_exp) {
+    rewards += `${rewards ? ", " : ""} ${info.reward_exp} Exp`;
+  }
   if (info?.reward_prestige) {
     rewards += `${rewards ? ", " : ""} ${info.reward_prestige} Prestige`;
   }

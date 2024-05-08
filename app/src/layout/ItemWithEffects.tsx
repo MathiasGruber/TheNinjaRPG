@@ -85,6 +85,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     if (questReward.reward_money) {
       rewards.push(`${item.content.reward.reward_money} ryo`);
     }
+    if (questReward.reward_exp) {
+      rewards.push(`${item.content.reward.reward_exp} exp`);
+    }
     if (questReward.reward_tokens) {
       rewards.push(`${item.content.reward.reward_tokens} village tokens`);
     }

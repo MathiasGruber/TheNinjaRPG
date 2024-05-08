@@ -3,8 +3,11 @@ import { nanoid } from "nanoid";
 import { eq, sql, gt, and, asc, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { fetchUser } from "./profile";
+import { round } from "@/utils/math";
 import { userData, ryoTrade, actionLog } from "@/drizzle/schema";
 import { secondsFromDate } from "@/utils/time";
+import { statSchema } from "@/libs/combat/types";
+import { COST_RESET_STATS } from "@/drizzle/constants";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
@@ -257,6 +260,54 @@ export const blackMarketRouter = createTRPCRouter({
           relatedImage: user.avatar,
         });
         return { success: true, message: "Element rerolled" };
+      }
+    }),
+  // Update stats
+  updateStats: protectedProcedure
+    .input(statSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.reputationPoints < COST_RESET_STATS) {
+        return { success: false, message: "Not enough reputation points" };
+      }
+      const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
+      const availableStats = round(user.experience + 120);
+      if (inputSum !== availableStats) {
+        const message = `Requested points ${inputSum} for not match experience points ${availableStats}`;
+        return { success: false, message };
+      }
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          ninjutsuOffence: input.ninjutsuOffence,
+          taijutsuOffence: input.taijutsuOffence,
+          genjutsuOffence: input.genjutsuOffence,
+          bukijutsuOffence: input.bukijutsuOffence,
+          ninjutsuDefence: input.ninjutsuDefence,
+          taijutsuDefence: input.taijutsuDefence,
+          genjutsuDefence: input.genjutsuDefence,
+          bukijutsuDefence: input.bukijutsuDefence,
+          strength: input.strength,
+          speed: input.speed,
+          intelligence: input.intelligence,
+          willpower: input.willpower,
+          reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userData",
+          changes: [`User stats distribution changed`],
+          relatedId: ctx.userId,
+          relatedMsg: `Update: ${user.username} stats redistribution`,
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "User stats updated" };
       }
     }),
 });
