@@ -104,7 +104,6 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
             className="w-full col-span-2 my-1"
             type="submit"
             disabled={isDisabled}
-            onClick={() => onAccept(formValues)}
           >
             {buttonText}
           </Button>

@@ -694,9 +694,9 @@ export const profileRouter = createTRPCRouter({
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Derived
-      const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
       const schema = createStatSchema(0, 0, user);
       const parsedInput = schema.parse(input);
+      const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
       // Guard
       if (user.earnedExperience <= 0) return errorResponse("No experience left");
       if (inputSum > user.earnedExperience) {
