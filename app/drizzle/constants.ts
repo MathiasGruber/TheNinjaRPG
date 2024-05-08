@@ -239,7 +239,7 @@ export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
 export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
 export const COST_RESET_STATS = 10;
 export const COST_EXTRA_ITEM_SLOT = 10;
-export const COST_REROLL_ELEMENT = 15;
+export const COST_REROLL_ELEMENT = 20;
 
 // ANBU config
 export const ANBU_MEMBER_RANK_REQUIREMENT = "CHUNIN";
@@ -268,7 +268,7 @@ export const MEDNIN_REQUIRED_EXP = {
 export const JUTSU_XP_TO_LEVEL = 1000;
 
 // Combat config
-export const BATTLE_ARENA_DAILY_LIMIT = 2;
+export const BATTLE_ARENA_DAILY_LIMIT = 100;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 
 // Black market config
