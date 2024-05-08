@@ -144,6 +144,7 @@ export const itemRouter = createTRPCRouter({
           gte(item.cost, input.minCost),
           gte(item.repsCost, input.minRepsCost),
         ),
+        orderBy: (table, { asc }) => [asc(table.cost), asc(table.repsCost)],
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {

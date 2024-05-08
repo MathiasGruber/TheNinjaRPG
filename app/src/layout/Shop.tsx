@@ -83,7 +83,7 @@ const Shop: React.FC<ShopProps> = (props) => {
   // Can user afford selected item
   const ryoCost = (item?.cost ?? 0) * stacksize * factor;
   const repsCost = (item?.repsCost ?? 0) * stacksize;
-  const canAfford = userData.money >= ryoCost && userData.reputationPoints > repsCost;
+  const canAfford = userData.money >= ryoCost && userData.reputationPoints >= repsCost;
   const costString =
     "Buy for " +
     (ryoCost > 0 ? ryoCost + " ryo" : "") +
