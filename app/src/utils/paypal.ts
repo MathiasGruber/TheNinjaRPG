@@ -1,6 +1,9 @@
 import { FED_NORMAL_REPS_COST } from "@/drizzle/constants";
 import { FED_SILVER_REPS_COST } from "@/drizzle/constants";
 import { FED_GOLD_REPS_COST } from "@/drizzle/constants";
+import { FED_NORMAL_JUTSU_LOADOUTS } from "@/drizzle/constants";
+import { FED_SILVER_JUTSU_LOADOUTS } from "@/drizzle/constants";
+import { FED_GOLD_JUTSU_LOADOUTS } from "@/drizzle/constants";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 
@@ -70,4 +73,16 @@ export const fedStatusRepsCost = (status: FederalStatus) => {
       return FED_GOLD_REPS_COST;
   }
   throw new Error("Invalid federal status");
+};
+
+export const fedJutsuLoadouts = (status?: FederalStatus) => {
+  switch (status) {
+    case "NORMAL":
+      return FED_NORMAL_JUTSU_LOADOUTS;
+    case "SILVER":
+      return FED_SILVER_JUTSU_LOADOUTS;
+    case "GOLD":
+      return FED_GOLD_JUTSU_LOADOUTS;
+  }
+  return 0;
 };

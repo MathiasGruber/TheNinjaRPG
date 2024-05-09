@@ -4,6 +4,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
 import Loader from "@/layout/Loader";
+import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
@@ -48,8 +49,11 @@ const MyJutsu: NextPage = () => {
 
   // Mutations
   const { mutate: equip, isPending: isEquipping } = api.jutsu.toggleEquip.useMutation({
-    onSuccess: async () => {
-      await utils.jutsu.getUserJutsus.invalidate();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.jutsu.getUserJutsus.invalidate();
+      }
     },
     onSettled: () => {
       document.body.style.cursor = "default";
@@ -117,7 +121,11 @@ const MyJutsu: NextPage = () => {
   }
 
   return (
-    <ContentBox title="Jutsu Management" subtitle={subtitle}>
+    <ContentBox
+      title="Jutsu Management"
+      subtitle={subtitle}
+      topRightContent={<LoadoutSelector />}
+    >
       <ActionSelector
         items={allJutsu}
         counts={userJutsuCounts}

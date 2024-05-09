@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, inArray, isNotNull, sql, and, or, gte, ne, like } from "drizzle-orm";
-import { jutsu, userJutsu, userData, actionLog } from "@/drizzle/schema";
+import { jutsu, userJutsu, userData, actionLog, jutsuLoadout } from "@/drizzle/schema";
 import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
@@ -16,6 +16,7 @@ import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { statFilters } from "@/libs/train";
+import { fedJutsuLoadouts } from "@/utils/paypal";
 import { UserRanks, StatTypes } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -170,6 +171,72 @@ export const jutsuRouter = createTRPCRouter({
         data: filtered,
         nextCursor: nextCursor,
       };
+    }),
+  // Get jutsu loadouts for user
+  getLoadouts: protectedProcedure.query(async ({ ctx }) => {
+    // Query
+    const [loadouts, user] = await Promise.all([
+      fetchLoadouts(ctx.drizzle, ctx.userId),
+      fetchUser(ctx.drizzle, ctx.userId),
+    ]);
+    // Derived
+    const maxLoadouts = fedJutsuLoadouts(user?.federalStatus);
+    // If more loadouts available, create them
+    if (loadouts.length < maxLoadouts) {
+      for (let i = loadouts.length; i < maxLoadouts; i++) {
+        const loadout = {
+          id: nanoid(),
+          userId: ctx.userId,
+          jutsuIds: [],
+          createdAt: new Date(),
+        };
+        await ctx.drizzle.insert(jutsuLoadout).values(loadout);
+        loadouts.push(loadout);
+      }
+    }
+    // If more than one loadout, and no user loadout, set it to the first
+    if (loadouts?.[0] && !user.jutsuLoadout) {
+      await ctx.drizzle
+        .update(userData)
+        .set({ jutsuLoadout: loadouts[0].id })
+        .where(eq(userData.userId, ctx.userId));
+    }
+    // Return loadouts
+    return maxLoadouts < loadouts.length ? loadouts.slice(0, maxLoadouts) : loadouts;
+  }),
+  // Select different loadout
+  selectJutsuLoadout: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [loadouts, user] = await Promise.all([
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Derived
+      const loadout = loadouts.find((l) => l.id === input.id);
+      const maxLoadouts = fedJutsuLoadouts(user?.federalStatus);
+      // Guard
+      if (!loadout) return errorResponse("Loadout not found");
+      if (maxLoadouts <= 0) return errorResponse("Loadouts not available");
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ jutsuLoadout: loadout.id })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(userJutsu)
+          .set({
+            equipped:
+              loadout.jutsuIds.length > 0
+                ? sql`CASE WHEN ${inArray(userJutsu.jutsuId, loadout.jutsuIds)} THEN 1 ELSE 0 END`
+                : 0,
+          })
+          .where(eq(userJutsu.userId, ctx.userId)),
+      ]);
+      return { success: true, message: `Loadout selected` };
     }),
   // Create new jutsu
   create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
@@ -373,9 +440,15 @@ export const jutsuRouter = createTRPCRouter({
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
     .input(z.object({ userJutsuId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Fetch
+      const [userjutsus, user, loadouts] = await Promise.all([
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+      ]);
+      // Derived
       const filteredJutsus = userjutsus.filter((userjutsu) => {
         return (
           userjutsu.jutsu?.bloodlineId === "" ||
@@ -386,24 +459,51 @@ export const jutsuRouter = createTRPCRouter({
       const isEquipped = userjutsu?.equipped || false;
       const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
       const maxEquip = userData && calcJutsuEquipLimit(user);
-      if (!userjutsu) {
-        throw serverError("NOT_FOUND", "Jutsu not found");
-      }
+      const newEquippedState = isEquipped ? 0 : 1;
+      const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
+      const isLoaded = userjutsu && loadout?.jutsuIds.includes(userjutsu.jutsuId);
+      // Guard
+      if (!userjutsu) return errorResponse("Jutsu not found");
       if (!isEquipped && curEquip >= maxEquip) {
-        throw serverError("PRECONDITION_FAILED", "You cannot equip more jutsu");
+        return errorResponse("You cannot equip more jutsu");
       }
-      return await ctx.drizzle
-        .update(userJutsu)
-        .set({
-          equipped: userjutsu.equipped === 0 ? 1 : 0,
-        })
-        .where(eq(userJutsu.id, input.userJutsuId));
+      // Calculate loadout
+      if (loadout && isLoaded && newEquippedState === 0) {
+        loadout.jutsuIds = loadout.jutsuIds.filter((id) => id !== userjutsu.jutsuId);
+      } else if (loadout && !isLoaded && newEquippedState === 1) {
+        loadout.jutsuIds.push(userjutsu.jutsuId);
+      }
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ equipped: newEquippedState })
+          .where(eq(userJutsu.id, input.userJutsuId)),
+        loadout
+          ? ctx.drizzle
+              .update(jutsuLoadout)
+              .set({ jutsuIds: loadout.jutsuIds })
+              .where(eq(jutsuLoadout.id, loadout.id))
+          : null,
+      ]);
+
+      return {
+        success: true,
+        message: `Jutsu ${isEquipped ? "unequipped" : "equipped"}`,
+      };
     }),
 });
 
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */
+
+export const fetchLoadouts = async (client: DrizzleClient, userId: string) => {
+  return await client.query.jutsuLoadout.findMany({
+    where: eq(jutsuLoadout.userId, userId),
+    orderBy: (table, { desc }) => desc(table.createdAt),
+  });
+};
 
 export const fetchJutsu = async (client: DrizzleClient, id: string) => {
   return await client.query.jutsu.findFirst({

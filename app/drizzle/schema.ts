@@ -572,6 +572,23 @@ export const jutsuRelations = relations(jutsu, ({ one }) => ({
 export type Jutsu = InferSelectModel<typeof jutsu>;
 export type JutsuRank = Jutsu["jutsuRank"];
 
+export const jutsuLoadout = mysqlTable(
+  "JutsuLoadout",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    jutsuIds: json("content").$type<string[]>().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("JutsuLoadout_userId_idx").on(table.userId),
+    };
+  },
+);
+
 export const notification = mysqlTable(
   "Notification",
   {
@@ -796,6 +813,7 @@ export const userData = mysqlTable(
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
     recruiterId: varchar("recruiterId", { length: 191 }),
     anbuId: varchar("anbuId", { length: 191 }),
+    jutsuLoadout: varchar("jutsuLoadout", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),

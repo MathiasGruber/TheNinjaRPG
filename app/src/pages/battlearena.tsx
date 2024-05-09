@@ -3,6 +3,7 @@ import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import BanInfo from "@/layout/BanInfo";
+import LoadoutSelector from "@/layout/LoadoutSelector";
 import {
   Select,
   SelectContent,
@@ -132,24 +133,23 @@ const ChallengeAI: React.FC = () => {
   const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
 
   return (
-    <div>
+    <div className="flex flex-col items-center">
       The arena is a fairly basic circular and raw battleground, where you can train &
       test your skills as a ninja. Opponents are various creatures or ninja deemed to be
       at your level.
       {!canDoArena && (
-        <h1 className="pb-3 pt-5 text-center font-fontasia text-8xl">
-          Wait till tomorrow
-        </h1>
+        <h1 className="pb-3 pt-5 font-fontasia text-7xl">Wait till tomorrow</h1>
       )}
       {!isAttacking && canDoArena && (
         <>
+          <LoadoutSelector />
           <h1
-            className="cursor-pointer pb-3 pt-5 text-center font-fontasia text-8xl hover:text-orange-800"
+            className="cursor-pointer pb-3 pt-5 font-fontasia text-7xl hover:text-orange-800"
             onClick={() => ai && attack({ aiId: ai.userId })}
           >
             Enter The Arena
           </h1>
-          <div className="rounded-2xl mt-3">
+          <div className="rounded-2xl mt-3 w-full">
             <div className="mb-1">
               <Select
                 onValueChange={(e) => setAiId(e)}
@@ -194,7 +194,7 @@ const ChallengeAI: React.FC = () => {
       {isAttacking && (
         <div className="min-h-64">
           <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
-            <div className="m-auto text-center text-white">
+            <div className="m-auto text-white">
               <p className="text-5xl">Entering the Arena</p>
               <Loader />
             </div>

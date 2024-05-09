@@ -7,6 +7,7 @@ import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
+import LoadoutSelector from "@/layout/LoadoutSelector";
 import { UserRoundSearch, Globe2, Eye, EyeOff } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
@@ -309,7 +310,7 @@ const Travel: NextPage = () => {
         )}
       </ContentBox>
       <div className="flex flex-row">
-        {showSector && <p>Movement Hotkeys: Q-W-E-A-S-D</p>}
+        {showSector && <LoadoutSelector size="small" />}
         {hoverPosition && (
           <>
             <p className="grow"></p>
