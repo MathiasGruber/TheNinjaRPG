@@ -731,6 +731,7 @@ export const profileRouter = createTRPCRouter({
           speed: user.speed,
           intelligence: user.intelligence,
           willpower: user.willpower,
+          experience: sql`experience + ${inputSum}`,
           earnedExperience: sql`earnedExperience - ${inputSum}`,
         })
         .where(
