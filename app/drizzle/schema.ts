@@ -1201,6 +1201,7 @@ export const village = mysqlTable(
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
     tokens: int("tokens").default(0).notNull(),
+    isOutlawFaction: tinyint("isOutlawFaction").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

@@ -227,7 +227,7 @@ export const travelRouter = createTRPCRouter({
                   client: ctx.drizzle,
                   scaleTarget: true,
                 },
-                "ARENA",
+                "QUEST",
                 determineCombatBackground("ground"),
               );
               if (battle.success) {
