@@ -513,7 +513,7 @@ const PayPalSubscriptionButton = (props: {
         )}
         {hasSubscription && canUpgrade && (
           <Confirm
-            title="Confirm Deletion"
+            title="Confirm Upgrade"
             button={
               <ChevronsUp className="absolute top-0 right-0 h-8 w-8 rounded-full bg-blue-500 p-1 cursor-pointer hover:bg-green-500" />
             }

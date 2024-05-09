@@ -306,16 +306,18 @@ export const paypalRouter = createTRPCRouter({
     .input(z.object({ userId: z.string(), plan: z.enum(FederalStatuses) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [upgrader, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
       const subscription = await ctx.drizzle.query.paypalSubscription.findFirst({
         where: and(
           or(
             eq(paypalSubscription.status, "ACTIVE"),
             eq(paypalSubscription.status, "CANCELLED"),
           ),
-          eq(paypalSubscription.federalStatus, user.federalStatus),
-          eq(paypalSubscription.createdById, input.userId),
-          eq(paypalSubscription.affectedUserId, ctx.userId),
+          eq(paypalSubscription.federalStatus, target.federalStatus),
+          eq(paypalSubscription.affectedUserId, target.userId),
         ),
       });
       // If we could not find in paypal
@@ -328,7 +330,7 @@ export const paypalRouter = createTRPCRouter({
         return errorResponse(`Invalid: ${subscription.federalStatus} to ${input.plan}`);
       }
       // Check that we have enough reputation points
-      if (user.reputationPoints < cost) {
+      if (upgrader.reputationPoints < cost) {
         return errorResponse(`Not enough reputation points`);
       }
       // Update the database
@@ -340,7 +342,7 @@ export const paypalRouter = createTRPCRouter({
             reputationPointsTotal: sql`${userData.reputationPointsTotal} - ${cost}`,
             reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
           })
-          .where(eq(userData.userId, ctx.userId)),
+          .where(eq(userData.userId, upgrader.userId)),
         ctx.drizzle
           .update(paypalSubscription)
           .set({ federalStatus: input.plan, updatedAt: new Date() })
