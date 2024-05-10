@@ -133,6 +133,7 @@ export const villageRouter = createTRPCRouter({
             villageId: village.id,
             reputationPoints: user.reputationPoints - cost,
             villagePrestige: 0,
+            isOutlaw: village.isOutlawFaction ? true : false,
             sector: village.sector,
             longitude: ALLIANCEHALL_LONG,
             latitude: ALLIANCEHALL_LAT,
