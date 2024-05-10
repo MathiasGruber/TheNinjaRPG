@@ -31,6 +31,7 @@ export type BattleUserState = UserWithRelations & {
   actionPoints: number;
   hidden?: boolean;
   isOriginal: boolean;
+  isAggressor: boolean;
   controllerId: string;
   leftBattle: boolean;
   fledBattle: boolean;

@@ -216,6 +216,7 @@ export const fetchElders = async (client: DrizzleClient, villageId: string) => {
       avatar: true,
       level: true,
       rank: true,
+      isOutlaw: true,
     },
     where: and(
       eq(userData.villageId, villageId),

@@ -37,6 +37,7 @@ import {
   notification,
   questHistory,
   quest,
+  village,
 } from "@/drizzle/schema";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
@@ -68,12 +69,15 @@ import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
+import { getServerPusher } from "@/libs/pusher";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
+
+const pusher = getServerPusher();
 
 export const profileRouter = createTRPCRouter({
   // Get all AI names
@@ -830,6 +834,7 @@ export const profileRouter = createTRPCRouter({
           username: true,
           avatar: true,
           rank: true,
+          isOutlaw: true,
           level: true,
           role: true,
           federalStatus: true,
@@ -855,6 +860,7 @@ export const profileRouter = createTRPCRouter({
           gender: true,
           status: true,
           rank: true,
+          isOutlaw: true,
           curHealth: true,
           maxHealth: true,
           curStamina: true,
@@ -886,6 +892,7 @@ export const profileRouter = createTRPCRouter({
               username: true,
               level: true,
               rank: true,
+              isOutlaw: true,
               avatar: true,
             },
           },
@@ -895,6 +902,7 @@ export const profileRouter = createTRPCRouter({
               username: true,
               level: true,
               rank: true,
+              isOutlaw: true,
               avatar: true,
             },
           },
@@ -962,6 +970,7 @@ export const profileRouter = createTRPCRouter({
           username: true,
           avatar: true,
           rank: true,
+          isOutlaw: true,
           level: true,
           role: true,
           experience: true,
@@ -1235,7 +1244,7 @@ export const fetchUpdatedUser = async (props: {
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
     const sinceUpdate = secondsPassed(user.updatedAt);
-    if (sinceUpdate > 300 || forceRegen) {
+    if (sinceUpdate > 300 || forceRegen || user.villagePrestige < 0) {
       const regen = user.regeneration * secondsPassed(user.regenAt);
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
@@ -1258,6 +1267,23 @@ export const fetchUpdatedUser = async (props: {
       }
       user.updatedAt = now;
       user.regenAt = now;
+      // If prestige below 0, reset to 0 and move to outlaw faction
+      if (user.villagePrestige < 0) {
+        const faction = await client.query.village.findFirst({
+          where: eq(village.isOutlawFaction, true),
+        });
+        if (faction) {
+          user.villagePrestige = 0;
+          user.villageId = faction.id;
+          user.isOutlaw = true;
+          void pusher.trigger(user.userId, "event", {
+            type: "userMessage",
+            message: "You have been kicked out of your village due to negative presige",
+            route: "/profile",
+            routeText: "To Profile",
+          });
+        }
+      }
       // Ensure that we have a tier quest
       let questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
@@ -1300,6 +1326,9 @@ export const fetchUpdatedUser = async (props: {
           secondaryElement: user.secondaryElement,
           reputationPoints: user.reputationPoints,
           reputationPointsTotal: user.reputationPointsTotal,
+          villagePrestige: user.villagePrestige,
+          villageId: user.villageId,
+          isOutlaw: user.isOutlaw,
           ...(userIp ? { lastIp: userIp } : {}),
         })
         .where(eq(userData.userId, userId));

@@ -13,6 +13,7 @@ const villages = [
   // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
   { name: "Glacier", sector: 116, hexColor: "#50A6C5" },
   { name: "Shine", sector: 89, hexColor: "#ffd966" },
+  { name: "Syndicate", sector: 484, isOutlawFaction: true, hexColor: "#ffd966" },
 ];
 // Elders
 const elders = [
@@ -23,6 +24,7 @@ const elders = [
   { username: "Junko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
   { username: "Kimiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
   { username: "Yukiko", gender: "Female", attributes: ["wrinkles", "gray hair"] },
+  { username: "Hanso", gender: "Male", attributes: ["wrinkles", "gray hair"] },
 ];
 // Buildings
 const buildings = [
@@ -136,6 +138,7 @@ const buildings = [
     latitude: 3,
     hasPage: 1,
     blackDiscountPerLvl: 5,
+    maxLevel: 1,
   },
   {
     name: "Protectors",

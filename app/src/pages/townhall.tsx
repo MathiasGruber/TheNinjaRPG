@@ -25,7 +25,7 @@ import { findRelationship } from "@/utils/alliance";
 import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
 import { canAlly, canWar } from "@/utils/alliance";
 import { RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/utils/kage";
-import { PRESTIGE_COST } from "@/utils/kage";
+import { KAGE_PRESTIGE_COST } from "@/utils/kage";
 import { getSearchValidator } from "@/validators/register";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -328,7 +328,9 @@ const KageHall: React.FC<{
             </p>
             <p>
               <span className="font-bold">Note 2: </span>
-              <span>Losing the challenge costs {PRESTIGE_COST} village prestige</span>
+              <span>
+                Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+              </span>
             </p>
             {user.rank === "ELDER" && (
               <p>
@@ -463,7 +465,7 @@ const AllianceHall: React.FC<{
         topRightContent={navTabs}
       >
         <div className="overflow-auto">
-          <div className="grid grid-cols-7 items-center text-center min-w-[400px]">
+          <div className="grid grid-cols-8 items-center text-center min-w-[400px]">
             <div>
               <p className="font-bold">Kage</p>
               <p className="py-4">&</p>
@@ -576,6 +578,10 @@ const AllianceBlock: React.FC<{
   const relationship = findRelationship(relationships, villageCol.id, villageRow.id);
   if (relationship) status = relationship.status;
 
+  // Check outlaw
+  const isOutlaw = villageRow.isOutlawFaction || villageCol.isOutlawFaction;
+  if (isOutlaw) status = "ENEMY";
+
   // Is sending, show loader
   if (isCreating || isLeaving || isAttacking)
     return <Loader explanation="Processing" />;
@@ -603,7 +609,7 @@ const AllianceBlock: React.FC<{
     <div
       className={`relative aspect-square ${background} ${highlight} flex items-center justify-center font-bold border-2`}
     >
-      {isKage && relationship && !sameVillage && status === "ALLY" && (
+      {!isOutlaw && isKage && relationship && !sameVillage && status === "ALLY" && (
         <Button
           className="absolute top-1 left-1 px-1"
           variant="ghost"
@@ -612,7 +618,7 @@ const AllianceBlock: React.FC<{
           <DoorOpen className=" h-6 w-6 hover:text-orange-500" />
         </Button>
       )}
-      {isKage && !sameVillage && war.success && (
+      {!isOutlaw && isKage && !sameVillage && war.success && (
         <Confirm
           title="Confirm War Declaration"
           button={
@@ -645,7 +651,7 @@ const AllianceBlock: React.FC<{
           )}
         </Confirm>
       )}
-      {isKage && status === "ENEMY" && (
+      {!isOutlaw && isKage && status === "ENEMY" && (
         <Button
           className="absolute top-1 left-1 px-1"
           variant="ghost"
@@ -654,7 +660,7 @@ const AllianceBlock: React.FC<{
           <LandPlot className=" h-6 w-6 hover:text-orange-500" />
         </Button>
       )}
-      {isKage && ally.success && (
+      {!isOutlaw && isKage && ally.success && (
         <Button
           className="absolute top-1 left-1 px-1"
           variant="ghost"

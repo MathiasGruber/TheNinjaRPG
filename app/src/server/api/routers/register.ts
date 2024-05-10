@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { eq, sql } from "drizzle-orm";
-import { baseServerResponse } from "../trpc";
+import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { registrationSchema } from "@/validators/register";
 import { fetchVillage } from "./village";
 import { secondsFromNow } from "@/utils/time";
@@ -13,10 +13,14 @@ export const registerRouter = createTRPCRouter({
     .input(registrationSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const village = await fetchVillage(ctx.drizzle, input.village);
-      if (!village) {
-        return { success: false, message: `Invalid village ID: ${input.village}` };
-      }
+
+      // Guard
+      if (!village) return errorResponse("Village not found");
+      if (village.isOutlawFaction) return errorResponse("Cannot join faction");
+
+      // Mutate
       const unique_attributes = [
         ...new Set([
           input.attribute_1,

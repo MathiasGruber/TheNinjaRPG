@@ -2,9 +2,10 @@ import { hasRequiredRank } from "@/libs/train";
 import type { UserData } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
-export const PRESTIGE_REQUIREMENT = 5; // Should be 30
+export const PRESTIGE_REQUIREMENT = 10; // Should be 30
 export const RANK_REQUIREMENT = "JONIN";
-export const PRESTIGE_COST = 1; // Should be 5
+export const KAGE_PRESTIGE_COST = 5;
+export const FRIENDLY_PRESTIGE_COST = 5;
 export const WAR_FUNDS_COST = 100;
 
 /**

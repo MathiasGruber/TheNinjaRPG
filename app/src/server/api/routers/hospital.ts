@@ -49,6 +49,7 @@ export const hospitalRouter = createTRPCRouter({
         status: true,
         sector: true,
         rank: true,
+        isOutlaw: true,
       },
       where: and(
         eq(userData.sector, user.sector),

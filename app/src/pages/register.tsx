@@ -181,11 +181,13 @@ const Register: React.FC = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {villages?.map((option) => (
-                            <SelectItem key={option.name} value={option.id}>
-                              {option.name}
-                            </SelectItem>
-                          ))}
+                          {villages
+                            ?.filter((v) => !v.isOutlawFaction)
+                            .map((option) => (
+                              <SelectItem key={option.name} value={option.id}>
+                                {option.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
 

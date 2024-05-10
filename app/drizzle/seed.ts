@@ -9,10 +9,10 @@ import { seedAI } from "./seeds/ai";
 
 // Seed the database
 async function main() {
-  await seedJutsus(drizzleDB);
-  await seedBloodlines(drizzleDB);
-  await seedItems(drizzleDB);
-  await seedAI(drizzleDB);
+  // await seedJutsus(drizzleDB);
+  // await seedBloodlines(drizzleDB);
+  // await seedItems(drizzleDB);
+  // await seedAI(drizzleDB);
   await seedVillages(drizzleDB);
   await seedForum(drizzleDB);
 }

@@ -7,7 +7,7 @@ import { stillInBattle } from "./actions";
 import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
 import { COMBAT_SECONDS } from "./constants";
-import { PRESTIGE_COST } from "@/utils/kage";
+import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/utils/kage";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
@@ -363,8 +363,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const outcome = user.fledBattle ? "Fled" : didWin ? "Won" : "Lost";
 
       // Find users who did not leave battle yet
-      const friendsLeft = friends.filter((u) => !u.leftBattle && !u.isAi);
-      const targetsLeft = targets.filter((u) => !u.leftBattle && !u.isAi);
+      const friendsUsers = friends.filter((u) => !u.isAi);
+      const targetUsers = targets.filter((u) => !u.isAi);
+      const friendsLeft = friendsUsers.filter((u) => !u.leftBattle);
+      const targetsLeft = targetUsers.filter((u) => !u.leftBattle);
+
+      // Tokens & prestige
+      let deltaTokens = 0;
+      let deltaPrestige = 0;
 
       // Money/ryo calculation
       const newMoney = didWin
@@ -373,14 +379,26 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const moneyDelta = newMoney - user.originalMoney;
 
       // Prestige calculation
-      let deltaPrestige = 0;
-      if (battleType === "KAGE" && !didWin) deltaPrestige = -PRESTIGE_COST;
+      if (battleType === "KAGE" && !didWin && user.isAggressor) {
+        deltaPrestige = -KAGE_PRESTIGE_COST;
+      }
 
-      // Village tokens reward
+      // Check for prestige, tokens, etc.
       const vilId = user.villageId;
-      let deltaTokens = 0;
-      if (didWin && battleType === "COMBAT") {
-        targetsLeft.forEach((target) => {
+      if (didWin && battleType === "COMBAT" && user.isAggressor) {
+        targetUsers.forEach((target) => {
+          // Prestige deduction for killing allies
+          const isAlly = target.relations
+            .filter((r) => r.status === "ALLY")
+            .find(
+              (r) =>
+                (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
+                (r.villageIdA === target.villageId && r.villageIdB === vilId),
+            );
+          const sameVillage = target.villageId === vilId;
+          deltaPrestige -= isAlly || sameVillage ? FRIENDLY_PRESTIGE_COST : 0;
+
+          // Village tokens for killing enemies
           deltaTokens += target.relations
             .filter((r) => r.status === "ENEMY")
             .filter(
@@ -651,6 +669,9 @@ export const processUsersForBattle = (info: {
 
     // Set the updated at to now, so that action bar starts at 0
     user.updatedAt = new Date();
+
+    // Set all users to not be agressors by default
+    user.isAggressor = false;
 
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle

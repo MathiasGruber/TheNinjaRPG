@@ -15,6 +15,7 @@ import { sendGTMEvent } from "@next/third-parties/google";
 import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
@@ -204,7 +205,7 @@ const Profile: NextPage = () => {
           <div>
             <b>General</b>
             <p>
-              Lvl. {userData.level} {capitalizeFirstLetter(userData.rank)}
+              Lvl. {userData.level} {showUserRank(userData)}
             </p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>

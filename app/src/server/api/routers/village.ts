@@ -179,6 +179,8 @@ export const villageRouter = createTRPCRouter({
       if (!target) return errorResponse("Target village not found");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
+      if (target.isOutlawFaction) return errorResponse("Not for factions");
+      if (user.village?.isOutlawFaction) return errorResponse("Not for factions");
 
       // Guards
       const request = requests
@@ -337,6 +339,8 @@ export const villageRouter = createTRPCRouter({
       if (!target) return errorResponse("Target village not found");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
+      if (target.isOutlawFaction) return errorResponse("Not for factions");
+      if (userVillage.isOutlawFaction) return errorResponse("Not for factions");
 
       // Check if war is possible
       const check = canWar(relationships, villages, villageId, targetId);

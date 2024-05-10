@@ -23,6 +23,7 @@ interface ReportUserProps {
     avatar: string | null;
     level: number;
     rank: UserRank;
+    isOutlaw: boolean;
     role: UserRole;
     federalStatus: FederalStatus;
   };

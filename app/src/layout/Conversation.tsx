@@ -99,6 +99,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               username: userData.username,
               avatar: userData.avatar,
               rank: userData.rank,
+              isOutlaw: userData.isOutlaw,
               level: userData.level,
               role: userData.role,
               customTitle: userData.customTitle,
