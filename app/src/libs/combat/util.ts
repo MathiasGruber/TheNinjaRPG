@@ -792,6 +792,18 @@ export const processUsersForBattle = (info: {
         return userjutsu;
       });
 
+    // Sort if we have a loadout
+    if (user?.loadout?.jutsuIds) {
+      user.jutsus.sort((a, b) => {
+        const aIndex = user?.loadout?.jutsuIds.indexOf(a.jutsuId) ?? -1;
+        const bIndex = user?.loadout?.jutsuIds.indexOf(b.jutsuId) ?? -1;
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      });
+    }
+
     // Add item effects
     const items: (UserItem & { item: Item })[] = [];
     user.items.forEach((useritem) => {
