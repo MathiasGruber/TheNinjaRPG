@@ -1,6 +1,7 @@
 import React from "react";
 import AvatarImage from "@/layout/Avatar";
 import Link from "next/link";
+import { showUserRank } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
@@ -11,6 +12,7 @@ export interface PostProps {
     avatar: string | null;
     level: number;
     rank: UserRank;
+    isOutlaw: boolean;
     role: UserRole;
     customTitle?: string | null;
     villageKageId?: string | null;
@@ -100,7 +102,7 @@ const Post: React.FC<PostProps> = (props) => {
       <div className="text-xs pt-1 pb-4">
         <span className="bg-slate-300 p-1 m-1 rounded-md">Lvl. {props.user.level}</span>
         <span className="bg-slate-300 p-1 m-1 rounded-md">
-          {capitalizeFirstLetter(props.user.rank)}
+          {showUserRank(props.user)}
         </span>
         {props.user.customTitle && (
           <span className="bg-gray-500 p-1 m-1 rounded-md text-white">

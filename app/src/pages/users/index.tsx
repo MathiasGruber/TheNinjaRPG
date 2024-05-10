@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserSearch } from "@/utils/search";
+import { showUserRank } from "@/libs/profile";
 import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -39,7 +40,10 @@ const Users: NextPage = () => {
       staleTime: 1000 * 60 * 5, // every 5min
     },
   );
-  const allUsers = users?.pages.map((page) => page.data).flat();
+  const allUsers = users?.pages
+    .map((page) => page.data)
+    .flat()
+    .map((user) => ({ ...user, rank: showUserRank(user) }));
   type User = ArrayElement<typeof allUsers>;
 
   useInfinitePagination({
@@ -51,7 +55,7 @@ const Users: NextPage = () => {
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar" },
     { key: "username", header: "Username", type: "string" },
-    { key: "rank", header: "Rank", type: "capitalized" },
+    { key: "rank", header: "Rank", type: "string" },
   ];
   if (activeTab === "Strongest") {
     columns.push({ key: "level", header: "Lvl.", type: "string" });

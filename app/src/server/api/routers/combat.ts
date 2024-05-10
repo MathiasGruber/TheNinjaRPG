@@ -703,6 +703,9 @@ export const initiateBattle = async (
     hide: false,
   });
 
+  // Set attacker to be the agressor
+  if (usersState[0]) usersState[0].isAggressor = true;
+
   // If this is a kage challenge, convert all to be AIs & set them as not originals
   if (battleType === "KAGE") {
     usersState.forEach((u) => {

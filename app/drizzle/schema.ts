@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   mysqlTable,
+  boolean,
   uniqueIndex,
   varchar,
   datetime,
@@ -830,6 +831,7 @@ export const userData = mysqlTable(
     experience: int("experience").default(0).notNull(),
     earnedExperience: int("earnedExperience").default(0).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
+    isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: tinyint("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
@@ -1201,7 +1203,7 @@ export const village = mysqlTable(
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
     tokens: int("tokens").default(0).notNull(),
-    isOutlawFaction: tinyint("isOutlawFaction").default(0).notNull(),
+    isOutlawFaction: boolean("isOutlawFaction").default(false).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

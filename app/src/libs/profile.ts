@@ -15,6 +15,8 @@ import {
   SP_PER_LVL,
   CP_PER_LVL,
 } from "@/drizzle/constants";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
+import type { UserRank } from "@/drizzle/constants";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
@@ -174,4 +176,21 @@ export const activityStreakRewards = (streak: number) => {
     rewards["reputationPoints"] = Math.floor(streak / 10);
   }
   return rewards;
+};
+
+export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
+  if (!user) return "Unknown";
+  if (user.isOutlaw) {
+    switch (user.rank) {
+      case "CHUNIN":
+        return "Lower Outlaw";
+      case "JONIN":
+        return "Higher Outlaw";
+      case "COMMANDER":
+        return "Special Outlaw";
+      case "ELDER":
+        return "Outlaw Council";
+    }
+  }
+  return capitalizeFirstLetter(user.rank);
 };
