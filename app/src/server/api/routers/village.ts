@@ -482,9 +482,13 @@ export const fetchVillage = async (client: DrizzleClient, villageId: string) => 
  * @param sector - The sector number of the village to fetch.
  * @returns A Promise that resolves to the fetched village.
  */
-export const fetchSectorVillage = async (client: DrizzleClient, sector: number) => {
+export const fetchSectorVillage = async (
+  client: DrizzleClient,
+  sector: number,
+  isOutlaw = false,
+) => {
   const result = await client.query.village.findFirst({
-    where: eq(village.sector, sector),
+    where: !isOutlaw ? eq(village.sector, sector) : eq(village.isOutlawFaction, true),
     with: {
       notice: true,
       relationshipA: true,

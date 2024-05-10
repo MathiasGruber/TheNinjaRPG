@@ -52,10 +52,11 @@ const Travel: NextPage = () => {
 
   // Data from database
   const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
+  const { data } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
     enabled: userData !== undefined,
   });
+  const villages = data?.filter((v) => !v.isOutlawFaction);
 
   // Router for forwarding
   const router = useSafePush();

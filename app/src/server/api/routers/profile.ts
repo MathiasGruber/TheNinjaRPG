@@ -113,7 +113,9 @@ export const profileRouter = createTRPCRouter({
       if (user.curEnergy < 1) return errorResponse("Not enough energy");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to train");
       if (!inVillage) return errorResponse("Must be in your own village");
-      if (user.sector !== user.village?.sector) return errorResponse("Wrong sector");
+      if (user.sector !== user.village?.sector && !user.isOutlaw) {
+        return errorResponse("Wrong sector");
+      }
       if (user.trainingSpeed !== "8hrs" && user.isBanned) {
         return errorResponse("Only 8hrs training interval allowed when banned");
       }

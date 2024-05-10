@@ -57,7 +57,10 @@ export const travelRouter = createTRPCRouter({
           ),
         }),
         ctx.drizzle.query.village.findFirst({
-          where: eq(village.sector, input.sector),
+          where: and(
+            eq(village.sector, input.sector),
+            eq(village.isOutlawFaction, false),
+          ),
           with: { structures: true },
         }),
       ]);
@@ -65,9 +68,9 @@ export const travelRouter = createTRPCRouter({
     }),
   // Get village & alliance information for a given sector
   getVillageInSector: protectedProcedure
-    .input(z.object({ sector: z.number().int() }))
+    .input(z.object({ sector: z.number().int(), isOutlaw: z.boolean().default(false) }))
     .query(async ({ input, ctx }) => {
-      return await fetchSectorVillage(ctx.drizzle, input.sector);
+      return await fetchSectorVillage(ctx.drizzle, input.sector, input.isOutlaw);
     }),
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure

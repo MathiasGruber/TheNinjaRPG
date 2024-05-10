@@ -109,8 +109,8 @@ export const useGameMenu = (userData: UserWithRelations) => {
 
   // Get information from the sector the user is currently in. No stale time
   const { data: sector } = api.travel.getVillageInSector.useQuery(
-    { sector: userData?.sector ?? -1 },
-    { enabled: userData?.sector !== undefined, staleTime: Infinity },
+    { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
+    { enabled: !!userData, staleTime: Infinity },
   );
 
   // Based on user status, update href of systems
@@ -137,9 +137,10 @@ export const useGameMenu = (userData: UserWithRelations) => {
     const ownSector = userData.sector === userData.village?.sector;
     const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
     const relationship = findVillageUserRelationship(sector, userVillage);
+    const isAllied = relationship?.status === "ALLY";
 
     // Is in village
-    if (inVillage && (ownSector || relationship?.status === "ALLY")) {
+    if (inVillage && (ownSector || isAllied || userData.isOutlaw)) {
       // Village link for small screens
       systems.push({
         href: "/village",

@@ -684,7 +684,6 @@ export const upsertQuestEntries = async (
         questType: quest.questType,
       })),
     );
-    console.log(`INSERTING FOR ${users.length}`);
   }
   // Users to update for (including those we just inserted for)
   const allUsers = await client
@@ -692,7 +691,6 @@ export const upsertQuestEntries = async (
     .from(userData)
     .where(updateSelector);
   if (allUsers.length > 0) {
-    console.log(`UPDATING FOR ${allUsers.length}`);
     await client
       .update(questHistory)
       .set({ completed: 0, endAt: null, startedAt: new Date() })

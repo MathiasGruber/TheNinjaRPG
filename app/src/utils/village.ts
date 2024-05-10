@@ -20,8 +20,8 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   const { data: userData, timeDiff } = useRequiredUserData();
   // Get sector information based on user data
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
-    { sector: userData?.sector ?? -1 },
-    { enabled: userData?.sector !== undefined, staleTime: Infinity },
+    { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
+    { enabled: !!userData?.sector, staleTime: Infinity },
   );
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
   const router = useSafePush();

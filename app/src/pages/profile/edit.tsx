@@ -426,7 +426,6 @@ const ResetStats: React.FC = () => {
 const AvatarChange: React.FC = () => {
   // State
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
-  console.log(userData);
 
   // Only show if we have userData
   if (!userData) return <Loader explanation="Loading profile page..." />;
@@ -667,7 +666,6 @@ const NindoChange: React.FC = () => {
     reset();
   });
 
-  console.log(data);
   if (isUpdating) return <Loader explanation="Updating nindo..." />;
   if (isPending) return <Loader explanation="Loading nindo..." />;
 

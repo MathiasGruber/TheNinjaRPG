@@ -38,7 +38,6 @@ export const drawQuest = (info: {
 }) => {
   const { user, grid, group_quest } = info;
   const activeObjectives = getActiveObjectives(user);
-  console.log(activeObjectives);
   activeObjectives
     .filter((o) => LocationTasks.find((t) => t === o.task))
     .filter((o) => "sector" in o && o.sector === user.sector)

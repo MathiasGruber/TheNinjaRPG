@@ -18,8 +18,8 @@ const Tavern: NextPage = () => {
   // Data
   const { data: userData } = useRequiredUserData();
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
-    { sector: userData?.sector ?? -1 },
-    { enabled: userData?.sector !== undefined, staleTime: Infinity },
+    { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
+    { enabled: !!userData, staleTime: Infinity },
   );
 
   // Tavern name based on user village

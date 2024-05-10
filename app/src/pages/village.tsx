@@ -34,7 +34,7 @@ const VillageOverview: NextPage = () => {
   // Queries
   const { data, isFetching: isFetchingVillage } = api.village.get.useQuery(
     { id: sectorVillage?.id as string },
-    { enabled: sectorVillage !== undefined, staleTime: Infinity },
+    { enabled: !!sectorVillage, staleTime: Infinity },
   );
 
   // tRPC utility

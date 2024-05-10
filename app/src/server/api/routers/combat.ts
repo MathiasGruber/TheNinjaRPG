@@ -310,7 +310,6 @@ export const combatRouter = createTRPCRouter({
 
           // If newActor is stunned, go through another round
           if (calcIsStunned(newBattle, newActor.userId)) {
-            console.log(`New user is ${newActor.username} and is stunned`);
             input.actionId = "move";
             input.longitude = 1;
             input.latitude = 1;
