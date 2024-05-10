@@ -140,7 +140,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
     const isAllied = relationship?.status === "ALLY";
 
     // Is in village
-    if (inVillage && (ownSector || isAllied || userData.isOutlaw)) {
+    if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw) {
       // Village link for small screens
       systems.push({
         href: "/village",

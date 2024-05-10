@@ -30,10 +30,11 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
       // Check structure access
       const access = canAccessStructure(userData, structureRoute, sectorVillage);
       // If not in village or village not exist
-      const inVillage = calcIsInVillage({
-        x: userData.longitude,
-        y: userData.latitude,
-      });
+      const inVillage =
+        calcIsInVillage({
+          x: userData.longitude,
+          y: userData.latitude,
+        }) || userData.isOutlaw;
       // Redirect user
       if (!inVillage || !sectorVillage || !access) {
         void router.push("/");
