@@ -46,7 +46,7 @@ const ANBU: NextPage = () => {
   const squadId = router.query.anbuid as string;
 
   // Must be in allied village
-  const { userData, access } = useRequireInVillage("ANBU");
+  const { userData, access } = useRequireInVillage("/anbu");
 
   // Queries
   const { data: squad } = api.anbu.get.useQuery(
@@ -58,6 +58,7 @@ const ANBU: NextPage = () => {
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing ANBU" />;
   if (!squad) return <Loader explanation="Loading ANBU squad" />;
+  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw ANBU" />;
   if (userData.isBanned) return <BanInfo />;
 
   // Derived

@@ -180,7 +180,7 @@ export const jutsuRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
     ]);
     // Derived
-    const maxLoadouts = fedJutsuLoadouts(user?.federalStatus);
+    const maxLoadouts = fedJutsuLoadouts(user);
     // If more loadouts available, create them
     if (loadouts.length < maxLoadouts) {
       for (let i = loadouts.length; i < maxLoadouts; i++) {
@@ -216,7 +216,7 @@ export const jutsuRouter = createTRPCRouter({
       ]);
       // Derived
       const loadout = loadouts.find((l) => l.id === input.id);
-      const maxLoadouts = fedJutsuLoadouts(user?.federalStatus);
+      const maxLoadouts = fedJutsuLoadouts(user);
       // Guard
       if (!loadout) return errorResponse("Loadout not found");
       if (maxLoadouts <= 0) return errorResponse("Loadouts not available");
@@ -491,6 +491,46 @@ export const jutsuRouter = createTRPCRouter({
         success: true,
         message: `Jutsu ${isEquipped ? "unequipped" : "equipped"}`,
       };
+    }),
+  // Toggle whether an item is equipped
+  updateUserJutsuOrder: protectedProcedure
+    .input(
+      z.object({
+        jutsuId: z.string(),
+        loadoutId: z.string(),
+        moveForward: z.boolean(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const loadouts = await fetchLoadouts(ctx.drizzle, ctx.userId);
+      // Derived
+      const loadout = loadouts.find((l) => l.id === input.loadoutId);
+      const curIndex = loadout?.jutsuIds.indexOf(input.jutsuId) ?? -1;
+      // Guard
+      if (!loadout) return errorResponse("Loadout not found");
+      console.log("=====================");
+      console.log("old", loadout.jutsuIds);
+
+      if (curIndex === -1) return errorResponse("Jutsu not found in loadout");
+      if (curIndex === 0 && !input.moveForward) return errorResponse("Already first");
+      if (curIndex === loadout.jutsuIds.length - 1 && input.moveForward) {
+        return errorResponse("Already last");
+      }
+      // New ordered array of IDs
+      const withoutJutsu = loadout.jutsuIds.filter((id) => id !== input.jutsuId);
+      const newIndex = curIndex + (input.moveForward ? 1 : -1);
+      const newOrder = withoutJutsu.splice(0, newIndex);
+      newOrder.push(input.jutsuId);
+      newOrder.push(...loadout.jutsuIds.filter((id) => !newOrder.includes(id)));
+      // Mutate
+      await ctx.drizzle
+        .update(jutsuLoadout)
+        .set({ jutsuIds: newOrder })
+        .where(eq(jutsuLoadout.id, loadout.id));
+      // Inform
+      return { success: true, message: `Order updated` };
     }),
 });
 

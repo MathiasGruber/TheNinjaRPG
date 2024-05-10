@@ -6,6 +6,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 const Clans: NextPage = () => {
   const { data: userData } = useRequiredUserData();
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
   return (
     <ContentBox
       title="Clans"

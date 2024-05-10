@@ -43,9 +43,9 @@ const VillageOverview: NextPage = () => {
   // Derived
   const villageData = data?.villageData;
   const ownSector = userData?.village?.sector === sectorVillage?.sector;
-  const notice = villageData?.notice?.content ?? "No notice from the  kage";
+  const notice = villageData?.notice?.content ?? "No notice at this point";
   const isKage = villageData?.kageId === userData?.userId;
-  const title = villageData ? `${villageData.name} Village` : "Village";
+  const title = villageData ? `${villageData.name}` : "Village";
   const subtitle = ownSector ? "Your Community" : `Ally of ${userData?.village?.name}`;
   const href = villageData ? `/users/village/${villageData.id}` : "/users";
 
@@ -157,7 +157,7 @@ const VillageOverview: NextPage = () => {
       </ContentBox>
       <ContentBox
         title="Notice Board"
-        subtitle="Information from Kage"
+        subtitle={`Information from ${sectorVillage.isOutlawFaction ? "Leader" : "Kage"}`}
         initialBreak={true}
         topRightContent={
           isKage && (
@@ -241,7 +241,7 @@ const Building: React.FC<BuildingProps> = (props) => {
       <div
         className={`grid ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
       >
-        <Link href={`/${structure.name.toLowerCase().replace(" ", "")}`}>
+        <Link href={structure.route}>
           <Image
             className={`${structure.level > 0 ? "hover:opacity-80" : "opacity-30"}`}
             src={structure.image}

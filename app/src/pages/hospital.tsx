@@ -25,7 +25,7 @@ const Hospital: NextPage = () => {
   const [tab, setTab] = useState<"Hospital" | "Bloodline" | null>(null);
 
   // Settings
-  const { userData, access } = useRequireInVillage("Hospital");
+  const { userData, access } = useRequireInVillage("/hospital");
 
   // Hospital name
   const hospitalName = userData?.village?.name
@@ -84,7 +84,7 @@ const MainHospitalPage: React.FC = () => {
   const util = api.useUtils();
 
   // Settings
-  const { userData, timeDiff } = useRequireInVillage("Hospital");
+  const { userData, timeDiff } = useRequireInVillage("/hospital");
   const isHospitalized = userData?.status === "HOSPITALIZED";
 
   // Router for forwarding
@@ -257,7 +257,7 @@ const MainHospitalPage: React.FC = () => {
  */
 const MainBloodlinePage: React.FC = () => {
   // Settings
-  const { userData } = useRequireInVillage("Hospital");
+  const { userData } = useRequireInVillage("/hospital");
 
   // Get data from DB
   const {

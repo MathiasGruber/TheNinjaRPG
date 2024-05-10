@@ -33,7 +33,7 @@ const ANBU: NextPage = () => {
   const utils = api.useUtils();
 
   // Must be in allied village
-  const { userData, sectorVillage, access } = useRequireInVillage("ANBU");
+  const { userData, sectorVillage, access } = useRequireInVillage("/anbu");
   const structure = sectorVillage?.structures.find((s) => s.name === "ANBU");
 
   // Queries
@@ -113,6 +113,7 @@ const ANBU: NextPage = () => {
   if (!sectorVillage) return <Loader explanation="Loading sector village" />;
   if (!structure) return <Loader explanation="Can not find structure" />;
   if (isCreating) return <Loader explanation="Creating squad" />;
+  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw ANBU" />;
   if (userData.isBanned) return <BanInfo />;
 
   // Form handlers

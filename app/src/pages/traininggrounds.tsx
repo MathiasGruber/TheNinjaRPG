@@ -45,7 +45,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 const Training: NextPage = () => {
   // Ensure user is in village
-  const { userData, timeDiff, access } = useRequireInVillage("Training Grounds");
+  const { userData, timeDiff, access } = useRequireInVillage("/traininggrounds");
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;

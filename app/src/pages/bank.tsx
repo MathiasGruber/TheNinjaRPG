@@ -32,7 +32,7 @@ const Bank: NextPage = () => {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // User data
-  const { userData, access } = useRequireInVillage("Bank");
+  const { userData, access } = useRequireInVillage("/bank");
   const money = userData?.money ?? 0;
   const bank = userData?.bank ?? 0;
 

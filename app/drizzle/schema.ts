@@ -1013,6 +1013,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.anbuId],
     references: [anbuSquad.id],
   }),
+  loadout: one(jutsuLoadout, {
+    fields: [userData.jutsuLoadout],
+    references: [jutsuLoadout.id],
+  }),
 }));
 
 export const userNindo = mysqlTable(
@@ -1240,6 +1244,7 @@ export const villageStructure = mysqlTable(
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
+    route: varchar("route", { length: 191 }).default("").notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),

@@ -30,6 +30,7 @@ const elders = [
 const buildings = [
   {
     name: "Home",
+    route: "/home",
     image: "/buildings/Home.webp",
     level: 1,
     longitude: 4,
@@ -39,6 +40,7 @@ const buildings = [
   },
   {
     name: "Training Grounds",
+    route: "/traininggrounds",
     image: "/buildings/Training.webp",
     level: 1,
     longitude: 4,
@@ -48,6 +50,7 @@ const buildings = [
   },
   {
     name: "Clan Hall",
+    route: "/clanhall",
     image: "/buildings/Clan.webp",
     level: 0,
     longitude: 8,
@@ -58,6 +61,7 @@ const buildings = [
   },
   {
     name: "Town Hall",
+    route: "/townhall",
     image: "/buildings/TownHall.webp",
     level: 1,
     longitude: 10,
@@ -67,6 +71,7 @@ const buildings = [
   },
   {
     name: "Battle Arena",
+    route: "/battlearena",
     image: "/buildings/Arena.webp",
     level: 1,
     longitude: 7,
@@ -76,6 +81,7 @@ const buildings = [
   },
   {
     name: "Mission Hall",
+    route: "/missionhall",
     image: "/buildings/Missions.webp",
     level: 1,
     longitude: 11,
@@ -85,6 +91,7 @@ const buildings = [
   },
   {
     name: "Bank",
+    route: "/bank",
     image: "/buildings/Bank.webp",
     level: 1,
     longitude: 15,
@@ -94,6 +101,7 @@ const buildings = [
   },
   {
     name: "Item shop",
+    route: "/itemshop",
     image: "/buildings/Shop.webp",
     level: 1,
     longitude: 13,
@@ -103,6 +111,7 @@ const buildings = [
   },
   {
     name: "Hospital",
+    route: "/hospital",
     image: "/buildings/Hospital.webp",
     level: 1,
     longitude: 12,
@@ -112,6 +121,7 @@ const buildings = [
   },
   {
     name: "ANBU",
+    route: "/anbu",
     image: "/buildings/ANBU.webp",
     level: 0,
     longitude: 9,
@@ -123,6 +133,7 @@ const buildings = [
   // { name: "Casino", image: "/buildings/Casino.webp", level: 0 },
   {
     name: "Ramen Shop",
+    route: "/ramenshop",
     image: "/buildings/RamenShop.webp",
     level: 1,
     longitude: 3,
@@ -132,6 +143,7 @@ const buildings = [
   },
   {
     name: "Black Market",
+    route: "/blackmarket",
     image: "/buildings/BlackMarket.webp",
     level: 0,
     longitude: 14,
@@ -142,6 +154,7 @@ const buildings = [
   },
   {
     name: "Protectors",
+    route: "",
     image: "/buildings/AI.webp",
     level: 1,
     hasPage: 0,
@@ -150,6 +163,7 @@ const buildings = [
   },
   {
     name: "Walls",
+    route: "",
     image: "/buildings/Walls.webp",
     level: 1,
     hasPage: 0,
@@ -157,6 +171,7 @@ const buildings = [
   },
 ] as const;
 export type StructureName = (typeof buildings)[number]["name"];
+export type StructureRoute = (typeof buildings)[number]["route"];
 
 export const seedVillages = async (client: DrizzleClient) => {
   const promises: Promise<void>[] = [];

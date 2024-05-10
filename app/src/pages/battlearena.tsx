@@ -34,7 +34,7 @@ const Arena: NextPage = () => {
   const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
 
   // Ensure user is in village
-  const { userData, access } = useRequireInVillage("Battle Arena");
+  const { userData, access } = useRequireInVillage("/battlearena");
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
