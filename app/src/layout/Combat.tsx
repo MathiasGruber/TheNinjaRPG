@@ -469,51 +469,53 @@ const Combat: React.FC<CombatProps> = (props) => {
     <>
       <div ref={mountRef}></div>
       {/* BATTLE LOBBY SCREEN */}
-      {isInLobby && battle.current && battle.current.battleType !== "ARENA" && (
-        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
-          <div className="flex flex-col items-center justify-center text-white h-full">
-            <p className="p-5 text-5xl">Waiting for opponent</p>
-            <p className="text-3xl">
-              Time Left:{" "}
-              <Countdown targetDate={battle.current.createdAt} timeDiff={timeDiff} />
-            </p>
-            <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
-              Initiative Winner: {initiveWinner?.username}{" "}
-              <Link href="/manual/combat">
-                <HelpCircle className="ml-2 h6 w-6 hover:fill-orange-500" />
-              </Link>
-            </p>
-            <div className="flex flex-row gap-4">
-              {battle.current.usersState
-                .filter((u) => u.isOriginal && !u.isAi)
-                .map((u, i) => {
-                  return (
-                    <div
-                      key={i}
-                      className="flex flex-col items-center relative font-bold"
-                    >
-                      <Image
-                        alt={`roll-${u.userId}`}
-                        src="/combat/d20.webp"
-                        height={80}
-                        width={80}
-                      ></Image>
-                      <p className="absolute text-lg top-10">
-                        {Math.floor(u.initiative)}
-                      </p>
-                      <p>{u.username}</p>{" "}
-                      {u.iAmHere ? (
-                        <CheckCircle className="h-6 w-6" />
-                      ) : (
-                        <ClockIcon className="h-6 w-6" />
-                      )}
-                    </div>
-                  );
-                })}
+      {isInLobby &&
+        battle.current &&
+        !["ARENA", "QUEST"].includes(battle.current.battleType) && (
+          <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
+            <div className="flex flex-col items-center justify-center text-white h-full">
+              <p className="p-5 text-5xl">Waiting for opponent</p>
+              <p className="text-3xl">
+                Time Left:{" "}
+                <Countdown targetDate={battle.current.createdAt} timeDiff={timeDiff} />
+              </p>
+              <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
+                Initiative Winner: {initiveWinner?.username}{" "}
+                <Link href="/manual/combat">
+                  <HelpCircle className="ml-2 h6 w-6 hover:fill-orange-500" />
+                </Link>
+              </p>
+              <div className="flex flex-row gap-4">
+                {battle.current.usersState
+                  .filter((u) => u.isOriginal && !u.isAi)
+                  .map((u, i) => {
+                    return (
+                      <div
+                        key={i}
+                        className="flex flex-col items-center relative font-bold"
+                      >
+                        <Image
+                          alt={`roll-${u.userId}`}
+                          src="/combat/d20.webp"
+                          height={80}
+                          width={80}
+                        ></Image>
+                        <p className="absolute text-lg top-10">
+                          {Math.floor(u.initiative)}
+                        </p>
+                        <p>{u.username}</p>{" "}
+                        {u.iAmHere ? (
+                          <CheckCircle className="h-6 w-6" />
+                        ) : (
+                          <ClockIcon className="h-6 w-6" />
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       {/* FINAL DONE SCREEN */}
       {result && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">

@@ -251,6 +251,8 @@ export const battleJutsuExp = (battleType: BattleType, experienceGain: number) =
       return experienceGain;
     case "ARENA":
       return experienceGain * 0.5;
+    case "QUEST":
+      return experienceGain * 0.5;
   }
   return 0;
 };

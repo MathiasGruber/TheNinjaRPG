@@ -673,7 +673,7 @@ export const initiateBattle = async (
 
   // Get previous battles between these two users within last 60min
   let rewardScaling = 1;
-  if (battleType !== "ARENA") {
+  if (!["ARENA", "QUEST"].includes(battleType)) {
     const results = await client
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(battleHistory)
@@ -791,11 +791,11 @@ export const initiateBattle = async (
   // Figure out who starts in the battle
   const attRoll = (users[0] as BattleUserState).initiative;
   const defRoll = (users[1] as BattleUserState).initiative;
-  const attackerFirst = attRoll >= defRoll || battleType === "ARENA";
+  const attackerFirst = attRoll >= defRoll || ["ARENA", "QUEST"].includes(battleType);
   const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
 
   // When to start the battle
-  const startTime = ["ARENA", "KAGE"].includes(battleType)
+  const startTime = ["ARENA", "KAGE", "QUEST"].includes(battleType)
     ? new Date()
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
