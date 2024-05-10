@@ -37,17 +37,18 @@ const MissionHall: NextPage = () => {
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!access) return <Loader explanation="Accessing Mission Hall" />;
+  if (!access) return <Loader explanation="Accessing Hall" />;
   if (userData.isBanned) return <BanInfo />;
 
   // Derived
   const availableUserRanks = availableLetterRanks(userData.rank);
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
+  const classifier = userData.isOutlaw ? "crime" : "mission";
 
   return (
     <ContentBox
-      title="Mission Hall"
-      subtitle={`Daily missions [${userData.dailyMissions} / ${MISSIONS_PER_DAY}]`}
+      title={userData.isOutlaw ? "Crimes Board" : "Mission Hall"}
+      subtitle={`Daily ${classifier}s [${userData.dailyMissions} / ${MISSIONS_PER_DAY}]`}
       back_href="/village"
       padding={false}
     >
