@@ -20,6 +20,7 @@ import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/utils/kage";
 import { deleteSenseiRequests } from "@/routers/sensei";
+import { hasRequiredRank } from "@/libs/train";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -124,6 +125,9 @@ export const villageRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Canot leave while banned");
       if (cost > user.reputationPoints) return errorResponse("Need reputation points");
+      if (village.isOutlawFaction && !hasRequiredRank(user.rank, "CHUNIN")) {
+        return errorResponse("Must be at least chunin to join outlaw faction");
+      }
 
       // Update
       await Promise.all([
