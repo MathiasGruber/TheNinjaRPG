@@ -15,6 +15,21 @@ export const getUserFederalStatus = (user: UserData) => {
   }
 };
 
+export const fedJutsuLoadouts = (user?: UserData) => {
+  const base = 0;
+  if (!user) return base;
+  const status = getUserFederalStatus(user);
+  switch (status) {
+    case "NORMAL":
+      return base + FED_NORMAL_JUTSU_LOADOUTS;
+    case "SILVER":
+      return base + FED_SILVER_JUTSU_LOADOUTS;
+    case "GOLD":
+      return base + FED_GOLD_JUTSU_LOADOUTS;
+  }
+  return base;
+};
+
 export const reps2dollars = (reps: number) => {
   return Math.ceil(Math.pow(reps, 1 / 1.305) * 10) / 10;
 };
@@ -73,16 +88,4 @@ export const fedStatusRepsCost = (status: FederalStatus) => {
       return FED_GOLD_REPS_COST;
   }
   throw new Error("Invalid federal status");
-};
-
-export const fedJutsuLoadouts = (status?: FederalStatus) => {
-  switch (status) {
-    case "NORMAL":
-      return FED_NORMAL_JUTSU_LOADOUTS;
-    case "SILVER":
-      return FED_SILVER_JUTSU_LOADOUTS;
-    case "GOLD":
-      return FED_GOLD_JUTSU_LOADOUTS;
-  }
-  return 0;
 };

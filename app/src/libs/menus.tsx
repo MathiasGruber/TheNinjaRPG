@@ -163,7 +163,9 @@ export const useGameMenu = (userData: UserWithRelations) => {
               height={200}
               priority={true}
             />
-            <span className="font-bold">{sector.name} Village</span>
+            <span className="font-bold">
+              {sector.name} {sector.isOutlawFaction || "Village"}
+            </span>
           </div>
         ),
       };

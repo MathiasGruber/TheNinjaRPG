@@ -6,7 +6,7 @@ import type { NextPage } from "next";
 
 const ItemShop: NextPage = () => {
   // Settings
-  const { userData, access } = useRequireInVillage("Item shop");
+  const { userData, access } = useRequireInVillage("/itemshop");
 
   // Checks
   if (!userData) return <Loader explanation="Loading userdata" />;

@@ -18,11 +18,11 @@ const LoadoutSelector: React.FC<LoadoutSelectorProps> = (props) => {
   const utils = api.useUtils();
 
   // How many loadouts?
-  const maxLoadouts = fedJutsuLoadouts(userData?.federalStatus);
+  const maxLoadouts = fedJutsuLoadouts(userData);
 
   // Get loadouts
   const { data, isFetching } = api.jutsu.getLoadouts.useQuery(undefined, {
-    enabled: maxLoadouts > 0,
+    enabled: maxLoadouts > 1,
     staleTime: Infinity,
   });
 
@@ -69,6 +69,8 @@ const LoadoutSelector: React.FC<LoadoutSelectorProps> = (props) => {
   if (!userData) return <Loader />;
   if (isFetching) return <Loader />;
   if (isPending) return <Loader />;
+
+  if (maxLoadouts <= 0) return null;
 
   // Show loadout selectors
   return (

@@ -5,6 +5,8 @@ import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
 import Loader from "@/layout/Loader";
 import LoadoutSelector from "@/layout/LoadoutSelector";
+import Confirm from "@/layout/Confirm";
+import { SquareChevronRight, SquareChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
@@ -76,6 +78,15 @@ const MyJutsu: NextPage = () => {
     },
   });
 
+  const { mutate: updateOrder } = api.jutsu.updateUserJutsuOrder.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+      }
+    },
+  });
+
   const isPending = isEquipping || isForgetting;
   const isFetching = l1 || l2;
 
@@ -100,6 +111,18 @@ const MyJutsu: NextPage = () => {
     };
   });
 
+  // Sort if we have a loadout
+  if (userData?.loadout?.jutsuIds && allJutsu) {
+    allJutsu.sort((a, b) => {
+      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.jutsuId) ?? -1;
+      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.jutsuId) ?? -1;
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }
+
   // Derived calculations
   const curEquip = userJutsus?.filter((j) => j.equipped).length;
   const maxEquip = userData && calcJutsuEquipLimit(userData);
@@ -114,6 +137,7 @@ const MyJutsu: NextPage = () => {
     ? calcForgetReturn(userjutsu, userjutsu.level).toFixed(0)
     : 0;
 
+  // Loaders
   if (!userData) {
     return <Loader explanation="Loading userdata" />;
   } else if (isFetching) {
@@ -124,7 +148,7 @@ const MyJutsu: NextPage = () => {
     <ContentBox
       title="Jutsu Management"
       subtitle={subtitle}
-      topRightContent={<LoadoutSelector />}
+      topRightContent={!isOpen && <LoadoutSelector />}
     >
       <ActionSelector
         items={allJutsu}
@@ -140,7 +164,7 @@ const MyJutsu: NextPage = () => {
       />
       {isOpen && userData && userjutsu && (
         <Modal
-          title="Confirm Purchase"
+          title="Edit Jutsu"
           proceed_label={
             !isEquipping
               ? userjutsu.equipped
@@ -176,18 +200,49 @@ const MyJutsu: NextPage = () => {
                 key={userjutsu.id}
                 showStatistic="jutsu"
               />
-              <div className="flex flex-row">
+              <div className="flex flex-row gap-3 items-center">
+                {userData.loadout?.jutsuIds.includes(userjutsu.jutsuId) && (
+                  <>
+                    <SquareChevronLeft
+                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
+                      onClick={() =>
+                        updateOrder({
+                          jutsuId: userjutsu.jutsuId,
+                          loadoutId: userData?.jutsuLoadout ?? "",
+                          moveForward: false,
+                        })
+                      }
+                    />
+                    <p>Order</p>
+                    <SquareChevronRight
+                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
+                      onClick={() =>
+                        updateOrder({
+                          jutsuId: userjutsu.jutsuId,
+                          loadoutId: userData?.jutsuLoadout ?? "",
+                          moveForward: true,
+                        })
+                      }
+                    />
+                  </>
+                )}
+
                 <div className="grow"></div>
-                <Button
-                  id="return"
-                  variant="destructive"
-                  onClick={() => {
+                <Confirm
+                  title="Forget Jutsu"
+                  button={
+                    <Button id="return" variant="destructive">
+                      <Trash2 className="h-6 w-6 mr-2" />
+                      Forget [${forgetRyo} ryo]
+                    </Button>
+                  }
+                  onAccept={(e) => {
+                    e.preventDefault();
                     forget({ id: userjutsu.id });
                   }}
                 >
-                  <Trash2 className="h-6 w-6 mr-2" />
-                  Forget [${forgetRyo} ryo]
-                </Button>
+                  <p>Confirm to forget this jutsu and get back {forgetRyo} ryo.</p>
+                </Confirm>
               </div>
             </>
           )}

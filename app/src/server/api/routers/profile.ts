@@ -1196,6 +1196,9 @@ export const fetchUpdatedUser = async (props: {
         anbuSquad: {
           columns: { name: true },
         },
+        loadout: {
+          columns: { jutsuIds: true },
+        },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
@@ -1268,7 +1271,7 @@ export const fetchUpdatedUser = async (props: {
       user.updatedAt = now;
       user.regenAt = now;
       // If prestige below 0, reset to 0 and move to outlaw faction
-      if (user.villagePrestige < 0) {
+      if (user.villagePrestige < 0 && !user.village?.isOutlawFaction) {
         const faction = await client.query.village.findFirst({
           where: eq(village.isOutlawFaction, true),
         });
@@ -1352,6 +1355,7 @@ export type UserWithRelations =
       bloodline?: Bloodline | null;
       anbuSquad?: { name: string } | null;
       village?: (Village & { structures?: VillageStructure[] }) | null;
+      loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
     })
   | undefined;

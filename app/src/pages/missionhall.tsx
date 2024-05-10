@@ -16,7 +16,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 const MissionHall: NextPage = () => {
   const util = api.useUtils();
 
-  const { userData, access } = useRequireInVillage("Mission Hall");
+  const { userData, access } = useRequireInVillage("/missionhall");
 
   const currentQuest = userData?.userQuests?.find(
     (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,

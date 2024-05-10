@@ -95,6 +95,7 @@ const ElderHall: React.FC<{
 
   // Derived
   const isKage = user.userId === user.village?.kageId;
+  const classifier = user.isOutlaw ? "faction" : "village";
 
   return (
     <>
@@ -105,31 +106,30 @@ const ElderHall: React.FC<{
         back_href="/village"
         topRightContent={navTabs}
       >
-        <p className="pb-2">
-          The Elder Council is a group of experienced and respected individuals in the
-          village, tasked with advising the Kage on important matters and ensuring the
-          village&apos;s prosperity. The Elders are known for their wisdom, leadership,
-          and dedication to the village&apos;s well-being. They are responsible for
-          guiding the Kage in making crucial decisions, maintaining order within the
-          village, and upholding the village&apos;s traditions and values. The Elders
-          play a vital role in shaping the village&apos;s future and ensuring its
-          continued success.
-        </p>
-        <p>
-          The Elder Council is composed of the village&apos;s most skilled and
-          experienced ninjas, chosen for their exceptional abilities and dedication to
-          the village. The Elders are responsible for advising the Kage on important
-          matters, ensuring the village&apos;s prosperity, and upholding its traditions
-          and values. The Elder Council plays a crucial role in guiding the village and
-          ensuring its continued success.
-        </p>
+        {user.isOutlaw ? (
+          <p className="pb-2">
+            The Elder Council, composed of respected individuals, advises the Kage and
+            ensures the faction&apos;s prosperity. Chosen for their loyalty, skills and
+            dedication, these experienced ninjas play a vital role in shaping the
+            faction&apos;s future and its continued success.
+          </p>
+        ) : (
+          <p className="pb-2">
+            The Elder Council, composed of respected individuals, advises the Kage and
+            ensures the village&apos;s prosperity. Known for their wisdom and
+            leadership, they guide crucial decisions, maintain order, and uphold
+            traditions. Chosen for their skills and dedication, these experienced ninjas
+            play a vital role in shaping the village&apos;s future and its continued
+            success.
+          </p>
+        )}
       </ContentBox>
       {/* SHOW ELDERS */}
       {elders && elders.length > 0 && (
         <ContentBox
           title="Current Elders"
           initialBreak={true}
-          subtitle="Currently elected elders in the village"
+          subtitle={`Currently elected elders in the ${classifier}`}
         >
           {isPending && <Loader explanation="Loading Elders" />}
           <div className="grid grid-cols-3 pt-3">
@@ -164,7 +164,7 @@ const ElderHall: React.FC<{
                         });
                       }}
                     >
-                      You are about to remove this user as a village elder. Are you
+                      You are about to remove this user as a {classifier} elder. Are you
                       sure?
                     </Confirm>
                   )}
@@ -179,7 +179,7 @@ const ElderHall: React.FC<{
         <ContentBox
           title="Appoint Elder"
           initialBreak={true}
-          subtitle="Search for villages to promote to elder"
+          subtitle="Search for someone to promote to elder"
         >
           <p className="pb-2"></p>
           <UserSearchSelect
@@ -278,6 +278,9 @@ const KageHall: React.FC<{
   if (isResigning) return <Loader explanation="Resigning as Kage" />;
   if (isTaking) return <Loader explanation="Taking Kage" />;
 
+  // Derived
+  const classifier = user.isOutlaw ? "faction" : "village";
+
   // Render
   return (
     <>
@@ -287,16 +290,26 @@ const KageHall: React.FC<{
         back_href="/village"
         topRightContent={navTabs}
       >
-        <p>
-          The &quot;Kage&quot; is the village&apos;s most potent and skilled ninja,
-          given the esteemed responsibility of safeguarding its people. As the
-          highest-ranking authority in the village, the Kage carries the burden of
-          making critical decisions and ensures the village&apos;s prosperity. Their
-          duty includes defending the village from external threats, maintaining order
-          within, deciding missions for their fellow ninjas, and training the next
-          generation of warriors. The Kage is a symbol of strength, wisdom, and dignity,
-          known to have the power to shape the destiny of the village.
-        </p>
+        {user.isOutlaw ? (
+          <p>
+            The &quot;Kage&quot; is the toughest and most skilled ninja in the faction.
+            As the highest-ranking authority in the faction, the Kage carries the burden
+            of making critical decisions and ensures the faction&apos;s prosperity. The
+            Kage is a symbol of strength, known to have the power to shape the destiny
+            of the village.
+          </p>
+        ) : (
+          <p>
+            The &quot;Kage&quot; is the village&apos;s most potent and skilled ninja,
+            given the esteemed responsibility of safeguarding its people. As the
+            highest-ranking authority in the village, the Kage carries the burden of
+            making critical decisions and ensures the village&apos;s prosperity. Their
+            duty includes defending the village from external threats, maintaining order
+            within, deciding missions for their fellow ninjas, and training the next
+            generation of warriors. The Kage is a symbol of strength, wisdom, and
+            dignity, known to have the power to shape the destiny of the village.
+          </p>
+        )}
         {isKage && (
           <Button
             id="challenge"
@@ -329,13 +342,13 @@ const KageHall: React.FC<{
             <p>
               <span className="font-bold">Note 2: </span>
               <span>
-                Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+                Losing the challenge costs {KAGE_PRESTIGE_COST} {classifier} prestige
               </span>
             </p>
             {user.rank === "ELDER" && (
               <p>
                 <span className="font-bold">Note 3: </span>
-                <span>You will lose the rank of Elder in the village</span>
+                <span>You will lose the rank of Elder in the {classifier}</span>
               </p>
             )}
           </>
@@ -344,7 +357,7 @@ const KageHall: React.FC<{
           <p className="pt-3">
             <span className="font-bold">Requirements: </span>
             <span>
-              {PRESTIGE_REQUIREMENT} Village Prestige,{" "}
+              {PRESTIGE_REQUIREMENT} {classifier} prestige,{" "}
               {capitalizeFirstLetter(RANK_REQUIREMENT)} rank
             </span>
           </p>
@@ -363,7 +376,7 @@ const KageHall: React.FC<{
       </ContentBox>
       <PublicUserComponent
         userId={village.villageData.kageId}
-        title="Village Kage"
+        title={user.isOutlaw ? "Faction Kage" : "Village Kage"}
         initialBreak
       />
       {village.defendedChallenges && village.defendedChallenges.length > 0 && (
@@ -460,7 +473,7 @@ const AllianceHall: React.FC<{
     <>
       <ContentBox
         title="Town Hall"
-        subtitle="Status between villages"
+        subtitle="Villages & factions"
         back_href="/village"
         topRightContent={navTabs}
       >

@@ -12,7 +12,7 @@ import { useRequireInVillage } from "@/utils/village";
 const Home: NextPage = () => {
   const util = api.useUtils();
 
-  const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("Home");
+  const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
 
   const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({

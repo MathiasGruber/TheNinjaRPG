@@ -6,14 +6,14 @@ import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/routers/profile";
 import type { Village, VillageStructure, VillageAlliance } from "@/drizzle/schema";
-import type { StructureName } from "@/drizzle/seeds/village";
+import type { StructureRoute } from "@/drizzle/seeds/village";
 
 /**
  * A hook which requires the user to be in their village,
  * otherwise redirect to the profile page. Can optionally be
  * narrowed further to a specific structure in the village
  */
-export const useRequireInVillage = (structureName?: StructureName) => {
+export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   // Access state
   const [access, setAccess] = useState<boolean>(false);
   // Get user information
@@ -28,7 +28,7 @@ export const useRequireInVillage = (structureName?: StructureName) => {
   useEffect(() => {
     if (userData && sectorVillage && !isPending) {
       // Check structure access
-      const access = canAccessStructure(userData, structureName, sectorVillage);
+      const access = canAccessStructure(userData, structureRoute, sectorVillage);
       // If not in village or village not exist
       const inVillage = calcIsInVillage({
         x: userData.longitude,
@@ -41,7 +41,7 @@ export const useRequireInVillage = (structureName?: StructureName) => {
         setAccess(true);
       }
     }
-  }, [userData, sectorVillage, router, isPending, structureName, ownVillage]);
+  }, [userData, sectorVillage, router, isPending, structureRoute, ownVillage]);
   return { userData, sectorVillage, ownVillage, timeDiff, access };
 };
 
@@ -54,7 +54,7 @@ export const useRequireInVillage = (structureName?: StructureName) => {
  */
 export const canAccessStructure = (
   userData: NonNullable<UserWithRelations>,
-  structureName?: StructureName,
+  structureRoute?: StructureRoute,
   sectorVillage?: Village & {
     relationshipA: VillageAlliance[];
     relationshipB: VillageAlliance[];
@@ -63,13 +63,13 @@ export const canAccessStructure = (
 ) => {
   let structureAccess = true;
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
-  if (structureName && sectorVillage) {
+  if (structureRoute && sectorVillage) {
     const relationship = findVillageUserRelationship(
       sectorVillage,
       userData.villageId ?? "syndicate",
     );
     const isAlly = relationship?.status === "ALLY";
-    const structure = sectorVillage?.structures.find((s) => s.name === structureName);
+    const structure = sectorVillage?.structures.find((s) => s.route === structureRoute);
     if (!structure || (!ownVillage && (!isAlly || structure.allyAccess === 0))) {
       structureAccess = false;
     }

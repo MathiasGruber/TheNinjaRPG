@@ -15,7 +15,7 @@ import type { UserWithRelations } from "../server/api/routers/profile";
 const RamenShop: NextPage = () => {
   const util = api.useUtils();
 
-  const { userData, access } = useRequireInVillage("Ramen Shop");
+  const { userData, access } = useRequireInVillage("/ramenshop");
 
   const { mutate, isPending } = api.village.buyFood.useMutation({
     onSuccess: async (data) => {

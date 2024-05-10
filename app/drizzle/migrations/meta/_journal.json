@@ -617,6 +617,13 @@
       "when": 1715278727477,
       "tag": "0087_chief_silver_surfer",
       "breakpoints": false
+    },
+    {
+      "idx": 88,
+      "version": "5",
+      "when": 1715344170382,
+      "tag": "0088_absurd_red_skull",
+      "breakpoints": false
     }
   ]
 }
