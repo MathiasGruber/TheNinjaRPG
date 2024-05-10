@@ -510,9 +510,6 @@ export const jutsuRouter = createTRPCRouter({
       const curIndex = loadout?.jutsuIds.indexOf(input.jutsuId) ?? -1;
       // Guard
       if (!loadout) return errorResponse("Loadout not found");
-      console.log("=====================");
-      console.log("old", loadout.jutsuIds);
-
       if (curIndex === -1) return errorResponse("Jutsu not found in loadout");
       if (curIndex === 0 && !input.moveForward) return errorResponse("Already first");
       if (curIndex === loadout.jutsuIds.length - 1 && input.moveForward) {
