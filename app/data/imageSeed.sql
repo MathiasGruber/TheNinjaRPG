@@ -25,3 +25,4 @@ UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/25b56844-e285-4814-8a
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/a108bf10-e3d3-4209-8909-0c4c41fa33e2-2r9eay.webp' WHERE `route` = '/hospital' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/520179e5-cd86-4a16-96e4-e2791e4f9cce-srb0e7.webp' WHERE `route` = '/ramenshop' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/630783ce-5a01-41ec-9903-d9e7106ff672-dpptyz.webp' WHERE `route` = '/home' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/0bbcfabb-0500-402e-9c4b-c2d584c63ff1-mdnudd.webp' WHERE `route` = '/blackmarket' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
