@@ -231,6 +231,7 @@ export const CP_PER_LVL = 50;
 export const MAX_ATTRIBUTES = 5;
 export const STATS_CAP = 300000;
 export const GENS_CAP = 150000;
+export const RYO_CAP = 1000000000;
 
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;

@@ -70,6 +70,7 @@ import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
+import { RYO_CAP } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest } from "@/drizzle/schema";
@@ -1326,7 +1327,8 @@ export const fetchUpdatedUser = async (props: {
           regenAt: user.regenAt,
           questData: user.questData,
           activityStreak: user.activityStreak,
-          money: user.money,
+          money: user.money > RYO_CAP ? RYO_CAP : user.money,
+          bank: user.bank > RYO_CAP ? RYO_CAP : user.bank,
           primaryElement: user.primaryElement,
           secondaryElement: user.secondaryElement,
           reputationPoints: user.reputationPoints,
