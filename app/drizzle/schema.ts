@@ -262,7 +262,7 @@ export const clan = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Clan_name_key").on(table.name),
-      villageIdx: index("Clan_village_idx").on(table.village),
+      villageIdx: index("Clan_village_idx").on(table.villageId),
     };
   },
 );
