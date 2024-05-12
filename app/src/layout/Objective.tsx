@@ -6,6 +6,7 @@ import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
+import { useRequiredUserData } from "@/utils/UserContext";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
@@ -20,6 +21,7 @@ interface ObjectiveProps {
 }
 
 export const Objective: React.FC<ObjectiveProps> = (props) => {
+  const { data: userData } = useRequiredUserData();
   const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
 
@@ -34,7 +36,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
     <div className="flex flex-col items-center gap-1">
       <Check className="h-10 w-10 stroke-green-500" />
       {hasReward(objective) &&
-        (canCollect ? (
+        (canCollect && userData?.status === "AWAKE" ? (
           <Gift
             className="h-7 w-7 cursor-pointer hover:fill-orange-500"
             onClick={checkRewards}

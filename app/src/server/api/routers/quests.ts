@@ -344,6 +344,9 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
+      if (user.status !== "AWAKE") {
+        throw serverError("PRECONDITION_FAILED", "Must be awake to finish quests");
+      }
 
       // Figure out if any finished quests & get rewards
       const { rewards, trackers, userQuest, resolved } = getReward(user, input.questId);
