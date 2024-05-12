@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/planetscale-serverless";
-import { connect } from "@planetscale/database";
+import { Client } from "@planetscale/database";
 import { env } from "../env/server.mjs";
 import * as schema from "../../drizzle/schema";
 import type { PlanetScaleDatabase } from "drizzle-orm/planetscale-serverless";
@@ -14,7 +14,7 @@ declare global {
 export const drizzleDB =
   global.drizzle ||
   drizzle(
-    connect({ url: process.env["DATABASE_URL"] }),
+    new Client({ url: process.env["DATABASE_URL"] }),
     { schema }, // ,  logger: true
   );
 

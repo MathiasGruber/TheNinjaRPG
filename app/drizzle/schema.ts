@@ -241,6 +241,32 @@ export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
   }),
 }));
 
+export const clan = mysqlTable(
+  "Clan",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    description: text("description").notNull(),
+    points: int("points").default(0).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    founderId: varchar("founderId", { length: 191 }).notNull(),
+    leaderId: varchar("leaderId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("Clan_name_key").on(table.name),
+      villageIdx: index("Clan_village_idx").on(table.village),
+    };
+  },
+);
+
 export const conversation = mysqlTable(
   "Conversation",
   {

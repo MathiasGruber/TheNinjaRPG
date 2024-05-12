@@ -18,8 +18,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
   // Check timer
   const timer = await getTimer("daily");
-  if (timer.time > new Date(Date.now() - 1000 * 60 * 60 * 23.5)) {
-    return res.status(200).json("Ran within the last 23.5 hours");
+  if (timer.time > new Date(Date.now() - 1000 * 60 * 60 * 23.9)) {
+    return res.status(200).json("Ran within the last 23.9 hours");
   }
 
   const villages = await drizzleDB.query.village.findMany({
@@ -85,13 +85,11 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
       .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
 
     // STEP 3: Update village prestige & daily limits
-    await drizzleDB
-      .update(userData)
-      .set({
-        villagePrestige: sql`${userData.villagePrestige} + 1`,
-        dailyArenaFights: 0,
-        dailyMissions: 0,
-      });
+    await drizzleDB.update(userData).set({
+      villagePrestige: sql`${userData.villagePrestige} + 1`,
+      dailyArenaFights: 0,
+      dailyMissions: 0,
+    });
 
     // STEP 4: Update daily quests
     await drizzleDB
