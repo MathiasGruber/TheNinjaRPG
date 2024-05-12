@@ -187,11 +187,12 @@ interface LogbookEntryProps {
  * @returns The rendered component.
  */
 export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
+  const { data: userData } = useRequiredUserData();
   const { userQuest, tracker } = props;
   const quest = userQuest.quest;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
   const allDone = tracker?.goals.every((g) => g.done);
-  const utils = api.useContext();
+  const utils = api.useUtils();
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
@@ -286,11 +287,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   useEffect(() => {
     const check = quest.questType === "achievement" && !userQuest.completed;
-    if (check && allDone) {
+    if (check && allDone && userData?.status === "AWAKE") {
       void checkRewards({ questId: quest.id });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userData, userQuest, quest, allDone]);
 
   // We do not show entries for achievements
   if (quest.questType === "achievement") return undefined;

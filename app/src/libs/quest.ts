@@ -268,10 +268,14 @@ export const isLocationObjective = (
  * list of rewards to award the user
  */
 export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
+  // Derived
   let rewards = ObjectiveReward.parse({});
   const { trackers } = getNewTrackers(user, [{ task: "any" }]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   let resolved = false;
+  // Guard
+  if (user.status !== "AWAKE") return { rewards, trackers, userQuest, resolved };
+  // Start mutating
   if (userQuest && !userQuest.completed) {
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
