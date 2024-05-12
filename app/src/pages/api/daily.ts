@@ -10,6 +10,7 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { getTimer, updateTimer } from "@/libs/game_timers";
 import { upsertQuestEntries } from "@/routers/quests";
 import { structureBoost } from "@/utils/village";
+import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
@@ -18,8 +19,16 @@ import type { NextApiRequest, NextApiResponse } from "next";
 const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
   // Check timer
   const timer = await getTimer("daily");
-  if (timer.time > new Date(Date.now() - 1000 * 60 * 60 * 23.9)) {
-    return res.status(200).json("Ran within the last 23.9 hours");
+  const deltaTime = 1000 * 60 * 60 * 23.9;
+  if (timer.time > new Date(Date.now() - deltaTime)) {
+    const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(
+      timer.time.getTime() + deltaTime - Date.now(),
+    );
+    return res
+      .status(200)
+      .json(
+        `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
+      );
   }
 
   const villages = await drizzleDB.query.village.findMany({
