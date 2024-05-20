@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, lte, sql, eq, lt, isNull } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
-import { battleHistory, battleAction, historicalAvatar } from "@/drizzle/schema";
+import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
@@ -79,6 +79,11 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
           isNull(historicalAvatar.avatar),
         ),
       );
+
+    // Step 12: Update users who have a clanId by no clan
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`,
+    );
 
     res.status(200).json("OK");
   } catch (cause) {
