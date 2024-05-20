@@ -351,15 +351,18 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const didWin = user.curHealth > 0 && !user.fledBattle;
       const maxGain = 32 * battle.rewardScaling;
 
-      // Village structure bonus
-      let structureBoost = 1;
+      // Experience boost
+      let expBoost = 1;
       user.village?.structures?.forEach((s) => {
-        structureBoost += (s.arenaRewardPerLvl * s.level) / 100;
+        expBoost += (s.arenaRewardPerLvl * s.level) / 100;
       });
+      if (user?.clan?.trainingBoost && user.clan.trainingBoost > 0) {
+        expBoost += user.clan.trainingBoost / 100;
+      }
 
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
-      const experience = didWin ? eloDiff * structureBoost : 0;
+      const experience = didWin ? eloDiff * expBoost : 0;
       const outcome = user.fledBattle ? "Fled" : didWin ? "Won" : "Lost";
 
       // Find users who did not leave battle yet
@@ -373,10 +376,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       let deltaPrestige = 0;
 
       // Money/ryo calculation
-      const newMoney = didWin
-        ? user.money + randomInt(30, 40) + user.level
-        : user.money;
-      const moneyDelta = newMoney - user.originalMoney;
+      const moneyBoost = user?.clan?.ryoBoost ? 1 + user.clan.ryoBoost / 100 : 1;
+      const moneyDelta = didWin ? (randomInt(30, 40) + user.level) * moneyBoost : 0;
 
       // Prestige calculation
       if (battleType === "KAGE_CHALLENGE" && !didWin && user.isAggressor) {

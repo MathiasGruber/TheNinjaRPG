@@ -24,6 +24,7 @@ export type BattleUserState = UserWithRelations & {
   items: (UserItem & {
     item: Item;
   })[];
+  clan?: { ryoBoost: number; trainingBoost: number } | null;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
   highestOffence: (typeof StatNames)[number];

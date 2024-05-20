@@ -314,3 +314,7 @@ export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
 export const CLAN_CREATE_RYO_COST = 1000000;
 export const CLAN_RANK_REQUIREMENT = "CHUNIN";
 export const CLAN_MAX_MEMBERS = 50;
+export const MAX_TRAINING_BOOST = 15;
+export const MAX_RYO_BOOST = 15;
+export const TRAINING_BOOST_COST = 300;
+export const RYO_BOOST_COST = 100;

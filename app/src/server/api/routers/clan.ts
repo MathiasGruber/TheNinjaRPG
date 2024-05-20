@@ -20,6 +20,8 @@ import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
+import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
+import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 
@@ -424,6 +426,80 @@ export const clanRouter = createTRPCRouter({
       }
       await ctx.drizzle.update(clan).set({ bank: sql`${clan.bank} + ${input.amount}` });
       return { success: true, message: `Successfully deposited ${input.amount} ryo` };
+    }),
+  purchaseTrainingBoost: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, clanData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Derived
+      const isLeader = clanData?.leaderId === user.userId;
+      const isCoLeader = checkCoLeader(ctx.userId, clanData);
+      const leaderLike = isLeader || isCoLeader;
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (!clanData) return errorResponse("Clan not found");
+      if (user.clanId !== clanData.id) return errorResponse("Not in the clan");
+      if (!leaderLike) return errorResponse("Not in clan leadership");
+      if (clanData.points < TRAINING_BOOST_COST) {
+        return errorResponse("Not enough clan points");
+      }
+      if (clanData.trainingBoost >= MAX_TRAINING_BOOST) {
+        return errorResponse("Max training boost reached");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(clan)
+        .set({
+          trainingBoost: sql`${clan.trainingBoost} + 1`,
+          points: sql`${clan.points} - ${TRAINING_BOOST_COST}`,
+        })
+        .where(and(eq(clan.id, clanData.id), gte(clan.points, TRAINING_BOOST_COST)));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Not enough clan points" };
+      }
+      return { success: true, message: "Training boost purchased" };
+    }),
+  purchaseRyoBoost: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, clanData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Derived
+      const isLeader = clanData?.leaderId === user.userId;
+      const isCoLeader = checkCoLeader(ctx.userId, clanData);
+      const leaderLike = isLeader || isCoLeader;
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (!clanData) return errorResponse("Clan not found");
+      if (user.clanId !== clanData.id) return errorResponse("Not in the clan");
+      if (!leaderLike) return errorResponse("Not in clan leadership");
+      if (clanData.points < RYO_BOOST_COST) {
+        return errorResponse("Not enough clan points");
+      }
+      if (clanData.ryoBoost >= MAX_RYO_BOOST) {
+        return errorResponse("Max ryo boost reached");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(clan)
+        .set({
+          ryoBoost: sql`${clan.ryoBoost} + 1`,
+          points: sql`${clan.points} - ${RYO_BOOST_COST}`,
+        })
+        .where(and(eq(clan.id, clanData.id), gte(clan.points, RYO_BOOST_COST)));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Not enough clan points" };
+      }
+      return { success: true, message: "Ryo boost purchased" };
     }),
 });
 

@@ -33,6 +33,8 @@ import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
 import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
+import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
+import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { UserRank } from "@/drizzle/constants";
@@ -385,6 +387,15 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   // Get react query utility
   const utils = api.useUtils();
 
+  // Deposit to bank
+  const money = userData?.money ?? 0;
+  const fromPocketSchema = z.object({
+    amount: z.coerce.number().int().positive().max(money),
+  });
+  const toBankForm = useForm<z.infer<typeof fromPocketSchema>>({
+    resolver: zodResolver(fromPocketSchema),
+  });
+
   // Query
   const { data: clanData } = api.clan.get.useQuery({ clanId });
 
@@ -422,14 +433,24 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
-  // Deposit to bank
-  const money = userData?.money ?? 0;
-  const fromPocketSchema = z.object({
-    amount: z.coerce.number().int().positive().max(money),
+  const { mutate: boostTraining } = api.clan.purchaseTrainingBoost.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.clan.get.invalidate();
+      }
+    },
   });
-  const toBankForm = useForm<z.infer<typeof fromPocketSchema>>({
-    resolver: zodResolver(fromPocketSchema),
+
+  const { mutate: boostRyo } = api.clan.purchaseRyoBoost.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.clan.get.invalidate();
+      }
+    },
   });
+
   const { mutate: toBank, isPending: isDepositing } = api.clan.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -509,6 +530,34 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   {clanData.leader.username}
                 </Link>
               </p>
+              <div className="flex flex-row items-center">
+                <p>Training boost: {clanData.trainingBoost}%</p>
+                {(isLeader || isCoLeader) && (
+                  <Confirm
+                    title="Boost ryo gain for clan members"
+                    proceed_label={
+                      clanData.points >= TRAINING_BOOST_COST
+                        ? "Submit"
+                        : "Cannot afford"
+                    }
+                    button={
+                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                    }
+                    onAccept={() => boostTraining({ clanId })}
+                  >
+                    {clanData.trainingBoost < MAX_TRAINING_BOOST ? (
+                      <p>
+                        Boost the training gain for clan members for{" "}
+                        {TRAINING_BOOST_COST} clan points. Note that this boost is
+                        gradually reduced once per day. You currently have{" "}
+                        {clanData.points} points.
+                      </p>
+                    ) : (
+                      <p>Already maxed out the possible boost</p>
+                    )}
+                  </Confirm>
+                )}
+              </div>
             </div>
             <div>
               <p>PvP Activity: {clanData.pvpActivity}</p>
@@ -548,6 +597,31 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                     </form>
                   </Form>
                 </Confirm>
+              </div>
+              <div className="flex flex-row items-center">
+                <p>Ryo gain boost: {clanData.ryoBoost}%</p>{" "}
+                {(isLeader || isCoLeader) && (
+                  <Confirm
+                    title="Boost ryo gain for clan members"
+                    proceed_label={
+                      clanData.points >= RYO_BOOST_COST ? "Submit" : "Cannot afford"
+                    }
+                    button={
+                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                    }
+                    onAccept={() => boostRyo({ clanId })}
+                  >
+                    {clanData.ryoBoost < MAX_RYO_BOOST ? (
+                      <p>
+                        Boost the ryo gain for clan members for {RYO_BOOST_COST} clan
+                        points. Note that this boost is gradually reduced once per day.
+                        You currently have {clanData.points} points.
+                      </p>
+                    ) : (
+                      <p>Already maxed out the possible boost</p>
+                    )}
+                  </Confirm>
+                )}
               </div>
             </div>
           </div>
@@ -655,7 +729,6 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                 {isLeader && memberLeaderLike && (
                   <Confirm
                     title="Demote Member"
-                    proceed_label="Submit"
                     button={
                       <Button id={`demote-${member.userId}`}>
                         <ArrowBigDownDash className="mr-2 h-5 w-5" />
@@ -670,7 +743,6 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                 {(isLeader || (isColeader && !memberLeaderLike)) && (
                   <Confirm
                     title="Promote Member"
-                    proceed_label="Submit"
                     button={
                       <Button id={`promote-${member.userId}`}>
                         <ArrowBigUpDash className="mr-2 h-5 w-5" />
