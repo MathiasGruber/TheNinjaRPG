@@ -9,6 +9,7 @@ export const clanCreateSchema = z.object({
 export type ClanCreateSchema = z.infer<typeof clanCreateSchema>;
 
 export const clanRenameSchema = z.object({
+  clanId: z.string(),
   name: z.string().trim().min(3).max(88),
   image: z.string(),
 });

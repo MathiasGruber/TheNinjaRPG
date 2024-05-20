@@ -29,6 +29,12 @@ export const ourFileRouter = {
       await uploadHistoricalAvatar(file, "anbu-image", true);
       return { fileUrl: file.url };
     }),
+  clanUploader: f({ image: { maxFileSize: "512KB" } })
+    .middleware(async ({ req }) => await avatarMiddleware(req))
+    .onUploadComplete(async ({ file }) => {
+      await uploadHistoricalAvatar(file, "clan-image", true);
+      return { fileUrl: file.url };
+    }),
   avatarNormalUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {

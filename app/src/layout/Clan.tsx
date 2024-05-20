@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/form";
 import { Pencil, DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
+import { FilePenLine } from "lucide-react";
+import { UploadButton } from "@/utils/uploadthing";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import UserRequestSystem from "@/layout/UserRequestSystem";
@@ -36,6 +38,8 @@ import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
+import { clanRenameSchema } from "@/validators/clan";
+import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { UserRank } from "@/drizzle/constants";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -43,6 +47,7 @@ import type { UserNindo } from "@/drizzle/schema";
 import type { ClanCreateSchema } from "@/validators/clan";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+import type { ClanRouter } from "@/routers/clan";
 
 /**
  * Show an overview of the clans in the village
@@ -128,7 +133,7 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
   });
 
   // Loaders
-  if (isCreating) return <Loader explanation="Creating squad" />;
+  if (isCreating) return <Loader explanation="Creating clan" />;
   if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Derived
@@ -149,7 +154,7 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
           title="Create new Clan"
           proceed_label={canCreate ? "Submit" : "Not enough prestige or Ryo"}
           button={
-            <Button id="create-anbu-squad" className="w-full">
+            <Button id="create-clan" className="w-full">
               <ShieldPlus className="mr-2 h-5 w-5" />
               Create
             </Button>
@@ -203,7 +208,7 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
 };
 
 /**
- * Renders the Anbu Orders component.
+ * Renders the Clan Orders component.
  *
  * @param props - The component props.
  * @returns The rendered component.
@@ -282,7 +287,7 @@ export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
 };
 
 /**
- * Renders a component that displays ANBU requests for a squad.
+ * Renders a component that displays clan requests for a clan.
  *
  * @component
  * @param {ClanRequestsProps} props - The component props.
@@ -373,13 +378,14 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
  */
 interface ClanInfoProps {
   userData: NonNullable<UserWithRelations>;
-  clanId: string;
+  clanData: NonNullable<ClanRouter["get"]>;
   back_href?: string;
 }
 
 export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   // Destructure
-  const { userData, clanId, back_href } = props;
+  const { userData, clanData, back_href } = props;
+  const clanId = clanData.id;
 
   // Get router
   const router = useRouter();
@@ -396,10 +402,16 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     resolver: zodResolver(fromPocketSchema),
   });
 
-  // Query
-  const { data: clanData } = api.clan.get.useQuery({ clanId });
-
   // Mutations
+  const { mutate: edit } = api.clan.editClan.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.clan.get.invalidate();
+      }
+    },
+  });
+
   const { mutate: leave } = api.clan.leaveClan.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -463,6 +475,14 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   });
   const onDeposit = toBankForm.handleSubmit((data) => toBank({ ...data, clanId }));
 
+  // Rename Form
+  const renameForm = useForm<ClanRenameSchema>({
+    resolver: zodResolver(clanRenameSchema),
+    defaultValues: { name: clanData.name, image: clanData.image, clanId },
+  });
+  const onEdit = renameForm.handleSubmit((data) => edit(data));
+  const currentImage = renameForm.watch("image");
+
   // Loader
   if (!clanData) return <Loader explanation="Loading clan data" />;
   if (isDepositing) return <Loader explanation="Depositing money" />;
@@ -479,15 +499,69 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       subtitle="Clan Overview"
       back_href={back_href}
       topRightContent={
-        <div>
+        <div className="flex flex-row gap-1">
+          {isLeader && (
+            <Confirm
+              title="Edit Clan"
+              proceed_label="Submit"
+              button={
+                <Button id="rename-clan">
+                  <FilePenLine className="h-5 w-5" />
+                </Button>
+              }
+              isValid={renameForm.formState.isValid}
+              onAccept={onEdit}
+            >
+              <Form {...renameForm}>
+                <form className="space-y-2 grid grid-cols-2" onSubmit={onEdit}>
+                  <div>
+                    <FormLabel>Clan Image</FormLabel>
+                    <AvatarImage
+                      href={currentImage}
+                      alt={clanId}
+                      size={100}
+                      hover_effect={true}
+                      priority
+                    />
+                    <UploadButton
+                      endpoint="clanUploader"
+                      onClientUploadComplete={(res) => {
+                        const url = res?.[0]?.serverData?.fileUrl;
+                        if (url) {
+                          renameForm.setValue("image", url, {
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
+                      onUploadError={(error: Error) => {
+                        showMutationToast({ success: false, message: error.message });
+                      }}
+                    />
+                  </div>
+                  <FormField
+                    control={renameForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Name of the new clan" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </Confirm>
+          )}
           {inClan && (
             <Confirm
               title="Update Orders"
               proceed_label="Submit"
               button={
                 <Button id="send">
-                  <DoorOpen className="h-5 w-5 mr-2" />
-                  Leave
+                  <DoorOpen className="h-5 w-5" />
                 </Button>
               }
               onAccept={() => leave({ clanId })}
@@ -823,7 +897,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   return (
     <>
       {/** OVERVIEW */}
-      <ClanInfo userData={userData} back_href={back_href} clanId={clanData.id} />
+      <ClanInfo userData={userData} back_href={back_href} clanData={clanData} />
       {/* SHOW ORDERS  */}
       <ClanOrders
         clanId={clanData.id}
