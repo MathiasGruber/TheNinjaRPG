@@ -132,7 +132,8 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
   // Derived
   const canCreate =
     userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT &&
-    userData.money >= CLAN_CREATE_RYO_COST;
+    userData.money >= CLAN_CREATE_RYO_COST &&
+    hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT);
 
   // Render
   return (
