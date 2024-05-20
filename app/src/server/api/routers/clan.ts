@@ -425,7 +425,10 @@ export const clanRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return { success: false, message: "Not enough money in pocket" };
       }
-      await ctx.drizzle.update(clan).set({ bank: sql`${clan.bank} + ${input.amount}` });
+      await ctx.drizzle
+        .update(clan)
+        .set({ bank: sql`${clan.bank} + ${input.amount}` })
+        .where(eq(clan.id, input.clanId));
       return { success: true, message: `Successfully deposited ${input.amount} ryo` };
     }),
   purchaseTrainingBoost: protectedProcedure

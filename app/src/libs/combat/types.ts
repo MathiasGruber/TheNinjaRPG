@@ -8,7 +8,7 @@ import { StatTypes, GeneralType, PoolType } from "@/drizzle/constants";
 import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
-import type { Jutsu, Item, VillageAlliance } from "@/drizzle/schema";
+import type { Jutsu, Item, VillageAlliance, Clan } from "@/drizzle/schema";
 import type { UserJutsu, UserItem, UserData } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
@@ -24,7 +24,7 @@ export type BattleUserState = UserWithRelations & {
   items: (UserItem & {
     item: Item;
   })[];
-  clan?: { ryoBoost: number; trainingBoost: number } | null;
+  clan?: Clan | null;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
   highestOffence: (typeof StatNames)[number];
