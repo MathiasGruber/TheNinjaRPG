@@ -886,6 +886,7 @@ export const profileRouter = createTRPCRouter({
           village: true,
           bloodline: true,
           nindo: true,
+          clan: true,
           badges: {
             with: {
               badge: true,
@@ -1195,6 +1196,7 @@ export const fetchUpdatedUser = async (props: {
       where: eq(userData.userId, userId),
       with: {
         bloodline: true,
+        clan: true,
         village: {
           with: { structures: true },
         },
@@ -1367,6 +1369,7 @@ export type UserWithRelations =
   | (UserData & {
       bloodline?: Bloodline | null;
       anbuSquad?: { name: string } | null;
+      clan?: Clan | null;
       village?: (Village & { structures?: VillageStructure[] }) | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
