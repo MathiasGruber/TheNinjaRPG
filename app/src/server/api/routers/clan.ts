@@ -165,6 +165,7 @@ export const clanRouter = createTRPCRouter({
       if (!structure) return errorResponse("Clan hall not found");
       if (villageId !== user.villageId) return errorResponse("Wrong user village");
       if (clans.length > structure.level) return errorResponse("Max clans reached");
+      if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
       if (user.clanId) return errorResponse("Already in a clan");
       if (user.isAi) return errorResponse("AI cannot be leader");
       if (user.money < CLAN_CREATE_RYO_COST) return errorResponse("Not enough ryo");
