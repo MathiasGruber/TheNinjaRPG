@@ -5,7 +5,6 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import AvatarImage from "@/layout/Avatar";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import { ShieldPlus } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Pencil, DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
-import { FilePenLine } from "lucide-react";
+import { FilePenLine, List } from "lucide-react";
 import { UploadButton } from "@/utils/uploadthing";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
@@ -27,12 +26,9 @@ import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { clanCreateSchema } from "@/validators/clan";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
-import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
 import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
@@ -44,7 +40,6 @@ import type { BaseServerResponse } from "@/server/api/trpc";
 import type { UserRank } from "@/drizzle/constants";
 import type { MutateContentSchema } from "@/validators/comments";
 import type { UserNindo } from "@/drizzle/schema";
-import type { ClanCreateSchema } from "@/validators/clan";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { ClanRouter } from "@/routers/clan";
@@ -59,9 +54,6 @@ interface ClansOverviewProps {
 export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
   // Destructure
   const { userData } = props;
-
-  // tRPC utils
-  const utils = api.useUtils();
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
@@ -110,88 +102,12 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
     { key: "pvpActivity", header: "PVP Activity", type: "string" },
   ];
 
-  // Mutations
-  const { mutate: createClan, isPending: isCreating } = api.clan.createClan.useMutation(
-    {
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        await utils.clan.getAll.invalidate();
-      },
-    },
-  );
-
-  // Form
-  const createForm = useForm<ClanCreateSchema>({
-    resolver: zodResolver(clanCreateSchema),
-    defaultValues: { name: "", villageId: "" },
-  });
-
-  // Form handlers
-  const onSubmit = createForm.handleSubmit((data) => {
-    console.log(data);
-    createClan({ name: data.name, villageId: userData?.villageId ?? "" });
-  });
-
   // Loaders
-  if (isCreating) return <Loader explanation="Creating clan" />;
   if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
-
-  // Derived
-  const canCreate =
-    userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT &&
-    userData.money >= CLAN_CREATE_RYO_COST &&
-    hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT);
 
   // Render
   return (
-    <ContentBox
-      title="Clans"
-      subtitle="Fight together"
-      back_href="/village"
-      padding={false}
-      topRightContent={
-        <Confirm
-          title="Create new Clan"
-          proceed_label={canCreate ? "Submit" : "Not enough prestige or Ryo"}
-          button={
-            <Button id="create-clan" className="w-full">
-              <ShieldPlus className="mr-2 h-5 w-5" />
-              Create
-            </Button>
-          }
-          confirmClassName={
-            canCreate
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-red-600 text-white hover:bg-red-700"
-          }
-          isValid={createForm.formState.isValid}
-          onAccept={canCreate ? onSubmit : undefined}
-        >
-          Create a clan requires at least {CLAN_CREATE_PRESTIGE_REQUIREMENT} village
-          prestige, and costs {CLAN_CREATE_RYO_COST} Ryo. You currently have{" "}
-          {userData.villagePrestige} prestige and {userData.money} Ryo.
-          {canCreate && (
-            <Form {...createForm}>
-              <form className="space-y-2" onSubmit={onSubmit}>
-                <FormField
-                  control={createForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Name of the new clan" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </form>
-            </Form>
-          )}
-        </Confirm>
-      }
-    >
+    <>
       {allClans && allClans.length > 0 && (
         <Table
           data={allClans}
@@ -203,7 +119,7 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
       {allClans?.length === 0 && (
         <p className="p-3">No current clans in this village</p>
       )}
-    </ContentBox>
+    </>
   );
 };
 
@@ -554,6 +470,18 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   />
                 </form>
               </Form>
+            </Confirm>
+          )}
+          {inClan && (
+            <Confirm
+              title="Village Clan Overview"
+              button={
+                <Button id="send">
+                  <List className="h-5 w-5" />
+                </Button>
+              }
+            >
+              <ClansOverview userData={userData} />
             </Confirm>
           )}
           {inClan && (
