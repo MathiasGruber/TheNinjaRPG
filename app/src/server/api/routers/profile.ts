@@ -74,7 +74,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
-import type { UserQuest } from "@/drizzle/schema";
+import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
@@ -1203,7 +1203,6 @@ export const fetchUpdatedUser = async (props: {
         anbuSquad: {
           columns: { name: true },
         },
-        clan: true,
         loadout: {
           columns: { jutsuIds: true },
         },

@@ -598,9 +598,7 @@ export const initiateBattle = async (
         loadout: {
           columns: { jutsuIds: true },
         },
-        clan: {
-          columns: { ryoBoost: true, trainingBoost: true },
-        },
+        clan: true,
         items: {
           with: { item: true },
           where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
