@@ -41,6 +41,7 @@ import {
 } from "@/drizzle/schema";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
+import { fetchClan, removeFromClan } from "@/routers/clan";
 import { getNewTrackers } from "@/libs/quest";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { mutateContentSchema } from "@/validators/comments";
@@ -1199,6 +1200,7 @@ export const fetchUpdatedUser = async (props: {
         anbuSquad: {
           columns: { name: true },
         },
+        clan: true,
         loadout: {
           columns: { jutsuIds: true },
         },
@@ -1282,6 +1284,12 @@ export const fetchUpdatedUser = async (props: {
           user.villagePrestige = 0;
           user.villageId = faction.id;
           user.isOutlaw = true;
+          if (user.clanId) {
+            const clanData = await fetchClan(client, user.clanId);
+            if (clanData) {
+              await removeFromClan(client, clanData, user.userId);
+            }
+          }
           void pusher.trigger(user.userId, "event", {
             type: "userMessage",
             message: "You have been kicked out of your village due to negative presige",

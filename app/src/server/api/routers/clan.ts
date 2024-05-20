@@ -1,0 +1,580 @@
+import { z } from "zod";
+import { nanoid } from "nanoid";
+import { eq, sql } from "drizzle-orm";
+import { clan, userData, historicalAvatar } from "@/drizzle/schema";
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { errorResponse, baseServerResponse } from "@/server/api/trpc";
+import { fetchVillage } from "@/routers/village";
+import { fetchUser, updateNindo } from "@/routers/profile";
+import { getServerPusher } from "@/libs/pusher";
+import { clanCreateSchema, checkCoLeader } from "@/validators/clan";
+import { hasRequiredRank } from "@/libs/train";
+import {
+  fetchRequest,
+  fetchRequests,
+  insertRequest,
+  updateRequestState,
+} from "@/routers/sparring";
+import { initiateBattle, determineArenaBackground } from "@/routers/combat";
+import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
+import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
+import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
+import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { DrizzleClient } from "@/server/db";
+
+const pusher = getServerPusher();
+
+export const clanRouter = createTRPCRouter({
+  get: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Guard
+      if (user.villageId === fetchedClan?.villageId) return fetchedClan;
+      return null;
+    }),
+  getAll: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClans] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClans(ctx.drizzle, input.villageId),
+      ]);
+      // Guard
+      if (user && user.villageId === input.villageId) return fetchedClans;
+      return null;
+    }),
+  getRequests: protectedProcedure.query(async ({ ctx }) => {
+    return await fetchRequests(ctx.drizzle, ["CLAN"], 3600 * 12, ctx.userId);
+  }),
+  createRequest: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Guards
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!user) return errorResponse("User not found");
+      if (!fetchedClan.leaderId) return errorResponse("No leader currently");
+      if (user.villageId !== fetchedClan.villageId)
+        return errorResponse("Wrong village");
+      if (user.clanId) return errorResponse("Already in a clan");
+      if (!hasRequiredRank(user.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
+      }
+      // Mutate
+      await insertRequest(ctx.drizzle, user.userId, fetchedClan.leaderId, "CLAN");
+      void pusher.trigger(fetchedClan.leaderId, "event", { type: "clan" });
+      // Create
+      return { success: true, message: "User assigned to clan" };
+    }),
+  rejectRequest: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const request = await fetchRequest(ctx.drizzle, input.id, "CLAN");
+      if (request.receiverId !== ctx.userId) {
+        return errorResponse("You can only reject requests for yourself");
+      }
+      if (request.status !== "PENDING") {
+        return errorResponse("You can only reject pending requests");
+      }
+      void pusher.trigger(request.senderId, "event", { type: "clan" });
+      return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "CLAN");
+    }),
+  cancelRequest: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const request = await fetchRequest(ctx.drizzle, input.id, "CLAN");
+      if (request.senderId !== ctx.userId) {
+        return errorResponse("You can only cancel requests created by you");
+      }
+      if (request.status !== "PENDING") {
+        return errorResponse("You can only cancel pending requests");
+      }
+      void pusher.trigger(request.receiverId, "event", { type: "clan" });
+      return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "CLAN");
+    }),
+  acceptRequest: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const request = await fetchRequest(ctx.drizzle, input.id, "CLAN");
+      // Secondary fetches
+      const [fetchedClan, requester, leader] = await Promise.all([
+        fetchClanByLeader(ctx.drizzle, request.receiverId),
+        fetchUser(ctx.drizzle, request.senderId),
+        fetchUser(ctx.drizzle, request.receiverId),
+      ]);
+      // Derived
+      const nMembers = fetchedClan?.members.length || 0;
+      // Guards
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!requester) return errorResponse("Requester not found");
+      if (!leader) return errorResponse("Leader not found");
+      if (nMembers >= CLAN_MAX_MEMBERS) return errorResponse("Clan is full");
+      if (ctx.userId !== request.receiverId) return errorResponse("Not your request");
+      if (ctx.userId !== fetchedClan.leaderId) return errorResponse("Not clan leader");
+      if (requester.clanId) return errorResponse("Requester already in a clan");
+      if (requester.villageId !== leader.villageId) return errorResponse("!= village");
+      if (!hasRequiredRank(leader.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
+      }
+      // Mutate
+      await Promise.all([
+        updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "CLAN"),
+        ctx.drizzle
+          .update(userData)
+          .set({ clanId: fetchedClan.id })
+          .where(eq(userData.userId, requester.userId)),
+      ]);
+      void pusher.trigger(request.senderId, "event", { type: "clan" });
+      // Create
+      return { success: true, message: "Request accepted" };
+    }),
+  createClan: protectedProcedure
+    .input(clanCreateSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, village, clans] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchVillage(ctx.drizzle, input.villageId),
+        fetchClans(ctx.drizzle, input.villageId),
+      ]);
+      // Derived
+      const villageId = village?.id;
+      const structure = village?.structures.find((s) => s.route === "/clanhall");
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!village) return errorResponse("Village not found");
+      if (!structure) return errorResponse("Clan hall not found");
+      if (villageId !== user.villageId) return errorResponse("Wrong user village");
+      if (clans.length > structure.level) return errorResponse("Max clans reached");
+      if (user.clanId) return errorResponse("Already in a clan");
+      if (user.isAi) return errorResponse("AI cannot be leader");
+      if (user.money < CLAN_CREATE_RYO_COST) return errorResponse("Not enough ryo");
+      if (user.villagePrestige < CLAN_CREATE_PRESTIGE_REQUIREMENT) {
+        return errorResponse("Not enough prestige");
+      }
+      if (!hasRequiredRank(user.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse("Rank too low");
+      }
+      // Reduce money
+      const clanId = nanoid();
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          clanId: clanId,
+          money: sql`${userData.money} - ${CLAN_CREATE_RYO_COST}`,
+        })
+        .where(eq(userData.userId, user.userId));
+      if (result.rowsAffected === 0) return errorResponse("Failed to reduce money");
+      // Mutate
+      await ctx.drizzle.insert(clan).values({
+        id: clanId,
+        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        villageId: village.id,
+        name: input.name,
+        founderId: user.userId,
+        leaderId: user.userId,
+        leaderOrderId: nanoid(),
+      });
+      // Create
+      return { success: true, message: "Clan created" };
+    }),
+  editClan: protectedProcedure
+    .input(z.object({ clanId: z.string(), name: z.string(), image: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan, image] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        ctx.drizzle.query.historicalAvatar.findFirst({
+          where: eq(historicalAvatar.avatar, input.image),
+        }),
+      ]);
+      // Guards
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!user) return errorResponse("User not found");
+      if (!image) return errorResponse("Image not found");
+      if (!image.avatar) return errorResponse("Image not found");
+      if (fetchedClan.leaderId !== user.userId) return errorResponse("Not clan leader");
+      if (fetchedClan.villageId !== user.villageId) return errorResponse("!= village");
+      if (user.clanId !== fetchedClan.id) return errorResponse("Wrong Clan");
+      // Mutate
+      await ctx.drizzle
+        .update(clan)
+        .set({ name: input.name, image: image.avatar })
+        .where(eq(clan.id, fetchedClan.id));
+      // Create
+      return { success: true, message: "Clan updated" };
+    }),
+  promoteMember: protectedProcedure
+    .input(z.object({ clanId: z.string(), memberId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan, member] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchUser(ctx.drizzle, input.memberId),
+      ]);
+      // Derived
+      const isLeader = user.userId === fetchedClan?.leaderId;
+      const isColeader = checkCoLeader(user.userId, fetchedClan);
+      const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
+      const updateData = (() => {
+        if (isMemberColeader && isLeader) return { leaderId: input.memberId };
+        if (!fetchedClan?.coLeader1) return { coLeader1: input.memberId };
+        if (!fetchedClan?.coLeader2) return { coLeader2: input.memberId };
+        if (!fetchedClan?.coLeader3) return { coLeader3: input.memberId };
+        if (!fetchedClan?.coLeader4) return { coLeader4: input.memberId };
+        return null;
+      })();
+      // Guards
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!user) return errorResponse("User not found");
+      if (!member) return errorResponse("Member not found");
+      if (!isLeader && !isColeader) return errorResponse("Only leaders can promote");
+      if (isMemberColeader && !isLeader) return errorResponse("Only for leader");
+      if (member.userId === user.userId) return errorResponse("Not yourself");
+      if (member.clanId !== fetchedClan.id) return errorResponse("Not in clan");
+      if (!updateData) return errorResponse("No more co-leaders can be added");
+      if (!hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse("Leader rank too low");
+      }
+      // Mutate
+      await ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id));
+      // Create
+      return { success: true, message: "Member promoted" };
+    }),
+  demoteMember: protectedProcedure
+    .input(z.object({ clanId: z.string(), memberId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, clanData, member] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchUser(ctx.drizzle, input.memberId),
+      ]);
+      // Derived
+      const isLeader = user.userId === clanData?.leaderId;
+      const isColeader = checkCoLeader(user.userId, clanData);
+      const isMemberLeader = input.memberId === clanData?.leaderId;
+      const isMemberColeader = checkCoLeader(input.memberId, clanData);
+      const isYourself = ctx.userId === input.memberId;
+      // Guards
+      if (!clanData) return errorResponse("Clan not found");
+      if (!user) return errorResponse("User not found");
+      if (!member) return errorResponse("Member not found");
+      if (!isLeader && !isColeader) return errorResponse("Only leaders can demote");
+      if (isMemberLeader) return errorResponse("New leader must be promoted first");
+      if (member.clanId !== clanData.id) return errorResponse("Not in clan");
+      if (!hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse("Leader rank too low");
+      }
+      if (isMemberColeader && !isLeader && !isYourself) {
+        return errorResponse("Only for leader");
+      }
+      // Mutate
+      await ctx.drizzle
+        .update(clan)
+        .set({
+          coLeader1: clanData.coLeader1 === member.userId ? null : clanData.coLeader1,
+          coLeader2: clanData.coLeader2 === member.userId ? null : clanData.coLeader2,
+          coLeader3: clanData.coLeader3 === member.userId ? null : clanData.coLeader3,
+          coLeader4: clanData.coLeader4 === member.userId ? null : clanData.coLeader4,
+        })
+        .where(eq(clan.id, clanData.id));
+      // Create
+      return { success: true, message: "Member demoted" };
+    }),
+  kickMember: protectedProcedure
+    .input(z.object({ clanId: z.string(), memberId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan, member] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchUser(ctx.drizzle, input.memberId),
+      ]);
+      // Derived
+      const isLeader = user.userId === fetchedClan?.leaderId;
+      const isColeader = checkCoLeader(user.userId, fetchedClan);
+      const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
+      // Guards
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!user) return errorResponse("User not found");
+      if (!member) return errorResponse("Member not found");
+      if (fetchedClan.villageId !== user.villageId) return errorResponse("!= village");
+      if (!isLeader && !isColeader) return errorResponse("Not allowed");
+      if (!isLeader && isMemberColeader) return errorResponse("Only leader can kick");
+      // Mutate
+      await removeFromClan(ctx.drizzle, fetchedClan, member.userId);
+      // Create
+      return { success: true, message: "Member kicked" };
+    }),
+  leaveClan: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (!user.clanId) return errorResponse("Not in a clan");
+      if (user.clanId !== fetchedClan.id) return errorResponse("Wrong clan");
+      if (user.villageId !== fetchedClan.villageId) {
+        return errorResponse("Wrong village");
+      }
+      // Derived
+      await removeFromClan(ctx.drizzle, fetchedClan, user.userId);
+      // Create
+      return { success: true, message: "User left clan" };
+    }),
+  upsertNotice: protectedProcedure
+    .input(z.object({ content: z.string(), clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Derived
+      const isLeader = fetchedClan?.leaderId === user.userId;
+      const isCoLeader = checkCoLeader(ctx.userId, fetchedClan);
+      const leaderLike = isLeader || isCoLeader;
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (user.isBanned) return errorResponse("User is banned");
+      if (!leaderLike) return errorResponse("Not in clan leadership");
+      // Update
+      return updateNindo(ctx.drizzle, fetchedClan.leaderOrderId, input.content);
+    }),
+  fightLeader: protectedProcedure
+    .input(z.object({ clanId: z.string(), villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, clanData, village] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchVillage(ctx.drizzle, input.villageId),
+      ]);
+      // Guards
+      if (!village) return errorResponse("Village not found");
+      if (!user.clanId) return errorResponse("Must be within the clan to challenge");
+      if (!clanData) return errorResponse("Clan not found");
+      if (user.villageId !== village.id) return errorResponse("Wrong village");
+      if (clanData.id !== user.clanId) return errorResponse("Wrong clan");
+      if (!hasRequiredRank(user.rank, CLAN_RANK_REQUIREMENT)) {
+        return errorResponse("Rank too low");
+      }
+      // Start the battle
+      return await initiateBattle(
+        {
+          userId: ctx.userId,
+          targetId: clanData.leaderId,
+          client: ctx.drizzle,
+        },
+        "CLAN_CHALLENGE",
+        determineArenaBackground(village.name),
+      );
+    }),
+});
+
+/**
+ * Removes a user from an clan.
+ *
+ * @param client - The DrizzleClient instance used for database operations.
+ * @param clanData - The clan from which the user will be removed.
+ * @param userId - The ID of the user to be removed from the clan.
+ */
+export const removeFromClan = async (
+  client: DrizzleClient,
+  clanData: NonNullable<ClanRouter["get"]>,
+  userId: string,
+) => {
+  // Derived
+  const nMembers = clanData?.members.length || 0;
+  const isLeader = clanData?.leaderId === userId;
+  // Find another user, prefer coleaders in case it's leader being removed
+  const otherUser = clanData?.members
+    .filter((m) => hasRequiredRank(m.rank, CLAN_RANK_REQUIREMENT))
+    .sort((a, b) => {
+      if (checkCoLeader(a.userId, clanData)) return -1;
+      if (checkCoLeader(b.userId, clanData)) return 1;
+      return 0;
+    })
+    .find((m) => m.userId !== userId);
+  const coLeadersToRemove = isLeader ? [userId, otherUser?.userId ?? null] : [userId];
+  // Mutate
+  await Promise.all([
+    client.update(userData).set({ clanId: null }).where(eq(userData.userId, userId)),
+    ...(nMembers <= 1
+      ? [
+          client.delete(clan).where(eq(clan.id, clanData.id)),
+          client
+            .update(userData)
+            .set({ clanId: null })
+            .where(eq(userData.clanId, clanData.id)),
+        ]
+      : [
+          client
+            .update(clan)
+            .set({
+              leaderId: isLeader && otherUser ? otherUser.userId : clanData.leaderId,
+              coLeader1: coLeadersToRemove.includes(clanData.coLeader1)
+                ? null
+                : clanData.coLeader1,
+              coLeader2: coLeadersToRemove.includes(clanData.coLeader2)
+                ? null
+                : clanData.coLeader2,
+              coLeader3: coLeadersToRemove.includes(clanData.coLeader3)
+                ? null
+                : clanData.coLeader3,
+              coLeader4: coLeadersToRemove.includes(clanData.coLeader4)
+                ? null
+                : clanData.coLeader4,
+            })
+            .where(eq(clan.id, clanData.id)),
+        ]),
+  ]);
+};
+
+/**
+ * Fetches clans based on the provided village ID.
+ * @param client - The DrizzleClient instance used for querying.
+ * @param villageId - The ID of the village to fetch clans for.
+ * @returns A promise that resolves to an array of clans.
+ */
+export const fetchClans = async (client: DrizzleClient, villageId: string) => {
+  return await client.query.clan.findMany({
+    with: {
+      leader: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+      founder: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+      members: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+    },
+    where: eq(clan.villageId, villageId),
+  });
+};
+
+/**
+ * Fetches a clan from the database based on the clan ID.
+ *
+ * @param  client - The Drizzle client used to query the database.
+ * @param  clanId - The ID of the clan to fetch.
+ * @returns - A promise that resolves to the fetched clan, or null if not found.
+ */
+export const fetchClan = async (client: DrizzleClient, clanId: string) => {
+  return await client.query.clan.findFirst({
+    with: {
+      leader: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+      founder: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+      village: {
+        columns: {
+          name: true,
+        },
+      },
+      members: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+          pvpActivity: true,
+        },
+      },
+      leaderOrder: true,
+    },
+    where: eq(clan.id, clanId),
+  });
+};
+
+/**
+ * Fetches the clan details by leader ID.
+ * @param client - The Drizzle client instance.
+ * @param leaderId - The ID of the clan leader.
+ * @returns - A promise that resolves to the clan details.
+ */
+export const fetchClanByLeader = async (client: DrizzleClient, leaderId: string) => {
+  return await client.query.clan.findFirst({
+    with: {
+      members: {
+        columns: {
+          userId: true,
+          username: true,
+          level: true,
+          rank: true,
+          avatar: true,
+        },
+      },
+    },
+    where: eq(clan.leaderId, leaderId),
+  });
+};
+
+export type ClanRouter = inferRouterOutputs<typeof clanRouter>;

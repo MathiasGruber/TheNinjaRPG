@@ -12,7 +12,7 @@ import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
-import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import { RANKS_RESTRICTED_FROM_PVP, AutoBattleTypes } from "@/drizzle/constants";
 import { secondsFromDate, secondsFromNow } from "@/utils/time";
 import { defineHex } from "@/libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
@@ -20,7 +20,7 @@ import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
-import { updateVillage, updateKage } from "@/libs/combat/database";
+import { updateVillage, updateKage, updateClan } from "@/libs/combat/database";
 import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
@@ -196,7 +196,7 @@ export const combatRouter = createTRPCRouter({
         if (!battle) return { updateClient: true };
 
         // For kage battles, only allow one move per action
-        const maxActions = battle.battleType === "KAGE" ? 1 : 5;
+        const maxActions = AutoBattleTypes.includes(battle.battleType) ? 1 : 5;
 
         // Instantiate new state variables
         const history: {
@@ -244,7 +244,9 @@ export const combatRouter = createTRPCRouter({
             const actions = availableUserActions(newBattle, suid, true, true);
             const action = actions.find((a) => a.id === input.actionId);
             if (!action) throw serverError("CONFLICT", `Invalid action`);
-            if (battle.battleType === "KAGE") throw serverError("FORBIDDEN", `Cheater`);
+            if (AutoBattleTypes.includes(battle.battleType)) {
+              throw serverError("FORBIDDEN", `Cheater`);
+            }
             try {
               const newState = performBattleAction({
                 battle: newBattle,
@@ -374,6 +376,7 @@ export const combatRouter = createTRPCRouter({
               saveUsage(db, newBattle, result, suid),
               updateUser(db, newBattle, result, suid),
               updateKage(db, newBattle, result, suid),
+              updateClan(db, newBattle, result, suid),
               updateVillage(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
@@ -641,10 +644,12 @@ export const initiateBattle = async (
         users[1].immunityUntil.toLocaleTimeString(),
     };
   }
+
+  // Awake tests
   if (users[0].status !== "AWAKE") {
     return { success: false, message: "Aggressor is not awake" };
   }
-  if (users[1].status !== "AWAKE" && battleType !== "KAGE") {
+  if (users[1].status !== "AWAKE" && !AutoBattleTypes.includes(battleType)) {
     return { success: false, message: "Defender is not awake" };
   }
 
@@ -711,7 +716,7 @@ export const initiateBattle = async (
   if (usersState[0]) usersState[0].isAggressor = true;
 
   // If this is a kage challenge, convert all to be AIs & set them as not originals
-  if (battleType === "KAGE") {
+  if (AutoBattleTypes.includes(battleType)) {
     usersState.forEach((u) => {
       u.curHealth = u.maxHealth;
       u.curChakra = u.maxChakra;
@@ -795,7 +800,8 @@ export const initiateBattle = async (
   const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
 
   // When to start the battle
-  const startTime = ["ARENA", "KAGE", "QUEST"].includes(battleType)
+  const noLobbyTypes = ["ARENA", "KAGE_CHALLENGE", "CLAN_CHALLENGE", "QUEST"];
+  const startTime = noLobbyTypes.includes(battleType)
     ? new Date()
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
@@ -834,7 +840,7 @@ export const initiateBattle = async (
         pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pvpFights} + 1`
           : sql`${userData.pvpFights}`,
-        pveFights: !["SPARRING", "COMBAT", "KAGE"].includes(battleType)
+        pveFights: !["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pveFights} + 1`
           : sql`${userData.pveFights}`,
         updatedAt: new Date(),
@@ -846,7 +852,9 @@ export const initiateBattle = async (
         and(
           or(
             eq(userData.userId, userId),
-            ...(battleType !== "KAGE" ? [eq(userData.userId, targetId)] : []),
+            ...(!AutoBattleTypes.includes(battleType)
+              ? [eq(userData.userId, targetId)]
+              : []),
           ),
           eq(userData.status, "AWAKE"),
           ...(battleType === "COMBAT"
@@ -864,8 +872,8 @@ export const initiateBattle = async (
 
   // Check if success
   if (
-    (battleType === "KAGE" && userResult.rowsAffected !== 1) ||
-    (battleType !== "KAGE" && userResult.rowsAffected !== 2)
+    (AutoBattleTypes.includes(battleType) && userResult.rowsAffected !== 1) ||
+    (!AutoBattleTypes.includes(battleType) && userResult.rowsAffected !== 2)
   ) {
     await Promise.all([
       client
@@ -882,7 +890,7 @@ export const initiateBattle = async (
   void pusher.trigger(targetId, "event", { type: "battle" });
 
   // Hide users on map when in combat
-  if (battleType !== "KAGE") {
+  if (battleType !== "KAGE_CHALLENGE") {
     void pusher.trigger(users[0].sector.toString(), "event", {
       userId: users[0].userId,
       longitude: users[0].longitude,

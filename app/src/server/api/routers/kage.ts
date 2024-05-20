@@ -35,7 +35,7 @@ export const kageRouter = createTRPCRouter({
           targetId: kage.userId,
           client: ctx.drizzle,
         },
-        "KAGE",
+        "KAGE_CHALLENGE",
         determineArenaBackground(village?.name || "Unknown"),
       );
     }),

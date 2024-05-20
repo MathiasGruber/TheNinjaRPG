@@ -247,11 +247,17 @@ export const clan = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
-    description: text("description").notNull(),
-    points: int("points").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
     founderId: varchar("founderId", { length: 191 }).notNull(),
     leaderId: varchar("leaderId", { length: 191 }).notNull(),
+    coLeader1: varchar("coLeader1", { length: 191 }),
+    coLeader2: varchar("coLeader2", { length: 191 }),
+    coLeader3: varchar("coLeader3", { length: 191 }),
+    coLeader4: varchar("coLeader4", { length: 191 }),
+    leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
+    points: int("points").default(0).notNull(),
+    bank: int("bank").default(0).notNull(),
+    pvpActivity: int("pvpActivity").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -266,6 +272,27 @@ export const clan = mysqlTable(
     };
   },
 );
+export type Clan = InferSelectModel<typeof clan>;
+
+export const clanRelations = relations(clan, ({ one, many }) => ({
+  members: many(userData),
+  village: one(village, {
+    fields: [clan.villageId],
+    references: [village.id],
+  }),
+  leader: one(userData, {
+    fields: [clan.leaderId],
+    references: [userData.userId],
+  }),
+  founder: one(userData, {
+    fields: [clan.founderId],
+    references: [userData.userId],
+  }),
+  leaderOrder: one(userNindo, {
+    fields: [clan.leaderOrderId],
+    references: [userNindo.userId],
+  }),
+}));
 
 export const conversation = mysqlTable(
   "Conversation",
@@ -840,6 +867,7 @@ export const userData = mysqlTable(
     userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
     recruiterId: varchar("recruiterId", { length: 191 }),
     anbuId: varchar("anbuId", { length: 191 }),
+    clanId: varchar("clanId", { length: 191 }),
     jutsuLoadout: varchar("jutsuLoadout", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
@@ -1038,6 +1066,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   anbuSquad: one(anbuSquad, {
     fields: [userData.anbuId],
     references: [anbuSquad.id],
+  }),
+  clan: one(clan, {
+    fields: [userData.clanId],
+    references: [clan.id],
   }),
   loadout: one(jutsuLoadout, {
     fields: [userData.jutsuLoadout],

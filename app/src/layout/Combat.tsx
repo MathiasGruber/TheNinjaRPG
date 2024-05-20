@@ -135,7 +135,9 @@ const Combat: React.FC<CombatProps> = (props) => {
     if (
       battle.current &&
       isInLobby &&
-      !["KAGE", "ARENA", "QUEST"].includes(battle.current.battleType)
+      !["KAGE_CHALLENGE", "CLAN_CHALLENGE", "ARENA", "QUEST"].includes(
+        battle.current.battleType,
+      )
     ) {
       const user = battle.current.usersState.find((u) => u.userId === suid);
       if (user && !user.iAmHere) {

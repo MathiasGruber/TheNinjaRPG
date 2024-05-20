@@ -148,8 +148,17 @@ export const UserStatNames = [
   "willpower",
 ] as const;
 
-export const BattleTypes = ["ARENA", "COMBAT", "SPARRING", "KAGE", "QUEST"] as const;
+export const BattleTypes = [
+  "ARENA",
+  "COMBAT",
+  "SPARRING",
+  "KAGE_CHALLENGE",
+  "CLAN_CHALLENGE",
+  "QUEST",
+] as const;
 export type BattleType = (typeof BattleTypes)[number];
+
+export const AutoBattleTypes = ["KAGE_CHALLENGE", "CLAN_CHALLENGE"];
 
 export const BattleDataEntryType = [
   "jutsu",
@@ -193,6 +202,7 @@ export const UserRequestTypes = [
   "SURRENDER",
   "SENSEI",
   "ANBU",
+  "CLAN",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -298,3 +308,9 @@ export const FED_GOLD_JUTSU_LOADOUTS = 3;
 
 // Missions config
 export const MISSIONS_PER_DAY = 50;
+
+// Clans config
+export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
+export const CLAN_CREATE_RYO_COST = 1000000;
+export const CLAN_RANK_REQUIREMENT = "CHUNIN";
+export const CLAN_MAX_MEMBERS = 50;

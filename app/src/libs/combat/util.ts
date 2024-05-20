@@ -379,7 +379,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const moneyDelta = newMoney - user.originalMoney;
 
       // Prestige calculation
-      if (battleType === "KAGE" && !didWin && user.isAggressor) {
+      if (battleType === "KAGE_CHALLENGE" && !didWin && user.isAggressor) {
         deltaPrestige = -KAGE_PRESTIGE_COST;
       }
 

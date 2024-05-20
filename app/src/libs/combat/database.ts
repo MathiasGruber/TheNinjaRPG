@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { eq, and, sql, lt, gte, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs/travel/constants";
 import { battle, battleAction, userData, userItem, userJutsu } from "@/drizzle/schema";
-import { kageDefendedChallenges, village, anbuSquad } from "@/drizzle/schema";
+import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { stillInBattle } from "./actions";
@@ -150,7 +150,7 @@ export const updateKage = async (
   const user = curBattle.usersState.find((u) => u.userId === userId);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
-  if (curBattle.battleType !== "KAGE") return;
+  if (curBattle.battleType !== "KAGE_CHALLENGE") return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
   // Apply
@@ -174,6 +174,35 @@ export const updateKage = async (
       }),
     ]);
   }
+};
+
+export const updateClan = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch
+  const user = curBattle.usersState.find((u) => u.userId === userId);
+  const leader = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  // Guards
+  if (!result) return;
+  if (curBattle.battleType !== "CLAN_CHALLENGE") return;
+  if (!user || !user.clanId || !leader || !leader.clanId) return;
+  if (user.clanId !== leader.clanId) return;
+  if (!user.isAggressor) return;
+  if (!result.didWin) return;
+  // Apply
+  await client
+    .update(clan)
+    .set({
+      leaderId: user.userId,
+      coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+      coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+      coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+      coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+    })
+    .where(eq(clan.id, user.clanId));
 };
 
 export const updateVillage = async (
@@ -200,6 +229,14 @@ export const updateVillage = async (
             .update(anbuSquad)
             .set({ pvpActivity: sql`${anbuSquad.pvpActivity} + 1` })
             .where(eq(anbuSquad.id, user.anbuId)),
+        ]
+      : []),
+    ...(user.clanId
+      ? [
+          client
+            .update(clan)
+            .set({ pvpActivity: sql`${clan.pvpActivity} + 1` })
+            .where(eq(clan.id, user.clanId)),
         ]
       : []),
   ]);
@@ -242,7 +279,8 @@ export const updateUser = async (
       user.questData = trackers;
     }
     // Is it a kage challenge
-    const isKageChallenge = curBattle.battleType === "KAGE";
+    const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
+    const isClanChallenge = curBattle.battleType === "CLAN_CHALLENGE";
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
@@ -328,6 +366,9 @@ export const updateUser = async (
             ? {
                 rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
               }
+            : {}),
+          ...(isClanChallenge && !result.didWin && user.isAggressor
+            ? { clanId: null }
             : {}),
           ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
             ? {

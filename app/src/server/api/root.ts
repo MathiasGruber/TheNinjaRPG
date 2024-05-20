@@ -8,6 +8,7 @@ import { bloodlineRouter } from "./routers/bloodline";
 import { combatRouter } from "./routers/combat";
 import { commentsRouter } from "./routers/comments";
 import { conceptartRouter } from "./routers/conceptart";
+import { clanRouter } from "./routers/clan";
 import { dataRouter } from "./routers/data";
 import { forumRouter } from "./routers/forum";
 import { homeRouter } from "./routers/home";
@@ -44,6 +45,7 @@ export const appRouter = createTRPCRouter({
   combat: combatRouter,
   comments: commentsRouter,
   conceptart: conceptartRouter,
+  clan: clanRouter,
   data: dataRouter,
   forum: forumRouter,
   home: homeRouter,
