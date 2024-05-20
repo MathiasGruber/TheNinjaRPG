@@ -256,7 +256,7 @@ export const clan = mysqlTable(
     coLeader4: varchar("coLeader4", { length: 191 }),
     leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
     points: int("points").default(0).notNull(),
-    bank: int("bank").default(0).notNull(),
+    bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)

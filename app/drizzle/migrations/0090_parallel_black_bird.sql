@@ -1,0 +1,1 @@
+ALTER TABLE `Clan` MODIFY COLUMN `bank` bigint NOT NULL;

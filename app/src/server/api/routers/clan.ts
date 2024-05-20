@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { clan, userData, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
@@ -402,6 +402,28 @@ export const clanRouter = createTRPCRouter({
         "CLAN_CHALLENGE",
         determineArenaBackground(village.name),
       );
+    }),
+  toBank: protectedProcedure
+    .input(z.object({ amount: z.number().min(0), clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, fetchedClan] = await Promise.all([
+        await fetchUser(ctx.drizzle, ctx.userId),
+        await fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      if (user.money < input.amount) return errorResponse("Not enough money in pocket");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (!user.clanId) return errorResponse("Not in a clan");
+      if (fetchedClan?.id !== user.clanId) return errorResponse("Not in the clan");
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ money: sql`${userData.money} - ${input.amount}` })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, input.amount)));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Not enough money in pocket" };
+      }
+      await ctx.drizzle.update(clan).set({ bank: sql`${clan.bank} + ${input.amount}` });
+      return { success: true, message: `Successfully deposited ${input.amount} ryo` };
     }),
 });
 

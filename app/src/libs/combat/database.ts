@@ -235,7 +235,10 @@ export const updateVillage = async (
       ? [
           client
             .update(clan)
-            .set({ pvpActivity: sql`${clan.pvpActivity} + 1` })
+            .set({
+              pvpActivity: sql`${clan.pvpActivity} + 1`,
+              points: sql`${clan.points} + 1`,
+            })
             .where(eq(clan.id, user.clanId)),
         ]
       : []),

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import Link from "next/link";
 import ReactHtmlParser from "react-html-parser";
 import ContentBox from "@/layout/ContentBox";
@@ -14,7 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Pencil, DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
-import { SendHorizontal, Swords, DoorClosed } from "lucide-react";
+import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import UserRequestSystem from "@/layout/UserRequestSystem";
@@ -420,8 +421,29 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
+  // Deposit to bank
+  const money = userData?.money ?? 0;
+  const fromPocketSchema = z.object({
+    amount: z.coerce.number().int().positive().max(money),
+  });
+  const toBankForm = useForm<z.infer<typeof fromPocketSchema>>({
+    resolver: zodResolver(fromPocketSchema),
+  });
+  const { mutate: toBank, isPending: isDepositing } = api.clan.toBank.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.clan.get.invalidate();
+        toBankForm.reset();
+      }
+    },
+  });
+  const onDeposit = toBankForm.handleSubmit((data) => toBank({ ...data, clanId }));
+
   // Loader
   if (!clanData) return <Loader explanation="Loading clan data" />;
+  if (isDepositing) return <Loader explanation="Depositing money" />;
 
   // Derived
   const inClan = userData.clanId === clanData.id;
@@ -490,7 +512,42 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
             <div>
               <p>PvP Activity: {clanData.pvpActivity}</p>
               <p>Points: {clanData.points}</p>
-              <p>Bank: {clanData.bank}</p>
+              <div className="flex flex-row items-center">
+                <p>Bank: {clanData.bank}</p>{" "}
+                <Confirm
+                  title="Donate to clan"
+                  proceed_label="Submit"
+                  button={
+                    <PiggyBank className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                  }
+                  onAccept={onDeposit}
+                >
+                  <p>
+                    Confirm donating money from pocket to clan bank. You currently have{" "}
+                    {userData.money} ryo in your pocket.
+                  </p>
+                  <Form {...toBankForm}>
+                    <form onSubmit={onDeposit} className="relative">
+                      <FormField
+                        control={toBankForm.control}
+                        name="amount"
+                        render={({ field }) => (
+                          <FormItem className="w-full flex flex-col">
+                            <FormControl>
+                              <Input
+                                id="amount"
+                                placeholder="Transfer to bank"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
+                </Confirm>
+              </div>
             </div>
           </div>
           {(isLeader || isCoLeader) && (
