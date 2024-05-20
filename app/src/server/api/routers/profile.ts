@@ -156,7 +156,8 @@ export const profileRouter = createTRPCRouter({
       if (!user.currentlyTraining) return errorResponse("Not currently training");
       // Derived
       const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
-      const factor = 1 + boost / 100;
+      const clanBoost = user?.clan?.trainingBoost || 0;
+      const factor = 1 + boost / 100 + clanBoost / 100;
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
       const energySpent = Math.min(
