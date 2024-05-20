@@ -5,7 +5,7 @@ import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
 import { eq, or, and } from "drizzle-orm";
-import { item, jutsu, badge, bankTransfers } from "@/drizzle/schema";
+import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
@@ -303,6 +303,7 @@ export const questsRouter = createTRPCRouter({
           objectives: [],
           reward: {
             reward_money: 0,
+            reward_clanpoints: 0,
             reward_exp: 0,
             reward_tokens: 0,
             reward_prestige: 0,
@@ -458,6 +459,13 @@ export const questsRouter = createTRPCRouter({
               .update(village)
               .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
               .where(eq(village.id, user.villageId))
+          : undefined,
+        // Update clan points
+        rewards.reward_clanpoints > 0 && user.clanId
+          ? ctx.drizzle
+              .update(clan)
+              .set({ points: sql`${clan.points} + ${rewards.reward_clanpoints}` })
+              .where(eq(clan.id, user.clanId))
           : undefined,
         // Update quest history
         resolved
