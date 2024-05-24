@@ -704,25 +704,29 @@ export const profileRouter = createTRPCRouter({
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Derived
-      const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
+      const inputSum = Object.values(input).reduce(
+        (a, b) => Math.floor(a) + Math.floor(b),
+        0,
+      );
       // Guard
+      if (inputSum <= 0) return errorResponse("No stats to assign");
       if (user.earnedExperience <= 0) return errorResponse("No experience left");
       if (inputSum > user.earnedExperience) {
         return errorResponse("Trying to assign more stats than available");
       }
       // Mutate & cap
-      user.ninjutsuOffence += input.ninjutsuOffence;
-      user.taijutsuOffence += input.taijutsuOffence;
-      user.genjutsuOffence += input.genjutsuOffence;
-      user.bukijutsuOffence += input.bukijutsuOffence;
-      user.ninjutsuDefence += input.ninjutsuDefence;
-      user.taijutsuDefence += input.taijutsuDefence;
-      user.genjutsuDefence += input.genjutsuDefence;
-      user.bukijutsuDefence += input.bukijutsuDefence;
-      user.strength += input.strength;
-      user.speed += input.speed;
-      user.intelligence += input.intelligence;
-      user.willpower += input.willpower;
+      user.ninjutsuOffence += Math.floor(input.ninjutsuOffence);
+      user.taijutsuOffence += Math.floor(input.taijutsuOffence);
+      user.genjutsuOffence += Math.floor(input.genjutsuOffence);
+      user.bukijutsuOffence += Math.floor(input.bukijutsuOffence);
+      user.ninjutsuDefence += Math.floor(input.ninjutsuDefence);
+      user.taijutsuDefence += Math.floor(input.taijutsuDefence);
+      user.genjutsuDefence += Math.floor(input.genjutsuDefence);
+      user.bukijutsuDefence += Math.floor(input.bukijutsuDefence);
+      user.strength += Math.floor(input.strength);
+      user.speed += Math.floor(input.speed);
+      user.intelligence += Math.floor(input.intelligence);
+      user.willpower += Math.floor(input.willpower);
       capUserStats(user);
       // Update
       const result = await ctx.drizzle
