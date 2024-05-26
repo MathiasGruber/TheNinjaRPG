@@ -52,7 +52,7 @@ import type { ClanRouter } from "@/routers/clan";
  */
 interface ClansOverviewProps {}
 
-export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
+export const ClansOverview: React.FC<ClansOverviewProps> = () => {
   // Must be in allied village
   const { userData } = useRequireInVillage("/clanhall");
 
