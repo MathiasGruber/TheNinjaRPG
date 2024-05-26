@@ -248,6 +248,16 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     },
   });
 
+  const { mutate: leave } = api.clan.leaveClanBattle.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.clan.getClanBattles.invalidate();
+      }
+    },
+  });
+
   const { mutate: initiate, isPending: isInitiating } =
     api.clan.initiateClanBattle.useMutation({
       onSuccess: async (data) => {
@@ -353,21 +363,23 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
       clan1name: showClanSide(battle.id, userData.clanId, battle.clan1, challengers),
       clan2name: showClanSide(battle.id, userData.clanId, battle.clan2, defenders),
       countdown: (
-        <Countdown
-          targetDate={startTime}
-          timeDiff={timeDiff}
-          onEndShow={
-            isInitiating ? (
-              <Loader explanation="Starting battle" />
-            ) : inBattle ? (
-              <Button onClick={() => initiate({ clanBattleId: battle.id })}>
-                <CirclePlay className="h-6 w-6 mr-2" /> Start
-              </Button>
-            ) : (
-              "About to start"
+        <div className="flex flex-col gap-1">
+          {isInitiating ? (
+            <Loader explanation="Starting battle" />
+          ) : (
+            inBattle && (
+              <>
+                <Button onClick={() => initiate({ clanBattleId: battle.id })}>
+                  <CirclePlay className="h-6 w-6 mr-2" /> Start
+                </Button>
+                <Button onClick={() => leave({ clanBattleId: battle.id })}>
+                  <DoorOpen className="h-6 w-6 mr-2" /> Leave
+                </Button>
+              </>
             )
-          }
-        />
+          )}
+          <Countdown targetDate={startTime} timeDiff={timeDiff} onEndShow=" " />
+        </div>
       ),
     };
   });

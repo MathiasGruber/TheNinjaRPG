@@ -17,7 +17,7 @@ import {
   updateRequestState,
 } from "@/routers/sparring";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
-import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
+import { CLAN_LOBBY_SECONDS, CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
@@ -25,6 +25,7 @@ import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
+import { secondsFromNow } from "@/utils/time";
 
 const pusher = getServerPusher();
 
@@ -620,6 +621,46 @@ export const clanRouter = createTRPCRouter({
       });
       return { success: true, message: "Joined clan battle" };
     }),
+  leaveClanBattle: protectedProcedure
+    .input(z.object({ clanBattleId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, clanBattleData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClanBattle(ctx.drizzle, input.clanBattleId),
+      ]);
+      // Derived
+      const queued = clanBattleData?.queue.some((q) => q.userId === user.userId);
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (user.status !== "QUEUED") return errorResponse("Must be queued to leave");
+      if (!queued) return errorResponse("Not in the queue");
+      // Mutation
+      await Promise.all([
+        ...(clanBattleData.queue.length === 1
+          ? [
+              ctx.drizzle
+                .delete(mpvpBattleQueue)
+                .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
+            ]
+          : []),
+        ctx.drizzle
+          .delete(mpvpBattleUser)
+          .where(
+            and(
+              eq(mpvpBattleUser.clanBattleId, input.clanBattleId),
+              eq(mpvpBattleUser.userId, ctx.userId),
+            ),
+          ),
+        ctx.drizzle
+          .update(userData)
+          .set({ status: "AWAKE" })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      return { success: true, message: "Clan battle deleted" };
+    }),
   initiateClanBattle: protectedProcedure
     .input(z.object({ clanBattleId: z.string() }))
     .output(baseServerResponse)
@@ -655,6 +696,9 @@ export const clanRouter = createTRPCRouter({
         clanBattleData.clan2Id !== user.clanId
       ) {
         return errorResponse("Not in the clan battle");
+      }
+      if (new Date() < secondsFromNow(CLAN_LOBBY_SECONDS, clanBattleData.createdAt)) {
+        return errorResponse("Clan battle not started yet");
       }
       // Start the battle
       const result = await initiateBattle(
