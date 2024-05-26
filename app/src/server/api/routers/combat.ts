@@ -669,13 +669,15 @@ export const initiateBattle = async (
     }
 
     // Rank restrictions
-    if (userIds.includes(user.userId)) {
-      if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank)) {
-        return { success: false, message: "Need to rank up to do PvP combat" };
-      }
-    } else {
-      if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && user.isAi === 0) {
-        return { success: false, message: "Cannot attack students & genin" };
+    if (battleType === "COMBAT") {
+      if (userIds.includes(user.userId)) {
+        if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank)) {
+          return { success: false, message: "Need to rank up to do PvP combat" };
+        }
+      } else {
+        if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && user.isAi === 0) {
+          return { success: false, message: "Cannot attack students & genin" };
+        }
       }
     }
 
