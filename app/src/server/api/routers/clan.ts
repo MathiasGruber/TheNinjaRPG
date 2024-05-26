@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, inArray } from "drizzle-orm";
 import { clan, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
-import { userData, historicalAvatar } from "@/drizzle/schema";
+import { userData, userRequest, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { fetchVillage } from "@/routers/village";
@@ -182,7 +182,8 @@ export const clanRouter = createTRPCRouter({
       if (villageId !== user.villageId) return errorResponse("Wrong user village");
       if (clans.length > structure.level) return errorResponse("Max clans reached");
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
-      if (user.clanId) return errorResponse("Already in a clan");
+      if (clans.find((c) => c.leaderId === ctx.userId))
+        if (user.clanId) return errorResponse("Already in a clan");
       if (user.isAi) return errorResponse("AI cannot be leader");
       if (user.money < CLAN_CREATE_RYO_COST) return errorResponse("Not enough ryo");
       if (user.villagePrestige < CLAN_CREATE_PRESTIGE_REQUIREMENT) {
@@ -759,6 +760,14 @@ export const removeFromClan = async (
   // Mutate
   await Promise.all([
     client.update(userData).set({ clanId: null }).where(eq(userData.userId, userId)),
+    client
+      .delete(userRequest)
+      .where(
+        and(
+          eq(userRequest.type, "CLAN"),
+          or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
+        ),
+      ),
     ...(nMembers <= 1
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),

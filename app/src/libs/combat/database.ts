@@ -373,9 +373,6 @@ export const updateUser = async (
                 rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
               }
             : {}),
-          ...(isClanChallenge && !result.didWin && user.isAggressor
-            ? { clanId: null }
-            : {}),
           ...(result.curHealth <= 0 && curBattle.battleType !== "SPARRING"
             ? {
                 status: "HOSPITALIZED",
