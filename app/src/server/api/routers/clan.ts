@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, gte } from "drizzle-orm";
-import { clan, userData, historicalAvatar } from "@/drizzle/schema";
+import { eq, sql, and, or, gte, like, inArray } from "drizzle-orm";
+import { clan, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
+import { userData, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { fetchVillage } from "@/routers/village";
@@ -55,6 +56,20 @@ export const clanRouter = createTRPCRouter({
   getRequests: protectedProcedure.query(async ({ ctx }) => {
     return await fetchRequests(ctx.drizzle, ["CLAN"], 3600 * 12, ctx.userId);
   }),
+  searchClans: protectedProcedure
+    .input(z.object({ name: z.string().trim() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.drizzle.query.clan.findMany({
+        columns: {
+          id: true,
+          name: true,
+          image: true,
+        },
+        where: like(clan.name, `%${input.name}%`),
+        orderBy: [sql`LENGTH(${clan.name}) asc`],
+        limit: 5,
+      });
+    }),
   createRequest: protectedProcedure
     .input(z.object({ clanId: z.string() }))
     .output(baseServerResponse)
@@ -398,8 +413,8 @@ export const clanRouter = createTRPCRouter({
       // Start the battle
       return await initiateBattle(
         {
-          userId: ctx.userId,
-          targetId: clanData.leaderId,
+          userIds: [ctx.userId],
+          targetIds: [clanData.leaderId],
           client: ctx.drizzle,
         },
         "CLAN_CHALLENGE",
@@ -505,6 +520,170 @@ export const clanRouter = createTRPCRouter({
       }
       return { success: true, message: "Ryo boost purchased" };
     }),
+  getClanBattles: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await fetchClanBattles(ctx.drizzle, input.clanId);
+    }),
+  challengeClan: protectedProcedure
+    .input(z.object({ challengerClanId: z.string(), targetClanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, challenger, defender, queries] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.challengerClanId),
+        fetchClan(ctx.drizzle, input.targetClanId),
+        fetchUserClanBattles(ctx.drizzle, ctx.userId),
+      ]);
+      // Derived
+      const isLeader = challenger?.leaderId === user.userId;
+      const isCoLeader = checkCoLeader(ctx.userId, challenger);
+      const leaderLike = isLeader || isCoLeader;
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake to challenge");
+      if (!challenger) return errorResponse("Challenger not found");
+      if (!defender) return errorResponse("Defender not found");
+      if (challenger.id === defender.id) return errorResponse("Cannot challenge self");
+      if (!leaderLike) return errorResponse("Not in clan leadership");
+      if (queries.length > 0) return errorResponse("Already in queue");
+      if (user.clanId !== challenger.id) return errorResponse("Not in challenger clan");
+      // Mutation 1: update user early & ensure status
+      const clanBattleId = nanoid();
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ status: "QUEUED" })
+        .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
+      if (result.rowsAffected === 0) return errorResponse("Was not awake?");
+      // Mutation 2: insert new entries
+      await Promise.all([
+        ctx.drizzle.insert(mpvpBattleQueue).values({
+          id: clanBattleId,
+          clan1Id: challenger.id,
+          clan2Id: defender.id,
+          createdAt: new Date(),
+        }),
+        ctx.drizzle.insert(mpvpBattleUser).values({
+          id: nanoid(),
+          userId: user.userId,
+          clanBattleId: clanBattleId,
+        }),
+      ]);
+      // Notify all clan members of both clans
+      [
+        ...challenger.members.map((m) => m.userId),
+        ...defender.members.map((m) => m.userId),
+      ].forEach((userId) => {
+        void pusher.trigger(userId, "event", {
+          type: "userMessage",
+          message: `${challenger.name} clan has challenged ${defender.name} to a clan battle.`,
+          route: "/clanhall",
+          routeText: "To Clan Hall",
+        });
+      });
+      return { success: true, message: "Clan challenge initiated" };
+    }),
+  joinClanBattle: protectedProcedure
+    .input(z.object({ clanBattleId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, clanBattleData, queries] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClanBattle(ctx.drizzle, input.clanBattleId),
+        fetchUserClanBattles(ctx.drizzle, ctx.userId),
+      ]);
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (!user.clanId) return errorResponse("Not in a clan");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake to join");
+      if (queries.length > 0) return errorResponse("Already in queue");
+      if (
+        clanBattleData.clan1Id !== user.clanId &&
+        clanBattleData.clan2Id !== user.clanId
+      ) {
+        return errorResponse("Not in the clan battle");
+      }
+      // Mutation 1: update user early & ensure status
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ status: "QUEUED" })
+        .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
+      if (result.rowsAffected === 0) return errorResponse("Was not awake?");
+      // Mutation 2
+      await ctx.drizzle.insert(mpvpBattleUser).values({
+        id: nanoid(),
+        userId: user.userId,
+        clanBattleId: input.clanBattleId,
+      });
+      return { success: true, message: "Joined clan battle" };
+    }),
+  initiateClanBattle: protectedProcedure
+    .input(z.object({ clanBattleId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, clanBattleData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClanBattle(ctx.drizzle, input.clanBattleId),
+      ]);
+      // Derived
+      clanBattleData?.queue.sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+      const allIds = clanBattleData?.queue.map((q) => q.userId);
+      const challengers = clanBattleData?.queue.filter(
+        (q) => q.user.clanId === clanBattleData.clan1Id,
+      );
+      const defenders = clanBattleData?.queue.filter(
+        (q) => q.user.clanId === clanBattleData.clan2Id,
+      );
+      if (!challengers || !defenders) return errorResponse("No users");
+      // Limit challengers & defenders to maximum allowed
+      const maxOnEachSide = Math.min(challengers.length ?? 0, defenders.length ?? 0);
+      const challengerIds = challengers.slice(0, maxOnEachSide).map((u) => u.userId);
+      const defenderIds = defenders.slice(0, maxOnEachSide).map((u) => u.userId);
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (maxOnEachSide === 0) return errorResponse("Not enough users");
+      if (
+        clanBattleData.clan1Id !== user.clanId &&
+        clanBattleData.clan2Id !== user.clanId
+      ) {
+        return errorResponse("Not in the clan battle");
+      }
+      // Start the battle
+      const result = await initiateBattle(
+        {
+          userIds: challengerIds,
+          targetIds: defenderIds,
+          client: ctx.drizzle,
+        },
+        "CLAN_BATTLE",
+        determineArenaBackground("coliseum.webp"),
+      );
+      if (result.success) {
+        await Promise.all([
+          ctx.drizzle
+            .delete(mpvpBattleQueue)
+            .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
+          ctx.drizzle
+            .delete(mpvpBattleUser)
+            .where(eq(mpvpBattleUser.clanBattleId, input.clanBattleId)),
+          ctx.drizzle
+            .update(userData)
+            .set({ status: "AWAKE" })
+            .where(
+              and(inArray(userData.userId, allIds), eq(userData.status, "QUEUED")),
+            ),
+        ]);
+        return { success: true, message: "Clan battle initiated" };
+      }
+      return errorResponse("Failed to initiate battle");
+    }),
 });
 
 /**
@@ -564,6 +743,56 @@ export const removeFromClan = async (
             .where(eq(clan.id, clanData.id)),
         ]),
   ]);
+};
+
+/**
+ * Fetches a clan battle by its ID.
+ * @param client - The Drizzle client.
+ * @param clanBattleId - The ID of the clan battle to fetch.
+ * @returns - A promise that resolves to the fetched clan battle, or null if not found.
+ */
+export const fetchClanBattle = async (client: DrizzleClient, clanBattleId: string) => {
+  return await client.query.mpvpBattleQueue.findFirst({
+    where: eq(mpvpBattleQueue.id, clanBattleId),
+    with: {
+      queue: {
+        columns: { userId: true, createdAt: true },
+        with: { user: { columns: { clanId: true, avatar: true, username: true } } },
+      },
+    },
+  });
+};
+
+/**
+ * Fetches clan battles for a given clan ID.
+ * @param client - The DrizzleClient instance used for querying.
+ * @param clanId - The ID of the clan to fetch battles for.
+ * @returns A promise that resolves to an array of clan battles.
+ */
+export const fetchClanBattles = async (client: DrizzleClient, clanId: string) => {
+  return await client.query.mpvpBattleQueue.findMany({
+    where: or(eq(mpvpBattleQueue.clan1Id, clanId), eq(mpvpBattleQueue.clan2Id, clanId)),
+    with: {
+      queue: {
+        columns: { userId: true },
+        with: { user: { columns: { clanId: true, avatar: true, username: true } } },
+      },
+      clan1: { columns: { id: true, name: true, image: true } },
+      clan2: { columns: { id: true, name: true, image: true } },
+    },
+  });
+};
+
+/**
+ * Fetches the clan battle queue for a specific user.
+ * @param client - The Drizzle client instance.
+ * @param userId - The ID of the user.
+ * @returns - A promise that resolves to an array of clan battle queue items.
+ */
+export const fetchUserClanBattles = async (client: DrizzleClient, userId: string) => {
+  return await client.query.mpvpBattleUser.findMany({
+    where: eq(mpvpBattleUser.userId, userId),
+  });
 };
 
 /**

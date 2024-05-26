@@ -6,7 +6,7 @@ import StatusBar from "./StatusBar";
 import AvatarImage from "./Avatar";
 import { energyPerSecond } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
-import { Settings, ShieldCheck, Moon, Sun, Heart } from "lucide-react";
+import { Settings, ShieldCheck, Swords, Moon, Sun, Heart } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -142,6 +142,12 @@ const MenuBoxProfile: React.FC = () => {
         return (
           <Link href="/home" className="flex flex-row hover:text-orange-500">
             ASLEEP <Moon className="ml-1 h-6 w-6 hover:fill-orange-500" />
+          </Link>
+        );
+      case "QUEUED":
+        return (
+          <Link href="/clanhall" className="flex flex-row hover:text-orange-500">
+            QUEUED <Swords className="ml-1 h-6 w-6 hover:fill-orange-500" />
           </Link>
         );
       case "AWAKE":

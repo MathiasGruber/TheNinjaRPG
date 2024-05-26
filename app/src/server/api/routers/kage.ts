@@ -31,8 +31,8 @@ export const kageRouter = createTRPCRouter({
       // Start the battle
       return await initiateBattle(
         {
-          userId: ctx.userId,
-          targetId: kage.userId,
+          userIds: [ctx.userId],
+          targetIds: [kage.userId],
           client: ctx.drizzle,
         },
         "KAGE_CHALLENGE",

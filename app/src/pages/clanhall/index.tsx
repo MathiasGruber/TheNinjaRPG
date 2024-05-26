@@ -51,7 +51,6 @@ const Clans: NextPage = () => {
 
   // Form handlers
   const onSubmit = createForm.handleSubmit((data) => {
-    console.log(data);
     createClan({ name: data.name, villageId: userData?.villageId ?? "" });
   });
 
@@ -65,12 +64,11 @@ const Clans: NextPage = () => {
   const inClan = userData.clanId;
   const canCreate =
     userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT &&
-    userData.money >= CLAN_CREATE_RYO_COST &&
-    hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT);
+    userData.money >= CLAN_CREATE_RYO_COST;
 
   // Render
   if (userData.clanId) {
-    return <ClanProfile clanId={userData.clanId} userData={userData} />;
+    return <ClanProfile clanId={userData.clanId} />;
   } else {
     return (
       <ContentBox
@@ -80,7 +78,7 @@ const Clans: NextPage = () => {
         padding={false}
         topRightContent={
           <>
-            {canCreate && !inClan && (
+            {hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT) && !inClan && (
               <Confirm
                 title="Create new Clan"
                 proceed_label={canCreate ? "Submit" : "Not enough prestige or Ryo"}
@@ -125,7 +123,7 @@ const Clans: NextPage = () => {
           </>
         }
       >
-        <ClansOverview userData={userData} />
+        <ClansOverview />
       </ContentBox>
     );
   }

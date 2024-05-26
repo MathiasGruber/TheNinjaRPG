@@ -12,6 +12,7 @@ import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
+import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
@@ -333,7 +334,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
     ];
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
-    if (villageIds.length === 1) {
+    if (battleType === "CLAN_BATTLE") {
+      targets = users.filter((u) => u.clanId !== user.clanId && !u.isSummon);
+      friends = users.filter((u) => u.clanId === user.clanId && !u.isSummon);
+    } else if (villageIds.length === 1) {
       targets = users.filter((u) => u.controllerId !== userId && !u.isSummon);
       friends = users.filter((u) => u.controllerId === userId && !u.isSummon);
     } else {
@@ -374,6 +378,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Tokens & prestige
       let deltaTokens = 0;
       let deltaPrestige = 0;
+      let clanPoints = 0;
 
       // Money/ryo calculation
       const moneyBoost = user?.clan?.ryoBoost ? 1 + user.clan.ryoBoost / 100 : 1;
@@ -382,6 +387,12 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Prestige calculation
       if (battleType === "KAGE_CHALLENGE" && !didWin && user.isAggressor) {
         deltaPrestige = -KAGE_PRESTIGE_COST;
+      }
+
+      // Check for clan points
+      if (didWin) {
+        if (user.clanId) clanPoints += 1;
+        if (battleType === "CLAN_BATTLE") clanPoints += CLAN_BATTLE_REWARD_POINTS;
       }
 
       // Check for prestige, tokens, etc.
@@ -440,6 +451,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
         villageTokens: deltaTokens,
+        clanPoints: clanPoints,
       };
 
       // Things to reward for non-spars

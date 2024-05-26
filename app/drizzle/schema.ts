@@ -296,6 +296,77 @@ export const clanRelations = relations(clan, ({ one, many }) => ({
   }),
 }));
 
+export const mpvpBattleQueue = mysqlTable(
+  "MpvpBattleQueue",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    clan1Id: varchar("clan1Id", { length: 191 }).notNull(),
+    clan2Id: varchar("clan2Id", { length: 191 }).notNull(),
+    winnerId: varchar("winnerId", { length: 191 }),
+    battleId: varchar("battleId", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      battleIdIdx: index("MpvpBattleQueue_battleId_idx").on(table.battleId),
+      clan1IdIdx: index("MpvpBattleQueue_clan1Id_idx").on(table.clan1Id),
+      clan2IdIdx: index("MpvpBattleQueue_clan2Id_idx").on(table.clan2Id),
+      winnerIdIdx: index("MpvpBattleQueue_winnerId_idx").on(table.winnerId),
+    };
+  },
+);
+
+export const mpvpBattleQueueRelations = relations(mpvpBattleQueue, ({ one, many }) => ({
+  battle: one(battle, {
+    fields: [mpvpBattleQueue.battleId],
+    references: [battle.id],
+  }),
+  clan1: one(clan, {
+    fields: [mpvpBattleQueue.clan1Id],
+    references: [clan.id],
+  }),
+  clan2: one(clan, {
+    fields: [mpvpBattleQueue.clan2Id],
+    references: [clan.id],
+  }),
+  winner: one(clan, {
+    fields: [mpvpBattleQueue.winnerId],
+    references: [clan.id],
+  }),
+  queue: many(mpvpBattleUser),
+}));
+
+export const mpvpBattleUser = mysqlTable(
+  "MpvpBattleUser",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    clanBattleId: varchar("clanBattleId", { length: 191 }).notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      clanBattleIdIdx: index("MpvpBattleUser_clanBattleId_idx").on(table.clanBattleId),
+      userIdIdx: index("MpvpBattleUser_userId_idx").on(table.userId),
+    };
+  },
+);
+
+export const mpvpBattleUserRelations = relations(mpvpBattleUser, ({ one }) => ({
+  clanBattle: one(mpvpBattleQueue, {
+    fields: [mpvpBattleUser.clanBattleId],
+    references: [mpvpBattleQueue.id],
+  }),
+  user: one(userData, {
+    fields: [mpvpBattleUser.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const conversation = mysqlTable(
   "Conversation",
   {
@@ -1077,6 +1148,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.jutsuLoadout],
     references: [jutsuLoadout.id],
   }),
+  mpvpBattles: many(mpvpBattleUser),
 }));
 
 export const userNindo = mysqlTable(

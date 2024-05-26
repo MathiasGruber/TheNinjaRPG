@@ -13,10 +13,12 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Pencil, DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
+import { DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
-import { FilePenLine, List } from "lucide-react";
+import { FilePenLine, List, CirclePlay } from "lucide-react";
 import { UploadButton } from "@/utils/uploadthing";
+import ClanSearchSelect from "@/layout/ClanSearchSelect";
+import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import UserRequestSystem from "@/layout/UserRequestSystem";
@@ -31,10 +33,13 @@ import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
 import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
+import { CLAN_LOBBY_SECONDS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
+import { useRequireInVillage } from "@/utils/village";
+import { secondsFromDate } from "@/utils/time";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { UserRank } from "@/drizzle/constants";
@@ -47,13 +52,11 @@ import type { ClanRouter } from "@/routers/clan";
 /**
  * Show an overview of the clans in the village
  */
-interface ClansOverviewProps {
-  userData: NonNullable<UserWithRelations>;
-}
+interface ClansOverviewProps {}
 
 export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
-  // Destructure
-  const { userData } = props;
+  // Must be in allied village
+  const { userData } = useRequireInVillage("/clanhall");
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
@@ -103,6 +106,7 @@ export const ClansOverview: React.FC<ClansOverviewProps> = (props) => {
   ];
 
   // Loaders
+  if (!userData) return <Loader explanation="Loading user data" />;
   if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Render
@@ -174,30 +178,261 @@ export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
       topRightContent={
         <div>
           {canPost && (
-            <Confirm
-              title="Update Orders"
-              proceed_label="Submit"
-              button={
-                <Button id="create">
-                  <Pencil className="h-5 w-5 mr-2" /> Edit
-                </Button>
-              }
-              onAccept={onUpdateOrder}
-            >
-              <RichInput
-                id="content"
-                label="Contents of your orders"
-                height="300"
-                placeholder={content}
-                control={control}
-                error={errors.content?.message}
-              />
-            </Confirm>
+            <div className="flex flex-row items-center gap-1">
+              <Confirm
+                title="Update Orders"
+                proceed_label="Submit"
+                button={
+                  <Button id="create">
+                    <FilePenLine className="h-5 w-5" />
+                  </Button>
+                }
+                onAccept={onUpdateOrder}
+              >
+                <RichInput
+                  id="content"
+                  label="Contents of your orders"
+                  height="300"
+                  placeholder={content}
+                  control={control}
+                  error={errors.content?.message}
+                />
+              </Confirm>
+            </div>
           )}
         </div>
       }
     >
       {ReactHtmlParser(content)}
+    </ContentBox>
+  );
+};
+
+/**
+ * Renders the Clan Orders component.
+ *
+ * @param props - The component props.
+ * @returns The rendered component.
+ */
+interface ClanBattlesProps {
+  clanId: string;
+  canCreate: boolean;
+}
+
+export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
+  // Data
+  const { clanId, canCreate } = props;
+  const { userData, timeDiff } = useRequireInVillage("/clanhall");
+
+  // utils
+  const utils = api.useUtils();
+
+  // Get router
+  const router = useRouter();
+
+  // Mutations
+  const { mutate: challenge } = api.clan.challengeClan.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.clan.getClanBattles.invalidate();
+      }
+    },
+  });
+
+  const { mutate: join } = api.clan.joinClanBattle.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.clan.getClanBattles.invalidate();
+      }
+    },
+  });
+
+  const { mutate: initiate, isPending: isInitiating } =
+    api.clan.initiateClanBattle.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          await utils.clan.getClanBattles.invalidate();
+          await router.push("/combat");
+        }
+      },
+    });
+
+  // Showing the clan battle side
+  const showClanSide = (
+    battleId: string,
+    userClanId: string | null,
+    clan: { id: string; image: string; name: string },
+    queue: {
+      userId: string;
+      user: { username: string; avatar: string | null; clanId: string | null };
+    }[],
+  ) => {
+    const canJoin = clan.id === userClanId;
+    const empties = Array(6 - queue.length).fill(null);
+    return (
+      <div className="flex flex-row">
+        <div className="w-20 text-center">
+          <AvatarImage
+            href={clan.image}
+            alt={clan.name}
+            size={100}
+            hover_effect={true}
+            priority
+          />
+          {clan.name}
+        </div>
+        <div className="grid grid-cols-3">
+          {queue.map((q) => (
+            <div key={q.userId} className="w-10 flex flex-row items-center">
+              <AvatarImage
+                href={q.user.avatar}
+                alt={q.user.username}
+                size={50}
+                hover_effect={true}
+                priority
+              />
+            </div>
+          ))}
+          {empties.map((_, i) => (
+            <div className="flex flex-row items-center w-10" key={i}>
+              <div
+                className={`rounded-2xl border-2 border-black aspect-square w-5/6 flex flex-row items-center justify-center font-bold bg-slate-100 opacity-50 ${canJoin ? "hover:opacity-100 hover:cursor-pointer hover:border-orange-500 hover:bg-orange-100" : ""}`}
+                onClick={() => canJoin && join({ clanBattleId: battleId })}
+              >
+                ?
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Query
+  const { data } = api.clan.getClanBattles.useQuery(
+    { clanId: clanId },
+    { refetchInterval: 5000 },
+  );
+
+  // Clan search
+  const maxClans = 1;
+  const clanSearchSchema = z.object({
+    name: z.string(),
+    clans: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          image: z.string().url().optional().nullish(),
+        }),
+      )
+      .min(1)
+      .max(maxClans),
+  });
+  const clanSearchMethods = useForm<z.infer<typeof clanSearchSchema>>({
+    resolver: zodResolver(clanSearchSchema),
+    defaultValues: { name: "", clans: [] },
+  });
+  const targetClan = clanSearchMethods.watch("clans", [])?.[0];
+
+  // Loaders
+  if (!data) return <Loader explanation="Loading clan battles" />;
+  if (!userData) return <Loader explanation="Loading user data" />;
+
+  // Prepare data for table
+  const clanBattles = data.map((battle) => {
+    const challengers = battle.queue.filter((q) => q.user.clanId === battle.clan1Id);
+    const defenders = battle.queue.filter((q) => q.user.clanId === battle.clan2Id);
+    const startTime = secondsFromDate(CLAN_LOBBY_SECONDS, battle.createdAt);
+    const inBattle = battle.queue.some((q) => q.userId === userData.userId);
+    return {
+      ...battle,
+      clan1name: showClanSide(battle.id, userData.clanId, battle.clan1, challengers),
+      clan2name: showClanSide(battle.id, userData.clanId, battle.clan2, defenders),
+      countdown: (
+        <Countdown
+          targetDate={startTime}
+          timeDiff={timeDiff}
+          onEndShow={
+            isInitiating ? (
+              <Loader explanation="Starting battle" />
+            ) : inBattle ? (
+              <Button onClick={() => initiate({ clanBattleId: battle.id })}>
+                <CirclePlay className="h-6 w-6 mr-2" /> Start
+              </Button>
+            ) : (
+              "About to start"
+            )
+          }
+        />
+      ),
+    };
+  });
+
+  // {
+  //   !isInitiating && initiate({ clanBattleId: battle.id });
+  // }
+
+  return (
+    <ContentBox
+      title="Clan Battles"
+      subtitle="From clan leader"
+      initialBreak={true}
+      padding={false}
+      topRightContent={
+        <div>
+          {canCreate && clanId && (
+            <div className="flex flex-row items-center gap-1">
+              <Confirm
+                title="Challenge Other Clan"
+                proceed_label="Submit"
+                button={
+                  <Button id="create">
+                    <Swords className="h-5 w-5" />
+                  </Button>
+                }
+                onAccept={() =>
+                  challenge({
+                    challengerClanId: clanId,
+                    targetClanId: targetClan?.id ?? "",
+                  })
+                }
+              >
+                Challenge another clan to a battle royale. Clan battles can be up to 5
+                vs. 5 users; it will always be an equal number of users battling each
+                other, so if 5 join from one side and 3 from the other, it will be a 3
+                vs. 3 battle.
+                <ClanSearchSelect
+                  useFormMethods={clanSearchMethods}
+                  label="Search for clan"
+                  selectedClans={[]}
+                  inline={true}
+                  maxClans={1}
+                />
+              </Confirm>
+            </div>
+          )}
+        </div>
+      }
+    >
+      {clanBattles?.length === 0 && (
+        <p className="p-3 italic">No current clan battles</p>
+      )}
+      {clanBattles?.length !== 0 && (
+        <Table
+          data={clanBattles}
+          columns={[
+            { key: "clan1name", header: "Attacker Clan", type: "jsx" },
+            { key: "clan2name", header: "Defender Clan", type: "jsx" },
+            { key: "countdown", header: "Start Time", type: "jsx" },
+          ]}
+        />
+      )}
     </ContentBox>
   );
 };
@@ -212,14 +447,12 @@ export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
 interface ClanRequestsProps {
   clanId: string;
   isLeader: boolean;
-  userId: string;
-  userRank: UserRank;
-  userClan: string | null;
 }
 
 export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
   // Destructure
-  const { clanId, isLeader, userId, userRank, userClan } = props;
+  const { userData } = useRequireInVillage("/clanhall");
+  const { clanId, isLeader } = props;
 
   // Get utils
   const utils = api.useUtils();
@@ -246,12 +479,13 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
 
   // Loaders
   if (!requests) return <Loader explanation="Loading requests" />;
+  if (!userData) return <Loader explanation="Loading user data" />;
 
   // Derived
   const hasPending = requests?.some((req) => req.status === "PENDING");
-  const showRequestSystem = (isLeader && requests.length > 0) || !userClan;
+  const showRequestSystem = (isLeader && requests.length > 0) || !userData.clanId;
   const shownRequests = requests.filter((r) => !isLeader || r.status === "PENDING");
-  const sufficientRank = hasRequiredRank(userRank, CLAN_RANK_REQUIREMENT);
+  const sufficientRank = hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT);
 
   // Do not show?
   if (!showRequestSystem) return null;
@@ -265,7 +499,7 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
       padding={false}
     >
       {/* FOR THOSE WHO CAN SEND REQUESTS */}
-      {sufficientRank && !userClan && !hasPending && (
+      {sufficientRank && !userData.clanId && !hasPending && (
         <div className="p-2">
           <p>Send a request to join this clan</p>
           <Button id="send" className="mt-2 w-full" onClick={() => create({ clanId })}>
@@ -279,7 +513,7 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
       {shownRequests.length > 0 && (
         <UserRequestSystem
           requests={shownRequests}
-          userId={userId}
+          userId={userData.userId}
           onAccept={accept}
           onReject={reject}
           onCancel={cancel}
@@ -293,14 +527,14 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
  * Show the profile of the user's clan
  */
 interface ClanInfoProps {
-  userData: NonNullable<UserWithRelations>;
   clanData: NonNullable<ClanRouter["get"]>;
   back_href?: string;
 }
 
 export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   // Destructure
-  const { userData, clanData, back_href } = props;
+  const { userData } = useRequireInVillage("/clanhall");
+  const { clanData, back_href } = props;
   const clanId = clanData.id;
 
   // Get router
@@ -402,6 +636,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
 
   // Loader
   if (!clanData) return <Loader explanation="Loading clan data" />;
+  if (!userData) return <Loader explanation="Loading user data" />;
   if (isDepositing) return <Loader explanation="Depositing money" />;
 
   // Derived
@@ -481,7 +716,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 </Button>
               }
             >
-              <ClansOverview userData={userData} />
+              <ClansOverview />
             </Confirm>
           )}
           {inClan && (
@@ -803,13 +1038,13 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
  */
 interface ClanProfileProps {
   clanId: string;
-  userData: NonNullable<UserWithRelations>;
   back_href?: string;
 }
 
 export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   // Destructure
-  const { clanId, userData, back_href } = props;
+  const { userData } = useRequireInVillage("/clanhall");
+  const { clanId, back_href } = props;
 
   // Queries
   const { data: clanData } = api.clan.get.useQuery({ clanId: clanId });
@@ -817,6 +1052,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   // Loaders
   if (!clanId) return <Loader explanation="Which clan?" />;
   if (!clanData) return <Loader explanation="Loading clan data" />;
+  if (!userData) return <Loader explanation="Loading user data" />;
 
   // Derived
   const isLeader = userData.userId === clanData.leaderId;
@@ -826,21 +1062,17 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   return (
     <>
       {/** OVERVIEW */}
-      <ClanInfo userData={userData} back_href={back_href} clanData={clanData} />
+      <ClanInfo back_href={back_href} clanData={clanData} />
       {/* SHOW ORDERS  */}
       <ClanOrders
         clanId={clanData.id}
         order={clanData.leaderOrder}
         canPost={isLeader || isColeader}
       />
+      {/* SHOW Battles  */}
+      <ClanBattles clanId={clanData.id} canCreate={isLeader || isColeader} />
       {/* REQUESTS SYSTEM  */}
-      <ClanRequests
-        clanId={clanData.id}
-        isLeader={isLeader}
-        userId={userData.userId}
-        userRank={userData.rank}
-        userClan={userData.clanId}
-      />
+      <ClanRequests clanId={clanData.id} isLeader={isLeader} />
       {/* MEMBERS */}
       <ClanMembers userId={userData.userId} clanId={clanData.id} />
     </>

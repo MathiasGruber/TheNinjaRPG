@@ -21,6 +21,9 @@ export const homeRouter = createTRPCRouter({
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
       if (!inVillage) return errorResponse("You must be in a village to sleep");
       if (user.isBanned) return errorResponse("You are banned");
+      if (!["ASLEEP", "AWAKE"].includes(user.status)) {
+        return errorResponse("Invalid status, must be awake or asleep");
+      }
       if (user.sector !== user.village?.sector && !user.isOutlaw) {
         return errorResponse("Wrong sector");
       }

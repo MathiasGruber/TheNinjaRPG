@@ -23,6 +23,7 @@ export const publicState = [
   "gender",
   "avatar",
   "curHealth",
+  "clan",
   "maxHealth",
   "longitude",
   "latitude",

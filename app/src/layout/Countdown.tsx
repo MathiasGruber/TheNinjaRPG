@@ -8,6 +8,7 @@ interface CountdownProps {
   timeDiff?: number; // Only used if the targetDate is from the server, and has not been adjusted for timeDiff already
   // NOTE: Careful with this one to avoid infinite loop on re-render
   onFinish?: () => void;
+  onEndShow?: React.ReactNode | string;
 }
 
 const Countdown: React.FC<CountdownProps> = (props) => {
@@ -46,6 +47,9 @@ const Countdown: React.FC<CountdownProps> = (props) => {
     }
   }, [countDown, countString, targetTime, props]);
 
+  if (countString === "Done" && props.onEndShow) {
+    return props.onEndShow;
+  }
   return <span className={props.className}>{countString}</span>;
 };
 

@@ -20,7 +20,11 @@ import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
-import { updateVillage, updateKage, updateClan } from "@/libs/combat/database";
+import {
+  updateVillageAnbuClan,
+  updateKage,
+  updateClanLeaders,
+} from "@/libs/combat/database";
 import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
@@ -376,8 +380,8 @@ export const combatRouter = createTRPCRouter({
               saveUsage(db, newBattle, result, suid),
               updateUser(db, newBattle, result, suid),
               updateKage(db, newBattle, result, suid),
-              updateClan(db, newBattle, result, suid),
-              updateVillage(db, newBattle, result, suid),
+              updateClanLeaders(db, newBattle, result, suid),
+              updateVillageAnbuClan(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
 
@@ -438,8 +442,8 @@ export const combatRouter = createTRPCRouter({
         return await initiateBattle(
           {
             sector: user.sector,
-            userId: user.userId,
-            targetId: selectedAI.userId,
+            userIds: [user.userId],
+            targetIds: [selectedAI.userId],
             client: ctx.drizzle,
           },
           "ARENA",
@@ -475,8 +479,8 @@ export const combatRouter = createTRPCRouter({
           longitude: input.longitude,
           latitude: input.latitude,
           sector: input.sector,
-          userId: ctx.userId,
-          targetId: input.userId,
+          userIds: [ctx.userId],
+          targetIds: [input.userId],
           client: ctx.drizzle,
         },
         "COMBAT",
@@ -573,8 +577,8 @@ export const initiateBattle = async (
     longitude?: number;
     latitude?: number;
     sector?: number;
-    userId: string;
-    targetId: string;
+    userIds: string[];
+    targetIds: string[];
     client: DrizzleClient;
     scaleTarget?: boolean;
   },
@@ -582,7 +586,7 @@ export const initiateBattle = async (
   background = "forest.webp",
 ): Promise<BaseServerResponse> => {
   // Destructure
-  const { longitude, latitude, sector, userId, targetId, client } = info;
+  const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
   // Get user & target data, to be inserted into battle
   const [villages, relations, achievements, users] = await Promise.all([
@@ -619,66 +623,90 @@ export const initiateBattle = async (
           },
         },
       },
-      where: or(eq(userData.userId, userId), eq(userData.userId, targetId)),
+      where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
     }),
   ]);
-  users.sort((a) => (a.userId === userId ? -1 : 1));
 
-  // Use long/lat fields for position in combat map
-  if (users?.[0]) {
-    users[0]["longitude"] = randomInt(1, 5);
-    users[0]["latitude"] = randomInt(1, 3);
-  } else {
-    return { success: false, message: "Failed to set position of left-hand user" };
+  // Place attackers first
+  users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
+
+  // Convenience function for assigning location of user
+  const takenLocations: { x: number; y: number }[] = [];
+  const assignLocation = (min: number, max: number) => {
+    let x = randomInt(min, max);
+    let y = randomInt(1, 3);
+    do {
+      x = randomInt(min, max);
+      y = randomInt(1, 3);
+    } while (takenLocations.some((l) => l.x === x && l.y === y));
+    takenLocations.push({ x, y });
+    return { x, y };
+  };
+
+  // Loop through each user
+  for (let i = 0; i < users.length; i++) {
+    // Get the user
+    const user = users[i];
+    if (!user) return { success: false, message: "Could not find expected user" };
+
+    // Use long/lat fields for position in combat map
+    if (userIds.includes(user.userId)) {
+      const { x, y } = assignLocation(1, 5);
+      user["longitude"] = x;
+      user["latitude"] = y;
+    } else {
+      const { x, y } = assignLocation(7, 11);
+      user["longitude"] = x;
+      user["latitude"] = y;
+    }
+
+    // Check if user is asleep
+    if (
+      !["AWAKE", "QUEUED"].includes(user.status) &&
+      !AutoBattleTypes.includes(battleType)
+    ) {
+      return { success: false, message: `User ${user.username} is not awake` };
+    }
+
+    // Rank restrictions
+    if (userIds.includes(user.userId)) {
+      if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank)) {
+        return { success: false, message: "Need to rank up to do PvP combat" };
+      }
+    } else {
+      if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && user.isAi === 0) {
+        return { success: false, message: "Cannot attack students & genin" };
+      }
+    }
+
+    // Scale targets
+    if (info?.scaleTarget && targetIds.includes(user.userId) && users[0]) {
+      user.level = users[0].level;
+      scaleUserStats(user);
+    }
+
+    // Add achievements to users for tracking
+    user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
+
+    // Apply caps to user stats
+    capUserStats(user);
   }
-  if (users?.[1]) {
-    users[1]["longitude"] = randomInt(7, 11);
-    users[1]["latitude"] = randomInt(1, 3);
-  } else {
-    return { success: false, message: "Failed to set position of right-hand user" };
-  }
-  if (users[1].immunityUntil > new Date() && battleType === "COMBAT") {
+
+  // Check immunity on defenders
+  if (
+    battleType === "COMBAT" &&
+    users
+      .filter((u) => targetIds.includes(u.userId))
+      .some((u) => u.immunityUntil > new Date())
+  ) {
     return {
       success: false,
-      message:
-        "Target is immune from combat until " +
-        users[1].immunityUntil.toLocaleTimeString(),
+      message: "One of the targets is immune from combat.",
     };
   }
 
-  // Awake tests
-  if (users[0].status !== "AWAKE") {
-    return { success: false, message: "Aggressor is not awake" };
-  }
-  if (users[1].status !== "AWAKE" && !AutoBattleTypes.includes(battleType)) {
-    return { success: false, message: "Defender is not awake" };
-  }
-
-  // If defender is student it is a no-go
-  if (battleType === "COMBAT") {
-    if (RANKS_RESTRICTED_FROM_PVP.includes(users[0].rank)) {
-      return { success: false, message: "Need to rank up to do PvP combat" };
-    }
-    if (RANKS_RESTRICTED_FROM_PVP.includes(users[1].rank) && users[1].isAi === 0) {
-      return { success: false, message: "Cannot attack students & genin" };
-    }
-  }
-
-  // Add achievements to users for tracking
-  users[0].userQuests.push(...mockAchievementHistoryEntries(achievements, users[0]));
-  users[1].userQuests.push(...mockAchievementHistoryEntries(achievements, users[1]));
-
-  // If requested scale the target user to the same level & stats as attacker
-  if (info?.scaleTarget) {
-    users[1].level = users[0].level;
-    scaleUserStats(users[1]);
-  }
-
-  // Apply caps to user stats
-  users.map((u) => capUserStats(u));
-
   // Get previous battles between these two users within last 60min
-  let rewardScaling = 1;
+  let rewardScaling = users.length / 2;
   if (!["ARENA", "QUEST"].includes(battleType)) {
     const results = await client
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -687,12 +715,12 @@ export const initiateBattle = async (
         and(
           or(
             and(
-              eq(battleHistory.attackedId, users[0]["userId"]),
-              eq(battleHistory.defenderId, users[1]["userId"]),
+              inArray(battleHistory.attackedId, userIds),
+              inArray(battleHistory.defenderId, targetIds),
             ),
             and(
-              eq(battleHistory.attackedId, users[1]["userId"]),
-              eq(battleHistory.defenderId, users[0]["userId"]),
+              inArray(battleHistory.attackedId, userIds),
+              inArray(battleHistory.defenderId, targetIds),
             ),
           ),
           gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
@@ -700,7 +728,7 @@ export const initiateBattle = async (
       );
     const previousBattles = results?.[0]?.count || 0;
     if (previousBattles > 0) {
-      rewardScaling = 1 / (previousBattles + 1);
+      rewardScaling = rewardScaling / (previousBattles + 1);
     }
   }
 
@@ -795,10 +823,9 @@ export const initiateBattle = async (
   }
 
   // Figure out who starts in the battle
-  const attRoll = (users[0] as BattleUserState).initiative;
-  const defRoll = (users[1] as BattleUserState).initiative;
-  const attackerFirst = attRoll >= defRoll || ["ARENA", "QUEST"].includes(battleType);
-  const activeUserId = attackerFirst ? users[0].userId : users[1].userId;
+  const attackerFirst = ["ARENA", "QUEST"].includes(battleType);
+  const activeUser = usersState.sort((a, b) => a.initiative - b.initiative);
+  const activeUserId = attackerFirst ? users?.[0]?.userId : activeUser?.[0]?.userId;
 
   // When to start the battle
   const noLobbyTypes = ["ARENA", "KAGE_CHALLENGE", "CLAN_CHALLENGE", "QUEST"];
@@ -824,12 +851,16 @@ export const initiateBattle = async (
       roundStartAt: startTime,
       activeUserId: activeUserId,
     }),
-    client.insert(battleHistory).values({
-      battleId: battleId,
-      attackedId: users[0].userId,
-      defenderId: users[1].userId,
-      createdAt: new Date(),
-    }),
+    client.insert(battleHistory).values(
+      userIds.flatMap((i) =>
+        targetIds.map((t) => ({
+          battleId,
+          attackedId: i,
+          defenderId: t,
+          createdAt: new Date(),
+        })),
+      ),
+    ),
     client
       .update(userData)
       .set({
@@ -846,18 +877,18 @@ export const initiateBattle = async (
           : sql`${userData.pveFights}`,
         updatedAt: new Date(),
         immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`CASE WHEN userId = ${users[0].userId} THEN NOW() ELSE immunityUntil END`
+          ? sql`CASE WHEN userId IN (${userIds.join(", ")}) THEN NOW() ELSE immunityUntil END`
           : sql`immunityUntil`,
       })
       .where(
         and(
           or(
-            eq(userData.userId, userId),
+            inArray(userData.userId, userIds),
             ...(!AutoBattleTypes.includes(battleType)
-              ? [eq(userData.userId, targetId)]
+              ? [inArray(userData.userId, targetIds)]
               : []),
           ),
-          eq(userData.status, "AWAKE"),
+          or(eq(userData.status, "AWAKE"), eq(userData.status, "QUEUED")),
           ...(battleType === "COMBAT"
             ? [
                 and(
@@ -874,7 +905,7 @@ export const initiateBattle = async (
   // Check if success
   if (
     (AutoBattleTypes.includes(battleType) && userResult.rowsAffected !== 1) ||
-    (!AutoBattleTypes.includes(battleType) && userResult.rowsAffected !== 2)
+    (!AutoBattleTypes.includes(battleType) && userResult.rowsAffected < 2)
   ) {
     await Promise.all([
       client
@@ -888,25 +919,19 @@ export const initiateBattle = async (
   }
   // Push websockets message to target
   const pusher = getServerPusher();
-  void pusher.trigger(targetId, "event", { type: "battle" });
 
   // Hide users on map when in combat
   if (battleType !== "KAGE_CHALLENGE") {
-    void pusher.trigger(users[0].sector.toString(), "event", {
-      userId: users[0].userId,
-      longitude: users[0].longitude,
-      latitude: users[0].latitude,
-      avatar: users[0].avatar,
-      sector: -1,
-      location: users[0].location,
-    });
-    void pusher.trigger(users[1].sector.toString(), "event", {
-      userId: users[1].userId,
-      longitude: users[1].longitude,
-      latitude: users[1].latitude,
-      avatar: users[1].avatar,
-      sector: -1,
-      location: users[1].location,
+    users.forEach((user) => {
+      void pusher.trigger(user.userId, "event", { type: "battle" });
+      void pusher.trigger(user.sector.toString(), "event", {
+        userId: user.userId,
+        longitude: user.longitude,
+        latitude: user.latitude,
+        avatar: user.avatar,
+        sector: -1,
+        location: user.location,
+      });
     });
   }
 

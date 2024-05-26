@@ -176,7 +176,7 @@ export const updateKage = async (
   }
 };
 
-export const updateClan = async (
+export const updateClanLeaders = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
@@ -205,7 +205,7 @@ export const updateClan = async (
     .where(eq(clan.id, user.clanId));
 };
 
-export const updateVillage = async (
+export const updateVillageAnbuClan = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
   result: CombatResult | null,
@@ -215,15 +215,18 @@ export const updateVillage = async (
   const user = curBattle.usersState.find((u) => u.userId === userId);
   // Guards
   if (!user || !user.villageId) return;
-  if (!result) return;
-  if (result.villageTokens === 0) return;
+  if (!result || !result.didWin) return;
   // Mutate
   await Promise.all([
-    client
-      .update(village)
-      .set({ tokens: sql`tokens + ${result.villageTokens}` })
-      .where(eq(village.id, user.villageId)),
-    ...(user.anbuId
+    ...(result.villageTokens > 0
+      ? [
+          client
+            .update(village)
+            .set({ tokens: sql`tokens + ${result.villageTokens}` })
+            .where(eq(village.id, user.villageId)),
+        ]
+      : []),
+    ...(user.anbuId && result.villageTokens > 0
       ? [
           client
             .update(anbuSquad)
@@ -231,13 +234,13 @@ export const updateVillage = async (
             .where(eq(anbuSquad.id, user.anbuId)),
         ]
       : []),
-    ...(user.clanId
+    ...(user.clanId && result.clanPoints > 0
       ? [
           client
             .update(clan)
             .set({
               pvpActivity: sql`${clan.pvpActivity} + 1`,
-              points: sql`${clan.points} + 1`,
+              points: sql`${clan.points} + ${result.clanPoints}`,
             })
             .where(eq(clan.id, user.clanId)),
         ]

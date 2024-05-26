@@ -391,17 +391,18 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
       map: highlightTexture,
       alphaMap: highlightTexture,
     });
+
+    // Highlight sprite
+    const highlightColor = userData.village
+      ? parseInt(userData.village.hexColor.replace("#", ""), 16)
+      : 0x000000;
     const highlightSprite = new Sprite(highlightMaterial);
     highlightSprite.userData.type = "marker";
     highlightSprite.scale.set(h, h * 1.2, 1);
     highlightSprite.position.set(w / 2, h * 0.9, -6);
     highlightSprite.userData.type = "userMarker";
     highlightSprite.userData.userId = userData.userId;
-    highlightSprite.material.color.setHex(
-      userData.village
-        ? parseInt(userData.village.hexColor.replace("#", ""), 16)
-        : 0x000000,
-    );
+    highlightSprite.material.color.setHex(highlightColor);
     group.add(highlightSprite);
 
     // Marker background in white
@@ -423,6 +424,25 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     sprite.scale.set(h * 0.8, h * 0.8, 1);
     sprite.position.set(w / 2, h * 1.0, -6);
     group.add(sprite);
+
+    // Clan if it is there
+    if (userData.clan?.image) {
+      const clanTexture = loadTexture(userData.clan.image);
+      const clanBorderMaterial = new SpriteMaterial({
+        map: alphaMap,
+        alphaMap: alphaMap,
+      });
+      const clanBorderSprite = new Sprite(clanBorderMaterial);
+      clanBorderSprite.material.color.setHex(parseInt("FFD700", 16));
+      clanBorderSprite.scale.set(-1 * h * 0.3 - 2, h * 0.3 + 2, 1);
+      clanBorderSprite.position.set(0.9 * w, h * 1.4, -6);
+      group.add(clanBorderSprite);
+      const clanMaterial = new SpriteMaterial({ map: clanTexture, alphaMap: alphaMap });
+      const clanSprite = new Sprite(clanMaterial);
+      clanSprite.scale.set(-1 * h * 0.3, h * 0.3, 1);
+      clanSprite.position.set(0.9 * w, h * 1.4, -6);
+      group.add(clanSprite);
+    }
   }
 
   // If this is the original and our user (we have SP/CP), then show a star

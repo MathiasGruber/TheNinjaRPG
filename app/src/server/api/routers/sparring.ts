@@ -62,8 +62,8 @@ export const sparringRouter = createTRPCRouter({
       const result = await initiateBattle(
         {
           sector: user.sector,
-          userId: challenge.receiverId,
-          targetId: challenge.senderId,
+          userIds: [challenge.receiverId],
+          targetIds: [challenge.senderId],
           client: ctx.drizzle,
         },
         "SPARRING",

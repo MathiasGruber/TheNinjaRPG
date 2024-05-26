@@ -18,7 +18,7 @@ const ClanInfo: NextPage = () => {
   if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Render
-  return <ClanProfile back_href="/clanhall" clanId={clanId} userData={userData} />;
+  return <ClanProfile back_href="/clanhall" clanId={clanId} />;
 };
 
 export default ClanInfo;

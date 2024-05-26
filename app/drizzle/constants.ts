@@ -58,6 +58,7 @@ export const UserStatuses = [
   "HOSPITALIZED",
   "TRAVEL",
   "BATTLE",
+  "QUEUED",
   "ASLEEP",
 ] as const;
 
@@ -154,6 +155,7 @@ export const BattleTypes = [
   "SPARRING",
   "KAGE_CHALLENGE",
   "CLAN_CHALLENGE",
+  "CLAN_BATTLE",
   "QUEST",
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
@@ -314,6 +316,8 @@ export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
 export const CLAN_CREATE_RYO_COST = 1000000;
 export const CLAN_RANK_REQUIREMENT = "CHUNIN";
 export const CLAN_MAX_MEMBERS = 50;
+export const CLAN_LOBBY_SECONDS = 120;
+export const CLAN_BATTLE_REWARD_POINTS = 50;
 export const MAX_TRAINING_BOOST = 15;
 export const MAX_RYO_BOOST = 15;
 export const TRAINING_BOOST_COST = 300;
