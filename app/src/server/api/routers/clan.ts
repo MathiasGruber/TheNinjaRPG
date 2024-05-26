@@ -25,7 +25,7 @@ import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
-import { secondsFromNow } from "@/utils/time";
+import { secondsFromDate } from "@/utils/time";
 
 const pusher = getServerPusher();
 
@@ -697,7 +697,7 @@ export const clanRouter = createTRPCRouter({
       ) {
         return errorResponse("Not in the clan battle");
       }
-      if (new Date() < secondsFromNow(CLAN_LOBBY_SECONDS, clanBattleData.createdAt)) {
+      if (new Date() < secondsFromDate(CLAN_LOBBY_SECONDS, clanBattleData.createdAt)) {
         return errorResponse("Clan battle not started yet");
       }
       // Start the battle
