@@ -648,6 +648,7 @@ export const clanRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (!allIds) return errorResponse("No users");
       if (maxOnEachSide === 0) return errorResponse("Not enough users");
       if (
         clanBattleData.clan1Id !== user.clanId &&

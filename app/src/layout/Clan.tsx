@@ -42,11 +42,9 @@ import { useRequireInVillage } from "@/utils/village";
 import { secondsFromDate } from "@/utils/time";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
-import type { UserRank } from "@/drizzle/constants";
 import type { MutateContentSchema } from "@/validators/comments";
 import type { UserNindo } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
-import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { ClanRouter } from "@/routers/clan";
 
 /**
