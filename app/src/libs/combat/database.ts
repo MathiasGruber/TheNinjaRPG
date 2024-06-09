@@ -1,7 +1,14 @@
 import { nanoid } from "nanoid";
 import { eq, and, sql, lt, gte, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs/travel/constants";
-import { battle, battleAction, userData, userItem, userJutsu } from "@/drizzle/schema";
+import {
+  battle,
+  battleAction,
+  tournamentMatch,
+  userData,
+  userItem,
+  userJutsu,
+} from "@/drizzle/schema";
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
@@ -205,6 +212,26 @@ export const updateClanLeaders = async (
     .where(eq(clan.id, user.clanId));
 };
 
+export const updateTournament = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch
+  const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
+  const target = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  // Guards
+  if (!user) return;
+  if (!target) return;
+  if (!result) return;
+  if (curBattle.battleType !== "TOURNAMENT") return;
+  await client
+    .update(tournamentMatch)
+    .set({ winnerId: result.didWin ? user.userId : target.userId })
+    .where(eq(tournamentMatch.battleId, curBattle.id));
+};
+
 export const updateVillageAnbuClan = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
@@ -286,7 +313,6 @@ export const updateUser = async (
     }
     // Is it a kage challenge
     const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
-    const isClanChallenge = curBattle.battleType === "CLAN_CHALLENGE";
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);

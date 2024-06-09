@@ -268,7 +268,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     // Reference to the mount
     const sceneRef = mountRef.current;
 
-    if (sceneRef && battle.current && userData?.battleId) {
+    if (sceneRef && battle.current) {
       // Used for map size calculations
       const backgroundLengthToWidth = 576 / 1024;
 

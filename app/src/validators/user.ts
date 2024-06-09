@@ -28,6 +28,7 @@ export const getQuestCounterFieldName = (
       return undefined;
   }
 };
+export type QuestCounterFieldName = ReturnType<typeof getQuestCounterFieldName>;
 
 export const getUserElements = (user: UserWithRelations) => {
   // Natural elements

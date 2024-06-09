@@ -359,7 +359,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   const { height: h, width: w } = hex;
 
   // Shadow
-  const texture = loadTexture("map/shadow.png");
+  const texture = loadTexture("/map/shadow.png");
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   const shadow_material = new SpriteMaterial({ map: texture });
@@ -386,7 +386,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(sprite);
   } else {
     // Highlight background in village color
-    const highlightTexture = loadTexture("map/userMarker.webp");
+    const highlightTexture = loadTexture("/map/userMarker.webp");
     const highlightMaterial = new SpriteMaterial({
       map: highlightTexture,
       alphaMap: highlightTexture,
@@ -406,7 +406,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(highlightSprite);
 
     // Marker background in white
-    const marker = loadTexture("map/userMarker.webp");
+    const marker = loadTexture("/map/userMarker.webp");
     const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.userData.type = "marker";
@@ -415,7 +415,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(markerSprite);
 
     // Avatar Sprite
-    const alphaMap = loadTexture("map/userSpriteMask.webp");
+    const alphaMap = loadTexture("/map/userSpriteMask.webp");
     const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;
@@ -447,7 +447,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 
   // If this is the original and our user (we have SP/CP), then show a star
   if ("curStamina" in userData && userData.isOriginal && !userData.isAi) {
-    const marker = loadTexture("combat/star.webp");
+    const marker = loadTexture("/combat/star.webp");
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.scale.set(h / 2.5, h / 2.5, 1);
@@ -479,7 +479,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Create tombstone but hide it for now
-  const tomb_texture = loadTexture("combat/tombstone.webp");
+  const tomb_texture = loadTexture("/combat/tombstone.webp");
   const tomb_material = new SpriteMaterial({ map: tomb_texture });
   const tomb_sprite = new Sprite(tomb_material);
   tomb_sprite.name = "tombstone";

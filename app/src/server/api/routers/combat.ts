@@ -24,12 +24,13 @@ import {
   updateVillageAnbuClan,
   updateKage,
   updateClanLeaders,
+  updateTournament,
 } from "@/libs/combat/database";
 import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
-import { villageAlliance, village } from "@/drizzle/schema";
+import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
@@ -382,6 +383,7 @@ export const combatRouter = createTRPCRouter({
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
+              updateTournament(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
 
@@ -902,6 +904,25 @@ export const initiateBattle = async (
             : []),
         ),
       ),
+    ...(battleType === "TOURNAMENT"
+      ? [
+          client
+            .update(tournamentMatch)
+            .set({ battleId })
+            .where(
+              or(
+                and(
+                  inArray(tournamentMatch.userId1, userIds),
+                  inArray(tournamentMatch.userId2, targetIds),
+                ),
+                and(
+                  inArray(tournamentMatch.userId2, userIds),
+                  inArray(tournamentMatch.userId1, targetIds),
+                ),
+              ),
+            ),
+        ]
+      : []),
   ]);
 
   // Check if success

@@ -22,6 +22,8 @@ import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
 import RichInput from "@/layout/RichInput";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import Tournament from "@/layout/Tournament";
+import { ObjectiveReward } from "@/validators/objectives";
 import { mutateContentSchema } from "@/validators/comments";
 import { api } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -1083,6 +1085,17 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
       <ClanBattles clanId={clanData.id} canCreate={isLeader || isColeader} />
       {/* REQUESTS SYSTEM  */}
       <ClanRequests clanId={clanData.id} isLeader={isLeader} />
+      {/* TOURNAMENT */}
+      <Tournament
+        userData={userData}
+        tournamentId={clanData.id}
+        rewards={ObjectiveReward.parse({ reward_money: clanData.bank })}
+        title="Clan Tournaments"
+        subtitle="Initiated by leader"
+        type="CLAN"
+        canCreate={(isLeader || isColeader) && clanData.bank > 0}
+        canJoin={userData.clanId === clanData.id}
+      />
       {/* MEMBERS */}
       <ClanMembers userId={userData.userId} clanId={clanData.id} />
     </>

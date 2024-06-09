@@ -26,6 +26,8 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import type { QuestCounterFieldName } from "@/validators/user";
+import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { CollectItemType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
@@ -376,97 +378,25 @@ export const questsRouter = createTRPCRouter({
       ) as CollectItemType[];
       const deleteItemIds = itemQuests.map((o) => o.collect_item_id) as string[];
 
-      // Fetch names from the database
-      const [items, jutsus, badges, useritems] = await Promise.all([
-        // Fetch names from the database
-        rewards.reward_items.length > 0
-          ? ctx.drizzle
-              .select({ id: item.id, name: item.name })
-              .from(item)
-              .where(inArray(item.id, rewards.reward_items))
-          : [],
-        rewards.reward_jutsus.length > 0
-          ? ctx.drizzle
-              .select({ id: jutsu.id, name: jutsu.name })
-              .from(jutsu)
-              .leftJoin(userJutsu, eq(jutsu.id, userJutsu.jutsuId))
-              .where(
-                and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
-              )
-          : [],
-        rewards.reward_badges.length > 0
-          ? ctx.drizzle
-              .select({ id: badge.id, name: badge.name, image: badge.image })
-              .from(badge)
-              .leftJoin(
-                userBadge,
-                and(eq(badge.id, userBadge.badgeId), eq(userBadge.userId, ctx.userId)),
-              )
-              .where(
-                and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
-              )
-          : [],
-        deleteItemIds.length > 0 ? fetchUserItems(ctx.drizzle, ctx.userId) : null,
-      ]);
-
-      // Filter down the items to be deleted to only those the user has
-      const deleteUserItemIds = deleteItemIds
-        .filter((id) => useritems?.find((i) => i.itemId === id))
-        .map((id) => useritems?.find((i) => i.itemId === id)?.id) as string[];
-
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
         await insertNextQuest(ctx.drizzle, user, "tier");
       }
 
-      // Update userdata
-      const getNewRank = rewards.reward_rank !== "NONE";
-      const updatedUserData: { [key: string]: any } = {
-        questData: user.questData,
-        money: user.money + rewards.reward_money,
-        earnedExperience: user.earnedExperience + rewards.reward_exp,
-        villagePrestige: user.villagePrestige + rewards.reward_prestige,
-        rank: getNewRank ? rewards.reward_rank : user.rank,
-      };
-
       // If the quest is finished, we update additional fields on the userData model
-      if (resolved) {
-        // Update the finishAt timer
-        updatedUserData["questFinishAt"] = new Date();
-        // Update various counters on the user model
-        const field = getQuestCounterFieldName(
-          userQuest?.quest.questType,
-          userQuest?.quest.requiredRank,
-        );
-        if (field) {
-          updatedUserData[field] = sql`${userData[field]} + 1`;
-        }
-      }
+      const questCounterField =
+        (resolved &&
+          getQuestCounterFieldName(
+            userQuest?.quest.questType,
+            userQuest?.quest.requiredRank,
+          )) ||
+        undefined;
 
       // Update database
-      await Promise.all([
-        // Update userdata
-        ctx.drizzle
-          .update(userData)
-          .set(updatedUserData)
-          .where(eq(userData.userId, ctx.userId)),
-        // If new rank, then delete sensei requests
-        getNewRank ? deleteSenseiRequests(ctx.drizzle, ctx.userId) : undefined,
-        // Update village tokens
-        rewards.reward_tokens > 0 && user.villageId
-          ? ctx.drizzle
-              .update(village)
-              .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
-              .where(eq(village.id, user.villageId))
-          : undefined,
-        // Update clan points
-        rewards.reward_clanpoints > 0 && user.clanId
-          ? ctx.drizzle
-              .update(clan)
-              .set({ points: sql`${clan.points} + ${rewards.reward_clanpoints}` })
-              .where(eq(clan.id, user.clanId))
-          : undefined,
+      const [{ items, jutsus, badges }] = await Promise.all([
+        // Update rewards
+        updateRewards(ctx.drizzle, user, rewards, deleteItemIds, questCounterField),
         // Update quest history
         resolved
           ? ctx.drizzle
@@ -483,28 +413,6 @@ export const questsRouter = createTRPCRouter({
                 ),
               )
           : undefined,
-        // Delete quest items
-        deleteItemIds.length > 0
-          ? ctx.drizzle
-              .delete(userItem)
-              .where(
-                and(
-                  eq(userItem.userId, ctx.userId),
-                  inArray(userItem.id, deleteUserItemIds),
-                ),
-              )
-          : undefined,
-        // Insert items & jutsus
-        ...[
-          jutsus.length > 0 &&
-            ctx.drizzle.insert(userJutsu).values(
-              jutsus.map(({ id }) => ({
-                id: nanoid(),
-                userId: ctx.userId,
-                jutsuId: id,
-              })),
-            ),
-        ],
         // Update sensei with 1000 ryo for missions
         ...(senseiId
           ? [
@@ -519,28 +427,6 @@ export const questsRouter = createTRPCRouter({
               }),
             ]
           : []),
-        // Insert items
-        ...[
-          items.length > 0 &&
-            ctx.drizzle.insert(userItem).values(
-              items.map(({ id }) => ({
-                id: nanoid(),
-                userId: ctx.userId,
-                itemId: id,
-              })),
-            ),
-        ],
-        // Insert achievements/badges
-        ...[
-          badges.length > 0 &&
-            ctx.drizzle.insert(userBadge).values(
-              badges.map(({ id }) => ({
-                id: nanoid(),
-                userId: ctx.userId,
-                badgeId: id,
-              })),
-            ),
-        ],
       ]);
       // Update rewards for readability
       rewards.reward_items = items.map((i) => i.name);
@@ -635,6 +521,137 @@ export const questsRouter = createTRPCRouter({
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */
+
+export const updateRewards = async (
+  client: DrizzleClient,
+  user: UserData,
+  rewards: ObjectiveRewardType,
+  deleteItemIds: string[] = [],
+  questCounterField?: QuestCounterFieldName,
+) => {
+  // Fetch names from the database
+  const [items, jutsus, badges, useritems] = await Promise.all([
+    // Fetch names from the database
+    rewards.reward_items.length > 0
+      ? client
+          .select({ id: item.id, name: item.name })
+          .from(item)
+          .where(inArray(item.id, rewards.reward_items))
+      : [],
+    rewards.reward_jutsus.length > 0
+      ? client
+          .select({ id: jutsu.id, name: jutsu.name })
+          .from(jutsu)
+          .leftJoin(userJutsu, eq(jutsu.id, userJutsu.jutsuId))
+          .where(
+            and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
+          )
+      : [],
+    rewards.reward_badges.length > 0
+      ? client
+          .select({ id: badge.id, name: badge.name, image: badge.image })
+          .from(badge)
+          .leftJoin(
+            userBadge,
+            and(eq(badge.id, userBadge.badgeId), eq(userBadge.userId, user.userId)),
+          )
+          .where(
+            and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
+          )
+      : [],
+    deleteItemIds.length > 0 ? fetchUserItems(client, user.userId) : null,
+  ]);
+
+  // Update userdata
+  const getNewRank = rewards.reward_rank !== "NONE";
+  const updatedUserData: { [key: string]: any } = {
+    questData: user.questData,
+    money: user.money + rewards.reward_money,
+    earnedExperience: user.earnedExperience + rewards.reward_exp,
+    villagePrestige: user.villagePrestige + rewards.reward_prestige,
+    rank: getNewRank ? rewards.reward_rank : user.rank,
+  };
+  if (questCounterField) {
+    updatedUserData["questFinishAt"] = new Date();
+    updatedUserData[questCounterField] = sql`${userData[questCounterField]} + 1`;
+  }
+
+  // Filter down the items to be deleted to only those the user has
+  const deleteUserItemIds = deleteItemIds
+    .filter((id) => useritems?.find((i) => i.itemId === id))
+    .map((id) => useritems?.find((i) => i.itemId === id)?.id) as string[];
+
+  // Update database
+  await Promise.all([
+    // Update userdata
+    client
+      .update(userData)
+      .set(updatedUserData)
+      .where(eq(userData.userId, user.userId)),
+    // If new rank, then delete sensei requests
+    getNewRank ? deleteSenseiRequests(client, user.userId) : undefined,
+    // Update village tokens
+    rewards.reward_tokens > 0 && user.villageId
+      ? client
+          .update(village)
+          .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
+          .where(eq(village.id, user.villageId))
+      : undefined,
+    // Update clan points
+    rewards.reward_clanpoints > 0 && user.clanId
+      ? client
+          .update(clan)
+          .set({ points: sql`${clan.points} + ${rewards.reward_clanpoints}` })
+          .where(eq(clan.id, user.clanId))
+      : undefined,
+    // Delete quest items
+    deleteItemIds.length > 0
+      ? client
+          .delete(userItem)
+          .where(
+            and(
+              eq(userItem.userId, user.userId),
+              inArray(userItem.id, deleteUserItemIds),
+            ),
+          )
+      : undefined,
+    // Insert items & jutsus
+    ...[
+      jutsus.length > 0 &&
+        client.insert(userJutsu).values(
+          jutsus.map(({ id }) => ({
+            id: nanoid(),
+            userId: user.userId,
+            jutsuId: id,
+          })),
+        ),
+    ],
+    // Insert items
+    ...[
+      items.length > 0 &&
+        client.insert(userItem).values(
+          items.map(({ id }) => ({
+            id: nanoid(),
+            userId: user.userId,
+            itemId: id,
+          })),
+        ),
+    ],
+    // Insert achievements/badges
+    ...[
+      badges.length > 0 &&
+        client.insert(userBadge).values(
+          badges.map(({ id }) => ({
+            id: nanoid(),
+            userId: user.userId,
+            badgeId: id,
+          })),
+        ),
+    ],
+  ]);
+  // Update rewards for readability
+  return { items, jutsus, badges, useritems };
+};
 
 export const fetchQuest = async (client: DrizzleClient, id: string) => {
   return await client.query.quest.findFirst({

@@ -25,6 +25,7 @@ import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import type { QuestContentType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
+import type { ObjectiveRewardType } from "@/validators/objectives";
 import * as consts from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 
@@ -366,6 +367,109 @@ export const mpvpBattleUserRelations = relations(mpvpBattleUser, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const tournament = mysqlTable(
+  "Tournament",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    description: text("description").notNull(),
+    round: tinyint("round").default(1).notNull(),
+    type: mysqlEnum("type", consts.TournamentTypes).notNull(),
+    rewards: json("rewards").$type<ObjectiveRewardType>().notNull(),
+    startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY )`)
+      .notNull(),
+    roundStartedAt: datetime("roundStartedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY )`)
+      .notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    status: mysqlEnum("status", consts.TournamentStates).default("OPEN").notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("Tournament_name_key").on(table.name),
+    };
+  },
+);
+
+export const tournamentRelations = relations(tournament, ({ many }) => ({
+  matches: many(tournamentMatch),
+}));
+
+export const tournamentMatch = mysqlTable(
+  "TournamentMatch",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    tournamentId: varchar("tournamentId", { length: 191 }).notNull(),
+    round: int("round").notNull(),
+    match: int("match").notNull(),
+    state: mysqlEnum("state", consts.TournamentMatchStates)
+      .default("WAITING")
+      .notNull(),
+    winnerId: varchar("winnerId", { length: 191 }),
+    battleId: varchar("battleId", { length: 191 }),
+    userId1: varchar("userId1", { length: 191 }).notNull(),
+    userId2: varchar("userId2", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    startedAt: datetime("startedAt", { mode: "date", fsp: 3 }).notNull(),
+  },
+  (table) => {
+    return {
+      tournamentIdIdx: index("TournamentMatch_tournamentId_idx").on(table.tournamentId),
+      userId1Idx: index("TournamentMatch_userId1_idx").on(table.userId1),
+      userId2Idx: index("TournamentMatch_userId2_idx").on(table.userId2),
+      winnerIdIdx: index("TournamentMatch_winnerId_idx").on(table.winnerId),
+    };
+  },
+);
+export type TournamentMatch = InferSelectModel<typeof tournamentMatch>;
+
+export const tournamentMatchRelations = relations(tournamentMatch, ({ one }) => ({
+  tournament: one(tournament, {
+    fields: [tournamentMatch.tournamentId],
+    references: [tournament.id],
+  }),
+  user1: one(userData, {
+    fields: [tournamentMatch.userId1],
+    references: [userData.userId],
+  }),
+  user2: one(userData, {
+    fields: [tournamentMatch.userId2],
+    references: [userData.userId],
+  }),
+  winner: one(userData, {
+    fields: [tournamentMatch.winnerId],
+    references: [userData.userId],
+  }),
+}));
+
+export const tournamentRecord = mysqlTable(
+  "TournamentRecord",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    description: text("description").notNull(),
+    round: tinyint("round").default(1).notNull(),
+    type: mysqlEnum("type", consts.TournamentTypes).notNull(),
+    rewards: json("rewards").$type<ObjectiveRewardType>().notNull(),
+    startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY )`)
+      .notNull(),
+    winnerId: varchar("winnerId", { length: 191 }),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("HistoricalTournament_name_key").on(table.name),
+    };
+  },
+);
 
 export const conversation = mysqlTable(
   "Conversation",

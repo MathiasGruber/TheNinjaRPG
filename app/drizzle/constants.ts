@@ -156,9 +156,19 @@ export const BattleTypes = [
   "KAGE_CHALLENGE",
   "CLAN_CHALLENGE",
   "CLAN_BATTLE",
+  "TOURNAMENT",
   "QUEST",
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
+
+export const TournamentTypes = ["CLAN"] as const;
+export type TournamentType = (typeof TournamentTypes)[number];
+
+export const TournamentStates = ["OPEN", "IN_PROGRESS", "COMPLETED"] as const;
+export type TournamentState = (typeof TournamentStates)[number];
+
+export const TournamentMatchStates = ["WAITING", "PLAYED", "NO_SHOW"] as const;
+export type TournamentMatchState = (typeof TournamentMatchStates)[number];
 
 export const AutoBattleTypes = ["KAGE_CHALLENGE", "CLAN_CHALLENGE"];
 
@@ -322,3 +332,6 @@ export const MAX_TRAINING_BOOST = 15;
 export const MAX_RYO_BOOST = 15;
 export const TRAINING_BOOST_COST = 300;
 export const RYO_BOOST_COST = 100;
+
+// Tournament Config
+export const TOURNAMENT_ROUND_SECONDS = 30 * 60;

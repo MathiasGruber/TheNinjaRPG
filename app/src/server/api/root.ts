@@ -28,6 +28,7 @@ import { senseiRouter } from "./routers/sensei";
 import { simulatorRouter } from "./routers/simulator";
 import { sparringRouter } from "./routers/sparring";
 import { travelRouter } from "./routers/travel";
+import { tournamentRouter } from "./routers/tournament";
 import { villageRouter } from "./routers/village";
 
 /**
@@ -65,6 +66,7 @@ export const appRouter = createTRPCRouter({
   simulator: simulatorRouter,
   sparring: sparringRouter,
   travel: travelRouter,
+  tournament: tournamentRouter,
   village: villageRouter,
 });
 
