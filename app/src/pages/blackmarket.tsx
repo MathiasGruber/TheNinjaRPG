@@ -228,8 +228,8 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
 
   // New offer form
   const FormSchema = z.object({
-    reps: z.number().int().min(0),
-    ryo: z.number().int().min(0),
+    reps: z.coerce.number().int().min(1),
+    ryo: z.coerce.number().int().min(1),
   });
   type FormSchemaType = z.infer<typeof FormSchema>;
   const form = useForm<FormSchemaType>({
@@ -238,6 +238,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
   });
   const offerReps = form.watch("reps");
   const offerRyo = form.watch("ryo");
+  const onSubmit = form.handleSubmit((data) => create(data));
 
   // Derived
   const tradeableReps = Math.max(userData.reputationPoints - 5, 0);
@@ -266,7 +267,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
           </p>
           {!isLoading && (
             <Form {...form}>
-              <form>
+              <form onSubmit={onSubmit}>
                 <div className="grid grid-cols-2 gap-3 px-3">
                   <FormField
                     control={form.control}
@@ -313,9 +314,9 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                         Create offer
                       </Button>
                     }
-                    onAccept={(e) => {
+                    onAccept={async (e) => {
                       e.preventDefault();
-                      create(form.getValues());
+                      await onSubmit();
                     }}
                   >
                     {offerReps > 0 && offerRyo > 0 && (

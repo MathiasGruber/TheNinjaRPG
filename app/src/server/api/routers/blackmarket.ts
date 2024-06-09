@@ -50,7 +50,12 @@ export const blackMarketRouter = createTRPCRouter({
       return { data: results, nextCursor };
     }),
   createOffer: protectedProcedure
-    .input(z.object({ reps: z.coerce.number().min(0), ryo: z.coerce.number().min(0) }))
+    .input(
+      z.object({
+        reps: z.coerce.number().int().min(1),
+        ryo: z.coerce.number().int().min(1),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Fetch
       const user = await fetchUser(ctx.drizzle, ctx.userId);
