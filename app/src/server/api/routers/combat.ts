@@ -804,7 +804,7 @@ export const initiateBattle = async (
 
   // Figure out who starts in the battle
   const attackerFirst = ["ARENA", "QUEST"].includes(battleType);
-  const activeUser = usersState.sort((a, b) => a.initiative - b.initiative);
+  const activeUser = usersState.sort((a, b) => b.initiative - a.initiative);
   const activeUserId = attackerFirst ? users?.[0]?.userId : activeUser?.[0]?.userId;
 
   // When to start the battle
