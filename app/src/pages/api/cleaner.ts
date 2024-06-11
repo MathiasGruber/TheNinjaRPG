@@ -25,7 +25,7 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     await drizzleDB.execute(
       sql`DELETE FROM ${battleAction} a WHERE 
           NOT EXISTS (SELECT id FROM ${battle} b WHERE b.id = a.battleId) AND
-          createdAt < DATE_SUB(NOW(), INTERVAL ${3600 * 3} SECOND)`,
+          createdAt < DATE_SUB(NOW(), INTERVAL ${3600 * 3} SECOND) LIMIT 99999`,
     );
 
     // One day in mseconds
