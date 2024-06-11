@@ -18,24 +18,27 @@ import { secondsPassed } from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
-  userData,
+  actionLog,
   bankTransfers,
-  userAttribute,
-  historicalAvatar,
-  reportLog,
-  userReportComment,
-  forumPost,
+  bloodlineRolls,
   conversationComment,
+  forumPost,
+  historicalAvatar,
+  jutsu,
+  jutsuLoadout,
+  notification,
+  quest,
+  questHistory,
+  reportLog,
   user2conversation,
-  userReport,
-  userNindo,
+  userAttribute,
+  userData,
   userItem,
   userJutsu,
-  jutsu,
-  actionLog,
-  notification,
-  questHistory,
-  quest,
+  userNindo,
+  userRequest,
+  userReport,
+  userReportComment,
   village,
 } from "@/drizzle/schema";
 import { usernameSchema } from "@/validators/register";
@@ -1154,15 +1157,22 @@ export const updateNindo = async (
 
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
   await client.transaction(async (tx) => {
-    await tx.delete(userData).where(eq(userData.userId, userId));
-    await tx.delete(userJutsu).where(eq(userJutsu.userId, userId));
-    await tx.delete(userItem).where(eq(userItem.userId, userId));
-    await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
-    await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
-    await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
-    await tx.delete(forumPost).where(eq(forumPost.userId, userId));
+    await tx.delete(actionLog).where(eq(actionLog.userId, userId));
+    await tx.delete(bloodlineRolls).where(eq(bloodlineRolls.userId, userId));
     await tx.delete(conversationComment).where(eq(conversationComment.userId, userId));
+    await tx.delete(forumPost).where(eq(forumPost.userId, userId));
+    await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
+    await tx.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId));
+    await tx.delete(questHistory).where(eq(questHistory.userId, userId));
     await tx.delete(user2conversation).where(eq(user2conversation.userId, userId));
+    await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
+    await tx.delete(userData).where(eq(userData.userId, userId));
+    await tx.delete(userItem).where(eq(userItem.userId, userId));
+    await tx.delete(userJutsu).where(eq(userJutsu.userId, userId));
+    await tx.delete(userNindo).where(eq(userNindo.userId, userId));
+    await tx.delete(userRequest).where(eq(userRequest.senderId, userId));
+    await tx.delete(userRequest).where(eq(userRequest.receiverId, userId));
+    await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
     await tx
       .delete(reportLog)
       .where(or(eq(reportLog.targetUserId, userId), eq(reportLog.staffUserId, userId)));
