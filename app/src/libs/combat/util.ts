@@ -14,6 +14,7 @@ import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
+import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -456,8 +457,6 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Things to reward for non-spars
       if (battleType !== "SPARRING") {
-        // Experience
-        result["experience"] = experience;
         // Money stolen/given
         result["money"] = moneyDelta;
         // If any stats were used, distribute exp change on stats.
@@ -477,15 +476,20 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
           total = 12;
         }
-        const statGain = Math.floor((experience / total) * 100) / 100;
+        let assignedExp = 0;
+        const gain = Math.floor((experience / total) * 100) / 100;
         user.usedStats.forEach((stat) => {
-          result[stat] += statGain;
+          result[stat] += user[stat] + gain > STATS_CAP ? STATS_CAP - user[stat] : gain;
+          assignedExp += result[stat];
         });
         user.usedGenerals.forEach((stat) => {
-          result[
-            stat.toLowerCase() as "strength" | "intelligence" | "speed" | "willpower"
-          ] += statGain;
+          const gen = stat.toLowerCase() as Lowercase<typeof stat>;
+          result[gen] += gain;
+          result[gen] += user[gen] + gain > GENS_CAP ? GENS_CAP - user[gen] : gain;
+          assignedExp += result[gen];
         });
+        // Experience
+        result["experience"] = assignedExp;
       }
 
       // Return results
