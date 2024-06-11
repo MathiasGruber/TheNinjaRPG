@@ -484,7 +484,6 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         });
         user.usedGenerals.forEach((stat) => {
           const gen = stat.toLowerCase() as Lowercase<typeof stat>;
-          result[gen] += gain;
           result[gen] += user[gen] + gain > GENS_CAP ? GENS_CAP - user[gen] : gain;
           assignedExp += result[gen];
         });
