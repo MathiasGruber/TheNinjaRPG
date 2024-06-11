@@ -479,13 +479,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         let assignedExp = 0;
         const gain = Math.floor((experience / total) * 100) / 100;
         user.usedStats.forEach((stat) => {
-          result[stat] += user[stat] + gain > STATS_CAP ? STATS_CAP - user[stat] : gain;
-          assignedExp += result[stat];
+          const value = user[stat] + gain > STATS_CAP ? STATS_CAP - user[stat] : gain;
+          result[stat] += value;
+          assignedExp += value;
         });
         user.usedGenerals.forEach((stat) => {
           const gen = stat.toLowerCase() as Lowercase<typeof stat>;
-          result[gen] += user[gen] + gain > GENS_CAP ? GENS_CAP - user[gen] : gain;
-          assignedExp += result[gen];
+          const value = user[gen] + gain > GENS_CAP ? GENS_CAP - user[gen] : gain;
+          result[gen] += value;
+          assignedExp += value;
         });
         // Experience
         result["experience"] = assignedExp;
