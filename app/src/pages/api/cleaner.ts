@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, lte, sql, eq, lt, isNull } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
+import { bankTransfers } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
@@ -83,6 +84,14 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     // Step 12: Update users who have a clanId by no clan
     await drizzleDB.execute(
       sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`,
+    );
+
+    // Step 3: Bank transfers from deleted users
+    await drizzleDB.execute(
+      sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.senderId)`,
+    );
+    await drizzleDB.execute(
+      sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.receiverId)`,
     );
 
     res.status(200).json("OK");

@@ -1158,6 +1158,8 @@ export const updateNindo = async (
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
   await client.transaction(async (tx) => {
     await tx.delete(actionLog).where(eq(actionLog.userId, userId));
+    await tx.delete(bankTransfers).where(eq(bankTransfers.senderId, userId));
+    await tx.delete(bankTransfers).where(eq(bankTransfers.receiverId, userId));
     await tx.delete(bloodlineRolls).where(eq(bloodlineRolls.userId, userId));
     await tx.delete(conversationComment).where(eq(conversationComment.userId, userId));
     await tx.delete(forumPost).where(eq(forumPost.userId, userId));
