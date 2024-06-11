@@ -3,7 +3,7 @@ import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
-import { getServerPusher } from "@/libs/pusher";
+import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
 
 export const homeRouter = createTRPCRouter({
@@ -59,7 +59,7 @@ export const homeRouter = createTRPCRouter({
         userId: ctx.userId,
       };
       const pusher = getServerPusher();
-      void pusher.trigger(user.sector.toString(), "event", output);
+      void updateUserOnMap(pusher, user.sector, output);
       // Done
       return {
         success: true,

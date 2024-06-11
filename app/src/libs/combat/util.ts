@@ -667,9 +667,10 @@ export const processUsersForBattle = (info: {
   villages: Village[];
   battleType: BattleType;
   hide: boolean;
+  leftSideUserIds?: string[];
 }) => {
   // Destructure
-  const { users, relations, battleType, hide } = info;
+  const { users, relations, battleType, hide, leftSideUserIds } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -725,11 +726,38 @@ export const processUsersForBattle = (info: {
     user.originalMoney = user.money;
     user.actionPoints = 100;
 
+    // Convenience function for assigning location of user
+    const takenLocations: { x: number; y: number }[] = [];
+    const assignLocation = (min: number, max: number) => {
+      let x = randomInt(min, max);
+      let y = randomInt(1, 3);
+      do {
+        x = randomInt(min, max);
+        y = randomInt(1, 3);
+      } while (takenLocations.some((l) => l.x === x && l.y === y));
+      takenLocations.push({ x, y });
+      return { x, y };
+    };
+
+    // Store original location
+    user.originalLongitude = user.longitude;
+    user.originalLatitude = user.latitude;
+
     // Default locaton
     if (hide) {
       user.longitude = 0;
       user.latitude = 0;
       user.curHealth = 0;
+    } else {
+      if (leftSideUserIds?.includes(user.userId)) {
+        const { x, y } = assignLocation(1, 5);
+        user["longitude"] = x;
+        user["latitude"] = y;
+      } else {
+        const { x, y } = assignLocation(7, 11);
+        user["longitude"] = x;
+        user["latitude"] = y;
+      }
     }
 
     // By default the ones inserted initially are original

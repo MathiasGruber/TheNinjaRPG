@@ -84,3 +84,31 @@ export const getServerPusher = () => {
   );
   return pusher;
 };
+export type PusherClient = ReturnType<typeof getServerPusher>;
+
+/**
+ * Updates the user's information on the map using Pusher, pushing it out to all users in the sector.
+ * @param pusher - The Pusher client instance.
+ * @param user - The user object containing the updated information.
+ */
+export const updateUserOnMap = async (
+  pusher: PusherClient,
+  sector: number,
+  user: {
+    userId: string;
+    sector: number;
+    longitude: number;
+    latitude: number;
+    avatar: string | null;
+    location: string | null;
+  },
+) => {
+  await pusher.trigger(sector.toString(), "event", {
+    userId: user.userId,
+    longitude: user.longitude,
+    latitude: user.latitude,
+    avatar: user.avatar,
+    sector: user.sector,
+    location: user.location,
+  });
+};

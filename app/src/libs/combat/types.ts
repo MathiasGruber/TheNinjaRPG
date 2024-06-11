@@ -38,6 +38,8 @@ export type BattleUserState = UserWithRelations & {
   leftBattle: boolean;
   fledBattle: boolean;
   initiative: number;
+  originalLongitude: number;
+  originalLatitude: number;
   hex?: TerrainHex;
   originalMoney: number;
   direction: "left" | "right";

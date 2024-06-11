@@ -7,7 +7,7 @@ import { calcIsInVillage } from "@/libs/travel/controls";
 import { isAtEdge, maxDistance } from "@/libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
-import { getServerPusher } from "@/libs/pusher";
+import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { userData, village } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
@@ -19,6 +19,8 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { GlobalMapData } from "@/libs/travel/types";
 
 // const redis = Redis.fromEnv();
+
+const pusher = getServerPusher();
 
 export const travelRouter = createTRPCRouter({
   // Get users within a given sector
@@ -102,8 +104,7 @@ export const travelRouter = createTRPCRouter({
         user.sector = input.sector;
         user.status = "TRAVEL";
         user.travelFinishAt = endTime;
-        const pusher = getServerPusher();
-        void pusher.trigger(user.sector.toString(), "event", user);
+        void updateUserOnMap(pusher, user.sector, user);
         return { success: true, message: "OK", sector: user.sector };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);
@@ -127,8 +128,7 @@ export const travelRouter = createTRPCRouter({
       }
       user.status = "AWAKE";
       user.travelFinishAt = null;
-      const pusher = getServerPusher();
-      void pusher.trigger(user.sector.toString(), "event", user);
+      void updateUserOnMap(pusher, user.sector, user);
       await ctx.drizzle
         .update(userData)
         .set({ status: "AWAKE", travelFinishAt: null })
@@ -242,8 +242,8 @@ export const travelRouter = createTRPCRouter({
         }
         // Final output
         const output = { ...input, location, userId: userId };
-        const pusher = getServerPusher();
-        void pusher.trigger(input.sector.toString(), "event", output);
+
+        void updateUserOnMap(pusher, input.sector, output);
         return { success: true, message: "OK", data: output };
       } else {
         const userData = await fetchUser(ctx.drizzle, userId);

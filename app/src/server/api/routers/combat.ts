@@ -37,14 +37,13 @@ import { availableUserActions } from "@/libs/combat/actions";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { BarrierTag } from "@/libs/combat/types";
 import { combatAssetsNames } from "@/libs/travel/constants";
-import { getServerPusher } from "@/libs/pusher";
+import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { applyEffects } from "@/libs/combat/process";
 import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
-import { randomInt } from "@/utils/math";
 import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
@@ -124,7 +123,7 @@ export const combatRouter = createTRPCRouter({
 
           // Update user & delete the battle if it's done
           if (result) {
-            await updateUser(ctx.drizzle, userBattle, result, ctx.userId);
+            await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
           }
 
           // Return the new battle + result state if applicable
@@ -379,7 +378,7 @@ export const combatRouter = createTRPCRouter({
             const [logEntries] = await Promise.all([
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),
-              updateUser(db, newBattle, result, suid),
+              updateUser(db, pusher, newBattle, result, suid),
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
@@ -632,35 +631,11 @@ export const initiateBattle = async (
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
 
-  // Convenience function for assigning location of user
-  const takenLocations: { x: number; y: number }[] = [];
-  const assignLocation = (min: number, max: number) => {
-    let x = randomInt(min, max);
-    let y = randomInt(1, 3);
-    do {
-      x = randomInt(min, max);
-      y = randomInt(1, 3);
-    } while (takenLocations.some((l) => l.x === x && l.y === y));
-    takenLocations.push({ x, y });
-    return { x, y };
-  };
-
   // Loop through each user
   for (let i = 0; i < users.length; i++) {
     // Get the user
     const user = users[i];
     if (!user) return { success: false, message: "Could not find expected user" };
-
-    // Use long/lat fields for position in combat map
-    if (userIds.includes(user.userId)) {
-      const { x, y } = assignLocation(1, 5);
-      user["longitude"] = x;
-      user["latitude"] = y;
-    } else {
-      const { x, y } = assignLocation(7, 11);
-      user["longitude"] = x;
-      user["latitude"] = y;
-    }
 
     // Check if user is asleep
     if (
@@ -743,6 +718,7 @@ export const initiateBattle = async (
     villages: villages,
     battleType: battleType,
     hide: false,
+    leftSideUserIds: userIds,
   });
 
   // Set attacker to be the agressor
@@ -944,17 +920,10 @@ export const initiateBattle = async (
   const pusher = getServerPusher();
 
   // Hide users on map when in combat
-  if (battleType !== "KAGE_CHALLENGE") {
+  if (!["KAGE_CHALLENGE", "CLAN_CHALLENGE"].includes(battleType)) {
     users.forEach((user) => {
       void pusher.trigger(user.userId, "event", { type: "battle" });
-      void pusher.trigger(user.sector.toString(), "event", {
-        userId: user.userId,
-        longitude: user.longitude,
-        latitude: user.latitude,
-        avatar: user.avatar,
-        sector: -1,
-        location: user.location,
-      });
+      void updateUserOnMap(pusher, user.sector, { ...user, sector: -1 });
     });
   }
 

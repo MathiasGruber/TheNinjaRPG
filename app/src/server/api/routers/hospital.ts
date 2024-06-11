@@ -10,7 +10,7 @@ import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
-import { getServerPusher } from "@/libs/pusher";
+import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcHealthToChakra } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
 import { MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
@@ -148,6 +148,7 @@ export const hospitalRouter = createTRPCRouter({
             route: "/profile",
             routeText: "To profile",
           });
+          void updateUserOnMap(pusher, t.sector, t);
           return { success: true, message: "You have healed the target user" };
         } else {
           return { success: false, message: "Could not heal target" };
@@ -206,6 +207,7 @@ export const hospitalRouter = createTRPCRouter({
               eq(userData.status, "HOSPITALIZED"),
             ),
           );
+        void updateUserOnMap(pusher, user.sector, user);
       }
       if (result.rowsAffected === 1) {
         return { success: true, message: "You have been healed" };
