@@ -237,10 +237,13 @@ export const blackMarketRouter = createTRPCRouter({
       // Get the updated elements
       const rankId = UserRanks.findIndex((r) => r === user.rank);
       if (rankId >= 1) {
-        user.primaryElement = getRandomElement(BasicElementName) ?? null;
+        const available = BasicElementName.filter((e) => e !== user.primaryElement);
+        user.primaryElement = getRandomElement(available) ?? null;
       }
       if (rankId >= 2) {
-        const available = BasicElementName.filter((e) => e !== user.primaryElement);
+        const available = BasicElementName.filter(
+          (e) => ![user.primaryElement, user.secondaryElement].includes(e),
+        );
         user.secondaryElement = getRandomElement(available) ?? null;
       }
       // Mutate
