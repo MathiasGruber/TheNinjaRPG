@@ -84,7 +84,7 @@
     "superjson": "1.13.1",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
-    "three": "0.160.1",
+    "three": "0.165.0",
     "uploadthing": "6.3.1",
     "zod": "3.22.4"
   },
@@ -95,7 +95,7 @@
     "@types/react-dom": "18.2.18",
     "@types/react-html-parser": "2.0.6",
     "@types/sanitize-html": "2.9.5",
-    "@types/three": "0.160.0",
+    "@types/three": "0.165.0",
     "@types/tweenjs": "^1.0.4",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",

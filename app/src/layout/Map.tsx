@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Vector2,
-  Vector3,
+  BufferAttribute,
+  BufferGeometry,
+  TorusKnotGeometry,
+  EdgesGeometry,
+  Group,
   LineBasicMaterial,
   LineSegments,
-  PerspectiveCamera,
-  SpriteMaterial,
-  Sprite,
-  Group,
-  BufferGeometry,
-  BufferAttribute,
   Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Sprite,
+  SpriteMaterial,
+  Vector2,
+  Vector3,
 } from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
@@ -178,10 +181,11 @@ const Map: React.FC<MapProps> = (props) => {
           }
         });
       }
+
       scene.add(group_highlights);
       scene.add(group_tiles);
 
-      // Add user label
+      // Add tweening highlights
       const userTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
       const questTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
       const highlightTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
@@ -215,6 +219,41 @@ const Map: React.FC<MapProps> = (props) => {
           .start();
       }
 
+      // Highlight GPS pin
+      if (highlightedSector) {
+        const sector = hexasphere?.tiles[highlightedSector]?.c;
+        if (sector) {
+          // Create the line
+          const points = [];
+          points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
+          points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
+          const lineMaterial = new LineBasicMaterial({
+            color: lineColor,
+            linewidth: lineWidth,
+          });
+          const geometry = new BufferGeometry().setFromPoints(points);
+          const line = new LineSegments(geometry, lineMaterial);
+          group_highlights.add(line);
+          // Object
+          const highlightMaterial = new MeshBasicMaterial({ color: 0x0094d4 });
+          const highlightGeom = new TorusKnotGeometry(10, 3, 70, 8);
+          const highlightMesh = new Mesh(highlightGeom, highlightMaterial);
+          highlightMesh.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+          highlightMesh.scale.set(0.05, 0.05, 0.05);
+          highlightMesh.name = `highlight_sphere`;
+          group_highlights.add(highlightMesh);
+          // Edges
+          const edges = new EdgesGeometry(highlightGeom);
+          const lines = new LineSegments(
+            edges,
+            new LineBasicMaterial({ color: lineColor, linewidth: lineWidth }),
+          );
+          Object.assign(lines.position, highlightMesh.position);
+          Object.assign(lines.scale, highlightMesh.scale);
+          group_highlights.add(lines);
+        }
+      }
+
       //Enable controls
       const controls = new TrackballControls(camera, renderer.domElement);
       controls.noPan = true;
@@ -241,24 +280,26 @@ const Map: React.FC<MapProps> = (props) => {
         if (userTweenColor && userData && sectorsToHighlight.length > 0) {
           sectorsToHighlight.forEach((sector) => {
             const mesh = group_tiles.getObjectByName(`${sector}`);
-            if (userData.sector === sector) {
-              (mesh as HexagonalFaceMesh).material.color.setRGB(
-                userTweenColor.r,
-                userTweenColor.g,
-                userTweenColor.b,
-              );
-            } else if (highlightedSector === sector) {
-              (mesh as HexagonalFaceMesh).material.color.setRGB(
-                highlightTweenColor.r,
-                highlightTweenColor.g,
-                highlightTweenColor.b,
-              );
-            } else {
-              (mesh as HexagonalFaceMesh).material.color.setRGB(
-                questTweenColor.r,
-                questTweenColor.g,
-                questTweenColor.b,
-              );
+            if (mesh) {
+              if (userData.sector === sector) {
+                (mesh as HexagonalFaceMesh).material.color.setRGB(
+                  userTweenColor.r,
+                  userTweenColor.g,
+                  userTweenColor.b,
+                );
+              } else if (highlightedSector === sector) {
+                (mesh as HexagonalFaceMesh).material.color.setRGB(
+                  highlightTweenColor.r,
+                  highlightTweenColor.g,
+                  highlightTweenColor.b,
+                );
+              } else {
+                (mesh as HexagonalFaceMesh).material.color.setRGB(
+                  questTweenColor.r,
+                  questTweenColor.g,
+                  questTweenColor.b,
+                );
+              }
             }
           });
           TWEEN.update();
