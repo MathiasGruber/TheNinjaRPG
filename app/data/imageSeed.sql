@@ -91,3 +91,11 @@ UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/06e7669d-3924-4070-b2
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/69d3cad3-cf9b-4d77-a4eb-dba456fd9bee-lwv947.webp' WHERE `route` = '/blackmarket' AND `villageId` = 'GQhLjH7uMMe0jN1qXzM7B';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/87b2c6cd-7e6f-4ced-bff0-ea311bb2796f-puc52p.webp' WHERE `route` = '/missionhall' AND `villageId` = 'GQhLjH7uMMe0jN1qXzM7B';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/97a94f67-ae85-4cdb-8df7-baf35397c4d4-3oj0tf.webp' WHERE `route` = '/itemshop' AND `villageId` = 'GQhLjH7uMMe0jN1qXzM7B';
+
+
+UPDATE `Village` SET `sector` = 203 WHERE `name` = 'Glacier';
+UPDATE `Village` SET `sector` = 293 WHERE `name` = 'Silence';
+UPDATE `Village` SET `sector` = 254 WHERE `name` = 'Shroud';
+UPDATE `Village` SET `sector` = 271 WHERE `name` = 'Current';
+UPDATE `Village` SET `sector` = 305 WHERE `name` = 'Konoki';
+UPDATE `Village` SET `sector` = 83 WHERE `name` = 'Shine';
