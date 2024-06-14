@@ -16,30 +16,31 @@ UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/0980ab97-1510-4202-98
 
 -- SYNDICATE
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/79819710-fe52-4f63-848f-f1ad8cdb6238-hozhx9.webp' WHERE `route` = '/missionhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/62073f7c-49d5-4db0-93de-35364f7044f0-nda31y.webp' WHERE `route` = '/traininggrounds' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/8815c93b-47a8-4280-8bd9-6b977ab4c017-dpmkj6.webp' WHERE `route` = '/clanhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/1f727d52-f19a-4e00-807b-e4d3c4173347-158bkl.webp' WHERE `route` = '/battlearena' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/79819710-fe52-4f63-848f-f1ad8cdb6238-hozhx9.webp' WHERE `route` = '/missionhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/d894e5c9-77bf-494e-85de-22c9979d1d8e-dplpp4.webp' WHERE `route` = '/bank' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/9c832de9-917e-4edb-ad10-d9d1175f19a7-nda31y.webp' WHERE `route` = '/traininggrounds' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/8a6fb241-e8f1-4ed2-b556-328ef2667d78-frydlu.webp' WHERE `route` = '/clanhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/a000a79b-1589-4c6b-ba88-3bf3def5af65-158bkl.webp' WHERE `route` = '/battlearena' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/832b4eb5-3900-4a03-ad8c-3cdac4135dbc-hozhx9.webp' WHERE `route` = '/missionhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/fbde5692-393c-4565-959d-7fefcbe0bb10-dplpp4.webp' WHERE `route` = '/bank' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/25b56844-e285-4814-8ab6-04a8defcf53e-dpwpoy.webp' WHERE `route` = '/itemshop' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/a108bf10-e3d3-4209-8909-0c4c41fa33e2-2r9eay.webp' WHERE `route` = '/hospital' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/520179e5-cd86-4a16-96e4-e2791e4f9cce-srb0e7.webp' WHERE `route` = '/ramenshop' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/630783ce-5a01-41ec-9903-d9e7106ff672-dpptyz.webp' WHERE `route` = '/home' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/0bbcfabb-0500-402e-9c4b-c2d584c63ff1-mdnudd.webp' WHERE `route` = '/blackmarket' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/6407eedd-9382-41e9-b27d-eb02afe87ce9-srb0e7.webp' WHERE `route` = '/ramenshop' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/66d28824-f694-4a78-b35f-49817c97dfa6-dpptyz.webp' WHERE `route` = '/home' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/83355dd0-bfba-4e48-ab37-f7c673c1b336-mdnudd.webp' WHERE `route` = '/blackmarket' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/f233ebed-3458-4c58-842f-8f84bfaf0b34-relv3y.webp' WHERE `route` = '/townhall' AND `villageId` = 'ryBk0qD4EgvPPyav2K4OC';
 
 -- CURRENT
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/1648aec3-44da-4481-93a6-65fe3aeaeec5-8s36c2.webp' WHERE `route` = '/clanhall' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/5c549dd7-75a9-467d-92c6-89bb0220d323-bypfqt.webp' WHERE `route` = '/battlearena' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/c388fc3d-ee17-4904-82aa-43c4c9790750-ibxl06.webp' WHERE `route` = '/traininggrounds' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/41e4d0a8-b5db-4ff0-a2d4-9cef0450e7f5-qbyr0n.webp' WHERE `route` = '/townhall' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/33ae3d48-c8be-4602-b77f-20cd52d5814d-8s2bi0.webp' WHERE `route` = '/bank' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/a66db95a-a46c-46a2-8ccf-4da865a0a642-8s19cs.webp' WHERE `route` = '/anbu' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/2f8d3370-22bb-4f17-9415-795de8c9e0c3-8s6frv.webp' WHERE `route` = '/home' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/5cb0f956-7d36-4760-a304-871048d89108-xjhafz.webp' WHERE `route` = '/ramenshop' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/6f00b266-7f92-4d3d-8e20-db33280c7762-xqzgl2.webp' WHERE `route` = '/hospital' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/b3bd7064-1b28-4c6e-8019-1801345b7bb6-1gyjfl.webp' WHERE `route` = '/blackmarket' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/2a3636d8-8482-4f06-9c7b-7aeb16508026-it9cyr.webp' WHERE `route` = '/missionhall' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
-UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/7041a062-5d27-477e-9fee-e34368e6a394-crqp6j.webp' WHERE `route` = '/itemshop' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/ee3bfde8-75a6-4c7c-97cd-5985b337e2c4-qzilr0.webp' WHERE `route` = '/clanhall' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/d9d97f39-d810-47ed-b333-cb77952c64be-ftblof.webp' WHERE `route` = '/battlearena' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/cec7604c-f090-43cf-bf7a-1ea005e3b291-dfgtyu.webp' WHERE `route` = '/traininggrounds' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/df332f63-350e-4cf9-b228-f628a8acf0a4-wwv40h.webp' WHERE `route` = '/townhall' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/82a9d32b-e6b2-4d73-a49f-ee80bfa7cb48-qzhqwy.webp' WHERE `route` = '/bank' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/62d4fe25-f1b3-4cf8-9f31-36f584cab2e4-qzgorq.webp' WHERE `route` = '/anbu' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/8af4201a-735a-498c-bbc9-9a2d3113b6f1-qzlv6t.webp' WHERE `route` = '/home' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/da3abb19-8109-4e0b-8fbe-32d02e9fee10-seq81j.webp' WHERE `route` = '/ramenshop' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/28cac682-0cf3-4443-97b3-82e70fbe2321-up88e8.webp' WHERE `route` = '/hospital' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/6110fbdd-b460-4fc4-885f-de50a1107f26-6c7y7f.webp' WHERE `route` = '/blackmarket' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/ea1c4a0a-1440-4f65-a781-29b27b1c3d78-cqoudb.webp' WHERE `route` = '/missionhall' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
+UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/90474c6c-08ac-4033-832e-324e8d64b3a3-67errl.webp' WHERE `route` = '/itemshop' AND `villageId` = '_J6H3PpJrQQB8NnpbYUlW';
 
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/1648aec3-44da-4481-93a6-65fe3aeaeec5-8s36c2.webp' WHERE `route` = '/clanhall' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
 UPDATE `VillageStructure` SET `image` = 'https://utfs.io/f/5c549dd7-75a9-467d-92c6-89bb0220d323-bypfqt.webp' WHERE `route` = '/battlearena' AND `villageId` = 'clh4d6sha0018tb0hrer16kv5';
@@ -114,3 +115,7 @@ UPDATE `Village` SET `sector` = 254 WHERE `name` = 'Shroud';
 UPDATE `Village` SET `sector` = 271 WHERE `name` = 'Current';
 UPDATE `Village` SET `sector` = 305 WHERE `name` = 'Konoki';
 UPDATE `Village` SET `sector` = 83 WHERE `name` = 'Shine';
+
+INSERT INTO `VillageStructure` (`id`, `name`, `image`, `villageId`, `level`, `maxLevel`, `curSp`, `maxSp`, `longitude`, `latitude`, `hasPage`, `anbuSquadsPerLvl`, `arenaRewardPerLvl`, `bankInterestPerLvl`, `blackDiscountPerLvl`, `clansPerLvl`, `hospitalSpeedupPerLvl`, `itemDiscountPerLvl`, `ramenDiscountPerLvl`, `regenIncreasePerLvl`, `sleepRegenPerLvl`, `structureDiscountPerLvl`, `trainBoostPerLvl`, `villageDefencePerLvl`, `patrolsPerLvl`, `baseCost`, `allyAccess`, `route`)
+VALUES
+	('1q_wck3sA4NsWZi3vTjuR', 'Rumours', 'https://utfs.io/f/f233ebed-3458-4c58-842f-8f84bfaf0b34-relv3y.webp', 'ryBk0qD4EgvPPyav2K4OC', 10, 10, 100, 100, 10, 7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3000, 0, '/townhall');

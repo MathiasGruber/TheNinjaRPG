@@ -41,7 +41,6 @@ const TownHall: NextPage = () => {
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (userData.isOutlaw) return <Loader explanation="No townhall for outlaws" />;
   if (userData.isBanned) return <BanInfo />;
 
   const NavBarBlock = (
@@ -53,7 +52,9 @@ const TownHall: NextPage = () => {
     />
   );
 
-  if (tab === "Alliance" || !tab) {
+  if (userData.isOutlaw) {
+    return <AllianceHall user={userData} />;
+  } else if (tab === "Alliance" || !tab) {
     return <AllianceHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Kage") {
     return <KageHall user={userData} navTabs={NavBarBlock} />;
@@ -402,7 +403,7 @@ const KageHall: React.FC<{
  */
 const AllianceHall: React.FC<{
   user: NonNullable<UserWithRelations>;
-  navTabs: React.ReactNode;
+  navTabs?: React.ReactNode;
 }> = ({ user, navTabs }) => {
   // Queries
   const { data, isPending } = api.village.getAlliances.useQuery(undefined, {
@@ -449,7 +450,7 @@ const AllianceHall: React.FC<{
   return (
     <>
       <ContentBox
-        title="Town Hall"
+        title={user.isOutlaw ? "Rumours" : "Town Hall"}
         subtitle="Villages & factions"
         back_href="/village"
         topRightContent={navTabs}
