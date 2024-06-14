@@ -2,9 +2,9 @@ import { hasRequiredRank } from "@/libs/train";
 import type { UserData } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
-export const PRESTIGE_REQUIREMENT = 10; // Should be 30
+export const KAGE_PRESTIGE_REQUIREMENT = 1000;
 export const RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 5;
+export const KAGE_PRESTIGE_COST = 1000;
 export const FRIENDLY_PRESTIGE_COST = 5;
 export const WAR_FUNDS_COST = 100;
 
@@ -15,7 +15,7 @@ export const WAR_FUNDS_COST = 100;
  */
 export const canChallengeKage = (user: UserData) => {
   if (
-    user.villagePrestige >= PRESTIGE_REQUIREMENT &&
+    user.villagePrestige >= KAGE_PRESTIGE_REQUIREMENT &&
     hasRequiredRank(user.rank, RANK_REQUIREMENT)
   ) {
     return true;

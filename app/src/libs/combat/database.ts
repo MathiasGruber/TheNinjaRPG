@@ -410,7 +410,7 @@ export const updateUser = async (
                 sector: user.allyVillage ? user.sector : user.village?.sector,
                 immunityUntil:
                   curBattle.battleType === "COMBAT"
-                    ? sql`NOW() + INTERVAL 5 MINUTE`
+                    ? sql`NOW() + INTERVAL 1 MINUTE`
                     : sql`immunityUntil`,
               }
             : { status: "AWAKE" }),

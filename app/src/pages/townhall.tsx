@@ -22,7 +22,7 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
-import { PRESTIGE_REQUIREMENT } from "@/utils/kage";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/utils/kage";
 import { canAlly, canWar } from "@/utils/alliance";
 import { RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/utils/kage";
 import { KAGE_PRESTIGE_COST } from "@/utils/kage";
@@ -334,7 +334,7 @@ const KageHall: React.FC<{
           <p className="pt-3">
             <span className="font-bold">Requirements: </span>
             <span>
-              {PRESTIGE_REQUIREMENT} village prestige,{" "}
+              {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
               {capitalizeFirstLetter(RANK_REQUIREMENT)} rank
             </span>
           </p>
