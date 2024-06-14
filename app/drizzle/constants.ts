@@ -260,7 +260,7 @@ export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;
 export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
 export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
-export const COST_RESET_STATS = 10;
+export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_REROLL_ELEMENT = 20;
 
