@@ -52,10 +52,10 @@ export const availableUserActions = (
     level: user?.level,
     effects: [
       DamageTag.parse({
-        power: 1,
+        power: 15,
         powerPerLevel: 0.1,
         statTypes: [],
-        generalTypes: ["Strength"],
+        generalTypes: ["Strength", "Speed"],
         rounds: 0,
         appearAnimation: "hit",
       }),
