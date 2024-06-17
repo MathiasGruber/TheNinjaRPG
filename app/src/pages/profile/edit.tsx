@@ -50,6 +50,7 @@ import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
 import { canSwapVillage } from "@/utils/permissions";
+import { canSwapBloodline } from "@/utils/permissions";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -164,15 +165,17 @@ const EditProfile: NextPage = () => {
         >
           <RerollElement />
         </Accordion>
-        <Accordion
-          title="Swap Bloodline"
-          selectedTitle={activeElement}
-          unselectedSubtitle="Change your bloodline of choice"
-          selectedSubtitle={`You can swap your current bloodline for another of similar rank for ${COST_SWAP_BLOODLINE} reputation points. You have ${userData.reputationPoints} reputation points.`}
-          onClick={setActiveElement}
-        >
-          <SwapBloodline />
-        </Accordion>
+        {canSwapBloodline(userData.role) && (
+          <Accordion
+            title="Swap Bloodline"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Change your bloodline of choice"
+            selectedSubtitle={`You can swap your current bloodline for another of similar rank for ${COST_SWAP_BLOODLINE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+            onClick={setActiveElement}
+          >
+            <SwapBloodline />
+          </Accordion>
+        )}
         {canSwapVillage(userData.role) && (
           <Accordion
             title="Swap Village"
@@ -310,7 +313,8 @@ const SwapBloodline: React.FC = () => {
   // Mutations
   const { mutate: swap, isPending: isSwapping } =
     api.bloodline.swapBloodline.useMutation({
-      onSuccess: async () => {
+      onSuccess: async (data) => {
+        showMutationToast(data);
         await refetchUser();
       },
       onSettled: () => {

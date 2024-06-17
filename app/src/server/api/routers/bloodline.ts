@@ -6,7 +6,7 @@ import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
 import { userJutsu, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
-import { serverError, baseServerResponse } from "@/api/trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
@@ -15,6 +15,7 @@ import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
+import { canSwapBloodline } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { BloodlineRank, UserData } from "@/drizzle/schema";
@@ -260,26 +261,33 @@ export const bloodlineRouter = createTRPCRouter({
   // Swap a bloodline for another of similar rank
   swapBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      if (!user || !user.bloodline) {
-        throw serverError("PRECONDITION_FAILED", "User does not exist");
-      }
-      const line = await fetchBloodline(ctx.drizzle, input.bloodlineId);
-      if (!line) {
-        throw serverError("PRECONDITION_FAILED", "Bloodline does not exist");
-      }
+      // Query
+      const [updatedUser, line] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchBloodline(ctx.drizzle, input.bloodlineId),
+      ]);
+      const user = updatedUser.user;
+      // Guards
+      if (!user) return errorResponse("User does not exist");
+      if (!line) return errorResponse("Bloodline does not exist");
+      if (!user.bloodline) return errorResponse("User does not have a bloodline");
       if (line.rank !== user.bloodline.rank) {
-        throw serverError("PRECONDITION_FAILED", "Bloodline ranks are not the same");
+        return errorResponse("Bloodline ranks are not the same");
       }
-      const cost = COST_SWAP_BLOODLINE;
-      if (cost > user.reputationPoints) {
-        throw serverError("FORBIDDEN", "You do not have enough reputation points");
+      if (COST_SWAP_BLOODLINE > user.reputationPoints) {
+        return errorResponse("Not enough reputation points");
       }
-      await updateBloodline(ctx.drizzle, user, line.id, cost);
+      if (!canSwapBloodline(user.role)) {
+        return errorResponse("Not allowed to swap bloodline");
+      }
+      // Update
+      await updateBloodline(ctx.drizzle, user, line.id, COST_SWAP_BLOODLINE);
+      return { success: true, message: "Bloodline swapped" };
     }),
 });
 
