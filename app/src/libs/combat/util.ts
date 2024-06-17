@@ -367,8 +367,13 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
-      const experience = didWin ? eloDiff * expBoost : 0;
       const outcome = user.fledBattle ? "Fled" : didWin ? "Won" : "Lost";
+      let experience = didWin ? eloDiff * expBoost : 0;
+
+      // If Combat, then double the experience gain
+      if (["COMBAT", "CLAN_BATTLE", "TOURNAMENT"].includes(battleType)) {
+        experience *= 2;
+      }
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);
