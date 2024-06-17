@@ -115,7 +115,3 @@ UPDATE `Village` SET `sector` = 254 WHERE `name` = 'Shroud';
 UPDATE `Village` SET `sector` = 271 WHERE `name` = 'Current';
 UPDATE `Village` SET `sector` = 305 WHERE `name` = 'Konoki';
 UPDATE `Village` SET `sector` = 83 WHERE `name` = 'Shine';
-
-INSERT INTO `VillageStructure` (`id`, `name`, `image`, `villageId`, `level`, `maxLevel`, `curSp`, `maxSp`, `longitude`, `latitude`, `hasPage`, `anbuSquadsPerLvl`, `arenaRewardPerLvl`, `bankInterestPerLvl`, `blackDiscountPerLvl`, `clansPerLvl`, `hospitalSpeedupPerLvl`, `itemDiscountPerLvl`, `ramenDiscountPerLvl`, `regenIncreasePerLvl`, `sleepRegenPerLvl`, `structureDiscountPerLvl`, `trainBoostPerLvl`, `villageDefencePerLvl`, `patrolsPerLvl`, `baseCost`, `allyAccess`, `route`)
-VALUES
-	('1q_wck3sA4NsWZi3vTjuR', 'Rumours', 'https://utfs.io/f/f233ebed-3458-4c58-842f-8f84bfaf0b34-relv3y.webp', 'ryBk0qD4EgvPPyav2K4OC', 10, 10, 100, 100, 10, 7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3000, 0, '/townhall');

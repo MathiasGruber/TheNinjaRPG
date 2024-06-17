@@ -264,6 +264,10 @@ export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_REROLL_ELEMENT = 20;
 
+// Village config
+export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
+export const VILLAGE_REDUCED_GAINS_DAYS = 7;
+
 // ANBU config
 export const ANBU_MEMBER_RANK_REQUIREMENT = "CHUNIN";
 export const ANBU_LEADER_RANK_REQUIREMENT = "JONIN";

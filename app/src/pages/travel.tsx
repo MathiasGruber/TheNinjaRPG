@@ -7,16 +7,19 @@ import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
+import Confirm from "@/layout/Confirm";
 import LoadoutSelector from "@/layout/LoadoutSelector";
-import { UserRoundSearch, Globe2, Eye, EyeOff } from "lucide-react";
+import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import { hasRequiredRank } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { calcIsInVillage } from "@/libs/travel/controls";
 import {
   Form,
   FormControl,
@@ -25,6 +28,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
+import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { NextPage } from "next";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
 
@@ -42,6 +47,9 @@ const Travel: NextPage = () => {
   // Globe data
   const [globe, setGlobe] = useState<GlobalMapData | null>(null);
 
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Current and target sectors & positions
   const [currentSector, setCurrentSector] = useState<number | null>(null);
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
@@ -51,12 +59,13 @@ const Travel: NextPage = () => {
   const [targetSector, setTargetSector] = useState<number | null>(null);
 
   // Data from database
-  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
   const { data } = api.village.getAll.useQuery(undefined, {
     staleTime: Infinity,
     enabled: userData !== undefined,
   });
   const villages = data?.filter((v) => !v.isOutlawFaction);
+  const sectorVillage = villages?.find((v) => v.sector === userData?.sector);
 
   // Router for forwarding
   const router = useSafePush();
@@ -106,7 +115,7 @@ const Travel: NextPage = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success && data.sector) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
           setShowModal(false);
           setActiveTab("Global");
           setCurrentSector(data.sector);
@@ -122,8 +131,18 @@ const Travel: NextPage = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
           setActiveTab(sectorLink);
+        }
+      },
+    });
+
+  const { mutate: joinVillage, isPending: isJoining } =
+    api.village.joinVillage.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
         }
       },
     });
@@ -163,6 +182,11 @@ const Travel: NextPage = () => {
   ]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isJoining) return <Loader explanation="Joining village" />;
+
+  // Derived
+  const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
+  const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
 
   return (
     <>
@@ -195,6 +219,18 @@ const Travel: NextPage = () => {
                   onClick={() => setShowSorrounding((prev) => !prev)}
                 />
               </>
+            )}
+            {userData.isOutlaw && canJoin && inVillage && sectorVillage && (
+              <Confirm
+                title="Join Village"
+                proceed_label="Submit"
+                button={<GitMerge className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
+                onAccept={() => joinVillage({ villageId: sectorVillage.id })}
+              >
+                Do you confirm that you wish to join this village? Please be aware that
+                if you join this village your training benefits & regen will be reduced
+                for {VILLAGE_REDUCED_GAINS_DAYS} days.
+              </Confirm>
             )}
             <Globe2
               className={`h-7 w-7 mx-1 hover:text-orange-500`}

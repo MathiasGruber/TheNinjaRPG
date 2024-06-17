@@ -74,6 +74,7 @@ import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
+import { getReducedGainsDays } from "@/libs/train";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
@@ -167,10 +168,7 @@ export const profileRouter = createTRPCRouter({
         user.curEnergy,
       );
       const trainingAmount =
-        factor *
-        energySpent *
-        trainEfficiency(user.trainingSpeed) *
-        trainingMultiplier(user.trainingSpeed);
+        factor * energySpent * trainEfficiency(user) * trainingMultiplier(user);
       // Mutate
       const { trackers } = getNewTrackers(user, [
         { task: "stats_trained", increment: trainingAmount },
@@ -349,6 +347,15 @@ export const profileRouter = createTRPCRouter({
             href: "/profile/experience",
             name: `Earned exp: ${user.earnedExperience}`,
             color: "blue",
+          });
+        }
+        // Check if reduced gains
+        const reducedDays = getReducedGainsDays(user);
+        if (reducedDays > 0) {
+          notifications.push({
+            href: "/village",
+            name: `Slowed ${Math.ceil(reducedDays)} days`,
+            color: "red",
           });
         }
         // Add deletion timer to notifications
@@ -1240,26 +1247,29 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
   }
 
-  // Structure regen increase
   if (user) {
+    // Structure regen increase
     const boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
     user.regeneration *= (100 + boost) / 100;
-  }
 
-  // Increase regen when asleep
-  if (user?.status === "ASLEEP") {
-    const boost = structureBoost("sleepRegenPerLvl", user?.village?.structures);
-    user.regeneration *= (100 + boost) / 100;
-  }
+    // Increase regen when asleep
+    if (user.status === "ASLEEP") {
+      const boost = structureBoost("sleepRegenPerLvl", user.village?.structures);
+      user.regeneration *= (100 + boost) / 100;
+    }
 
-  // const achievements = ;
-  // const user = (await ) as UserWithRelations;
+    // Add bloodline regen to regeneration
+    // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
+    //       and we can avoid running an database UPDATE on each load
+    if (user.bloodline?.regenIncrease) {
+      user.regeneration = user.regeneration + user.bloodline.regenIncrease;
+    }
 
-  // Add bloodline regen to regeneration
-  // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
-  //       and we can avoid running an database UPDATE on each load
-  if (user?.bloodline?.regenIncrease) {
-    user.regeneration = user.regeneration + user.bloodline.regenIncrease;
+    // Reduce regen if just joined village
+    const reducedDays = getReducedGainsDays(user);
+    if (reducedDays > 0) {
+      user.regeneration *= 0.5;
+    }
   }
 
   // Rewards, e.g. for activity streak

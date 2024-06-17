@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, gte, sql, and, or } from "drizzle-orm";
+import { eq, gte, sql, and, or, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
@@ -193,9 +193,11 @@ export const travelRouter = createTRPCRouter({
               eq(userData.userId, userId),
               eq(userData.status, "AWAKE"),
               eq(userData.sector, sector),
-              eq(userData.villageId, userVillage),
               sql`ABS(longitude - ${longitude}) <= 1`,
               sql`ABS(latitude - ${latitude}) <= 1`,
+              villageId
+                ? eq(userData.villageId, villageId)
+                : isNull(userData.villageId),
             ),
           ),
         isVillage

@@ -16,13 +16,16 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { mutateContentSchema } from "@/validators/comments";
-import { CircleArrowUp } from "lucide-react";
+import { CircleArrowUp, GitFork } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { calcStructureUpgrade } from "@/utils/village";
 import { useRequireInVillage } from "@/utils/village";
+import { hasRequiredRank } from "@/libs/train";
+import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
+import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { NextPage } from "next";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -54,14 +57,25 @@ const VillageOverview: NextPage = () => {
   const protectors = villageData?.structures.find((s) => s.name === "Protectors");
 
   // Mutations
-  const { mutate, isPending: isUpdating } = api.kage.upsertNotice.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.village.get.invalidate();
-      }
-    },
-  });
+  const { mutate: upsertNotice, isPending: isUpdating } =
+    api.kage.upsertNotice.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.get.invalidate();
+        }
+      },
+    });
+
+  const { mutate: leaveVillage, isPending: isLeaving } =
+    api.village.leaveVillage.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
+      },
+    });
 
   // Form control
   const {
@@ -76,13 +90,17 @@ const VillageOverview: NextPage = () => {
 
   // Handling submit
   const onSubmit = handleSubmit((data) => {
-    mutate(data);
+    upsertNotice(data);
     reset();
   });
 
   // Loading states
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!sectorVillage) return <Loader explanation="Loading sector information" />;
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isLeaving) return <Loader explanation="Leaving village" />;
+
+  // Derived
+  const canLeave = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
 
   // Render
   return (
@@ -91,50 +109,71 @@ const VillageOverview: NextPage = () => {
         title={title}
         subtitle={subtitle}
         topRightContent={
-          <div className="grid grid-cols-2 gap-1">
-            <TooltipProvider delayDuration={50}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <div className="flex flex-row">
-                    <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
-                  </div>
-                </TooltipTrigger>
-                {walls && (
-                  <TooltipContent>{StructureRewardEntries(walls)}</TooltipContent>
-                )}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Link href={href}>
-                    <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
-                      <Users className="w-6 h-6 mr-2" /> {data?.population}
+          <div className="flex flex-row items-center">
+            <div className="grid grid-cols-2 gap-1">
+              <TooltipProvider delayDuration={50}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
+                      <BrickWall className="w-6 h-6 mr-2" /> lvl. {walls?.level}
                     </div>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Total village population</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <div className="flex flex-row">
-                    <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
-                  </div>
-                </TooltipTrigger>
-                {protectors && (
-                  <TooltipContent>{StructureRewardEntries(protectors)}</TooltipContent>
-                )}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <div className="ml-3 flex flex-row">
-                    <ReceiptJapaneseYen className="w-6 h-6 mr-2" />{" "}
-                    {villageData?.tokens}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Tokens earned through PvP and quests can be used to improve village.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  </TooltipTrigger>
+                  {walls && (
+                    <TooltipContent>{StructureRewardEntries(walls)}</TooltipContent>
+                  )}
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Link href={href}>
+                      <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
+                        <Users className="w-6 h-6 mr-2" /> {data?.population}
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>Total village population</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
+                      <Bot className="w-6 h-6 mr-2" /> lvl. {protectors?.level}
+                    </div>
+                  </TooltipTrigger>
+                  {protectors && (
+                    <TooltipContent>
+                      {StructureRewardEntries(protectors)}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="ml-3 flex flex-row">
+                      <ReceiptJapaneseYen className="w-6 h-6 mr-2" />{" "}
+                      {villageData?.tokens}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Tokens earned through PvP and quests can be used to improve village.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            {!userData.isOutlaw && canLeave && (
+              <Confirm
+                title="Leave Village"
+                proceed_label="Submit"
+                button={
+                  <Button className="w-14 h-12 p-0 ml-2">
+                    <GitFork className="h-6 w-6" />
+                  </Button>
+                }
+                onAccept={() => leaveVillage()}
+              >
+                Do you confirm that you wish to leave your village? Your prestige will
+                be reset to 0. Please be aware that if you join another village your
+                training benefits & regen will be reduced for{" "}
+                {VILLAGE_REDUCED_GAINS_DAYS} days.
+              </Confirm>
+            )}
           </div>
         }
       >
@@ -157,7 +196,7 @@ const VillageOverview: NextPage = () => {
       </ContentBox>
       <ContentBox
         title="Notice Board"
-        subtitle={`Information from ${sectorVillage.isOutlawFaction ? "Leader" : "Kage"}`}
+        subtitle={`Information from ${sectorVillage?.isOutlawFaction ? "Leader" : "Kage"}`}
         initialBreak={true}
         topRightContent={
           isKage && (

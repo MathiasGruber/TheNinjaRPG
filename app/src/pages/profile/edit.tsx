@@ -49,6 +49,7 @@ import { round } from "@/utils/math";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
+import { canSwapVillage } from "@/utils/permissions";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -172,15 +173,17 @@ const EditProfile: NextPage = () => {
         >
           <SwapBloodline />
         </Accordion>
-        <Accordion
-          title="Swap Village"
-          selectedTitle={activeElement}
-          unselectedSubtitle="Change your village of choice"
-          selectedSubtitle={`You can swap your current village for another for ${COST_SWAP_VILLAGE} reputation points. You have ${userData.reputationPoints} reputation points.`}
-          onClick={setActiveElement}
-        >
-          <SwapVillage />
-        </Accordion>
+        {canSwapVillage(userData.role) && (
+          <Accordion
+            title="Swap Village"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Change your village of choice"
+            selectedSubtitle={`You can swap your current village for another for ${COST_SWAP_VILLAGE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+            onClick={setActiveElement}
+          >
+            <SwapVillage />
+          </Accordion>
+        )}
       </div>
     </ContentBox>
   );

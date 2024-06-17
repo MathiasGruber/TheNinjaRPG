@@ -279,7 +279,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
-  const efficiency = trainEfficiency(userData.trainingSpeed);
+  const efficiency = trainEfficiency(userData);
 
   // tRPC useUtils
   const utils = api.useUtils();

@@ -16,3 +16,7 @@ export const canChangeUserRole = (role: UserRole) => {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
   }
 };
+
+export const canSwapVillage = (role: UserRole) => {
+  return role !== "USER";
+};

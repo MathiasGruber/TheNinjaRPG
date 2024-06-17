@@ -21,6 +21,8 @@ import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/utils/kage";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
+import { canSwapVillage } from "@/utils/permissions";
+import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -101,7 +103,90 @@ export const villageRouter = createTRPCRouter({
         return { success: true, message: "You have bought food" };
       }
     }),
+  leaveVillage: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Queries
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      const village = user?.village;
 
+      // Guards
+      if (!user) return errorResponse("User does not exist");
+      if (user.isOutlaw) return errorResponse("You are already an outlaw");
+      if (!village) return errorResponse("Village does not exist");
+      if (isKage(user)) return errorResponse("You are the kage");
+      if (user.villageId !== village.id) return errorResponse("Not in village");
+      if (user.anbuId) return errorResponse("Leave ANBU squad first");
+      if (user.clanId) return errorResponse("Leave Clan first");
+      if (user.status !== "AWAKE") return errorResponse("You must be awake");
+      if (user.isBanned) return errorResponse("Cannot leave while banned");
+      if (!hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
+        return errorResponse("Must be at least chunin to leave village");
+      }
+
+      // Update
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          villageId: null,
+          villagePrestige: 0,
+          isOutlaw: true,
+          ...(user.rank === "GENIN" && { senseiId: null }),
+          ...(user.rank === "ELDER" && { rank: "JONIN" }),
+        })
+        .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "AWAKE")));
+
+      return { success: true, message: "You have left the village" };
+    }),
+  joinVillage: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Queries
+      const [updatedUser, village] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillage(ctx.drizzle, input.villageId),
+      ]);
+      const user = updatedUser.user;
+      // Guards
+      if (!user) return errorResponse("User does not exist");
+      if (!village) return errorResponse("Village does not exist");
+      if (!user.isOutlaw) return errorResponse("You are not an outlaw");
+      if (user.villageId === village.id) return errorResponse("Already in village");
+      if (user.clanId) return errorResponse("Leave faction first");
+      if (user.status !== "AWAKE") return errorResponse("You must be awake");
+      if (user.isBanned) return errorResponse("Cannot leave while banned");
+      if (village.isOutlawFaction) return errorResponse("Cannot join outlaw faction");
+      if (!hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
+        return errorResponse("Must be at least chunin to join village");
+      }
+
+      // Update
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villageId: village.id,
+            villagePrestige: 0,
+            isOutlaw: false,
+            joinedVillageAt: new Date(),
+            ...(user.rank === "GENIN" && { senseiId: null }),
+            ...(user.rank === "ELDER" && { rank: "JONIN" }),
+          })
+          .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "AWAKE"))),
+        // Clear current sensei requests for this user
+        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        // Remove the user as sensei for any active students
+        ctx.drizzle
+          .update(userData)
+          .set({ senseiId: null })
+          .where(and(eq(userData.senseiId, ctx.userId), eq(userData.rank, "GENIN"))),
+      ]);
+      return { success: true, message: "You have joined the village" };
+    }),
   swapVillage: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
@@ -124,9 +209,13 @@ export const villageRouter = createTRPCRouter({
       if (user.anbuId) return errorResponse("Leave ANBU squad first");
       if (user.clanId) return errorResponse("Leave Clan first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
-      if (user.isBanned) return errorResponse("Canot leave while banned");
+      if (user.isBanned) return errorResponse("Cannot leave while banned");
+      if (!canSwapVillage(user.role)) return errorResponse("No permission to do this");
       if (cost > user.reputationPoints) return errorResponse("Need reputation points");
-      if (village.isOutlawFaction && !hasRequiredRank(user.rank, "CHUNIN")) {
+      if (
+        village.isOutlawFaction &&
+        !hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)
+      ) {
         return errorResponse("Must be at least chunin to join outlaw faction");
       }
 

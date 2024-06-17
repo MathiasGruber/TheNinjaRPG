@@ -5,6 +5,9 @@ import { LetterRanks } from "@/drizzle/constants";
 import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
+import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
+import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
+import { secondsPassed } from "@/utils/time";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
@@ -44,6 +47,17 @@ export const hasRequiredRank = (userRank?: UserRank, requiredRank?: UserRank) =>
       return userRank === "COMMANDER";
   }
   return false;
+};
+
+export const getReducedGainsDays = (user: UserData) => {
+  if (hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
+    const daysPassed = secondsPassed(user.joinedVillageAt) / 86400;
+    const daysLeft = VILLAGE_REDUCED_GAINS_DAYS - daysPassed;
+    if (daysLeft > 0) {
+      return daysLeft;
+    }
+  }
+  return 0;
 };
 
 export const availableRanks = (letterRank?: LetterRank): UserRank[] => {
@@ -193,8 +207,8 @@ export type RarityType = (typeof rarities)[number];
 /**
  * Get training efficiency
  */
-export const trainEfficiency = (speed: TrainingSpeed) => {
-  switch (speed) {
+export const trainEfficiency = (user: UserData) => {
+  switch (user.trainingSpeed) {
     case "15min":
       return 100;
     case "1hr":
@@ -211,16 +225,18 @@ export const trainEfficiency = (speed: TrainingSpeed) => {
 /**
  * Get training multiplier
  */
-export const trainingMultiplier = (speed: TrainingSpeed) => {
-  switch (speed) {
+export const trainingMultiplier = (user: UserData) => {
+  const reducedDays = getReducedGainsDays(user);
+  const factor = reducedDays > 0 ? 0.5 : 1;
+  switch (user.trainingSpeed) {
     case "15min":
-      return 0.01;
+      return 0.01 * factor;
     case "1hr":
-      return 0.04;
+      return 0.04 * factor;
     case "4hrs":
-      return 0.16;
+      return 0.16 * factor;
     case "8hrs":
-      return 0.32;
+      return 0.32 * factor;
     default:
       throw Error("Invalid training speed");
   }
