@@ -21,7 +21,7 @@ const Modal: React.FC<ModalProps> = (props) => {
   return (
     <>
       <div
-        className="fixed bottom-0 left-0 right-0 top-0 z-20 h-full w-full bg-black opacity-80"
+        className="fixed bottom-0 left-0 right-0 top-0 z-[1000] h-full w-full bg-black opacity-80"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -29,7 +29,7 @@ const Modal: React.FC<ModalProps> = (props) => {
         }}
       ></div>
       <div
-        className={`fixed left-1/2 top-1/2 z-20 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow ${props.className}`}
+        className={`fixed left-1/2 top-1/2 z-[1000] my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow ${props.className}`}
       >
         <div className="flex items-start justify-between rounded-t border-b border-gray-600 p-4">
           <h3 className="text-xl font-semibold text-white">{props.title}</h3>

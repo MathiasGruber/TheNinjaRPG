@@ -537,7 +537,7 @@ const PayPalSubscriptionButton = (props: {
         {props.buttonStatus === "GOLD" && goldBenefits}
       </div>
       {!hasSubscription && (
-        <div className="bg-amber-200 border-2 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
+        <div className="bg-amber-200 border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
           <PayPalButtons
             style={{ layout: "horizontal", label: "subscribe", tagline: false }}
             forceReRender={[props.userId]}
@@ -603,27 +603,37 @@ const PayPalSubscriptionButton = (props: {
         </div>
       )}
       {!hasSubscription && (
-        <div
-          className="bg-amber-200 border-2 border-black p-2 mt-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200"
-          onClick={() => buy({ userId: userData.userId, status: props.buttonStatus })}
+        <Confirm
+          title="Confirm Upgrade"
+          button={
+            <div className="bg-amber-200 border-2 border-black p-2 mt-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
+              Or, buy with
+              {props.buttonStatus === "NORMAL" && (
+                <h3 className="font-bold italic">
+                  {fedStatusRepsCost("NORMAL")} Reputation Points
+                </h3>
+              )}
+              {props.buttonStatus === "SILVER" && (
+                <h3 className="font-bold italic">
+                  {fedStatusRepsCost("SILVER")} Reputation Points
+                </h3>
+              )}
+              {props.buttonStatus === "GOLD" && (
+                <h3 className="font-bold italic">
+                  {fedStatusRepsCost("GOLD")} Reputation Points
+                </h3>
+              )}
+            </div>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            buy({ userId: userData.userId, status: props.buttonStatus });
+          }}
         >
-          Or, buy with
-          {props.buttonStatus === "NORMAL" && (
-            <h3 className="font-bold italic">
-              {fedStatusRepsCost("NORMAL")} Reputation Points
-            </h3>
-          )}
-          {props.buttonStatus === "SILVER" && (
-            <h3 className="font-bold italic">
-              {fedStatusRepsCost("SILVER")} Reputation Points
-            </h3>
-          )}
-          {props.buttonStatus === "GOLD" && (
-            <h3 className="font-bold italic">
-              {fedStatusRepsCost("GOLD")} Reputation Points
-            </h3>
-          )}
-        </div>
+          You are about to purchase a federal subscription with reputation points. You
+          currently have {userData?.reputationPoints} reputation points. Are you sure?
+        </Confirm>
       )}
     </div>
   );
