@@ -900,6 +900,7 @@ export const JutsuValidator = z
     image: z.string(),
     description: z.string(),
     battleDescription: z.string(),
+    extraBaseCost: z.coerce.number().min(0).max(65535),
     jutsuWeapon: z.enum(WeaponTypes),
     jutsuType: z.enum(JutsuTypes),
     jutsuRank: z.enum(LetterRanks),

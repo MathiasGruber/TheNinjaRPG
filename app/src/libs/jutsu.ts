@@ -84,6 +84,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "staminaCost", type: "number" },
     { id: "chakraCost", type: "number" },
     { id: "healthCost", type: "number" },
+    { id: "extraBaseCost", type: "number" },
     { id: "description", type: "text", doubleWidth: true },
     { id: "battleDescription", type: "text", doubleWidth: true },
     { id: "statClassification", type: "str_array", values: StatTypes },

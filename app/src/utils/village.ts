@@ -27,17 +27,22 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   const router = useSafePush();
   useEffect(() => {
     if (userData && sectorVillage && !isPending) {
-      // Check structure access
-      const access = canAccessStructure(userData, structureRoute, sectorVillage);
-      // If not in village or village not exist
-      const inVillage =
-        calcIsInVillage({
-          x: userData.longitude,
-          y: userData.latitude,
-        }) || userData.isOutlaw;
-      // Redirect user
-      if (!inVillage || !sectorVillage || !access) {
-        void router.push("/");
+      if (!userData.isOutlaw) {
+        // Check structure access
+        const access = canAccessStructure(userData, structureRoute, sectorVillage);
+        // If not in village or village not exist
+        const inVillage =
+          calcIsInVillage({
+            x: userData.longitude,
+            y: userData.latitude,
+          }) || userData.isOutlaw;
+        // Redirect user
+        if (!inVillage || !sectorVillage || !access) {
+          console.log(inVillage, sectorVillage, access);
+          void router.push("/");
+        } else {
+          setAccess(true);
+        }
       } else {
         setAccess(true);
       }

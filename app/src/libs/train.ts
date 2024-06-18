@@ -136,6 +136,7 @@ export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
   } else if (jutsu.jutsuRank === "S") {
     base = 250;
   }
+  base += jutsu.extraBaseCost || 0;
   return Math.floor(Math.pow(base, 1 + level / 20));
 };
 

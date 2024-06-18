@@ -10,8 +10,8 @@
     "lint": "next lint",
     "start": "next start",
     "seed": "pnpm tsx drizzle/seed.ts",
-    "dbpush": "drizzle-kit push:mysql",
-    "makemigrations": "drizzle-kit generate:mysql"
+    "dbpush": "drizzle-kit push",
+    "makemigrations": "drizzle-kit generate"
   },
   "dependencies": {
     "@clerk/nextjs": "4.30.0",
@@ -55,7 +55,7 @@
     "clsx": "^2.1.0",
     "cmdk": "^0.2.1",
     "dotenv": "^16.1.4",
-    "drizzle-orm": "0.30.8",
+    "drizzle-orm": "0.31.2",
     "drizzle-zod": "0.5.1",
     "emoji-picker-react": "^4.9.2",
     "highlight.run": "8.9.0",

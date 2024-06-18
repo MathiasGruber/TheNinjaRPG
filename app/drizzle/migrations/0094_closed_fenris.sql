@@ -1,0 +1,1 @@
+ALTER TABLE `Jutsu` ADD `extraBaseCost` smallint unsigned DEFAULT 0 NOT NULL;

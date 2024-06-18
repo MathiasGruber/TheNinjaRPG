@@ -763,6 +763,7 @@ export const jutsu = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    extraBaseCost: smallint("extraBaseCost", { unsigned: true }).default(0).notNull(),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     range: int("range").notNull(),
