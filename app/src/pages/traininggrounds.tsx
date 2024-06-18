@@ -21,7 +21,7 @@ import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering
 import { Button } from "@/components/ui/button";
 import { energyPerSecond } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
-import { JUTSU_LEVEL_CAP } from "@/libs/train";
+import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { hasRequiredRank } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";

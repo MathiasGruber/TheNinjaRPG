@@ -16,7 +16,7 @@ import { stillInBattle } from "./actions";
 import { battleJutsuExp } from "@/libs/train";
 import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
-import { JUTSU_TRAIN_LEVEL_CAP } from "@/libs/train";
+import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";

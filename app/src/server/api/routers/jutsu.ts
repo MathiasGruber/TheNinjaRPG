@@ -6,7 +6,7 @@ import { LetterRanks } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
-import { JUTSU_LEVEL_CAP } from "@/libs/train";
+import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
 import { JutsuValidator, animationNames } from "@/libs/combat/types";
