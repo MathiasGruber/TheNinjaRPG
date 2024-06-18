@@ -1256,22 +1256,19 @@ export const fetchUpdatedUser = async (props: {
   }
 
   if (user) {
-    // Structure regen increase
-    const boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
-    user.regeneration *= (100 + boost) / 100;
-
-    // Increase regen when asleep
-    if (user.status === "ASLEEP") {
-      const boost = structureBoost("sleepRegenPerLvl", user.village?.structures);
-      user.regeneration *= (100 + boost) / 100;
-    }
-
     // Add bloodline regen to regeneration
     // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
     //       and we can avoid running an database UPDATE on each load
     if (user.bloodline?.regenIncrease) {
       user.regeneration = user.regeneration + user.bloodline.regenIncrease;
     }
+
+    // Calculate percentage boost
+    let boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
+    if (user.status === "ASLEEP") {
+      boost += structureBoost("sleepRegenPerLvl", user.village?.structures);
+    }
+    user.regeneration *= (100 + boost) / 100;
 
     // Reduce regen if just joined village
     const reducedDays = getReducedGainsDays(user);
