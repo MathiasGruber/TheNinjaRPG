@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import {
+  count,
   eq,
   ne,
   sql,
@@ -14,7 +15,7 @@ import {
   isNotNull,
 } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
-import { secondsPassed } from "@/utils/time";
+import { secondsPassed, secondsFromNow } from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
@@ -938,6 +939,13 @@ export const profileRouter = createTRPCRouter({
       });
       return user ?? null;
     }),
+  countOnlineUsers: protectedProcedure.query(async ({ ctx }) => {
+    const result = await ctx.drizzle
+      .select({ count: count() })
+      .from(userData)
+      .where(gte(userData.updatedAt, secondsFromNow(-300)));
+    return result?.[0]?.count ?? 0;
+  }),
   // Get public users
   getPublicUsers: publicProcedure
     .input(

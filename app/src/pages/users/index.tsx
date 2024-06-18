@@ -1,7 +1,9 @@
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import NavTabs from "@/layout/NavTabs";
+import Confirm from "@/layout/Confirm";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -9,7 +11,15 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Filter } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserSearch } from "@/utils/search";
@@ -19,7 +29,8 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
   const tabNames = ["Online", "Strongest", "Staff"] as const;
-  const [activeTab, setActiveTab] = useState<(typeof tabNames)[number]>("Online");
+  type TabName = (typeof tabNames)[number];
+  const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { form, searchTerm } = useUserSearch();
 
@@ -40,6 +51,7 @@ const Users: NextPage = () => {
       staleTime: 1000 * 60 * 5, // every 5min
     },
   );
+  const userCount = api.profile.countOnlineUsers.useQuery().data || 0;
   const allUsers = users?.pages
     .map((page) => page.data)
     .flat()
@@ -68,33 +80,57 @@ const Users: NextPage = () => {
 
   return (
     <ContentBox
-      title="Users"
+      title={`Users (${userCount} online)`}
       subtitle={`${activeTab} users`}
       padding={false}
       topRightContent={
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="max-w-40">
-            <Form {...form}>
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem className="w-full">
-                    <FormControl>
-                      <Input id="username" placeholder="Search" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </Form>
+        <Confirm
+          title="Sorting and Filtering"
+          button={
+            <Button id="create-jutsu">
+              <Filter className="sm:mr-2 h-6 w-6 hover:fill-orange-500" />
+              <p className="hidden sm:block">Filter</p>
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Form {...form}>
+                <Label htmlFor="rank">Username</Label>
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem className="w-full">
+                      <FormControl>
+                        <Input id="username" placeholder="Search" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Form>
+            </div>
+            <div>
+              <Label htmlFor="rank">Sorting</Label>
+              <Select onValueChange={(e) => setActiveTab(e as TabName)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={activeTab} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tabNames.map((tab) => (
+                    <SelectItem key={tab} value={tab}>
+                      {tab}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <NavTabs
-            current={activeTab}
-            options={["Online", "Strongest", "Staff"]}
-            setValue={setActiveTab}
-          />
-        </div>
+        </Confirm>
       }
     >
       <Table

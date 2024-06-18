@@ -4,6 +4,7 @@ import Modal from "./Modal";
 interface ConfirmProps {
   title: string;
   button: React.ReactNode;
+  className?: string;
   children: string | React.ReactNode;
   confirmClassName?: string;
   proceed_label?: string;
@@ -22,6 +23,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
         proceed_label={props.proceed_label ? props.proceed_label : "Proceed"}
         confirmClassName={props.confirmClassName}
         onAccept={props.onAccept}
+        className={props.className}
         isValid={props.isValid}
       >
         {props.children}
