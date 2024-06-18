@@ -1,7 +1,7 @@
 export const COMBAT_WIDTH = 13;
 export const COMBAT_HEIGHT = 5;
-export const COMBAT_SECONDS = 10;
-export const COMBAT_LOBBY_SECONDS = 20;
+export const COMBAT_SECONDS = 15;
+export const COMBAT_LOBBY_SECONDS = 10;
 
 export const SPAR_EXPIRY_SECONDS = 120;
 
