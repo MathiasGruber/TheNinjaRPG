@@ -1,11 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type NextPage } from "next";
 import ContentBox from "@/layout/ContentBox";
 import WidgetBot from "@widgetbot/react-embed";
 import Loader from "@/layout/Loader";
-import NavTabs from "@/layout/NavTabs";
 import Conversation from "@/layout/Conversation";
 import BanInfo from "@/layout/BanInfo";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -13,10 +19,13 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 const Tavern: NextPage = () => {
   // State
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("Global");
 
   // Data
   const { data: userData } = useRequiredUserData();
+  const { data: villages } = api.village.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+  });
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
     { enabled: !!userData, staleTime: Infinity },
@@ -36,23 +45,33 @@ const Tavern: NextPage = () => {
     }
   }
 
-  useEffect(() => {
-    if (activeTab && !["Global", localTavern, "Discord"].includes(activeTab)) {
-      setActiveTab("Global");
-    }
-  }, [activeTab, localTavern]);
+  // Check available taverns
+  const availTaverns = ["Global", "Discord", localTavern];
+  if (userData?.role !== "USER") {
+    villages
+      ?.map((v) => v.name)
+      .filter((v) => !availTaverns.includes(v))
+      .forEach((v) => availTaverns.push(v));
+  }
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (userData.isBanned) return <BanInfo />;
   if (isPending) return <Loader explanation="Getting sector information" />;
 
-  const navTabs = (
-    <NavTabs
-      id="selected-tavern-tab"
-      current={activeTab}
-      options={["Global", localTavern, "Discord"]}
-      setValue={setActiveTab}
-    />
+  // Tavern selector
+  const tavernSelector = (
+    <Select onValueChange={(e) => setActiveTab(e)}>
+      <SelectTrigger>
+        <SelectValue placeholder={activeTab} />
+      </SelectTrigger>
+      <SelectContent>
+        {availTaverns?.map((village) => (
+          <SelectItem key={village} value={village}>
+            {village}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 
   if (activeTab === "Discord") {
@@ -62,7 +81,7 @@ const Tavern: NextPage = () => {
         subtitle={activeTab + " Tavern"}
         padding={false}
         noBorder={true}
-        topRightContent={navTabs}
+        topRightContent={tavernSelector}
       >
         <WidgetBot
           className="w-full min-h-96"
@@ -84,7 +103,7 @@ const Tavern: NextPage = () => {
         title={conversation + " Tavern"}
         initialBreak={false}
         subtitle={conversation === "Global" ? "Global chat" : "Village chat"}
-        topRightContent={navTabs}
+        topRightContent={tavernSelector}
       />
     );
   }
