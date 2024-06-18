@@ -20,7 +20,7 @@
     "@highlight-run/react": "3.2.1",
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "2.9.10",
-    "@next/bundle-analyzer": "14.2.0",
+    "@next/bundle-analyzer": "14.2.4",
     "@next/third-parties": "14.2.0",
     "@paypal/react-paypal-js": "7.8.2",
     "@planetscale/database": "^1.16.0",

@@ -24,8 +24,8 @@ dependencies:
     specifier: 2.9.10
     version: 2.9.10(react-hook-form@7.43.0)
   '@next/bundle-analyzer':
-    specifier: 14.2.0
-    version: 14.2.0
+    specifier: 14.2.4
+    version: 14.2.4
   '@next/third-parties':
     specifier: 14.2.0
     version: 14.2.0(next@14.2.3)(react@18.2.0)
@@ -1073,8 +1073,8 @@ packages:
     resolution: {integrity: sha512-fuscdXJ9G1qb7W8VdHi+IwRqij3lBkosAm4ydQtEmbY58OzHXqQhvlxqEkoz0yssNVn38bcpRWgA9PP+OGoisw==}
     dev: false
 
-  /@next/bundle-analyzer@14.2.0:
-    resolution: {integrity: sha512-fFzOvgHJgqILHCoZnfBbjvvODbZNqVIVQOaMgzOrOfKnrz0RVZvaNYSXynCIpJK4J7TIhFW0bQ8vFjDhTDKSmQ==}
+  /@next/bundle-analyzer@14.2.4:
+    resolution: {integrity: sha512-ydSDikSgGhYmBlnvzS4tgdGyn40SCFI9uWDldbkRSwXS60tg4WBJR4qJoTSERTmdAFb1PeUYCyFdfC80i2WL1w==}
     dependencies:
       webpack-bundle-analyzer: 4.10.1
     transitivePeerDependencies:
