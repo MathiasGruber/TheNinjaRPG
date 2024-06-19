@@ -31,7 +31,7 @@ export const createConversationSchema = z
 export type CreateConversationSchema = z.infer<typeof createConversationSchema>;
 
 export const mutateContentSchema = z
-  .object({ content: z.string().min(2).max(5000) })
+  .object({ content: z.string().min(2).max(10000) })
   .strict()
   .required();
 

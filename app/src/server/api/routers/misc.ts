@@ -10,7 +10,7 @@ import PushNotifications from "@pusher/push-notifications-server";
 
 export const miscRouter = createTRPCRouter({
   submitNotification: protectedProcedure
-    .input(z.object({ content: z.string().min(2).max(5000), senderId: z.string() }))
+    .input(z.object({ content: z.string().min(2).max(10000), senderId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query data
