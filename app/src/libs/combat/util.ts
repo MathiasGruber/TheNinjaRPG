@@ -14,6 +14,7 @@ import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
+import { canTrainJutsu } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
@@ -817,9 +818,11 @@ export const processUsersForBattle = (info: {
     // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
     user.jutsus = user.jutsus
       .filter((userjutsu) => {
+        // Not if no jutsu
         if (!userjutsu.jutsu) {
           return false;
         }
+        // Not if not the right weapon
         if (userjutsu.jutsu.jutsuWeapon !== "NONE") {
           const equippedWeapon = user.items.find(
             (useritem) =>
@@ -828,10 +831,16 @@ export const processUsersForBattle = (info: {
           );
           if (!equippedWeapon) return false;
         }
+        // Not if cannot train jutsu
+        if (!canTrainJutsu(userjutsu.jutsu, user)) {
+          return false;
+        }
+        // Add summons to list
         const effects = userjutsu.jutsu.effects as UserEffect[];
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
+        // Not if not the right bloodline
         return (
           userjutsu.jutsu.bloodlineId === "" ||
           user.isAi === 1 ||
