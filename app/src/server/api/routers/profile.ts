@@ -75,6 +75,7 @@ import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
+import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import HumanDiff from "human-object-diff";
 import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
@@ -250,18 +251,19 @@ export const profileRouter = createTRPCRouter({
       }
     }),
   // Update user with new level
-  levelUp: protectedProcedure.mutation(async ({ ctx }) => {
+  levelUp: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    // Query
     const { user } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
     });
-    if (!user) {
-      throw serverError("NOT_FOUND", "User not found");
-    }
+    // Guard
+    if (!user) return errorResponse("User not found");
     const expRequired = calcLevelRequirements(user.level) - user.experience;
-    if (expRequired > 0) {
-      throw serverError("PRECONDITION_FAILED", "Not enough experience to level up");
-    }
+    const lvlCap = USER_CAPS[user.rank].LVL_CAP;
+    if (user.level >= lvlCap) return errorResponse("User at max level for this rank!");
+    if (expRequired > 0) return errorResponse("No enough experience for level");
+    // Mutate
     const newLevel = user.level + 1;
     const { trackers } = getNewTrackers(user, [
       { task: "user_level", value: newLevel },
@@ -290,7 +292,9 @@ export const profileRouter = createTRPCRouter({
         }),
       ]);
     }
-    return result.rowsAffected === 0 ? user.level : newLevel;
+    // Return response
+    if (result.rowsAffected === 0) return errorResponse("Could not update level");
+    return { success: true, message: `User leveled up to ${newLevel}` };
   }),
   // Get all information on logged in user
   getUser: protectedProcedure

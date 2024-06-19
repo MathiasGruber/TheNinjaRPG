@@ -21,6 +21,7 @@ import { calcLevelRequirements } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { NextPage } from "next";
+import { showMutationToast } from "@/libs/toast";
 
 const Profile: NextPage = () => {
   // State
@@ -50,12 +51,13 @@ const Profile: NextPage = () => {
     onMutate: () => {
       setIsLevelling(true);
     },
-    onSuccess: async (newLevel) => {
-      if (userData && newLevel !== userData.level) {
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success && userData) {
         await refetchUser();
         sendGTMEvent({
           event: "level_up",
-          level: newLevel,
+          level: userData.level + 1,
           character: userData.userId,
         });
       }
