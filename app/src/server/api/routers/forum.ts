@@ -42,6 +42,7 @@ export const forumRouter = createTRPCRouter({
         input.board_id,
         input.cursor,
         input.limit,
+        true,
       );
       return {
         data: threads,
@@ -66,6 +67,7 @@ export const forumRouter = createTRPCRouter({
         board.id,
         input.cursor,
         input.limit,
+        false,
       );
       return {
         data: threads,
@@ -177,6 +179,7 @@ export const getInfiniteThreads = async (
   boardId: string,
   cursor: number | null | undefined,
   limit: number,
+  highlightPinned?: boolean,
 ) => {
   const currentCursor = cursor ? cursor : 0;
   const skip = currentCursor * limit;
@@ -193,7 +196,9 @@ export const getInfiniteThreads = async (
         orderBy: asc(forumPost.createdAt),
       },
     },
-    orderBy: [desc(forumThread.isPinned), desc(forumThread.createdAt)],
+    orderBy: highlightPinned
+      ? [desc(forumThread.isPinned), desc(forumThread.createdAt)]
+      : desc(forumThread.createdAt),
   });
   const nextCursor = threads.length < limit ? null : currentCursor + 1;
   return { threads, nextCursor };

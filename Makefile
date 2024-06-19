@@ -43,7 +43,7 @@ enter: # Connect to app container.
 .PHONY: cloc
 cloc: # Count lines of code
 	@echo "${YELLOW}Count lines of code${RESET}"
-	cloc --exclude-dir=node_modules --exclude-ext=csv .
+	cloc --exclude-dir=node_modules --exclude-ext=csv  --exclude-ext=json  --exclude-ext=svg .
 
 .PHONY: highlight_sourcemap_upload
 highlight_sourcemap_upload: # Upload sourcemap to highlight.io
