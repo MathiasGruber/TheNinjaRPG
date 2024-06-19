@@ -13,6 +13,7 @@ import { EditContent } from "@/layout/EditContent";
 import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
+import { canSeeConfidentialUserData } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/validators/reports";
@@ -167,6 +168,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
             <p>Federal Support: {profile.federalStatus.toLowerCase()}</p>
+            {canSeeConfidentialUserData(userData.role) && (
+              <div>
+                <br />
+                <b>Information</b>
+                <p>Too fast infractions: {profile.movedTooFastCount}</p>
+              </div>
+            )}
           </div>
           <div>
             <div className="basis-1/3">

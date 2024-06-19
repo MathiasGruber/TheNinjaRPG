@@ -899,6 +899,7 @@ export const profileRouter = createTRPCRouter({
           isAi: true,
           federalStatus: true,
           customTitle: true,
+          movedTooFastCount: true,
         },
         with: {
           village: true,
