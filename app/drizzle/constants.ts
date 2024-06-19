@@ -251,9 +251,22 @@ export const HP_PER_LVL = 50;
 export const SP_PER_LVL = 50;
 export const CP_PER_LVL = 50;
 export const MAX_ATTRIBUTES = 5;
-export const STATS_CAP = 300000;
-export const GENS_CAP = 150000;
 export const RYO_CAP = 1000000000;
+export const MAX_STATS_CAP = 300000;
+export const MAX_GENS_CAP = 150000;
+
+// Caps lookup table
+export const USER_CAPS: {
+  [key in UserRank]: { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number };
+} = {
+  STUDENT: { GENS_CAP: 20000, STATS_CAP: 20000, LVL_CAP: 10 },
+  GENIN: { GENS_CAP: 20000, STATS_CAP: 20000, LVL_CAP: 20 },
+  CHUNIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 50 },
+  JONIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
+  COMMANDER: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
+  ELDER: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
+  NONE: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
+} as const;
 
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;

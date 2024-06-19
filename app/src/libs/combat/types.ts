@@ -5,7 +5,7 @@ import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
 import { StatTypes, GeneralType, PoolType } from "@/drizzle/constants";
-import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
+import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance, Clan } from "@/drizzle/schema";
@@ -984,77 +984,79 @@ const roundStat = (stat: number) => {
  * @returns - zod schema
  */
 export const createStatSchema = (min = 10, start = 10, user?: UserData) => {
+  const gens_cap = user ? USER_CAPS[user.rank].GENS_CAP : MAX_GENS_CAP;
+  const stats_cap = user ? USER_CAPS[user.rank].STATS_CAP : MAX_STATS_CAP;
   return z.object({
     ninjutsuOffence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.ninjutsuOffence || 0))
+      .max(stats_cap - (user?.ninjutsuOffence || 0))
       .transform(roundStat)
       .default(start),
     taijutsuOffence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.taijutsuOffence || 0))
+      .max(stats_cap - (user?.taijutsuOffence || 0))
       .transform(roundStat)
       .default(start),
     genjutsuOffence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.genjutsuOffence || 0))
+      .max(stats_cap - (user?.genjutsuOffence || 0))
       .transform(roundStat)
       .default(start),
     bukijutsuOffence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.bukijutsuOffence || 0))
+      .max(stats_cap - (user?.bukijutsuOffence || 0))
       .transform(roundStat)
       .default(start),
     ninjutsuDefence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.ninjutsuDefence || 0))
+      .max(stats_cap - (user?.ninjutsuDefence || 0))
       .transform(roundStat)
       .default(start),
     taijutsuDefence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.taijutsuDefence || 0))
+      .max(stats_cap - (user?.taijutsuDefence || 0))
       .transform(roundStat)
       .default(start),
     genjutsuDefence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.genjutsuDefence || 0))
+      .max(stats_cap - (user?.genjutsuDefence || 0))
       .transform(roundStat)
       .default(start),
     bukijutsuDefence: z.coerce
       .number()
       .min(min)
-      .max(STATS_CAP - (user?.bukijutsuDefence || 0))
+      .max(stats_cap - (user?.bukijutsuDefence || 0))
       .transform(roundStat)
       .default(start),
     strength: z.coerce
       .number()
       .min(min)
-      .max(GENS_CAP - (user?.strength || 0))
+      .max(gens_cap - (user?.strength || 0))
       .transform(roundStat)
       .default(start),
     speed: z.coerce
       .number()
       .min(min)
-      .max(GENS_CAP - (user?.speed || 0))
+      .max(gens_cap - (user?.speed || 0))
       .transform(roundStat)
       .default(start),
     intelligence: z.coerce
       .number()
       .min(min)
-      .max(GENS_CAP - (user?.intelligence || 0))
+      .max(gens_cap - (user?.intelligence || 0))
       .transform(roundStat)
       .default(start),
     willpower: z.coerce
       .number()
       .min(min)
-      .max(GENS_CAP - (user?.willpower || 0))
+      .max(gens_cap - (user?.willpower || 0))
       .transform(roundStat)
       .default(start),
   });

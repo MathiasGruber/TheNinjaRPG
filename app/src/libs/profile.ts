@@ -8,13 +8,7 @@ import { updateUserSchema } from "@/validators/user";
 import type { UpdateUserSchema } from "@/validators/user";
 import type { UserData } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
-import {
-  STATS_CAP,
-  GENS_CAP,
-  HP_PER_LVL,
-  SP_PER_LVL,
-  CP_PER_LVL,
-} from "@/drizzle/constants";
+import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { UserRank } from "@/drizzle/constants";
 
@@ -65,18 +59,20 @@ type StatDistribution = {
 };
 
 export function capUserStats(user: UserData) {
-  if (user.ninjutsuOffence > STATS_CAP) user.ninjutsuOffence = STATS_CAP;
-  if (user.genjutsuOffence > STATS_CAP) user.genjutsuOffence = STATS_CAP;
-  if (user.taijutsuOffence > STATS_CAP) user.taijutsuOffence = STATS_CAP;
-  if (user.bukijutsuOffence > STATS_CAP) user.bukijutsuOffence = STATS_CAP;
-  if (user.ninjutsuDefence > STATS_CAP) user.ninjutsuDefence = STATS_CAP;
-  if (user.genjutsuDefence > STATS_CAP) user.genjutsuDefence = STATS_CAP;
-  if (user.taijutsuDefence > STATS_CAP) user.taijutsuDefence = STATS_CAP;
-  if (user.bukijutsuDefence > STATS_CAP) user.bukijutsuDefence = STATS_CAP;
-  if (user.strength > GENS_CAP) user.strength = GENS_CAP;
-  if (user.speed > GENS_CAP) user.speed = GENS_CAP;
-  if (user.intelligence > GENS_CAP) user.intelligence = GENS_CAP;
-  if (user.willpower > GENS_CAP) user.willpower = GENS_CAP;
+  const stats_cap = USER_CAPS[user.rank].STATS_CAP;
+  const gens_cap = USER_CAPS[user.rank].GENS_CAP;
+  if (user.ninjutsuOffence > stats_cap) user.ninjutsuOffence = stats_cap;
+  if (user.genjutsuOffence > stats_cap) user.genjutsuOffence = stats_cap;
+  if (user.taijutsuOffence > stats_cap) user.taijutsuOffence = stats_cap;
+  if (user.bukijutsuOffence > stats_cap) user.bukijutsuOffence = stats_cap;
+  if (user.ninjutsuDefence > stats_cap) user.ninjutsuDefence = stats_cap;
+  if (user.genjutsuDefence > stats_cap) user.genjutsuDefence = stats_cap;
+  if (user.taijutsuDefence > stats_cap) user.taijutsuDefence = stats_cap;
+  if (user.bukijutsuDefence > stats_cap) user.bukijutsuDefence = stats_cap;
+  if (user.strength > gens_cap) user.strength = gens_cap;
+  if (user.speed > gens_cap) user.speed = gens_cap;
+  if (user.intelligence > gens_cap) user.intelligence = gens_cap;
+  if (user.willpower > gens_cap) user.willpower = gens_cap;
 }
 
 /** Scale stats of user, and return total number of experience / stat points */

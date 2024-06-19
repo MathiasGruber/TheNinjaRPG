@@ -14,7 +14,7 @@ import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
-import { STATS_CAP, GENS_CAP } from "@/drizzle/constants";
+import { USER_CAPS } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -483,14 +483,16 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         }
         let assignedExp = 0;
         const gain = Math.floor((experience / total) * 100) / 100;
+        const stats_cap = USER_CAPS[user.rank].STATS_CAP;
+        const gens_cap = USER_CAPS[user.rank].GENS_CAP;
         user.usedStats.forEach((stat) => {
-          const value = user[stat] + gain > STATS_CAP ? STATS_CAP - user[stat] : gain;
+          const value = user[stat] + gain > stats_cap ? stats_cap - user[stat] : gain;
           result[stat] += value;
           assignedExp += value;
         });
         user.usedGenerals.forEach((stat) => {
           const gen = stat.toLowerCase() as Lowercase<typeof stat>;
-          const value = user[gen] + gain > GENS_CAP ? GENS_CAP - user[gen] : gain;
+          const value = user[gen] + gain > gens_cap ? gens_cap - user[gen] : gain;
           result[gen] += value;
           assignedExp += value;
         });
