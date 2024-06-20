@@ -255,7 +255,7 @@ export const updateVillageAnbuClan = async (
             .where(eq(village.id, user.villageId)),
         ]
       : []),
-    ...(user.anbuId && result.villageTokens > 0
+    ...(user.anbuId && result.pvpStreak > 0
       ? [
           client
             .update(anbuSquad)
