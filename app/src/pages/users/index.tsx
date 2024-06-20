@@ -55,7 +55,17 @@ const Users: NextPage = () => {
   const allUsers = users?.pages
     .map((page) => page.data)
     .flat()
-    .map((user) => ({ ...user, rank: showUserRank(user) }));
+    .map((user) => ({
+      ...user,
+      info: (
+        <div>
+          <p>
+            Lvl. {user.level} {showUserRank(user)}
+          </p>
+          <p>{user.village?.name || "Syndicate"}</p>
+        </div>
+      ),
+    }));
   type User = ArrayElement<typeof allUsers>;
 
   useInfinitePagination({
@@ -67,10 +77,9 @@ const Users: NextPage = () => {
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar" },
     { key: "username", header: "Username", type: "string" },
-    { key: "rank", header: "Rank", type: "string" },
+    { key: "info", header: "Info", type: "jsx" },
   ];
   if (activeTab === "Strongest") {
-    columns.push({ key: "level", header: "Lvl.", type: "string" });
     columns.push({ key: "experience", header: "Experience", type: "string" });
   } else if (activeTab === "Online") {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });

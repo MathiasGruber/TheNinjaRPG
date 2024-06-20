@@ -1011,6 +1011,7 @@ export const profileRouter = createTRPCRouter({
         },
         // If AI, also include relations information
         with: {
+          village: { columns: { name: true } },
           ...(input.isAi === 1
             ? {
                 jutsus: {
