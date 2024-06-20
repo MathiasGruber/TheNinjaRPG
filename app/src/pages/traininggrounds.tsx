@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { energyPerSecond } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
-import { hasRequiredRank } from "@/libs/train";
+import { canTrainJutsu } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
@@ -34,11 +34,10 @@ import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
-import { getUserElements } from "@/validators/user";
 import { Handshake } from "lucide-react";
 import { SENSEI_RANKS } from "@/drizzle/constants";
 import type { z } from "zod";
-import type { ElementName, TrainingSpeed } from "@/drizzle/constants";
+import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
 import type { NextPage } from "next";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -494,34 +493,14 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
 
-  // Get user elements
-  const userElements = new Set(getUserElements(userData));
-
   // Filtering jutsus
   const alljutsus = jutsus?.pages
     .map((page) => page.data)
     .flat()
-    .filter((j) => !j.villageId || userData?.villageId === j.villageId)
-    .filter((j) => !j.bloodlineId || j.bloodlineId === userData?.bloodlineId)
+    .filter((j) => canTrainJutsu(j, userData))
     .filter((j) => {
       const userJutsu = userJutsus?.find((uj) => uj.jutsuId === j.id);
       return userJutsu || !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType);
-    })
-    .filter((j) => hasRequiredRank(userData.rank, j.requiredRank))
-    .filter((j) => {
-      const jutsuElements: ElementName[] = [];
-      j.effects.map((effect) => {
-        if ("elements" in effect && effect.elements) {
-          jutsuElements.push(
-            ...effect.elements.filter((e) => (e as string) !== "None"),
-          );
-        }
-      });
-      if (jutsuElements.length === 0) {
-        return true;
-      } else {
-        return jutsuElements.find((e) => userElements.has(e));
-      }
     })
     .map((j) => {
       const uj = userJutsus?.find((uj) => uj.jutsuId === j.id);

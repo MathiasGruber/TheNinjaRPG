@@ -8,10 +8,13 @@ import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
+import { getUserElements } from "@/validators/user";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Jutsu, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
+import type { ElementName } from "@/drizzle/constants";
 
 export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
@@ -96,12 +99,31 @@ export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData
   return !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
 };
 
-export const canTrainJutsu = (jutsu: Jutsu, userdata: UserData) => {
+export const checkJutsuElements = (jutsu: Jutsu, userElements: Set<ElementName>) => {
+  const jutsuElements: ElementName[] = [];
+  jutsu.effects.map((effect) => {
+    if ("elements" in effect && effect.elements) {
+      jutsuElements.push(...effect.elements.filter((e) => (e as string) !== "None"));
+    }
+  });
+  if (jutsuElements.length === 0) {
+    return true;
+  } else {
+    return jutsuElements.find((e) => userElements.has(e));
+  }
+};
+
+export const canTrainJutsu = (
+  jutsu: Jutsu,
+  userdata: NonNullable<UserWithRelations>,
+) => {
+  const userElements = new Set(getUserElements(userdata));
   return (
     hasRequiredRank(userdata.rank, jutsu.requiredRank) &&
     checkJutsuRank(jutsu.jutsuRank, userdata.rank) &&
     checkJutsuVillage(jutsu, userdata) &&
-    checkJutsuBloodline(jutsu, userdata)
+    checkJutsuBloodline(jutsu, userdata) &&
+    checkJutsuElements(jutsu, userElements)
   );
 };
 
