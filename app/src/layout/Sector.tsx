@@ -561,7 +561,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                     alt={`Attack-${user.userId}`}
                   />
                 )}
-                {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && !sameHex && (
+                {!sameHex && (
                   <Image
                     src={"/map/move.png"}
                     onClick={() => props.move(user.longitude, user.latitude)}
