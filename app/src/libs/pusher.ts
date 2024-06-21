@@ -99,6 +99,7 @@ export const updateUserOnMap = async (
     sector: number;
     longitude: number;
     latitude: number;
+    username: string;
     avatar: string | null;
     location: string | null;
   },
@@ -108,6 +109,7 @@ export const updateUserOnMap = async (
     longitude: user.longitude,
     latitude: user.latitude,
     avatar: user.avatar,
+    username: user.username,
     sector: user.sector,
     location: user.location,
   });

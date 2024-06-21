@@ -48,6 +48,7 @@ export const travelRouter = createTRPCRouter({
             isOutlaw: true,
             immunityUntil: true,
             updatedAt: true,
+            villageId: true,
           },
           where: and(
             eq(userData.sector, input.sector),
@@ -153,6 +154,7 @@ export const travelRouter = createTRPCRouter({
         villageId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
+        username: z.string(),
       }),
     )
     .output(
@@ -160,12 +162,14 @@ export const travelRouter = createTRPCRouter({
         z.object({
           data: z
             .object({
+              longitude: z.number(),
+              latitude: z.number(),
               location: z.string(),
+              username: z.string(),
               userId: z.string(),
               avatar: z.string(),
               sector: z.number(),
-              longitude: z.number(),
-              latitude: z.number(),
+              villageId: z.string().nullish(),
             })
             .optional(),
         }),

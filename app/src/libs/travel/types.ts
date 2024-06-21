@@ -34,6 +34,7 @@ export interface SectorUser {
   longitude: number;
   latitude: number;
   location: string | null;
+  villageId: string | null;
   level: number;
   rank: UserRank;
   immunityUntil: Date;

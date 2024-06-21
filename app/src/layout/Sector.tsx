@@ -259,6 +259,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           sector: sector,
           avatar: userData.avatar,
           villageId: userData.villageId,
+          username: userData.username,
           level: userData.level,
         });
       }
@@ -493,7 +494,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           hex={origin.current}
           attackUser={(userId) => {
             const target = sorrounding.find((u) => u.userId === userId);
-
             if (target && !isAttacking) {
               attack({
                 userId: target.userId,
@@ -503,6 +503,9 @@ const Sector: React.FC<SectorProps> = (props) => {
                 asset: origin.current?.asset,
               });
             }
+          }}
+          move={(longitude, latitude) => {
+            setTarget({ x: longitude, y: latitude });
           }}
         />
       )}
@@ -534,54 +537,66 @@ interface SorroundingUsersProps {
   hex: TerrainHex;
   users: SectorUser[];
   attackUser: (userId: string) => void;
+  move: (longitude: number, latitude: number) => void;
 }
 
 const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
-  const users = props.users.filter(
-    (user) =>
-      user.latitude === props.hex.row &&
-      user.longitude === props.hex.col &&
-      user.userId !== props.userId,
-  );
+  const users = props.users.filter((user) => user.userId !== props.userId);
+
   return (
     <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>
       <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
-        {users.map((user, i) => (
-          <div key={i} className="relative">
-            <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80">
-              {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (
-                <Image
-                  src={"/map/attack.png"}
-                  onClick={() => props.attackUser(user.userId)}
-                  width={40}
-                  height={40}
-                  alt={`Attack-${user.userId}`}
+        {users.map((user, i) => {
+          const sameHex =
+            user.latitude === props.hex.row && user.longitude === props.hex.col;
+          return (
+            <div key={i} className="relative">
+              <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80 hover:cursor-pointer">
+                {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && sameHex && (
+                  <Image
+                    src={"/map/attack.png"}
+                    onClick={() => props.attackUser(user.userId)}
+                    width={40}
+                    height={40}
+                    alt={`Attack-${user.userId}`}
+                  />
+                )}
+                {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && !sameHex && (
+                  <Image
+                    src={"/map/move.png"}
+                    onClick={() => props.move(user.longitude, user.latitude)}
+                    width={40}
+                    height={40}
+                    alt={`Attack-${user.userId}`}
+                  />
+                )}
+              </div>
+              <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
+                <Link href={`/users/${user.userId}`}>
+                  <Image
+                    src={"/map/info.png"}
+                    width={40}
+                    height={40}
+                    alt={`Info-${user.userId}`}
+                  />
+                </Link>
+              </div>
+              <div className="p-3">
+                <AvatarImage
+                  href={user.avatar}
+                  userId={user.userId}
+                  alt={user.username}
+                  size={512}
+                  priority
                 />
-              )}
+              </div>
+              <p>{user.username}</p>
+              <p className="text-white ">
+                Lvl. {user.level} [{user.longitude}, {user.latitude}]
+              </p>
             </div>
-            <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80">
-              <Link href={`/users/${user.userId}`}>
-                <Image
-                  src={"/map/info.png"}
-                  width={40}
-                  height={40}
-                  alt={`Info-${user.userId}`}
-                />
-              </Link>
-            </div>
-            <div className="p-3">
-              <AvatarImage
-                href={user.avatar}
-                userId={user.userId}
-                alt={user.username}
-                size={512}
-                priority
-              />
-            </div>
-            <p>{user.username}</p>
-            <p className="text-white ">Level. {user.level}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Modal>
   );
