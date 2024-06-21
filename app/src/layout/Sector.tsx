@@ -544,7 +544,11 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   const users = props.users.filter((user) => user.userId !== props.userId);
 
   return (
-    <Modal title="Sorrounding Area" setIsOpen={props.setIsOpen} isValid={false}>
+    <Modal
+      title={`Scouting. Your position: [${props.hex.col}, ${props.hex.row}]`}
+      setIsOpen={props.setIsOpen}
+      isValid={false}
+    >
       <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
         {users.map((user, i) => {
           const sameHex =
