@@ -267,7 +267,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
           </p>
           {!isLoading && (
             <Form {...form}>
-              <form onSubmit={onSubmit}>
+              <form>
                 <div className="grid grid-cols-2 gap-3 px-3">
                   <FormField
                     control={form.control}

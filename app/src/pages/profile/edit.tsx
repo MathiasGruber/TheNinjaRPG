@@ -726,15 +726,21 @@ const RerollElement: React.FC = () => {
   const disabled = !canAfford || (!canChangeFirst && !canChangeSecond);
 
   return (
-    <Button
-      id="create"
-      type="submit"
-      className="w-full my-3"
-      disabled={disabled}
-      onClick={() => roll()}
+    <Confirm
+      title="Confirm Re-Roll"
+      button={
+        <Button id="create" type="submit" className="w-full my-3" disabled={disabled}>
+          Re-Roll Both Elements
+        </Button>
+      }
+      onAccept={(e) => {
+        e.preventDefault();
+        roll();
+      }}
     >
-      Re-Roll Both Elements
-    </Button>
+      Changing your base elements costs {COST_REROLL_ELEMENT} reputation points. Are you
+      sure you want to re-roll?
+    </Confirm>
   );
 };
 
