@@ -17,10 +17,37 @@ import { canEscalateBan } from "@/validators/reports";
 import { canChangePublicUser } from "@/validators/reports";
 import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { DrizzleClient } from "../../db";
 import sanitize from "@/utils/sanitize";
 
 export const reportsRouter = createTRPCRouter({
+  getUserReports: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [user, reports] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userReport.findMany({
+          where: eq(userReport.reportedUserId, input.userId),
+          with: {
+            reporterUser: {
+              columns: {
+                userId: true,
+                username: true,
+                avatar: true,
+              },
+            },
+          },
+        }),
+      ]);
+      // Guard
+      if (!canSeeSecretData(user.role)) {
+        throw serverError("UNAUTHORIZED", "You cannot view this user's reports");
+      }
+      // Return reports
+      return reports;
+    }),
   // Let moderators and higher see all reports, let users see reports associated with them
   getAll: protectedProcedure
     .input(

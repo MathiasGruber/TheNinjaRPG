@@ -8,12 +8,13 @@ import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
+import Post from "@/layout/Post";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
 import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
-import { canSeeConfidentialUserData } from "@/utils/permissions";
+import { canSeeSecretData } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/validators/reports";
@@ -30,6 +31,7 @@ interface PublicUserComponentProps {
   showStudents?: boolean;
   showBadges?: boolean;
   showNindo?: boolean;
+  showReports?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -41,16 +43,25 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showStudents,
   showBadges,
   showNindo,
+  showReports,
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
+  const enableReports = showReports && userData && canSeeSecretData(userData.role);
 
   // Queries
-  const { data: profile, isPending } = api.profile.getPublicUser.useQuery(
-    { userId: userId },
-    { enabled: userId !== undefined, staleTime: Infinity },
-  );
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery(
+      { userId: userId },
+      { enabled: userId !== undefined, staleTime: Infinity },
+    );
+
+  const { data: reports, isPending: isPendingReports } =
+    api.reports.getUserReports.useQuery(
+      { userId: userId },
+      { enabled: !!enableReports, staleTime: Infinity },
+    );
 
   // tRPC utility
   const utils = api.useUtils();
@@ -88,7 +99,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const availableRoles = userData && canChangeUserRole(userData.role);
 
   // Loaders
-  if (isPending) return <Loader explanation="Fetching Public User Data" />;
+  if (isPendingProfile) return <Loader explanation="Fetching Public User Data" />;
   if (!userData) return <Loader explanation="Fetching Your User Data" />;
   if (!profile) {
     return (
@@ -168,7 +179,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
             <p>Federal Support: {profile.federalStatus.toLowerCase()}</p>
-            {canSeeConfidentialUserData(userData.role) && (
+            {canSeeSecretData(userData.role) && (
               <div>
                 <br />
                 <b>Information</b>
@@ -340,6 +351,43 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="overflow-x-scroll">
             {ReactHtmlParser(profile.nindo.content)}
           </div>
+        </ContentBox>
+      )}
+      {/* USER REPORTS */}
+      {showReports && enableReports && (
+        <ContentBox
+          title="Reports"
+          subtitle={`Reports against ${profile.username}`}
+          initialBreak={true}
+        >
+          {isPendingReports && <Loader explanation="Fetching User Reports" />}
+          {reports?.length === 0 && <p>No reports found</p>}
+          {reports?.map((report) => {
+            return (
+              <Link key={report.id} href={"/reports/" + report.id}>
+                <Post
+                  title={`${report.reporterUser?.username} on ${report.system}`}
+                  hover_effect={true}
+                  align_middle={true}
+                  image={
+                    <div className="m-3 w-16 ">
+                      {report.reporterUser?.avatar && (
+                        <Image
+                          src={report.reporterUser.avatar}
+                          width={100}
+                          height={100}
+                          alt="Forum Icon"
+                        ></Image>
+                      )}
+                    </div>
+                  }
+                >
+                  {ReactHtmlParser(report.reason)}
+                  <b>Status:</b> {report.status.toLowerCase()}
+                </Post>
+              </Link>
+            );
+          })}
         </ContentBox>
       )}
     </>

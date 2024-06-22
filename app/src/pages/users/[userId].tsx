@@ -15,6 +15,7 @@ const PublicProfile: NextPage = () => {
       showStudents
       showBadges
       showNindo
+      showReports
     />
   );
 };

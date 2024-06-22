@@ -25,6 +25,6 @@ export const canSwapBloodline = (role: UserRole) => {
   return ["CONTENT-ADMIN", "CONTENT", "EVENT", "ADMIN"].includes(role);
 };
 
-export const canSeeConfidentialUserData = (role: UserRole) => {
+export const canSeeSecretData = (role: UserRole) => {
   return ["MODERATOR", "ADMIN"].includes(role);
 };
