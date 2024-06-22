@@ -16,6 +16,7 @@ const PublicProfile: NextPage = () => {
       showBadges
       showNindo
       showReports
+      showTransactions
     />
   );
 };

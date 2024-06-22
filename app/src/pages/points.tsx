@@ -109,7 +109,9 @@ const PaypalShop: NextPage = () => {
             {activeTab === "Federal" && <FederalStore />}
             {activeTab === "Ads" && <RewardedAds />}
           </ContentBox>
-          {activeTab === "Reputation" && <TransactionHistory />}
+          {activeTab === "Reputation" && (
+            <TransactionHistory userId={userData.userId} />
+          )}
           {activeTab === "Federal" && <SubscriptionsOverview />}
           {activeTab === "Federal" && <LookupSubscription />}
         </PayPalScriptProvider>
@@ -805,8 +807,8 @@ const SubscriptionsOverview = () => {
 /**
  * Transaction History component
  */
-const TransactionHistory = () => {
-  const { userId } = useAuth();
+export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
+  const { userId } = props;
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   const {

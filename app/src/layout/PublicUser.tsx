@@ -9,6 +9,7 @@ import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
+import { TransactionHistory } from "src/pages/points";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
 import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";
@@ -32,6 +33,7 @@ interface PublicUserComponentProps {
   showBadges?: boolean;
   showNindo?: boolean;
   showReports?: boolean;
+  showTransactions?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -44,11 +46,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showBadges,
   showNindo,
   showReports,
+  showTransactions,
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
   const enableReports = showReports && userData && canSeeSecretData(userData.role);
+  const enablePaypal = showTransactions && userData && canSeeSecretData(userData.role);
 
   // Queries
   const { data: profile, isPending: isPendingProfile } =
@@ -352,6 +356,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             {ReactHtmlParser(profile.nindo.content)}
           </div>
         </ContentBox>
+      )}
+      {/* USER TRANSACTIONS */}
+      {showTransactions && enablePaypal && (
+        <TransactionHistory userId={profile.userId} />
       )}
       {/* USER REPORTS */}
       {showReports && enableReports && (
