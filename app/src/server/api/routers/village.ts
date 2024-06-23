@@ -23,6 +23,7 @@ import { deleteSenseiRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -131,7 +132,7 @@ export const villageRouter = createTRPCRouter({
       await ctx.drizzle
         .update(userData)
         .set({
-          villageId: null,
+          villageId: VILLAGE_SYNDICATE_ID,
           villagePrestige: 0,
           isOutlaw: true,
           ...(user.rank === "GENIN" && { senseiId: null }),

@@ -79,7 +79,8 @@ import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import HumanDiff from "human-object-diff";
-import type { UserData, Bloodline, Village, VillageStructure } from "@/drizzle/schema";
+import type { UserData, Bloodline } from "@/drizzle/schema";
+import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
@@ -1249,7 +1250,11 @@ export const fetchUpdatedUser = async (props: {
         bloodline: true,
         clan: true,
         village: {
-          with: { structures: true },
+          with: {
+            structures: true,
+            relationshipA: true,
+            relationshipB: true,
+          },
         },
         anbuSquad: {
           columns: { name: true },
@@ -1420,7 +1425,13 @@ export type UserWithRelations =
       bloodline?: Bloodline | null;
       anbuSquad?: { name: string } | null;
       clan?: Clan | null;
-      village?: (Village & { structures?: VillageStructure[] }) | null;
+      village?:
+        | (Village & {
+            structures?: VillageStructure[];
+            relationshipA?: VillageAlliance[];
+            relationshipB?: VillageAlliance[];
+          })
+        | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
     })

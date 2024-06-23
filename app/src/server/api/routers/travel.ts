@@ -265,5 +265,4 @@ export const travelRouter = createTRPCRouter({
 });
 
 type RouterOutput = inferRouterOutputs<typeof travelRouter>;
-export type SectorUsers = RouterOutput["getSectorData"]["users"];
 export type SectorVillage = RouterOutput["getSectorData"]["village"];

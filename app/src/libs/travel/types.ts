@@ -1,3 +1,4 @@
+import type { AllianceState } from "@/drizzle/constants";
 import type { UserRank } from "@/drizzle/constants";
 
 type NonEmptyArray<T> = T[] & { 0: T };
@@ -39,4 +40,5 @@ export interface SectorUser {
   rank: UserRank;
   immunityUntil: Date;
   updatedAt: Date;
+  status: AllianceState;
 }

@@ -185,6 +185,27 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   const group = new Group();
   const { height: h, width: w } = hex;
 
+  // Highlight sprite
+  const highlightTexture = loadTexture("/map/userMarker.webp");
+  const highlightMaterial = new SpriteMaterial({
+    map: highlightTexture,
+    alphaMap: highlightTexture,
+  });
+  const highlightColor =
+    userData.status === "ALLY"
+      ? parseInt("008000", 16)
+      : userData.status === "NEUTRAL"
+        ? parseInt("2986CC", 16)
+        : parseInt("FF0000", 16);
+  const highlightSprite = new Sprite(highlightMaterial);
+  highlightSprite.userData.type = "marker";
+  highlightSprite.scale.set(h * 1.1, h * 1.3, 1);
+  highlightSprite.position.set(w / 2, h * 0.9, -6);
+  highlightSprite.userData.type = "userMarker";
+  highlightSprite.userData.userId = userData.userId;
+  highlightSprite.material.color.setHex(highlightColor);
+  group.add(highlightSprite);
+
   // Marker
   const marker = loadTexture("/map/userMarker.webp");
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });

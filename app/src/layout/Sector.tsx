@@ -18,12 +18,12 @@ import { intersectTiles } from "@/libs/travel/sector";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { isLocationObjective } from "@/libs/quest";
+import { getAllyStatus } from "@/utils/alliance";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
 import type { TerrainHex } from "@/libs/hexgrid";
-import type { SectorUsers } from "@/routers/travel";
 
 interface SectorProps {
   sector: number;
@@ -52,7 +52,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const pathFinder = useRef<PathCalculator | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
-  const users = useRef<SectorUsers | null>(null);
+  const users = useRef<SectorUser[] | null>(null);
   const showUsers = useRef<boolean>(showActive);
   const mouse = new Vector2();
 
@@ -62,8 +62,8 @@ const Sector: React.FC<SectorProps> = (props) => {
     { sector: sector },
     { enabled: sector !== undefined, staleTime: Infinity },
   );
-  const fetchedUsers = data?.users;
   const villageData = data?.village;
+  const fetchedUsers = data?.users;
 
   // Router for forwarding
   const router = useSafePush();
@@ -131,11 +131,13 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Convenience method for updating user list
   const updateUsersList = (data: UserData) => {
     if (users.current) {
+      const status = getAllyStatus(userData?.village, data.villageId);
       const idx = users.current.findIndex((user) => user.userId === data.userId);
+      const enrichedData = { ...data, status };
       if (idx !== -1) {
-        users.current[idx] = data;
+        users.current[idx] = enrichedData;
       } else {
-        users.current.push(data);
+        users.current.push(enrichedData);
       }
       // Remove users who are no longer in the sector
       (
@@ -271,8 +273,12 @@ const Sector: React.FC<SectorProps> = (props) => {
     const sceneRef = mountRef.current;
     if (sceneRef && userData && fetchedUsers) {
       // Update the state containing sorrounding users on first load
-      setSorrounding(fetchedUsers || []);
-      users.current = fetchedUsers;
+      const enrichedData = fetchedUsers.map((user) => {
+        const status = getAllyStatus(userData.village, user.villageId);
+        return { ...user, status };
+      });
+      setSorrounding(enrichedData || []);
+      users.current = enrichedData;
 
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;

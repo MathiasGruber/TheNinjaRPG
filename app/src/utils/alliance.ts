@@ -1,5 +1,6 @@
 import type { UserRequest, Village, VillageAlliance } from "@/drizzle/schema";
 import { WAR_FUNDS_COST } from "@/utils/kage";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 
 /**
  * Retrieves the relationship between two villages from the given array of VillageAlliance objects.
@@ -29,7 +30,8 @@ export const findRelationship = (
  * @returns The relationship between the village and the user.
  */
 export const findVillageUserRelationship = (
-  villageData: Village & {
+  villageData: {
+    id: string | null;
     relationshipA: VillageAlliance[];
     relationshipB: VillageAlliance[];
   },
@@ -42,6 +44,42 @@ export const findVillageUserRelationship = (
     villageData.id,
   );
   return relationship;
+};
+
+/**
+ * Finds the relationship status between two villages.
+ *
+ * @param villageData - The village data including the relationships.
+ * @param userVillageId - The ID of the user's village.
+ * @returns The relationship between the village and the user.
+ */
+export const getAllyStatus = (
+  villageData?: {
+    id: string | null;
+    relationshipA?: VillageAlliance[];
+    relationshipB?: VillageAlliance[];
+  } | null,
+  userVillageId?: string | null,
+) => {
+  // Guard
+  console.log("=======, ", villageData, userVillageId);
+  if (!villageData) return "NEUTRAL";
+  if (villageData.id === userVillageId) return "ALLY";
+  if (userVillageId === VILLAGE_SYNDICATE_ID) return "ENEMY";
+  if (villageData.id === VILLAGE_SYNDICATE_ID) return "ENEMY";
+  if (villageData.relationshipA === undefined) return "NEUTRAL";
+  if (villageData.relationshipB === undefined) return "NEUTRAL";
+  if (!userVillageId) return "NEUTRAL";
+  // Get relationship
+  const relationship = findVillageUserRelationship(
+    {
+      id: villageData.id,
+      relationshipA: villageData.relationshipA,
+      relationshipB: villageData.relationshipB,
+    },
+    userVillageId,
+  );
+  return relationship?.status || "NEUTRAL";
 };
 
 /**

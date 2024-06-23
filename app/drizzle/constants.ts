@@ -280,6 +280,7 @@ export const COST_REROLL_ELEMENT = 20;
 // Village config
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
 export const VILLAGE_REDUCED_GAINS_DAYS = 7;
+export const VILLAGE_SYNDICATE_ID = "ryBk0qD4EgvPPyav2K4OC";
 
 // ANBU config
 export const ANBU_MEMBER_RANK_REQUIREMENT = "CHUNIN";
