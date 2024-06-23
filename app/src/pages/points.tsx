@@ -815,7 +815,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
     fetchNextPage,
     hasNextPage,
   } = api.paypal.getPaypalTransactions.useInfiniteQuery(
-    { limit: 10 },
+    { limit: 10, userId },
     {
       enabled: !!userId,
       getNextPageParam: (lastPage) => lastPage.nextCursor,

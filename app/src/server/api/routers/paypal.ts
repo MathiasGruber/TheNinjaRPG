@@ -11,6 +11,7 @@ import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
 import { getMobileOperatingSystem } from "@/utils/hardware";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -230,18 +231,25 @@ export const paypalRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
+        userId: z.string(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const transactions = await ctx.drizzle.query.paypalTransaction.findMany({
-        offset: skip,
-        limit: input.limit,
-        where: eq(paypalTransaction.createdById, ctx.userId),
-        with: { affectedUser: true },
-        orderBy: desc(paypalTransaction.createdAt),
-      });
+      const [user, transactions] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.paypalTransaction.findMany({
+          offset: skip,
+          limit: input.limit,
+          where: eq(paypalTransaction.createdById, input.userId),
+          with: { affectedUser: true },
+          orderBy: desc(paypalTransaction.createdAt),
+        }),
+      ]);
+      if (!canSeeSecretData(user.role) && ctx.userId !== input.userId) {
+        throw serverError("UNAUTHORIZED", "You are not allowed to see this data");
+      }
       const nextCursor = transactions.length < input.limit ? null : currentCursor + 1;
       return {
         data: transactions,
