@@ -42,6 +42,7 @@ import {
   userReportComment,
   village,
 } from "@/drizzle/schema";
+import { canSeeSecretData } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -952,7 +953,7 @@ export const profileRouter = createTRPCRouter({
     return result?.[0]?.count ?? 0;
   }),
   // Get public users
-  getPublicUsers: publicProcedure
+  getPublicUsers: protectedProcedure
     .input(
       z.object({
         cursor: z.number().nullish(),
@@ -966,6 +967,7 @@ export const profileRouter = createTRPCRouter({
             message: "Must only contain alphanumeric characters and no spaces",
           })
           .optional(),
+        ip: z.string().optional(),
         recruiterId: z.string().optional(),
       }),
     )
@@ -984,55 +986,68 @@ export const profileRouter = createTRPCRouter({
             return [desc(userData.role)];
         }
       };
-      const users = await ctx.drizzle.query.userData.findMany({
-        where: and(
-          ...(input.username !== undefined
-            ? [like(userData.username, `%${input.username}%`)]
-            : []),
-          ...(input.villageId !== undefined
-            ? [eq(userData.villageId, input.villageId)]
-            : []),
-          ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
-          ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-          eq(userData.isAi, input.isAi),
-          ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)]),
-        ),
-        columns: {
-          userId: true,
-          username: true,
-          avatar: true,
-          rank: true,
-          isOutlaw: true,
-          level: true,
-          role: true,
-          experience: true,
-          updatedAt: true,
-          reputationPointsTotal: true,
-        },
-        // If AI, also include relations information
-        with: {
-          village: { columns: { name: true } },
-          ...(input.isAi === 1
-            ? {
-                jutsus: {
-                  columns: {
-                    level: true,
-                  },
-                  with: {
-                    jutsu: {
-                      columns: {
-                        name: true,
+      const [user, users] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findMany({
+          where: and(
+            ...(input.username !== undefined
+              ? [like(userData.username, `%${input.username}%`)]
+              : []),
+            ...(input.ip ? [like(userData.lastIp, `%${input.ip}%`)] : []),
+            ...(input.villageId !== undefined
+              ? [eq(userData.villageId, input.villageId)]
+              : []),
+            ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
+            ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
+            eq(userData.isAi, input.isAi),
+            ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)]),
+          ),
+          columns: {
+            userId: true,
+            username: true,
+            avatar: true,
+            rank: true,
+            isOutlaw: true,
+            level: true,
+            role: true,
+            experience: true,
+            updatedAt: true,
+            reputationPointsTotal: true,
+            lastIp: true,
+          },
+          // If AI, also include relations information
+          with: {
+            village: { columns: { name: true } },
+            ...(input.isAi === 1
+              ? {
+                  jutsus: {
+                    columns: {
+                      level: true,
+                    },
+                    with: {
+                      jutsu: {
+                        columns: {
+                          name: true,
+                        },
                       },
                     },
                   },
-                },
-              }
-            : {}),
-        },
-        offset: skip,
-        limit: input.limit,
-        orderBy: getOrder(),
-      });
+                }
+              : {}),
+          },
+          offset: skip,
+          limit: input.limit,
+          orderBy: getOrder(),
+        }),
+      ]);
+      // Guard
+      if (input.ip && !canSeeSecretData(user.role)) {
+        throw serverError("FORBIDDEN", "You are not allowed to search IPs");
+      }
+      if (!canSeeSecretData(user.role)) {
+        users.forEach((u) => (u.lastIp = "hidden"));
+      }
+      // Return
       const nextCursor = users.length < input.limit ? null : currentCursor + 1;
       return {
         data: users,

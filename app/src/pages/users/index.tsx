@@ -18,21 +18,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { canSeeSecretData } from "@/utils/permissions";
 import { Input } from "@/components/ui/input";
 import { Filter } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
-import { useUserSearch } from "@/utils/search";
+import { useUserSearch, useFieldSearch } from "@/utils/search";
 import { showUserRank } from "@/libs/profile";
+import { useUserData } from "@/utils/UserContext";
 import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 
 const Users: NextPage = () => {
+  const { data: userData } = useUserData();
   const tabNames = ["Online", "Strongest", "Staff"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const { form, searchTerm } = useUserSearch();
+  const { form: usernameForm, searchTerm: searchedName } = useUserSearch();
+  const { form: ipForm, searchTerm: searcheIp } = useFieldSearch();
 
   const {
     data: users,
@@ -42,7 +46,8 @@ const Users: NextPage = () => {
     {
       limit: 30,
       orderBy: activeTab,
-      username: searchTerm,
+      username: searchedName,
+      ip: searcheIp,
       isAi: 0,
     },
     {
@@ -86,6 +91,9 @@ const Users: NextPage = () => {
   } else if (activeTab === "Staff") {
     columns.push({ key: "role", header: "Role", type: "capitalized" });
   }
+  if (userData && canSeeSecretData(userData.role)) {
+    columns.push({ key: "lastIp", header: "LastIP", type: "string" });
+  }
 
   return (
     <ContentBox
@@ -107,10 +115,10 @@ const Users: NextPage = () => {
         >
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Form {...form}>
+              <Form {...usernameForm}>
                 <Label htmlFor="rank">Username</Label>
                 <FormField
-                  control={form.control}
+                  control={usernameForm.control}
                   name="username"
                   render={({ field }) => (
                     <FormItem className="w-full">
@@ -123,6 +131,25 @@ const Users: NextPage = () => {
                 />
               </Form>
             </div>
+            {userData && canSeeSecretData(userData.role) && (
+              <div>
+                <Form {...ipForm}>
+                  <Label htmlFor="rank">IP Search</Label>
+                  <FormField
+                    control={ipForm.control}
+                    name="term"
+                    render={({ field }) => (
+                      <FormItem className="w-full">
+                        <FormControl>
+                          <Input id="term" placeholder="Search" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </Form>
+              </div>
+            )}
             <div>
               <Label htmlFor="rank">Sorting</Label>
               <Select onValueChange={(e) => setActiveTab(e as TabName)}>

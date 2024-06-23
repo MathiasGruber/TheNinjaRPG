@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,5 +28,34 @@ export const useUserSearch = () => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [watchUsername, setSearchTerm]);
+  return { form, searchTerm };
+};
+
+/**
+ * A hook which enables search in user IPs based on
+ * input in a InputField, but which only searches upon a 500ms
+ * delay after the user has stopped typing.
+ */
+export const useFieldSearch = () => {
+  // Search term
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  // Types
+  const searchSchema = z.object({ term: z.string() });
+  type SearchSchema = z.infer<typeof searchSchema>;
+  // Use form for field
+  const form = useForm<SearchSchema>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { term: "" },
+    mode: "all",
+  });
+  // Watch username field
+  const watchedValue = form.watch("term", "");
+  // Update search term with delay
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setSearchTerm(watchedValue);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [watchedValue, setSearchTerm]);
   return { form, searchTerm };
 };
