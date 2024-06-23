@@ -12,7 +12,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
-import type { LetterRanks } from "@/drizzle/constants";
+import { LetterRanks } from "@/drizzle/constants";
 import type { NextPage } from "next";
 
 const ManualBloodlines: NextPage = () => {
@@ -105,11 +105,7 @@ const ManualBloodlines: NextPage = () => {
               </div>
             )}
             <div className="grow"></div>
-            <NavTabs
-              current={rank}
-              options={["D", "C", "B", "A", "S"]}
-              setValue={setRank}
-            />
+            <NavTabs current={rank} options={LetterRanks} setValue={setRank} />
           </div>
         }
       >

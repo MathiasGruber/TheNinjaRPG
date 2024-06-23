@@ -11,7 +11,6 @@ import Post from "@/layout/Post";
 import ReactCountryFlag from "react-country-flag";
 import BanInfo from "@/layout/BanInfo";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";

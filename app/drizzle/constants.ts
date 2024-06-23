@@ -1,4 +1,4 @@
-export const LetterRanks = ["D", "C", "B", "A", "S"] as const;
+export const LetterRanks = ["D", "C", "B", "A", "S", "H"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
 export const StatTypes = [

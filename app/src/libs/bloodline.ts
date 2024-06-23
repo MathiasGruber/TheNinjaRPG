@@ -11,6 +11,7 @@ import type { FormEntry } from "@/layout/EditContent";
 import type { ZodBloodlineType } from "@/libs/combat/types";
 
 export const ROLL_CHANCE = {
+  ["H"]: 0.001,
   ["S"]: 0.005,
   ["A"]: 0.01,
   ["B"]: 0.02,
@@ -28,6 +29,7 @@ export const ROLL_CHANCE = {
 
 // Alpha Pricing
 export const BLOODLINE_COST = {
+  ["H"]: 999999,
   ["S"]: 40,
   ["A"]: 20,
   ["B"]: 10,

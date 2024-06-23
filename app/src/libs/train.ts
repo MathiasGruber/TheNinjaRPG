@@ -25,11 +25,11 @@ export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
     case "CHUNIN":
       return ["D", "C", "B", "A"];
     case "JONIN":
-      return ["D", "C", "B", "A", "S"];
+      return ["D", "C", "B", "A", "S", "H"];
     case "ELDER":
-      return ["D", "C", "B", "A", "S"];
+      return ["D", "C", "B", "A", "S", "H"];
     case "COMMANDER":
-      return ["D", "C", "B", "A", "S"];
+      return ["D", "C", "B", "A", "S", "H"];
   }
   return ["D"];
 };

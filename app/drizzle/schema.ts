@@ -1144,11 +1144,13 @@ export const userData = mysqlTable(
     missionsB: smallint("missionsB", { unsigned: true }).default(0).notNull(),
     missionsA: smallint("missionsA", { unsigned: true }).default(0).notNull(),
     missionsS: smallint("missionsS", { unsigned: true }).default(0).notNull(),
+    missionsH: smallint("missionsH", { unsigned: true }).default(0).notNull(),
     crimesD: smallint("crimesD", { unsigned: true }).default(0).notNull(),
     crimesC: smallint("crimesC", { unsigned: true }).default(0).notNull(),
     crimesB: smallint("crimesB", { unsigned: true }).default(0).notNull(),
     crimesA: smallint("crimesA", { unsigned: true }).default(0).notNull(),
     crimesS: smallint("crimesS", { unsigned: true }).default(0).notNull(),
+    crimesH: smallint("crimesH", { unsigned: true }).default(0).notNull(),
     dailyArenaFights: smallint("dailyArenaFights", { unsigned: true })
       .default(0)
       .notNull(),
