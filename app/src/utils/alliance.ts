@@ -62,7 +62,6 @@ export const getAllyStatus = (
   userVillageId?: string | null,
 ) => {
   // Guard
-  console.log("=======, ", villageData, userVillageId);
   if (!villageData) return "NEUTRAL";
   if (villageData.id === userVillageId) return "ALLY";
   if (userVillageId === VILLAGE_SYNDICATE_ID) return "ENEMY";
