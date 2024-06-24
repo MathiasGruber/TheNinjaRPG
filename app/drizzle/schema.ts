@@ -733,6 +733,9 @@ export const item = mysqlTable(
     chakraCost: double("chakraCost").default(0).notNull(),
     staminaCost: double("staminaCost").default(0).notNull(),
     healthCost: double("healthCost").default(0).notNull(),
+    staminaCostReducePerLvl: double("staminaCostReducePerLvl").default(0).notNull(),
+    chakraCostReducePerLvl: double("chakraCostReducePerLvl").default(0).notNull(),
+    healthCostReducePerLvl: double("healthCostReducePerLvl").default(0).notNull(),
     actionCostPerc: double("actionCostPerc").default(60).notNull(),
     battleDescription: text("battleDescription")
       .default(sql`('')`)
@@ -779,6 +782,9 @@ export const jutsu = mysqlTable(
     actionCostPerc: double("actionCostPerc").default(80).notNull(),
     staminaCost: double("staminaCost").default(0.05).notNull(),
     chakraCost: double("chakraCost").default(0.05).notNull(),
+    staminaCostReducePerLvl: double("staminaCostReducePerLvl").default(0).notNull(),
+    chakraCostReducePerLvl: double("chakraCostReducePerLvl").default(0).notNull(),
+    healthCostReducePerLvl: double("healthCostReducePerLvl").default(0).notNull(),
     healthCost: double("healthCost").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),

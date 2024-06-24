@@ -33,6 +33,7 @@ export const publicState = [
   "initiative",
   "regeneration",
   "village",
+  "level",
   "fledBattle",
   "leftBattle",
   "isOriginal",

@@ -239,14 +239,29 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Chakra Usage</b>: {item.chakraCost}
               </p>
             )}
+            {"chakraCostReducePerLvl" in item && item.chakraCostReducePerLvl > 0 && (
+              <p>
+                <b>Chakra Usage Reduction Per Lvl</b>: {item.chakraCostReducePerLvl}
+              </p>
+            )}
             {"staminaCost" in item && item.staminaCost > 0 && (
               <p>
                 <b>Stamina Usage</b>: {item.staminaCost}
               </p>
             )}
+            {"staminaCostReducePerLvl" in item && item.staminaCostReducePerLvl > 0 && (
+              <p>
+                <b>Stamina Usage Reduction Per Lvl</b>: {item.staminaCostReducePerLvl}
+              </p>
+            )}
             {"healthCost" in item && item.healthCost > 0 && (
               <p>
                 <b>Health Usage</b>: {item.healthCost}
+              </p>
+            )}
+            {"healthCostReducePerLvl" in item && item.healthCostReducePerLvl > 0 && (
+              <p>
+                <b>Health Usage Reduction Per Lvl</b>: {item.healthCostReducePerLvl}
               </p>
             )}
             {"actionCostPerc" in item && item.actionCostPerc > 0 && (

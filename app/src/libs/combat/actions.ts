@@ -160,9 +160,21 @@ export const availableUserActions = (
             range: userjutsu.jutsu.range,
             updatedAt: new Date(userjutsu.updatedAt).getTime(),
             cooldown: userjutsu.jutsu.cooldown,
-            healthCost: userjutsu.jutsu.healthCost,
-            chakraCost: userjutsu.jutsu.chakraCost,
-            staminaCost: userjutsu.jutsu.staminaCost,
+            healthCost: Math.max(
+              0,
+              userjutsu.jutsu.healthCost -
+                userjutsu.jutsu.healthCostReducePerLvl * userjutsu.level,
+            ),
+            chakraCost: Math.max(
+              0,
+              userjutsu.jutsu.chakraCost -
+                userjutsu.jutsu.chakraCostReducePerLvl * userjutsu.level,
+            ),
+            staminaCost: Math.max(
+              0,
+              userjutsu.jutsu.staminaCost -
+                userjutsu.jutsu.staminaCostReducePerLvl * userjutsu.level,
+            ),
             actionCostPerc: userjutsu.jutsu.actionCostPerc,
             effects: userjutsu.jutsu.effects,
             level: userjutsu.level,
@@ -186,9 +198,21 @@ export const availableUserActions = (
               updatedAt: new Date(useritem.updatedAt).getTime(),
               cooldown: useritem.item.cooldown,
               level: user?.level,
-              healthCost: useritem.item.healthCost,
-              chakraCost: useritem.item.chakraCost,
-              staminaCost: useritem.item.staminaCost,
+              healthCost: Math.max(
+                0,
+                useritem.item.healthCost -
+                  useritem.item.healthCostReducePerLvl * user.level,
+              ),
+              chakraCost: Math.max(
+                0,
+                useritem.item.chakraCost -
+                  useritem.item.chakraCostReducePerLvl * user.level,
+              ),
+              staminaCost: Math.max(
+                0,
+                useritem.item.staminaCost -
+                  useritem.item.staminaCostReducePerLvl * user.level,
+              ),
               actionCostPerc: useritem.item.actionCostPerc,
               effects: useritem.item.effects,
               quantity: useritem.quantity,

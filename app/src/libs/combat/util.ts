@@ -219,6 +219,7 @@ export const calcPoolCost = (
   let hpCost = action.healthCost;
   let cpCost = action.chakraCost;
   let spCost = action.staminaCost;
+  console.log(hpCost, cpCost, spCost);
   usersEffects
     .filter(
       (e) =>
