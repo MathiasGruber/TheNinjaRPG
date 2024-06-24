@@ -87,7 +87,7 @@ export const forumRouter = createTRPCRouter({
       if (isNews && !canCreateNews(user)) {
         throw serverError("UNAUTHORIZED", "You are not authorized to create news");
       }
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       if (!board) {

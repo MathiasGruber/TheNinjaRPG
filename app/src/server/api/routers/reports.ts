@@ -161,6 +161,7 @@ export const reportsRouter = createTRPCRouter({
   // Create a new user report
   create: protectedProcedure
     .input(userReportSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const getInfraction = (system: typeof input.system) => {
         switch (system) {
@@ -194,78 +195,148 @@ export const reportsRouter = createTRPCRouter({
           throw serverError("NOT_FOUND", "Infraction not found.");
         }
       });
+      return {
+        success: true,
+        message: "Your report has been submitted. A moderator will review it asap.",
+      };
     }),
   // Ban a user. If no escalation: moderator-only. If escalated: admin-only
   ban: protectedProcedure
     .input(reportCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.object_id);
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
       const hasModRights = canModerateReports(user, report);
+      if (!hasModRights) return errorResponse("You cannot resolve this report");
       if (!input.banTime || input.banTime <= 0) {
-        throw serverError("BAD_REQUEST", "Ban time must be specified.");
+        return errorResponse("Ban time must be specified.");
       }
-      if (!hasModRights) {
-        throw serverError("UNAUTHORIZED", "You cannot resolve this report");
+      // Update
+      await Promise.all([
+        ...(report.reportedUserId
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ isBanned: true, status: "AWAKE" })
+                .where(eq(userData.userId, report.reportedUserId)),
+            ]
+          : []),
+        ctx.drizzle
+          .update(userReport)
+          .set({
+            status: "BAN_ACTIVATED",
+            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            banEnd:
+              input.banTime !== undefined
+                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
+                : null,
+          })
+          .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle.insert(userReportComment).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          reportId: input.object_id,
+          content: sanitize(input.comment),
+          decision: "BAN_ACTIVATED",
+        }),
+      ]);
+      return { success: true, message: "User banned" };
+    }),
+  // Silence a user. If no escalation: moderator-only. If escalated: admin-only
+  silence: protectedProcedure
+    .input(reportCommentSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
+      const hasModRights = canModerateReports(user, report);
+      if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!input.banTime || input.banTime <= 0) {
+        return errorResponse("Ban time must be specified.");
       }
-
-      if (report.reportedUserId) {
-        await ctx.drizzle
-          .update(userData)
-          .set({ isBanned: 1, status: "AWAKE" })
-          .where(eq(userData.userId, report.reportedUserId));
-      }
-      await ctx.drizzle
-        .update(userReport)
-        .set({
-          status: "BAN_ACTIVATED",
-          adminResolved: user.role === "ADMIN" ? 1 : 0,
-          banEnd:
-            input.banTime !== undefined
-              ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
-              : null,
-        })
-        .where(eq(userReport.id, input.object_id));
-      await ctx.drizzle.insert(userReportComment).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        reportId: input.object_id,
-        content: sanitize(input.comment),
-        decision: "BAN_ACTIVATED",
-      });
+      // Update
+      await Promise.all([
+        ...(report.reportedUserId
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ isSilenced: true, status: "AWAKE" })
+                .where(eq(userData.userId, report.reportedUserId)),
+            ]
+          : []),
+        ctx.drizzle
+          .update(userReport)
+          .set({
+            status: "SILENCE_ACTIVATED",
+            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            banEnd:
+              input.banTime !== undefined
+                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
+                : null,
+          })
+          .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle.insert(userReportComment).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          reportId: input.object_id,
+          content: sanitize(input.comment),
+          decision: "SILENCE_ACTIVATED",
+        }),
+      ]);
+      return { success: true, message: "User silenced" };
     }),
   // Escalate a report to admin. Only if already banned, and no previous escalation
   escalate: protectedProcedure
     .input(reportCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.object_id);
-      if (canEscalateBan(user, report)) {
-        throw serverError("UNAUTHORIZED", "This ban cannot be escalated");
-      }
-      await ctx.drizzle
-        .update(userReport)
-        .set({ status: "BAN_ESCALATED" })
-        .where(eq(userReport.id, input.object_id));
-      await ctx.drizzle.insert(userReportComment).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        reportId: input.object_id,
-        content: sanitize(input.comment),
-        decision: "BAN_ESCALATED",
-      });
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
+      if (canEscalateBan(user, report)) return errorResponse("You cannot escalate");
+      // Update
+      await Promise.all([
+        ctx.drizzle
+          .update(userReport)
+          .set({ status: "BAN_ESCALATED" })
+          .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle.insert(userReportComment).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          reportId: input.object_id,
+          content: sanitize(input.comment),
+          decision: "BAN_ESCALATED",
+        }),
+      ]);
+      return { success: true, message: "Report escalated" };
     }),
   clear: protectedProcedure
     .input(reportCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.object_id);
-      if (!canClearReport(user, report)) {
-        throw serverError("UNAUTHORIZED", "You cannot clear this report");
-      }
-
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
+      if (!canClearReport(user, report)) return errorResponse("No permission");
+      // If someone was reported
       if (report.reportedUserId) {
-        const reports = await ctx.drizzle.query.userReport.findMany({
+        // Remove ban if no other active bans
+        const bans = await ctx.drizzle.query.userReport.findMany({
           where: and(
             eq(userReport.reportedUserId, report.reportedUserId),
             eq(userReport.status, "BAN_ACTIVATED"),
@@ -273,27 +344,46 @@ export const reportsRouter = createTRPCRouter({
             ne(userReport.id, report.id),
           ),
         });
-        if (reports.length === 0) {
+        if (bans.length === 0) {
           await ctx.drizzle
             .update(userData)
-            .set({ isBanned: 0 })
+            .set({ isBanned: false })
+            .where(eq(userData.userId, report.reportedUserId));
+        }
+        // Remove silence if no other active bans
+        const silences = await ctx.drizzle.query.userReport.findMany({
+          where: and(
+            eq(userReport.reportedUserId, report.reportedUserId),
+            eq(userReport.status, "SILENCE_ACTIVATED"),
+            gte(userReport.banEnd, new Date()),
+            ne(userReport.id, report.id),
+          ),
+        });
+        if (silences.length === 0) {
+          await ctx.drizzle
+            .update(userData)
+            .set({ isSilenced: false })
             .where(eq(userData.userId, report.reportedUserId));
         }
       }
-      await ctx.drizzle
-        .update(userReport)
-        .set({
-          adminResolved: user.role === "ADMIN" ? 1 : 0,
-          status: "REPORT_CLEARED",
-        })
-        .where(eq(userReport.id, report.id));
-      await ctx.drizzle.insert(userReportComment).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        reportId: report.id,
-        content: sanitize(input.comment),
-        decision: "REPORT_CLEARED",
-      });
+      // Update report
+      await Promise.all([
+        ctx.drizzle
+          .update(userReport)
+          .set({
+            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            status: "REPORT_CLEARED",
+          })
+          .where(eq(userReport.id, report.id)),
+        ctx.drizzle.insert(userReportComment).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          reportId: report.id,
+          content: sanitize(input.comment),
+          decision: "REPORT_CLEARED",
+        }),
+      ]);
+      return { success: true, message: "Report cleared" };
     }),
   updateUserAvatar: protectedProcedure
     .input(z.object({ userId: z.string() }))

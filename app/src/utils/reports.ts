@@ -22,8 +22,11 @@ export const reportCommentExplain = (status: ReportAction | null) => {
     case "BAN_ACTIVATED":
       return "User Banned";
     case "BAN_ESCALATED":
-      return "Escalated to Admin";
-
+      return "Ban Escalated to Admin";
+    case "SILENCE_ACTIVATED":
+      return "User Silenced";
+    case "SILENCE_ESCALATED":
+      return "Silence Escalated to Admin";
     default:
       return "";
   }

@@ -793,6 +793,7 @@ export const profileRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Guard
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
       // Mutate
       return updateNindo(ctx.drizzle, ctx.userId, input.content);
     }),
@@ -1069,11 +1070,11 @@ export const profileRouter = createTRPCRouter({
   }),
   // Delete user
   confirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
-    if (!currentUser.deletionAt || currentUser.deletionAt > new Date()) {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (!user.deletionAt || user.deletionAt > new Date()) {
       throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
     }
-    if (currentUser.isBanned) {
+    if (user.isBanned || user.isSilenced) {
       throw serverError("PRECONDITION_FAILED", "You have to serve your ban first");
     }
     await deleteUser(ctx.drizzle, ctx.userId);

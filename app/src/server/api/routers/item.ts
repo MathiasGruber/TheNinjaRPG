@@ -369,7 +369,7 @@ export const itemRouter = createTRPCRouter({
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
       if (info.hidden === 1) return errorResponse("Item can not be bought");
-      if (user.isBanned === 1) return errorResponse("You are banned");
+      if (user.isBanned) return errorResponse("You are banned");
       if (userItemsCount >= calcMaxItems(user)) {
         return errorResponse("Inventory is full");
       }

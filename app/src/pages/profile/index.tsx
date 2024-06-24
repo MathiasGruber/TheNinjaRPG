@@ -170,7 +170,7 @@ const Profile: NextPage = () => {
                 Toggling this feature enables a timer of 2 days, after which you will be
                 able to delete the character - this is to ensure no un-intentional
                 character deletion.
-                {userData.isBanned === 1 && (
+                {userData.isBanned && (
                   <p className="font-bold py-3">
                     NOTE: You are banned, and cannot delete your account until the ban
                     is over!
@@ -179,9 +179,7 @@ const Profile: NextPage = () => {
                 {userData.deletionAt && (
                   <Button
                     id="create"
-                    disabled={
-                      userData.deletionAt > new Date() || userData.isBanned === 1
-                    }
+                    disabled={userData.deletionAt > new Date() || userData.isBanned}
                     className="w-full mt-3"
                     variant="destructive"
                     onClick={(e) => {

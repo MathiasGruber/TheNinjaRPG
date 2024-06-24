@@ -211,7 +211,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
 
   return (
     <div className="flex flex-row items-center">
-      {userData && !userData.isBanned && (
+      {userData && !userData.isBanned && !userData.isSilenced && (
         <Confirm
           title="Create a new conversation"
           proceed_label="Submit"

@@ -40,12 +40,8 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
 
   const createReport = api.reports.create.useMutation({
-    onSuccess: () => {
-      showMutationToast({
-        success: true,
-        title: props.user.username + " User Reported",
-        message: "Your report has been submitted. A moderator will review it asap.",
-      });
+    onSuccess: (data) => {
+      showMutationToast(data);
     },
   });
 
@@ -53,7 +49,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
     handleSubmit,
     reset,
     control,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<UserReportSchema>({
     defaultValues: {
       system: props.system,
@@ -80,6 +76,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
           setIsOpen={setShowModal}
           proceed_label={userData?.isBanned ? "Stop" : "Report User"}
           onAccept={userData?.isBanned ? undefined : onSubmit}
+          isValid={isValid}
         >
           {userData?.isBanned ? (
             <div>You are currently banned, and can therefore not report others</div>

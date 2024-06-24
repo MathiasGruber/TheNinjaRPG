@@ -55,7 +55,7 @@ const Tavern: NextPage = () => {
   }
 
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (userData.isBanned) return <BanInfo />;
+  if (userData.isBanned || userData.isSilenced) return <BanInfo />;
   if (isPending) return <Loader explanation="Getting sector information" />;
 
   // Tavern selector

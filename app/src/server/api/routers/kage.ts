@@ -115,6 +115,7 @@ export const kageRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!village) return errorResponse("Village not found");
       if (user.isBanned) return errorResponse("User is banned");
+      if (user.isSilenced) return errorResponse("User is silenced");
       if (village.kageId !== ctx.userId) return errorResponse("Not kage");
       // Update
       return updateNindo(ctx.drizzle, village.id, input.content);

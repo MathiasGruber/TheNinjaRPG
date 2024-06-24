@@ -389,6 +389,7 @@ export const clanRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!fetchedClan) return errorResponse("Clan not found");
       if (user.isBanned) return errorResponse("User is banned");
+      if (user.isSilenced) return errorResponse("User is silenced");
       if (!leaderLike) return errorResponse("Not in clan leadership");
       // Update
       return updateNindo(ctx.drizzle, fetchedClan.leaderOrderId, input.content);

@@ -94,23 +94,27 @@ const Thread: NextPage = () => {
               </div>
             );
           })}
-        {thread && !thread.isLocked && userData && !userData.isBanned && (
-          <div className="mb-3 relative">
-            <RichInput
-              id="comment"
-              height="200"
-              refreshKey={totalComments}
-              placeholder=""
-              control={control}
-              disabled={isPending}
-              error={errors.comment?.message}
-              onSubmit={handleSubmitComment}
-            />
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-              {isPending && <Loader />}
+        {thread &&
+          userData &&
+          !thread.isLocked &&
+          !userData.isBanned &&
+          !userData.isSilenced && (
+            <div className="mb-3 relative">
+              <RichInput
+                id="comment"
+                height="200"
+                refreshKey={totalComments}
+                placeholder=""
+                control={control}
+                disabled={isPending}
+                error={errors.comment?.message}
+                onSubmit={handleSubmitComment}
+              />
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                {isPending && <Loader />}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </ContentBox>
       {totalPages && <Pagination current={page} total={totalPages} setPage={setPage} />}
     </>

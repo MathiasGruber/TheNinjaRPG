@@ -113,7 +113,7 @@ const Board: NextPage = () => {
       topRightContent={
         <>
           {isPending && <Loader></Loader>}
-          {userData && !userData.isBanned && !isPending && (
+          {userData && !userData.isBanned && !userData.isSilenced && !isPending && (
             <div className="flex flex-row items-center">
               <Confirm
                 title="Create a new thread"

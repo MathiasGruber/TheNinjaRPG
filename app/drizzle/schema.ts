@@ -1115,7 +1115,8 @@ export const userData = mysqlTable(
     activityStreak: int("activityStreak").default(0).notNull(),
     deletionAt: datetime("deletionAt", { mode: "date", fsp: 3 }),
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
-    isBanned: tinyint("isBanned").default(0).notNull(),
+    isBanned: boolean("isBanned").default(false).notNull(),
+    isSilenced: boolean("isSilenced").default(false).notNull(),
     role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: tinyint("isAI").default(0).notNull(),
@@ -1376,14 +1377,7 @@ export const userReport = mysqlTable(
     reason: text("reason").notNull(),
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),
-    status: mysqlEnum("status", [
-      "UNVIEWED",
-      "REPORT_CLEARED",
-      "BAN_ACTIVATED",
-      "BAN_ESCALATED",
-    ])
-      .default("UNVIEWED")
-      .notNull(),
+    status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
   },
   (table) => {
     return {
@@ -1420,12 +1414,7 @@ export const userReportComment = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     reportId: varchar("reportId", { length: 191 }).notNull(),
-    decision: mysqlEnum("decision", [
-      "UNVIEWED",
-      "REPORT_CLEARED",
-      "BAN_ACTIVATED",
-      "BAN_ESCALATED",
-    ]),
+    decision: mysqlEnum("decision", consts.BanStates),
   },
   (table) => {
     return {

@@ -87,6 +87,15 @@ export const ItemTypes = [
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];
 
+export const BanStates = [
+  "UNVIEWED",
+  "REPORT_CLEARED",
+  "BAN_ACTIVATED",
+  "SILENCE_ACTIVATED",
+  "BAN_ESCALATED",
+  "SILENCE_ESCALATED",
+] as const;
+
 export const WeaponTypes = [
   "STAFF",
   "AXE",

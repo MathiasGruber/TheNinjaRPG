@@ -149,7 +149,7 @@ export const commentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const thread = await fetchThread(ctx.drizzle, input.object_id);
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       await Promise.all([
@@ -170,7 +170,7 @@ export const commentsRouter = createTRPCRouter({
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const comment = await ctx.drizzle.query.forumPost.findFirst({
@@ -245,7 +245,7 @@ export const commentsRouter = createTRPCRouter({
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const convoId = await createConvo(
@@ -357,7 +357,7 @@ export const commentsRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
       // Guard
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const userIds = convo.users.map((u) => u.userId);
@@ -385,7 +385,7 @@ export const commentsRouter = createTRPCRouter({
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned) {
+      if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
       const comment = await ctx.drizzle.query.conversationComment.findFirst({

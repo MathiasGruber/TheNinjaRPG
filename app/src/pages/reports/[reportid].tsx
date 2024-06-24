@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
-import { ShieldCheck, ShieldAlert, MessagesSquare, Rocket } from "lucide-react";
+import { MessagesSquare, Rocket } from "lucide-react";
+import { EarOff, Ban, Eraser } from "lucide-react";
 
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
@@ -24,7 +25,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentColor } from "@/utils/reports";
 import { reportCommentExplain } from "@/utils/reports";
-
+import { showMutationToast } from "@/libs/toast";
 import { canPostReportComment } from "../../validators/reports";
 import { canModerateReports } from "../../validators/reports";
 import { canEscalateBan } from "../../validators/reports";
@@ -90,7 +91,8 @@ const Report: NextPage = () => {
     });
 
   const { mutate: banUser, isPending: load2 } = api.reports.ban.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetchReport();
       await refetchComments();
       reset();
@@ -99,7 +101,8 @@ const Report: NextPage = () => {
 
   const { mutate: escalateReport, isPending: load3 } = api.reports.escalate.useMutation(
     {
-      onSuccess: async () => {
+      onSuccess: async (data) => {
+        showMutationToast(data);
         await refetchReport();
         await refetchComments();
         reset();
@@ -108,7 +111,8 @@ const Report: NextPage = () => {
   );
 
   const { mutate: clearReport, isPending: load4 } = api.reports.clear.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetchReport();
       await refetchComments();
       await refetchUser();
@@ -116,7 +120,16 @@ const Report: NextPage = () => {
     },
   });
 
-  const isPending = load1 || load2 || load3 || load4;
+  const { mutate: silenceUser, isPending: load5 } = api.reports.silence.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await refetchReport();
+      await refetchComments();
+      reset();
+    },
+  });
+
+  const isPending = load1 || load2 || load3 || load4 || load5;
 
   useEffect(() => {
     if (report) {
@@ -131,6 +144,11 @@ const Report: NextPage = () => {
 
   const handleSubmitBan = handleSubmit(
     (data) => banUser(data),
+    (errors) => console.log(errors),
+  );
+
+  const handleSubmitSilence = handleSubmit(
+    (data) => silenceUser(data),
     (errors) => console.log(errors),
   );
 
@@ -174,6 +192,8 @@ const Report: NextPage = () => {
               )}
               <ParsedReportJson report={report} />
               <b>Report by</b> {report.reporterUser?.username}
+              <br />
+              <b>Current status:</b> {report.status}
             </Post>
           </>
         )}
@@ -214,8 +234,8 @@ const Report: NextPage = () => {
                     title="Confirm Posting Comment"
                     button={
                       <Button id="submit_comment">
-                        <MessagesSquare className="mr-1 h-5 w-5" />
-                        Add Comment
+                        <MessagesSquare className="mr-2 h-5 w-5" />
+                        Comment
                       </Button>
                     }
                     onAccept={async () => {
@@ -231,7 +251,7 @@ const Report: NextPage = () => {
                     title="Confirm Escalating Report"
                     button={
                       <Button id="submit_comment">
-                        <Rocket className="mr-1 h-5 w-5" /> Escalate
+                        <Rocket className="mr-2 h-5 w-5" /> Escalate
                       </Button>
                     }
                     onAccept={async () => {
@@ -246,11 +266,29 @@ const Report: NextPage = () => {
                 )}
                 {canBan && (
                   <Confirm
+                    title="Confirm Silencing User"
+                    button={
+                      <Button id="submit_resolve" variant="destructive">
+                        <EarOff className="mr-2 h-5 w-5" />
+                        Silence
+                      </Button>
+                    }
+                    onAccept={async () => {
+                      await handleSubmitSilence();
+                    }}
+                  >
+                    You are about to silence the user. Please note that the comment and
+                    decision can not be edited or deleted. You can unsilence the person
+                    by posting another comment and &rdquo;Clear&rdquo; the report.
+                  </Confirm>
+                )}
+                {canBan && (
+                  <Confirm
                     title="Confirm Banning User"
                     button={
                       <Button id="submit_resolve" variant="destructive">
-                        <ShieldAlert className="mr-1 h-5 w-5" />
-                        {canClear ? "Edit Ban" : "Ban User"}
+                        <Ban className="mr-2 h-5 w-5" />
+                        Ban
                       </Button>
                     }
                     onAccept={async () => {
@@ -266,9 +304,9 @@ const Report: NextPage = () => {
                   <Confirm
                     title="Confirm Clearing Report"
                     button={
-                      <Button id="submit_resolve" variant="destructive">
-                        <ShieldCheck className="mr-2 h-5 w-5" />
-                        Clear Report
+                      <Button id="submit_resolve" className="bg-green-600">
+                        <Eraser className="mr-2 h-5 w-5" />
+                        Clear
                       </Button>
                     }
                     onAccept={async () => {
