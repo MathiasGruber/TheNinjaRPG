@@ -30,11 +30,11 @@ export const ROLL_CHANCE = {
 // Alpha Pricing
 export const BLOODLINE_COST = {
   ["H"]: 999999,
-  ["S"]: 40,
-  ["A"]: 20,
-  ["B"]: 10,
-  ["C"]: 5,
-  ["D"]: 2,
+  ["S"]: 999999,
+  ["A"]: 200,
+  ["B"]: 190,
+  ["C"]: 180,
+  ["D"]: 170,
 } as const;
 
 export const REMOVAL_COST = 5;

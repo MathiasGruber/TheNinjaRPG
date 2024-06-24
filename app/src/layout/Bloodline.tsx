@@ -61,11 +61,7 @@ export const PurchaseBloodline: React.FC = () => {
       topRightContent={
         <>
           <div className="grow"></div>
-          <NavTabs
-            current={rank}
-            options={["D", "C", "B", "A", "S"]}
-            setValue={setRank}
-          />
+          <NavTabs current={rank} options={["D", "C", "B", "A"]} setValue={setRank} />
         </>
       }
     >
