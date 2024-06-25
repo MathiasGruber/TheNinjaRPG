@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { UserRoles, UserRanks } from "@/drizzle/constants";
+import { usernameSchema } from "@/validators/register";
 import type { LetterRank, QuestType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { ElementName } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 
 export const updateUserSchema = z.object({
+  username: usernameSchema,
   role: z.enum(UserRoles),
   rank: z.enum(UserRanks),
 });

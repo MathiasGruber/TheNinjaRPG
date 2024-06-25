@@ -9,6 +9,7 @@ import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
+import ActionLogs from "@/layout/ActionLog";
 import { TransactionHistory } from "src/pages/points";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
@@ -34,6 +35,7 @@ interface PublicUserComponentProps {
   showNindo?: boolean;
   showReports?: boolean;
   showTransactions?: boolean;
+  showActionLogs?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -47,6 +49,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showNindo,
   showReports,
   showTransactions,
+  showActionLogs,
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
@@ -397,6 +400,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             );
           })}
         </ContentBox>
+      )}
+      {/* USER ACTION LOG */}
+      {showActionLogs && (
+        <ActionLogs table="user" relatedId={userId} initialBreak={true} />
       )}
     </>
   );

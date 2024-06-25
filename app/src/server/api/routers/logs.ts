@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { actionLog } from "@/drizzle/schema";
 
 export const logsRouter = createTRPCRouter({
@@ -9,6 +9,7 @@ export const logsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
+        relatedId: z.string().optional(),
         table: z.enum([
           "ai",
           "user",
@@ -24,7 +25,10 @@ export const logsRouter = createTRPCRouter({
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const entries = await ctx.drizzle.query.actionLog.findMany({
-        where: eq(actionLog.tableName, input.table),
+        where: and(
+          eq(actionLog.tableName, input.table),
+          ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
+        ),
         columns: {
           userId: true,
           createdAt: true,
@@ -41,6 +45,7 @@ export const logsRouter = createTRPCRouter({
           },
         },
         offset: skip,
+        orderBy: (table, { desc }) => desc(table.createdAt),
         limit: input.limit,
       });
       const nextCursor = entries.length < input.limit ? null : currentCursor + 1;

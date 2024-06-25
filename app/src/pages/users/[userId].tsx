@@ -17,6 +17,7 @@ const PublicProfile: NextPage = () => {
       showNindo
       showReports
       showTransactions
+      showActionLogs
     />
   );
 };
