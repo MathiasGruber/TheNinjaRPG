@@ -38,6 +38,11 @@ export const useAiEditForm = (
     staleTime: Infinity,
   });
 
+  // Query for bloodlines
+  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
   // Mutation for updating item
   const { mutate: updateAi, isPending: l2 } = api.profile.updateAi.useMutation({
     onSuccess: (data) => {
@@ -61,7 +66,7 @@ export const useAiEditForm = (
   const avatarUrl = form.watch("avatar");
 
   // Are we loading data
-  const loading = l1 || l2;
+  const loading = l1 || l2 || l3;
 
   // Object for form values
   const formData: FormEntry<keyof InsertUserDataSchema | "jutsus">[] = [
@@ -95,6 +100,11 @@ export const useAiEditForm = (
       type: "str_array",
       values: ElementNames,
       resetButton: true,
+    },
+    {
+      id: "bloodlineId",
+      type: "db_values",
+      values: lines,
     },
     {
       id: "jutsus",

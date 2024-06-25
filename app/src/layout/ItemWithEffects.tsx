@@ -27,6 +27,7 @@ export type GenericObject = {
   updatedAt: Date;
   attacks?: string[];
   effects?: ZodAllTags[];
+  village?: { name: string };
   href?: string;
 };
 
@@ -204,11 +205,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Regen</b>: +{item.regenIncrease}
               </p>
             )}
-            {"village" in item && (
-              <p>
-                <b>Village</b>: {item.village}
-              </p>
-            )}
+            {"village" in item &&
+              item.village &&
+              typeof item.village === "object" &&
+              item.village?.name && (
+                <p>
+                  <b>Village</b>: {item.village.name}
+                </p>
+              )}
             {"stackSize" in item && item.stackSize > 0 && (
               <p>
                 <b>Stackable</b>: {item.stackSize}
