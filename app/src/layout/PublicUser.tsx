@@ -56,6 +56,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const { data: userData } = useUserData();
   const enableReports = showReports && userData && canSeeSecretData(userData.role);
   const enablePaypal = showTransactions && userData && canSeeSecretData(userData.role);
+  const enableLogs = showActionLogs && userData && canSeeSecretData(userData.role);
 
   // Queries
   const { data: profile, isPending: isPendingProfile } =
@@ -402,9 +403,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         </ContentBox>
       )}
       {/* USER ACTION LOG */}
-      {showActionLogs && (
-        <ActionLogs table="user" relatedId={userId} initialBreak={true} />
-      )}
+      {enableLogs && <ActionLogs table="user" relatedId={userId} initialBreak={true} />}
     </>
   );
 };
