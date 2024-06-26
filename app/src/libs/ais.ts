@@ -33,18 +33,19 @@ export const useAiEditForm = (
     resolver: zodResolver(insertUserDataSchema),
   });
 
-  // Query for jutsus
+  // Query for content
   const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
-
-  // Query for bloodlines
+  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
   const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Mutation for updating item
-  const { mutate: updateAi, isPending: l2 } = api.profile.updateAi.useMutation({
+  const { mutate: updateAi, isPending: l4 } = api.profile.updateAi.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
       refetch();
@@ -66,7 +67,7 @@ export const useAiEditForm = (
   const avatarUrl = form.watch("avatar");
 
   // Are we loading data
-  const loading = l1 || l2 || l3;
+  const loading = l1 || l2 || l3 || l4;
 
   // Object for form values
   const formData: FormEntry<keyof InsertUserDataSchema | "jutsus">[] = [
@@ -108,9 +109,15 @@ export const useAiEditForm = (
     },
     {
       id: "jutsus",
-      label: "Jutsus",
       type: "db_values",
       values: jutsus,
+      multiple: true,
+      doubleWidth: true,
+    },
+    {
+      id: "items",
+      type: "db_values",
+      values: items,
       multiple: true,
       doubleWidth: true,
     },

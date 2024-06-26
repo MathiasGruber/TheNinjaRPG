@@ -1195,6 +1195,7 @@ export const insertUserDataSchema = createInsertSchema(userData)
   .merge(
     z.object({
       jutsus: z.array(z.string()).optional(),
+      items: z.array(z.string()).optional(),
       primaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       level: z.coerce.number().min(1).max(200),

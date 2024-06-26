@@ -8,8 +8,11 @@ import type { ZodAllTags } from "@/libs/combat/types";
 
 export const updateUserSchema = z.object({
   username: usernameSchema,
+  bloodlineId: z.string().nullable(),
   role: z.enum(UserRoles),
   rank: z.enum(UserRanks),
+  jutsus: z.array(z.string()).optional(),
+  items: z.array(z.string()).optional(),
 });
 
 export type UpdateUserSchema = z.infer<typeof updateUserSchema>;

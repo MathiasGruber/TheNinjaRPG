@@ -136,15 +136,24 @@ export const useUserEditForm = (
     resolver: zodResolver(updateUserSchema),
   });
 
+  // Query for bloodlines and villages
+  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
   // Mutation for updating item
-  const { mutate: updateUser, isPending: loading } = api.profile.updateUser.useMutation(
-    {
-      onSuccess: (data) => {
-        showMutationToast(data);
-        refetch();
-      },
+  const { mutate: updateUser, isPending: l4 } = api.profile.updateUser.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      refetch();
     },
-  );
+  });
 
   // Form submission
   const handleUserSubmit = form.handleSubmit(
@@ -157,11 +166,29 @@ export const useUserEditForm = (
     (errors) => showFormErrorsToast(errors),
   );
 
+  // Are we loading data
+  const loading = l1 || l2 || l3 || l4;
+
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
     { id: "username", type: "text" },
     { id: "role", type: "str_array", values: UserRoles },
     { id: "rank", type: "str_array", values: UserRanks },
+    { id: "bloodlineId", type: "db_values", values: lines, resetButton: true },
+    {
+      id: "jutsus",
+      type: "db_values",
+      values: jutsus,
+      multiple: true,
+      doubleWidth: true,
+    },
+    {
+      id: "items",
+      type: "db_values",
+      values: items,
+      multiple: true,
+      doubleWidth: true,
+    },
   ];
 
   return { user, loading, form, formData, handleUserSubmit };
