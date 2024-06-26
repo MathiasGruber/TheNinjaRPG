@@ -106,6 +106,7 @@ export const useAiEditForm = (
       id: "bloodlineId",
       type: "db_values",
       values: lines,
+      resetButton: true,
     },
     {
       id: "jutsus",
