@@ -1249,11 +1249,11 @@ export const updateUserContent = async (props: {
   if (newJ || newI) {
     const [jutsuData, itemData] = await Promise.all([
       client.query.jutsu.findMany({
-        where: inArray(jutsu.id, oldJutsuIds.concat(newJutsuIds)),
+        where: inArray(jutsu.id, oldJutsuIds.concat(newJutsuIds).concat(["non-empty"])),
         columns: { id: true, name: true },
       }),
       client.query.item.findMany({
-        where: inArray(item.id, oldItemIds.concat(newItemIds)),
+        where: inArray(item.id, oldItemIds.concat(newItemIds).concat(["non-empty"])),
         columns: { id: true, name: true },
       }),
     ]);
@@ -1272,7 +1272,7 @@ export const updateUserContent = async (props: {
       ...(newI ? [client.delete(userItem).where(eq(userItem.userId, userId))] : []),
     ]);
     await Promise.all([
-      ...(newJ
+      ...(newJ && newJutsuIds.length > 0
         ? [
             client.insert(userJutsu).values(
               newJutsuIds.map((jutsuId) => ({
@@ -1285,7 +1285,7 @@ export const updateUserContent = async (props: {
             ),
           ]
         : []),
-      ...(newI
+      ...(newI && newItemIds.length > 0
         ? [
             client.insert(userItem).values(
               newItemIds.map((itemId) => ({
