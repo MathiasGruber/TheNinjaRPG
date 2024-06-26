@@ -417,7 +417,7 @@ export const combatRouter = createTRPCRouter({
             eq(userData.userId, input.aiId),
             eq(userData.isAi, true),
             eq(userData.isSummon, false),
-            eq(userData.inArena, false),
+            eq(userData.inArena, true),
           ),
         }),
         fetchSectorVillage(ctx.drizzle, user?.sector ?? -1),
