@@ -1119,8 +1119,9 @@ export const userData = mysqlTable(
     isSilenced: boolean("isSilenced").default(false).notNull(),
     role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
-    isAi: tinyint("isAI").default(0).notNull(),
-    isSummon: tinyint("isSummon").default(0).notNull(),
+    isAi: boolean("isAi").default(false).notNull(),
+    isSummon: boolean("isSummon").default(false).notNull(),
+    inArena: boolean("inArena").default(false).notNull(),
     inboxNews: int("inboxNews").default(0).notNull(),
     regenAt: datetime("regenAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -1212,7 +1213,7 @@ export const insertUserDataSchema = createInsertSchema(userData)
       intelligence: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
       willpower: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
       speed: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      isSummon: z.coerce.number().min(0).max(1),
+      isSummon: z.coerce.boolean(),
     }),
   );
 export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;

@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import AvatarImage from "@/layout/Avatar";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { objectKeys } from "@/utils/typeutils";
 import { RefreshCw } from "lucide-react";
@@ -52,6 +53,7 @@ export type FormEntry<K> = {
   | { type: "richinput" }
   | { type: "date" }
   | { type: "number" }
+  | { type: "boolean" }
   | { type: "db_values"; values: FormDbValue[] | undefined; multiple?: boolean }
   | { type: "str_array"; values: readonly string[]; multiple?: boolean }
   | { type: "animation_array"; values: readonly string[]; current: AnimationName }
@@ -208,6 +210,25 @@ export const EditContent = <
                       <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
                       <FormControl>
                         <Input id={id} type={type} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {"boolean" === type && (
+                <FormField
+                  control={form.control}
+                  name={id}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                      <br />
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

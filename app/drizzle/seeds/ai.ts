@@ -6,7 +6,7 @@ import type { DrizzleClient } from "@/server/db";
 // Delete anything not in above list, and insert those missing
 export const seedAI = async (client: DrizzleClient) => {
   console.log("\nClearing AIs...");
-  await client.delete(userData).where(eq(userData.isAi, 1));
+  await client.delete(userData).where(eq(userData.isAi, true));
   await client.execute(
     sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${userData} b WHERE b.userId = a.userId)`,
   );

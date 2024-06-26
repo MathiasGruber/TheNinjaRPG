@@ -48,7 +48,7 @@ const Users: NextPage = () => {
       orderBy: activeTab,
       username: searchedName,
       ip: searcheIp,
-      isAi: 0,
+      isAi: false,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,

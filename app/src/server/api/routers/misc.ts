@@ -21,7 +21,7 @@ export const miscRouter = createTRPCRouter({
       // Guards
       if (!canSubmitNotification(user.role)) return errorResponse("Not allowed");
       if (!user || !sender) return errorResponse("User not found");
-      if (user.userId !== sender.userId && sender.isAi === 0) {
+      if (user.userId !== sender.userId && !sender.isAi) {
         return errorResponse("You or an AI must be marked as sender");
       }
       // Push notifications

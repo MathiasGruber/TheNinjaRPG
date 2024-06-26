@@ -31,7 +31,7 @@ const Users: NextPage = () => {
       orderBy: activeTab,
       username: searchTerm,
       villageId: villageId,
-      isAi: 0,
+      isAi: false,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,

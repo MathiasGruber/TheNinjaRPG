@@ -93,13 +93,14 @@ export const profileRouter = createTRPCRouter({
   // Get all AI names
   getAllAiNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userData.findMany({
-      where: and(eq(userData.isAi, 1), ne(userData.rank, "ELDER")),
+      where: and(eq(userData.isAi, true), ne(userData.rank, "ELDER")),
       columns: {
         userId: true,
         username: true,
         level: true,
         avatar: true,
         isSummon: true,
+        inArena: true,
       },
       orderBy: asc(userData.level),
     });
@@ -433,7 +434,7 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       const user = await ctx.drizzle.query.userData.findFirst({
-        where: and(eq(userData.userId, input.userId), eq(userData.isAi, 1)),
+        where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
         with: { jutsus: { with: { jutsu: true } } },
       });
       if (!user) {
@@ -455,7 +456,7 @@ export const profileRouter = createTRPCRouter({
         approvedTos: 1,
         sector: 0,
         level: 100,
-        isAi: 1,
+        isAi: true,
       });
       return { success: true, message: id };
     } else {
@@ -954,7 +955,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        isAi: z.number().min(0).max(1).default(0),
+        isAi: z.boolean().default(false),
         orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
         villageId: z.string().optional(),
         username: z
@@ -996,7 +997,9 @@ export const profileRouter = createTRPCRouter({
             ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
             ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
             eq(userData.isAi, input.isAi),
-            ...(input.isAi === 0 ? [eq(userData.isSummon, 0)] : [eq(userData.isAi, 1)]),
+            ...(input.isAi === false
+              ? [eq(userData.isSummon, false)]
+              : [eq(userData.isAi, true)]),
           ),
           columns: {
             userId: true,
@@ -1014,7 +1017,7 @@ export const profileRouter = createTRPCRouter({
           // If AI, also include relations information
           with: {
             village: { columns: { name: true } },
-            ...(input.isAi === 1
+            ...(input.isAi
               ? {
                   jutsus: {
                     columns: {

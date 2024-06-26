@@ -446,11 +446,11 @@ export const clone = (usersState: BattleUserState[], effect: GroundEffect) => {
     // Place on battlefield
     newAi.userId = nanoid();
     effect.creatorId = newAi.userId;
-    newAi.isSummon = 1;
+    newAi.isSummon = true;
     newAi.username = `${user.username} clone`;
     newAi.controllerId = user.userId;
     newAi.isOriginal = false;
-    newAi.isAi = 1;
+    newAi.isAi = true;
     newAi.hidden = undefined;
     newAi.longitude = effect.longitude;
     newAi.latitude = effect.latitude;

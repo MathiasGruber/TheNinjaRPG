@@ -531,7 +531,7 @@ export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) =
         if (action) {
           const notWait = action.id !== "wait";
           const hasPoints = action.actionCostPerc <= actor.actionPoints;
-          const aiMove = actor.isAi === 1 && action.id === "move";
+          const aiMove = actor.isAi && action.id === "move";
           if (hasPoints && notWait && !aiMove) {
             return false;
           }
@@ -775,7 +775,7 @@ export const processUsersForBattle = (info: {
 
     // By default the ones inserted initially are original
     user.isOriginal = true;
-    user.isSummon = 0;
+    user.isSummon = false;
 
     // Set the history lists to record actions during battle
     user.usedGenerals = [];
@@ -843,7 +843,7 @@ export const processUsersForBattle = (info: {
         // Not if not the right bloodline
         return (
           userjutsu.jutsu.bloodlineId === "" ||
-          user.isAi === 1 ||
+          user.isAi ||
           user.bloodlineId === userjutsu.jutsu.bloodlineId
         );
       })

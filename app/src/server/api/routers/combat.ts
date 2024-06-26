@@ -415,8 +415,9 @@ export const combatRouter = createTRPCRouter({
         ctx.drizzle.query.userData.findFirst({
           where: and(
             eq(userData.userId, input.aiId),
-            eq(userData.isAi, 1),
-            eq(userData.isSummon, 0),
+            eq(userData.isAi, true),
+            eq(userData.isSummon, false),
+            eq(userData.inArena, false),
           ),
         }),
         fetchSectorVillage(ctx.drizzle, user?.sector ?? -1),
@@ -652,7 +653,7 @@ export const initiateBattle = async (
           return { success: false, message: "Need to rank up to do PvP combat" };
         }
       } else {
-        if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && user.isAi === 0) {
+        if (RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && !user.isAi) {
           return { success: false, message: "Cannot attack students & genin" };
         }
       }
@@ -730,7 +731,7 @@ export const initiateBattle = async (
       u.curHealth = u.maxHealth;
       u.curChakra = u.maxChakra;
       u.curStamina = u.maxStamina;
-      u.isAi = 1;
+      u.isAi = true;
       u.isOriginal = false;
     });
   }
@@ -761,7 +762,7 @@ export const initiateBattle = async (
         battleType: battleType,
         hide: true,
       });
-    summonState.map((u) => (u.isSummon = 1));
+    summonState.map((u) => (u.isSummon = true));
     userEffects.push(...summonEffects);
     usersState.push(...summonState);
   }

@@ -94,7 +94,7 @@ const ChallengeAI: React.FC = () => {
   );
 
   const sortedAis = aiData
-    ?.filter((ai) => !ai.isSummon)
+    ?.filter((ai) => !ai.isSummon && ai.inArena)
     .sort((a, b) => {
       if (userData?.level) {
         return Math.abs(a.level - userData.level) - Math.abs(b.level - userData.level);

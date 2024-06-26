@@ -30,7 +30,7 @@ const ManualAI: NextPage = () => {
     hasNextPage,
     isFetching,
   } = api.profile.getPublicUsers.useInfiniteQuery(
-    { limit: 30, orderBy: "Weakest", isAi: 1 },
+    { limit: 30, orderBy: "Weakest", isAi: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: Infinity,

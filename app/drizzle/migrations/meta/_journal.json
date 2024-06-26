@@ -687,6 +687,13 @@
       "when": 1719220036304,
       "tag": "0097_furry_iron_fist",
       "breakpoints": false
+    },
+    {
+      "idx": 98,
+      "version": "5",
+      "when": 1719394613339,
+      "tag": "0098_cultured_fallen_one",
+      "breakpoints": false
     }
   ]
 }

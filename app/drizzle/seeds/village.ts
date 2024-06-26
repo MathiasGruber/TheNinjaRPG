@@ -236,7 +236,7 @@ export const seedVillages = async (client: DrizzleClient) => {
           userId: elderId,
           villageId: villageId,
           rank: "ELDER",
-          isAi: 1,
+          isAi: true,
           status: "AWAKE",
           username: elderData.username,
           gender: elderData.gender,
