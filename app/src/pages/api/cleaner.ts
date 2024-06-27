@@ -94,6 +94,11 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
       sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.receiverId)`,
     );
 
+    // Step 13: Clear users older than 60 days
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userData} WHERE experience = 0 AND money = 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
+    );
+
     res.status(200).json("OK");
   } catch (cause) {
     if (cause instanceof TRPCError) {
