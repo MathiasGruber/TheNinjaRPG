@@ -694,6 +694,13 @@
       "when": 1719394613339,
       "tag": "0098_cultured_fallen_one",
       "breakpoints": false
+    },
+    {
+      "idx": 99,
+      "version": "5",
+      "when": 1719491959858,
+      "tag": "0099_ordinary_beast",
+      "breakpoints": false
     }
   ]
 }

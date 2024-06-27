@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, or, and, gte, ne, gt, like, notInArray, inArray } from "drizzle-orm";
+import { eq, or, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData } from "@/drizzle/schema";
@@ -103,6 +103,7 @@ export const reportsRouter = createTRPCRouter({
           ),
         )
         .limit(input.limit)
+        .orderBy(desc(userReport.updatedAt))
         .offset(skip);
       const nextCursor = reports.length < input.limit ? null : currentCursor + 1;
       return {
@@ -231,6 +232,7 @@ export const reportsRouter = createTRPCRouter({
           .set({
             status: "BAN_ACTIVATED",
             adminResolved: user.role === "ADMIN" ? 1 : 0,
+            updatedAt: new Date(),
             banEnd:
               input.banTime !== undefined
                 ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
@@ -278,6 +280,7 @@ export const reportsRouter = createTRPCRouter({
           .set({
             status: "SILENCE_ACTIVATED",
             adminResolved: user.role === "ADMIN" ? 1 : 0,
+            updatedAt: new Date(),
             banEnd:
               input.banTime !== undefined
                 ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
@@ -310,7 +313,7 @@ export const reportsRouter = createTRPCRouter({
       await Promise.all([
         ctx.drizzle
           .update(userReport)
-          .set({ status: "BAN_ESCALATED" })
+          .set({ status: "BAN_ESCALATED", updatedAt: new Date() })
           .where(eq(userReport.id, input.object_id)),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
@@ -373,6 +376,7 @@ export const reportsRouter = createTRPCRouter({
           .set({
             adminResolved: user.role === "ADMIN" ? 1 : 0,
             status: "REPORT_CLEARED",
+            updatedAt: new Date(),
           })
           .where(eq(userReport.id, report.id)),
         ctx.drizzle.insert(userReportComment).values({

@@ -1374,6 +1374,9 @@ export const userReport = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     system: varchar("system", { length: 191 }).notNull(),
     infraction: json("infraction").notNull(),
     reason: text("reason").notNull(),
