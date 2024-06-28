@@ -10,6 +10,8 @@ export const reportCommentColor = (status: ReportAction | null) => {
       return "red";
     case "BAN_ESCALATED":
       return "blue";
+    case "OFFICIAL_WARNING":
+      return "orange";
     default:
       return "default";
   }
@@ -27,6 +29,8 @@ export const reportCommentExplain = (status: ReportAction | null) => {
       return "User Silenced";
     case "SILENCE_ESCALATED":
       return "Silence Escalated to Admin";
+    case "OFFICIAL_WARNING":
+      return "Official Warning";
     default:
       return "";
   }

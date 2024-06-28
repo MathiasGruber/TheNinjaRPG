@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/router";
 import ReactHtmlParser from "react-html-parser";
-import { MessagesSquare, Rocket } from "lucide-react";
+import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
 
 import ContentBox from "@/layout/ContentBox";
@@ -30,6 +30,7 @@ import { canPostReportComment } from "../../validators/reports";
 import { canModerateReports } from "../../validators/reports";
 import { canEscalateBan } from "../../validators/reports";
 import { canClearReport } from "../../validators/reports";
+import type { BaseServerResponse } from "@/server/api/trpc";
 
 const Report: NextPage = () => {
   const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
@@ -82,54 +83,29 @@ const Report: NextPage = () => {
 
   const watchedLength = watch("banTime", 0);
 
-  const { mutate: createComment, isPending: load1 } =
-    api.comments.createReportComment.useMutation({
-      onSuccess: async () => {
-        reset();
-        await refetchComments();
-      },
-    });
+  // How to deal with success responses
+  const onSuccess = async (data: BaseServerResponse) => {
+    showMutationToast(data);
+    await refetchReport();
+    await refetchComments();
+    await refetchUser();
+    reset();
+  };
 
-  const { mutate: banUser, isPending: load2 } = api.reports.ban.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await refetchReport();
-      await refetchComments();
-      reset();
-    },
-  });
+  const banUser = api.reports.ban.useMutation({ onSuccess });
+  const clearReport = api.reports.clear.useMutation({ onSuccess });
+  const createComment = api.comments.createReportComment.useMutation({ onSuccess });
+  const escalateReport = api.reports.escalate.useMutation({ onSuccess });
+  const silenceUser = api.reports.silence.useMutation({ onSuccess });
+  const warnUser = api.reports.warn.useMutation({ onSuccess });
 
-  const { mutate: escalateReport, isPending: load3 } = api.reports.escalate.useMutation(
-    {
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        await refetchReport();
-        await refetchComments();
-        reset();
-      },
-    },
-  );
-
-  const { mutate: clearReport, isPending: load4 } = api.reports.clear.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await refetchReport();
-      await refetchComments();
-      await refetchUser();
-      reset();
-    },
-  });
-
-  const { mutate: silenceUser, isPending: load5 } = api.reports.silence.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await refetchReport();
-      await refetchComments();
-      reset();
-    },
-  });
-
-  const isPending = load1 || load2 || load3 || load4 || load5;
+  const isPending =
+    banUser.isPending ||
+    clearReport.isPending ||
+    createComment.isPending ||
+    escalateReport.isPending ||
+    silenceUser.isPending ||
+    warnUser.isPending;
 
   useEffect(() => {
     if (report) {
@@ -138,27 +114,32 @@ const Report: NextPage = () => {
   }, [report, setValue]);
 
   const handleSubmitComment = handleSubmit(
-    (data) => createComment(data),
+    (data) => createComment.mutate(data),
     (errors) => console.log(errors),
   );
 
   const handleSubmitBan = handleSubmit(
-    (data) => banUser(data),
+    (data) => banUser.mutate(data),
     (errors) => console.log(errors),
   );
 
   const handleSubmitSilence = handleSubmit(
-    (data) => silenceUser(data),
+    (data) => silenceUser.mutate(data),
     (errors) => console.log(errors),
   );
 
   const handleSubmitEscalation = handleSubmit(
-    (data) => escalateReport(data),
+    (data) => escalateReport.mutate(data),
     (errors) => console.log(errors),
   );
 
   const handleSubmitClear = handleSubmit(
-    (data) => clearReport(data),
+    (data) => clearReport.mutate(data),
+    (errors) => console.log(errors),
+  );
+
+  const handleSubmitWarn = handleSubmit(
+    (data) => warnUser.mutate(data),
     (errors) => console.log(errors),
   );
 
@@ -298,6 +279,23 @@ const Report: NextPage = () => {
                     You are about to ban the user. Please note that the comment and
                     decision can not be edited or deleted. You can unban the person by
                     posting another comment and &rdquo;Clear&rdquo; the report.
+                  </Confirm>
+                )}
+                {canBan && (
+                  <Confirm
+                    title="Confirm Warning"
+                    button={
+                      <Button id="submit_resolve" className="bg-orange-400">
+                        <ShieldAlert className="mr-2 h-5 w-5" />
+                        Warn
+                      </Button>
+                    }
+                    onAccept={async () => {
+                      await handleSubmitWarn();
+                    }}
+                  >
+                    You are about to warn this user. Please note that the comment and
+                    decision can not be edited or deleted.
                   </Confirm>
                 )}
                 {canClear && (

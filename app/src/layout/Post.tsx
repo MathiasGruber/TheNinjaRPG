@@ -24,7 +24,7 @@ export interface PostProps {
   className?: string;
   image?: React.ReactNode;
   title?: string;
-  color?: "default" | "green" | "red" | "blue";
+  color?: "default" | "green" | "red" | "blue" | "orange";
   children: any;
   options?: React.ReactNode;
   align_middle?: boolean;
@@ -49,6 +49,10 @@ const Post: React.FC<PostProps> = (props) => {
     case "blue":
       color = "bg-blue-200";
       hover = "hover:bg-blue-300";
+      break;
+    case "orange":
+      color = "bg-orange-200";
+      hover = "hover:bg-orange-300";
       break;
   }
 

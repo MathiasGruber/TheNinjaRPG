@@ -81,7 +81,7 @@ export const reportsRouter = createTRPCRouter({
             // Active or Closed
             ...(input.isUnhandled === true || input.showAll === true
               ? []
-              : [eq(userReport.status, "BAN_ACTIVATED")]),
+              : [inArray(userReport.status, ["BAN_ACTIVATED", "OFFICIAL_WARNING"])]),
             // Pertaining to user (if user)
             ...(user.role === "USER"
               ? [
@@ -296,6 +296,40 @@ export const reportsRouter = createTRPCRouter({
         }),
       ]);
       return { success: true, message: "User silenced" };
+    }),
+  // Issue warning to user
+  warn: protectedProcedure
+    .input(reportCommentSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
+      const hasModRights = canModerateReports(user, report);
+      if (!hasModRights) return errorResponse("No permission to warn");
+      // Update
+      await Promise.all([
+        ctx.drizzle
+          .update(userReport)
+          .set({
+            status: "OFFICIAL_WARNING",
+            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            updatedAt: new Date(),
+            banEnd: null,
+          })
+          .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle.insert(userReportComment).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          reportId: input.object_id,
+          content: sanitize(input.comment),
+          decision: "OFFICIAL_WARNING",
+        }),
+      ]);
+      return { success: true, message: "User warned" };
     }),
   // Escalate a report to admin. Only if already banned, and no previous escalation
   escalate: protectedProcedure

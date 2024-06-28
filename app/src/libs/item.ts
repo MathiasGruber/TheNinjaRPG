@@ -81,7 +81,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "method", type: "str_array", values: AttackMethods },
     { id: "cost", type: "number" },
     { id: "repsCost", type: "number" },
-    { id: "cooldown", label: "cooldown", type: "number" },
+    { id: "cooldown", type: "number" },
     { id: "canStack", type: "number" },
     { id: "stackSize", type: "number" },
     { id: "destroyOnUse", type: "number" },

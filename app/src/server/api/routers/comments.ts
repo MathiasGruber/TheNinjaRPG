@@ -16,7 +16,7 @@ import {
   publicProcedure,
   ratelimitMiddleware,
 } from "@/server/api/trpc";
-import { serverError } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
 import { deleteCommentSchema } from "@/validators/comments";
@@ -76,22 +76,25 @@ export const commentsRouter = createTRPCRouter({
     }),
   createReportComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .output(baseServerResponse)
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.object_id);
-      if (!canPostReportComment(report)) {
-        throw serverError("PRECONDITION_FAILED", "Already been resolved");
-      }
-      if (!canSeeReport(user, report)) {
-        throw serverError("UNAUTHORIZED", "No access to the report");
-      }
-      return await ctx.drizzle.insert(userReportComment).values({
+      // Query
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
+      if (!canPostReportComment(report)) return errorResponse("Already resolved");
+      if (!canSeeReport(user, report)) return errorResponse("No access to report");
+      // Update
+      await ctx.drizzle.insert(userReportComment).values({
         id: nanoid(),
         userId: ctx.userId,
         reportId: input.object_id,
         content: sanitize(input.comment),
       });
+      return { success: true, message: "Comment posted" };
     }),
   /**
    * FORUM POSTS

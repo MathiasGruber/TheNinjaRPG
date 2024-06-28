@@ -94,6 +94,7 @@ export const BanStates = [
   "SILENCE_ACTIVATED",
   "BAN_ESCALATED",
   "SILENCE_ESCALATED",
+  "OFFICIAL_WARNING",
 ] as const;
 
 export const WeaponTypes = [
