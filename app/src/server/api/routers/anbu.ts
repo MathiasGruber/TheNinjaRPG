@@ -17,7 +17,7 @@ import {
 } from "@/routers/sparring";
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_LEADER_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { ANBU_MAX_MEMBERS } from "@/drizzle/constants";
+import { ANBU_MAX_MEMBERS, DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AnbuSquad } from "@/drizzle/schema";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -206,7 +206,7 @@ export const anbuRouter = createTRPCRouter({
       await Promise.all([
         ctx.drizzle.insert(anbuSquad).values({
           id: anbuId,
-          image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+          image: DEFAULT_IMAGE,
           villageId: village.id,
           name: input.name,
           leaderId: leader.userId,

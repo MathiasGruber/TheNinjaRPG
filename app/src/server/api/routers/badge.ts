@@ -10,6 +10,7 @@ import { fetchUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import HumanDiff from "human-object-diff";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import type { DrizzleClient } from "@/server/db";
 
@@ -88,7 +89,7 @@ export const badgeRouter = createTRPCRouter({
       await ctx.drizzle.insert(badge).values({
         id: id,
         name: "Placeholder",
-        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        image: DEFAULT_IMAGE,
         description: "",
       });
       return { success: true, message: id };

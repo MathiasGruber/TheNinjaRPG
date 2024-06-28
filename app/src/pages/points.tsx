@@ -47,6 +47,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import type { z } from "zod";
 import type { NextPage } from "next";
@@ -828,7 +829,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
     .map((transaction) => {
       return {
         ...transaction,
-        receiver: transaction.affectedUser.avatar,
+        receiver: transaction.affectedUser?.avatar || DEFAULT_IMAGE,
         value: `${transaction.amount} ${transaction.currency}`,
       };
     });

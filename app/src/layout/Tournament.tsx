@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Reward } from "@/layout/Objective";
 import { useUserData } from "@/utils/UserContext";
 import { tournamentCreateSchema } from "@/validators/tournament";
-import { TOURNAMENT_ROUND_SECONDS } from "@/drizzle/constants";
+import { TOURNAMENT_ROUND_SECONDS, DEFAULT_IMAGE } from "@/drizzle/constants";
 import { secondsFromDate } from "@/utils/time";
 import type { TournamentMatch } from "@/drizzle/schema";
 import type { ObjectiveRewardType } from "@/validators/objectives";
@@ -95,7 +95,7 @@ const Tournament: React.FC<TournamentProps> = (props) => {
     defaultValues: {
       id: tournamentId,
       name: "",
-      image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+      image: DEFAULT_IMAGE,
       description: "",
       rewards: rewards,
       type: props.type,

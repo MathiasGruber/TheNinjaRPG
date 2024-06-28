@@ -900,8 +900,8 @@ export const paypalTransaction = mysqlTable(
   "PaypalTransaction",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    createdById: varchar("createdById", { length: 191 }).notNull(),
-    affectedUserId: varchar("affectedUserId", { length: 191 }).notNull(),
+    createdById: varchar("createdById", { length: 191 }),
+    affectedUserId: varchar("affectedUserId", { length: 191 }),
     transactionId: varchar("transactionId", { length: 191 }).notNull(),
     transactionUpdatedDate: varchar("transactionUpdatedDate", {
       length: 191,

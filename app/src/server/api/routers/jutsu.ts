@@ -18,6 +18,7 @@ import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { statFilters } from "@/libs/train";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { UserRanks, StatTypes } from "@/drizzle/constants";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -253,7 +254,7 @@ export const jutsuRouter = createTRPCRouter({
         requiredRank: "STUDENT",
         target: "OTHER_USER",
         jutsuType: "AI",
-        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        image: DEFAULT_IMAGE,
       });
       return { success: true, message: id };
     } else {

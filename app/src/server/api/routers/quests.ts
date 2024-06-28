@@ -26,6 +26,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { CollectItemType } from "@/validators/objectives";
@@ -296,7 +297,7 @@ export const questsRouter = createTRPCRouter({
       await ctx.drizzle.insert(quest).values({
         id: id,
         name: `New Quest - ${id}`,
-        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        image: DEFAULT_IMAGE,
         description: "",
         timeFrame: "all_time",
         questType: "mission",

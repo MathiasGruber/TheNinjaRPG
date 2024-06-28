@@ -17,6 +17,7 @@ import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
 import { calcMaxItems } from "@/libs/item";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -47,7 +48,7 @@ export const itemRouter = createTRPCRouter({
         await ctx.drizzle.insert(item).values({
           id: id,
           name: `New Item - ${id}`,
-          image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+          image: DEFAULT_IMAGE,
           description: "New item description",
           itemType: input.type,
           rarity: "COMMON",

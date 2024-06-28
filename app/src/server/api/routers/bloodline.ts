@@ -15,6 +15,7 @@ import { callDiscordContent } from "@/libs/discord";
 import { effectFilters, statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
 import HumanDiff from "human-object-diff";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -82,7 +83,7 @@ export const bloodlineRouter = createTRPCRouter({
       await ctx.drizzle.insert(bloodline).values({
         id: id,
         name: "New Bloodline",
-        image: "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp",
+        image: DEFAULT_IMAGE,
         description: "New bloodline description",
         effects: [],
         village: "All",
