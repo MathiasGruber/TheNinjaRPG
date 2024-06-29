@@ -18,8 +18,11 @@ import { canChangePublicUser } from "@/validators/reports";
 import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
+import { getServerPusher } from "@/libs/pusher";
 import type { DrizzleClient } from "../../db";
 import sanitize from "@/utils/sanitize";
+
+const pusher = getServerPusher();
 
 export const reportsRouter = createTRPCRouter({
   getUserReports: protectedProcedure
@@ -84,12 +87,7 @@ export const reportsRouter = createTRPCRouter({
               : [inArray(userReport.status, ["BAN_ACTIVATED", "OFFICIAL_WARNING"])]),
             // Pertaining to user (if user)
             ...(user.role === "USER"
-              ? [
-                  or(
-                    eq(userReport.reportedUserId, ctx.userId),
-                    eq(userReport.reporterUserId, ctx.userId),
-                  ),
-                ]
+              ? [eq(userReport.reportedUserId, ctx.userId)]
               : []),
           ),
         )
@@ -184,6 +182,12 @@ export const reportsRouter = createTRPCRouter({
       };
       await getInfraction(input.system).then((report) => {
         if (report) {
+          void pusher.trigger(input.reported_userId, "event", {
+            type: "userMessage",
+            message: `You have been reported`,
+            route: "/reports",
+            routeText: "To Report",
+          });
           return ctx.drizzle.insert(userReport).values({
             id: nanoid(),
             reporterUserId: ctx.userId,
@@ -329,6 +333,14 @@ export const reportsRouter = createTRPCRouter({
           decision: "OFFICIAL_WARNING",
         }),
       ]);
+      if (report.reportedUserId) {
+        void pusher.trigger(report.reportedUserId, "event", {
+          type: "userMessage",
+          message: `You have been given a warning`,
+          route: "/reports",
+          routeText: "To Report",
+        });
+      }
       return { success: true, message: "User warned" };
     }),
   // Escalate a report to admin. Only if already banned, and no previous escalation

@@ -33,15 +33,15 @@ import { canClearReport } from "../../validators/reports";
 import type { BaseServerResponse } from "@/server/api/trpc";
 
 const Report: NextPage = () => {
-  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const router = useRouter();
   const report_id = router.query.reportid as string;
 
-  const { data: report, refetch: refetchReport } = api.reports.get.useQuery(
+  const { data: report } = api.reports.get.useQuery(
     { id: report_id },
-    { enabled: report_id !== undefined },
+    { enabled: !!report_id },
   );
 
   const {
@@ -83,12 +83,16 @@ const Report: NextPage = () => {
 
   const watchedLength = watch("banTime", 0);
 
+  // Get utils
+  const utils = api.useUtils();
+
   // How to deal with success responses
   const onSuccess = async (data: BaseServerResponse) => {
     showMutationToast(data);
-    await refetchReport();
-    await refetchComments();
-    await refetchUser();
+    await utils.reports.getAll.invalidate();
+    await utils.reports.get.invalidate();
+    await utils.comments.getReportComments.invalidate();
+    await utils.profile.getUser.invalidate();
     reset();
   };
 

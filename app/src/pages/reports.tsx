@@ -39,9 +39,8 @@ const Reports: NextPage = () => {
     hasNextPage,
   } = api.reports.getAll.useInfiniteQuery(
     {
-      ...(userData?.role === "USER"
-        ? {}
-        : { isUnhandled: showUnhandled, showAll: showAll }),
+      isUnhandled: showUnhandled,
+      showAll: showAll,
       ...(searchTerm ? { username: searchTerm } : {}),
       limit: 20,
     },
@@ -67,24 +66,26 @@ const Reports: NextPage = () => {
       title="Reports"
       subtitle={userData?.role === "USER" ? "Your reports" : "Overview"}
       topRightContent={
-        userData?.role !== "USER" && (
+        <div>
           <div className="flex flex-col items-start">
-            <div className="w-full">
-              <Form {...form}>
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input placeholder="Search user" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </Form>
-            </div>
+            {userData?.role !== "USER" && (
+              <div className="w-full">
+                <Form {...form}>
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input placeholder="Search user" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </Form>
+              </div>
+            )}
             <div className="pb-2"></div>
             <div className="w-full flex flex-row pb-2 m-1 gap-2">
               <Toggle
@@ -98,12 +99,12 @@ const Reports: NextPage = () => {
                   value={showAll}
                   setShowActive={setShowAll}
                   labelActive="All"
-                  labelInactive="Banned"
+                  labelInactive="Ban/Warning"
                 />
               )}
             </div>
           </div>
-        )
+        </div>
       }
     >
       {isFetching ? (

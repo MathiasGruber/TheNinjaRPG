@@ -39,8 +39,13 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
   const { data: userData } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
 
+  // Get utils
+  const utils = api.useUtils();
+
+  // Mutations
   const createReport = api.reports.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      await utils.reports.getAll.invalidate();
       showMutationToast(data);
     },
   });
