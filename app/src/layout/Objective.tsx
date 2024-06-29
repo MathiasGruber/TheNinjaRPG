@@ -7,6 +7,7 @@ import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { getObjectiveSchema } from "@/validators/objectives";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
@@ -25,17 +26,21 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
 
+  // Parse objective
+  const objectiveSchema = getObjectiveSchema(objective.task as string);
+  const parsed = objectiveSchema.parse(objective);
+
   // Derived status of the objective
-  const status = tracker.goals.find((g) => g.id === objective.id);
+  const status = tracker.goals.find((g) => g.id === parsed.id);
   const value = status?.value || 0;
-  const done = status?.done || ("value" in objective && value >= objective.value);
+  const done = status?.done || ("value" in parsed && value >= parsed.value);
   const canCollect = !status?.collected && done;
 
   // Indicator icon
   const indicatorIcons = done ? (
     <div className="flex flex-col items-center gap-1">
       <Check className="h-10 w-10 stroke-green-500" />
-      {hasReward(objective) &&
+      {hasReward(parsed) &&
         (canCollect && userData?.status === "AWAKE" ? (
           <Gift
             className="h-7 w-7 cursor-pointer hover:fill-orange-500"
@@ -48,13 +53,12 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   ) : (
     <X className="h-10 w-10 stroke-red-500" />
   );
-
   // Show the objective
   return (
     <div className="flex flex-row">
       <Image
         className="self-start basis-1/4"
-        alt={objective.task}
+        alt={parsed.task}
         src={image}
         width={60}
         height={60}
@@ -66,7 +70,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
         </p>
         <hr className="my-0" />
         <div className="pl-2">
-          {"value" in objective && (
+          {"value" in parsed && (
             <div className="pr-3 flex flex-row items-center">
               <div className="grow">
                 <StatusBar
@@ -74,23 +78,32 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                   tooltip="Status points"
                   color={getStatusColor(tier, done)}
                   showText={true}
-                  current={value > objective.value ? objective.value : value}
-                  total={objective.value}
+                  current={value > parsed.value ? parsed.value : value}
+                  total={parsed.value}
                 />
               </div>
               {indicatorIcons}
             </div>
           )}
-          {"sector" in objective && (
+          {"sector" in parsed && (
             <div className="flex flex-row items-center">
               <div className="grow">
-                <div>
-                  <b>Sector: </b> {objective.sector}
-                </div>
-                <div>
-                  <b>Position:</b> [{objective.longitude}, {objective.latitude}]
-                </div>
-                <Reward info={objective} />
+                {!parsed.hideLocation && (
+                  <>
+                    <div>
+                      <b>Sector: </b> {parsed.sector}
+                    </div>
+                    <div>
+                      <b>Position:</b> [{parsed.longitude}, {parsed.latitude}]
+                    </div>
+                  </>
+                )}
+                {parsed.hideLocation && (
+                  <div>
+                    <b>Location:</b> hidden
+                  </div>
+                )}
+                <Reward info={parsed} />
               </div>
               <div>{indicatorIcons}</div>
             </div>

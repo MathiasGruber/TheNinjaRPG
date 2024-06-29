@@ -133,7 +133,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   // Object for form values
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
     { id: "name", label: "Title", type: "text" },
-    { id: "hidden", type: "number", label: "Hidden" },
+    { id: "hidden", type: "boolean", label: "Hidden" },
     { id: "questType", type: "str_array", values: QuestTypes },
     { id: "requiredRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
@@ -344,7 +344,7 @@ export const getNewTrackers = (
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
-  const consequences: { type: "item" | "combat"; id: string; scale?: number }[] = [];
+  const consequences: { type: "item" | "combat"; id: string; scale?: boolean }[] = [];
   const trackers = activeQuests
     .map((quest) => {
       if (quest) {

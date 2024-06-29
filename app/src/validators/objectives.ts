@@ -70,7 +70,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
 export const attackerFields = {
   attackers: z.array(z.string()).default([]),
   attackers_chance: z.coerce.number().min(0).max(100).default(0),
-  attackers_scaled_to_user: z.coerce.number().min(0).max(1).default(0),
+  attackers_scaled_to_user: z.coerce.boolean().default(false),
 };
 
 export const baseObjectiveFields = {
@@ -89,6 +89,7 @@ const complexObjectiveFields = {
   sector: z.coerce.number().min(0).default(0),
   longitude: z.coerce.number().min(0).default(0),
   latitude: z.coerce.number().min(0).default(0),
+  hideLocation: z.coerce.boolean().default(false),
   completed: z.coerce.number().min(0).max(1).default(0),
   image: z.string().default(""),
   ...rewardFields,
@@ -108,7 +109,7 @@ export const CollectItem = z.object({
   task: z.literal("collect_item").default("collect_item"),
   item_name: z.string().min(3).default("Secret scroll"),
   collect_item_id: z.string().optional().nullish(),
-  delete_on_complete: z.coerce.number().min(0).max(1).default(0),
+  delete_on_complete: z.coerce.boolean().default(false),
   ...complexObjectiveFields,
 });
 export type CollectItemType = z.infer<typeof CollectItem>;
@@ -118,7 +119,7 @@ export const DefeatOpponents = z.object({
   task: z.literal("defeat_opponents").default("defeat_opponents"),
   opponent_name: z.string().min(3).default("Opponent"),
   opponent_ai: z.string().min(10).optional().nullish(),
-  opponent_scaled_to_user: z.coerce.number().min(0).max(1).default(0),
+  opponent_scaled_to_user: z.coerce.boolean().default(false),
   ...complexObjectiveFields,
 });
 

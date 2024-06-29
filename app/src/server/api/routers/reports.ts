@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, or, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
+import { eq, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData } from "@/drizzle/schema";
