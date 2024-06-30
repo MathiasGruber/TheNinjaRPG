@@ -431,8 +431,9 @@ export const combatRouter = createTRPCRouter({
       }
       // Check if location is OK
       if (
-        !calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
-        !canAccessStructure(user, "/battlearena", sectorVillage)
+        !user.isOutlaw &&
+        (!calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
+          !canAccessStructure(user, "/battlearena", sectorVillage))
       ) {
         return {
           success: false,
