@@ -19,7 +19,7 @@ const dailyUpdates = async (req: NextApiRequest, res: NextApiResponse) => {
   // Check timer
   const frequency = 24;
   const response = await checkGameTimer(res, frequency);
-  if (response) return response;
+  if (!response) return undefined;
 
   // Query
   const villages = await drizzleDB.query.village.findMany({

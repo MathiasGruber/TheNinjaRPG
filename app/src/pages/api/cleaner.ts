@@ -14,7 +14,7 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
   // Check timer
   const frequency = 1;
   const response = await checkGameTimer(res, frequency);
-  if (response) return response;
+  if (!response) return undefined;
 
   try {
     // Step 1: Delete from battle table where updatedAt is older than 1 day

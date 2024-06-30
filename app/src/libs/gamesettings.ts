@@ -41,6 +41,7 @@ export const updateGameSetting = async (
   time: Date,
 ) => {
   const setting = await getGameSetting(drizzleDB, settingName);
+  console.log("UPDATING SETTING TIME");
   await drizzleDB
     .update(gameSetting)
     .set({ value, time })
@@ -60,13 +61,14 @@ export const checkGameTimer = async (res: NextApiResponse, hours: number) => {
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(
       timer.time.getTime() + deltaTime - Date.now(),
     );
-    return res
+    res
       .status(200)
       .json(
         `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
       );
+    return false;
   }
-  return null;
+  return true;
 };
 
 /**
