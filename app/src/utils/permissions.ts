@@ -10,7 +10,7 @@ export const canSubmitNotification = (role: UserRole) => {
 };
 
 export const canModifyEventGains = (role: UserRole) => {
-  return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
 export const canChangeUserRole = (role: UserRole) => {
