@@ -1375,7 +1375,7 @@ export const fetchUpdatedUser = async (props: {
   }
 
   if (user) {
-    // Add bloodline regen to regeneration
+    // Add bloodline, structure, etc.  regen to regeneration
     // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
     //       and we can avoid running an database UPDATE on each load
     if (user.bloodline?.regenIncrease) {
@@ -1404,7 +1404,7 @@ export const fetchUpdatedUser = async (props: {
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
     const sinceUpdate = secondsPassed(user.updatedAt);
     if (sinceUpdate > 300 || forceRegen || user.villagePrestige < 0) {
-      const regen = user.regeneration * secondsPassed(user.regenAt);
+      const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);

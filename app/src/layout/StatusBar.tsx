@@ -41,11 +41,11 @@ const calcCurrent = (
     regenAt &&
     ["AWAKE", "ASLEEP", "TRAVEL"].includes(status)
   ) {
-    const seconds = secondsPassed(regenAt, timeDiff);
+    const minutes = secondsPassed(regenAt, timeDiff) / 60;
     if (regen > 0) {
-      current = Math.min(total, start + regen * seconds);
+      current = Math.min(total, start + regen * minutes);
     } else {
-      current = Math.max(0, start + regen * seconds);
+      current = Math.max(0, start + regen * minutes);
     }
   }
   const width = (current / total) * 100;

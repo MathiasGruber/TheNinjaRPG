@@ -41,7 +41,6 @@ export const updateGameSetting = async (
   time: Date,
 ) => {
   const setting = await getGameSetting(drizzleDB, settingName);
-  console.log("UPDATING SETTING TIME");
   await drizzleDB
     .update(gameSetting)
     .set({ value, time })

@@ -1063,7 +1063,7 @@ export const userData = mysqlTable(
     maxChakra: smallint("maxChakra", { unsigned: true }).default(100).notNull(),
     curStamina: smallint("curStamina", { unsigned: true }).default(100).notNull(),
     maxStamina: smallint("maxStamina", { unsigned: true }).default(100).notNull(),
-    regeneration: tinyint("regeneration").default(1).notNull(),
+    regeneration: tinyint("regeneration").default(60).notNull(),
     money: bigint("money", { mode: "number" }).default(100).notNull(),
     bank: bigint("bank", { mode: "number" }).default(100).notNull(),
     experience: int("experience").default(0).notNull(),
