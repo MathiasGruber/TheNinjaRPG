@@ -7,9 +7,15 @@ import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/s
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
+import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
+  // Check timer
+  const frequency = 1;
+  const response = await checkGameTimer(res, frequency);
+  if (response) return response;
+
   try {
     // Step 1: Delete from battle table where updatedAt is older than 1 day
     await drizzleDB
@@ -98,6 +104,9 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     await drizzleDB.execute(
       sql`DELETE FROM ${userData} WHERE experience = 0 AND money = 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
     );
+
+    // Update timer
+    await updateGameSetting(`timer-${frequency}h`, 0, new Date());
 
     res.status(200).json("OK");
   } catch (cause) {

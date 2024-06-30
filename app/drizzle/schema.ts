@@ -1701,17 +1701,19 @@ export const questHistoryRelations = relations(questHistory, ({ one }) => ({
   }),
 }));
 
-export const gameTimers = mysqlTable(
-  "GameTimers",
+export const gameSetting = mysqlTable(
+  "GameSetting",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     time: datetime("time", { mode: "date", fsp: 3 }).notNull(),
+    value: tinyint("value").default(0).notNull(),
   },
   (table) => {
     return { name: index("name").on(table.name) };
   },
 );
+export type GameSetting = InferSelectModel<typeof gameSetting>;
 
 export const userLikes = mysqlTable(
   "UserLikes",

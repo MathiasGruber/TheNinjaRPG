@@ -24,6 +24,7 @@ import {
   bloodlineRolls,
   conversationComment,
   forumPost,
+  gameSetting,
   historicalAvatar,
   item,
   jutsu,
@@ -68,6 +69,7 @@ import { createStatSchema } from "@/libs/combat/types";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
+import { getGameSettingBoost } from "@/libs/gamesettings";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
@@ -154,7 +156,7 @@ export const profileRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
       // Query
-      const { user } = await fetchUpdatedUser({
+      const { user, settings } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         forceRegen: true,
@@ -165,9 +167,11 @@ export const profileRouter = createTRPCRouter({
       if (!user.trainingStartedAt) return errorResponse("Not currently training");
       if (!user.currentlyTraining) return errorResponse("Not currently training");
       // Derived
+      const setting = getGameSettingBoost("trainingGainMultiplier", settings);
+      const gameFactor = setting?.value || 1;
       const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
       const clanBoost = user?.clan?.trainingBoost || 0;
-      const factor = 1 + boost / 100 + clanBoost / 100;
+      const factor = gameFactor * (1 + boost / 100 + clanBoost / 100);
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
       const energySpent = Math.min(
@@ -305,11 +309,13 @@ export const profileRouter = createTRPCRouter({
   getUser: protectedProcedure
     .input(z.object({ token: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      const { user, rewards } = await fetchUpdatedUser({
+      // Query
+      const { user, settings, rewards } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
         // forceRegen: true, // This should be disabled in prod to save on DB calls
       });
+      // Figure out notifications
       const notifications: NavBarDropdownLink[] = [];
       if (rewards) {
         if (rewards.money > 0) {
@@ -327,6 +333,16 @@ export const profileRouter = createTRPCRouter({
           });
         }
       }
+      // Settings
+      const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
+      if (trainingBoost) {
+        notifications.push({
+          href: "/traininggrounds",
+          name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      // User specific
       if (user) {
         // Get number of un-resolved user reports
         if (user.role === "MODERATOR" || user.role === "ADMIN") {
@@ -1318,8 +1334,9 @@ export const fetchUpdatedUser = async (props: {
   const { client, userId, userIp, forceRegen } = props;
 
   // Ensure we can fetch the user
-  const [achievements, user] = await Promise.all([
+  const [achievements, settings, user] = await Promise.all([
     client.select().from(quest).where(eq(quest.questType, "achievement")),
+    client.select().from(gameSetting),
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
       with: {
@@ -1487,7 +1504,7 @@ export const fetchUpdatedUser = async (props: {
     const { trackers } = getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
   }
-  return { user, rewards };
+  return { user, settings, rewards };
 };
 
 export const fetchAttributes = async (client: DrizzleClient, userId: string) => {

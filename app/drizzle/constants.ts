@@ -369,3 +369,6 @@ export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 // Images
 export const DEFAULT_IMAGE =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
+
+// Training gains
+export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;

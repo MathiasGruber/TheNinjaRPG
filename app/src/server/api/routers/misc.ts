@@ -1,11 +1,14 @@
 import { z } from "zod";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import { NodeHtmlMarkdown } from "node-html-markdown";
-import { notification, userData } from "@/drizzle/schema";
-import { canSubmitNotification } from "@/utils/permissions";
+import { notification, userData, gameSetting } from "@/drizzle/schema";
+import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import { updateGameSetting } from "@/libs/gamesettings";
+import { changeSettingSchema } from "@/validators/misc";
+import { secondsFromNow } from "@/utils/time";
 import PushNotifications from "@pusher/push-notifications-server";
 
 export const miscRouter = createTRPCRouter({
@@ -84,5 +87,30 @@ export const miscRouter = createTRPCRouter({
         data: results,
         nextCursor: nextCursor,
       };
+    }),
+  getSetting: publicProcedure
+    .input(z.object({ name: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const setting = await ctx.drizzle.query.gameSetting.findFirst({
+        where: eq(gameSetting.name, input.name),
+      });
+      return setting || null;
+    }),
+  setTrainingGain: protectedProcedure
+    .input(changeSettingSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guards
+      if (!canModifyEventGains(user.role)) return errorResponse("Not allowed");
+      if (!user) return errorResponse("User not found");
+      // Update
+      await updateGameSetting(
+        "trainingGainMultiplier",
+        parseInt(input.multiplier),
+        secondsFromNow(input.days * 24 * 3600),
+      );
+      return { success: true, message: `Training gain set to: ${input.multiplier}X` };
     }),
 });
