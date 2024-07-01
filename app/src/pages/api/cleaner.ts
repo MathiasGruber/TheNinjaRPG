@@ -102,7 +102,7 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Step 13: Clear users older than 60 days
     await drizzleDB.execute(
-      sql`DELETE FROM ${userData} WHERE experience = 0 AND money = 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
+      sql`DELETE FROM ${userData} WHERE experience < 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY AND reputationPointsTotal <= 5`,
     );
 
     // Update timer
