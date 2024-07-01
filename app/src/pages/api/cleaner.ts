@@ -1,8 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { and, lte, sql, eq, lt, isNull } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { bankTransfers } from "@/drizzle/schema";
+import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/schema";
+import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
+import { userItem } from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -103,6 +105,53 @@ const cleanDatabase = async (req: NextApiRequest, res: NextApiResponse) => {
     // Step 13: Clear users older than 60 days
     await drizzleDB.execute(
       sql`DELETE FROM ${userData} WHERE experience < 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY AND reputationPointsTotal <= 5`,
+    );
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userData} WHERE experience < 10000 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
+    );
+
+    // Step 14: Clear bloodline rolls older than 1 day
+    await drizzleDB.execute(
+      sql`DELETE FROM ${bloodlineRolls} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+
+    // Step 15: Clear concept rolls older than 1 day
+    await drizzleDB.execute(
+      sql`DELETE FROM ${conceptImage} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+
+    // Step 15: Clear forums older than 1 day
+    await drizzleDB.execute(
+      sql`DELETE FROM ${forumThread} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+    await drizzleDB.execute(
+      sql`DELETE FROM ${forumPost} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+    await drizzleDB.execute(
+      sql`DELETE FROM ${forumPost} a WHERE NOT EXISTS (SELECT id FROM ${forumThread} b WHERE b.id = a.threadId)`,
+    );
+
+    // Step 16: Historical avatars
+    await drizzleDB.execute(
+      sql`DELETE FROM ${historicalAvatar} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+
+    // Step 17: Historical avatars
+    await drizzleDB.execute(
+      sql`DELETE FROM ${questHistory} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+
+    // Step 18: User attributes
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userAttribute} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+
+    // Step 18: User jutsu & items
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+    );
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userItem} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
     // Update timer
