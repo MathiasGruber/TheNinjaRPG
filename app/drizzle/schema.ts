@@ -1446,7 +1446,7 @@ export const village = mysqlTable(
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
     tokens: int("tokens").default(0).notNull(),
-    isOutlawFaction: boolean("isOutlawFaction").default(false).notNull(),
+    type: mysqlEnum("type", consts.SECTOR_TYPES).default("VILLAGE").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

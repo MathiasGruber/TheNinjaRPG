@@ -64,7 +64,7 @@ const Travel: NextPage = () => {
     staleTime: Infinity,
     enabled: userData !== undefined,
   });
-  const villages = data?.filter((v) => !v.isOutlawFaction);
+  const villages = data?.filter((v) => ["VILLAGE", "SAFEZONE"].includes(v.type));
   const sectorVillage = villages?.find((v) => v.sector === userData?.sector);
 
   // Router for forwarding

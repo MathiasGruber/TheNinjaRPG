@@ -64,7 +64,7 @@ export const kageRouter = createTRPCRouter({
       if (!elder) return errorResponse("No elder found");
       if (!user) return errorResponse("User not found");
       if (!uVillage) return errorResponse("Village not found");
-      if (uVillage.isOutlawFaction) return errorResponse("Not for factions");
+      if (uVillage.type !== "VILLAGE") return errorResponse("Only for villages");
       if (user.villageId !== villageId) return errorResponse("Wrong village");
       if (user.userId !== uVillage?.kageId) return errorResponse("Not kage");
       // Update
@@ -83,7 +83,7 @@ export const kageRouter = createTRPCRouter({
     // Guards
     if (!user) return errorResponse("User not found");
     if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
-    if (user.village?.isOutlawFaction) return errorResponse("Not for factions");
+    if (user.village?.type !== "VILLAGE") return errorResponse("Only for villages");
     if (!canChangeContent(user.role)) return errorResponse("Not staff");
     // Update
     const [result] = await Promise.all([
@@ -145,7 +145,7 @@ export const kageRouter = createTRPCRouter({
       if (prospect.isAi) return errorResponse("Do not touch the AI");
       if (kage.villageId !== village.id) return errorResponse("Wrong village");
       if (village.kageId !== kage.userId) return errorResponse("Not kage");
-      if (village.isOutlawFaction) return errorResponse("Not for factions");
+      if (village.type !== "VILLAGE") return errorResponse("Only for village");
       if (prospect.villageId !== village.id) return errorResponse("Not in village");
       if (elders.length > 3) return errorResponse("Already have 3 elders");
       // Mutate
@@ -179,7 +179,7 @@ export const kageRouter = createTRPCRouter({
       if (userVillage.kageId !== user.userId) return errorResponse("Not the kage");
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
-      if (userVillage.isOutlawFaction) return errorResponse("Not for factions");
+      if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
       const cost = calcStructureUpgrade(structure);
       if (userVillage.tokens < cost) return errorResponse("Not enough tokens");
 

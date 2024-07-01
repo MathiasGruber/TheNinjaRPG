@@ -372,3 +372,6 @@ export const DEFAULT_IMAGE =
 
 // Training gains
 export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
+
+// Map settings
+export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;

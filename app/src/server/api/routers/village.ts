@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trp
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
 import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
-import { eq, sql, gte, and } from "drizzle-orm";
+import { eq, sql, gte, and, or } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
@@ -160,7 +160,7 @@ export const villageRouter = createTRPCRouter({
       if (user.clanId) return errorResponse("Leave faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Cannot leave while banned");
-      if (village.isOutlawFaction) return errorResponse("Cannot join outlaw faction");
+      if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
       if (!hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
         return errorResponse("Must be at least chunin to join village");
       }
@@ -214,7 +214,7 @@ export const villageRouter = createTRPCRouter({
       if (!canSwapVillage(user.role)) return errorResponse("No permission to do this");
       if (cost > user.reputationPoints) return errorResponse("Need reputation points");
       if (
-        village.isOutlawFaction &&
+        village.type === "OUTLAW" &&
         !hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)
       ) {
         return errorResponse("Must be at least chunin to join outlaw faction");
@@ -228,7 +228,7 @@ export const villageRouter = createTRPCRouter({
             villageId: village.id,
             reputationPoints: user.reputationPoints - cost,
             villagePrestige: 0,
-            isOutlaw: village.isOutlawFaction ? true : false,
+            isOutlaw: village.type === "OUTLAW" ? true : false,
             sector: village.sector,
             longitude: ALLIANCEHALL_LONG,
             latitude: ALLIANCEHALL_LAT,
@@ -275,8 +275,8 @@ export const villageRouter = createTRPCRouter({
       if (!target) return errorResponse("Target village not found");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
-      if (target.isOutlawFaction) return errorResponse("Not for factions");
-      if (user.village?.isOutlawFaction) return errorResponse("Not for factions");
+      if (target.type !== "VILLAGE") return errorResponse("Only for villages");
+      if (user.village?.type !== "VILLAGE") return errorResponse("Only for villages");
 
       // Guards
       const request = requests
@@ -435,8 +435,8 @@ export const villageRouter = createTRPCRouter({
       if (!target) return errorResponse("Target village not found");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
-      if (target.isOutlawFaction) return errorResponse("Not for factions");
-      if (userVillage.isOutlawFaction) return errorResponse("Not for factions");
+      if (target.type !== "VILLAGE") return errorResponse("Only for villages");
+      if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
 
       // Check if war is possible
       const check = canWar(relationships, villages, villageId, targetId);
@@ -583,7 +583,12 @@ export const fetchSectorVillage = async (
   isOutlaw = false,
 ) => {
   const result = await client.query.village.findFirst({
-    where: !isOutlaw ? eq(village.sector, sector) : eq(village.isOutlawFaction, true),
+    where: !isOutlaw
+      ? eq(village.sector, sector)
+      : or(
+          and(eq(village.type, "SAFEZONE"), eq(village.sector, sector)),
+          eq(village.type, "OUTLAW"),
+        ),
     with: {
       notice: true,
       relationshipA: true,

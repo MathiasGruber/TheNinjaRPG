@@ -209,10 +209,12 @@ const SwapVillage: React.FC = () => {
     placeholderData: (previousData) => previousData,
     staleTime: Infinity,
   });
-  const villages = data?.map((village) => ({
-    ...village,
-    image: `/villages/${village.name}.png`,
-  }));
+  const villages = data
+    ?.filter((village) => ["VILLAGE", "OUTLAW"].includes(village.type))
+    .map((village) => ({
+      ...village,
+      image: `/villages/${village.name}.png`,
+    }));
 
   // Mutations
   const { mutate: swap, isPending: isSwapping } = api.village.swapVillage.useMutation({
@@ -241,7 +243,7 @@ const SwapVillage: React.FC = () => {
     <div className="mt-2">
       {!isFetching && (
         <ActionSelector
-          items={villages}
+          items={villages?.map((v) => ({ ...v, type: "village" }))}
           showBgColor={false}
           showLabels={true}
           onClick={(id) => {

@@ -18,7 +18,7 @@ export const registerRouter = createTRPCRouter({
 
       // Guard
       if (!village) return errorResponse("Village not found");
-      if (village.isOutlawFaction) return errorResponse("Cannot join faction");
+      if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
 
       // Mutate
       const unique_attributes = [

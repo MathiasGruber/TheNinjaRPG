@@ -633,6 +633,12 @@ export const initiateBattle = async (
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
 
+  // Check if the villageData is a safezone
+  const sectorData = villages.find((v) => v.sector === sector);
+  if (sectorData?.type === "SAFEZONE") {
+    return { success: false, message: "Cannot attack in a safezone" };
+  }
+
   // Loop through each user
   for (let i = 0; i < users.length; i++) {
     // Get the user

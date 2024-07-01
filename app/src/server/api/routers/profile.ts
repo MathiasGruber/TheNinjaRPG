@@ -1427,9 +1427,9 @@ export const fetchUpdatedUser = async (props: {
       user.updatedAt = now;
       user.regenAt = now;
       // If prestige below 0, reset to 0 and move to outlaw faction
-      if (user.villagePrestige < 0 && !user.village?.isOutlawFaction) {
+      if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
         const faction = await client.query.village.findFirst({
-          where: eq(village.isOutlawFaction, true),
+          where: eq(village.type, "OUTLAW"),
         });
         if (faction) {
           user.villagePrestige = 0;

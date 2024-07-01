@@ -18,7 +18,7 @@ import {
 } from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
-import { loadTexture, createTexture } from "@/libs/threejs/util";
+import { createTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "@/libs/travel/util";
 import { groundMats, oceanMats, dessertMats, iceMats } from "@/libs/travel/biome";
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
@@ -169,7 +169,7 @@ const Map: React.FC<MapProps> = (props) => {
             group_highlights.add(line);
             // Label
             const canvas = document.createElement("canvas");
-            const [w, h, r, f] = [100, 40, 4, 26];
+            const [w, h, r, f] = [100, 40, 4, 42 - highlight.name.length * 2];
             canvas.width = w;
             canvas.height = h;
             const context = canvas.getContext("2d");
@@ -197,10 +197,7 @@ const Map: React.FC<MapProps> = (props) => {
             const bar_material = new SpriteMaterial({ map: texture });
             const labelSprite = new Sprite(bar_material);
             labelSprite.scale.set(canvas.width / 40, canvas.height / 40, 1);
-            Object.assign(
-              labelSprite.position,
-              new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5),
-            );
+            labelSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
             group_highlights.add(labelSprite);
             // Label
             // const map = loadTexture(`/villages/${highlight.name}Marker.png`);

@@ -18,7 +18,7 @@ interface ActionSelectorProps {
     image: string;
     warning?: string;
     rarity?: ItemRarity;
-    type?: "jutsu" | "item" | "basic";
+    type?: "jutsu" | "item" | "basic" | "village";
     highlight?: boolean;
     hidden?: boolean | number;
     updatedAt?: number | Date;

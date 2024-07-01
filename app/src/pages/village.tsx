@@ -157,7 +157,7 @@ const VillageOverview: NextPage = () => {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            {!userData.isOutlaw && canLeave && (
+            {!userData.isOutlaw && canLeave && ownSector && (
               <Confirm
                 title="Leave Village"
                 proceed_label="Submit"
@@ -194,35 +194,37 @@ const VillageOverview: NextPage = () => {
         </div>
         {isFetchingVillage && <Loader explanation="Loading Village Information" />}
       </ContentBox>
-      <ContentBox
-        title="Notice Board"
-        subtitle={`Information from ${sectorVillage?.isOutlawFaction ? "Leader" : "Kage"}`}
-        initialBreak={true}
-        topRightContent={
-          isKage && (
-            <Confirm
-              title="Update Notice"
-              proceed_label="Submit"
-              button={<Button id="create">Update</Button>}
-              onAccept={onSubmit}
-            >
-              <RichInput
-                id="content"
-                label="Contents of your thread"
-                height="300"
-                placeholder={notice}
-                control={control}
-                error={errors.content?.message}
-              />
-            </Confirm>
-          )
-        }
-      >
-        {ReactHtmlParser(notice)}
-        {(isFetchingVillage || isUpdating) && (
-          <Loader explanation="Loading Village Information" />
-        )}
-      </ContentBox>
+      {["OUTLAW", "VILLAGE"].includes(sectorVillage?.type || "unknown") && (
+        <ContentBox
+          title="Notice Board"
+          subtitle={`Information from ${sectorVillage?.type === "OUTLAW" ? "Leader" : "Kage"}`}
+          initialBreak={true}
+          topRightContent={
+            isKage && (
+              <Confirm
+                title="Update Notice"
+                proceed_label="Submit"
+                button={<Button id="create">Update</Button>}
+                onAccept={onSubmit}
+              >
+                <RichInput
+                  id="content"
+                  label="Contents of your thread"
+                  height="300"
+                  placeholder={notice}
+                  control={control}
+                  error={errors.content?.message}
+                />
+              </Confirm>
+            )
+          }
+        >
+          {ReactHtmlParser(notice)}
+          {(isFetchingVillage || isUpdating) && (
+            <Loader explanation="Loading Village Information" />
+          )}
+        </ContentBox>
+      )}
     </>
   );
 };

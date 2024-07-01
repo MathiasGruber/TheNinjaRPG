@@ -443,7 +443,7 @@ const AllianceHall: React.FC<{
 
   if (isPending || !data) return <Loader explanation="Loading alliances" />;
 
-  const villages = data.villages;
+  const villages = data.villages.filter((v) => ["OUTLAW", "VILLAGE"].includes(v.type));
   const relationships = data.relationships;
   const requests = data.requests;
 
@@ -570,7 +570,7 @@ const AllianceBlock: React.FC<{
   if (relationship) status = relationship.status;
 
   // Check outlaw
-  const isOutlaw = villageRow.isOutlawFaction || villageCol.isOutlawFaction;
+  const isOutlaw = villageRow.type === "OUTLAW" || villageCol.type === "OUTLAW";
   if (isOutlaw) status = "ENEMY";
 
   // Is sending, show loader

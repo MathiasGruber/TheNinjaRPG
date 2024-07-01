@@ -182,7 +182,7 @@ const Register: React.FC = () => {
                         </FormControl>
                         <SelectContent>
                           {villages
-                            ?.filter((v) => !v.isOutlawFaction)
+                            ?.filter((v) => v.type === "VILLAGE")
                             .map((option) => (
                               <SelectItem key={option.name} value={option.id}>
                                 {option.name}

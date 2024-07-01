@@ -60,10 +60,7 @@ export const travelRouter = createTRPCRouter({
           ),
         }),
         ctx.drizzle.query.village.findFirst({
-          where: and(
-            eq(village.sector, input.sector),
-            eq(village.isOutlawFaction, false),
-          ),
+          where: and(eq(village.sector, input.sector), eq(village.type, "VILLAGE")),
           with: { structures: true },
         }),
       ]);

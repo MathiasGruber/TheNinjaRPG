@@ -138,9 +138,10 @@ export const useGameMenu = (userData: UserWithRelations) => {
     const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
     const relationship = findVillageUserRelationship(sector, userVillage);
     const isAllied = relationship?.status === "ALLY";
+    const isSafezone = sector.type === "SAFEZONE";
 
     // Is in village
-    if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw) {
+    if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
       // Village link for small screens
       systems.push({
         href: "/village",
@@ -165,7 +166,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
               priority={true}
             />
             <span className="font-bold">
-              {sector.name} {sector.isOutlawFaction || "Village"}
+              {sector.name} {sector.type === "VILLAGE" ? "Village" : ""}
             </span>
           </div>
         ),

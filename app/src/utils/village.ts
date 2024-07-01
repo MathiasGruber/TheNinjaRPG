@@ -35,7 +35,9 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
           calcIsInVillage({
             x: userData.longitude,
             y: userData.latitude,
-          }) || userData.isOutlaw;
+          }) ||
+          userData.isOutlaw ||
+          sectorVillage.type === "SAFEZONE";
         // Redirect user
         if (!inVillage || !sectorVillage || !access) {
           console.log(inVillage, sectorVillage, access);

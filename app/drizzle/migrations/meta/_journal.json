@@ -736,6 +736,13 @@
       "when": 1719809392321,
       "tag": "0104_dizzy_thundra",
       "breakpoints": false
+    },
+    {
+      "idx": 105,
+      "version": "5",
+      "when": 1719813807432,
+      "tag": "0105_complete_sentinels",
+      "breakpoints": false
     }
   ]
 }
