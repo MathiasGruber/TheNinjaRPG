@@ -7,6 +7,7 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -17,7 +18,7 @@ import {
 } from "three";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
-import { loadTexture } from "@/libs/threejs/util";
+import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "@/libs/travel/util";
 import { groundMats, oceanMats, dessertMats, iceMats } from "@/libs/travel/biome";
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
@@ -167,17 +168,50 @@ const Map: React.FC<MapProps> = (props) => {
             const line = new LineSegments(geometry, lineMaterial);
             group_highlights.add(line);
             // Label
-            const map = loadTexture(`/villages/${highlight.name}Marker.png`);
-            const material = new SpriteMaterial({ map: map });
-            const labelSprite = new Sprite(material);
-
-            // Set position to top of pin
+            const canvas = document.createElement("canvas");
+            const [w, h, r, f] = [100, 40, 4, 26];
+            canvas.width = w;
+            canvas.height = h;
+            const context = canvas.getContext("2d");
+            if (context) {
+              context.globalAlpha = 0.9;
+              context.fillStyle = highlight.hexColor;
+              context.lineWidth = 4;
+              context.strokeStyle = "black";
+              context.roundRect(r / 2, r / 2, w - r, h - r, r);
+              context.stroke();
+              context.fill();
+              context.globalAlpha = 1.0;
+              context.textAlign = "center";
+              context.textBaseline = "middle";
+              context.fillStyle = "black";
+              context.strokeStyle = "#F0F0F0";
+              context.font = `${f}px arial narrow`;
+              context.strokeText(highlight.name, w / 2, h / 2);
+              context.fillText(highlight.name, w / 2, h / 2);
+            }
+            const texture = createTexture(canvas);
+            texture.generateMipmaps = false;
+            texture.minFilter = LinearFilter;
+            texture.needsUpdate = true;
+            const bar_material = new SpriteMaterial({ map: texture });
+            const labelSprite = new Sprite(bar_material);
+            labelSprite.scale.set(canvas.width / 40, canvas.height / 40, 1);
             Object.assign(
               labelSprite.position,
               new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5),
             );
-            Object.assign(labelSprite.scale, new Vector3(3, 1, 1));
             group_highlights.add(labelSprite);
+            // Label
+            // const map = loadTexture(`/villages/${highlight.name}Marker.png`);
+            // const material = new SpriteMaterial({ map: map });
+            // const labelSprite = new Sprite(material);
+            // Object.assign(
+            //   labelSprite.position,
+            //   new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5),
+            // );
+            // Object.assign(labelSprite.scale, new Vector3(3, 1, 1));
+            // group_highlights.add(labelSprite);
           }
         });
       }
