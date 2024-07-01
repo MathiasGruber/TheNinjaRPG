@@ -722,6 +722,13 @@
       "when": 1719773230875,
       "tag": "0102_legal_major_mapleleaf",
       "breakpoints": false
+    },
+    {
+      "idx": 103,
+      "version": "5",
+      "when": 1719775357358,
+      "tag": "0103_massive_tarot",
+      "breakpoints": false
     }
   ]
 }

@@ -10,7 +10,7 @@
    xml:space="preserve"
    inkscape:version="1.2.1 (9c6d41e, 2022-07-14)"
    sodipodi:docname="mapMarkers.svg"
-   inkscape:export-filename="KonokiMarker.png"
+   inkscape:export-filename="TsukimoriMarker.png"
    inkscape:export-xdpi="25.024632"
    inkscape:export-ydpi="25.024632"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -28,7 +28,7 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.66449955"
-     inkscape:cx="-398.04391"
+     inkscape:cx="0.75244596"
      inkscape:cy="-373.96564"
      inkscape:window-width="3440"
      inkscape:window-height="1313"
@@ -132,7 +132,7 @@
            id="tspan354-6-8-90"
            style="font-size:24.6944px;fill:#ffffff;fill-opacity:1"
            x="51.91333"
-           y="29.473951">Syndicate</tspan></text></g><g
+           y="29.473951">Tsukimori</tspan></text></g><g
        id="g1153-8-3-3"
        transform="translate(0.96567379,133.40617)"
        inkscape:export-filename="CurrentMarker.png"

@@ -68,6 +68,11 @@ seed: # Seed database
 makemigrations: # Create database migration file
 	@echo "${YELLOW}Create database migrations file ${RESET}"
 	docker exec -it tnr_app pnpm makemigrations
+
+.PHONY: emptymigration
+emptymigration: # Create database migration file
+	@echo "${YELLOW}Create database migrations file ${RESET}"
+	docker exec -it tnr_app pnpm emptymigration
 	
 .PHONY: dbpush
 dbpush: # Push schema to db without creating migrations

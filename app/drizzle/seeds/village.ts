@@ -8,7 +8,7 @@ import type { DrizzleClient } from "@/server/db";
 const villages = [
   { name: "Konoki", sector: 305, hexColor: "#206625" },
   { name: "Shroud", sector: 254, hexColor: "#3232a8" },
-  { name: "Silence", sector: 293, hexColor: "#0a0a0a" },
+  // { name: "Silence", sector: 293, hexColor: "#0a0a0a" },
   { name: "Current", sector: 271, hexColor: "#606160" },
   // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
   { name: "Glacier", sector: 203, hexColor: "#50A6C5" },

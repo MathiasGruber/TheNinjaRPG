@@ -11,7 +11,8 @@
     "start": "next start",
     "seed": "pnpm tsx drizzle/seed.ts",
     "dbpush": "drizzle-kit push",
-    "makemigrations": "drizzle-kit generate"
+    "makemigrations": "drizzle-kit generate",
+    "emptymigration": "drizzle-kit generate --custom"
   },
   "dependencies": {
     "@clerk/nextjs": "4.30.0",

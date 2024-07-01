@@ -456,7 +456,7 @@ const AllianceHall: React.FC<{
         topRightContent={navTabs}
       >
         <div className="overflow-auto">
-          <div className="grid grid-cols-8 items-center text-center min-w-[400px]">
+          <div className="grid grid-cols-7 items-center text-center min-w-[400px]">
             <div>
               <p className="font-bold">Kage</p>
               <p className="py-4">&</p>
