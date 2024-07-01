@@ -340,40 +340,42 @@ export const drawVillage = (
     group.add(textSprite);
   }
   // Village wall
-  const wall_tower_texture = loadTexture("/map/wall_stone_tower.webp");
-  const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
-  let prevPos: TerrainHex | null = null;
-  wallPlacements.map((wall) => {
-    const pos = grid.getHex({ col: wall.x, row: wall.y });
-    if (pos) {
-      const { height: h, x, y } = pos;
-      const sprite = new Sprite(wall_tower_material);
-      sprite.scale.set(h * 0.9, h * 1.3, 1);
-      sprite.position.set(x, y + h / 3, -7);
-      group.add(sprite);
-      if (prevPos) {
-        const x2 = (prevPos.x * 3 + pos.x) / 4;
-        const y2 = (prevPos.y * 3 + pos.y) / 4;
-        const sprite2 = new Sprite(wall_tower_material);
-        sprite2.scale.set(h * 0.5, h * 0.8, 1);
-        sprite2.position.set(x2, y2 + h / 4, -7);
-        group.add(sprite2);
-        const x3 = (prevPos.x + pos.x * 3) / 4;
-        const y3 = (prevPos.y + pos.y * 3) / 4;
-        const sprite3 = new Sprite(wall_tower_material);
-        sprite3.scale.set(h * 0.5, h * 0.8, 1);
-        sprite3.position.set(x3, y3 + h / 4, -7);
-        group.add(sprite3);
-        const x4 = (prevPos.x * 2 + pos.x * 2) / 4;
-        const y4 = (prevPos.y * 2 + pos.y * 2) / 4;
-        const sprite4 = new Sprite(wall_tower_material);
-        sprite4.scale.set(h * 0.5, h * 0.8, 1);
-        sprite4.position.set(x4, y4 + h / 4, -7);
-        group.add(sprite4);
+  if (village.type === "VILLAGE") {
+    const wall_tower_texture = loadTexture("/map/wall_stone_tower.webp");
+    const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
+    let prevPos: TerrainHex | null = null;
+    wallPlacements.map((wall) => {
+      const pos = grid.getHex({ col: wall.x, row: wall.y });
+      if (pos) {
+        const { height: h, x, y } = pos;
+        const sprite = new Sprite(wall_tower_material);
+        sprite.scale.set(h * 0.9, h * 1.3, 1);
+        sprite.position.set(x, y + h / 3, -7);
+        group.add(sprite);
+        if (prevPos) {
+          const x2 = (prevPos.x * 3 + pos.x) / 4;
+          const y2 = (prevPos.y * 3 + pos.y) / 4;
+          const sprite2 = new Sprite(wall_tower_material);
+          sprite2.scale.set(h * 0.5, h * 0.8, 1);
+          sprite2.position.set(x2, y2 + h / 4, -7);
+          group.add(sprite2);
+          const x3 = (prevPos.x + pos.x * 3) / 4;
+          const y3 = (prevPos.y + pos.y * 3) / 4;
+          const sprite3 = new Sprite(wall_tower_material);
+          sprite3.scale.set(h * 0.5, h * 0.8, 1);
+          sprite3.position.set(x3, y3 + h / 4, -7);
+          group.add(sprite3);
+          const x4 = (prevPos.x * 2 + pos.x * 2) / 4;
+          const y4 = (prevPos.y * 2 + pos.y * 2) / 4;
+          const sprite4 = new Sprite(wall_tower_material);
+          sprite4.scale.set(h * 0.5, h * 0.8, 1);
+          sprite4.position.set(x4, y4 + h / 4, -7);
+          group.add(sprite4);
+        }
+        prevPos = pos;
       }
-      prevPos = pos;
-    }
-  });
+    });
+  }
   group.children.sort((a, b) => b.position.y - a.position.y);
   // Village structures
   village.structures
@@ -549,6 +551,7 @@ export const intersectTiles = (info: {
   pathFinder: PathCalculator;
   origin: TerrainHex;
   currentHighlights: Set<string>;
+  hoverPosition: SectorPoint | null;
   setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }) => {
   const { group_tiles, raycaster, origin, pathFinder, currentHighlights } = info;
@@ -560,7 +563,13 @@ export const intersectTiles = (info: {
     const target = intersected.userData.tile;
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
     // Update hover position
-    info.setHoverPosition({ x: target.col, y: target.row });
+    if (
+      info.hoverPosition &&
+      info.hoverPosition.x !== target.col &&
+      info.hoverPosition.y !== target.row
+    ) {
+      info.setHoverPosition({ x: target.col, y: target.row });
+    }
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(

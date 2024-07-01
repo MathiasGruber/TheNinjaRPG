@@ -1,13 +1,10 @@
-import { useState } from "react";
 import { useSafePush } from "@/utils/routing";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Clock, FastForward, Hand } from "lucide-react";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import NavTabs from "@/layout/NavTabs";
 import StatusBar from "@/layout/StatusBar";
-import { RollBloodline, CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
 import { structureBoost } from "@/utils/village";
@@ -21,71 +18,18 @@ import type { NextPage } from "next";
 import type { ArrayElement } from "@/utils/typeutils";
 
 const Hospital: NextPage = () => {
-  // Tab selection
-  const [tab, setTab] = useState<"Hospital" | "Bloodline" | null>(null);
-
   // Settings
-  const { userData, access } = useRequireInVillage("/hospital");
+  const { userData, access, timeDiff } = useRequireInVillage("/hospital");
+  const isHospitalized = userData?.status === "HOSPITALIZED";
 
   // Hospital name
   const hospitalName = userData?.village?.name
     ? userData.village.name + " Hospital"
     : "Hospital";
 
-  // Heal finish time
-  if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!access) return <Loader explanation="Accessing Hospital" />;
-
-  return (
-    <>
-      <ContentBox
-        title="Hospital"
-        subtitle={hospitalName}
-        back_href="/village"
-        topRightContent={
-          <NavTabs
-            id="hospital-page"
-            current={tab}
-            options={["Hospital", "Bloodline"]}
-            setValue={setTab}
-          />
-        }
-      >
-        <div>
-          Welcome to the {hospitalName}. Experience expert care, advanced technology,
-          and ancient remedies in our serene facility. Here you can:
-          <ol className="pt-3">
-            {userData.status === "HOSPITALIZED" && (
-              <li>
-                <i>- Pay according to your injury to expedite your treatment.</i>
-              </li>
-            )}
-            <li>
-              <i> - You can have your bloodline analyzed or altered</i>
-            </li>
-            <li>
-              <i> - You may help out by healing other patients.</i>
-            </li>
-          </ol>
-        </div>
-      </ContentBox>
-      {tab === "Hospital" && <MainHospitalPage />}
-      {tab === "Bloodline" && <MainBloodlinePage />}
-    </>
-  );
-};
-
-export default Hospital;
-
-/**
- * Main Hospital Page
- */
-const MainHospitalPage: React.FC = () => {
   const util = api.useUtils();
 
   // Settings
-  const { userData, timeDiff } = useRequireInVillage("/hospital");
-  const isHospitalized = userData?.status === "HOSPITALIZED";
 
   // Router for forwarding
   const router = useSafePush();
@@ -200,11 +144,15 @@ const MainHospitalPage: React.FC = () => {
   const canAfford = userData && healCost && userData.money >= healCost;
   const canHealOthers = hasRequiredRank(userData?.rank, MEDNIN_MIN_RANK);
 
+  // Heal finish time
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Hospital" />;
+
   return (
     <ContentBox
-      title="Hospital"
+      title={hospitalName}
       subtitle="Emergency Department"
-      initialBreak={true}
+      back_href="/village"
       padding={false}
     >
       {!isLoading && isHospitalized && userData && healFinishAt && (
@@ -252,35 +200,4 @@ const MainHospitalPage: React.FC = () => {
   );
 };
 
-/**
- * Main Bloodline Page
- */
-const MainBloodlinePage: React.FC = () => {
-  // Settings
-  const { userData } = useRequireInVillage("/hospital");
-
-  // Get data from DB
-  const {
-    data: prevRoll,
-    isPending: isPendingBlood,
-    refetch: refetchBloodline,
-  } = api.bloodline.getRolls.useQuery(
-    {
-      currentBloodlineId: userData?.bloodlineId,
-    },
-    { staleTime: Infinity, enabled: userData !== undefined },
-  );
-
-  // Derived calculations
-  const hasRolled = !!prevRoll;
-  const bloodlineId = userData?.bloodlineId;
-
-  return (
-    <div>
-      {isPendingBlood && <Loader explanation="Loading bloodlines" />}
-      {!isPendingBlood && !hasRolled && <RollBloodline refetch={refetchBloodline} />}
-      {!isPendingBlood && bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
-      {!isPendingBlood && hasRolled && !userData?.bloodlineId && <PurchaseBloodline />}
-    </div>
-  );
-};
+export default Hospital;

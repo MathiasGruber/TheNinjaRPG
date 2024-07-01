@@ -49,7 +49,8 @@ const Tavern: NextPage = () => {
   const availTaverns = ["Global", "Discord", localTavern];
   if (userData?.role !== "USER") {
     villages
-      ?.map((v) => v.name)
+      ?.filter((v) => ["OUTLAW", "VILLAGE"].includes(v.type))
+      .map((v) => v.name)
       .filter((v) => !availTaverns.includes(v))
       .forEach((v) => availTaverns.push(v));
   }

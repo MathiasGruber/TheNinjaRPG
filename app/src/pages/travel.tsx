@@ -164,6 +164,7 @@ const Travel: NextPage = () => {
           target={targetPosition}
           showSorrounding={showSorrounding}
           showActive={showActive}
+          hoverPosition={hoverPosition}
           setShowSorrounding={setShowSorrounding}
           setTarget={setTargetPosition}
           setPosition={setCurrentPosition}

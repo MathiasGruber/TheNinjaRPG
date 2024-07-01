@@ -104,8 +104,10 @@ const Bloodline: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
 
   return (
     <>
-      {bloodlineId && <CurrentBloodline bloodlineId={bloodlineId} />}
-      {!bloodlineId && <PurchaseBloodline />}
+      {bloodlineId && (
+        <CurrentBloodline bloodlineId={bloodlineId} initialBreak={true} />
+      )}
+      {!bloodlineId && <PurchaseBloodline initialBreak={true} />}
     </>
   );
 };

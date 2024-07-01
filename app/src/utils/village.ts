@@ -35,9 +35,7 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
           calcIsInVillage({
             x: userData.longitude,
             y: userData.latitude,
-          }) ||
-          userData.isOutlaw ||
-          sectorVillage.type === "SAFEZONE";
+          }) || sectorVillage.type === "SAFEZONE";
         // Redirect user
         if (!inVillage || !sectorVillage || !access) {
           console.log(inVillage, sectorVillage, access);
@@ -71,6 +69,7 @@ export const canAccessStructure = (
 ) => {
   let structureAccess = true;
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
+  const safeZone = sectorVillage?.type === "SAFEZONE";
   if (structureRoute && sectorVillage) {
     const relationship = findVillageUserRelationship(
       sectorVillage,
@@ -78,7 +77,10 @@ export const canAccessStructure = (
     );
     const isAlly = relationship?.status === "ALLY";
     const structure = sectorVillage?.structures.find((s) => s.route === structureRoute);
-    if (!structure || (!ownVillage && (!isAlly || structure.allyAccess === 0))) {
+    if (
+      !structure ||
+      (!ownVillage && !safeZone && (!isAlly || structure.allyAccess === 0))
+    ) {
       structureAccess = false;
     }
   }

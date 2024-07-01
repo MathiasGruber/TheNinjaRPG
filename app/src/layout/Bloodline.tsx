@@ -17,9 +17,16 @@ import { showMutationToast } from "@/libs/toast";
 import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
 
 /**
+ * Show Current bloodline & let user remove it
+ */
+interface PurchaseBloodlineProps {
+  initialBreak?: boolean;
+}
+
+/**
  * Let user purchase a new bloodline
  */
-export const PurchaseBloodline: React.FC = () => {
+export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
   // State
   const { data: userData, refetch: refetchUser } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
@@ -57,7 +64,7 @@ export const PurchaseBloodline: React.FC = () => {
     <ContentBox
       title="Bloodline"
       subtitle="Purchase special abilities"
-      initialBreak={true}
+      initialBreak={props.initialBreak}
       topRightContent={
         <>
           <div className="grow"></div>
@@ -147,6 +154,7 @@ export const PurchaseBloodline: React.FC = () => {
  */
 interface CurrentBloodlineProps {
   bloodlineId: string;
+  initialBreak?: boolean;
 }
 
 export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
@@ -170,7 +178,11 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
     userData?.reputationPoints && userData.reputationPoints >= REMOVAL_COST;
 
   return (
-    <ContentBox title="Bloodline" subtitle="Genetic Details" initialBreak={true}>
+    <ContentBox
+      title="Bloodline"
+      subtitle="Genetic Details"
+      initialBreak={props.initialBreak}
+    >
       {(isFetching || isRemoving) && <Loader explanation="Loading bloodline" />}
       {!isFetching && data && userData && (
         <>
@@ -210,6 +222,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
  */
 interface RollBloodlineProps {
   refetch: () => void;
+  initialBreak?: boolean;
 }
 export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   const { refetch: refetchUser } = useRequiredUserData();
@@ -225,7 +238,11 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   });
 
   return (
-    <ContentBox title="Bloodline" subtitle="Check your genetics" initialBreak={true}>
+    <ContentBox
+      title="Bloodline"
+      subtitle="Check your genetics"
+      initialBreak={props.initialBreak}
+    >
       <div className="flex flex-row">
         <div className="hidden sm:block sm:basis-1/3">
           <Image

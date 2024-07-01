@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, gte, sql, and, or, isNull } from "drizzle-orm";
+import { eq, gte, sql, and, or, isNull, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
@@ -60,7 +60,10 @@ export const travelRouter = createTRPCRouter({
           ),
         }),
         ctx.drizzle.query.village.findFirst({
-          where: and(eq(village.sector, input.sector), eq(village.type, "VILLAGE")),
+          where: and(
+            eq(village.sector, input.sector),
+            inArray(village.type, ["VILLAGE", "SAFEZONE"]),
+          ),
           with: { structures: true },
         }),
       ]);
