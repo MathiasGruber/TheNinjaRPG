@@ -238,63 +238,35 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   });
 
   return (
-    <ContentBox
-      title="Bloodline"
-      subtitle="Check your genetics"
-      initialBreak={props.initialBreak}
-    >
-      <div className="flex flex-row">
-        <div className="hidden sm:block sm:basis-1/3">
-          <Image
-            className="rounded-2xl border-2"
-            alt="Bloodline"
-            src="/bloodlines/hospital.png"
-            width={256}
-            height={256}
-          ></Image>
-        </div>
-        <div className="pl-0 sm:basis-2/3 sm:pl-5">
-          {!isRolling && (
-            <p>
-              At the hospital, skilled doctors and geneticists use advanced technology
-              to analyze the DNA of each patient. They search for specific genetic
-              markers that indicate the presence of a rare and powerful bloodline, known
-              only to a select few ninja clans. Some patients may experience side
-              effects or complications as a result of their newfound powers - the
-              hospital therefore offers removal of native bloodlines free of charge.
-            </p>
-          )}
-
-          {isRolling && <Loader explanation="Rolling bloodline" />}
-          <Confirm
-            title="Confirm Roll"
-            proceed_label="Roll"
-            isValid={!isRolling}
-            button={
-              <Button id="check" className="w-full">
-                <FlaskConical className="mr-2 h-6 w-6" />
-                Check Genetics
-              </Button>
-            }
-            onAccept={(e) => {
-              e.preventDefault();
-              roll();
-            }}
-          >
-            <p>
-              You are about to get your genetics checked to see if you have a bloodline.
-              Statistically, the chances for the different ranks of bloodlines are:
-            </p>
-            <ul className="pl-5 pt-3">
-              <li>S-Ranked: {ROLL_CHANCE["S"] * 100}%</li>
-              <li>A-Ranked: {ROLL_CHANCE["A"] * 100}%</li>
-              <li>B-Ranked: {ROLL_CHANCE["B"] * 100}%</li>
-              <li>C-Ranked: {ROLL_CHANCE["C"] * 100}%</li>
-              <li>D-Ranked: {ROLL_CHANCE["D"] * 100}%</li>
-            </ul>
-          </Confirm>
-        </div>
-      </div>
-    </ContentBox>
+    <div className="p-3">
+      {isRolling && <Loader explanation="Rolling bloodline" />}
+      <Confirm
+        title="Confirm Roll - Check Genetics"
+        proceed_label="Roll"
+        isValid={!isRolling}
+        button={
+          <Button id="check" className="w-full">
+            <FlaskConical className="mr-2 h-6 w-6" />
+            Talk with Bloodline Experts
+          </Button>
+        }
+        onAccept={(e) => {
+          e.preventDefault();
+          roll();
+        }}
+      >
+        <p>
+          You are about to get your genetics checked to see if you have a bloodline.
+          Statistically, the chances for the different ranks of bloodlines are:
+        </p>
+        <ul className="pl-5 pt-3">
+          <li>S-Ranked: {ROLL_CHANCE["S"] * 100}%</li>
+          <li>A-Ranked: {ROLL_CHANCE["A"] * 100}%</li>
+          <li>B-Ranked: {ROLL_CHANCE["B"] * 100}%</li>
+          <li>C-Ranked: {ROLL_CHANCE["C"] * 100}%</li>
+          <li>D-Ranked: {ROLL_CHANCE["D"] * 100}%</li>
+        </ul>
+      </Confirm>
+    </div>
   );
 };
