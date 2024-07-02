@@ -30,44 +30,20 @@ export const forumRouter = createTRPCRouter({
   getThreads: publicProcedure
     .input(
       z.object({
-        board_id: z.string(),
+        board_id: z.string().optional(),
+        board_name: z.string().optional(),
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const board = await fetchBoard(ctx.drizzle, input.board_id);
-      const { threads, nextCursor } = await getInfiniteThreads(
-        ctx.drizzle,
-        input.board_id,
-        input.cursor,
-        input.limit,
-        true,
-      );
-      return {
-        data: threads,
-        board: board,
-        nextCursor: nextCursor,
-      };
-    }),
-  getNews: publicProcedure
-    .input(
-      z.object({
-        cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const board = await ctx.drizzle.query.forumBoard.findFirst({
-        where: eq(forumBoard.name, "News"),
-      });
-      if (!board) throw new Error("News board not found");
+      const board = await fetchBoard(ctx.drizzle, input.board_id, input.board_name);
       const { threads, nextCursor } = await getInfiniteThreads(
         ctx.drizzle,
         board.id,
         input.cursor,
         input.limit,
-        false,
+        true,
       );
       return {
         data: threads,
@@ -204,13 +180,20 @@ export const getInfiniteThreads = async (
   return { threads, nextCursor };
 };
 
-export const fetchBoard = async (client: DrizzleClient, threadId: string) => {
-  const entry = await client.query.forumBoard.findFirst({
-    where: eq(forumBoard.id, threadId),
-  });
-  if (!entry) {
-    throw new Error("Board not found");
+export const fetchBoard = async (
+  client: DrizzleClient,
+  threadId?: string,
+  threadName?: string,
+) => {
+  if (!threadId && !threadName) {
+    throw new Error("No specific board requested");
   }
+  const entry = await client.query.forumBoard.findFirst({
+    where: threadId
+      ? eq(forumBoard.id, threadId ?? "")
+      : eq(forumBoard.name, threadName ?? ""),
+  });
+  if (!entry) throw new Error("Board not found");
   return entry;
 };
 
