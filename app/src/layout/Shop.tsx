@@ -24,6 +24,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 interface ShopProps {
   userData: NonNullable<UserWithRelations>;
   defaultType: ItemType;
+  restrictTypes?: ItemType[];
   title?: string;
   subtitle?: string;
   back_href?: string;
@@ -34,7 +35,7 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = (props) => {
   // Destructure
-  const { userData, defaultType, minCost, minRepsCost } = props;
+  const { userData, defaultType, minCost, minRepsCost, restrictTypes } = props;
 
   // Settings
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -89,6 +90,10 @@ const Shop: React.FC<ShopProps> = (props) => {
     (ryoCost > 0 ? ryoCost + " ryo" : "") +
     (repsCost > 0 ? repsCost + " reputation points" : "");
 
+  // Item types categories
+  let categories = Object.values(ItemTypes);
+  if (restrictTypes) categories = categories.filter((t) => restrictTypes.includes(t));
+
   return (
     <>
       {isAwake && (
@@ -98,7 +103,7 @@ const Shop: React.FC<ShopProps> = (props) => {
           back_href={props.back_href}
           initialBreak={props.initialBreak}
           topRightContent={
-            <>
+            categories.length > 1 && (
               <div className="flex flex-row">
                 <Select
                   onValueChange={(e) => {
@@ -112,7 +117,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                     <SelectValue placeholder={`None`} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(ItemTypes).map((option) => (
+                    {categories.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
                       </SelectItem>
@@ -120,7 +125,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                   </SelectContent>
                 </Select>
               </div>
-            </>
+            )
           }
         >
           {isFetching && <Loader explanation="Loading data" />}

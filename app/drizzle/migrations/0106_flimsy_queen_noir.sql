@@ -33,3 +33,16 @@ VALUES
         '1nSqxViGqnXp_xXAPeQMC', 
         4, 7, 1, 1
     );
+
+
+INSERT INTO `VillageStructure` 
+    (id, name, route, image, villageId, longitude, latitude, hasPage, allyAccess) 
+VALUES 
+    (
+        'YMV7Kbo1OduGfNDYfq5I3', 
+        'Souvenir Shop',
+        '/souvenirs', 
+        'https://utfs.io/f/69c3c4d9-04ee-453c-a332-5f5795601b47-b4dgyz.webp',
+        '1nSqxViGqnXp_xXAPeQMC', 
+        1, 3, 1, 1
+    )

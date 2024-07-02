@@ -177,7 +177,13 @@ const buildings = [
     image: "/buildings/science.webp",
     level: 1,
     hasPage: 0,
-    villageDefencePerLvl: 5,
+  },
+  {
+    name: "Souvenirs Shop",
+    route: "/souvenirs",
+    image: "/buildings/souvenirs.webp",
+    level: 1,
+    hasPage: 0,
   },
 ] as const;
 export type StructureName = (typeof buildings)[number]["name"];
