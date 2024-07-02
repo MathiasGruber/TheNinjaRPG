@@ -645,6 +645,9 @@ export const initiateBattle = async (
     const user = users[i];
     if (!user) return { success: false, message: "Could not find expected user" };
 
+    // If user is banned
+    if (user.isBanned) return { success: false, message: `${user.username} is banned` };
+
     // Check if user is asleep
     if (
       !["AWAKE", "QUEUED"].includes(user.status) &&
