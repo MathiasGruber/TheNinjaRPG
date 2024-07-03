@@ -63,9 +63,7 @@ const Science: NextPage = () => {
       {!isPendingBlood && bloodlineId && (
         <CurrentBloodline bloodlineId={bloodlineId} initialBreak />
       )}
-      {!isPendingBlood && hasRolled && !userData?.bloodlineId && (
-        <PurchaseBloodline initialBreak />
-      )}
+      {!isPendingBlood && hasRolled && <PurchaseBloodline initialBreak />}
     </>
   );
 };

@@ -34,6 +34,7 @@ export type GenericObject = {
 export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu | Quest | GenericObject;
   imageBorder?: boolean;
+  imageExtra?: React.ReactNode;
   showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   onDelete?: (id: string) => void;
@@ -54,13 +55,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   // Define image
   let image = (
-    <div className="relative flex flex-row items-center justify-center">
+    <div className="relative flex flex-col items-center justify-center">
       <ContentImage
         image={item.image}
         alt={item.name}
         rarity={"rarity" in item ? item.rarity : undefined}
         className=""
       />
+      {props.imageExtra}
     </div>
   );
   if ("href" in item && item.href) {
@@ -138,18 +140,20 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   <Link href={`/cpanel/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:fill-orange-500" />
                   </Link>
-                  <Confirm
-                    title="Confirm Deletion"
-                    button={
-                      <Trash2 className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
-                    }
-                    onAccept={(e) => {
-                      e.preventDefault();
-                      onDelete && onDelete(item.id);
-                    }}
-                  >
-                    You are about to delete this. Are you sure?
-                  </Confirm>
+                  {onDelete && (
+                    <Confirm
+                      title="Confirm Deletion"
+                      button={
+                        <Trash2 className="h-6 w-6 hover:fill-orange-500 hover:cursor-pointer" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        onDelete && onDelete(item.id);
+                      }}
+                    >
+                      You are about to delete this. Are you sure?
+                    </Confirm>
+                  )}
                 </>
               )}
             </div>

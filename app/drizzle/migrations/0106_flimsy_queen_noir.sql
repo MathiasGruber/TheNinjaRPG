@@ -46,3 +46,15 @@ VALUES
         '1nSqxViGqnXp_xXAPeQMC', 
         1, 3, 1, 1
     )
+
+INSERT INTO `VillageStructure` 
+    (`id`, `name`, `route`, `image`, `villageId`, `longitude`, `latitude`, `hasPage`, `allyAccess`) 
+VALUES 
+    (
+        'YMV7Kbo1OduGfNDYfq5', 
+        'Administration Building',
+        '/adminbuilding', 
+        'https://utfs.io/f/b84e0cd7-fb28-479f-984f-10419e31b925-9mpzas.webp',
+        '1nSqxViGqnXp_xXAPeQMC', 
+        2, 5, 1, 1
+    )

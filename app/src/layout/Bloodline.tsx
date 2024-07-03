@@ -28,10 +28,13 @@ interface PurchaseBloodlineProps {
  */
 export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
-  const [rank, setRank] = useState<BloodlineRank>("S");
+  const [rank, setRank] = useState<BloodlineRank>("A");
   const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  // utils
+  const utils = api.useUtils();
 
   // Fetch data
   const { data: bloodlines, isFetching } = api.bloodline.getAll.useInfiniteQuery(
@@ -47,8 +50,9 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
   // Mutations
   const { mutate: purchase, isPending: isPurchasing } =
     api.bloodline.purchaseBloodline.useMutation({
-      onSuccess: async () => {
-        await refetchUser();
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        await utils.profile.getUser.invalidate();
       },
       onSettled: () => {
         setIsOpen(false);

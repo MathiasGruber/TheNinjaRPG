@@ -25,9 +25,10 @@ const MissionHall: NextPage = () => {
     (q) => q.id === currentQuest?.questId,
   );
 
-  const { data: hallData } = api.quests.missionHall.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: hallData } = api.quests.missionHall.useQuery(
+    { villageId: userData?.villageId ?? "" },
+    { enabled: !!userData, staleTime: Infinity },
+  );
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
     onSuccess: async (data) => {

@@ -181,7 +181,14 @@ const buildings = [
   {
     name: "Souvenirs Shop",
     route: "/souvenirs",
-    image: "/buildings/souvenirs.webp",
+    image: "/buildings/Wake_Souvenier.webp",
+    level: 1,
+    hasPage: 0,
+  },
+  {
+    name: "Administration Building",
+    route: "/adminbuilding",
+    image: "/buildings/Wake_Admin.webp",
     level: 1,
     hasPage: 0,
   },

@@ -238,26 +238,30 @@ export const bloodlineRouter = createTRPCRouter({
   // Purchase a bloodline for session user
   purchaseBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const roll = await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
-      const line = await fetchBloodline(ctx.drizzle, input.bloodlineId);
-      if (!roll) {
-        throw serverError("PRECONDITION_FAILED", "You have not rolled a bloodline");
-      }
-      if (!line) {
-        throw serverError("PRECONDITION_FAILED", "Bloodline does not exist");
+      // Query
+      const [user, line] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchBloodline(ctx.drizzle, input.bloodlineId),
+      ]);
+      // Guard
+      if (!line) return errorResponse("Bloodline does not exist");
+      if (user.bloodlineId) {
+        return errorResponse("Already have bloodline, please remove first");
       }
       if (BLOODLINE_COST[line.rank] > user.reputationPoints) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
-      return await ctx.drizzle
+      // Update
+      await ctx.drizzle
         .update(userData)
         .set({
           reputationPoints: user.reputationPoints - BLOODLINE_COST[line.rank],
           bloodlineId: line.id,
         })
         .where(eq(userData.userId, ctx.userId));
+      return { success: true, message: "Bloodline purchased" };
     }),
   // Swap a bloodline for another of similar rank
   swapBloodline: protectedProcedure

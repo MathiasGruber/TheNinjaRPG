@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
-import { eq, or, and } from "drizzle-orm";
+import { eq, or, and, getTableColumns } from "drizzle-orm";
 import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
@@ -80,30 +80,73 @@ export const questsRouter = createTRPCRouter({
       }
       return result;
     }),
-  missionHall: protectedProcedure.query(async ({ ctx }) => {
-    const { user } = await fetchUpdatedUser({
-      client: ctx.drizzle,
-      userId: ctx.userId,
-    });
-    const summary = await ctx.drizzle
-      .select({
-        type: quest.questType,
-        rank: quest.requiredRank,
-        count: sql<number>`COUNT(*)`.mapWith(Number),
-      })
-      .from(quest)
-      .where(
-        and(
-          inArray(quest.questType, ["mission", "errand", "crime"]),
-          or(
-            isNull(quest.requiredVillage),
-            eq(quest.requiredVillage, user?.villageId ?? ""),
+  allianceBuilding: protectedProcedure
+    .input(
+      z.object({
+        villageId: z.string().optional().nullish(),
+        level: z.number().optional().nullish(),
+        rank: z.array(z.enum(LetterRanks)).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Query
+      const events = await ctx.drizzle
+        .select({ ...getTableColumns(quest) })
+        .from(quest)
+        .leftJoin(
+          questHistory,
+          and(eq(quest.id, questHistory.questId), eq(questHistory.userId, ctx.userId)),
+        )
+        .where(
+          and(
+            inArray(quest.questType, ["event"]),
+            isNull(questHistory.userId),
+            ...(input.villageId
+              ? [
+                  or(
+                    isNull(quest.requiredVillage),
+                    eq(quest.requiredVillage, input.villageId ?? ""),
+                  ),
+                ]
+              : []),
+            ...(input.rank ? [inArray(quest.requiredRank, input.rank)] : []),
+            ...(input.level ? [lte(quest.requiredLevel, input.level)] : []),
           ),
-        ),
-      )
-      .groupBy(quest.questType, quest.requiredRank);
-    return summary;
-  }),
+        );
+      return events;
+    }),
+  missionHall: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [user, summary] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle
+          .select({
+            type: quest.questType,
+            rank: quest.requiredRank,
+            count: sql<number>`COUNT(*)`.mapWith(Number),
+          })
+          .from(quest)
+          .where(
+            and(
+              inArray(quest.questType, ["mission", "errand", "crime"]),
+              or(
+                isNull(quest.requiredVillage),
+                eq(quest.requiredVillage, input.villageId ?? ""),
+              ),
+            ),
+          )
+          .groupBy(quest.questType, quest.requiredRank),
+      ]);
+      // Guards
+      if (!user) throw serverError("PRECONDITION_FAILED", "User does not exist");
+      if (user.villageId !== input.villageId) {
+        throw serverError("PRECONDITION_FAILED", "Wrong Village");
+      }
+      // Return
+      return summary;
+    }),
   startRandom: protectedProcedure
     .input(
       z.object({
@@ -167,6 +210,34 @@ export const questsRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId)),
       ]);
       return { success: true, message: `Quest started: ${result.name}` };
+    }),
+  startQuest: protectedProcedure
+    .input(z.object({ questId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [updatedUser, questData] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchQuest(ctx.drizzle, input.questId),
+      ]);
+      // Guards
+      const { user } = updatedUser;
+      if (!user) return errorResponse("User does not exist");
+      const ranks = availableLetterRanks(user.rank);
+      if (!questData) return errorResponse("Quest does not exist");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (!ranks.includes(questData.requiredRank)) {
+        return errorResponse(`Rank ${user.rank} not allowed`);
+      }
+      if (user.userQuests?.find((q) => q.quest.questType === "event" && !q.endAt)) {
+        return errorResponse(`Already active event quest`);
+      }
+      // Insert quest entry
+      await upsertQuestEntry(ctx.drizzle, user, questData);
+      return { success: true, message: `Quest started: ${questData.name}` };
     }),
   abandon: protectedProcedure
     .input(z.object({ id: z.string() }))
