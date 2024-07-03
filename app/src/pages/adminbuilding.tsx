@@ -79,6 +79,9 @@ const AdministrationBuilding: NextPage = () => {
       )}
       {!currentQuest && !isPending && (
         <div className="p-3">
+          {hallData?.length === 0 && (
+            <p className="font-bold">No current quests for you</p>
+          )}
           {hallData?.map((quest, i) => (
             <div key={i}>
               <ItemWithEffects
