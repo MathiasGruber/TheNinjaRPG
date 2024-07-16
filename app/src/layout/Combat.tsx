@@ -484,7 +484,7 @@ const Combat: React.FC<CombatProps> = (props) => {
               <p className="text-xl mt-5 mb-2 font-bold flex flex-row">
                 Initiative Winner: {initiveWinner?.username}{" "}
                 <Link href="/manual/combat">
-                  <HelpCircle className="ml-2 h6 w-6 hover:fill-orange-500" />
+                  <HelpCircle className="ml-2 h6 w-6 hover:text-orange-500" />
                 </Link>
               </p>
               <div className="flex flex-row gap-4">

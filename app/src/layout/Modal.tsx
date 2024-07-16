@@ -70,7 +70,7 @@ const Modal: React.FC<ModalProps> = (props) => {
               e.stopPropagation();
               props.setIsOpen(false);
             }}
-            className="z-30 rounded-lg border border-gray-500 bg-gray-700 px-5 py-2.5  text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"
+            className="z-30 rounded-lg border border-gray-500 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"
           >
             Close
           </Button>

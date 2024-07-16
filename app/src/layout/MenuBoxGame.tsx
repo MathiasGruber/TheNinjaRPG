@@ -1,18 +1,17 @@
+"use client";
+// TODO: Deprecated once pages router no longer used
 import React from "react";
 import Link from "next/link";
 import MenuBox from "./MenuBox";
 import { Megaphone, Info, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useGameMenu } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
-import type { NavBarDropdownLink } from "@/libs/menus";
 
-interface MenuBoxGameProps {
-  notifications: NavBarDropdownLink[] | undefined;
-}
+interface MenuBoxGameProps {}
 
-const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
+const MenuBoxGame: React.FC<MenuBoxGameProps> = () => {
   // Get user data, otherwise show nothing
-  const { data: userData } = useUserData();
+  const { data: userData, notifications } = useUserData();
 
   // Get available systems & locations
   const { systems, location } = useGameMenu(userData);
@@ -34,9 +33,9 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = (props) => {
           </Link>
         }
       >
-        {props.notifications && props.notifications.length > 0 && (
+        {notifications && notifications.length > 0 && (
           <ul className="grid grid-cols-1 gap-2">
-            {props.notifications
+            {notifications
               .filter((n) => n.color !== "toast")
               .map((notification, i) => (
                 <Link key={i} href={notification.href}>

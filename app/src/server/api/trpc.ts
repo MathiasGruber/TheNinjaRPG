@@ -17,15 +17,28 @@
  *
  */
 import { drizzleDB } from "@/server/db";
+import { initTRPC, TRPCError } from "@trpc/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { z } from "zod";
+import { ZodError } from "zod";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { eq, sql } from "drizzle-orm";
+import { userData } from "@/drizzle/schema";
+import superjson from "superjson";
+import type { NextRequest } from "next/server";
+import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
+import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import type { TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
 import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request
- * that goes through your tRPC endpoint.
- *
+ * that goes through your tRPC endpoint. This is for the pages router
+ * TODO: Deprecated once pages router no longer used!
  * @see https://trpc.io/docs/context
  */
-export const createTRPCContext = (opts: CreateNextContextOptions) => {
+export const createPagesTRPCContext = (opts: CreateNextContextOptions) => {
   const { req } = opts;
   const sesh = getAuth(req);
   const userId = sesh.userId;
@@ -43,18 +56,38 @@ export const createTRPCContext = (opts: CreateNextContextOptions) => {
 };
 
 /**
+ * This is the actual context you will use in your router. It will be used to process every request
+ * that goes through your tRPC endpoint. This is for the app router.
+ * @see https://trpc.io/docs/context
+ */
+export const createAppTRPCContext = (opts: {
+  req: NextRequest;
+  readHeaders: ReadonlyHeaders;
+  readCookies: ReadonlyRequestCookies;
+}) => {
+  const { req, readHeaders } = opts;
+  const sesh = getAuth(req);
+  const userId = sesh.userId;
+  // Get IP
+  const ip = readHeaders.get("x-forwarded-for") || undefined;
+  const userIp = typeof ip === "string" ? ip.split(/, /)[0] : "unknown";
+  // Get agent
+  const userAgent = readHeaders.get("user-agent") || undefined;
+  return {
+    drizzle: drizzleDB,
+    userIp,
+    userId,
+    userAgent,
+  };
+};
+
+/**
  * 2. INITIALIZATION
  *
  * This is where the tRPC API is initialized, connecting the context and transformer.
  */
-import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
-import { type TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
-import { getAuth } from "@clerk/nextjs/server";
-import { z } from "zod";
-import { ZodError } from "zod";
 
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<typeof createPagesTRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
@@ -73,12 +106,6 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
  * These are the pieces you use to build your tRPC API. You should import these a lot in the
  * "/src/server/api/routers" directory.
  */
-
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-import { eq, sql } from "drizzle-orm";
-import { userData } from "@/drizzle/schema";
-
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(60, "60 s"),

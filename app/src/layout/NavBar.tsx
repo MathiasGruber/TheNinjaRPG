@@ -1,3 +1,4 @@
+// TODO: Deprecated once pages router is done
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,7 +27,7 @@ const NavBar: React.FC<NavBarProps> = (props) => {
   const { data: userData } = useUserData();
 
   // Main links
-  const navLinks = getMainNavbarLinks(isSignedIn);
+  const navLinks = getMainNavbarLinks();
 
   // Top element of mobile navbar
   const topElement = userData && (

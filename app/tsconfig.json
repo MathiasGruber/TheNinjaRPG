@@ -20,6 +20,7 @@
     "baseUrl": ".",
     "paths": {
       "@/env/*": ["src/env/*"],
+      "@/hooks/*": ["src/hooks/*"],
       "@/layout/*": ["src/layout/*"],
       "@/utils/*": ["src/utils/*"],
       "@/validators/*": ["src/validators/*"],
@@ -27,10 +28,17 @@
       "@/drizzle/*": ["drizzle/*"],
       "@/server/*": ["src/server/*"],
       "@/api/*": ["src/server/api/*"],
+      "@/app/*": ["src/app/*"],
       "@/routers/*": ["src/server/api/routers/*"],
       "@/components/*": ["src/components/*"],
+      "@/contentbox/*": ["src/components/contentboxes/*"],
       "@/public/*": ["public/*"],
     },
+    "plugins": [
+      {
+        "name": "next",
+      },
+    ],
   },
   "include": [
     "next-env.d.ts",
@@ -41,6 +49,7 @@
     "src/libs/drawThreeJson.js",
     "src/libs/travel/SpriteMixer.js",
     "public/service-worker.js",
+    ".next/types/**/*.ts",
   ],
   "exclude": ["node_modules", ".next"],
 }

@@ -1,7 +1,7 @@
 import Loader from "@/layout/Loader";
 import { useRouter } from "next/router";
 import { ClanProfile } from "@/layout/Clan";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import type { NextPage } from "next";
 
 const ClanInfo: NextPage = () => {

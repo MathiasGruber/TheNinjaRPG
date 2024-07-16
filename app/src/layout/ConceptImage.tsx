@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect } from "react";
 import Image from "next/image";
 import { Trash2, Flag, Info } from "lucide-react";
@@ -137,7 +139,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
                 content: '<img src="' + image.image + '" width="200" />',
               }}
               system="concept_art"
-              button={<Flag className="h-6 w-6 hover:fill-orange-500 text-white" />}
+              button={<Flag className="h-6 w-6 hover:text-orange-500 text-white" />}
             />
           )}
         </div>
@@ -228,7 +230,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               <TooltipProvider delayDuration={50}>
                 <Tooltip>
                   <TooltipTrigger>
-                    <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
+                    <Info className="h-8 w-8 mr-2 cursor-pointer hover:text-orange-500" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>
@@ -258,7 +260,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               </TooltipProvider>
 
               {/* <div className="group">
-                <Info className="h-8 w-8 mr-2 cursor-pointer hover:fill-orange-500" />
+                <Info className="h-8 w-8 mr-2 cursor-pointer hover:text-orange-500" />
                 <span className="absolute bottom-8 right-0 z-50 rounded-md bg-gray-800 p-2 text-sm text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
                   <p>
                     <b>Created by: </b>

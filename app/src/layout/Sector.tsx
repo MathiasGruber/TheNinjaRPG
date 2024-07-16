@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,7 +9,7 @@ import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
 import { Vector2, OrthographicCamera, Group } from "three";
 import { api } from "@/utils/api";
-import { useSafePush } from "@/utils/routing";
+import { useRouter } from "next/navigation";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import { getBackgroundColor } from "@/libs/travel/biome";
@@ -67,7 +69,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const fetchedUsers = data?.users;
 
   // Router for forwarding
-  const router = useSafePush();
+  const router = useRouter();
 
   // Convenience calculations
   const isInSector = userData?.sector === props.sector;

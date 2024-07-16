@@ -83,6 +83,8 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import HumanDiff from "human-object-diff";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { getPublicUsersSchema } from "@/validators/user";
+import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
@@ -967,108 +969,10 @@ export const profileRouter = createTRPCRouter({
     return result?.[0]?.count ?? 0;
   }),
   // Get public users
-  getPublicUsers: protectedProcedure
-    .input(
-      z.object({
-        cursor: z.number().nullish(),
-        limit: z.number().min(1).max(100),
-        isAi: z.boolean().default(false),
-        orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
-        villageId: z.string().optional(),
-        username: z
-          .string()
-          .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
-            message: "Must only contain alphanumeric characters and no spaces",
-          })
-          .optional(),
-        ip: z.string().optional(),
-        recruiterId: z.string().optional(),
-      }),
-    )
+  getPublicUsers: publicProcedure
+    .input(getPublicUsersSchema)
     .query(async ({ ctx, input }) => {
-      const currentCursor = input.cursor ? input.cursor : 0;
-      const skip = currentCursor * input.limit;
-      const getOrder = () => {
-        switch (input.orderBy) {
-          case "Online":
-            return [desc(userData.updatedAt)];
-          case "Strongest":
-            return [desc(userData.level), desc(userData.experience)];
-          case "Weakest":
-            return [asc(userData.level), asc(userData.experience)];
-          case "Staff":
-            return [desc(userData.role)];
-        }
-      };
-      const [user, users] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        ctx.drizzle.query.userData.findMany({
-          where: and(
-            ...(input.username !== undefined
-              ? [like(userData.username, `%${input.username}%`)]
-              : []),
-            ...(input.ip ? [like(userData.lastIp, `%${input.ip}%`)] : []),
-            ...(input.villageId !== undefined
-              ? [eq(userData.villageId, input.villageId)]
-              : []),
-            ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
-            ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-            eq(userData.isAi, input.isAi),
-            ...(input.isAi === false
-              ? [eq(userData.isSummon, false)]
-              : [eq(userData.isAi, true)]),
-          ),
-          columns: {
-            userId: true,
-            username: true,
-            avatar: true,
-            rank: true,
-            isOutlaw: true,
-            level: true,
-            role: true,
-            experience: true,
-            updatedAt: true,
-            reputationPointsTotal: true,
-            lastIp: true,
-          },
-          // If AI, also include relations information
-          with: {
-            village: { columns: { name: true } },
-            ...(input.isAi
-              ? {
-                  jutsus: {
-                    columns: {
-                      level: true,
-                    },
-                    with: {
-                      jutsu: {
-                        columns: {
-                          name: true,
-                        },
-                      },
-                    },
-                  },
-                }
-              : {}),
-          },
-          offset: skip,
-          limit: input.limit,
-          orderBy: getOrder(),
-        }),
-      ]);
-      // Guard
-      if (input.ip && !canSeeSecretData(user.role)) {
-        throw serverError("FORBIDDEN", "You are not allowed to search IPs");
-      }
-      if (!canSeeSecretData(user.role)) {
-        users.forEach((u) => (u.lastIp = "hidden"));
-      }
-      // Return
-      const nextCursor = users.length < input.limit ? null : currentCursor + 1;
-      return {
-        data: users,
-        nextCursor: nextCursor,
-      };
+      return fetchPublicUsers(ctx.drizzle, input, ctx.userId);
     }),
   // Toggle deletion of user
   toggleDeletionTimer: protectedProcedure.mutation(async ({ ctx }) => {
@@ -1506,6 +1410,97 @@ export const fetchUpdatedUser = async (props: {
   }
   return { user, settings, rewards };
 };
+
+export const fetchPublicUsers = async (
+  client: DrizzleClient,
+  input: GetPublicUsersSchema,
+  userId?: string | null,
+) => {
+  const currentCursor = input.cursor ? input.cursor : 0;
+  const skip = currentCursor * input.limit;
+  const getOrder = () => {
+    switch (input.orderBy) {
+      case "Online":
+        return [desc(userData.updatedAt)];
+      case "Strongest":
+        return [desc(userData.level), desc(userData.experience)];
+      case "Weakest":
+        return [asc(userData.level), asc(userData.experience)];
+      case "Staff":
+        return [desc(userData.role)];
+    }
+  };
+  const [users, user] = await Promise.all([
+    client.query.userData.findMany({
+      where: and(
+        ...(input.username !== undefined
+          ? [like(userData.username, `%${input.username}%`)]
+          : []),
+        ...(input.ip ? [like(userData.lastIp, `%${input.ip}%`)] : []),
+        ...(input.villageId !== undefined
+          ? [eq(userData.villageId, input.villageId)]
+          : []),
+        ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
+        ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
+        eq(userData.isAi, input.isAi),
+        ...(input.isAi === false
+          ? [eq(userData.isSummon, false)]
+          : [eq(userData.isAi, true)]),
+      ),
+      columns: {
+        userId: true,
+        username: true,
+        avatar: true,
+        rank: true,
+        isOutlaw: true,
+        level: true,
+        role: true,
+        experience: true,
+        updatedAt: true,
+        reputationPointsTotal: true,
+        lastIp: true,
+      },
+      // If AI, also include relations information
+      with: {
+        village: { columns: { name: true } },
+        ...(input.isAi
+          ? {
+              jutsus: {
+                columns: {
+                  level: true,
+                },
+                with: {
+                  jutsu: {
+                    columns: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+      offset: skip,
+      limit: input.limit,
+      orderBy: getOrder(),
+    }),
+    ...(userId ? [fetchUser(client, userId)] : [null]),
+  ]);
+  // Guard
+  if (input.ip && (!user || !canSeeSecretData(user.role))) {
+    throw serverError("FORBIDDEN", "You are not allowed to search IPs");
+  }
+  if (!user || !canSeeSecretData(user.role)) {
+    users.forEach((u) => (u.lastIp = "hidden"));
+  }
+  // Return
+  const nextCursor = users.length < input.limit ? null : currentCursor + 1;
+  return {
+    data: users,
+    nextCursor: nextCursor,
+  };
+};
+export type FetchedPublicUsers = ReturnType<typeof fetchPublicUsers>;
 
 export const fetchAttributes = async (client: DrizzleClient, userId: string) => {
   return await client.query.userAttribute.findMany({

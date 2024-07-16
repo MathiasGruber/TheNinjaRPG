@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState, useRef } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Toggle from "@/components/control/Toggle";
@@ -24,6 +26,8 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
     const generalsCtx = generalsChart?.current?.getContext("2d");
     if (statsCtx && generalsCtx && userData) {
       // Update stats chart
+      const localTheme = localStorage.getItem("theme");
+      ChartJS.defaults.color = localTheme === "dark" ? "#FFFFFF" : "#000000";
       const myStatsChart = new ChartJS(statsCtx, {
         type: "radar",
         options: {
@@ -38,7 +42,9 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
           scales: {
             r: {
               angleLines: { display: true },
+              ticks: { backdropColor: "rgba(99, 255, 132, 0.0)" },
               suggestedMin: 0,
+              backgroundColor: "rgba(99, 255, 132, 0.2)",
             },
           },
           plugins: {
@@ -111,10 +117,10 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
                 userData.willpower,
               ],
               backgroundColor: [
-                "rgba(255, 99, 132, 0.2)",
-                "rgba(255, 159, 64, 0.2)",
-                "rgba(255, 205, 86, 0.2)",
-                "rgba(75, 192, 192, 0.2)",
+                "rgba(255, 99, 132, 0.5)",
+                "rgba(255, 159, 64, 0.5)",
+                "rgba(255, 205, 86, 0.5)",
+                "rgba(75, 192, 192, 0.5)",
               ],
               borderColor: [
                 "rgb(255, 99, 132)",

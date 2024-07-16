@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { anbuCreateSchema } from "@/validators/anbu";
 import { UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";

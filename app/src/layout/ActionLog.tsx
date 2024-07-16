@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";

@@ -25,13 +25,13 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.32"
-     inkscape:cx="1070.3125"
-     inkscape:cy="846.875"
-     inkscape:window-width="1728"
-     inkscape:window-height="966"
+     inkscape:cx="314.0625"
+     inkscape:cy="848.4375"
+     inkscape:window-width="1390"
+     inkscape:window-height="1205"
      inkscape:window-x="0"
-     inkscape:window-y="38"
-     inkscape:window-maximized="1"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0"
      inkscape:current-layer="layer1" />
   <defs
      id="defs2" />
@@ -87,7 +87,7 @@
        id="text5464"><tspan
          sodipodi:role="line"
          id="tspan5462"
-         style="stroke-width:10"></tspan></text>
+         style="stroke-width:10" /></text>
     <text
        xml:space="preserve"
        style="font-weight:bold;font-size:19.4028px;line-height:1.07;font-family:'Arial Narrow';-inkscape-font-specification:'Arial Narrow Bold';text-align:center;text-anchor:middle;fill:#000000;fill-opacity:0;stroke:#ffffff;stroke-width:10;stroke-dasharray:none;stroke-opacity:1"
@@ -109,7 +109,7 @@
          id="tspan5898"
          style="font-size:70.5556px;fill:#ffffff;fill-opacity:1;stroke-width:10"
          x="256.31506"
-         y="286.08075">ALPHA VERSION</tspan></text>
+         y="286.08075">BETA VERSION</tspan></text>
     <ellipse
        style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:2.63923;stroke-dasharray:none;stroke-opacity:1"
        id="path6559"

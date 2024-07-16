@@ -79,7 +79,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
       title="Filter Jutsus"
       button={
         <Button id="create-jutsu">
-          <Filter className="sm:mr-2 h-6 w-6 hover:fill-orange-500" />
+          <Filter className="sm:mr-2 h-6 w-6 hover:text-orange-500" />
           <p className="hidden sm:block">Filter</p>
         </Button>
       }

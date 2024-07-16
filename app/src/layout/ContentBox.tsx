@@ -1,8 +1,10 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { ChevronsLeft } from "lucide-react";
 
-interface ContentBoxProps {
+export interface ContentBoxProps {
   children: React.ReactNode;
   title: string;
   back_href?: string;
@@ -29,7 +31,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           }`}
         >
           <div className="self-start">
-            <h2 className="text-2xl font-bold text-orange-900">
+            <h2 className="text-2xl font-bold text-background-foreground">
               {props.back_href ? (
                 <Link
                   className="ml-1 flex flex-row items-center hover:text-orange-700"
@@ -44,7 +46,9 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
               )}
             </h2>
 
-            {props.subtitle && <h3 className=" text-orange-900">{props.subtitle}</h3>}
+            {props.subtitle && (
+              <h3 className=" text-background-foreground">{props.subtitle}</h3>
+            )}
           </div>
           <div className="flex flex-row grow">
             {!props.noRightAlign && <div className="grow "></div>}
@@ -55,9 +59,9 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
         </div>
 
         <div
-          className={`relative ${!props.noBorder ? "border-2 border-double border-amber-900" : ""} bg-amber-50 shadow-lg ${
+          className={`relative ${!props.noBorder ? "border-2 border-double" : ""} bg-card shadow-lg ${
             props.padding === undefined || props.padding ? "p-3" : ""
-          }`}
+          } text-card-foreground`}
         >
           {props.children}
         </div>

@@ -40,7 +40,7 @@ import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import { secondsFromDate } from "@/utils/time";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";

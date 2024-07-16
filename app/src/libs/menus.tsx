@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
-import { Atom, Bug, User, Store, Globe2, BookOpenText, Users } from "lucide-react";
+import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
@@ -21,7 +21,7 @@ export interface NavBarDropdownLink {
 /**
  * Get main navbar links
  */
-export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
+export const getMainNavbarLinks = () => {
   const links: NavBarDropdownLink[] = [
     {
       href: "/news",
@@ -49,14 +49,6 @@ export const getMainNavbarLinks = (isSignedIn: boolean | undefined) => {
       icon: <Paintbrush className="h-6 w-6" />,
     },
   ];
-  // Add login or logout button
-  if (!isSignedIn) {
-    links.push({
-      href: "/login",
-      name: "Login",
-      icon: <User className="h-6 w-6" />,
-    });
-  }
   return links;
 };
 
@@ -142,20 +134,10 @@ export const useGameMenu = (userData: UserWithRelations) => {
 
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
-      // Village link for small screens
-      systems.push({
-        href: "/village",
-        name: "Village",
-        requireAwake: false,
-        className: "block md:hidden",
-        icon: <Store key="village" className="h-6 w-6" />,
-      });
-      // Location display for later screens
       location = {
         href: "/village",
         name: "Village",
         requireAwake: true,
-        className: "lg:hidden",
         icon: (
           <div>
             <Image

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { FlaskConical, Scissors } from "lucide-react";
 import Confirm from "@/layout/Confirm";

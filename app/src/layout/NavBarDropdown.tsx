@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { ShieldAlert, ShieldCheck, Info } from "lucide-react";
 import type { NavBarDropdownLink } from "@/libs/menus";
+// TODO: Deprecated once old layout & pages router out
 
 interface NavBarDropdownProps {
   icon: React.ReactNode;
@@ -22,7 +23,7 @@ const NavBarDropdown: React.FC<NavBarDropdownProps> = (props) => {
           className={`dropdown-menu origin-top-${props.position} -translate-y-2 scale-95 transform transition-all duration-300`}
         >
           <div
-            className={`absolute ${props.position}-0 mt-2 w-56 origin-top-${props.position} divide-y divide-gray-100 rounded-md border border-gray-200 bg-white shadow-lg outline-none`}
+            className={`absolute ${props.position}-0 mt-2 w-56 origin-top-${props.position} divide-y divide-gray-100 rounded-md border border-gray-200 bg-white shadow-2xl outline-none`}
           >
             {props.topElementLink ? (
               <Link href={props.topElementLink} onClick={() => setOpen(false)}>

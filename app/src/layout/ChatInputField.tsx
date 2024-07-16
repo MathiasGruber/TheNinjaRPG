@@ -1,5 +1,4 @@
 import { z } from "zod";
-import Image from "next/image";
 import {
   Form,
   FormControl,
@@ -7,6 +6,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { SiOpenai } from "@icons-pack/react-simple-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ const ChatInputField: React.FC<ChatInputFieldProps> = ({ inputProps, onChat }) =
             className="bg-green-600 absolute top-0 right-0"
             type="submit"
           >
-            <Image alt="OpenAI Logo" src="/images/openai.webp" width={20} height={20} />
+            <SiOpenai className="text-white" size={18} />
           </Button>
         </form>
       </Form>

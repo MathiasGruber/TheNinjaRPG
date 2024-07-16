@@ -29,33 +29,31 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
 
   // Render
   return (
-    <>
-      <div
-        className={`border-b border-gray-700 text-center ${fontSize} font-medium text-gray-400 flex flex-row items-end`}
-      >
-        <ul className="-mb-px flex flex-wrap">
-          {options.map((option) => (
-            <li className="mr-2" key={option}>
-              <a
-                href="#"
-                className={
-                  option === current
-                    ? "active inline-block rounded-t-lg border-b-2 border-blue-600 pb-4 pt-2 pl-4 pr-4 text-blue-600"
-                    : "inline-block rounded-t-lg border-b-2 border-transparent pb-4 pt-2 pl-4 pr-4 hover:border-gray-300 hover:text-gray-600"
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  setValue(option);
-                  if (id) localStorage.setItem(id, option);
-                }}
-              >
-                {option}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </>
+    <div
+      className={`text-center ${fontSize} font-medium text-primary-foreground flex flex-row justify-center`}
+    >
+      <ul className="-mb-px flex flex-row">
+        {options.map((option) => (
+          <li className="mr-2" key={option}>
+            <a
+              href="#"
+              className={
+                option === current
+                  ? "active inline-block rounded-t-lg border-b-2 border-primary-foreground/50 pb-2 pt-2 pl-2 pr-2 text-primary-foreground/50"
+                  : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-2 pr-2 hover:border-gray-300 hover:text-gray-600"
+              }
+              onClick={(e) => {
+                e.preventDefault();
+                setValue(option);
+                if (id) localStorage.setItem(id, option);
+              }}
+            >
+              {option}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 

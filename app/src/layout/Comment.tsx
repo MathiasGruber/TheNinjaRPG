@@ -149,7 +149,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
             {isAuthor && props.editComment && (
               <SquarePen
                 className={`h-6 w-6 ${
-                  props.editing ? "fill-orange-500" : "hover:fill-orange-500"
+                  props.editing ? "fill-orange-500" : "hover:text-orange-500"
                 }`}
                 onClick={() => props.setEditing((prev) => !prev)}
               />
@@ -159,7 +159,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                 user={props.user}
                 content={props.comment}
                 system={props.system}
-                button={<Flag className="h-6 w-6 hover:fill-orange-500" />}
+                button={<Flag className="h-6 w-6 hover:text-orange-500" />}
               />
             )}
             {userData &&
@@ -167,7 +167,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
               props.deleteComment && (
                 <Confirm
                   title="Confirm Deletion"
-                  button={<Trash2 className="h-6 w-6 hover:fill-orange-500" />}
+                  button={<Trash2 className="h-6 w-6 hover:text-orange-500" />}
                   onAccept={(e) => {
                     e.preventDefault();
                     props.deleteComment &&

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -8,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { SquarePen, MessagesSquare } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
+import type { InfiniteThreads } from "@/routers/forum";
 
 interface FancyForumThreadsProps {
   board_name: string;
+  initialData: Awaited<InfiniteThreads>;
   image?: string;
   canPost?: boolean;
 }
@@ -25,12 +29,15 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
   } = api.forum.getThreads.useInfiniteQuery(
     { limit: 10, board_name: props.board_name },
     {
+      initialData: () => ({ pages: [props.initialData], pageParams: [null] }),
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
       staleTime: Infinity,
     },
   );
-  const allThreads = threads?.pages.map((page) => page.data).flat();
+  const allThreads = threads?.pages.map((page) => page.threads).flat();
   const board = threads?.pages[0]?.board;
 
   useInfinitePagination({
@@ -75,11 +82,11 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
             <div
               key={i}
               ref={i === allThreads.length - 1 ? setLastElement : null}
-              className={`border-2 border-amber-700 rounded-md p-3 m-2 bg-orange-100`}
+              className={`border-2 rounded-md p-3 m-2 bg-popover`}
             >
               <div>
                 <h2 className="font-bold">{thread.title}</h2>
-                <p className="italic font-bold  pb-1">
+                <p className="italic font-bold  pb-1" suppressHydrationWarning>
                   By {thread.user.username} on {thread.createdAt.toLocaleDateString()}
                 </p>
               </div>

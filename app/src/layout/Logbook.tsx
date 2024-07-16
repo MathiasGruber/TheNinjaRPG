@@ -311,7 +311,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               <Confirm
                 title="Confirm deleting quest"
                 button={
-                  <X className="ml-2 h-6 w-6 hover:fill-orange-500 cursor-pointer" />
+                  <X className="ml-2 h-6 w-6 hover:text-orange-500 cursor-pointer" />
                 }
                 onAccept={(e) => {
                   e.preventDefault();

@@ -10,7 +10,7 @@ import { api } from "@/utils/api";
 import { availableLetterRanks } from "@/libs/train";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 
 const MissionHall: NextPage = () => {
