@@ -43,7 +43,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
       {hasReward(parsed) &&
         (canCollect && userData?.status === "AWAKE" ? (
           <Gift
-            className="h-7 w-7 cursor-pointer hover:fill-orange-500"
+            className="h-7 w-7 cursor-pointer hover:text-orange-500"
             onClick={checkRewards}
           />
         ) : (

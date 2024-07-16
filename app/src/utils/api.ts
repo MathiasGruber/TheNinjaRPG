@@ -3,6 +3,7 @@
  * contains the Next.js App-wrapper, as well as your type-safe React Query hooks.
  *
  * We also create a few inference helpers for input and output types.
+ * TODO: DEPRECATED once we are done with pages router
  */
 
 import { TRPCClientError, httpBatchLink, loggerLink } from "@trpc/client";

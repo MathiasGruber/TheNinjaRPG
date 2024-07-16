@@ -1,3 +1,5 @@
+"use client";
+
 import { capUserStats } from "@/libs/profile";
 import React from "react";
 import {

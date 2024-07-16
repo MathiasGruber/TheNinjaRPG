@@ -32,10 +32,10 @@ export interface PostProps {
 }
 
 const Post: React.FC<PostProps> = (props) => {
-  let userColor = "text-gray-900";
+  let userColor = "text-popover-foreground";
   let userRole = "bg-slate-300";
-  let color = "bg-orange-50";
-  let hover = "hover:bg-orange-100";
+  let color = "bg-popover";
+  let hover = "hover:bg-poppopover";
 
   switch (props.color) {
     case "green":
@@ -165,12 +165,12 @@ const Post: React.FC<PostProps> = (props) => {
       <div className="grow basis-1/2">
         <div className="flex flex-col h-full justify-center">
           {props.title && (
-            <h3 className="text-2xl font-bold tracking-tight text-gray-900 basis-1/5">
+            <h3 className="text-2xl font-bold tracking-tight text-popover-foreground basis-1/5">
               {props.title}
             </h3>
           )}
           {UsernameBlock}
-          <div className="relative font-normal text-gray-900 basis-3/4 ">
+          <div className="relative font-normal text-popover-foreground basis-3/4 ">
             {props.children}
           </div>
         </div>

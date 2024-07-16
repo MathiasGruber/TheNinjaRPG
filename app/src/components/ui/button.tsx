@@ -1,4 +1,5 @@
 import * as React from "react";
+import Image from "next/image";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -9,12 +10,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground shadow hover:bg-primary/70",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         info: "bg-blue-600 text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-white shadow-sm hover:bg-slate-100 hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
@@ -38,17 +39,41 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  decoration?: "gold" | "none";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    { className, variant, size, asChild = false, decoration = "none", ...props },
+    ref,
+  ) => {
     const Comp = asChild ? Slot : "button";
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
+      <div className={cn("relative", className)}>
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        />
+        {decoration === "gold" && (
+          <>
+            <Image
+              className="absolute top-[-1px] left-[-3px] scale-x-[-1]"
+              src={`/layout/buttondecor.webp`}
+              alt="signup-decor-left"
+              width={8}
+              height={25}
+            ></Image>
+            <Image
+              className="absolute top-[-1px] right-[-3px]"
+              src={`/layout/buttondecor.webp`}
+              alt="signup-decor-right"
+              width={8}
+              height={25}
+            ></Image>
+          </>
+        )}
+      </div>
     );
   },
 );

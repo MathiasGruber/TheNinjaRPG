@@ -16,7 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import { SendHorizontal, DoorOpen, FilePenLine } from "lucide-react";
 import { Trash2, ArrowBigUpDash } from "lucide-react";
 import {

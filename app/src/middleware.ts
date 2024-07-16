@@ -1,31 +1,34 @@
-import { authMiddleware } from "@clerk/nextjs";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default authMiddleware({
-  debug: false,
-  clockSkewInMs: 1000 * 60 * 30,
-  publicRoutes: [
-    "/",
-    "/manual(.*)",
-    "/forum(.*)",
-    "/github",
-    "/help",
-    "/rules",
-    "/news",
-    "/conceptart(.*)",
-    "/login(.*)",
-    "/api/trpc/(.*)",
-    "/api/uploadthing",
-  ],
-  ignoredRoutes: [
-    "/api/cleaner",
-    "/api/og",
-    "/api/healthcheck",
-    "/api/daily",
-    "/api/cpaLead",
-    "/api/subscriptions",
-    "/api/ipn",
-  ],
-});
+const isPublicRoute = createRouteMatcher([
+  "/(.*)",
+  "/api/cleaner",
+  "/api/cpaLead",
+  "/api/daily",
+  "/api/healthcheck",
+  "/api/ipn",
+  "/api/og",
+  "/api/subscriptions",
+  "/api/trpc/(.*)",
+  "/api/uploadthing",
+  "/conceptart(.*)",
+  "/forum(.*)",
+  "/github",
+  "/help",
+  "/login(.*)",
+  "/manual(.*)",
+  "/news",
+  "/rules",
+]);
+
+export default clerkMiddleware(
+  (auth, request) => {
+    if (!isPublicRoute(request)) {
+      auth().protect();
+    }
+  },
+  { clockSkewInMs: 1000 * 60 * 30 },
+);
 
 export const config = {
   matcher: [

@@ -111,16 +111,21 @@ export const drawSector = (
     origin: { x: -hexsize, y: -hexsize },
     orientation: Orientation.FLAT,
   });
-  const honeycombGrid = new Grid(
-    Tile,
-    rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT }),
-  ).map((tile) => {
-    const nx = tile.col / SECTOR_WIDTH - 0.5;
-    const ny = tile.row / SECTOR_HEIGHT - 0.5;
-    tile.level = noiseGen(nx, ny) / 2 + 0.5;
-    tile.cost = 1;
-    return tile;
-  });
+  const grid = new Grid(Tile, rectangle({ width: SECTOR_WIDTH, height: SECTOR_HEIGHT }))
+    .filter((tile) => {
+      try {
+        return tile.width !== 0;
+      } catch (e) {
+        return false;
+      }
+    })
+    .map((tile) => {
+      const nx = tile.col / SECTOR_WIDTH - 0.5;
+      const ny = tile.row / SECTOR_HEIGHT - 0.5;
+      tile.level = noiseGen(nx, ny) / 2 + 0.5;
+      tile.cost = 1;
+      return tile;
+    });
 
   // Groups for organizing objects
   const group_tiles = new Group();
@@ -134,7 +139,7 @@ export const drawSector = (
   const lineMaterial = new LineBasicMaterial({ color: 0x555555 });
 
   // Draw the tiles
-  honeycombGrid.forEach((tile) => {
+  grid.forEach((tile) => {
     if (tile) {
       const { material, sprites, asset } = getTileInfo(prng, tile, globalTile);
       tile.asset = asset;
@@ -174,7 +179,7 @@ export const drawSector = (
   // Reverse the order of objects in the group_assets
   group_assets.children.sort((a, b) => b.position.y - a.position.y);
 
-  return { group_tiles, group_edges, group_assets, honeycombGrid };
+  return { group_tiles, group_edges, group_assets, honeycombGrid: grid };
 };
 
 /**

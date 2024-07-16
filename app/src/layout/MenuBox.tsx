@@ -1,4 +1,5 @@
 import React from "react";
+// TODO: Deprecated once pages router no longer used
 
 interface MenuBoxProps {
   children: React.ReactNode;

@@ -16,7 +16,7 @@ const Accordion: React.FC<AccordionProps> = (props) => {
   return (
     <div
       className={`border-b-2 px-3 py-1 ${
-        active ? "" : "hover:bg-slate-50 hover:cursor-pointer"
+        active ? "" : "hover:bg-popover hover:cursor-pointer"
       }`}
       onClick={() => !active && onClick(active ? "" : title)}
     >

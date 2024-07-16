@@ -20,10 +20,7 @@ export const forumRouter = createTRPCRouter({
   }),
   // The user read the news
   readNews: protectedProcedure.mutation(async ({ ctx }) => {
-    await ctx.drizzle
-      .update(userData)
-      .set({ unreadNews: 0 })
-      .where(eq(userData.userId, ctx.userId));
+    await readNews(ctx.drizzle, ctx.userId);
     return true;
   }),
   // Get board in the system
@@ -37,19 +34,14 @@ export const forumRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const board = await fetchBoard(ctx.drizzle, input.board_id, input.board_name);
-      const { threads, nextCursor } = await getInfiniteThreads(
-        ctx.drizzle,
-        board.id,
-        input.cursor,
-        input.limit,
-        true,
-      );
-      return {
-        data: threads,
-        board: board,
-        nextCursor: nextCursor,
-      };
+      return await getInfiniteThreads({
+        client: ctx.drizzle,
+        boardId: input.board_id,
+        boardName: input.board_name,
+        cursor: input.cursor,
+        limit: input.limit,
+        highlightPinned: true,
+      });
     }),
   createThread: protectedProcedure
     .input(forumBoardSchema)
@@ -150,19 +142,23 @@ export const forumRouter = createTRPCRouter({
     }),
 });
 
-export const getInfiniteThreads = async (
-  client: DrizzleClient,
-  boardId: string,
-  cursor: number | null | undefined,
-  limit: number,
-  highlightPinned?: boolean,
-) => {
+export const getInfiniteThreads = async (props: {
+  client: DrizzleClient;
+  limit: number;
+  highlightPinned?: boolean;
+  cursor?: number | null;
+  boardId?: string;
+  boardName?: string;
+}) => {
+  const { client, boardId, boardName, cursor, limit, highlightPinned } = props;
+  const board = await fetchBoard(client, boardId, boardName);
+  if (!board) throw new Error("Board not found");
   const currentCursor = cursor ? cursor : 0;
   const skip = currentCursor * limit;
   const threads = await client.query.forumThread.findMany({
     offset: skip,
     limit: limit,
-    where: eq(forumThread.boardId, boardId),
+    where: eq(forumThread.boardId, board.id),
     with: {
       user: {
         columns: { username: true },
@@ -177,8 +173,9 @@ export const getInfiniteThreads = async (
       : desc(forumThread.createdAt),
   });
   const nextCursor = threads.length < limit ? null : currentCursor + 1;
-  return { threads, nextCursor };
+  return { board, threads, nextCursor };
 };
+export type InfiniteThreads = ReturnType<typeof getInfiniteThreads>;
 
 export const fetchBoard = async (
   client: DrizzleClient,
@@ -205,4 +202,11 @@ export const fetchThread = async (client: DrizzleClient, threadId: string) => {
     throw new Error("Thread not found");
   }
   return entry;
+};
+
+export const readNews = async (client: DrizzleClient, userId: string) => {
+  await client
+    .update(userData)
+    .set({ unreadNews: 0 })
+    .where(eq(userData.userId, userId));
 };

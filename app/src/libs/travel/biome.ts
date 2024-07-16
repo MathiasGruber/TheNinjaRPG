@@ -93,7 +93,7 @@ export const getMapSprites = (
   // Adjust sprite to tile
   sprites.map((sprite) => {
     const { height: h, width: w } = hex;
-    const { x, y } = hex.center;
+    const { x, y } = hex;
     const posX = -x + w / 2 + (prng() - 0.5) * h * scatterStrength;
     const posY = -y + h / 2 + (prng() - 0.5) * h * scatterStrength;
     Object.assign(sprite.scale, new Vector3(h, h, 1));

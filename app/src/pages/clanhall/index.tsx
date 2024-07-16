@@ -23,7 +23,7 @@ import { ClansOverview, ClanProfile } from "@/layout/Clan";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
 import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 import type { ClanCreateSchema } from "@/validators/clan";
 
 const Clans: NextPage = () => {

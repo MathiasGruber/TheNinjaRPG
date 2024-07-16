@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableLetterRanks } from "@/libs/train";
-import { useRequireInVillage } from "@/utils/village";
+import { useRequireInVillage } from "@/utils/UserContext";
 
 const AdministrationBuilding: NextPage = () => {
   const util = api.useUtils();

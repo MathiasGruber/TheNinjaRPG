@@ -1,3 +1,5 @@
+"use client";
+
 import { useAuth } from "@clerk/nextjs";
 import ReactHtmlParser from "react-html-parser";
 import Link from "next/link";
@@ -21,7 +23,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/validators/reports";
 import { useUserData } from "@/utils/UserContext";
-import { useUserEditForm } from "@/libs/profile";
+import { useUserEditForm } from "@/hooks/profile";
 import type { UpdateUserSchema } from "@/validators/user";
 
 interface PublicUserComponentProps {
@@ -134,7 +136,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="flex flex-row gap-1">
             {userData?.username === "Terriator" && (
               <CopyCheck
-                className="h-6 w-6 cursor-pointer hover:fill-orange-500"
+                className="h-6 w-6 cursor-pointer hover:text-orange-500"
                 onClick={() => cloneUser.mutate({ userId: profile.userId })}
               />
             )}
@@ -150,7 +152,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   "General user behavior, justification must be provided in comments",
               }}
               system="user_profile"
-              button={<Flag className="h-6 w-6 cursor-pointer hover:fill-orange-500" />}
+              button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
             />
           </div>
         }
@@ -346,7 +348,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   title="Clear User Nindo"
                   proceed_label="Done"
                   button={
-                    <Trash2 className="h-6 w-6 cursor-pointer hover:fill-orange-500" />
+                    <Trash2 className="h-6 w-6 cursor-pointer hover:text-orange-500" />
                   }
                   onAccept={() => clearNindo.mutate({ userId: profile.userId })}
                 >
@@ -356,7 +358,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             </div>
           }
         >
-          <div className="overflow-x-scroll">
+          <div className="relative overflow-x-scroll">
             {ReactHtmlParser(profile.nindo.content)}
           </div>
         </ContentBox>
@@ -433,7 +435,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
     <Confirm
       title="Update User Data"
       proceed_label="Done"
-      button={<Settings className="h-6 w-6 cursor-pointer hover:fill-orange-500" />}
+      button={<Settings className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
     >
       <EditContent
         schema={updateUserSchema}

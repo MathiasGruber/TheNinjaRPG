@@ -15,6 +15,7 @@ const Loader: React.FC<LoaderProps> = (props) => {
         src="/images/star_loader.gif"
         width={props.size ?? 30}
         height={props.size ?? 30}
+        unoptimized
       />
       <div>{props.explanation}</div>
     </div>

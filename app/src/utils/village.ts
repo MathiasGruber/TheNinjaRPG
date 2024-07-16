@@ -1,55 +1,7 @@
-import { useEffect, useState } from "react";
-import { useSafePush } from "./routing";
-import { useRequiredUserData } from "./UserContext";
-import { calcIsInVillage } from "@/libs/travel/controls";
-import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/routers/profile";
 import type { Village, VillageStructure, VillageAlliance } from "@/drizzle/schema";
 import type { StructureRoute } from "@/drizzle/seeds/village";
-
-/**
- * A hook which requires the user to be in their village,
- * otherwise redirect to the profile page. Can optionally be
- * narrowed further to a specific structure in the village
- */
-export const useRequireInVillage = (structureRoute?: StructureRoute) => {
-  // Access state
-  const [access, setAccess] = useState<boolean>(false);
-  // Get user information
-  const { data: userData, timeDiff } = useRequiredUserData();
-  // Get sector information based on user data
-  const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
-    { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
-    { enabled: !!userData?.sector, staleTime: Infinity },
-  );
-  const ownVillage = userData?.village?.sector === sectorVillage?.sector;
-  const router = useSafePush();
-  useEffect(() => {
-    if (userData && sectorVillage && !isPending) {
-      if (!userData.isOutlaw) {
-        // Check structure access
-        const access = canAccessStructure(userData, structureRoute, sectorVillage);
-        // If not in village or village not exist
-        const inVillage =
-          calcIsInVillage({
-            x: userData.longitude,
-            y: userData.latitude,
-          }) || sectorVillage.type === "SAFEZONE";
-        // Redirect user
-        if (!inVillage || !sectorVillage || !access) {
-          console.log(inVillage, sectorVillage, access);
-          void router.push("/");
-        } else {
-          setAccess(true);
-        }
-      } else {
-        setAccess(true);
-      }
-    }
-  }, [userData, sectorVillage, router, isPending, structureRoute, ownVillage]);
-  return { userData, sectorVillage, ownVillage, timeDiff, access };
-};
 
 /**
  * Checks if a user can access a specific structure in a village.

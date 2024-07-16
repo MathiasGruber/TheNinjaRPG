@@ -98,7 +98,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
               >
                 {selectedConvo ? (
                   <X
-                    className="h-6 w-6 hover:fill-orange-500"
+                    className="h-6 w-6 hover:text-orange-500"
                     onClick={() => setSelectedConvo(null)}
                   />
                 ) : (
@@ -148,7 +148,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 </span>
                 <div className="grow"></div>
                 <Trash2
-                  className="mx-2 h-6 w-6 cursor-pointer rounded-full hover:fill-orange-500"
+                  className="mx-2 h-6 w-6 cursor-pointer rounded-full hover:text-orange-500"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

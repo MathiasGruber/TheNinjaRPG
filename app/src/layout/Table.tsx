@@ -1,6 +1,8 @@
+"use client";
+
 import AvatarImage from "@/layout/Avatar";
 import { Button } from "@/components/ui/button";
-import { useSafePush } from "@/utils/routing";
+import { useRouter } from "next/navigation";
 import { secondsPassed } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
@@ -26,12 +28,12 @@ type TableProps<T, K extends keyof T> = {
 
 const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
   const { data, columns } = props;
-  const router = useSafePush();
+  const router = useRouter();
 
   return (
-    <div className="relative overflow-x-auto">
+    <div className="relative flex-1 min-w-0 overflow-x-scroll">
       <table className="w-full text-left text-sm ">
-        <thead className="bg-amber-900 text-xs uppercase text-white">
+        <thead className="bg-primary text-xs uppercase text-white">
           <tr>
             {columns.map((column, i) => (
               <th key={i} scope="col" className="px-6 py-3">
@@ -51,14 +53,14 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
               key={`row-${i}`}
               ref={i === data.length - 1 ? props.setLastElement : null}
               className={`border-b border-gray-700 ${
-                i % 2 == 0 ? "bg-orange-50" : "bg-yellow-50"
-              } ${props.linkColumn ? "cursor-pointer hover:bg-orange-300" : ""}`}
-              onClick={async (e) => {
+                i % 2 == 0 ? "bg-card" : "bg-popover"
+              } ${props.linkColumn ? "cursor-pointer hover:bg-poppopover" : ""}`}
+              onClick={(e) => {
                 e.preventDefault();
                 if (props.linkColumn) {
                   let route = row[props.linkColumn] as string;
                   route = props.linkPrefix ? props.linkPrefix + route : route;
-                  await router.push(route);
+                  router.push(route);
                 }
               }}
             >

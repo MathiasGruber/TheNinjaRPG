@@ -78,3 +78,20 @@ export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
     isStrength = false;
   return isStrength;
 };
+
+export const getPublicUsersSchema = z.object({
+  cursor: z.number().nullish(),
+  limit: z.number().min(1).max(100),
+  isAi: z.boolean().default(false),
+  orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
+  villageId: z.string().optional(),
+  username: z
+    .string()
+    .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
+      message: "Must only contain alphanumeric characters and no spaces",
+    })
+    .optional(),
+  ip: z.string().optional(),
+  recruiterId: z.string().optional(),
+});
+export type GetPublicUsersSchema = z.infer<typeof getPublicUsersSchema>;

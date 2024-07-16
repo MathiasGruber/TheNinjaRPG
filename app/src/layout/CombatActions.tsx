@@ -179,7 +179,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
             <TooltipProvider delayDuration={50}>
               <Tooltip>
                 <TooltipTrigger>
-                  <Info className="h-7 w-7 cursor-pointer hover:fill-orange-500 fill-red-600 text-white" />
+                  <Info className="h-7 w-7 cursor-pointer hover:text-orange-500 fill-red-600 text-white" />
                 </TooltipTrigger>
                 <TooltipContent>{props.warning}</TooltipContent>
               </Tooltip>
