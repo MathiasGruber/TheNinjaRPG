@@ -764,6 +764,13 @@
       "when": 1721228456821,
       "tag": "0108_breezy_the_hunter",
       "breakpoints": false
+    },
+    {
+      "idx": 109,
+      "version": "5",
+      "when": 1721230736720,
+      "tag": "0109_rich_living_lightning",
+      "breakpoints": false
     }
   ]
 }

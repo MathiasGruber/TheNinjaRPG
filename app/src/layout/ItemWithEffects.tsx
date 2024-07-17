@@ -209,6 +209,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Regen</b>: +{item.regenIncrease}
               </p>
             )}
+            {"rank" in item && item.rank && (
+              <p>
+                <b>Rank</b>: {item.rank}
+              </p>
+            )}
             {"village" in item &&
               item.village &&
               typeof item.village === "object" &&

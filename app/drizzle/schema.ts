@@ -187,7 +187,7 @@ export const bloodline = mysqlTable(
     description: text("description").notNull(),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     regenIncrease: int("regenIncrease").default(0).notNull(),
-    village: varchar("village", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).default(sql`NULL`),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -201,7 +201,7 @@ export const bloodline = mysqlTable(
     return {
       nameKey: uniqueIndex("Bloodline_name_key").on(table.name),
       imageKey: uniqueIndex("Bloodline_image_key").on(table.image),
-      villageIdx: index("Bloodline_village_idx").on(table.village),
+      villageIdx: index("Bloodline_village_idx").on(table.villageId),
       rankIdx: index("Bloodline_rank_idx").on(table.rank),
     };
   },

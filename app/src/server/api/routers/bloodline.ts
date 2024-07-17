@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, gte, and, inArray, isNotNull } from "drizzle-orm";
+import { eq, or, sql, gte, and, inArray, isNull, isNotNull } from "drizzle-orm";
 import { LetterRanks } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
@@ -86,7 +86,6 @@ export const bloodlineRouter = createTRPCRouter({
         image: DEFAULT_IMAGE,
         description: "New bloodline description",
         effects: [],
-        village: "All",
         rank: "D",
         hidden: 1,
       });
@@ -166,7 +165,10 @@ export const bloodlineRouter = createTRPCRouter({
     }),
   // Roll a bloodline
   roll: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
-    const prevRoll = await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
+    const [user, prevRoll] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      fetchBloodlineRoll(ctx.drizzle, ctx.userId),
+    ]);
     if (prevRoll) {
       throw serverError("PRECONDITION_FAILED", "You have already rolled a bloodline");
     }
@@ -187,7 +189,14 @@ export const bloodlineRouter = createTRPCRouter({
     if (bloodlineRank) {
       const randomBloodline = getRandomElement(
         await ctx.drizzle.query.bloodline.findMany({
-          where: and(eq(bloodline.rank, bloodlineRank), eq(bloodline.hidden, 0)),
+          where: and(
+            eq(bloodline.rank, bloodlineRank),
+            eq(bloodline.hidden, 0),
+            or(
+              eq(bloodline.villageId, user.villageId ?? ""),
+              isNull(bloodline.villageId),
+            ),
+          ),
         }),
       );
       if (randomBloodline) {
