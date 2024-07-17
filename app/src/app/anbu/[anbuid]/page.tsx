@@ -144,13 +144,13 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
   const { mutate: leave } = api.anbu.leaveSquad.useMutation({
     onSuccess: async (data) => {
       await onSuccess(data);
-      await router.push("/anbu");
+      router.push("/anbu");
     },
   });
   const { mutate: disband } = api.anbu.disbandSquad.useMutation({
     onSuccess: async (data) => {
       await onSuccess(data);
-      await router.push("/anbu");
+      router.push("/anbu");
     },
   });
 

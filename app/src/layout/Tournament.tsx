@@ -85,7 +85,7 @@ const Tournament: React.FC<TournamentProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         await utils.tournament.getTournament.invalidate();
-        await router.push("/combat");
+        router.push("/combat");
       },
     });
 

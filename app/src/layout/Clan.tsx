@@ -267,7 +267,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         if (data.success) {
           await utils.profile.getUser.invalidate();
           await utils.clan.getClanBattles.invalidate();
-          await router.push("/combat");
+          router.push("/combat");
         }
       },
     });
@@ -581,7 +581,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
         await utils.profile.getUser.invalidate();
         await utils.clan.get.invalidate();
         await utils.clan.getRequests.invalidate();
-        await router.push("/clanhall");
+        router.push("/clanhall");
       }
     },
   });
@@ -603,7 +603,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
         await utils.profile.getUser.invalidate();
         await utils.clan.get.invalidate();
         await utils.clan.getRequests.invalidate();
-        await router.push("/combat");
+        router.push("/combat");
       }
     },
   });
