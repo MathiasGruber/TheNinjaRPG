@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import ReactHtmlParser from "react-html-parser";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
@@ -37,7 +36,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
   const { data: userData, timeDiff } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const router = useRouter();
+
   const report_id = params.reportid;
 
   const { data: report } = api.reports.get.useQuery(

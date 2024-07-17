@@ -14,7 +14,6 @@ import {
   Sprite,
 } from "three";
 import { loadTexture, createTexture } from "@/libs/threejs/util";
-import { Grid } from "honeycomb-grid";
 import { getPossibleActionTiles, findHex } from "../hexgrid";
 import { Animations } from "./types";
 import { COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
@@ -23,6 +22,7 @@ import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { getBattleGrid } from "@/libs/combat/util";
+import type { Grid } from "honeycomb-grid";
 import type { Scene, Object3D, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, UserEffect, BarrierTagType } from "./types";

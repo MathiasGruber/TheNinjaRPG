@@ -8,13 +8,11 @@ import {
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
 import { desc } from "drizzle-orm";
-import { Grid, rectangle, Orientation } from "honeycomb-grid";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
 import { RANKS_RESTRICTED_FROM_PVP, AutoBattleTypes } from "@/drizzle/constants";
 import { secondsFromDate, secondsFromNow } from "@/utils/time";
-import { defineHex } from "@/libs/hexgrid";
 import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
