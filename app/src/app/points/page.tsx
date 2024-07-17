@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import Table from "@/layout/Table";
 import SliderField from "@/layout/SliderField";
 import Confirm from "@/layout/Confirm";
@@ -9,8 +8,6 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
-import Post from "@/layout/Post";
-import ReactCountryFlag from "react-country-flag";
 import BanInfo from "@/layout/BanInfo";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
@@ -52,7 +49,6 @@ import {
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import type { z } from "zod";
-import type { NextPage } from "next";
 import type { BuyRepsSchema } from "@/validators/points";
 import type { SearchPaypalSchema } from "@/validators/points";
 import type { ArrayElement } from "@/utils/typeutils";
