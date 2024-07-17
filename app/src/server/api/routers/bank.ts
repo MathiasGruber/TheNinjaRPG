@@ -15,8 +15,10 @@ export const bankRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Derived
       const raw = input.amount;
-      const value = user.bank + raw > RYO_CAP ? RYO_CAP - user.bank : raw;
+      const overCap = user.bank + raw > RYO_CAP;
+      const value = overCap ? RYO_CAP - user.bank : raw;
       // Guard
+      if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.money < value) return errorResponse("Not enough money in pocket");
       if (user.isBanned) return errorResponse("You are banned");
       // Update
@@ -40,8 +42,10 @@ export const bankRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Derived
       const raw = input.amount;
-      const value = user.money + raw > RYO_CAP ? RYO_CAP - user.money : raw;
+      const overCap = user.money + raw > RYO_CAP;
+      const value = overCap ? RYO_CAP - user.money : raw;
       // Guard
+      if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
       // Update
@@ -68,8 +72,10 @@ export const bankRouter = createTRPCRouter({
       ]);
       // Derived
       const raw = input.amount;
-      const value = target.bank + raw > RYO_CAP ? RYO_CAP - target.bank : raw;
+      const overCap = target.bank + raw > RYO_CAP;
+      const value = overCap ? RYO_CAP - target.bank : raw;
       // Guard
+      if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
       // Update
