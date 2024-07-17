@@ -47,7 +47,9 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
     <>
       <div
         className={`grid gap-1 grid-cols-6 md:grid-cols-8 text-xs ${
-          props.showBgColor ? "border-b-2 border-l-2 border-r-2 bg-slate-50" : ""
+          props.showBgColor
+            ? "border-b-2 border-l-2 border-r-2 bg-slate-50 text-black"
+            : ""
         }`}
       >
         {filtered?.map((item, i) => {
@@ -170,7 +172,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           onClick={props.onClick}
         />
         {props.count !== undefined && (props.labelSingles || props.count > 1) && (
-          <div className="absolute bottom-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-amber-300 bg-slate-300 text-base font-bold text-amber-600">
+          <div className="absolute bottom-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-amber-300 bg-slate-300 text-black text-base font-bold">
             {props.count}
           </div>
         )}

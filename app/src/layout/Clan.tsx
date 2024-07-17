@@ -26,7 +26,7 @@ import Tournament from "@/layout/Tournament";
 import { ObjectiveReward } from "@/validators/objectives";
 import { mutateContentSchema } from "@/validators/comments";
 import { api } from "@/utils/api";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";

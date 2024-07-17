@@ -14,14 +14,15 @@ import {
   Sprite,
 } from "three";
 import { loadTexture, createTexture } from "@/libs/threejs/util";
-import { Orientation, Grid, rectangle } from "honeycomb-grid";
-import { getPossibleActionTiles, findHex, defineHex } from "../hexgrid";
+import { Grid } from "honeycomb-grid";
+import { getPossibleActionTiles, findHex } from "../hexgrid";
 import { Animations } from "./types";
-import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
+import { COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
 import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
+import { getBattleGrid } from "@/libs/combat/util";
 import type { Scene, Object3D, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
 import type { GroundEffect, UserEffect, BarrierTagType } from "./types";
@@ -90,17 +91,9 @@ export const drawCombatBackground = (
   const group_edges = new Group();
 
   // Create the grid first
-  const Tile = defineHex({
-    dimensions: hexsize,
-    origin: { x: -hexsize - leftPadding, y: -hexsize - bottomPadding },
-    orientation: Orientation.FLAT,
-  });
-  const honeycombGrid = new Grid(
-    Tile,
-    rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT }),
-  ).map((tile) => {
-    tile.cost = 1;
-    return tile;
+  const honeycombGrid = getBattleGrid(hexsize, {
+    x: -hexsize - leftPadding,
+    y: -hexsize - bottomPadding,
   });
 
   // Hex points

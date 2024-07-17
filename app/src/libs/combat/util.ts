@@ -6,7 +6,6 @@ import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
-import { COMBAT_SECONDS } from "./constants";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/utils/kage";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
@@ -16,6 +15,9 @@ import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import { canTrainJutsu } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
+import { Orientation, Grid, rectangle } from "honeycomb-grid";
+import { defineHex } from "../hexgrid";
+import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -26,6 +28,30 @@ import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types
 import type { Battle, VillageAlliance, Village } from "@/drizzle/schema";
 import type { Item, UserItem } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+
+/**
+ * Retrieves the battle grid.
+ */
+export const getBattleGrid = (hexsize: number, origin?: { x: number; y: number }) => {
+  const Tile = defineHex({
+    dimensions: hexsize,
+    origin,
+    orientation: Orientation.FLAT,
+  });
+  const grid = new Grid(Tile, rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT }))
+    .filter((tile) => {
+      try {
+        return tile.width !== 0;
+      } catch (e) {
+        return false;
+      }
+    })
+    .map((tile) => {
+      tile.cost = 1;
+      return tile;
+    });
+  return grid;
+};
 
 /**
  * Finds a user in the battle state based on location

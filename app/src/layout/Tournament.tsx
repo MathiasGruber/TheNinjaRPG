@@ -14,7 +14,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { UserRoundPlus, Swords, Medal, ShieldBan, Eye } from "lucide-react";
 import { groupBy } from "@/utils/grouping";
 import { UploadButton } from "@/utils/uploadthing";
