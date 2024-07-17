@@ -30,7 +30,7 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
   // Render
   return (
     <div
-      className={`text-center ${fontSize} font-medium text-primary-foreground flex flex-row justify-center`}
+      className={`text-center ${fontSize} font-medium text-foreground flex flex-row justify-center`}
     >
       <ul className="-mb-px flex flex-row">
         {options.map((option) => (
@@ -39,7 +39,7 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
               href="#"
               className={
                 option === current
-                  ? "active inline-block rounded-t-lg border-b-2 border-primary-foreground/50 pb-2 pt-2 pl-2 pr-2 text-primary-foreground/50"
+                  ? "active inline-block rounded-t-lg border-b-2 border-foreground/50 pb-2 pt-2 pl-2 pr-2 text-foreground/50"
                   : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-2 pr-2 hover:border-gray-300 hover:text-gray-600"
               }
               onClick={(e) => {
