@@ -10,6 +10,7 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { upsertQuestEntries } from "@/routers/quests";
 import { structureBoost } from "@/utils/village";
+import { RYO_CAP } from "@/drizzle/constants";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
@@ -39,6 +40,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "NONE"),
+                lt(userData.bank, RYO_CAP),
               ),
             ),
           drizzleDB
@@ -50,6 +52,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "NORMAL"),
+                lt(userData.bank, RYO_CAP),
               ),
             ),
           drizzleDB
@@ -61,6 +64,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "SILVER"),
+                lt(userData.bank, RYO_CAP),
               ),
             ),
           drizzleDB
@@ -72,6 +76,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "GOLD"),
+                lt(userData.bank, RYO_CAP),
               ),
             ),
         ]);
