@@ -12,7 +12,7 @@ export default async function News() {
   const [initialNews, userData] = await Promise.all([
     getInfiniteThreads({
       client: drizzleDB,
-      boardName: "ANBU HQ",
+      boardName: "News",
       limit: 10,
     }),
     ...(user ? [fetchUser(drizzleDB, user.id)] : []),
