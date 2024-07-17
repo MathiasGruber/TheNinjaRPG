@@ -161,6 +161,7 @@ export default function Hospital() {
           <div className="grid grid-cols-2 py-3 gap-2">
             <Button
               id="check"
+              className="w-full"
               disabled={healFinishAt && healFinishAt > new Date()}
               onClick={() => heal({ villageId: userData.villageId })}
             >
@@ -169,6 +170,7 @@ export default function Hospital() {
             </Button>
             <Button
               id="check"
+              className="w-full"
               color={canAfford ? "default" : "red"}
               disabled={healFinishAt && healFinishAt <= new Date()}
               onClick={() => heal({ villageId: userData.villageId })}

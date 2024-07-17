@@ -12,7 +12,7 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
-import { TransactionHistory } from "src/pages/points";
+import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
 import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";

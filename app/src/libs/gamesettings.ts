@@ -53,21 +53,18 @@ export const updateGameSetting = async (
  * @param hours - The number of hours for the game timer.
  * @returns A JSON response indicating the time left before the game can be run again.
  */
-export const checkGameTimer = async (res: NextApiResponse, hours: number) => {
+export const checkGameTimer = async (hours: number) => {
   const timer = await getGameSetting(drizzleDB, `timer-${hours}h`);
   const deltaTime = 1000 * 60 * 60 * hours * 0.99;
   if (timer.time > new Date(Date.now() - deltaTime)) {
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(
       timer.time.getTime() + deltaTime - Date.now(),
     );
-    res
-      .status(200)
-      .json(
-        `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
-      );
-    return false;
+    return Response.json(
+      `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
+    );
   }
-  return true;
+  return false;
 };
 
 /**

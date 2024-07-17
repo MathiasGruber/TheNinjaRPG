@@ -46,6 +46,7 @@ import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
+import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
@@ -182,14 +183,7 @@ export const combatRouter = createTRPCRouter({
       const db = ctx.drizzle;
 
       // Create the grid for the battle
-      const Tile = defineHex({ dimensions: 1, orientation: Orientation.FLAT });
-      const grid = new Grid(
-        Tile,
-        rectangle({ width: COMBAT_WIDTH, height: COMBAT_HEIGHT }),
-      ).map((tile) => {
-        tile.cost = 1;
-        return tile;
-      });
+      const grid = getBattleGrid(1);
 
       // OUTER LOOP: Attempt to perform action untill success || error thrown
       // The primary purpose here is that if the battle version was already updated, we retry the user's action
