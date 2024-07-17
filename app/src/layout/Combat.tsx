@@ -197,7 +197,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       if (suid && battle.current && userId.current && !isPendingUser && !result) {
         const { actor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
-        if (actor.isAi) {
+        if (actor.isAi && !isPendingUser) {
           performAction({
             battleId: battle.current.id,
             version: battle.current.version,
@@ -571,7 +571,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             <div className="p-5 flex flex-row justify-center gap-2">
               <Link
                 href={toHospital ? "/hospital" : "/profile"}
-                className={showNextMatch ? "basis-1/2" : "basis-1/1"}
+                className={`${showNextMatch ? "basis-1/2" : "basis-1/1"} w-full`}
               >
                 <Button id="return" className="w-full">
                   Return to {toHospital ? "Hospital" : "Profile"}
@@ -580,7 +580,7 @@ const Combat: React.FC<CombatProps> = (props) => {
               {showNextMatch && arenaOpponentId && (
                 <Button
                   id="return"
-                  className="basis-1/2"
+                  className="basis-1/2 w-full"
                   onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
                 >
                   Go Again
