@@ -6,7 +6,9 @@ import { GoogleTagManager } from "@next/third-parties/google";
 import { UserContextProvider } from "@/utils/UserContext";
 import { Toaster } from "@/components/ui/toaster";
 import { env } from "@/env/client.mjs";
-
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
+import { extractRouterConfig } from "uploadthing/server";
+import { ourFileRouter } from "@/app/api/uploadthing/core";
 import TrpcClientProvider from "@/app/_trpc/Provider";
 import LayoutCore4 from "@/components/layout/core4_default";
 import type { Viewport, Metadata } from "next";
@@ -18,6 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <NextSSRPlugin
+          /** https://docs.uploadthing.com/getting-started/appdir */
+          routerConfig={extractRouterConfig(ourFileRouter)}
+        />
         <ClerkProvider
           appearance={{
             variables: {

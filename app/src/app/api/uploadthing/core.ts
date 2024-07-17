@@ -1,10 +1,10 @@
-import { createUploadthing } from "uploadthing/next-legacy";
+import { currentUser } from "@clerk/nextjs/server";
+import { createUploadthing } from "uploadthing/next";
 import { eq, sql, gt, and, isNotNull } from "drizzle-orm";
 import { historicalAvatar, userData } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
 import { getUserFederalStatus } from "@/utils/paypal";
-import type { FileRouter } from "uploadthing/next-legacy";
-import type { NextApiRequest } from "next";
+import type { FileRouter } from "uploadthing/next";
 import type { FederalStatuses } from "@/drizzle/constants";
 
 const f = createUploadthing({
@@ -19,40 +19,40 @@ const f = createUploadthing({
 
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req))
+    .middleware(async () => await avatarMiddleware())
     .onUploadComplete(({ file }) => {
       return { fileUrl: file.url };
     }),
   anbuUploader: f({ image: { maxFileSize: "512KB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req))
+    .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "anbu-image", true);
       return { fileUrl: file.url };
     }),
   clanUploader: f({ image: { maxFileSize: "512KB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req))
+    .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "clan-image", true);
       return { fileUrl: file.url };
     }),
   tournamentUploader: f({ image: { maxFileSize: "512KB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req))
+    .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "tournament-image", true);
       return { fileUrl: file.url };
     }),
   avatarNormalUploader: f({ image: { maxFileSize: "512KB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req, "NORMAL"))
+    .middleware(async () => await avatarMiddleware("NORMAL"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
   avatarSilverUploader: f({ image: { maxFileSize: "1MB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req, "SILVER"))
+    .middleware(async () => await avatarMiddleware("SILVER"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
   avatarGoldUploader: f({ image: { maxFileSize: "2MB" } })
-    .middleware(async ({ req }) => await avatarMiddleware(req, "GOLD"))
+    .middleware(async () => await avatarMiddleware("GOLD"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
     }),
@@ -65,18 +65,15 @@ export type OurFileRouter = typeof ourFileRouter;
  * @param req
  * @returns
  */
-const avatarMiddleware = async (
-  req: NextApiRequest,
-  fedRequirement?: (typeof FederalStatuses)[number],
-) => {
-  const { userId } = JSON.parse(req.body as string) as { userId: string };
-  if (!userId) throw new Error("Unauthorized");
+const avatarMiddleware = async (fedRequirement?: (typeof FederalStatuses)[number]) => {
+  const sessionUser = await currentUser();
+  if (!sessionUser) throw new Error("Unauthorized");
   const avatars = await drizzleDB
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(historicalAvatar)
     .where(
       and(
-        eq(historicalAvatar.userId, userId),
+        eq(historicalAvatar.userId, sessionUser.id),
         isNotNull(historicalAvatar.avatar),
         gt(historicalAvatar.createdAt, sql`NOW() - INTERVAL 1 DAY`),
       ),
@@ -86,7 +83,7 @@ const avatarMiddleware = async (
   // Federal check
   if (fedRequirement) {
     const user = await drizzleDB.query.userData.findFirst({
-      where: eq(userData.userId, userId),
+      where: eq(userData.userId, sessionUser.id),
     });
     if (!user) throw new Error("User not found");
     const userstatus = getUserFederalStatus(user);
@@ -94,7 +91,7 @@ const avatarMiddleware = async (
       throw new Error("You must be " + fedRequirement + " to upload this avatar");
     }
   }
-  return { userId: userId };
+  return { userId: sessionUser.id };
 };
 
 /**
