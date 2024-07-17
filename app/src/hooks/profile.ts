@@ -62,6 +62,7 @@ export const useUserEditForm = (
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
     { id: "username", type: "text" },
+    { id: "customTitle", type: "text" },
     { id: "role", type: "str_array", values: UserRoles },
     { id: "rank", type: "str_array", values: UserRanks },
     { id: "bloodlineId", type: "db_values", values: lines, resetButton: true },

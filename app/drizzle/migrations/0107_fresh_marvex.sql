@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` MODIFY COLUMN `customTitle` varchar(191) NOT NULL;
