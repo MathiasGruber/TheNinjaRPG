@@ -7,7 +7,6 @@ import { secondsPassed } from "@/utils/time";
 import { round } from "@/utils/math";
 import type { DrizzleClient } from "@/server/db";
 import type { GameSetting } from "@/drizzle/schema";
-import type { NextApiResponse } from "next";
 
 /**
  * Retrieves the game setting for the specified timer name.
