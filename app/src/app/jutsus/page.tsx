@@ -12,8 +12,17 @@ import { SquareChevronRight, SquareChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
+import {
+  checkJutsuElements,
+  checkJutsuBloodline,
+  checkJutsuVillage,
+  checkJutsuRank,
+  checkJutsuItems,
+  hasRequiredRank,
+} from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { getUserElements } from "@/validators/user";
 import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
@@ -92,16 +101,27 @@ export default function MyJutsu() {
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
+  const userElements = new Set(getUserElements(userData));
   const allJutsu = userJutsus?.map((userjutsu) => {
     let warning = "";
-    if (userjutsu.jutsu.jutsuWeapon !== "NONE") {
-      const equippedItem = userItems?.find(
-        (useritem) =>
-          useritem.item.weaponType === userjutsu.jutsu.jutsuWeapon &&
-          useritem.equipped !== "NONE",
-      );
-      if (!equippedItem) {
+    if (userData) {
+      if (!checkJutsuItems(userjutsu.jutsu, userItems)) {
         warning = `No ${userjutsu.jutsu.jutsuWeapon.toLowerCase()} weapon equipped.`;
+      }
+      if (!checkJutsuElements(userjutsu.jutsu, userElements)) {
+        warning = "You do not have the required elements to use this jutsu.";
+      }
+      if (!hasRequiredRank(userData.rank, userjutsu.jutsu.requiredRank)) {
+        warning = "You do not have the required rank to use this jutsu.";
+      }
+      if (!checkJutsuRank(userjutsu.jutsu.jutsuRank, userData.rank)) {
+        warning = "You do not have the required rank to use this jutsu.";
+      }
+      if (!checkJutsuVillage(userjutsu.jutsu, userData)) {
+        warning = "You do not have the required village to use this jutsu.";
+      }
+      if (!checkJutsuBloodline(userjutsu.jutsu, userData)) {
+        warning = "You do not have the required bloodline to use this jutsu.";
       }
     }
     return {

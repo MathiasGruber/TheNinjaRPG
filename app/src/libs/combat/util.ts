@@ -13,7 +13,7 @@ import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
-import { canTrainJutsu } from "@/libs/train";
+import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
@@ -848,16 +848,10 @@ export const processUsersForBattle = (info: {
         if (!userjutsu.jutsu) {
           return false;
         }
-        // Not if not the right weapon
-        if (userjutsu.jutsu.jutsuWeapon !== "NONE") {
-          const equippedWeapon = user.items.find(
-            (useritem) =>
-              useritem.item.weaponType === userjutsu.jutsu.jutsuWeapon &&
-              useritem.equipped !== "NONE",
-          );
-          if (!equippedWeapon) return false;
-        }
         // Not if cannot train jutsu
+        if (!checkJutsuItems(userjutsu.jutsu, user.items)) {
+          return false;
+        }
         if (!canTrainJutsu(userjutsu.jutsu, user)) {
           return false;
         }
