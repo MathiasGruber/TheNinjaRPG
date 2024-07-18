@@ -240,7 +240,7 @@ export const blackMarketRouter = createTRPCRouter({
         const available = BasicElementName.filter((e) => e !== user.primaryElement);
         user.primaryElement = getRandomElement(available) ?? null;
       }
-      if (rankId >= 2) {
+      if (user.secondaryElement) {
         const available = BasicElementName.filter(
           (e) => ![user.primaryElement, user.secondaryElement].includes(e),
         );

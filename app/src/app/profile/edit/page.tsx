@@ -150,14 +150,14 @@ export default function EditProfile() {
                 <p>
                   Current primary element: {userData.primaryElement}{" "}
                   {activeElements[0] === userData.primaryElement ||
-                    `- Overwritten by bloodline`}
+                    `- Overwritten by bloodline (${activeElements[0]})`}
                 </p>
               ) : undefined}
               {userData.secondaryElement ? (
                 <p>
                   Current secondary element: {userData.secondaryElement}{" "}
                   {activeElements[1] === userData.secondaryElement ||
-                    `- Overwritten by bloodline`}
+                    `- Overwritten by bloodline (${activeElements[1]})`}
                 </p>
               ) : undefined}
             </div>
