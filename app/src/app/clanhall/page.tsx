@@ -40,6 +40,7 @@ export default function Clans() {
       onSuccess: async (data) => {
         showMutationToast(data);
         await utils.clan.getAll.invalidate();
+        await utils.profile.getUser.invalidate();
       },
     },
   );
@@ -63,9 +64,15 @@ export default function Clans() {
 
   // Derived
   const inClan = userData.clanId;
-  const canCreate =
-    userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT &&
-    userData.money >= CLAN_CREATE_RYO_COST;
+  const enoughPrestige = userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT;
+  const enoughRyo = userData.money >= CLAN_CREATE_RYO_COST;
+  const canCreate = enoughPrestige && enoughRyo;
+  let proceedLabel = "Submit";
+  if (!enoughPrestige) {
+    proceedLabel = `Missing ${CLAN_CREATE_PRESTIGE_REQUIREMENT - userData.villagePrestige} Prestige`;
+  } else if (!enoughRyo) {
+    proceedLabel = `Missing ${CLAN_CREATE_RYO_COST - userData.money} Ryo`;
+  }
 
   // Render
   if (userData.clanId) {
@@ -82,7 +89,7 @@ export default function Clans() {
             {hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT) && !inClan && (
               <Confirm
                 title="Create new Clan"
-                proceed_label={canCreate ? "Submit" : "Not enough prestige or Ryo"}
+                proceed_label={proceedLabel}
                 button={
                   <Button id="create-clan" className="w-full">
                     <ShieldPlus className="mr-2 h-5 w-5" />

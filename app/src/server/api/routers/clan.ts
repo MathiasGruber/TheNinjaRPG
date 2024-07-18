@@ -339,10 +339,12 @@ export const clanRouter = createTRPCRouter({
       const isLeader = user.userId === fetchedClan?.leaderId;
       const isColeader = checkCoLeader(user.userId, fetchedClan);
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
+      const isMemberLeader = input.memberId === fetchedClan?.leaderId;
       // Guards
       if (!fetchedClan) return errorResponse("Clan not found");
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
+      if (isMemberLeader) return errorResponse("Cannot kick leader");
       if (fetchedClan.villageId !== user.villageId) return errorResponse("!= village");
       if (!isLeader && !isColeader) return errorResponse("Not allowed");
       if (!isLeader && isMemberColeader) return errorResponse("Only leader can kick");
@@ -747,7 +749,6 @@ export const removeFromClan = async (
   userId: string,
 ) => {
   // Derived
-  const nMembers = clanData?.members.length || 0;
   const isLeader = clanData?.leaderId === userId;
   // Find another user, prefer coleaders in case it's leader being removed
   const otherUser = clanData?.members
@@ -770,7 +771,7 @@ export const removeFromClan = async (
           or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
         ),
       ),
-    ...(nMembers <= 1
+    ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
           client
