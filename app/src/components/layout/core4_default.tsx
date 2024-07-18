@@ -30,6 +30,8 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   // Get data
   const { data: userData, notifications } = useUserData();
   const { systems, location } = useGameMenu(userData);
+  const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
+  const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
 
   // State
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -340,11 +342,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               priority
             />
           </Link>
-          <Sheet>
+          <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
             <SheetTrigger className="absolute top-4 left-4">
               <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
             </SheetTrigger>
-            <SheetContent side="left">
+            <SheetContent side="left" onClick={() => setLeftSideBarOpen(false)}>
               <SheetHeader className="text-left">
                 <SideBannerTitle>Main Menu</SideBannerTitle>
                 <div className="mt-1 grid gap-3 grid-cols-2">
@@ -373,11 +375,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               </SheetHeader>
             </SheetContent>
           </Sheet>
-          <Sheet>
+          <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
             <SheetTrigger className="absolute top-4 right-4">
               <Earth className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
             </SheetTrigger>
-            <SheetContent>
+            <SheetContent onClick={() => setRightSideBarOpen(false)}>
               <SheetHeader>{rightSideBar}</SheetHeader>
             </SheetContent>
           </Sheet>
