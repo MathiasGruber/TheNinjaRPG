@@ -1276,6 +1276,7 @@ export const fetchUpdatedUser = async (props: {
   // Add in achievements
   if (user) {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
+    user.userQuests = user.userQuests.filter((q) => q.quest.hidden === 0);
   }
 
   if (user) {
