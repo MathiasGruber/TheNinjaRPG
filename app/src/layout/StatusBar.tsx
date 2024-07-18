@@ -90,7 +90,8 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
     return () => {
       clearInterval(interval);
     };
-  }, [isAwake, regen, lastRegenAt, current, total, status, state, timeDiff]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAwake, regen, lastRegenAt, current, total, status, timeDiff]);
 
   return (
     <div className="group relative mt-2 flex-row">
