@@ -33,7 +33,7 @@ const calcCurrent = (
   timeDiff?: number,
 ) => {
   const end = total ?? 100;
-  let current = start ?? 0;
+  let current = Math.max(start ?? 0, 0);
   if (status === "BATTLE" || start === undefined) {
     current = end;
   } else if (
@@ -75,7 +75,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
 
   // Updating the bars based on regen
   useEffect(() => {
-    const interval = setInterval(() => {
+    const foo = () => {
       if (regen && current && total) {
         if (
           (regen > 0 && (state.current < total || current < total)) ||
@@ -84,7 +84,9 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
           setState(calcCurrent(current, total, status, regen, lastRegenAt, timeDiff));
         }
       }
-    }, 1000);
+    };
+    foo();
+    const interval = setInterval(foo, 1000);
     return () => {
       clearInterval(interval);
     };
@@ -94,7 +96,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
     <div className="group relative mt-2 flex-row">
       {showText && !isInBattle && (
         <div>
-          {title} ({Math.round(state.current)} / {total || "??"})
+          {title} ({total ? `${Math.round(state.current)} / ${total}` : "?? / ??"})
         </div>
       )}
 

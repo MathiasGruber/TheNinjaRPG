@@ -1,8 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { drizzleDB } from "@/server/db";
+import { cookies } from "next/headers";
 
 export async function GET() {
+  // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
+  cookies();
+
   try {
     const user = await drizzleDB.query.userData.findFirst({
       columns: { username: true },

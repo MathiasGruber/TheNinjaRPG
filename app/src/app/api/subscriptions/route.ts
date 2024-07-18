@@ -6,8 +6,12 @@ import { getPaypalAccessToken } from "@/server/api/routers/paypal";
 import { getPaypalSubscription } from "@/server/api/routers/paypal";
 import { paypalSubscription, userData } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
+import { cookies } from "next/headers";
 
 export async function GET() {
+  // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
+  cookies();
+
   // Create context and caller
   try {
     const token = await getPaypalAccessToken();

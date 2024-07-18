@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import StatusBar from "./StatusBar";
-import AvatarImage from "./Avatar";
+import StatusBar from "@/layout/StatusBar";
+import AvatarImage from "@/layout/Avatar";
 import { energyPerSecond } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { ShieldCheck, Swords, Moon, Sun, Heart } from "lucide-react";
@@ -10,7 +10,8 @@ import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { useGameMenu } from "@/libs/menus";
-import type { UserStatuses } from "../../drizzle/constants";
+import { secondsPassed } from "@/utils/time";
+import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
 /**
@@ -232,7 +233,13 @@ const MenuBoxProfile: React.FC = () => {
               : userData?.regeneration
           }
           status={userData?.status}
-          current={userData?.curEnergy}
+          current={
+            userData?.currentlyTraining && userData?.trainingStartedAt
+              ? userData?.curEnergy -
+                energyPerSecond(userData?.trainingSpeed) *
+                  secondsPassed(userData?.trainingStartedAt, timeDiff)
+              : userData?.curEnergy
+          }
           total={userData?.maxEnergy}
           timeDiff={timeDiff}
         />
