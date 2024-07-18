@@ -108,7 +108,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <SignedOut>
         <SideBannerTitle>Welcome</SideBannerTitle>
         <p className="hidden md:block text-orange-100 italic px-1">Socials Login</p>
-        <p className="block md:hidden text-slate-900 italic px-1">Socials Login</p>
+        <p className="block md:hidden text-foreground italic px-1">Socials Login</p>
         <div className="grid grid-cols-4">
           {["discord", "facebook", "google", "github"].map((provider, i) => (
             <Image
@@ -485,7 +485,7 @@ const SideBannerTitle: React.FC<{ children: React.ReactNode; break?: boolean }> 
       <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2">
         {props.children}
       </p>
-      <p className="block md:hidden text-xl font-bold text-slate-900 px-1 pt-2">
+      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2">
         {props.children}
       </p>
     </>
