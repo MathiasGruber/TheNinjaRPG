@@ -376,38 +376,22 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
               height={128}
             />
             <div className="w-2/3">
-              <StatusBar
-                title="Energy"
-                tooltip="Energy"
-                color="bg-yellow-500"
-                showText={true}
-                timeDiff={timeDiff}
-                lastRegenAt={userData.trainingStartedAt}
-                regen={-energyPerSecond(userData.trainingSpeed) * 60}
-                status={userData.status}
-                current={userData.curEnergy}
-                total={userData.maxEnergy}
-              />
-
-              <Button
-                className="mt-3 w-full"
-                id="return"
+              {userData.trainingStartedAt && (
+                <p className="text-2xl">
+                  Time Left:{" "}
+                  <Countdown
+                    targetDate={secondsFromDate(
+                      trainingSpeedSeconds(userData.trainingSpeed),
+                      userData.trainingStartedAt,
+                    )}
+                    timeDiff={timeDiff}
+                  />
+                </p>
+              )}
+              <XCircle
+                className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500"
                 onClick={() => stopTraining()}
-              >
-                Finish{" "}
-                {userData.trainingStartedAt && (
-                  <p className="ml-1">
-                    -{" "}
-                    <Countdown
-                      targetDate={secondsFromDate(
-                        trainingSpeedSeconds(userData.trainingSpeed),
-                        userData.trainingStartedAt,
-                      )}
-                      timeDiff={timeDiff}
-                    />
-                  </p>
-                )}
-              </Button>
+              />
             </div>
           </div>
         </div>
