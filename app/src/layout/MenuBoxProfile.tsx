@@ -228,7 +228,7 @@ const MenuBoxProfile: React.FC = () => {
           }
           regen={
             userData?.currentlyTraining
-              ? -energyPerSecond(userData?.trainingSpeed)
+              ? -energyPerSecond(userData?.trainingSpeed) * 60
               : userData?.regeneration
           }
           status={userData?.status}

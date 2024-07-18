@@ -264,21 +264,28 @@ export const trainingMultiplier = (user: UserData) => {
 };
 
 /**
- * Get training energy per second
+ * Convert training speeds to total time to completion in seconds
  */
-export const energyPerSecond = (speed: TrainingSpeed) => {
+export const trainingSpeedSeconds = (speed: TrainingSpeed) => {
   switch (speed) {
     case "15min":
-      return 100 / (15 * 60);
+      return 15 * 60;
     case "1hr":
-      return 100 / (60 * 60);
+      return 60 * 60;
     case "4hrs":
-      return 100 / (4 * 60 * 60);
+      return 4 * 60 * 60;
     case "8hrs":
-      return 100 / (8 * 60 * 60);
+      return 8 * 60 * 60;
     default:
       throw Error("Invalid training speed");
   }
+};
+
+/**
+ * Get training energy per second
+ */
+export const energyPerSecond = (speed: TrainingSpeed) => {
+  return 100 / trainingSpeedSeconds(speed);
 };
 
 // Jutsu experience gain based on battle type

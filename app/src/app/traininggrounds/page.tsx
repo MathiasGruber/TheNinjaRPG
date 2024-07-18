@@ -21,12 +21,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { Button } from "@/components/ui/button";
-import { energyPerSecond } from "@/libs/train";
+import { energyPerSecond, trainingSpeedSeconds } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { canTrainJutsu } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
+import { secondsFromDate } from "@/utils/time";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/train";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -382,17 +383,30 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                 showText={true}
                 timeDiff={timeDiff}
                 lastRegenAt={userData.trainingStartedAt}
-                regen={-energyPerSecond(userData.trainingSpeed)}
+                regen={-energyPerSecond(userData.trainingSpeed) * 60}
                 status={userData.status}
                 current={userData.curEnergy}
                 total={userData.maxEnergy}
               />
+
               <Button
                 className="mt-3 w-full"
                 id="return"
                 onClick={() => stopTraining()}
               >
-                Finish Training
+                Finish{" "}
+                {userData.trainingStartedAt && (
+                  <p className="ml-1">
+                    -{" "}
+                    <Countdown
+                      targetDate={secondsFromDate(
+                        trainingSpeedSeconds(userData.trainingSpeed),
+                        userData.trainingStartedAt,
+                      )}
+                      timeDiff={timeDiff}
+                    />
+                  </p>
+                )}
               </Button>
             </div>
           </div>
