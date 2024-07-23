@@ -72,22 +72,6 @@ const NavBar: React.FC<NavBarProps> = (props) => {
           current={userData.curStamina}
           total={userData.maxStamina}
         />
-        <StatusBar
-          title="EP"
-          tooltip="Energy"
-          color="bg-yellow-500"
-          lastRegenAt={
-            userData.currentlyTraining ? userData.trainingStartedAt : userData.regenAt
-          }
-          regen={
-            userData.currentlyTraining
-              ? -energyPerSecond(userData.trainingSpeed)
-              : userData.regeneration
-          }
-          status={userData.status}
-          current={userData.curEnergy}
-          total={userData.maxEnergy}
-        />
       </div>
     </div>
   );

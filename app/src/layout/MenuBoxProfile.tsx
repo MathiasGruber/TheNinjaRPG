@@ -3,14 +3,15 @@ import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
-import { energyPerSecond } from "@/libs/train";
+import Countdown from "@/layout/Countdown";
+import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
-import { ShieldCheck, Swords, Moon, Sun, Heart } from "lucide-react";
+import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { useGameMenu } from "@/libs/menus";
-import { secondsPassed } from "@/utils/time";
+import { secondsFromDate } from "@/utils/time";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -217,33 +218,20 @@ const MenuBoxProfile: React.FC = () => {
           total={userData?.maxStamina}
           timeDiff={timeDiff}
         />
-        <StatusBar
-          title="EP"
-          tooltip="Energy"
-          color="bg-yellow-500"
-          showText={true}
-          lastRegenAt={
-            userData?.currentlyTraining
-              ? userData?.trainingStartedAt
-              : userData?.regenAt
-          }
-          regen={
-            userData?.currentlyTraining
-              ? -energyPerSecond(userData?.trainingSpeed) * 60
-              : userData?.regeneration
-          }
-          status={userData?.status}
-          current={
-            userData?.currentlyTraining && userData?.trainingStartedAt
-              ? userData?.curEnergy -
-                energyPerSecond(userData?.trainingSpeed) *
-                  secondsPassed(userData?.trainingStartedAt, timeDiff)
-              : userData?.curEnergy
-          }
-          total={userData?.maxEnergy}
-          timeDiff={timeDiff}
-        />
-
+        {userData?.trainingStartedAt && userData?.currentlyTraining && (
+          <div className="flex flex-row items-center mt-2 hover:text-orange-500">
+            <Dumbbell className="mr-2 h-6 w-6 " />
+            <Link href="/traininggrounds">
+              <Countdown
+                targetDate={secondsFromDate(
+                  trainingSpeedSeconds(userData?.trainingSpeed),
+                  userData?.trainingStartedAt,
+                )}
+                timeDiff={timeDiff}
+              />
+            </Link>
+          </div>
+        )}
         <div className="mt-4">
           <hr />
           <p className="mt-2 flex flex-row">

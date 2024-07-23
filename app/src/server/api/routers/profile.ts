@@ -126,7 +126,6 @@ export const profileRouter = createTRPCRouter({
       if (!user) throw serverError("NOT_FOUND", "User not found");
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
       // Guard
-      if (user.curEnergy < 1) return errorResponse("Not enough energy");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to train");
       if (!user.isOutlaw) {
         if (!inVillage) return errorResponse("Must be in your own village");
@@ -178,7 +177,7 @@ export const profileRouter = createTRPCRouter({
       const minutes = seconds / 60;
       const energySpent = Math.min(
         Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
-        user.curEnergy,
+        100,
       );
       const trainingAmount =
         factor * energySpent * trainEfficiency(user) * trainingMultiplier(user);
@@ -193,7 +192,6 @@ export const profileRouter = createTRPCRouter({
         .set({
           trainingStartedAt: null,
           currentlyTraining: null,
-          curEnergy: sql`curEnergy - ${energySpent}`,
           experience: sql`experience + ${trainingAmount}`,
           strength:
             user.currentlyTraining === "strength"
@@ -1033,8 +1031,6 @@ export const profileRouter = createTRPCRouter({
             maxStamina: target.maxStamina,
             curChakra: target.curChakra,
             maxChakra: target.maxChakra,
-            curEnergy: target.curEnergy,
-            maxEnergy: target.maxEnergy,
             money: target.money,
             bank: target.bank,
             experience: target.experience,
@@ -1313,9 +1309,6 @@ export const fetchUpdatedUser = async (props: {
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
-      if (!user.currentlyTraining) {
-        user.curEnergy = Math.min(user.curEnergy + regen, user.maxEnergy);
-      }
       // Get activity rewards if any & update timers
       const now = new Date();
       const newDay = now.getDate() !== user.updatedAt.getDate();
@@ -1386,7 +1379,6 @@ export const fetchUpdatedUser = async (props: {
           curHealth: user.curHealth,
           curStamina: user.curStamina,
           curChakra: user.curChakra,
-          curEnergy: user.curEnergy,
           updatedAt: user.updatedAt,
           regenAt: user.regenAt,
           questData: user.questData,
