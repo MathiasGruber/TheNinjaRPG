@@ -162,7 +162,8 @@ interface CurrentBloodlineProps {
 
 export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   // Get current bloodline
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
   const { data, isFetching } = api.bloodline.get.useQuery(
     { id: props.bloodlineId },
     { staleTime: Infinity },
@@ -172,7 +173,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   const { mutate: remove, isPending: isRemoving } =
     api.bloodline.removeBloodline.useMutation({
       onSuccess: async () => {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       },
     });
 
@@ -228,14 +229,14 @@ interface RollBloodlineProps {
   initialBreak?: boolean;
 }
 export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
-  const { refetch: refetchUser } = useRequiredUserData();
+  const utils = api.useUtils();
   // State
   const { mutate: roll, isPending: isRolling } = api.bloodline.roll.useMutation({
     onSuccess: async (data) => {
       props.refetch();
       showMutationToast({ ...data, title: "Bloodline Roll" });
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });

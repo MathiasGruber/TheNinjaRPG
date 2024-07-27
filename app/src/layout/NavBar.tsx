@@ -7,8 +7,6 @@ import IconHome from "../icons/IconHome";
 import AvatarImage from "./Avatar";
 import StatusBar from "./StatusBar";
 import NavBarDropdown from "./NavBarDropdown";
-
-import { energyPerSecond } from "@/libs/train";
 import { UserButton } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
 import { useUserData } from "@/utils/UserContext";

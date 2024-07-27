@@ -18,6 +18,8 @@ import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
+import { useSetAtom } from "jotai";
+import { userBattleAtom } from "@/utils/UserContext";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -28,17 +30,14 @@ interface CombatProps {
   action: CombatAction | undefined;
   battleState: BattleState;
   userId: string;
-  refetchBattle: () => void;
-  setUserId: React.Dispatch<React.SetStateAction<string | undefined>>;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;
 }
 
 const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
-  const { setBattleState, refetchBattle } = props;
-  const { battleState } = props;
+  const { battleState, setBattleState } = props;
   const result = battleState.result;
-  const utils = api.useContext();
+  const utils = api.useUtils();
 
   // State
   const [isInLobby, setIsInLobby] = useState<boolean>(true);
@@ -54,13 +53,8 @@ const Combat: React.FC<CombatProps> = (props) => {
   const battleType = battle.current?.battleType;
 
   // Data from the DB
-  const {
-    data: userData,
-    pusher,
-    timeDiff,
-    refetch: refetchUser,
-    setBattle,
-  } = useRequiredUserData();
+  const setBattleAtom = useSetAtom(userBattleAtom);
+  const { data: userData, pusher, timeDiff } = useRequiredUserData();
   const suid = userData?.userId;
 
   // Mutation for starting a fight
@@ -71,60 +65,59 @@ const Combat: React.FC<CombatProps> = (props) => {
         message: "You enter the arena again",
       });
       if (data.success) {
-        setBattle(undefined);
+        setBattleAtom(undefined);
         setBattleState({ battle: undefined, result: null, isPending: true });
-        refetchBattle();
-        await refetchUser();
+        await utils.combat.getBattle.invalidate();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
 
   // User Action
-  const { mutate: performAction, isPending: isPendingUser } =
-    api.combat.performAction.useMutation({
-      onMutate: () => {
-        document.body.style.cursor = "wait";
-        setBattleState({ battle: battle.current, result: null, isPending: true });
-      },
-      onSuccess: (data) => {
-        // Notifications (if any)
-        if (data.notification) {
-          showMutationToast({ success: true, message: data.notification });
-        }
-        // Update battle history
-        if (battleId && data.logEntries) {
-          const prevData = utils.combat.getBattleEntries.getData({
-            battleId,
-            refreshKey: battle.current?.version,
-          });
-          utils.combat.getBattleEntries.setData(
-            { battleId, refreshKey: data.battle.version },
-            () => {
-              if (data.logEntries) {
-                return prevData ? [...data.logEntries, ...prevData] : data.logEntries;
-              }
-            },
-          );
-        }
-        // Update battle state
-        if (data.updateClient) {
-          battle.current = data.battle;
-          setBattle(battle.current);
-          setBattleState({
-            battle: data.battle,
-            result: data.result,
-            isPending: false,
-          });
-        }
-      },
-    });
+  const { mutate: performAction, isPending } = api.combat.performAction.useMutation({
+    onMutate: () => {
+      document.body.style.cursor = "wait";
+      setBattleState({ battle: battle.current, result: null, isPending: true });
+    },
+    onSuccess: (data) => {
+      // Notifications (if any)
+      if (data.notification) {
+        showMutationToast({ success: true, message: data.notification });
+      }
+      // Update battle history
+      if (battleId && data.logEntries) {
+        const prevData = utils.combat.getBattleEntries.getData({
+          battleId,
+          refreshKey: battle.current?.version,
+        });
+        utils.combat.getBattleEntries.setData(
+          { battleId, refreshKey: data.battle.version },
+          () => {
+            if (data.logEntries) {
+              return prevData ? [...data.logEntries, ...prevData] : data.logEntries;
+            }
+          },
+        );
+      }
+      // Update battle state
+      if (data.updateClient) {
+        battle.current = data.battle;
+        setBattleState({
+          battle: data.battle,
+          result: data.result,
+          isPending: false,
+        });
+        setBattleAtom(battle.current);
+      }
+    },
+  });
 
   // I am here call
   const { mutate: iAmHere } = api.combat.iAmHere.useMutation({
     onSuccess: (data) => {
       if (data.success && data.battle) {
         battle.current = data.battle;
-        setBattle(battle.current);
+        setBattleAtom(battle.current);
         setBattleState({ battle: data.battle, result: null, isPending: false });
       } else {
         showMutationToast({ success: false, message: data.message });
@@ -194,10 +187,10 @@ const Combat: React.FC<CombatProps> = (props) => {
   // If user has no actions left / round is over, propagate battle & potentially - perform AI actions
   useEffect(() => {
     const interval = setInterval(() => {
-      if (suid && battle.current && userId.current && !isPendingUser && !result) {
+      if (suid && battle.current && userId.current && !isPending && !result) {
         const { actor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
-        if (actor.isAi && !isPendingUser) {
+        if (actor.isAi && !isPending) {
           performAction({
             battleId: battle.current.id,
             version: battle.current.version,
@@ -212,14 +205,14 @@ const Combat: React.FC<CombatProps> = (props) => {
           const check2 = createPassed > (COMBAT_LOBBY_SECONDS + COMBAT_SECONDS) * 1000;
           const newActor = actor.userId !== battle.current.activeUserId;
           if ((check1 && check2) || newActor) {
-            refetchBattle();
+            void utils.combat.getBattle.invalidate();
           }
         }
       }
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPendingUser, timeDiff, result, suid]);
+  }, [isPending, timeDiff, result, suid]);
 
   useEffect(() => {
     action.current = props.action;
@@ -227,7 +220,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     battle.current = props.battleState.battle;
     if (props.battleState.result) {
       const update = async () => {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       };
       update().catch(console.error);
     }
@@ -239,7 +232,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       const channel = pusher.subscribe(battleId);
       channel.bind("event", (data: { version: number }) => {
         if (battle.current?.version !== data.version && !result) {
-          refetchBattle();
+          void utils.combat.getBattle.invalidate();
         }
       });
       return () => {
@@ -446,7 +439,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
       // Remove the mouseover listener
       return () => {
-        void setBattle(undefined);
+        void setBattleAtom(undefined);
         window.removeEventListener("resize", handleResize);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
         sceneRef.removeEventListener("mouseleave", onDocumentMouseLeave);

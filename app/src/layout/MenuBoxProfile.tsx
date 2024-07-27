@@ -12,6 +12,8 @@ import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { useGameMenu } from "@/libs/menus";
 import { secondsFromDate } from "@/utils/time";
+import { useAtomValue } from "jotai";
+import { userBattleAtom } from "@/utils/UserContext";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -57,9 +59,10 @@ export const socials = [
 ];
 
 const MenuBoxProfile: React.FC = () => {
-  const { data: userData, battle, refetch: refetchUserData, timeDiff } = useUserData();
+  const { data: userData, timeDiff } = useUserData();
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
+  const battle = useAtomValue(userBattleAtom);
 
   // Update the gameTime with the UTC HH:MM:SS timestring every second
   useEffect(() => {
@@ -175,7 +178,7 @@ const MenuBoxProfile: React.FC = () => {
             href={userData?.avatar}
             userId={userData?.userId}
             alt={userData?.username}
-            refetchUserData={refetchUserData}
+            refetchUserData={true}
             size={100}
             hover_effect={true}
             priority

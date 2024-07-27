@@ -59,8 +59,11 @@ const Sector: React.FC<SectorProps> = (props) => {
   const showUsers = useRef<boolean>(showActive);
   const mouse = new Vector2();
 
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Data from db
-  const { data: userData, pusher, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData, pusher } = useRequiredUserData();
   const { data } = api.travel.getSectorData.useQuery(
     { sector: sector },
     { enabled: sector !== undefined, staleTime: Infinity },
@@ -126,7 +129,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             message: notification,
           });
         });
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
@@ -164,7 +167,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       if (res.success && !res.data) {
         setTarget(null);
         showMutationToast(res);
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
       // If success with data, then we moved
       if (res.success && res.data) {
@@ -182,7 +185,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         setPosition({ x: data.longitude, y: data.latitude });
         setMoves((prev) => prev + 1);
         if (data.location !== userData?.location) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
         }
         if (userData) {
           userData?.userQuests?.forEach((userquest) => {
@@ -214,7 +217,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: attack, isPending: isAttacking } = api.combat.attackUser.useMutation({
     onSuccess: async (data) => {
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       } else {
         showMutationToast({
           success: false,
@@ -487,7 +490,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
-        void refetchUser();
+        void utils.profile.getUser.invalidate();
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

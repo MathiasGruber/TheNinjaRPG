@@ -50,12 +50,11 @@ const Register: React.FC = () => {
   // Router
   const router = useRouter();
 
+  // tRPC utility
+  const utils = api.useUtils();
+
   // User data
-  const {
-    data: userData,
-    status: userStatus,
-    refetch: refetchUserData,
-  } = useUserData();
+  const { data: userData, status: userStatus } = useUserData();
 
   // Available villages
   const { data: villages } = api.village.getAll.useQuery(undefined, {
@@ -71,7 +70,7 @@ const Register: React.FC = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUserData();
+          await utils.profile.getUser.invalidate();
           createAvatar.mutate();
         }
       },

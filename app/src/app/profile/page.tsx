@@ -26,9 +26,12 @@ import { showMutationToast } from "@/libs/toast";
 
 export default function Profile() {
   // State
-  const { data: userData, refetch: refetchUser, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [isLevelling, setIsLevelling] = useState<boolean>(false);
+
+  // tRPC utility
+  const utils = api.useUtils();
 
   // Router for forwarding
   const router = useRouter();
@@ -36,14 +39,14 @@ export default function Profile() {
   const { mutate: toggleDeletionTimer, isPending: isTogglingDelete } =
     api.profile.toggleDeletionTimer.useMutation({
       onSuccess: async () => {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       },
     });
 
   const { mutate: confirmDeletion, isPending: isDeleting } =
     api.profile.confirmDeletion.useMutation({
       onSuccess: async () => {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
         router.push("/");
       },
     });
@@ -55,7 +58,7 @@ export default function Profile() {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success && userData) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
         sendGTMEvent({
           event: "level_up",
           level: userData.level + 1,

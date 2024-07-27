@@ -177,216 +177,212 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         priority
       />
       <div className="max-w-[1280px] ml-auto mr-auto w-auto h-auto">
-        {/* DESKTOP */}
-        <div className="hidden md:block">
-          <Link href="/">
-            <Image
-              className="z-[2] relative top-3 left-[50%] translate-x-[-50%] select-none"
-              src="/layout/logo.webp"
-              width={384}
-              height={138}
-              alt="logo"
-              priority
-            />
-          </Link>
-          <div className="z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
-            <Image
-              className="select-none"
-              src="/layout/navbar.webp"
-              width={1280}
-              height={133}
-              alt="navbar"
-              priority
-            />
-            <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
-              {navbarMenuItemsLeft.map((link) => (
-                <Link
-                  key={link.name}
-                  className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center hover:cursor-pointer"
-                  href={link.href}
-                  onClick={async () => {
-                    if (link.onClick) {
-                      await link.onClick();
-                    }
-                  }}
-                  prefetch={false}
-                >
-                  {link.icon}
-                  {link.name}
-                </Link>
-              ))}
-            </div>
-            <div className="absolute top-6 right-0 grid grid-cols-3 w-1/2 px-24 lg:px-36">
-              {navbarMenuItemsRight.map((link) => (
-                <Link
-                  key={link.name}
-                  className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center"
-                  href={link.href}
-                  onClick={async () => {
-                    if (link.onClick) await link.onClick();
-                  }}
-                  prefetch={false}
-                >
-                  {link.icon}
-                  {link.name}
-                </Link>
-              ))}
-              {signedInIcons}
-            </div>
-          </div>
+        {/* LOGO */}
+        <Link href="/">
           <Image
-            className="z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
-            src="/layout/handsign.webp"
-            width={127}
-            height={112}
-            alt="handsign"
+            className="hidden md:block z-[2] relative top-3 left-[50%] translate-x-[-50%] select-none"
+            src="/layout/logo.webp"
+            width={384}
+            height={138}
+            alt="logo"
             priority
           />
-          <div className="relative top-[-122px] flex flex-row z-10">
-            {/* LEFT SIDEBANNER */}
-            <div className="relative w-[200px] lg:w-[250px] shrink-0">
-              <div className="relative">
-                <Image
-                  className="left-0 absolute -z-10 select-none"
-                  src="/layout/sidetopbanner_content.webp"
-                  width={250}
-                  height={235}
-                  style={{ width: "100%", height: "100%" }}
-                  alt="leftbanner"
-                  priority
-                ></Image>
-                {/* LEFT SIDEBANNER CONTENT */}
-                <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
-              </div>
-              <Image
-                className="left-0 relative select-none"
-                src="/layout/sidetopbanner_bottom.webp"
-                width={250}
-                height={68}
-                alt="leftbanner"
-                priority
-              ></Image>
-              <StrongestUsersBanner />
-            </div>
-            {/* MAIN CONTENT */}
-            <div className="w-full flex-1 min-w-0 flex flex-col">
-              <div className="w-full flex flex-row">
-                <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
-                <div className="w-full bg-background grow flex flex-col overflow-x-scroll min-h-[200px]">
-                  <div className="p-3">{props.children}</div>
-                </div>
-                <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
-              </div>
-              <div className="h-20 max-h-28 flex flex-col relative">
-                <div className="absolute top-0 left-[-20px] right-[-20px] -z-30">
-                  <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
-                  <div className="h-8 bg-rose-800"></div>
-                  <div className="h-7 bg-gradient-to-b from-rose-800 to-rose-950"></div>
-                </div>
-                <Image
-                  className="left-[-120px] top-[-195px] absolute select-none -z-20"
-                  src="/layout/scroll_bottom_decor.webp"
-                  width={143}
-                  height={272}
-                  alt="leftbottomdecor"
-                  priority
-                ></Image>
-                <Image
-                  className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20"
-                  src="/layout/scroll_bottom_decor.webp"
-                  width={143}
-                  height={272}
-                  alt="rightbottomdecor"
-                  priority
-                ></Image>
-                <div className="absolute top-4 left-0 right-0">
-                  <Footer />
-                </div>
-              </div>
-            </div>
-            {/* RIGHT SIDEBANNER */}
-            <div className="relative w-[200px] lg:w-[250px] shrink-0">
-              <div className="relative">
-                <Image
-                  className="right-0 absolute -z-10 scale-x-[-1] select-none"
-                  src="/layout/sidetopbanner_content.webp"
-                  width={250}
-                  height={235}
-                  style={{ width: "100%", height: "100%" }}
-                  alt="rightbanner"
-                  priority
-                ></Image>
-                {/* RIGHT SIDEBANNER CONTENT */}
-                <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
-              </div>
-              <Image
-                className="left-0 relative select-none scale-x-[-1]"
-                src="/layout/sidetopbanner_bottom.webp"
-                width={250}
-                height={68}
-                alt="leftbanner"
-                priority
-              ></Image>
-            </div>
+          <Image
+            className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
+            src="/layout/logo_short.webp"
+            width={250}
+            height={122}
+            alt="logo"
+            priority
+          />
+        </Link>
+        {/* DESKTOP NAVBAR */}
+        <div className="hidden md:block z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
+          <Image
+            className="select-none"
+            src="/layout/navbar.webp"
+            width={1280}
+            height={133}
+            alt="navbar"
+            priority
+          />
+          <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
+            {navbarMenuItemsLeft.map((link) => (
+              <Link
+                key={link.name}
+                className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center hover:cursor-pointer"
+                href={link.href}
+                onClick={async () => {
+                  if (link.onClick) {
+                    await link.onClick();
+                  }
+                }}
+                prefetch={false}
+              >
+                {link.icon}
+                {link.name}
+              </Link>
+            ))}
+          </div>
+          <div className="absolute top-6 right-0 grid grid-cols-3 w-1/2 px-24 lg:px-36">
+            {navbarMenuItemsRight.map((link) => (
+              <Link
+                key={link.name}
+                className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center"
+                href={link.href}
+                onClick={async () => {
+                  if (link.onClick) await link.onClick();
+                }}
+                prefetch={false}
+              >
+                {link.icon}
+                {link.name}
+              </Link>
+            ))}
+            {signedInIcons}
           </div>
         </div>
-        {/* MOBILE LAYOUT */}
-        <div className="relative block md:hidden">
-          <Link href="/">
+        {/* DESKTOP HANDSIGN */}
+        <Image
+          className="hidden md:block z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
+          src="/layout/handsign.webp"
+          width={127}
+          height={112}
+          alt="handsign"
+          priority
+        />
+        <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10">
+          {/* LEFT SIDEBANNER DESKTOP */}
+          <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
+            <div className="relative">
+              <Image
+                className="left-0 absolute -z-10 select-none"
+                src="/layout/sidetopbanner_content.webp"
+                width={250}
+                height={235}
+                style={{ width: "100%", height: "100%" }}
+                alt="leftbanner"
+                priority
+              ></Image>
+              <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
+            </div>
             <Image
-              className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
-              src="/layout/logo_short.webp"
+              className="left-0 relative select-none"
+              src="/layout/sidetopbanner_bottom.webp"
               width={250}
-              height={122}
-              alt="logo"
+              height={68}
+              alt="leftbanner"
               priority
-            />
-          </Link>
-          <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
-            <SheetTrigger className="absolute top-4 left-4">
-              <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
-            </SheetTrigger>
-            <SheetContent side="left" onClick={() => setLeftSideBarOpen(false)}>
-              <SheetHeader className="text-left">
-                <SideBannerTitle>Main Menu</SideBannerTitle>
-                <div className="mt-1 grid gap-3 grid-cols-2">
-                  {navbarMenuItems.map((system, i) => {
-                    return (
-                      <Link
-                        key={i}
-                        href={system.href}
-                        className={system.className ? system.className : ""}
-                      >
-                        <Button
-                          decoration="gold"
-                          className={`w-full hover:bg-orange-200`}
-                        >
-                          <div className="grow">{system.name}</div>
-                          <div>{system.icon && system.icon}</div>
-                        </Button>
-                      </Link>
-                    );
-                  })}
-                  <div className="flex flex-row items-center justify-center">
-                    {signedInIcons}
-                  </div>
-                </div>
-                <div className="relative pt-4">{leftSideBar}</div>
-              </SheetHeader>
-            </SheetContent>
-          </Sheet>
-          <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
-            <SheetTrigger className="absolute top-4 right-4">
-              <Earth className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
-            </SheetTrigger>
-            <SheetContent onClick={() => setRightSideBarOpen(false)}>
-              <SheetHeader>{rightSideBar}</SheetHeader>
-            </SheetContent>
-          </Sheet>
-          <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
-            {props.children}
+            ></Image>
+            <StrongestUsersBanner />
+          </div>
+          {/* MAIN CONTENT */}
+          <div className="w-full flex-1 min-w-0 flex flex-col">
+            <div className="w-full flex flex-row">
+              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+              <div className="w-full bg-background bg-opacity-50 md:bg-opacity-100 grow flex flex-col overflow-x-scroll min-h-[200px]">
+                <div className="p-3">{props.children}</div>
+              </div>
+              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+            </div>
+            <div className="h-20 max-h-28 flex flex-col relative">
+              <div className="absolute top-0 left-[-20px] right-[-20px] -z-30">
+                <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
+                <div className="h-8 bg-rose-800"></div>
+                <div className="h-7 bg-gradient-to-b from-rose-800 to-rose-950"></div>
+              </div>
+              <Image
+                className="left-[-120px] top-[-195px] absolute select-none -z-20"
+                src="/layout/scroll_bottom_decor.webp"
+                width={143}
+                height={272}
+                alt="leftbottomdecor"
+                priority
+              ></Image>
+              <Image
+                className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20"
+                src="/layout/scroll_bottom_decor.webp"
+                width={143}
+                height={272}
+                alt="rightbottomdecor"
+                priority
+              ></Image>
+              <div className="absolute top-4 left-0 right-0">
+                <Footer />
+              </div>
+            </div>
+          </div>
+          {/* RIGHT SIDEBANNER DESKTOP */}
+          <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
+            <div className="relative">
+              <Image
+                className="right-0 absolute -z-10 scale-x-[-1] select-none"
+                src="/layout/sidetopbanner_content.webp"
+                width={250}
+                height={235}
+                style={{ width: "100%", height: "100%" }}
+                alt="rightbanner"
+                priority
+              ></Image>
+              <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
+            </div>
+            <Image
+              className="left-0 relative select-none scale-x-[-1]"
+              src="/layout/sidetopbanner_bottom.webp"
+              width={250}
+              height={68}
+              alt="leftbanner"
+              priority
+            ></Image>
           </div>
         </div>
+        {/* LEFT SIDEBAR MOBILE */}
+        <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
+          <SheetTrigger className="absolute top-4 left-4">
+            <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+          </SheetTrigger>
+          <SheetContent side="left" onClick={() => setLeftSideBarOpen(false)}>
+            <SheetHeader className="text-left">
+              <SideBannerTitle>Main Menu</SideBannerTitle>
+              <div className="mt-1 grid gap-3 grid-cols-2">
+                {navbarMenuItems.map((system, i) => {
+                  return (
+                    <Link
+                      key={i}
+                      href={system.href}
+                      className={system.className ? system.className : ""}
+                    >
+                      <Button
+                        decoration="gold"
+                        className={`w-full hover:bg-orange-200`}
+                      >
+                        <div className="grow">{system.name}</div>
+                        <div>{system.icon && system.icon}</div>
+                      </Button>
+                    </Link>
+                  );
+                })}
+                <div className="flex flex-row items-center justify-center">
+                  {signedInIcons}
+                </div>
+              </div>
+              <div className="relative pt-4">{leftSideBar}</div>
+            </SheetHeader>
+          </SheetContent>
+        </Sheet>
+
+        {/* RIGHT SIDEBAR MOBILE */}
+        <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
+          <SheetTrigger className="absolute top-4 right-4">
+            <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+          </SheetTrigger>
+          <SheetContent onClick={() => setRightSideBarOpen(false)}>
+            <SheetHeader>{rightSideBar}</SheetHeader>
+          </SheetContent>
+        </Sheet>
+        {/* <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
+          {props.children}
+        </div> */}
       </div>
     </div>
   );

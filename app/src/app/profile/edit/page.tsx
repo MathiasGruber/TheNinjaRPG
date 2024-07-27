@@ -198,9 +198,10 @@ export default function EditProfile() {
  */
 const SwapVillage: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [village, setVillage] = useState<Village | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const utils = api.useUtils();
 
   // Fetch data
   const { data, isFetching } = api.village.getAll.useQuery(undefined, {
@@ -220,7 +221,7 @@ const SwapVillage: React.FC = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
     onSettled: () => {
@@ -295,9 +296,10 @@ const SwapVillage: React.FC = () => {
  */
 const SwapBloodline: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const utils = api.useUtils();
 
   // Fetch data
   const { data: bloodlines, isFetching } = api.bloodline.getAll.useInfiniteQuery(
@@ -316,7 +318,7 @@ const SwapBloodline: React.FC = () => {
     api.bloodline.swapBloodline.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       },
       onSettled: () => {
         document.body.style.cursor = "default";
@@ -400,7 +402,8 @@ const SwapBloodline: React.FC = () => {
  */
 const ResetStats: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
   if (userData) capUserStats(userData);
 
   // Mutations
@@ -408,7 +411,7 @@ const ResetStats: React.FC = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
@@ -433,7 +436,8 @@ const ResetStats: React.FC = () => {
  */
 const AvatarChange: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
 
   // Only show if we have userData
   if (!userData) return <Loader explanation="Loading profile page..." />;
@@ -462,7 +466,7 @@ const AvatarChange: React.FC = () => {
           }
           onClientUploadComplete={(res) => {
             if (res?.[0]?.url) {
-              setTimeout(() => void refetchUser(), 1000);
+              setTimeout(() => void utils.profile.getUser.invalidate(), 1000);
             }
           }}
           onUploadError={(error: Error) => {
@@ -697,8 +701,6 @@ const NindoChange: React.FC = () => {
 const RerollElement: React.FC = () => {
   // State
   const { data: userData } = useRequiredUserData();
-
-  // tRPC utils
   const utils = api.useUtils();
 
   // Derived
@@ -750,7 +752,8 @@ const RerollElement: React.FC = () => {
  */
 const NameChange: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
 
   // Username search
   const { form, searchTerm } = useUserSearch();
@@ -766,7 +769,7 @@ const NameChange: React.FC = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
@@ -831,14 +834,15 @@ const NameChange: React.FC = () => {
  */
 const CustomTitle: React.FC = () => {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
 
   // Mutations
   const { mutate: updateUsername } = api.blackmarket.updateCustomTitle.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });

@@ -9,14 +9,17 @@ import { showMutationToast } from "@/libs/toast";
 
 export default function AssignExperience() {
   // State
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
 
   // Mutations
   const { mutate: updateStats } = api.profile.useUnusedExperiencePoints.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });

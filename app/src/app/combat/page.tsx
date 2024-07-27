@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -10,6 +10,8 @@ import { availableUserActions } from "@/libs/combat/actions";
 import { ActionSelector } from "@/layout/CombatActions";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { useSetAtom } from "jotai";
+import { userBattleAtom } from "@/utils/UserContext";
 import type { BattleState } from "@/libs/combat/types";
 
 const Combat = dynamic(() => import("@/layout/Combat"));
@@ -17,17 +19,18 @@ const Combat = dynamic(() => import("@/layout/Combat"));
 export default function CombatPage() {
   // State
   const [actionId, setActionId] = useState<string | undefined>(undefined);
-  const [userId, setUserId] = useState<string | undefined>(undefined);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
 
   // Data from the DB
-  const { data: userData, setBattle } = useRequiredUserData();
-  const { data, isLoading, refetch } = api.combat.getBattle.useQuery(
+  const setBattleAtom = useSetAtom(userBattleAtom);
+  const { data: userData } = useRequiredUserData();
+  const { data, isLoading } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
     { enabled: !!userData?.battleId, staleTime: Infinity },
   );
 
   // Derived variables
+  const userId = userData?.userId;
   const results = battleState?.result;
   const battle = battleState?.battle;
   const versionId = battle?.version;
@@ -35,14 +38,13 @@ export default function CombatPage() {
 
   // Redirect to profile if not in battle
   useEffect(() => {
-    if (data?.battle && userData) {
-      setBattle(data.battle);
-      setUserId(userData.userId);
+    if (data?.battle) {
+      setBattleAtom(data.battle);
       const newResult = results ? results : data?.result;
       setBattleState({ battle: data?.battle, result: newResult, isPending: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, data, setBattle]);
+  }, [data]);
 
   // Collect all possible actions for action selector
   const actions = availableUserActions(battleState?.battle, userData?.userId);
@@ -57,8 +59,6 @@ export default function CombatPage() {
           battleState={battleState}
           action={actions.find((a) => a.id === actionId)}
           userId={userId}
-          refetchBattle={async () => await refetch()}
-          setUserId={setUserId}
           setBattleState={setBattleState}
         />
       )

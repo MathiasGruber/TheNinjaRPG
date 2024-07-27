@@ -17,7 +17,7 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
   const battleId = params.battleid;
 
   const { data: userData } = useRequiredUserData();
-  const { data, refetch } = api.combat.getBattle.useQuery(
+  const { data } = api.combat.getBattle.useQuery(
     { battleId: battleId },
     { enabled: !!battleId, staleTime: Infinity },
   );
@@ -43,8 +43,6 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
           battleState={battleState}
           action={undefined}
           userId={userId}
-          refetchBattle={async () => await refetch()}
-          setUserId={setUserId}
           setBattleState={setBattleState}
         />
       )

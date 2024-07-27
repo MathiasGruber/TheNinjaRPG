@@ -12,12 +12,15 @@ interface AvatarImageProps {
   size: number;
   priority?: boolean;
   hover_effect?: boolean;
-  refetchUserData?: () => void;
+  refetchUserData?: boolean;
 }
 
 const AvatarImage: React.FC<AvatarImageProps> = (props) => {
   // Placement of avatar
   const [href, setHref] = useState<string | null | undefined>(props.href);
+
+  // tRPC utility
+  const utils = api.useUtils();
 
   // Fetch avatar query
   const { mutate: checkAvatar } = api.avatar.checkAvatar.useMutation({
@@ -25,7 +28,7 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
       if (data.url) {
         setHref(data.url);
         if (props.refetchUserData) {
-          props.refetchUserData();
+          await utils.profile.getUser.invalidate();
         }
       } else if (!href && props.userId) {
         await sleep(10000);

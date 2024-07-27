@@ -14,34 +14,32 @@ import { showMutationToast } from "@/libs/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { canAccessStructure } from "@/utils/village";
+import { atom } from "jotai";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/api/routers/profile";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { StructureRoute } from "@/drizzle/seeds/village";
 
 /**
+ * Atom for managing any potential battle data
+ */
+export const userBattleAtom = atom<ReturnedBattle | undefined>(undefined);
+
+/**
  * Context for managing user data and state.
  */
 export const UserContext = createContext<{
   data: UserWithRelations;
-  isSignedIn: boolean | undefined;
   notifications: NavBarDropdownLink[] | undefined;
-  battle: ReturnedBattle | undefined;
   status: string;
   pusher: Pusher | undefined;
   timeDiff: number;
-  setBattle: React.Dispatch<React.SetStateAction<ReturnedBattle | undefined>>;
-  refetch: (options?: any) => Promise<any> | void;
 }>({
   data: undefined,
-  isSignedIn: undefined,
   notifications: undefined,
-  battle: undefined,
   status: "unknown",
   pusher: undefined,
   timeDiff: 0,
-  setBattle: () => undefined,
-  refetch: () => undefined,
 });
 
 /**
@@ -53,14 +51,13 @@ export const UserContext = createContext<{
  * @returns The UserContextProvider component.
  */
 export function UserContextProvider(props: { children: React.ReactNode }) {
+  console.log("Context provider loading");
   // tRPC utility
   const utils = api.useUtils();
   // Clerk token
   const [token, setToken] = useState<string | null>(null);
   // Pusher connection
   const [pusher, setPusher] = useState<Pusher | undefined>(undefined);
-  // Current user battle
-  const [battle, setBattle] = useState<undefined | ReturnedBattle>(undefined);
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
@@ -75,11 +72,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
     }
   }, [sessionId, isSignedIn, isLoaded, getToken]);
   // Get user data
-  const {
-    data: data,
-    status: userStatus,
-    refetch: refetchUser,
-  } = api.profile.getUser.useQuery(
+  const { data: data, status: userStatus } = api.profile.getUser.useQuery(
     { token: token },
     {
       enabled: !!userId && isSignedIn && isLoaded && !!token,
@@ -148,7 +141,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
         pusher.disconnect();
       };
     }
-  }, [userId, utils, refetchUser]);
+  }, [userId, utils]);
   // Show user notifications in toast
   useEffect(() => {
     data?.notifications
@@ -166,14 +159,10 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
     <UserContext.Provider
       value={{
         data: data?.userData,
-        isSignedIn: isSignedIn,
         notifications: data?.notifications,
-        battle: battle,
         pusher: pusher,
         status: userStatus,
         timeDiff: timeDiff,
-        setBattle: setBattle,
-        refetch: refetchUser,
       }}
     >
       {props.children}

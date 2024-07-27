@@ -63,7 +63,7 @@ export const updateBattle = async (
       })
       .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion)));
     if (result.rowsAffected === 0) {
-      throw new Error(`Failed to update battle ${newBattle.id} with ${fetchedVersion}`);
+      throw new Error(`Failure. Version: ${fetchedVersion}, Battle: ${newBattle.id}`);
     }
   }
 };

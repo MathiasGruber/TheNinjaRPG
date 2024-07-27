@@ -17,7 +17,11 @@ export default function Avatar() {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const { data: userData, refetch: refetchUserData } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Fetch historical avatars query
   const {
     data: historicalAvatars,
@@ -50,7 +54,7 @@ export default function Avatar() {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUserData();
+        await utils.profile.getUser.invalidate();
       }
     },
     onSettled: () => {
@@ -80,7 +84,7 @@ export default function Avatar() {
       setLoading(true);
     },
     onSuccess: async () => {
-      await refetchUserData();
+      await utils.profile.getUser.invalidate();
       await refetchHistoricalAvatars();
     },
     onSettled: () => {
@@ -105,7 +109,7 @@ export default function Avatar() {
               <AvatarImage
                 href={userData.avatar}
                 alt={userData.username}
-                refetchUserData={refetchUserData}
+                refetchUserData={true}
                 size={512}
                 priority
               />

@@ -121,16 +121,18 @@ export default function PaypalShop() {
  * Reputation Store component
  */
 const ReputationStore = (props: { currency: string }) => {
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
   const [{ isResolved }] = usePayPalScriptReducer();
   const [amount, setAmount] = useState(0);
   const maxUsers = 1;
   let invoiceId = nanoid();
 
+  const utils = api.useUtils();
+
   const { mutate: buyReps, isPending } = api.paypal.resolveOrder.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await refetchUser();
+      await utils.profile.getUser.invalidate();
     },
   });
 
@@ -284,14 +286,17 @@ const PayPalSubscriptionButton = (props: {
   onFailure?: () => void;
 }) => {
   // User state
-  const { data: userData, refetch: refetchUser } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
 
   // Mutation for starting subscription
   const { mutate: subscribe, isPending: isSubscribing } =
     api.paypal.resolveSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
         props.onSuccess && props.onSuccess();
       },
       onError: (error) => {
@@ -306,7 +311,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
           props.onSuccess && props.onSuccess();
         }
       },
@@ -322,7 +327,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUser();
+          await utils.profile.getUser.invalidate();
           props.onSuccess && props.onSuccess();
         }
       },
@@ -762,8 +767,8 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
  * Lookup paypal subscription
  */
 const LookupSubscription = () => {
-  // User state
-  const { refetch: refetchUser } = useRequiredUserData();
+  // tRPC utility
+  const utils = api.useUtils();
 
   // Form
   const searchForm = useForm<SearchPaypalSchema>({
@@ -775,7 +780,7 @@ const LookupSubscription = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetchUser();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
