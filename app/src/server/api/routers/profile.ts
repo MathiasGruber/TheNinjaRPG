@@ -591,6 +591,7 @@ export const profileRouter = createTRPCRouter({
       console.log(input.data);
       // Set empty strings to null
       setEmptyStringsToNulls(input.data);
+      input.data.customTitle = input.data.customTitle || "";
 
       // Queries
       const user = await fetchUser(ctx.drizzle, ctx.userId);
