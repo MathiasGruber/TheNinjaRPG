@@ -1101,7 +1101,7 @@ export const userData = mysqlTable(
     latitude: tinyint("latitude").default(7).notNull(),
     location: varchar("location", { length: 191 }).default(""),
     joinedVillageAt: datetime("joinedVillageAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .default(sql`(CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY)`)
       .notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
