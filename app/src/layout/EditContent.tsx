@@ -463,6 +463,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
 
   // Form for handling the specific tag
   const form = useForm<typeof tag>({
+    defaultValues: shownTag,
     values: shownTag,
     resolver: zodResolver(tagSchema),
     mode: "all",
@@ -475,6 +476,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   const watchStatic = form.watch("staticAnimation");
   const watchDisappear = form.watch("disappearAnimation");
   const watchAll = form.watch();
+  // console.log("shownTag", shownTag, watchAll, form.getValues());
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -493,6 +495,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           }
         });
         newEffects[idx] = shownTag;
+        form.reset(shownTag);
       }
       console.log("Setting effects 1: ", newEffects);
       setEffects(newEffects);
@@ -519,6 +522,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         }
         if (form.formState.isValid) {
           setEffects(newEffects);
+          form.reset(watchAll);
         }
       }
     }

@@ -51,7 +51,6 @@ export const UserContext = createContext<{
  * @returns The UserContextProvider component.
  */
 export function UserContextProvider(props: { children: React.ReactNode }) {
-  console.log("Context provider loading");
   // tRPC utility
   const utils = api.useUtils();
   // Clerk token
