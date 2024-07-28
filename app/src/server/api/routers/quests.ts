@@ -13,7 +13,7 @@ import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks, QuestTypes } from "@/drizzle/constants";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
 import { availableLetterRanks, availableRanks } from "@/libs/train";
@@ -318,7 +318,7 @@ export const questsRouter = createTRPCRouter({
           }
         });
         // Calculate diff
-        const diff = new HumanDiff({ objectName: "item" }).diff(entry, {
+        const diff = calculateContentDiff(entry, {
           id: entry.id,
           expiresAt: entry.expiresAt,
           createdAt: entry.createdAt,

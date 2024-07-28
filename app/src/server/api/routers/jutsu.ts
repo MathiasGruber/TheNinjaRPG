@@ -19,7 +19,7 @@ import { statFilters } from "@/libs/train";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { UserRanks, StatTypes } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 
@@ -309,7 +309,7 @@ export const jutsuRouter = createTRPCRouter({
       const entry = await fetchJutsu(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
         // Calculate diff
-        const diff = new HumanDiff({ objectName: "jutsu" }).diff(entry, {
+        const diff = calculateContentDiff(entry, {
           id: entry.id,
           updatedAt: entry.updatedAt,
           createdAt: entry.createdAt,

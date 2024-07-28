@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
@@ -55,7 +55,7 @@ export const useAiEditForm = (
   // Form submission
   const handleUserSubmit = form.handleSubmit(
     (data) => {
-      const diff = new HumanDiff({}).diff(user, data);
+      const diff = calculateContentDiff(user, data);
       if (diff.length > 0) {
         updateAi({ id: user.userId, data: data });
       }

@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BadgeValidator } from "@/validators/badge";
@@ -34,7 +34,7 @@ export const useBadgeEditForm = (badge: Badge, refetch: () => void) => {
   const handleBadgeSubmit = form.handleSubmit(
     (data: ZodBadgeType) => {
       const newBadge = { ...badge, ...data };
-      const diff = new HumanDiff({}).diff(badge, newBadge);
+      const diff = calculateContentDiff(badge, newBadge);
       if (diff.length > 0) {
         updateBadge({ id: badge.id, data: newBadge });
       }

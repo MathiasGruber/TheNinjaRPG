@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect } from "react";
@@ -493,6 +494,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         });
         newEffects[idx] = shownTag;
       }
+      console.log("Setting effects 1: ", newEffects);
       setEffects(newEffects);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -504,20 +506,24 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tag.type]);
 
-  // Automatically update the effects whenever dirty
+  // Automatically update the effects whenever new data
   useEffect(() => {
-    if (tag.type === watchType) {
-      if (form.formState.isDirty) {
-        void form.trigger();
-      }
-      if (form.formState.isValid) {
-        const newEffects = [...effects];
-        newEffects[idx] = watchAll;
-        setEffects(newEffects);
+    // Calculate diff
+    const newEffects = [...effects];
+    newEffects[idx] = watchAll;
+    const diff = calculateContentDiff(effects, newEffects);
+    if (diff.length > 0) {
+      if (tag.type === watchType) {
+        if (form.formState.isDirty) {
+          void form.trigger();
+        }
+        if (form.formState.isValid) {
+          setEffects(newEffects);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.formState.isDirty, form.formState.isValid]);
+  }, [watchAll]);
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof typeof tag;

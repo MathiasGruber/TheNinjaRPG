@@ -17,7 +17,7 @@ import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { BloodlineRank, UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -129,7 +129,7 @@ export const bloodlineRouter = createTRPCRouter({
             return e;
           }),
         };
-        const diff = new HumanDiff({ objectName: "bloodline" }).diff(entry, {
+        const diff = calculateContentDiff(entry, {
           id: entry.id,
           updatedAt: entry.updatedAt,
           createdAt: entry.createdAt,

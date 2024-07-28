@@ -9,7 +9,7 @@ import { BadgeValidator } from "@/validators/badge";
 import { fetchUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import type { DrizzleClient } from "@/server/db";
@@ -56,7 +56,7 @@ export const badgeRouter = createTRPCRouter({
       const entry = await fetchBadge(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
         // Calculate diff
-        const diff = new HumanDiff({ objectName: "badge" }).diff(entry, {
+        const diff = calculateContentDiff(entry, {
           id: entry.id,
           createdAt: entry.createdAt,
           ...input.data,

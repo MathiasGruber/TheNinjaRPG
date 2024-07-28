@@ -81,7 +81,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { getPublicUsersSchema } from "@/validators/user";
 import type { GetPublicUsersSchema } from "@/validators/user";
@@ -557,13 +557,12 @@ export const profileRouter = createTRPCRouter({
       // Calculate diff
       delete input.data.jutsus;
       delete input.data.items;
-      const diff = new HumanDiff({ objectName: "user" })
-        .diff(
-          Object.fromEntries(
-            Object.entries(target).filter(([k]) => Object.keys(input.data).includes(k)),
-          ),
-          input.data,
-        )
+      const diff = calculateContentDiff(
+        Object.fromEntries(
+          Object.entries(target).filter(([k]) => Object.keys(input.data).includes(k)),
+        ),
+        input.data,
+      )
         .concat(jutsuChanges)
         .concat(itemChanges);
       // Update database
@@ -624,15 +623,14 @@ export const profileRouter = createTRPCRouter({
       scaleUserStats(newAi);
 
       // Calculate diff
-      const diff = new HumanDiff({ objectName: "user" })
-        .diff(
-          Object.fromEntries(
-            Object.entries(ai).filter(([k]) => Object.keys(input.data).includes(k)),
-          ),
-          Object.fromEntries(
-            Object.entries(newAi).filter(([k]) => Object.keys(input.data).includes(k)),
-          ),
-        )
+      const diff = calculateContentDiff(
+        Object.fromEntries(
+          Object.entries(ai).filter(([k]) => Object.keys(input.data).includes(k)),
+        ),
+        Object.fromEntries(
+          Object.entries(newAi).filter(([k]) => Object.keys(input.data).includes(k)),
+        ),
+      )
         .concat(jutsuChanges)
         .concat(itemChanges);
 
@@ -1158,7 +1156,7 @@ export const updateUserContent = async (props: {
   const newJ = oldJutsuIds.sort().join(",") !== newJutsuIds.sort().join(",");
   const newI = oldItemIds.sort().join(",") !== newItemIds.sort().join(",");
 
-  // Human difference arrays
+  // difference arrays
   let jutsuChanges: string[] = [];
   let itemChanges: string[] = [];
 
@@ -1174,11 +1172,11 @@ export const updateUserContent = async (props: {
         columns: { id: true, name: true },
       }),
     ]);
-    jutsuChanges = new HumanDiff({ objectName: "jutsu" }).diff(
+    jutsuChanges = calculateContentDiff(
       { jutsus: oldJutsuIds.map((id) => jutsuData.find((j) => j.id === id)?.name) },
       { jutsus: newJutsuIds.map((id) => jutsuData.find((j) => j.id === id)?.name) },
     );
-    itemChanges = new HumanDiff({ objectName: "jutsu" }).diff(
+    itemChanges = calculateContentDiff(
       { items: oldItemIds.map((id) => itemData.find((j) => j.id === id)?.name) },
       { items: newItemIds.map((id) => itemData.find((j) => j.id === id)?.name) },
     );

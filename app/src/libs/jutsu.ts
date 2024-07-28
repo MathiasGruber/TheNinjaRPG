@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { api } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,7 +54,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const handleJutsuSubmit = form.handleSubmit(
     (data: ZodJutsuType) => {
       const newJutsu = { ...jutsu, ...data };
-      const diff = new HumanDiff({}).diff(jutsu, newJutsu);
+      const diff = calculateContentDiff(jutsu, newJutsu);
       if (diff.length > 0) {
         updateJutsu({ id: jutsu.id, data: newJutsu });
       }

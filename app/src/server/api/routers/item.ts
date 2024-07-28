@@ -18,7 +18,7 @@ import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
 import { calcMaxItems } from "@/libs/item";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 
@@ -86,7 +86,7 @@ export const itemRouter = createTRPCRouter({
       const entry = await fetchItem(ctx.drizzle, input.id);
       if (entry && canChangeContent(user.role)) {
         // Calculate diff
-        const diff = new HumanDiff({ objectName: "item" }).diff(entry, {
+        const diff = calculateContentDiff(entry, {
           id: entry.id,
           updatedAt: entry.updatedAt,
           createdAt: entry.createdAt,

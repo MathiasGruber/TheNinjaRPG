@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
@@ -100,7 +100,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
           },
         },
       };
-      const diff = new HumanDiff({}).diff(quest, newQuest);
+      const diff = calculateContentDiff(quest, newQuest);
       if (diff.length > 0) {
         updateQuest({ id: quest.id, data: newQuest });
       }

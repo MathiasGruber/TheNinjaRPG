@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BloodlineValidator } from "@/libs/combat/types";
@@ -44,7 +44,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   const handleBloodlineSubmit = form.handleSubmit(
     (data: ZodBloodlineType) => {
       const newBloodline = { ...bloodline, ...data };
-      const diff = new HumanDiff({}).diff(bloodline, newBloodline);
+      const diff = calculateContentDiff(bloodline, newBloodline);
       if (diff.length > 0) {
         updateBloodline({ id: bloodline.id, data: newBloodline });
       }

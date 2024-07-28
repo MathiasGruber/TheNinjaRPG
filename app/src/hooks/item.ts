@@ -1,4 +1,4 @@
-import HumanDiff from "human-object-diff";
+import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ItemValidator } from "@/libs/combat/types";
@@ -44,7 +44,10 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
   const handleItemSubmit = form.handleSubmit(
     (data: ZodItemType) => {
       const newItem = { ...item, ...data };
-      const diff = new HumanDiff({}).diff(item, newItem);
+      const diff = calculateContentDiff(item, newItem);
+      console.log("Handle item submit", diff);
+      console.log(item);
+      console.log(newItem);
       if (diff.length > 0) {
         updateItem({ id: item.id, data: newItem });
       }
