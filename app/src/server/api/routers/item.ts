@@ -356,9 +356,16 @@ export const itemRouter = createTRPCRouter({
         fetchItem(ctx.drizzle, iid),
         fetchStructures(ctx.drizzle, input.villageId),
         ctx.drizzle
-          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .select({ count: sql<number>`count(*)`.mapWith(Number), hidden: item.hidden })
           .from(userItem)
-          .where(and(eq(userItem.userId, uid), eq(userItem.equipped, "NONE"))),
+          .innerJoin(item, eq(userItem.itemId, item.id))
+          .where(
+            and(
+              eq(userItem.userId, uid),
+              eq(userItem.equipped, "NONE"),
+              eq(item.hidden, 0),
+            ),
+          ),
       ]);
       // Derived
       const userItemsCount = counts?.[0]?.count || 0;
