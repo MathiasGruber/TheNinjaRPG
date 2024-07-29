@@ -1254,7 +1254,10 @@ export const fetchUpdatedUser = async (props: {
 
   // Ensure we can fetch the user
   const [achievements, settings, user] = await Promise.all([
-    client.select().from(quest).where(eq(quest.questType, "achievement")),
+    client
+      .select()
+      .from(quest)
+      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, 0))),
     client.select().from(gameSetting),
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),

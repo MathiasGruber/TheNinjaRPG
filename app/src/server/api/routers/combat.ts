@@ -587,7 +587,10 @@ export const initiateBattle = async (
   const [villages, relations, achievements, users] = await Promise.all([
     client.select().from(village),
     client.select().from(villageAlliance),
-    client.select().from(quest).where(eq(quest.questType, "achievement")),
+    client
+      .select()
+      .from(quest)
+      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, 0))),
     client.query.userData.findMany({
       with: {
         bloodline: true,

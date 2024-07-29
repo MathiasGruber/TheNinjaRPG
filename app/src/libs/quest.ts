@@ -303,6 +303,7 @@ export const mockAchievementHistoryEntries = (
   user: NonNullable<UserWithRelations>,
 ) => {
   return quests
+    .filter((q) => q.hidden === 0)
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
     .map((a) => ({
       id: a.id,
