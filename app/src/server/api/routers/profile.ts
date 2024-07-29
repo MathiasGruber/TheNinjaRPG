@@ -1182,16 +1182,36 @@ export const updateUserContent = async (props: {
       { items: newItemIds.map((id) => itemData.find((j) => j.id === id)?.name) },
     );
 
+    // Updated content
+    const deletedJ = oldJutsuIds.filter((id) => !newJutsuIds.includes(id));
+    const deletedI = oldItemIds.filter((id) => !newItemIds.includes(id));
+    const insertedJ = newJutsuIds.filter((id) => !oldJutsuIds.includes(id));
+    const insertedI = newItemIds.filter((id) => !oldItemIds.includes(id));
+
     // Run updates
     await Promise.all([
-      ...(newJ ? [client.delete(userJutsu).where(eq(userJutsu.userId, userId))] : []),
-      ...(newI ? [client.delete(userItem).where(eq(userItem.userId, userId))] : []),
-    ]);
-    await Promise.all([
-      ...(newJ && newJutsuIds.length > 0
+      ...(deletedJ.length > 0
+        ? [
+            client
+              .delete(userJutsu)
+              .where(
+                and(eq(userJutsu.userId, userId), inArray(userJutsu.jutsuId, deletedJ)),
+              ),
+          ]
+        : []),
+      ...(deletedI.length > 0
+        ? [
+            client
+              .delete(userItem)
+              .where(
+                and(eq(userItem.userId, userId), inArray(userItem.itemId, deletedI)),
+              ),
+          ]
+        : []),
+      ...(insertedJ.length > 0
         ? [
             client.insert(userJutsu).values(
-              newJutsuIds.map((jutsuId) => ({
+              insertedJ.map((jutsuId) => ({
                 id: nanoid(),
                 userId: userId,
                 jutsuId: jutsuId,
@@ -1201,10 +1221,10 @@ export const updateUserContent = async (props: {
             ),
           ]
         : []),
-      ...(newI && newItemIds.length > 0
+      ...(insertedI.length > 0
         ? [
             client.insert(userItem).values(
-              newItemIds.map((itemId) => ({
+              insertedI.map((itemId) => ({
                 id: nanoid(),
                 userId: userId,
                 itemId: itemId,
