@@ -9,7 +9,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import type { ArrayElement } from "@/utils/typeutils";
 
 interface ActionLogsProps {
-  table: "ai" | "user" | "jutsu" | "bloodline" | "item" | "badge";
+  table: "ai" | "user" | "jutsu" | "bloodline" | "item" | "badge" | "clan";
   back_href?: string;
   relatedId?: string;
   initialBreak?: boolean;

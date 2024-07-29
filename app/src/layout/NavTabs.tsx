@@ -39,8 +39,8 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
               href="#"
               className={
                 option === current
-                  ? "active inline-block rounded-t-lg border-b-2 border-foreground/50 pb-2 pt-2 pl-2 pr-2 text-foreground/50"
-                  : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-2 pr-2 hover:border-gray-300 hover:text-gray-600"
+                  ? "active inline-block rounded-t-lg border-b-2 border-foreground/50 pb-2 pt-2 pl-1 pr-1 text-foreground/50"
+                  : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-1 pr-1 hover:border-gray-300 hover:text-gray-600"
               }
               onClick={(e) => {
                 e.preventDefault();

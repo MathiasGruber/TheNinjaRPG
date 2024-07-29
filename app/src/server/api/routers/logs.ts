@@ -18,6 +18,7 @@ export const logsRouter = createTRPCRouter({
           "jutsu",
           "bloodline",
           "badge",
+          "clan",
         ]),
       }),
     )

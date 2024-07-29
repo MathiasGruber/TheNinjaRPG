@@ -1358,7 +1358,7 @@ export const fetchUpdatedUser = async (props: {
           if (user.clanId) {
             const clanData = await fetchClan(client, user.clanId);
             if (clanData) {
-              await removeFromClan(client, clanData, user.userId);
+              await removeFromClan(client, clanData, user, ["Turned outlaw"]);
             }
           }
           void pusher.trigger(user.userId, "event", {

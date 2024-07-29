@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, inArray } from "drizzle-orm";
-import { clan, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
+import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
@@ -26,6 +26,7 @@ import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
+import type { UserData } from "@/drizzle/schema";
 import { secondsFromDate } from "@/utils/time";
 
 const pusher = getServerPusher();
@@ -349,7 +350,9 @@ export const clanRouter = createTRPCRouter({
       if (!isLeader && !isColeader) return errorResponse("Not allowed");
       if (!isLeader && isMemberColeader) return errorResponse("Only leader can kick");
       // Mutate
-      await removeFromClan(ctx.drizzle, fetchedClan, member.userId);
+      await removeFromClan(ctx.drizzle, fetchedClan, member, [
+        `Kicked by ${user.username}`,
+      ]);
       // Create
       return { success: true, message: "Member kicked" };
     }),
@@ -371,7 +374,7 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Wrong village");
       }
       // Derived
-      await removeFromClan(ctx.drizzle, fetchedClan, user.userId);
+      await removeFromClan(ctx.drizzle, fetchedClan, user, ["Left clan on own accord"]);
       // Create
       return { success: true, message: "User left clan" };
     }),
@@ -746,9 +749,11 @@ export const clanRouter = createTRPCRouter({
 export const removeFromClan = async (
   client: DrizzleClient,
   clanData: NonNullable<ClanRouter["get"]>,
-  userId: string,
+  user: UserData,
+  reasons: string[],
 ) => {
   // Derived
+  const userId = user.userId;
   const isLeader = clanData?.leaderId === userId;
   // Find another user, prefer coleaders in case it's leader being removed
   const otherUser = clanData?.members
@@ -771,6 +776,15 @@ export const removeFromClan = async (
           or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
         ),
       ),
+    client.insert(actionLog).values({
+      id: nanoid(),
+      userId: userId,
+      tableName: "clan",
+      changes: reasons,
+      relatedId: clanData.id,
+      relatedMsg: `${user.username} removed from clan: ${clanData.name}`,
+      relatedImage: clanData.image,
+    }),
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
