@@ -155,8 +155,8 @@ export const QuestValidator = z
   .object({
     name: z.string().min(1).max(191),
     image: z.string().url().optional().nullish(),
-    description: z.string().min(1).max(512).optional().nullish(),
-    successDescription: z.string().min(1).max(512).optional().nullish(),
+    description: z.string().min(1).max(5000).optional().nullish(),
+    successDescription: z.string().min(1).max(5000).optional().nullish(),
     requiredRank: z.enum(LetterRanks).optional(),
     requiredLevel: z.coerce.number().min(0).max(100).optional(),
     requiredVillage: z.string().min(0).max(30).optional().nullish(),
