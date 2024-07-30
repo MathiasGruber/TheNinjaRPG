@@ -367,7 +367,7 @@ export const jutsuRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (!info) return errorResponse("Jutsu not found");
-      if (info.hidden === 1) return errorResponse("Jutsu can not be trained");
+      if (info.hidden) return errorResponse("Jutsu is hidden, cannot be trained");
       if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
       if (user.status !== "AWAKE") return errorResponse("Must be awake");
       const level = userjutsu ? userjutsu.level : 0;

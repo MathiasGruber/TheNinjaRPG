@@ -194,7 +194,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             <>
               <ItemWithEffects item={item} key={item.id} showStatistic="item" />
               <div className="flex flex-row gap-1">
-                {item.canStack > 0 && (
+                {item.canStack && (
                   <Button variant="info" onClick={() => merge({ itemId: item.itemId })}>
                     <Merge className="mr-2 h-5 w-5" />
                     Merge Stacks

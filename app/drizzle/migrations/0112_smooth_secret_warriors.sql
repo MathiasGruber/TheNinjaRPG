@@ -1,0 +1,13 @@
+ALTER TABLE `Bloodline` MODIFY COLUMN `hidden` boolean NOT NULL;
+ALTER TABLE `Bloodline` MODIFY COLUMN `hidden` boolean NOT NULL DEFAULT false;
+ALTER TABLE `ConceptImage` MODIFY COLUMN `hidden` boolean NOT NULL;
+ALTER TABLE `ConceptImage` MODIFY COLUMN `hidden` boolean NOT NULL DEFAULT false;
+ALTER TABLE `Item` MODIFY COLUMN `canStack` boolean NOT NULL;
+ALTER TABLE `Item` MODIFY COLUMN `canStack` boolean NOT NULL DEFAULT false;
+ALTER TABLE `Item` MODIFY COLUMN `hidden` boolean NOT NULL;
+ALTER TABLE `Item` MODIFY COLUMN `hidden` boolean NOT NULL DEFAULT false;
+ALTER TABLE `Jutsu` MODIFY COLUMN `hidden` boolean NOT NULL;
+ALTER TABLE `Jutsu` MODIFY COLUMN `hidden` boolean NOT NULL DEFAULT false;
+ALTER TABLE `Quest` MODIFY COLUMN `hidden` boolean NOT NULL;
+ALTER TABLE `Quest` MODIFY COLUMN `hidden` boolean NOT NULL DEFAULT false;
+ALTER TABLE `Item` ADD `inShop` boolean DEFAULT true NOT NULL;

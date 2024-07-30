@@ -1257,7 +1257,7 @@ export const fetchUpdatedUser = async (props: {
     client
       .select()
       .from(quest)
-      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, 0))),
+      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
     client.select().from(gameSetting),
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
@@ -1294,7 +1294,7 @@ export const fetchUpdatedUser = async (props: {
   // Add in achievements
   if (user) {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
-    user.userQuests = user.userQuests.filter((q) => q.quest.hidden === 0);
+    user.userQuests = user.userQuests.filter((q) => !q.quest.hidden);
   }
 
   if (user) {

@@ -785,6 +785,13 @@
       "when": 1722191585136,
       "tag": "0111_hard_songbird",
       "breakpoints": false
+    },
+    {
+      "idx": 112,
+      "version": "5",
+      "when": 1722325172777,
+      "tag": "0112_smooth_secret_warriors",
+      "breakpoints": false
     }
   ]
 }

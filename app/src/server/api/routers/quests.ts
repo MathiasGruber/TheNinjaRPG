@@ -99,7 +99,7 @@ export const questsRouter = createTRPCRouter({
         )
         .where(
           and(
-            eq(quest.hidden, 0),
+            eq(quest.hidden, false),
             inArray(quest.questType, ["event"]),
             isNull(questHistory.userId),
             ...(input.villageId
@@ -192,7 +192,7 @@ export const questsRouter = createTRPCRouter({
         where: and(
           eq(quest.questType, input.type),
           eq(quest.requiredRank, input.rank),
-          eq(quest.hidden, 0),
+          eq(quest.hidden, false),
           or(
             isNull(quest.requiredVillage),
             eq(quest.requiredVillage, user.villageId ?? ""),
@@ -373,7 +373,7 @@ export const questsRouter = createTRPCRouter({
         description: "",
         timeFrame: "all_time",
         questType: "mission",
-        hidden: 1,
+        hidden: true,
         content: {
           objectives: [],
           reward: {

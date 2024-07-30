@@ -108,7 +108,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
       <div className="basis-full text-sm md:basis-2/3">
         <div className="flex flex-row">
           <div className="relative block md:hidden md:basis-1/3">{image}</div>
-          <div className="flex basis-full flex-col pl-5 md:pl-0">
+          <div className="relative flex basis-full flex-col pl-5 md:pl-0">
             <h3 className="text-xl font-bold tracking-tight text-popover-foreground">
               {item.name}
             </h3>
@@ -126,7 +126,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 </div>
               )}
             </div>
-            <div className="absolute right-6 flex flex-row">
+            <div className="absolute right-1 flex flex-row">
               {showStatistic && (
                 <Link
                   href={`/manual/${showStatistic}/statistics/${item.id}`}

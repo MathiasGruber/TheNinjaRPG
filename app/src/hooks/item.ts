@@ -81,7 +81,6 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "cost", type: "number" },
     { id: "repsCost", type: "number" },
     { id: "cooldown", type: "number" },
-    { id: "canStack", type: "number" },
     { id: "stackSize", type: "number" },
     { id: "destroyOnUse", type: "number" },
     { id: "range", type: "number" },
@@ -92,7 +91,9 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "healthCostReducePerLvl", type: "number" },
     { id: "actionCostPerc", type: "number" },
     { id: "healthCost", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden" },
+    { id: "canStack", type: "boolean" },
+    { id: "hidden", type: "boolean" },
+    { id: "inShop", type: "boolean" },
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };

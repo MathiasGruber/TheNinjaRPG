@@ -55,7 +55,7 @@ export const itemRouter = createTRPCRouter({
           slot: "ITEM",
           target: "CHARACTER",
           effects: [],
-          hidden: 1,
+          hidden: true,
         });
         return { success: true, message: id };
       } else {
@@ -122,6 +122,7 @@ export const itemRouter = createTRPCRouter({
         stat: z.enum(statFilters).optional(),
         minCost: z.number().default(0),
         minRepsCost: z.number().default(0),
+        onlyInShop: z.boolean().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -142,6 +143,7 @@ export const itemRouter = createTRPCRouter({
           ...(input.stat
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.stat}) IS NOT NULL`]
             : []),
+          ...(input.onlyInShop ? [eq(item.inShop, true)] : []),
           gte(item.cost, input.minCost),
           gte(item.repsCost, input.minRepsCost),
         ),
@@ -279,7 +281,7 @@ export const itemRouter = createTRPCRouter({
         fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
         ctx.drizzle.query.bloodline.findMany({
           columns: { id: true, name: true, rank: true },
-          where: eq(bloodline.hidden, 0),
+          where: eq(bloodline.hidden, false),
         }),
       ]);
 
@@ -363,7 +365,7 @@ export const itemRouter = createTRPCRouter({
             and(
               eq(userItem.userId, uid),
               eq(userItem.equipped, "NONE"),
-              eq(item.hidden, 0),
+              eq(item.hidden, false),
             ),
           ),
       ]);
@@ -376,7 +378,8 @@ export const itemRouter = createTRPCRouter({
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
-      if (info.hidden === 1) return errorResponse("Item can not be bought");
+      if (info.hidden) return errorResponse("Item is hidden, cannot be bought");
+      if (!info.inShop) return errorResponse("Item is not for sale");
       if (user.isBanned) return errorResponse("You are banned");
       if (userItemsCount >= calcMaxItems(user)) {
         return errorResponse("Inventory is full");
@@ -426,7 +429,7 @@ export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
     where: eq(userItem.userId, userId),
     with: { item: true },
   });
-  return useritems.filter((ui) => ui.item.hidden === 0);
+  return useritems.filter((ui) => !ui.item.hidden);
 };
 
 export const fetchUserItem = async (

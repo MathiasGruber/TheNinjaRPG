@@ -195,7 +195,7 @@ export const bloodline = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     rank: mysqlEnum("rank", consts.LetterRanks).notNull(),
-    hidden: tinyint("hidden").default(0).notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
   },
   (table) => {
     return {
@@ -725,7 +725,6 @@ export const item = mysqlTable(
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     cost: int("cost").default(1).notNull(),
     repsCost: int("reputationCost").default(0).notNull(),
-    canStack: tinyint("canStack").default(0).notNull(),
     stackSize: int("stackSize").default(1).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
     destroyOnUse: tinyint("destroyOnUse").default(0).notNull(),
@@ -740,7 +739,9 @@ export const item = mysqlTable(
     battleDescription: text("battleDescription")
       .default(sql`('')`)
       .notNull(),
-    hidden: tinyint("hidden").default(0).notNull(),
+    canStack: boolean("canStack").default(false).notNull(),
+    inShop: boolean("inShop").default(true).notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
   },
   (table) => {
     return {
@@ -788,7 +789,7 @@ export const jutsu = mysqlTable(
     healthCost: double("healthCost").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
-    hidden: tinyint("hidden").default(0).notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
   },
   (table) => {
     return {
@@ -1635,7 +1636,7 @@ export const quest = mysqlTable(
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
     content: json("content").$type<QuestContentType>().notNull(),
-    hidden: tinyint("hidden").notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1744,7 +1745,7 @@ export const conceptImage = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     status: varchar("status", { length: 191 }).default("started").notNull(),
-    hidden: tinyint("hidden").default(0).notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
     // prompt schema
     prompt: varchar("prompt", { length: 5000 }).notNull(),
     negative_prompt: varchar("negative_prompt", { length: 5000 }).default("").notNull(),

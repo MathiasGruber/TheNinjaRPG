@@ -590,7 +590,7 @@ export const initiateBattle = async (
     client
       .select()
       .from(quest)
-      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, 0))),
+      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
     client.query.userData.findMany({
       with: {
         bloodline: true,

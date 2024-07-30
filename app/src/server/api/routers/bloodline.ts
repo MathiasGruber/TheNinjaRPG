@@ -48,7 +48,7 @@ export const bloodlineRouter = createTRPCRouter({
       const results = await ctx.drizzle.query.bloodline.findMany({
         where: and(
           ...[input.rank ? eq(bloodline.rank, input.rank) : isNotNull(bloodline.rank)],
-          ...(input.showHidden ? [] : [eq(bloodline.hidden, 0)]),
+          ...(input.showHidden ? [] : [eq(bloodline.hidden, false)]),
           ...(input.effect
             ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.effect}) IS NOT NULL`]
             : []),
@@ -87,7 +87,7 @@ export const bloodlineRouter = createTRPCRouter({
         description: "New bloodline description",
         effects: [],
         rank: "D",
-        hidden: 1,
+        hidden: true,
       });
       return { success: true, message: id };
     } else {
@@ -191,7 +191,7 @@ export const bloodlineRouter = createTRPCRouter({
         await ctx.drizzle.query.bloodline.findMany({
           where: and(
             eq(bloodline.rank, bloodlineRank),
-            eq(bloodline.hidden, 0),
+            eq(bloodline.hidden, false),
             or(
               eq(bloodline.villageId, user.villageId ?? ""),
               isNull(bloodline.villageId),
