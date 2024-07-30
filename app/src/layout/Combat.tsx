@@ -453,6 +453,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Derived variables
   const showNextMatch = result?.outcome === "Won" && battleType === "ARENA";
+  const showTravelBtn = result?.outcome === "Won" && battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.userId;
@@ -564,7 +565,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             <div className="p-5 flex flex-row justify-center gap-2">
               <Link
                 href={toHospital ? "/hospital" : "/profile"}
-                className={`${showNextMatch ? "basis-1/2" : "basis-1/1"} w-full`}
+                className={`${showNextMatch || showTravelBtn ? "basis-1/2" : "basis-1/1"} w-full`}
               >
                 <Button id="return" className="w-full">
                   Return to {toHospital ? "Hospital" : "Profile"}
@@ -578,6 +579,13 @@ const Combat: React.FC<CombatProps> = (props) => {
                 >
                   Go Again
                 </Button>
+              )}
+              {showTravelBtn && (
+                <Link href="/travel" className="basis-1/2">
+                  <Button id="toTravel" className="w-full">
+                    To Map
+                  </Button>
+                </Link>
               )}
             </div>
           </div>

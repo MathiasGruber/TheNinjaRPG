@@ -577,7 +577,7 @@ export const questsRouter = createTRPCRouter({
                     client: ctx.drizzle,
                     scaleTarget: opponent.scale ? true : false,
                   },
-                  "ARENA",
+                  "QUEST",
                   determineCombatBackground("ground"),
                 )
               : undefined,
