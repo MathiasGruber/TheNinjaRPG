@@ -37,13 +37,13 @@ const calcCurrent = (
   if (status === "BATTLE" || start === undefined) {
     current = end;
   } else if (
-    regen &&
-    status &&
+    regen !== undefined &&
+    status !== undefined &&
     regenAt &&
     ["AWAKE", "ASLEEP", "TRAVEL"].includes(status)
   ) {
     const minutes = secondsPassed(regenAt, timeDiff) / 60;
-    if (regen > 0) {
+    if (regen >= 0) {
       current = Math.min(end, start + regen * minutes);
     } else {
       current = Math.max(0, start + regen * minutes);
@@ -76,10 +76,10 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
   // Updating the bars based on regen
   useEffect(() => {
     const foo = () => {
-      if (regen && current && total) {
+      if (regen !== undefined && current !== undefined && total !== undefined) {
         if (
-          (regen > 0 && (state.current < total || current < total)) ||
-          (regen < 0 && (state.current > 0 || current > 0))
+          (state.current < total || current < total) &&
+          (state.current > 0 || current > 0)
         ) {
           setState(calcCurrent(current, total, status, regen, lastRegenAt, timeDiff));
         }
@@ -94,9 +94,9 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
   }, [isAwake, regen, lastRegenAt, current, total, status, timeDiff]);
 
   return (
-    <div className="group relative mt-2 flex-row">
+    <div className="group relative flex-row">
       {showText && !isInBattle && (
-        <div>
+        <div className="leading-none">
           {title} ({total ? `${Math.round(state.current)} / ${total}` : "?? / ??"})
         </div>
       )}

@@ -4,6 +4,7 @@ import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import Countdown from "@/layout/Countdown";
+import LevelUpBtn from "@/layout/LevelUpBtn";
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell } from "lucide-react";
@@ -14,6 +15,7 @@ import { useGameMenu } from "@/libs/menus";
 import { secondsFromDate } from "@/utils/time";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
+import { calcLevelRequirements } from "@/libs/profile";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -170,9 +172,12 @@ const MenuBoxProfile: React.FC = () => {
     }
   };
 
+  const expRequired = userData && calcLevelRequirements(userData.level);
+  const expCurrent = userData && Math.min(userData.experience, expRequired ?? 0);
+
   return (
     <>
-      <div className="flex-col items-center justify-center">
+      <div className="flex-col items-center justify-center ">
         <Link href="/profile">
           <AvatarImage
             href={userData?.avatar}
@@ -185,42 +190,60 @@ const MenuBoxProfile: React.FC = () => {
           />
         </Link>
 
-        <StatusBar
-          title="HP"
-          tooltip="Health"
-          color="bg-red-500"
-          showText={true}
-          lastRegenAt={userData?.regenAt}
-          regen={userData?.regeneration}
-          status={userData?.status}
-          current={userData?.curHealth}
-          total={userData?.maxHealth}
-          timeDiff={timeDiff}
-        />
-        <StatusBar
-          title="CP"
-          tooltip="Chakra"
-          color="bg-blue-500"
-          showText={true}
-          lastRegenAt={userData?.regenAt}
-          regen={userData?.regeneration}
-          status={userData?.status}
-          current={userData?.curChakra}
-          total={userData?.maxChakra}
-          timeDiff={timeDiff}
-        />
-        <StatusBar
-          title="SP"
-          tooltip="Stamina"
-          color="bg-green-500"
-          showText={true}
-          lastRegenAt={userData?.regenAt}
-          regen={userData?.regeneration}
-          status={userData?.status}
-          current={userData?.curStamina}
-          total={userData?.maxStamina}
-          timeDiff={timeDiff}
-        />
+        <div className="pt-2">
+          <StatusBar
+            title="HP"
+            tooltip="Health"
+            color="bg-red-500"
+            showText={true}
+            lastRegenAt={userData?.regenAt}
+            regen={userData?.regeneration}
+            status={userData?.status}
+            current={userData?.curHealth}
+            total={userData?.maxHealth}
+            timeDiff={timeDiff}
+          />
+          <StatusBar
+            title="CP"
+            tooltip="Chakra"
+            color="bg-blue-500"
+            showText={true}
+            lastRegenAt={userData?.regenAt}
+            regen={userData?.regeneration}
+            status={userData?.status}
+            current={userData?.curChakra}
+            total={userData?.maxChakra}
+            timeDiff={timeDiff}
+          />
+          <StatusBar
+            title="SP"
+            tooltip="Stamina"
+            color="bg-green-500"
+            showText={true}
+            lastRegenAt={userData?.regenAt}
+            regen={userData?.regeneration}
+            status={userData?.status}
+            current={userData?.curStamina}
+            total={userData?.maxStamina}
+            timeDiff={timeDiff}
+          />
+          {expRequired && expCurrent && expCurrent >= expRequired ? (
+            <LevelUpBtn />
+          ) : (
+            <StatusBar
+              title="XP"
+              tooltip="Experience required for next level"
+              color="bg-yellow-500"
+              showText={true}
+              lastRegenAt={userData?.regenAt}
+              regen={0}
+              status={userData?.status}
+              current={expCurrent}
+              total={expRequired}
+              timeDiff={timeDiff}
+            />
+          )}
+        </div>
         {userData?.trainingStartedAt && userData?.currentlyTraining && (
           <div className="flex flex-row items-center mt-2 hover:text-orange-500">
             <Dumbbell className="mr-2 h-6 w-6 " />

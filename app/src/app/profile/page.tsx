@@ -1,8 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
-
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Confirm from "@/layout/Confirm";
@@ -11,24 +8,19 @@ import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
 import Logbook from "@/layout/Logbook";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
-import Modal from "@/layout/Modal";
+import LevelUpBtn from "@/layout/LevelUpBtn";
 import { Button } from "@/components/ui/button";
-import { sendGTMEvent } from "@next/third-parties/google";
-import { Trash2, Wrench, Share2, GraduationCap } from "lucide-react";
+import { Trash2, Wrench, Share2 } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
-import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { showMutationToast } from "@/libs/toast";
 
 export default function Profile() {
   // State
   const { data: userData, timeDiff } = useRequiredUserData();
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [isLevelling, setIsLevelling] = useState<boolean>(false);
 
   // tRPC utility
   const utils = api.useUtils();
@@ -50,27 +42,6 @@ export default function Profile() {
         router.push("/");
       },
     });
-
-  const { mutate: levelUp } = api.profile.levelUp.useMutation({
-    onMutate: () => {
-      setIsLevelling(true);
-    },
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success && userData) {
-        await utils.profile.getUser.invalidate();
-        sendGTMEvent({
-          event: "level_up",
-          level: userData.level + 1,
-          character: userData.userId,
-        });
-      }
-    },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-      setIsLevelling(false);
-    },
-  });
 
   const canDelete =
     userData &&
@@ -95,49 +66,6 @@ export default function Profile() {
         subtitle="An overview of basic information"
         topRightContent={
           <div className="flex flex-row gap-1">
-            {showModal && (
-              <Modal
-                title={`Level up to Lvl ${userData.level + 1}!`}
-                setIsOpen={setShowModal}
-                proceed_label="Awesome!"
-                isValid={false}
-                onAccept={() => {
-                  levelUp();
-                  setShowModal(false);
-                }}
-              >
-                <div className="basis-1/2 absolute top-0 right-0 opacity-20">
-                  <Image
-                    alt="Level up graphic"
-                    src="/images/levelupguy.webp"
-                    width={375}
-                    height={436}
-                  />
-                </div>
-                {isLevelling && <Loader explanation="Leveling up..." />}
-                {!isLevelling && (
-                  <>
-                    <div className="">
-                      Congratulations on leveling up! Your dedication and hard work have
-                      paid off, and you have proven yourself to be a true ninja warrior.
-                      Keep up the great work and continue to hone your skills.
-                    </div>
-                    <p className="pt-2">
-                      <span className="font-bold">New Health:</span>{" "}
-                      {calcHP(userData.level + 1)} points
-                    </p>
-                    <p className="pt-2">
-                      <span className="font-bold">New Chakra:</span>{" "}
-                      {calcCP(userData.level + 1)} points
-                    </p>
-                    <p className="pt-2">
-                      <span className="font-bold">New Stamina:</span>{" "}
-                      {calcSP(userData.level + 1)} points
-                    </p>
-                  </>
-                )}
-              </Modal>
-            )}
             <Link href="/profile/recruit">
               <Share2 className="h-6 w-6 cursor-pointer hover:text-orange-500" />
             </Link>
@@ -243,19 +171,7 @@ export default function Profile() {
             <p>Medical: {capitalizeFirstLetter(calcMedninRank(userData))}</p>
           </div>
         </div>
-        {expRequired !== undefined && expRequired <= 0 && (
-          <Button
-            id="create"
-            className="w-full mt-3"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowModal(true);
-            }}
-          >
-            <GraduationCap className="h-6 w-6 mr-2" />
-            Level up!
-          </Button>
-        )}
+        <LevelUpBtn />
       </ContentBox>
       <StrengthWeaknesses />
       <Logbook />
