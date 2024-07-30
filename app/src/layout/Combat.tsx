@@ -453,7 +453,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Derived variables
   const showNextMatch = result?.outcome === "Won" && battleType === "ARENA";
-  const showTravelBtn = result?.outcome === "Won" && battleType === "QUEST";
+  const showTravelBtn = battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.userId;

@@ -154,6 +154,18 @@ export default function Travel() {
   const showGlobal = villages && globe && isGlobal;
   const showSector = villages && currentSector && currentTile && !isGlobal;
 
+  useEffect(() => {
+    const atTarget =
+      currentPosition &&
+      targetPosition &&
+      currentPosition.x === targetPosition.x &&
+      currentPosition.y === targetPosition.y;
+    if (atTarget && onEdge && targetSector && targetSector !== currentSector) {
+      startGlobalMove({ sector: targetSector });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPosition]);
+
   // Battle scene
   const SectorComponent = useMemo(() => {
     return (
@@ -265,12 +277,11 @@ export default function Travel() {
           <Modal
             title="World Travel"
             setIsOpen={setShowModal}
-            proceed_label={
-              !isStartingTravel ? (onEdge ? "Travel" : "Move to Edge") : undefined
-            }
+            proceed_label={!isStartingTravel ? "Travel" : undefined}
             isValid={false}
             onAccept={() => {
               if (!onEdge && currentPosition) {
+                setShowModal(false);
                 setTargetPosition(findNearestEdge(currentPosition));
                 setActiveTab(sectorLink);
               } else {
@@ -282,23 +293,17 @@ export default function Travel() {
             {!isStartingTravel && (
               <div>
                 You are about to move from sector {userData.sector} to {targetSector}.{" "}
-                {onEdge ? (
-                  <p className="py-2">
-                    The travel time is estimated to be{" "}
-                    {calcGlobalTravelTime(userData.sector, targetSector, globe)}{" "}
-                    seconds.
-                  </p>
-                ) : (
-                  <>
-                    <p className="py-2">
-                      Your character will first have to move to the edge of his current
-                      sector.
-                    </p>
-                    <p className="pb-2">
-                      Current location: {currentPosition?.x}, {currentPosition?.y}
-                    </p>
-                  </>
-                )}{" "}
+                <p className="py-2">
+                  The travel time is estimated to be{" "}
+                  {calcGlobalTravelTime(userData.sector, targetSector, globe)} seconds.
+                </p>
+                <p className="py-2">
+                  Your character will first have to move to the edge of his current
+                  sector.
+                </p>
+                <p className="pb-2">
+                  Current location: {currentPosition?.x}, {currentPosition?.y}
+                </p>
                 Do you confirm?
               </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { fedJutsuLoadouts } from "@/utils/paypal";
@@ -40,26 +40,27 @@ const LoadoutSelector: React.FC<LoadoutSelectorProps> = (props) => {
     });
 
   // Handle key-presses
-  const onDocumentKeyDown = (event: KeyboardEvent) => {
-    switch (event.key) {
-      case "1":
-        if (data?.[0]) selectJutsuLoadout({ id: data[0].id });
-        break;
-      case "2":
-        if (data?.[1]) selectJutsuLoadout({ id: data[1].id });
-        break;
-      case "3":
-        if (data?.[2]) selectJutsuLoadout({ id: data[2].id });
-        break;
-    }
-  };
-  useEffect(() => {
-    document.addEventListener("keydown", onDocumentKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onDocumentKeyDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  // This is too aggressive when input on a given page
+  // const onDocumentKeyDown = (event: KeyboardEvent) => {
+  //   switch (event.key) {
+  //     case "1":
+  //       if (data?.[0]) selectJutsuLoadout({ id: data[0].id });
+  //       break;
+  //     case "2":
+  //       if (data?.[1]) selectJutsuLoadout({ id: data[1].id });
+  //       break;
+  //     case "3":
+  //       if (data?.[2]) selectJutsuLoadout({ id: data[2].id });
+  //       break;
+  //   }
+  // };
+  // useEffect(() => {
+  //   document.addEventListener("keydown", onDocumentKeyDown);
+  //   return () => {
+  //     document.removeEventListener("keydown", onDocumentKeyDown);
+  //   };
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [data]);
 
   // Derived size vars
   const iconSize = props?.size === "small" ? "h-6 w-6" : "h-10 w-10";
