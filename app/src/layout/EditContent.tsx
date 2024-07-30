@@ -497,7 +497,6 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         newEffects[idx] = shownTag;
         form.reset(shownTag);
       }
-      console.log("Setting effects 1: ", newEffects);
       setEffects(newEffects);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -739,21 +738,23 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Automatically update the effects whenever dirty
   useEffect(() => {
-    if (objective.task === watchTask) {
-      if (form.formState.isDirty) {
-        void form.trigger();
-      }
-      if (form.formState.isValid) {
-        const newObjectives = [...objectives];
-        const parsedTag = objectiveSchema.safeParse(watchAll);
-        const shownTag = parsedTag.success ? parsedTag.data : watchAll;
-        newObjectives[idx] = shownTag;
-        setObjectives(newObjectives);
+    const newObjectives = [...objectives];
+    const parsedTag = objectiveSchema.safeParse(watchAll);
+    const shownTag = parsedTag.success ? parsedTag.data : watchAll;
+    newObjectives[idx] = shownTag;
+    const diff = calculateContentDiff(objectives, newObjectives);
+    if (diff.length > 0) {
+      if (objective.task === watchTask) {
+        if (form.formState.isDirty) {
+          void form.trigger();
+        }
+        if (form.formState.isValid) {
+          setObjectives(newObjectives);
+        }
       }
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectiveSchema, form.formState.isDirty, form.formState.isValid]);
+  }, [watchAll]);
 
   // Attributes on this tag, each of which we should show a form field for
   type Attribute = keyof AllObjectivesType;
