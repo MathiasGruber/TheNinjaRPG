@@ -89,6 +89,12 @@ const Shop: React.FC<ShopProps> = (props) => {
     "Buy for " +
     (ryoCost > 0 ? ryoCost + " ryo" : "") +
     (repsCost > 0 ? repsCost + " reputation points" : "");
+  const missingString =
+    "Need " +
+    (ryoCost > userData.money ? ryoCost - userData.money + " more ryo " : "") +
+    (repsCost > userData.reputationPoints
+      ? repsCost - userData.reputationPoints + " more reputation points"
+      : "");
 
   // Item types categories
   let categories = Object.values(ItemTypes);
@@ -151,11 +157,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                 <Modal
                   title="Confirm Purchase"
                   proceed_label={
-                    isPurchasing
-                      ? undefined
-                      : canAfford
-                        ? costString
-                        : `Insufficient funds`
+                    isPurchasing ? undefined : canAfford ? costString : missingString
                   }
                   setIsOpen={setIsOpen}
                   isValid={false}
