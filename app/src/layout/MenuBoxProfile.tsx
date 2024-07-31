@@ -267,6 +267,9 @@ const MenuBoxProfile: React.FC = () => {
           <p suppressHydrationWarning>
             <b>Time: </b> {gameTime}
           </p>
+          <p>
+            <b>Money: </b> {userData?.money ?? "??"}
+          </p>
         </div>
         {userData && userData.immunityUntil > new Date() && (
           <>
