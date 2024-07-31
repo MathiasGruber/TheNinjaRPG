@@ -218,21 +218,26 @@ export default function Travel() {
               <>
                 {showActive ? (
                   <Eye
-                    className={`h-7 w-7 text-orange-500`}
+                    className={`h-7 w-7 mr-2 text-orange-500`}
                     onClick={() => setShowActive((prev) => !prev)}
                   />
                 ) : (
                   <EyeOff
-                    className={`h-7 w-7`}
+                    className={`h-7 w-7  mr-2`}
                     onClick={() => setShowActive((prev) => !prev)}
                   />
                 )}
-                <div className="px-1"></div>
                 <UserRoundSearch
-                  className={`h-7 w-7 hover:text-orange-500 ${showSorrounding ? "fill-orange-500" : ""}`}
+                  className={`h-7 w-7 mr-2 hover:text-orange-500 ${showSorrounding ? "fill-orange-500" : ""}`}
                   onClick={() => setShowSorrounding((prev) => !prev)}
                 />
               </>
+            )}
+            {activeTab === "Global" && (
+              <Globe2
+                className={`h-7 w-7 mr-2 hover:text-orange-500`}
+                onClick={() => setShowSelectSector((prev) => !prev)}
+              />
             )}
             {userData.isOutlaw && canJoin && inVillage && sectorVillage && (
               <Confirm
@@ -246,10 +251,7 @@ export default function Travel() {
                 for {VILLAGE_REDUCED_GAINS_DAYS} days.
               </Confirm>
             )}
-            <Globe2
-              className={`h-7 w-7 mx-1 hover:text-orange-500`}
-              onClick={() => setShowSelectSector((prev) => !prev)}
-            />
+
             <NavTabs
               current={activeTab}
               options={[sectorLink, "Global"]}
