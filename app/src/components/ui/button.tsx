@@ -41,6 +41,7 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   decoration?: "gold" | "none";
+  animation?: "pulse";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -49,10 +50,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
+    const animation = props.animation ? "animate-pulse hover:animate-none" : "";
     return (
       <div className={cn("relative", className)}>
         <Comp
-          className={cn(buttonVariants({ variant, size, className }))}
+          className={cn(buttonVariants({ variant, size, className }), animation)}
           ref={ref}
           {...props}
         />

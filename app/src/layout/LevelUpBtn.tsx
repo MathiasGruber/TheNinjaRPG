@@ -60,7 +60,8 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
           <Button
             id="create"
             decoration="gold"
-            className="w-full animate-pulse hover:animate-none"
+            animation="pulse"
+            className="w-full"
             onClick={(e) => {
               e.preventDefault();
               setShowModal(true);

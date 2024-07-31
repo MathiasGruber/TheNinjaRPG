@@ -225,7 +225,8 @@ const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
           <Button
             size="xl"
             decoration="gold"
-            className="font-fontasia animate-pulse hover:animate-none text-4xl"
+            animation="pulse"
+            className="font-fontasia text-4xl"
             onClick={() => aiId && attack({ aiId })}
           >
             <Swords className="h-10 w-10 mr-4" />

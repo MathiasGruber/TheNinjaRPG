@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
-import { FlaskConical, Scissors } from "lucide-react";
+import { FlaskConical, Scissors, Star } from "lucide-react";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
@@ -13,7 +13,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
-import type { Bloodline, BloodlineRank } from "../../drizzle/schema";
+import type { Bloodline, BloodlineRank } from "@/drizzle/schema";
 
 /**
  * Show Current bloodline & let user remove it
@@ -76,29 +76,22 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
       }
     >
       {userData && (
-        <>
-          <p>
-            A {rank}-rank bloodline costs <b>{cost} reputation points</b>. You have{" "}
+        <div className="pb-2">
+          <p className="pb-2">
+            {rank}-rank bloodline costs <b>{cost} reputation points</b>. You have{" "}
             <span className={`${!canAfford ? "text-red-500" : ""} font-bold`}>
               {userData.reputationPoints} points.{" "}
             </span>
           </p>
-          {!canAfford ? (
-            <>
-              <p className="text-base">
-                <Link
-                  className="font-bold text-red-800 hover:text-orange-500"
-                  href="/points"
-                >
-                  Purchase Reputation Points
-                </Link>
-              </p>
-              <hr className="py-2" />
-            </>
-          ) : (
-            ""
+          {!canAfford && (
+            <Link href="/points">
+              <Button className="w-full" decoration="gold" animation="pulse">
+                <Star className="h-6 w-6 mr-2" />
+                Purchase Reputation Points
+              </Button>
+            </Link>
           )}
-        </>
+        </div>
       )}
 
       {!isFetching && (
