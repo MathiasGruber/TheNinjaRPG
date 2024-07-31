@@ -6,6 +6,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
+import Toggle from "@/components/control/Toggle";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ export default function ManualItems() {
   const { data: userData } = useUserData();
   const [rarity, setRarity] = useState<(typeof ItemRarities)[number]>("COMMON");
   const [itemType, setItemType] = useState<(typeof ItemTypes)[number]>("WEAPON");
+  const [eventOnly, setEventOnly] = useState<boolean>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
@@ -40,7 +42,7 @@ export default function ManualItems() {
     fetchNextPage,
     hasNextPage,
   } = api.item.getAll.useInfiniteQuery(
-    { itemType: itemType, itemRarity: rarity, limit: 20 },
+    { itemType: itemType, itemRarity: rarity, limit: 20, eventItems: eventOnly },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -76,8 +78,9 @@ export default function ManualItems() {
         subtitle="Content"
         back_href="/manual"
         topRightContent={
-          <div className="lg:flex lg:flex-row gap-1">
+          <div className="lg:flex lg:flex-row gap-2">
             <div className="grow"></div>
+
             <Select
               onValueChange={(e) => setItemType(e as (typeof ItemTypes)[number])}
               defaultValue={itemType}
@@ -110,6 +113,13 @@ export default function ManualItems() {
                 ))}
               </SelectContent>
             </Select>
+            <Toggle
+              id="toggle-event-only"
+              value={eventOnly}
+              setShowActive={setEventOnly}
+              labelActive="Event"
+              labelInactive="Non-Event"
+            />
           </div>
         }
       >
@@ -130,7 +140,7 @@ export default function ManualItems() {
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-row gap-1">
+              <div className="flex flex-row gap-2">
                 <Button
                   id={`create-${itemType}`}
                   className="w-full"
