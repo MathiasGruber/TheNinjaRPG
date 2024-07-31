@@ -33,6 +33,7 @@ import type { GenericObject } from "@/layout/ItemWithEffects";
 export default function Arena() {
   // Tab selection
   const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
+  const [aiId, setAiId] = useState<string | undefined>(undefined);
 
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
@@ -65,24 +66,24 @@ export default function Arena() {
           />
         }
       >
-        {tab === "Arena" && <ChallengeAI />}
+        {tab === "Arena" && <ChallengeAI aiId={aiId} />}
         {tab === "Sparring" && <ChallengeUser />}
       </ContentBox>
+      {tab === "Arena" && <SelectAI aiId={aiId} setAiId={setAiId} />}
       {tab === "Sparring" && <ActiveChallenges />}
     </>
   );
 }
 
-const ChallengeAI: React.FC = () => {
+interface SelectAIProps {
+  aiId: string | undefined;
+  setAiId: React.Dispatch<React.SetStateAction<string | undefined>>;
+}
+
+const SelectAI: React.FC<SelectAIProps> = (props) => {
   // Data from database
+  const { aiId, setAiId } = props;
   const { data: userData } = useRequiredUserData();
-  const [aiId, setAiId] = useState<string | undefined>(undefined);
-
-  // tRPC utility
-  const utils = api.useUtils();
-
-  // Router for forwarding
-  const router = useRouter();
 
   // Queries
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
@@ -103,6 +104,94 @@ const ChallengeAI: React.FC = () => {
       return 1;
     });
 
+  // Set initially selected AI
+  useEffect(() => {
+    if (!aiId && userData) {
+      const selectedAI = sortedAis?.[0];
+      if (selectedAI) {
+        setAiId(selectedAI.userId);
+      }
+    }
+  }, [userData, sortedAis, aiId, setAiId]);
+
+  // Loaders
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Derived
+  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
+
+  return (
+    <ContentBox
+      title="Configure"
+      subtitle="Choose opponent and jutsu loadout"
+      initialBreak={true}
+      topRightContent={<LoadoutSelector size="small" />}
+    >
+      <div className="flex flex-col items-center">
+        {canDoArena && (
+          <>
+            <div className="rounded-2xl mt-3 w-full">
+              <div className="mb-1">
+                <Select
+                  onValueChange={(e) => setAiId(e)}
+                  defaultValue={aiId}
+                  value={aiId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`None`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {aiData?.map((ai) => (
+                      <SelectItem key={ai.userId} value={ai.userId}>
+                        {ai.username} (lvl {ai.level})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {ai && (
+                <ItemWithEffects
+                  item={
+                    {
+                      id: ai.userId,
+                      name: ai.username,
+                      image: ai.avatar,
+                      description: "",
+                      rarity: "COMMON",
+                      effects: [],
+                      href: `/users/${ai.userId}`,
+                      attacks: ai.jutsus?.map((jutsu) =>
+                        "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",
+                      ),
+                      ...ai,
+                    } as GenericObject
+                  }
+                  showStatistic="ai"
+                />
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </ContentBox>
+  );
+};
+
+interface ChallengeAIProps {
+  aiId: string | undefined;
+}
+
+const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
+  // Data from database
+  const { aiId } = props;
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Router for forwarding
+  const router = useRouter();
+
   // Mutation for starting a fight
   const { mutate: attack, isPending: isAttacking } =
     api.combat.startArenaBattle.useMutation({
@@ -116,16 +205,6 @@ const ChallengeAI: React.FC = () => {
         }
       },
     });
-
-  // Set initially selected AI
-  useEffect(() => {
-    if (!aiId) {
-      const selectedAI = sortedAis?.[0];
-      if (selectedAI) {
-        setAiId(selectedAI.userId);
-      }
-    }
-  }, [sortedAis, aiId]);
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -142,55 +221,17 @@ const ChallengeAI: React.FC = () => {
         <h1 className="pb-3 pt-5 font-fontasia text-7xl">Wait till tomorrow</h1>
       )}
       {!isAttacking && canDoArena && (
-        <>
-          <LoadoutSelector />
-          <h1
-            className="cursor-pointer pb-3 pt-5 font-fontasia text-7xl hover:text-orange-800"
-            onClick={() => ai && attack({ aiId: ai.userId })}
+        <div className="p-3">
+          <Button
+            size="xl"
+            decoration="gold"
+            className="font-fontasia animate-pulse hover:animate-none text-4xl"
+            onClick={() => aiId && attack({ aiId })}
           >
+            <Swords className="h-10 w-10 mr-4" />
             Enter The Arena
-          </h1>
-          <div className="rounded-2xl mt-3 w-full">
-            <div className="mb-1">
-              <Select
-                onValueChange={(e) => setAiId(e)}
-                defaultValue={aiId}
-                value={aiId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={`None`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedAis?.map((ai) => (
-                    <SelectItem key={ai.userId} value={ai.userId}>
-                      {ai.username} (lvl {ai.level})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {ai && (
-              <ItemWithEffects
-                item={
-                  {
-                    id: ai.userId,
-                    name: ai.username,
-                    image: ai.avatar,
-                    description: "",
-                    rarity: "COMMON",
-                    effects: [],
-                    href: `/users/${ai.userId}`,
-                    attacks: ai.jutsus?.map((jutsu) =>
-                      "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",
-                    ),
-                    ...ai,
-                  } as GenericObject
-                }
-                showStatistic="ai"
-              />
-            )}
-          </div>
-        </>
+          </Button>
+        </div>
       )}
       {isAttacking && (
         <div className="min-h-64">

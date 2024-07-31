@@ -25,6 +25,7 @@ const buttonVariants = cva(
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
+        xl: "h-14 rounded-md px-8",
         icon: "h-9 w-9",
       },
     },
@@ -58,14 +59,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {decoration === "gold" && (
           <>
             <Image
-              className="absolute top-[-1px] left-[-3px] scale-x-[-1]"
+              className="absolute top-[-1px] left-[-3px] scale-x-[-1] h-full aspect-square"
               src={`/layout/buttondecor.webp`}
               alt="signup-decor-left"
               width={8}
               height={25}
             ></Image>
             <Image
-              className="absolute top-[-1px] right-[-3px]"
+              className="absolute top-[-1px] right-[-3px] bottom-[0px] h-full aspect-square"
               src={`/layout/buttondecor.webp`}
               alt="signup-decor-right"
               width={8}

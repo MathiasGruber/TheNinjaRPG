@@ -353,7 +353,7 @@ export default function Travel() {
           </div>
         )}
       </ContentBox>
-      <div className="flex flex-row">
+      <div className="flex flex-row p-1">
         {showSector && <LoadoutSelector size="small" />}
         {hoverPosition && (
           <>
