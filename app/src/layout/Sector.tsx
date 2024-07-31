@@ -418,7 +418,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               void router.push(`/users/${userId}`);
               return false;
             } else if (showUsers.current && i.object.userData.type === "marker") {
-              return false;
+              return true;
             }
             return true;
           });
