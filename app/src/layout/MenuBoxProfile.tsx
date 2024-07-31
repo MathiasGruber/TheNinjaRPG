@@ -14,7 +14,6 @@ import {
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell } from "lucide-react";
-import { JapaneseYen } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -269,7 +268,7 @@ const MenuBoxProfile: React.FC = () => {
               <TooltipTrigger className="w-full">
                 <Link href="/profile" className="hover:text-orange-500">
                   <div className="flex flex-row items-center">
-                    <JapaneseYen className="h-6 w-6 mr-2" /> {userData?.money ?? "??"}
+                    <p className="text-xl mr-3">両</p> {userData?.money ?? "??"}
                   </div>
                 </Link>
               </TooltipTrigger>
