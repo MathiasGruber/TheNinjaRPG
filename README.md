@@ -29,7 +29,7 @@ Using information from these services, copy `app/.env.example` to `app/.env` and
 Various `make` commands are available; type `make help` at the root directory for list of available commands. Most importantly:
 
 - Use `make pnpm "add [package]"` if you need to add some package
-- Use `make dbpush` to push schema changes to database witout creating migration file
+- Use `make dbpush` to push schema changes to database without creating migration file
 - Use `make makemigrations` to create migrations file for new database changes
 
 # :lock: Licensing
