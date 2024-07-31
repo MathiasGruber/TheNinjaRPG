@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import ContentBox from "@/layout/ContentBox";
-import WidgetBot from "@widgetbot/react-embed";
 import Loader from "@/layout/Loader";
 import Conversation from "@/layout/Conversation";
 import BanInfo from "@/layout/BanInfo";
@@ -16,7 +14,6 @@ import {
 import { api } from "@/utils/api";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export default function Tavern() {
   // State
@@ -47,7 +44,7 @@ export default function Tavern() {
   }
 
   // Check available taverns
-  const availTaverns = ["Global", "Discord", localTavern];
+  const availTaverns = ["Global", localTavern];
   if (userData?.role !== "USER") {
     villages
       ?.filter((v) => ["OUTLAW", "VILLAGE"].includes(v.type))
@@ -76,37 +73,15 @@ export default function Tavern() {
     </Select>
   );
 
-  if (activeTab === "Discord") {
-    return (
-      <ContentBox
-        title={"Tavern"}
-        subtitle={activeTab + " Tavern"}
-        padding={false}
-        noBorder={true}
-        topRightContent={tavernSelector}
-      >
-        <WidgetBot
-          className="w-full min-h-96"
-          username={`${userData.username} - lvl. ${userData.level} ${capitalizeFirstLetter(userData.rank)}`}
-          avatar={userData.avatar ?? undefined}
-          server="1080832341234159667"
-          channel="1080832341821370399"
-          height={600}
-          shard="https://emerald.widgetbot.io"
-        />
-      </ContentBox>
-    );
-  } else {
-    const conversation = activeTab ?? "Global";
-    return (
-      <Conversation
-        refreshKey={0}
-        convo_title={conversation}
-        title={conversation + " Tavern"}
-        initialBreak={false}
-        subtitle={conversation === "Global" ? "Global chat" : "Village chat"}
-        topRightContent={tavernSelector}
-      />
-    );
-  }
+  const conversation = activeTab ?? "Global";
+  return (
+    <Conversation
+      refreshKey={0}
+      convo_title={conversation}
+      title={conversation + " Tavern"}
+      initialBreak={false}
+      subtitle={conversation === "Global" ? "Global chat" : "Village chat"}
+      topRightContent={tavernSelector}
+    />
+  );
 }
