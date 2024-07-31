@@ -5,9 +5,16 @@ import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import Countdown from "@/layout/Countdown";
 import LevelUpBtn from "@/layout/LevelUpBtn";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell } from "lucide-react";
+import { JapaneseYen } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -244,20 +251,7 @@ const MenuBoxProfile: React.FC = () => {
             />
           )}
         </div>
-        {userData?.trainingStartedAt && userData?.currentlyTraining && (
-          <div className="flex flex-row items-center mt-2 hover:text-orange-500">
-            <Dumbbell className="mr-2 h-6 w-6 " />
-            <Link href="/traininggrounds">
-              <Countdown
-                targetDate={secondsFromDate(
-                  trainingSpeedSeconds(userData?.trainingSpeed),
-                  userData?.trainingStartedAt,
-                )}
-                timeDiff={timeDiff}
-              />
-            </Link>
-          </div>
-        )}
+
         <div className="mt-4">
           <hr />
           <p className="mt-2 flex flex-row">
@@ -267,24 +261,63 @@ const MenuBoxProfile: React.FC = () => {
           <p suppressHydrationWarning>
             <b>Time: </b> {gameTime}
           </p>
-          <p>
-            <b>Money: </b> {userData?.money ?? "??"}
-          </p>
         </div>
-        {userData && userData.immunityUntil > new Date() && (
-          <>
-            <hr className="my-2" />
-            <div className="flex flex-row">
-              <ShieldCheck className="h-6 w-6 mr-2" />
-              <Cooldown
-                createdAt={Date.now()}
-                totalSeconds={immunitySecsLeft}
-                initialSecondsLeft={immunitySecsLeft}
-                setState={setState}
-              />
-            </div>
-          </>
-        )}
+        <hr className="my-2" />
+        <div className="flex flex-col gap-1">
+          <TooltipProvider delayDuration={50}>
+            <Tooltip>
+              <TooltipTrigger className="w-full">
+                <Link href="/profile" className="hover:text-orange-500">
+                  <div className="flex flex-row items-center">
+                    <JapaneseYen className="h-6 w-6 mr-2" /> {userData?.money ?? "??"}
+                  </div>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>Money on hand</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {userData && userData.immunityUntil > new Date() && (
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <div className="flex flex-row items-center">
+                    <ShieldCheck className="h-6 w-6 mr-2" />
+                    <Cooldown
+                      createdAt={Date.now()}
+                      totalSeconds={immunitySecsLeft}
+                      initialSecondsLeft={immunitySecsLeft}
+                      setState={setState}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Immune from PvP attacks</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {userData?.trainingStartedAt && userData?.currentlyTraining && (
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <div className="flex flex-row items-center hover:text-orange-500">
+                    <Dumbbell className="h-6 w-6 mr-2" />
+                    <Link href="/traininggrounds">
+                      <Countdown
+                        targetDate={secondsFromDate(
+                          trainingSpeedSeconds(userData?.trainingSpeed),
+                          userData?.trainingStartedAt,
+                        )}
+                        timeDiff={timeDiff}
+                      />
+                    </Link>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Current training activity</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        {/* ACTIVE EFFECTS */}
         {active && (
           <>
             <hr className="my-2" />
@@ -366,7 +399,8 @@ const MenuBoxProfile: React.FC = () => {
           </>
         )}
       </div>
-      <div className="px-2 pt-4 flex align-center justify-center">
+      <hr className="my-2" />
+      <div className="px-2 pt-2 flex align-center justify-center">
         {socials.map((social, i) => {
           return (
             <a target="_blank" href={social.url} key={i} className="hover:opacity-80">
