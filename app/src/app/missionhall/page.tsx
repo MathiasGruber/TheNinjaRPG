@@ -5,7 +5,6 @@ import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
-import Confirm from "@/layout/Confirm";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableLetterRanks } from "@/libs/train";
@@ -83,37 +82,23 @@ export default function MissionHall() {
             const type = setting.type === "errand" ? "errand" : missionOrCrime;
             const completedField = getQuestCounterFieldName(type, setting.rank);
             return (
-              <Confirm
+              <div
                 key={i}
-                title="Confirm Activity"
-                proceed_label="Accept"
-                button={
-                  <div
-                    className={
-                      count === 0 || missionsLeft <= 0 || !isRankAllowed
-                        ? "filter grayscale"
-                        : "hover:cursor-pointer hover:opacity-30"
-                    }
-                  >
-                    <Image alt="small" src={setting.image} width={256} height={256} />
-                    <p className="font-bold">{setting.name}</p>
-                    <p>[{count} available]</p>
-                    {completedField && <p>[{userData[completedField]} completed]</p>}
-                  </div>
+                className={
+                  count === 0 || missionsLeft <= 0 || !isRankAllowed
+                    ? "filter grayscale"
+                    : "hover:cursor-pointer hover:opacity-30"
                 }
-                onAccept={(e) => {
+                onClick={(e) => {
                   e.preventDefault();
                   startRandom({ type: setting.type, rank: setting.rank });
                 }}
               >
-                {isPending && <Loader explanation="Accepting..." />}
-                {!isPending && (
-                  <div className="flex flex-row items-center gap-4">
-                    <div>{setting.description}</div>
-                    <Image alt="small" src={setting.image} width={128} height={128} />
-                  </div>
-                )}
-              </Confirm>
+                <Image alt="small" src={setting.image} width={256} height={256} />
+                <p className="font-bold">{setting.name}</p>
+                <p>[{count} available]</p>
+                {completedField && <p>[{userData[completedField]} completed]</p>}
+              </div>
             );
           })}
         </div>
