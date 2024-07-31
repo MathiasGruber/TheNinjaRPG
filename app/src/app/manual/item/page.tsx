@@ -28,7 +28,7 @@ export default function ManualItems() {
   const { data: userData } = useUserData();
   const [rarity, setRarity] = useState<(typeof ItemRarities)[number]>("COMMON");
   const [itemType, setItemType] = useState<(typeof ItemTypes)[number]>("WEAPON");
-  const [eventOnly, setEventOnly] = useState<boolean>(false);
+  const [eventOnly, setEventOnly] = useState<boolean | undefined>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding

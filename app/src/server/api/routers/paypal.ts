@@ -10,7 +10,6 @@ import { plan2FedStatus, fedStatusRepsCost } from "@/utils/paypal";
 import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
-import { getMobileOperatingSystem } from "@/utils/hardware";
 import { canSeeSecretData } from "@/utils/permissions";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
