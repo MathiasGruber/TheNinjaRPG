@@ -1627,8 +1627,8 @@ export const quest = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     image: varchar("image", { length: 191 }),
-    description: varchar("description", { length: 512 }),
-    successDescription: varchar("successDescription", { length: 512 }),
+    description: varchar("description", { length: 5000 }),
+    successDescription: varchar("successDescription", { length: 5000 }),
     requiredRank: mysqlEnum("requiredRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
@@ -1897,26 +1897,3 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
-
-export const cpaLeadConversion = mysqlTable(
-  "CpaLeadConversion",
-  {
-    id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    userId: varchar("userId", { length: 191 }).notNull(),
-    campaignId: varchar("campaignId", { length: 191 }).notNull(),
-    campaignName: varchar("campaignName", { length: 191 }).notNull(),
-    payout: int("payout").notNull(),
-    ipAddress: varchar("ipAddress", { length: 191 }).notNull(),
-    gatewayId: varchar("gatewayId", { length: 191 }).notNull(),
-    leadId: varchar("leadId", { length: 191 }).notNull(),
-    countryIso: varchar("countryIso", { length: 10 }).notNull(),
-    virtualCurrency: int("virtualCurrency").notNull(),
-  },
-  (table) => {
-    return {
-      userIdIdx: index("CpaLeadConversion_userId_idx").on(table.userId),
-      campaignIdIdx: index("CpaLeadConversion_campaignId_idx").on(table.campaignId),
-      leadIdIdx: index("CpaLeadConversion_leadId_idx").on(table.leadId),
-    };
-  },
-);

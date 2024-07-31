@@ -48,50 +48,7 @@ type PaypalSubscription = {
   status: string;
 };
 
-type CpaLeadAd = {
-  title: string;
-  description: string;
-  link: string;
-  amount: string;
-  payout_currency: string;
-  dating: boolean;
-  traffic_type: "incentive" | "non-incentive";
-  campid: string;
-  country: string;
-  rank: number;
-  epc: string;
-  ratio: number;
-  creatives: { size: string; url: string }[];
-  previews: { size: string; url: string }[];
-  preview_url: string;
-  mobile_app: 0 | 1;
-  button_text: string;
-  conversion: string;
-};
-
 export const paypalRouter = createTRPCRouter({
-  getCpaLeads: protectedProcedure.query(async ({ ctx }) => {
-    // Targeting the user
-    const os = getMobileOperatingSystem(ctx.userAgent);
-    const target = ["ios", "android"].includes(os)
-      ? `device=${os}`
-      : `ua=${encodeURIComponent(ctx.userAgent ?? "user")}`;
-    // Fetch offers
-    return await fetch(
-      `https://cpalead.com/dashboard/reports/campaign_json.php?id=2878227&dating=false&${target}&subid=${ctx.userId}`,
-    )
-      .then((response) => response.json())
-      .then(
-        (data) =>
-          ({ ...data, userAgent: ctx.userAgent, userIp: ctx.userIp }) as {
-            status: string;
-            number_offers: number;
-            offers: CpaLeadAd[];
-            userAgent: string | undefined;
-            userIp: string | undefined;
-          },
-      );
-  }),
   resolveOrder: protectedProcedure
     .input(
       z.object({
