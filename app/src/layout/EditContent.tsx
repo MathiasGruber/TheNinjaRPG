@@ -512,7 +512,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   useEffect(() => {
     // Calculate diff
     const newEffects = [...effects];
-    newEffects[idx] = watchAll;
+    const tagSchema = getTagSchema(watchType);
+    const parsedTag = tagSchema.safeParse(watchAll);
+    const shownTag = parsedTag.success ? parsedTag.data : tag;
+    newEffects[idx] = shownTag;
     const diff = calculateContentDiff(effects, newEffects);
     if (diff.length > 0) {
       if (tag.type === watchType) {
