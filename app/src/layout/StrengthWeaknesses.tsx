@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Toggle from "@/components/control/Toggle";
 import ElementImage from "@/layout/ElementImage";
+import { CircleHelp } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { capUserStats } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { Chart as ChartJS } from "chart.js/auto";
@@ -149,13 +151,58 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       title="Strengths & Weaknesses"
       subtitle="Current stats for your character"
       topRightContent={
-        <Toggle
-          id="toggle-strength-weaknesses"
-          value={showGraphs}
-          setShowActive={setShowGraphs}
-          labelActive="Graphs"
-          labelInactive="Numbers"
-        />
+        <div className="flex flex-row gap-2">
+          <Toggle
+            id="toggle-strength-weaknesses"
+            value={showGraphs}
+            setShowActive={setShowGraphs}
+            labelActive="Graphs"
+            labelInactive="Numbers"
+          />
+          <Popover>
+            <PopoverTrigger>
+              <CircleHelp className="h-6 w-6" />
+            </PopoverTrigger>
+            <PopoverContent>
+              <div className="flex flex-col gap-2 text-xs">
+                <div>
+                  <p className="font-bold leading-0">Stats Explained</p>
+                  <p className="italic">
+                    Your stats influence how strong your character is overall
+                  </p>
+                </div>
+                <ul>
+                  <li>
+                    <b>Strength:</b> physical strength
+                  </li>
+                  <li>
+                    <b>Intelligence:</b> mental strength
+                  </li>
+                  <li>
+                    <b>Speed:</b> movement speed
+                  </li>
+                  <li>
+                    <b>Willpower:</b> mental resistance
+                  </li>
+                </ul>
+                <ul>
+                  <li>
+                    <b>Ninjutsu:</b> Ninja techniques infused with chakra
+                  </li>
+                  <li>
+                    <b>Genjutsu:</b> Illusions and mental techniques
+                  </li>
+                  <li>
+                    <b>Taijutsu:</b> Physical combat techniques
+                  </li>
+                  <li>
+                    <b>Bukijutsu:</b> Proficiency with weapons
+                  </li>
+                </ul>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       }
       initialBreak={true}
     >
