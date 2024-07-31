@@ -961,6 +961,7 @@ export const ItemValidator = z
     actionCostPerc: z.coerce.number().int().min(1).max(100),
     canStack: z.coerce.boolean(),
     inShop: z.coerce.boolean(),
+    isEventItem: z.coerce.boolean(),
     hidden: z.coerce.boolean(),
     cooldown: z.coerce.number().int().min(0).max(300),
     cost: z.coerce.number().int().min(0),

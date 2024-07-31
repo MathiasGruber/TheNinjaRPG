@@ -20,9 +20,9 @@ export default function ItemShop() {
       title="Souvenirs Shop"
       userData={userData}
       minCost={1}
-      defaultType="EVENT"
+      defaultType="WEAPON"
       back_href={"/village"}
-      restrictTypes={["EVENT"]}
+      eventItems={true}
     />
   );
 }

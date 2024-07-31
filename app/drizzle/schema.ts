@@ -741,6 +741,7 @@ export const item = mysqlTable(
       .notNull(),
     canStack: boolean("canStack").default(false).notNull(),
     inShop: boolean("inShop").default(true).notNull(),
+    isEventItem: boolean("isEventItem").default(false).notNull(),
     hidden: boolean("hidden").default(false).notNull(),
   },
   (table) => {

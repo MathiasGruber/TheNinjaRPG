@@ -123,6 +123,7 @@ export const itemRouter = createTRPCRouter({
         minCost: z.number().default(0),
         minRepsCost: z.number().default(0),
         onlyInShop: z.boolean().optional(),
+        eventItems: z.boolean().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -142,6 +143,9 @@ export const itemRouter = createTRPCRouter({
             : []),
           ...(input.stat
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.stat}) IS NOT NULL`]
+            : []),
+          ...(input.eventItems !== undefined
+            ? [eq(item.isEventItem, input.eventItems)]
             : []),
           ...(input.onlyInShop ? [eq(item.inShop, true)] : []),
           gte(item.cost, input.minCost),

@@ -16,6 +16,12 @@ export default function ItemShop() {
 
   // Show items for sale with a cost of min 1 ryo
   return (
-    <Shop userData={userData} minCost={1} defaultType="WEAPON" back_href={"/village"} />
+    <Shop
+      userData={userData}
+      minCost={1}
+      defaultType="WEAPON"
+      back_href={"/village"}
+      eventItems={false}
+    />
   );
 }

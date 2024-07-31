@@ -45,9 +45,6 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     (data: ZodItemType) => {
       const newItem = { ...item, ...data };
       const diff = calculateContentDiff(item, newItem);
-      console.log("Handle item submit", diff);
-      console.log(item);
-      console.log(newItem);
       if (diff.length > 0) {
         updateItem({ id: item.id, data: newItem });
       }
@@ -93,7 +90,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "healthCost", type: "number" },
     { id: "canStack", type: "boolean" },
     { id: "hidden", type: "boolean" },
-    { id: "inShop", type: "boolean" },
+    { id: "isEventItem", type: "boolean" },
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };

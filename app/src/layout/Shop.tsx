@@ -25,6 +25,7 @@ interface ShopProps {
   userData: NonNullable<UserWithRelations>;
   defaultType: ItemType;
   restrictTypes?: ItemType[];
+  eventItems?: boolean;
   title?: string;
   subtitle?: string;
   back_href?: string;
@@ -49,7 +50,14 @@ const Shop: React.FC<ShopProps> = (props) => {
 
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
-    { itemType: itemtype, minCost, minRepsCost, onlyInShop: true, limit: 500 },
+    {
+      itemType: itemtype,
+      minCost,
+      minRepsCost,
+      onlyInShop: true,
+      eventItems: props.eventItems,
+      limit: 500,
+    },
     {
       enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
