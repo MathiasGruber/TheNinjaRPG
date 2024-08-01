@@ -286,13 +286,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
             </div>
             <div className="h-20 max-h-28 flex flex-col relative">
-              <div className="absolute top-0 left-[-20px] right-[-20px] -z-30">
+              <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
                 <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
                 <div className="h-8 bg-rose-800"></div>
                 <div className="h-7 bg-gradient-to-b from-rose-800 to-rose-950"></div>
               </div>
               <Image
-                className="left-[-120px] top-[-195px] absolute select-none -z-20"
+                className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
                 src="/layout/scroll_bottom_decor.webp"
                 width={143}
                 height={272}
@@ -300,7 +300,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 priority
               ></Image>
               <Image
-                className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20"
+                className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
                 src="/layout/scroll_bottom_decor.webp"
                 width={143}
                 height={272}

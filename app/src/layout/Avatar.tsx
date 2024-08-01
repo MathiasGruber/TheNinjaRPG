@@ -57,7 +57,7 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
   } else {
     return (
       <Image
-        className={`relative m-auto w-5/6 aspect-square rounded-2xl border-2 border-black ${
+        className={`relative max-w-52 m-auto w-5/6 aspect-square rounded-2xl border-2 border-black ${
           props.hover_effect ? "hover:border-amber-500 hover:opacity-80" : ""
         }`}
         src={href}
