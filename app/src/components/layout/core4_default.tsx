@@ -146,7 +146,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <SignedIn>
         <UserButton />
       </SignedIn>
-      <Link href="/notify">
+      <Link href="/event">
         <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
       </Link>
       <Eclipse

@@ -28,7 +28,7 @@ const MenuBoxGame: React.FC<MenuBoxGameProps> = () => {
       <MenuBox
         title="Main Menu"
         link={
-          <Link href="/notify">
+          <Link href="/event">
             <Megaphone className="h-6 w-6 hover:fill-black" />
           </Link>
         }

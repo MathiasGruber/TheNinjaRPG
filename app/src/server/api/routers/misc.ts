@@ -96,7 +96,7 @@ export const miscRouter = createTRPCRouter({
       });
       return setting || null;
     }),
-  setTrainingGain: protectedProcedure
+  setEventGameSetting: protectedProcedure
     .input(changeSettingSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -107,10 +107,10 @@ export const miscRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       // Update
       await updateGameSetting(
-        "trainingGainMultiplier",
+        input.setting,
         parseInt(input.multiplier),
         secondsFromNow(input.days * 24 * 3600),
       );
-      return { success: true, message: `Training gain set to: ${input.multiplier}X` };
+      return { success: true, message: `Setting set to: ${input.multiplier}X` };
     }),
 });

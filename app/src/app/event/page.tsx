@@ -29,6 +29,7 @@ import type { z } from "zod";
 export default function NotifyUsers() {
   return (
     <>
+      <RegenGainSystem />
       <TrainingGainSystem />
       <NotificationSystem />
     </>
@@ -36,27 +37,28 @@ export default function NotifyUsers() {
 }
 
 /**
- * Training Gain System for setting training gains for all users
+ * Regen Gain System for setting regen multiplier for all users
  */
-const TrainingGainSystem: React.FC = () => {
+const RegenGainSystem: React.FC = () => {
   // utils
   const utils = api.useUtils();
 
   // Query data
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data: setting } = api.misc.getSetting.useQuery(
-    { name: "trainingGainMultiplier" },
+    { name: "regenGainMultiplier" },
     { staleTime: Infinity },
   );
 
   // Mutate
-  const { mutate: setTrainingGain, isPending } = api.misc.setTrainingGain.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await utils.misc.getSetting.invalidate();
-      await utils.profile.getUser.invalidate();
-    },
-  });
+  const { mutate: setEventGameSetting, isPending } =
+    api.misc.setEventGameSetting.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        await utils.misc.getSetting.invalidate();
+        await utils.profile.getUser.invalidate();
+      },
+    });
 
   // Form control
   const {
@@ -83,7 +85,7 @@ const TrainingGainSystem: React.FC = () => {
   if (!canChange) return null;
 
   return (
-    <ContentBox title="Gains Multiplier" subtitle="Modify training gains globally">
+    <ContentBox title="Regen Multiplier" subtitle="Modify regen gains globally">
       {isPending && <Loader explanation="Changing setting" />}
       {!isPending && (
         <div className="grid grid-cols-1">
@@ -105,7 +107,106 @@ const TrainingGainSystem: React.FC = () => {
                 id={`multiply-${multiplier}`}
                 className={`w-full ${setting?.value === parseInt(multiplier) ? "bg-green-700" : ""}`}
                 key={i}
-                onClick={() => setTrainingGain({ multiplier, days: watchedDays })}
+                onClick={() =>
+                  setEventGameSetting({
+                    setting: "regenGainMultiplier",
+                    multiplier,
+                    days: watchedDays,
+                  })
+                }
+              >
+                {multiplier}X
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </ContentBox>
+  );
+};
+
+/**
+ * Training Gain System for setting training gains for all users
+ */
+const TrainingGainSystem: React.FC = () => {
+  // utils
+  const utils = api.useUtils();
+
+  // Query data
+  const { data: userData, timeDiff } = useRequiredUserData();
+  const { data: setting } = api.misc.getSetting.useQuery(
+    { name: "trainingGainMultiplier" },
+    { staleTime: Infinity },
+  );
+
+  // Mutate
+  const { mutate: setEventGameSetting, isPending } =
+    api.misc.setEventGameSetting.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        await utils.misc.getSetting.invalidate();
+        await utils.profile.getUser.invalidate();
+      },
+    });
+
+  // Form control
+  const {
+    register,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<ChangeSettingSchema>({
+    resolver: zodResolver(changeSettingSchema),
+  });
+  const watchedDays = round(watch("days", 2));
+
+  // When setting loaded, update the slider value
+  useEffect(() => {
+    if (setting) {
+      const daysLeft = secondsPassed(setting.time, timeDiff) / (24 * 3600);
+      if (daysLeft < 0) setValue("days", -daysLeft);
+    }
+  }, [setting, timeDiff, setValue]);
+
+  // Guard
+  if (!userData) return null;
+  const canChange = canModifyEventGains(userData.role);
+  if (!canChange) return null;
+
+  return (
+    <ContentBox
+      title="Training Multiplier"
+      subtitle="Modify training gains globally"
+      initialBreak={true}
+    >
+      {isPending && <Loader explanation="Changing setting" />}
+      {!isPending && (
+        <div className="grid grid-cols-1">
+          <SliderField
+            id="days"
+            default={0}
+            min={0}
+            max={31}
+            unit="days"
+            label="Select duration in days"
+            register={register}
+            setValue={setValue}
+            watchedValue={watchedDays}
+            error={errors.days?.message}
+          />
+          <div className="flex flex-row gap-2">
+            {GAME_SETTING_GAINS_MULTIPLIER.map((multiplier, i) => (
+              <Button
+                id={`multiply-${multiplier}`}
+                className={`w-full ${setting?.value === parseInt(multiplier) ? "bg-green-700" : ""}`}
+                key={i}
+                onClick={() =>
+                  setEventGameSetting({
+                    setting: "trainingGainMultiplier",
+                    multiplier,
+                    days: watchedDays,
+                  })
+                }
               >
                 {multiplier}X
               </Button>

@@ -167,9 +167,9 @@ export const profileRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("Must be awake");
       if (!user.trainingStartedAt) return errorResponse("Not currently training");
       if (!user.currentlyTraining) return errorResponse("Not currently training");
-      // Derived
-      const setting = getGameSettingBoost("trainingGainMultiplier", settings);
-      const gameFactor = setting?.value || 1;
+      // Derived training gain
+      const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
+      const gameFactor = trainSetting?.value || 1;
       const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
       const clanBoost = user?.clan?.trainingBoost || 0;
       const factor = gameFactor * (1 + boost / 100 + clanBoost / 100);
@@ -339,6 +339,14 @@ export const profileRouter = createTRPCRouter({
         notifications.push({
           href: "/traininggrounds",
           name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      const regenBoost = getGameSettingBoost("regenGainMultiplier", settings);
+      if (regenBoost) {
+        notifications.push({
+          href: "/profile",
+          name: `${regenBoost.value}X regen | ${regenBoost.daysLeft} days`,
           color: "green",
         });
       }
@@ -1317,6 +1325,11 @@ export const fetchUpdatedUser = async (props: {
     if (reducedDays > 0) {
       user.regeneration *= 0.5;
     }
+
+    // Increase by event
+    const setting = getGameSettingBoost("regenGainMultiplier", settings);
+    const gameFactor = setting?.value || 1;
+    user.regeneration *= gameFactor;
   }
 
   // Rewards, e.g. for activity streak
