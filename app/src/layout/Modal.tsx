@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
@@ -10,13 +10,33 @@ interface ModalProps {
   confirmClassName?: string;
   isValid?: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  onAccept?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+  onAccept?: (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent> | KeyboardEvent,
+  ) => void;
 }
 
 const Modal: React.FC<ModalProps> = (props) => {
   const confirmBtnClassName = props.confirmClassName
     ? props.confirmClassName
     : "bg-blue-600 text-white hover:bg-blue-700";
+
+  // Handle key-presses
+  useEffect(() => {
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case "Escape":
+          props.setIsOpen(false);
+          break;
+        case "Enter":
+          if (props?.onAccept) props.onAccept(event);
+          break;
+      }
+    };
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+    };
+  }, []);
 
   return (
     <>
