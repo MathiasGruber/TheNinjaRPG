@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
+  Color,
   TorusKnotGeometry,
   EdgesGeometry,
   Group,
@@ -217,43 +218,50 @@ const Map: React.FC<MapProps> = (props) => {
       scene.add(group_tiles);
 
       // Add tweening highlights
-      const userTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
-      const questTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
-      const highlightTweenColor = { r: 0.0, g: 0.0, b: 0.0 };
-      const sectorsToHighlight: number[] = [];
+      const userTweenColor = { r: 1.0, g: 0.0, b: 0.0 };
+      const questTweenColor = { r: 0.8, g: 0.6, b: 0.0 };
+      const highlightTweenColor = { r: 0.0, g: 0.6, b: 0.8 };
+      const sectorsToHighlight: { sector: number; color: typeof userTweenColor }[] = [];
       if (props.userLocation && userData) {
-        sectorsToHighlight.push(userData.sector);
+        sectorsToHighlight.push({ sector: userData.sector, color: userTweenColor });
         if (highlightedSector) {
-          sectorsToHighlight.push(highlightedSector);
+          sectorsToHighlight.push({
+            sector: highlightedSector,
+            color: highlightTweenColor,
+          });
         }
         userData.userQuests.forEach((userquest) => {
           userquest.quest.content.objectives.forEach((objective) => {
             if ("sector" in objective && objective.sector && !objective.hideLocation) {
-              sectorsToHighlight.push(objective.sector);
+              sectorsToHighlight.push({
+                sector: objective.sector,
+                color: questTweenColor,
+              });
             }
           });
         });
         new TWEEN.Tween(userTweenColor)
-          .to({ r: 1.0, g: 0.0, b: 0.0 }, 1000)
+          .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
           .repeat(Infinity)
           .easing(TWEEN.Easing.Cubic.InOut)
           .start();
         new TWEEN.Tween(questTweenColor)
-          .to({ r: 0.8, g: 0.6, b: 0.0 }, 1000)
+          .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
           .repeat(Infinity)
           .easing(TWEEN.Easing.Cubic.InOut)
           .start();
         new TWEEN.Tween(highlightTweenColor)
-          .to({ r: 0.0, g: 0.6, b: 0.8 }, 1000)
+          .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
           .repeat(Infinity)
           .easing(TWEEN.Easing.Cubic.InOut)
           .start();
       }
 
-      // Highlight GPS pin
-      if (highlightedSector) {
-        const sector = hexasphere?.tiles[highlightedSector]?.c;
-        if (sector) {
+      // Highlighted GPS pins for user, quests, and sector search
+      sectorsToHighlight.forEach((highlight) => {
+        const hasLabel = props.highlights?.find((h) => h.sector === highlight.sector);
+        const sector = hexasphere?.tiles[highlight.sector]?.c;
+        if (!hasLabel && sector) {
           // Create the line
           const points = [];
           points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
@@ -266,7 +274,9 @@ const Map: React.FC<MapProps> = (props) => {
           const line = new LineSegments(geometry, lineMaterial);
           group_highlights.add(line);
           // Object
-          const highlightMaterial = new MeshBasicMaterial({ color: 0x0094d4 });
+          const highlightMaterial = new MeshBasicMaterial({
+            color: new Color(highlight.color.r, highlight.color.g, highlight.color.b),
+          });
           const highlightGeom = new TorusKnotGeometry(10, 3, 70, 8);
           const highlightMesh = new Mesh(highlightGeom, highlightMaterial);
           highlightMesh.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
@@ -283,7 +293,7 @@ const Map: React.FC<MapProps> = (props) => {
           Object.assign(lines.scale, highlightMesh.scale);
           group_highlights.add(lines);
         }
-      }
+      });
 
       //Enable controls
       const controls = new TrackballControls(camera, renderer.domElement);
@@ -309,16 +319,16 @@ const Map: React.FC<MapProps> = (props) => {
       let animationId = 0;
       function render() {
         if (userTweenColor && userData && sectorsToHighlight.length > 0) {
-          sectorsToHighlight.forEach((sector) => {
-            const mesh = group_tiles.getObjectByName(`${sector}`);
+          sectorsToHighlight.forEach((highlight) => {
+            const mesh = group_tiles.getObjectByName(`${highlight.sector}`);
             if (mesh) {
-              if (userData.sector === sector) {
+              if (userData.sector === highlight.sector) {
                 (mesh as HexagonalFaceMesh).material.color.setRGB(
                   userTweenColor.r,
                   userTweenColor.g,
                   userTweenColor.b,
                 );
-              } else if (highlightedSector === sector) {
+              } else if (highlightedSector === highlight.sector) {
                 (mesh as HexagonalFaceMesh).material.color.setRGB(
                   highlightTweenColor.r,
                   highlightTweenColor.g,
