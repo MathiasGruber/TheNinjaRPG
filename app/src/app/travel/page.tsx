@@ -11,6 +11,7 @@ import Modal from "@/layout/Modal";
 import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
 import LoadoutSelector from "@/layout/LoadoutSelector";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/utils/api";
@@ -42,7 +43,6 @@ export default function Travel() {
   const [showActive, setShowActive] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
-  const [showSelectSector, setShowSelectSector] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
@@ -234,10 +234,38 @@ export default function Travel() {
               </>
             )}
             {activeTab === "Global" && (
-              <Globe2
-                className={`h-7 w-7 mr-2 hover:text-orange-500`}
-                onClick={() => setShowSelectSector((prev) => !prev)}
-              />
+              <Popover>
+                <PopoverTrigger>
+                  <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
+                </PopoverTrigger>
+                <PopoverContent>
+                  <p className="py-2">
+                    Select sector you wish to highlight on the global map.
+                  </p>
+                  <div className="flex flex-row items-center gap-2">
+                    {highlightedSector ? <p>Currently selected sector:</p> : undefined}
+                    <Form {...sectorForm}>
+                      <FormField
+                        control={sectorForm.control}
+                        name="sector"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                className="w-full"
+                                placeholder="Sector Highlight"
+                                type="number"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </Form>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             {userData.isOutlaw && canJoin && inVillage && sectorVillage && (
               <Confirm
@@ -309,32 +337,6 @@ export default function Travel() {
                 Do you confirm?
               </div>
             )}
-          </Modal>
-        )}
-        {showSelectSector && userData && (
-          <Modal title="Highlight Sector" setIsOpen={setShowSelectSector}>
-            <p>Select sector you wish to highlight on the global map.</p>
-            {highlightedSector ? (
-              <p>Currently selected sector {highlightedSector}</p>
-            ) : undefined}
-            <Form {...sectorForm}>
-              <FormField
-                control={sectorForm.control}
-                name="sector"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        placeholder="Sector to highlight on global map"
-                        type="number"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </Form>
           </Modal>
         )}
         {userData?.travelFinishAt && (
