@@ -90,7 +90,7 @@ export async function GET() {
 
     // Step 12: Update users who have a clanId by no clan
     await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.battleId) AND a.battleId IS NOT NULL`,
+      sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.clanId) AND a.clanId IS NOT NULL`,
     );
 
     // Step 3: Bank transfers from deleted users
