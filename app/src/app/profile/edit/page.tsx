@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
-import { ChevronsRight, ChevronsLeft } from "lucide-react";
+import { ChevronsRight, ChevronsLeft, SwitchCamera, Trash2 } from "lucide-react";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { mutateContentSchema } from "@/validators/comments";
@@ -53,13 +53,15 @@ import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
 import { canSwapVillage } from "@/utils/permissions";
 import { canSwapBloodline } from "@/utils/permissions";
+import { useInfinitePagination } from "@/libs/pagination";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
 
 export default function EditProfile() {
   // State
   const { data: userData } = useRequiredUserData();
-  const [activeElement, setActiveElement] = useState("Nindo");
+  const [activeElement, setActiveElement] = useState("AI Avatar");
 
   // Loaders
   if (!userData) return <Loader explanation="Loading profile page..." />;
@@ -75,6 +77,31 @@ export default function EditProfile() {
       padding={false}
     >
       <div className="grid grid-cols-1">
+        <Accordion
+          title="AI Avatar"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Generate a new avatar"
+          onClick={setActiveElement}
+        >
+          <NewAiAvatar />
+        </Accordion>
+        <Accordion
+          title="Previous Avatar"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Choose an old avatar"
+          onClick={setActiveElement}
+        >
+          <HistoricalAiAvatar />
+        </Accordion>
+        <Accordion
+          title="Custom Avatar"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Upload a custom avatar"
+          selectedSubtitle={`Avatar size is limited based on federal support status`}
+          onClick={setActiveElement}
+        >
+          <AvatarChange />
+        </Accordion>
         <Accordion
           title="Nindo"
           selectedTitle={activeElement}
@@ -102,15 +129,6 @@ export default function EditProfile() {
           onClick={setActiveElement}
         >
           <CustomTitle />
-        </Accordion>
-        <Accordion
-          title="Custom Avatar"
-          selectedTitle={activeElement}
-          unselectedSubtitle="Upload a custom avatar"
-          selectedSubtitle={`Avatar size is limited based on federal support status`}
-          onClick={setActiveElement}
-        >
-          <AvatarChange />
         </Accordion>
         <Accordion
           title="Attribute Management"
@@ -192,6 +210,181 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
+
+/**
+ * AI Avatar Change
+ */
+const NewAiAvatar: React.FC = () => {
+  // Queries & mutations
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Create new avatar mutation
+  const createAvatar = api.avatar.createAvatar.useMutation({
+    onSuccess: async () => {
+      await utils.profile.getUser.invalidate();
+      await utils.avatar.getHistoricalAvatars.invalidate();
+    },
+  });
+  const userAttributes = api.profile.getUserAttributes.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
+  if (createAvatar.isPending) return <Loader explanation="Processing avatar..." />;
+
+  return (
+    <div className="flex">
+      <div className="basis-1/3">
+        {userData && (
+          <AvatarImage
+            href={userData.avatar}
+            alt={userData.username}
+            refetchUserData={true}
+            size={512}
+            priority
+          />
+        )}
+      </div>
+      <div className="basis-2/3">
+        <h2 className="font-bold">Current Attributes</h2>
+        <div className="ml-5 grid grid-cols-2">
+          <li key="rank">
+            {userData?.rank ? capitalizeFirstLetter(userData.rank) : ""}
+          </li>
+          {userAttributes.data?.map((attribute) => (
+            <li key={attribute.id}>{attribute.attribute}</li>
+          ))}
+        </div>
+        <h2 className="mt-5 font-bold">Create a new avatar</h2>
+
+        {userData && userData?.reputationPoints > 0 ? (
+          <>
+            <p className="italic">- Costs 1 reputation point</p>
+            <Confirm
+              title="Confirm Avatar Change"
+              button={
+                <Button id="create" className="w-full">
+                  <SwitchCamera className="h-5 w-5 mr-2" />
+                  New Avatar
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                createAvatar.mutate();
+              }}
+            >
+              Changing your avatar will cost 1 reputation point. We would love to enable
+              unlimited re-creations, but the model generating the avatars runs on
+              NVidia A100 GPU cluster, and each generation costs a little bit of money.
+              We are working on a solution to make this free, but for now, we need to
+              charge a small fee to cover the cost of the GPU cluster.
+            </Confirm>
+          </>
+        ) : (
+          <p className="text-red-500">Requires 1 reputation point</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Historical AI Avatar Change
+ */
+const HistoricalAiAvatar: React.FC = () => {
+  // Queries & mutations
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Fetch historical avatars query
+  const {
+    data: historicalAvatars,
+    fetchNextPage,
+    hasNextPage,
+  } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
+    {
+      limit: 20,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      placeholderData: (previousData) => previousData,
+      staleTime: Infinity,
+    },
+  );
+  const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
+
+  useInfinitePagination({
+    fetchNextPage,
+    hasNextPage,
+    lastElement,
+  });
+
+  // Update avatar mutation
+  const updateAvatar = api.avatar.updateAvatar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+      }
+    },
+  });
+
+  // Delete avatar mutation
+  const deleteAvatar = api.avatar.deleteAvatar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.avatar.getHistoricalAvatars.invalidate();
+      }
+    },
+  });
+
+  const loading = updateAvatar.isPending || deleteAvatar.isPending;
+  if (loading) return <Loader explanation="Processing avatar..." />;
+
+  return (
+    <>
+      {pageAvatars && (
+        <div className="flex flex-wrap">
+          {pageAvatars.map((avatar, i) => (
+            <div
+              key={avatar.id}
+              className=" my-2 basis-1/6 relative"
+              onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+              ref={i === pageAvatars.length - 1 ? setLastElement : null}
+            >
+              <AvatarImage
+                href={avatar.avatar}
+                alt={userData?.username ?? "User Avatar"}
+                hover_effect={true}
+                size={200}
+              />
+              <Confirm
+                title="Confirm Deletion"
+                button={
+                  <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:text-orange-500" />
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  deleteAvatar.mutate({ avatar: avatar.id });
+                }}
+              >
+                You are about to delete an avatar. Note that this action is permanent.
+                Are you sure?
+              </Confirm>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+};
 
 /**
  * Swap village

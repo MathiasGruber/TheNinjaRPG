@@ -10,7 +10,7 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
-import { Settings, Earth, House } from "lucide-react";
+import { Earth, House } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
@@ -66,9 +66,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <SignedIn>
         <SideBannerTitle>{userData?.username || "Loading user..."}</SideBannerTitle>
         <MenuBoxProfile />
-        <Link href="/avatar" className="absolute top-7 right-6">
-          <Settings className="h-6 w-6 hover:text-orange-500" />
-        </Link>
       </SignedIn>
       <SignedOut>
         <SideBannerTitle>Participate</SideBannerTitle>
