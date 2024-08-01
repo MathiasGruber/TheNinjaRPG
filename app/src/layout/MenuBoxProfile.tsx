@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
-import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell } from "lucide-react";
+import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell, Star } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -315,6 +315,19 @@ const MenuBoxProfile: React.FC = () => {
               </Tooltip>
             </TooltipProvider>
           )}
+          <TooltipProvider delayDuration={50}>
+            <Tooltip>
+              <TooltipTrigger className="w-full">
+                <Link href="/points" className="hover:text-orange-500">
+                  <div className="flex flex-row items-center">
+                    <Star className="h-6 w-6 mr-2" />{" "}
+                    {userData?.reputationPoints ?? "??"}
+                  </div>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>Reputation points for use in black market</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {/* ACTIVE EFFECTS */}
         {active && (
