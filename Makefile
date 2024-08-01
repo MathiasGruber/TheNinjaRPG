@@ -45,11 +45,6 @@ cloc: # Count lines of code
 	@echo "${YELLOW}Count lines of code${RESET}"
 	cloc --exclude-dir=node_modules --exclude-ext=csv  --exclude-ext=json  --exclude-ext=svg .
 
-.PHONY: highlight_sourcemap_upload
-highlight_sourcemap_upload: # Upload sourcemap to highlight.io
-	@echo "${YELLOW}Upload sourcemap to highlight.io${RESET}"
-	npx --yes @highlight-run/sourcemap-uploader upload --apiKey ${HIGHLIGHT_API_KEY} --path ./app/.next
-
 --------------PACKAGES----------------: # -------------------------------------------------------
 
 .PHONY: pnpm

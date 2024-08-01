@@ -11,7 +11,9 @@ interface ModalProps {
   isValid?: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onAccept?: (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent> | KeyboardEvent,
+    e:
+      | React.MouseEvent<HTMLButtonElement, MouseEvent>
+      | React.KeyboardEvent<KeyboardEvent>,
   ) => void;
 }
 
@@ -28,7 +30,8 @@ const Modal: React.FC<ModalProps> = (props) => {
           props.setIsOpen(false);
           break;
         case "Enter":
-          if (props?.onAccept) props.onAccept(event);
+          if (props?.onAccept)
+            props.onAccept(event as unknown as React.KeyboardEvent<KeyboardEvent>);
           break;
       }
     };
@@ -36,6 +39,7 @@ const Modal: React.FC<ModalProps> = (props) => {
     return () => {
       document.removeEventListener("keydown", onDocumentKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

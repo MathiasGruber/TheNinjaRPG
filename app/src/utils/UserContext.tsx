@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useEffect, useState } from "react";
-import { H } from "highlight.run";
 import Pusher from "pusher-js";
 import ReactHtmlParser from "react-html-parser";
 import { useContext } from "react";
@@ -80,15 +79,8 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       refetchInterval: 300000,
     },
   );
-  // Identify user with highlight.io
+  // Time diff setting
   useEffect(() => {
-    if (data?.userData) {
-      H.identify(data.userData.username, {
-        id: data.userData.userId,
-        username: data.userData.username,
-        avatar: data.userData.avatar ?? false,
-      });
-    }
     if (data?.serverTime) {
       const discrepancy = Date.now() - data.serverTime;
       if (data.userData) {

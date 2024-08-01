@@ -16,9 +16,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "5.2.2",
-    "@highlight-run/next": "7.4.8",
-    "@highlight-run/node": "3.9.0",
-    "@highlight-run/react": "3.2.1",
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "2.9.10",
     "@icons-pack/react-simple-icons": "^9.6.0",
@@ -60,7 +57,6 @@
     "drizzle-orm": "0.31.2",
     "drizzle-zod": "0.5.1",
     "emoji-picker-react": "^4.9.2",
-    "highlight.run": "8.9.0",
     "honeycomb-grid": "4.1.5",
     "html2canvas": "1.4.1",
     "jotai": "^2.9.1",
@@ -91,7 +87,6 @@
     "zod": "3.22.4"
   },
   "devDependencies": {
-    "@highlight-run/sourcemap-uploader": "^0.6.3",
     "@types/node": "20.11.6",
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",

@@ -65,7 +65,7 @@ export default withAxiom(withBundleAnalyzer(config));
 // https://securityheaders.com
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.analytics.google.com *.googletagmanager.com *.doubleclick.net *.clerk.accounts.dev *.vercel.live *.paypal.com *.paypalobjects.com *.tiny.cloud *.theninja-rpg.com *.opendns.com *.highlight.io *.cookiebot.com *.termly.io connect.facebook.net;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.analytics.google.com *.googletagmanager.com *.doubleclick.net *.clerk.accounts.dev *.vercel.live *.paypal.com *.paypalobjects.com *.tiny.cloud *.theninja-rpg.com *.opendns.com *.cookiebot.com *.termly.io connect.facebook.net;
   child-src 'self' *.doubleclick.net *.paypal.com ghbtns.com *.youtube.com *.widgetbot.io *.cookiebot.com *.termly.io https://fastsvr.com https://www.facebook.com/;
   style-src 'self' 'unsafe-inline' *.googleapis.com *.tiny.cloud;
   img-src * blob: data:;
