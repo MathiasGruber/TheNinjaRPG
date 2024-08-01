@@ -77,6 +77,7 @@ export default function Travel() {
       ? `You (${currentPosition.x}, ${currentPosition.y})`
       : `Sector ${currentSector}`
     : "";
+  const globalLink = `Global (${currentSector})`;
 
   void useMemo(async () => {
     setGlobe(await fetchMap());
@@ -118,7 +119,7 @@ export default function Travel() {
         if (data.success && data.sector) {
           await utils.profile.getUser.invalidate();
           setShowModal(false);
-          setActiveTab("Global");
+          setActiveTab(globalLink);
           setCurrentSector(data.sector);
           if (globe) {
             setCurrentTile(globe.tiles[data.sector] as GlobalTile);
@@ -150,7 +151,7 @@ export default function Travel() {
 
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
-  const isGlobal = activeTab === "Global";
+  const isGlobal = activeTab === globalLink;
   const showGlobal = villages && globe && isGlobal;
   const showSector = villages && currentSector && currentTile && !isGlobal;
 
@@ -233,7 +234,7 @@ export default function Travel() {
                 />
               </>
             )}
-            {activeTab === "Global" && (
+            {activeTab === globalLink && (
               <Popover>
                 <PopoverTrigger>
                   <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
@@ -282,7 +283,7 @@ export default function Travel() {
 
             <NavTabs
               current={activeTab}
-              options={[sectorLink, "Global"]}
+              options={[sectorLink, globalLink]}
               setValue={setActiveTab}
             />
           </div>
