@@ -19,6 +19,7 @@ import { getRandomElement } from "@/utils/array";
 import { calcMaxItems } from "@/libs/item";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
+import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 
@@ -357,9 +358,10 @@ export const itemRouter = createTRPCRouter({
       // Query
       const iid = input.itemId;
       const uid = ctx.userId;
-      const [user, info, structures, counts] = await Promise.all([
+      const [user, info, useritems, structures, counts] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItem(ctx.drizzle, iid),
+        fetchUserItems(ctx.drizzle, uid),
         fetchStructures(ctx.drizzle, input.villageId),
         ctx.drizzle
           .select({ count: sql<number>`count(*)`.mapWith(Number), hidden: item.hidden })
@@ -390,6 +392,13 @@ export const itemRouter = createTRPCRouter({
       }
       const ryoCost = info.cost * input.stack * factor;
       const repsCost = info.repsCost * input.stack;
+      // Figure out if we equip this
+      let equipped: ItemSlot = "NONE";
+      ItemSlots.forEach((slot) => {
+        if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
+          equipped = slot;
+        }
+      });
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
@@ -412,7 +421,7 @@ export const itemRouter = createTRPCRouter({
         userId: uid,
         itemId: iid,
         quantity: input.stack,
-        equipped: "NONE",
+        equipped: equipped,
       });
       return { success: true, message: `You bought ${info.name}` };
     }),

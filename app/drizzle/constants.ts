@@ -42,6 +42,7 @@ export const ItemSlots = [
   "ITEM_7",
   "NONE",
 ] as const;
+export type ItemSlot = (typeof ItemSlots)[number];
 
 export const UserRoles = [
   "USER",
