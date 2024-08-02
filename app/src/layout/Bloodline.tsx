@@ -44,7 +44,10 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
       staleTime: Infinity,
     },
   );
-  const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
+  const allBloodlines = bloodlines?.pages
+    .map((page) => page.data)
+    .flat()
+    .filter((b) => !b.villageId || b.villageId === userData?.villageId);
 
   // Mutations
   const { mutate: purchase, isPending: isPurchasing } =
