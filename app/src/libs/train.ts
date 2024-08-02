@@ -10,7 +10,7 @@ import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
 import { getUserElements } from "@/validators/user";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { LetterRank, QuestLetterRank } from "@/drizzle/constants";
+import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Item, Jutsu, UserItem, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
