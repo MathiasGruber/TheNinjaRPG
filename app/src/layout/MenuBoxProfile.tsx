@@ -196,7 +196,7 @@ const MenuBoxProfile: React.FC = () => {
           />
         </Link>
 
-        <div className="pt-2">
+        <div className="pt-5">
           <StatusBar
             title="HP"
             tooltip="Health"
