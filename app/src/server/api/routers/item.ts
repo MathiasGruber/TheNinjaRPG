@@ -312,7 +312,7 @@ export const itemRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
         ctx.drizzle.query.bloodline.findMany({
-          columns: { id: true, name: true, rank: true },
+          columns: { id: true, name: true, rank: true, villageId: true },
           where: eq(bloodline.hidden, false),
         }),
       ]);
@@ -335,7 +335,9 @@ export const itemRouter = createTRPCRouter({
       useritem.item.effects.forEach((effect) => {
         if (effect.type === "rollbloodline") {
           const randomBloodline = getRandomElement(
-            bloodlines.filter((b) => b.rank === effect.rank),
+            bloodlines
+              .filter((b) => b.rank === effect.rank)
+              .filter((b) => !b.villageId || b.villageId === user.villageId),
           );
           if (Math.random() * 100 < effect.power && randomBloodline) {
             updates.bloodlineId = randomBloodline.id;

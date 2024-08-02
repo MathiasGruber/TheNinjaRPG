@@ -262,6 +262,9 @@ export const bloodlineRouter = createTRPCRouter({
       if (BLOODLINE_COST[line.rank] > user.reputationPoints) {
         throw serverError("FORBIDDEN", "You do not have enough reputation points");
       }
+      if (line.villageId && line.villageId !== user.villageId) {
+        return errorResponse("Bloodline does not belong to your village");
+      }
       // Update
       await ctx.drizzle
         .update(userData)
