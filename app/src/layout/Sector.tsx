@@ -275,17 +275,28 @@ const Sector: React.FC<SectorProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, userData, moves, sector, isMoving, move]);
 
+  // Update the state containing sorrounding users on first load
   useEffect(() => {
-    const sceneRef = mountRef.current;
-    if (sceneRef && userData && fetchedUsers) {
-      // Update the state containing sorrounding users on first load
-      const enrichedData = fetchedUsers.map((user) => {
-        const status = getAllyStatus(userData.village, user.villageId);
+    if (userData) {
+      const enrichedData = fetchedUsers?.map((user) => {
+        const status = getAllyStatus(userData?.village, user.villageId);
         return { ...user, status };
       });
       setSorrounding(enrichedData || []);
-      users.current = enrichedData;
+      users.current = enrichedData || [];
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchedUsers]);
 
+  // Update user location if new userData
+  useEffect(() => {
+    if (userData) updateUsersList(userData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData]);
+
+  useEffect(() => {
+    const sceneRef = mountRef.current;
+    if (sceneRef && userData) {
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;
 
