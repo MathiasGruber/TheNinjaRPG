@@ -69,7 +69,11 @@ import { createStatSchema } from "@/libs/combat/types";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
-import { getGameSettingBoost } from "@/libs/gamesettings";
+import {
+  getGameSettingBoost,
+  getGameSetting,
+  updateGameSetting,
+} from "@/libs/gamesettings";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
@@ -967,11 +971,27 @@ export const profileRouter = createTRPCRouter({
       };
     }),
   countOnlineUsers: protectedProcedure.query(async ({ ctx }) => {
-    const result = await ctx.drizzle
-      .select({ count: count() })
-      .from(userData)
-      .where(gte(userData.updatedAt, secondsFromNow(-300)));
-    return result?.[0]?.count ?? 0;
+    // Fetch
+    const [current, daily, maxOnline] = await Promise.all([
+      ctx.drizzle
+        .select({ count: count() })
+        .from(userData)
+        .where(gte(userData.updatedAt, secondsFromNow(-300))),
+      ctx.drizzle
+        .select({ count: count() })
+        .from(userData)
+        .where(gte(userData.updatedAt, secondsFromNow(-3600 * 24))),
+      getGameSetting(ctx.drizzle, "onlineUsers"),
+    ]);
+    // Derived
+    const onlineNow = current?.[0]?.count ?? 0;
+    const onlineDay = daily?.[0]?.count ?? 0;
+    const newMax = maxOnline.value < onlineNow;
+    if (newMax) {
+      await updateGameSetting("onlineUsers", onlineNow, new Date());
+    }
+    // Return
+    return { onlineNow, onlineDay, maxOnline: newMax ? onlineNow : maxOnline.value };
   }),
   // Get public users
   getPublicUsers: publicProcedure

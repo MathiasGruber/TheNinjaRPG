@@ -58,7 +58,10 @@ export default function Users() {
       staleTime: 1000 * 60 * 5, // every 5min
     },
   );
-  const userCount = api.profile.countOnlineUsers.useQuery().data || 0;
+  const { data: onlineStats } = api.profile.countOnlineUsers.useQuery();
+  const userCountNow = onlineStats?.onlineNow || 0;
+  const userCountDay = onlineStats?.onlineDay || 0;
+  const maxOnline = onlineStats?.maxOnline || 0;
   const allUsers = users?.pages
     .map((page) => page.data)
     .flat()
@@ -101,7 +104,7 @@ export default function Users() {
 
   return (
     <ContentBox
-      title={`Users (${userCount} online)`}
+      title={`Users (${userCountNow} online)`}
       subtitle={`${activeTab} users`}
       padding={false}
       topRightContent={
@@ -173,6 +176,21 @@ export default function Users() {
         </Confirm>
       }
     >
+      <div className="p-2 grid grid-cols-3 text-center">
+        <p>
+          <b>Online last 5min</b>
+          <br /> {maxOnline} users
+        </p>
+        <p>
+          <b>Max Online Ever</b>
+          <br />
+          {maxOnline} users
+        </p>
+        <p>
+          <b>Online today</b>
+          <br /> {userCountDay} users
+        </p>
+      </div>
       <Table
         data={allUsers}
         columns={columns}
