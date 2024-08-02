@@ -16,7 +16,7 @@ import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
-import { availableLetterRanks, availableRanks } from "@/libs/train";
+import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
@@ -176,8 +176,8 @@ export const questsRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.dailyMissions >= MISSIONS_PER_DAY) return errorResponse("Limit reached");
       // Check if user is allowed to perform this rank
-      const ranks = availableLetterRanks(user.rank);
-      if (!ranks.includes(input.rank)) {
+      const ranks = availableQuestLetterRanks(user.rank);
+      if (!ranks.includes(input.rank) && input.type === "mission") {
         return errorResponse(`Rank ${input.rank} not allowed`);
       }
       // Confirm user does not have any current active missions/crimes/errands
@@ -227,7 +227,7 @@ export const questsRouter = createTRPCRouter({
       // Guards
       const { user } = updatedUser;
       if (!user) return errorResponse("User does not exist");
-      const ranks = availableLetterRanks(user.rank);
+      const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.requiredRank)) {
@@ -737,7 +737,7 @@ export const fetchUncompletedQuests = async (
   user: UserData,
   type: QuestType,
 ) => {
-  const availableLetters = availableLetterRanks(user.rank);
+  const availableLetters = availableQuestLetterRanks(user.rank);
   const history = await client
     .select()
     .from(quest)
@@ -749,7 +749,9 @@ export const fetchUncompletedQuests = async (
       and(
         eq(quest.questType, type),
         lte(quest.requiredLevel, user.level),
-        inArray(quest.requiredRank, availableLetters),
+        ...(availableLetters.length > 0
+          ? [inArray(quest.requiredRank, availableLetters)]
+          : [eq(quest.requiredRank, "D")]),
         isNull(questHistory.completed),
         or(
           isNull(quest.requiredVillage),

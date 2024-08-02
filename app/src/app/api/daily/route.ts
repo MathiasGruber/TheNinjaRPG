@@ -4,7 +4,7 @@ import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
 import { anbuSquad, clan } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
-import { availableLetterRanks } from "@/libs/train";
+import { availableQuestLetterRanks } from "@/libs/train";
 import { secondsFromNow } from "@/utils/time";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
@@ -102,7 +102,7 @@ export async function GET() {
       .where(and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)));
     await Promise.all(
       UserRanks.map((rank) => {
-        const ranks = availableLetterRanks(rank);
+        const ranks = availableQuestLetterRanks(rank);
         if (ranks.length > 0) {
           void villages.map(async (village) => {
             const newDaily = await drizzleDB.query.quest.findFirst({

@@ -10,13 +10,13 @@ import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
 import { getUserElements } from "@/validators/user";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { LetterRank } from "@/drizzle/constants";
+import type { LetterRank, QuestLetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
 import type { Item, Jutsu, UserItem, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import type { ElementName } from "@/drizzle/constants";
 
-export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
+export const availableJutsuLetterRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
     case "STUDENT":
       return ["D"];
@@ -24,6 +24,24 @@ export const availableLetterRanks = (userrank: UserRank): LetterRank[] => {
       return ["D", "C"];
     case "CHUNIN":
       return ["D", "C", "B", "A"];
+    case "JONIN":
+      return ["D", "C", "B", "A", "S", "H"];
+    case "ELDER":
+      return ["D", "C", "B", "A", "S", "H"];
+    case "COMMANDER":
+      return ["D", "C", "B", "A", "S", "H"];
+  }
+  return ["D"];
+};
+
+export const availableQuestLetterRanks = (userrank: UserRank): QuestLetterRank[] => {
+  switch (userrank) {
+    case "STUDENT":
+      return [];
+    case "GENIN":
+      return ["D"];
+    case "CHUNIN":
+      return ["D", "C", "B"];
     case "JONIN":
       return ["D", "C", "B", "A", "S", "H"];
     case "ELDER":
@@ -86,7 +104,7 @@ export const getAvailableLetterRanks = (rank: LetterRank) => {
 
 export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) => {
   if (!rank) return false;
-  return availableLetterRanks(userrank).includes(rank);
+  return availableJutsuLetterRanks(userrank).includes(rank);
 };
 
 export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) => {

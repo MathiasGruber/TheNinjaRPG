@@ -10,7 +10,7 @@ import { Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
-import { availableLetterRanks } from "@/libs/train";
+import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function AdministrationBuilding() {
@@ -30,7 +30,7 @@ export default function AdministrationBuilding() {
     {
       villageId: userData?.villageId,
       level: userData?.level,
-      rank: userData?.rank ? availableLetterRanks(userData.rank) : [],
+      rank: userData?.rank ? availableQuestLetterRanks(userData.rank) : [],
     },
     { enabled: !!userData, staleTime: Infinity },
   );

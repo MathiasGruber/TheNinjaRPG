@@ -7,7 +7,7 @@ import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
-import { availableLetterRanks } from "@/libs/train";
+import { availableQuestLetterRanks } from "@/libs/train";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { missionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -42,7 +42,7 @@ export default function MissionHall() {
   if (userData.isBanned) return <BanInfo />;
 
   // Derived
-  const availableUserRanks = availableLetterRanks(userData.rank);
+  const availableUserRanks = availableQuestLetterRanks(userData.rank);
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
   const classifier = userData.isOutlaw ? "crime" : "mission";
 
@@ -76,7 +76,8 @@ export default function MissionHall() {
                 (point) => point.type === setting.type && point.rank === setting.rank,
               )?.count ?? 0;
             // Check is user rank is high enough for this quest
-            const isRankAllowed = availableUserRanks.includes(setting.rank);
+            const isRankAllowed =
+              availableUserRanks.includes(setting.rank) || setting.name === "Errand";
             // Completed field on user model
             const missionOrCrime = userData?.villageId === "" ? "crime" : "mission";
             const type = setting.type === "errand" ? "errand" : missionOrCrime;
