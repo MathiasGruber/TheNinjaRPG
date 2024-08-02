@@ -753,6 +753,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         }
         if (form.formState.isValid) {
           setObjectives(newObjectives);
+          form.reset(watchAll);
         }
       }
     }
