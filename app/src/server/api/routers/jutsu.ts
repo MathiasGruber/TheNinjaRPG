@@ -361,11 +361,14 @@ export const jutsuRouter = createTRPCRouter({
         fetchJutsu(ctx.drizzle, input.jutsuId),
         fetchUserJutsus(ctx.drizzle, ctx.userId),
       ]);
-      // Derived
       const { user } = data;
-      const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
-      // Guards
       if (!user) return errorResponse("User not found");
+      // Derived
+      const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
+      const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
+      const maxEquip = userData && calcJutsuEquipLimit(user);
+      // Guards
       if (!info) return errorResponse("Jutsu not found");
       if (info.hidden) return errorResponse("Jutsu is hidden, cannot be trained");
       if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
@@ -410,6 +413,7 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           jutsuId: input.jutsuId,
           finishTraining: new Date(Date.now() + trainTime),
+          equipped: curEquip < maxEquip ? 1 : 0,
         });
       }
       return { success: true, message: `You started training: ${info.name}` };
@@ -444,18 +448,18 @@ export const jutsuRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [userjutsus, user, loadouts] = await Promise.all([
+      const [userjutsus, data, loadouts] = await Promise.all([
         fetchUserJutsus(ctx.drizzle, ctx.userId),
-        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
         fetchLoadouts(ctx.drizzle, ctx.userId),
       ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
       // Derived
-      const filteredJutsus = userjutsus.filter((userjutsu) => {
-        return (
-          userjutsu.jutsu?.bloodlineId === "" ||
-          user.bloodlineId === userjutsu.jutsu?.bloodlineId
-        );
-      });
+      const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
       const userjutsu = filteredJutsus.find((j) => j.id === input.userJutsuId);
       const isEquipped = userjutsu?.equipped || false;
       const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
