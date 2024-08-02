@@ -678,7 +678,7 @@ export const updateRewards = async (
           .where(eq(clan.id, user.clanId))
       : undefined,
     // Delete quest items
-    deleteItemIds.length > 0
+    deleteUserItemIds.length > 0
       ? client
           .delete(userItem)
           .where(
