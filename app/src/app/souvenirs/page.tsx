@@ -20,6 +20,7 @@ export default function ItemShop() {
       title="Souvenirs Shop"
       userData={userData}
       minCost={1}
+      image="/souvenirs.webp"
       defaultType="WEAPON"
       back_href={"/village"}
       eventItems={true}

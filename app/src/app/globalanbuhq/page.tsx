@@ -26,6 +26,7 @@ export default async function GlobalAnbuHQ() {
     <FancyForumThreads
       board_name="ANBU HQ"
       canPost={canPost}
+      back_href="/village"
       image="/globalanbuhq.webp"
       initialData={initialNews}
     />

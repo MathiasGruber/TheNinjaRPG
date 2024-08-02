@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
@@ -27,6 +28,7 @@ interface ShopProps {
   restrictTypes?: ItemType[];
   eventItems?: boolean;
   title?: string;
+  image?: string;
   subtitle?: string;
   back_href?: string;
   initialBreak?: boolean;
@@ -108,6 +110,9 @@ const Shop: React.FC<ShopProps> = (props) => {
   let categories = Object.values(ItemTypes);
   if (restrictTypes) categories = categories.filter((t) => restrictTypes.includes(t));
 
+  // Show loaders
+  if (!isAwake) return <Loader explanation="Redirecting because not awake" />;
+
   return (
     <>
       {isAwake && (
@@ -116,6 +121,7 @@ const Shop: React.FC<ShopProps> = (props) => {
           subtitle={props.subtitle ?? "Buy items"}
           back_href={props.back_href}
           initialBreak={props.initialBreak}
+          padding={false}
           topRightContent={
             categories.length > 1 && (
               <div className="flex flex-row">
@@ -142,9 +148,19 @@ const Shop: React.FC<ShopProps> = (props) => {
             )
           }
         >
+          {props.image && (
+            <Image
+              alt="page-image"
+              src={props.image}
+              width={512}
+              height={195}
+              className="w-full"
+              priority={true}
+            />
+          )}
           {isFetching && <Loader explanation="Loading data" />}
           {!isFetching && userData && (
-            <>
+            <div className="p-2">
               <ActionSelector
                 items={allItems}
                 selectedId={item?.id}
@@ -213,11 +229,10 @@ const Shop: React.FC<ShopProps> = (props) => {
                   {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
                 </Modal>
               )}
-            </>
+            </div>
           )}
         </ContentBox>
       )}
-      {!isAwake && <Loader explanation="Redirecting because not awake" />}
     </>
   );
 };

@@ -26,6 +26,7 @@ export default async function HistoryBuilding() {
     <FancyForumThreads
       board_name="History"
       canPost={canPost}
+      back_href="/village"
       image="/archive.webp"
       initialData={initialNews}
     />
