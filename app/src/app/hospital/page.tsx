@@ -6,6 +6,7 @@ import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import StatusBar from "@/layout/StatusBar";
+import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
 import { structureBoost } from "@/utils/village";
@@ -155,6 +156,14 @@ export default function Hospital() {
       back_href="/village"
       padding={false}
     >
+      <Image
+        alt="hospital-image"
+        src="/hospital.webp"
+        width={512}
+        height={195}
+        className="w-full"
+        priority={true}
+      />
       {!isLoading && isHospitalized && userData && healFinishAt && (
         <div className="p-3">
           <p>You are hospitalized, either wait or pay to expedite treatment.</p>
