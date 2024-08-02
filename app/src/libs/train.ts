@@ -37,7 +37,7 @@ export const availableJutsuLetterRanks = (userrank: UserRank): LetterRank[] => {
 export const availableQuestLetterRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
     case "STUDENT":
-      return [];
+      return ["D"];
     case "GENIN":
       return ["D"];
     case "CHUNIN":
