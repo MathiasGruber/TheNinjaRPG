@@ -245,34 +245,61 @@ export const itemRouter = createTRPCRouter({
     .input(
       z.object({
         userItemId: z.string(),
-        slot: z.enum(ItemSlots),
+        slot: z.enum(ItemSlots).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const userItems = await fetchUserItems(ctx.drizzle, ctx.userId);
-      const useritem = userItems.find((i) => i.id === input.userItemId);
-      if (!useritem) {
+      // Fetch
+      console.log(1);
+      const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
+      const userItemToEquip = useritems.find((i) => i.id === input.userItemId);
+      if (!userItemToEquip) {
         throw serverError("NOT_FOUND", "User item not found");
       }
-      if (!useritem.equipped || useritem.equipped !== input.slot) {
-        const equipped = userItems.find(
-          (i) => i.equipped === input.slot && i.id !== useritem.id,
-        );
-        if (equipped) {
-          await ctx.drizzle
-            .update(userItem)
-            .set({ equipped: "NONE" })
-            .where(eq(userItem.id, equipped.id));
+      // Determine equipment slot (first empty slots, then any slot)
+      const info = userItemToEquip.item;
+      let newEquipSlot = input.slot;
+      if (newEquipSlot === undefined) {
+        ItemSlots.forEach((slot) => {
+          if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
+            newEquipSlot = slot;
+          }
+        });
+        if (newEquipSlot === undefined) {
+          ItemSlots.forEach((slot) => {
+            if (slot.includes(info.slot)) {
+              newEquipSlot = slot;
+            }
+          });
         }
-        return await ctx.drizzle
-          .update(userItem)
-          .set({ equipped: input.slot })
-          .where(eq(userItem.id, useritem.id));
+      }
+
+      console.log(2, newEquipSlot);
+      // Mutate
+      if (!userItemToEquip.equipped || userItemToEquip.equipped !== input.slot) {
+        const userItemAlreadyEquipped = useritems.find(
+          (i) => i.equipped === newEquipSlot && i.id !== userItemToEquip.id,
+        );
+        console.log(3, userItemAlreadyEquipped);
+        return await Promise.all([
+          ctx.drizzle
+            .update(userItem)
+            .set({ equipped: newEquipSlot })
+            .where(eq(userItem.id, userItemToEquip.id)),
+          ...(userItemAlreadyEquipped
+            ? [
+                ctx.drizzle
+                  .update(userItem)
+                  .set({ equipped: "NONE" })
+                  .where(eq(userItem.id, userItemAlreadyEquipped.id)),
+              ]
+            : []),
+        ]);
       } else {
         return await ctx.drizzle
           .update(userItem)
           .set({ equipped: "NONE" })
-          .where(eq(userItem.id, useritem.id));
+          .where(eq(userItem.id, userItemToEquip.id));
       }
     }),
   // Consume item

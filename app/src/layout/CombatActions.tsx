@@ -9,9 +9,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "src/libs/shadui";
 import type { ItemRarity } from "@/drizzle/schema";
 
 interface ActionSelectorProps {
+  className?: string;
   items?: {
     id: string;
     name: string;
@@ -43,15 +45,13 @@ interface ActionSelectorProps {
 
 export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   const filtered = props.items?.filter((i) => !i.hidden);
+  const base = "grid gap-1 grid-cols-6 md:grid-cols-8 text-xs";
+  const bgColor = props.showBgColor
+    ? "border-b-2 border-l-2 border-r-2 bg-slate-50 text-black"
+    : "";
   return (
     <>
-      <div
-        className={`grid gap-1 grid-cols-6 md:grid-cols-8 text-xs ${
-          props.showBgColor
-            ? "border-b-2 border-l-2 border-r-2 bg-slate-50 text-black"
-            : ""
-        }`}
-      >
+      <div className={cn(base, bgColor, props.className)}>
         {filtered?.map((item, i) => {
           let bgColor = "";
           if (item.type === "jutsu") {
