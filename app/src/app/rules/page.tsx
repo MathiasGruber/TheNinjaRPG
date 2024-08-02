@@ -257,6 +257,29 @@ export default function GameRules() {
           you cannot resolve your issue with a moderator or head moderator, contact the
           staff administrator.
         </p>
+        <p className="my-2 text-2xl">
+          <b>EVENTS</b>
+        </p>{" "}
+        <p className="my-2">
+          TNR staff are not officially involved in player-made events and TNR is not
+          liable for any issues resulting from fairness or prizes. Any TNR official
+          events will be posted about in news.
+        </p>
+        <p className="my-2">
+          Players may create and run their own events such as, but not limited to:
+          raiding events, avatar contests, creative writing events etc.
+        </p>
+        <p className="my-2">
+          Player events should follow the rules outlined on this page, however TNR staff
+          will not be responsible for or punish players based on complaints due to
+          fairness or how prizes are distributed.
+        </p>
+        <p className="my-2">
+          Moderators may be requested to retain applicable prizes, such as ryo, for
+          distribution. However, staff members are not required to participate, and
+          their involvement in any capacity does not transform a player event into an
+          official event.
+        </p>
       </div>
     </ContentBox>
   );
