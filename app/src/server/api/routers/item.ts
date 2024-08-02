@@ -421,11 +421,14 @@ export const itemRouter = createTRPCRouter({
       const repsCost = info.repsCost * input.stack;
       // Figure out if we equip this
       let equipped: ItemSlot = "NONE";
-      ItemSlots.forEach((slot) => {
-        if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
-          equipped = slot;
-        }
-      });
+      if (!info.effects.find((e) => e.type.includes("bloodline"))) {
+        ItemSlots.forEach((slot) => {
+          if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
+            equipped = slot;
+          }
+        });
+      }
+
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
