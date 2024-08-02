@@ -34,7 +34,7 @@ export const availableJutsuLetterRanks = (userrank: UserRank): LetterRank[] => {
   return ["D"];
 };
 
-export const availableQuestLetterRanks = (userrank: UserRank): QuestLetterRank[] => {
+export const availableQuestLetterRanks = (userrank: UserRank): LetterRank[] => {
   switch (userrank) {
     case "STUDENT":
       return [];
