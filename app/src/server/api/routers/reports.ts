@@ -227,7 +227,7 @@ export const reportsRouter = createTRPCRouter({
           ? [
               ctx.drizzle
                 .update(userData)
-                .set({ isBanned: true, status: "AWAKE" })
+                .set({ isBanned: true, status: "AWAKE", travelFinishAt: null })
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
