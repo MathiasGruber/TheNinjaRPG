@@ -39,7 +39,7 @@ export const availableQuestLetterRanks = (userrank: UserRank): LetterRank[] => {
     case "STUDENT":
       return ["D"];
     case "GENIN":
-      return ["D"];
+      return ["D", "C"];
     case "CHUNIN":
       return ["D", "C", "B"];
     case "JONIN":
