@@ -7,9 +7,8 @@ export const useLocalStorage = <T>(
   // Get the initial value from local storage
   const getInitialValue = () => {
     const storedValue = localStorage.getItem(key);
-    console.log("storedValue", key, storedValue);
     if (storedValue && storedValue !== "undefined") {
-      return JSON.parse(storedValue);
+      return JSON.parse(storedValue) as T;
     }
     return initialValue;
   };
