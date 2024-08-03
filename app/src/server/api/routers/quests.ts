@@ -101,7 +101,10 @@ export const questsRouter = createTRPCRouter({
           and(
             eq(quest.hidden, false),
             inArray(quest.questType, ["event"]),
-            or(isNull(questHistory.userId), lte(questHistory.previousAttempts, 1)),
+            or(
+              isNull(questHistory.userId),
+              and(lte(questHistory.previousAttempts, 1), eq(questHistory.completed, 0)),
+            ),
             ...(input.villageId
               ? [
                   or(
