@@ -55,7 +55,7 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
   // If no href, show loader, otherwise show avatar
   return (
     <>
-      {userData.experience > expRequired && (
+      {userData.experience >= expRequired && (
         <div className="mt-2">
           <Button
             id="create"
