@@ -436,10 +436,13 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
-  const { data: userJutsus, refetch: refetchUserJutsu } =
-    api.jutsu.getUserJutsus.useQuery(undefined, {
-      staleTime: Infinity,
-    });
+  const {
+    data: userJutsus,
+    refetch: refetchUserJutsu,
+    isPending: isRefetchingUserJutsu,
+  } = api.jutsu.getUserJutsus.useQuery(undefined, {
+    staleTime: Infinity,
+  });
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {
       id: userJutsu.jutsuId,
@@ -626,10 +629,14 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                     }}
                   />
                 </p>
-                <XCircle
-                  className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500"
-                  onClick={() => cancel()}
-                />
+                {!isRefetchingUserJutsu && (
+                  <XCircle
+                    className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500"
+                    onClick={() => {
+                      cancel();
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
