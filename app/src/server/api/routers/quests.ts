@@ -101,7 +101,7 @@ export const questsRouter = createTRPCRouter({
           and(
             eq(quest.hidden, false),
             inArray(quest.questType, ["event"]),
-            or(isNull(questHistory.userId), eq(questHistory.completed, 0)),
+            or(isNull(questHistory.userId), lte(questHistory.previousAttempts, 1)),
             ...(input.villageId
               ? [
                   or(
@@ -826,6 +826,7 @@ export const upsertQuestEntry = async (
       startedAt: new Date(),
       endAt: null,
       completed: 0,
+      previousAttempts: current.previousAttempts + 1,
     };
     await client
       .update(questHistory)
@@ -842,6 +843,7 @@ export const upsertQuestEntry = async (
       endAt: null,
       completed: 0,
       previousCompletes: 0,
+      previousAttempts: 1,
     };
     await client.insert(questHistory).values(logEntry);
     return logEntry;

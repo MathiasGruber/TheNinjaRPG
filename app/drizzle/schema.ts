@@ -1678,6 +1678,7 @@ export const questHistory = mysqlTable(
     endAt: datetime("endedAt", { mode: "date", fsp: 3 }),
     completed: tinyint("completed").default(0).notNull(),
     previousCompletes: int("previousCompletes").default(0).notNull(),
+    previousAttempts: int("previousAttempts").default(0).notNull(),
   },
   (table) => {
     return {

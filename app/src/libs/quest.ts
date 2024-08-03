@@ -312,6 +312,7 @@ export const mockAchievementHistoryEntries = (
       questType: a.questType,
       completed: 0,
       previousCompletes: 0,
+      previousAttempts: 0,
       quest: a,
       endAt: null,
       startedAt: new Date(),

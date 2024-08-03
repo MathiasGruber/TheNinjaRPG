@@ -286,6 +286,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { mutate: abandon } = api.quests.abandon.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
+      await utils.quests.allianceBuilding.invalidate();
       await utils.profile.getUser.invalidate();
     },
   });
