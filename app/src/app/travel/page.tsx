@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useLocalStorage } from "@/hooks/localstorage";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import dynamic from "next/dynamic";
@@ -40,7 +41,7 @@ const Sector = dynamic(() => import("@/layout/Sector"), { ssr: false });
 
 export default function Travel() {
   // What is shown on this page
-  const [showActive, setShowActive] = useState<boolean>(true);
+  const [showActive, setShowActive] = useLocalStorage<boolean>("showActiveOnMap", true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("");
