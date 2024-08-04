@@ -17,6 +17,7 @@ import { useForm } from "react-hook-form";
 import { round } from "@/utils/math";
 import { createStatSchema, type StatSchemaType } from "@/libs/combat/types";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 interface StatDistributionProps {
   userData: NonNullable<UserWithRelations>;
@@ -87,23 +88,34 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
         <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
           {statNames.map((stat, i) => {
             const maxValue = statSchema.shape[stat]._def.innerType._def.schema.maxValue;
-            if (maxValue === 0) return null;
-            return (
-              <FormField
-                key={i}
-                control={form.control}
-                name={stat}
-                render={({ field }) => (
-                  <FormItem className="pt-1">
-                    <FormLabel>{stat}</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder={stat} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            );
+            if (maxValue && maxValue > 0) {
+              return (
+                <FormField
+                  key={i}
+                  control={form.control}
+                  name={stat}
+                  render={({ field }) => (
+                    <FormItem className="pt-1">
+                      <FormLabel>{stat}</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder={stat} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            } else {
+              return (
+                <FormItem className="pt-1">
+                  <FormLabel>{stat}</FormLabel>
+                  <FormControl>
+                    <div>- Max for {capitalizeFirstLetter(userData.rank)}</div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }
           })}
           <Button
             id="create"
