@@ -107,7 +107,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
               );
             } else {
               return (
-                <FormItem className="pt-1">
+                <FormItem className="pt-1" key={i}>
                   <FormLabel>{stat}</FormLabel>
                   <FormControl>
                     <div>- Max for {capitalizeFirstLetter(userData.rank)}</div>

@@ -1,11 +1,12 @@
 "use client";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Clock, FastForward, Hand } from "lucide-react";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import StatusBar from "@/layout/StatusBar";
+import StatusBar, { calcCurrent } from "@/layout/StatusBar";
 import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export default function Hospital() {
   // Settings
@@ -38,11 +40,8 @@ export default function Hospital() {
   // Current interest
   const boost = structureBoost("hospitalSpeedupPerLvl", userData?.village?.structures);
 
-  // How much the user can heal
-  const maxHeal = calcChakraToHealth(userData, userData?.curChakra);
-
   // Mutations
-  const { mutate: heal, isPending: isPendingHeal } = api.hospital.heal.useMutation({
+  const { mutate: heal, isPending } = api.hospital.heal.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -52,17 +51,150 @@ export default function Hospital() {
     },
   });
 
-  const { mutate: userHeal, isPending: isHealing } = api.hospital.userHeal.useMutation({
+  // Heal finish time
+  const healFinishAt = userData && calcHealFinish({ user: userData, timeDiff, boost });
+  const healCost = userData && calcHealCost(userData);
+  const canAfford = userData && healCost && userData.money >= healCost;
+  const canHealOthers = hasRequiredRank(userData?.rank, MEDNIN_MIN_RANK);
+
+  // Heal finish time
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!access) return <Loader explanation="Accessing Hospital" />;
+
+  return (
+    <ContentBox
+      title={hospitalName}
+      subtitle="Emergency Department"
+      back_href="/village"
+      padding={false}
+    >
+      <Image
+        alt="hospital-image"
+        src="/hospital.webp"
+        width={512}
+        height={195}
+        className="w-full"
+        priority={true}
+      />
+      {!isPending && isHospitalized && userData && healFinishAt && (
+        <div className="p-3">
+          <p>You are hospitalized, either wait or pay to expedite treatment.</p>
+          <div className="grid grid-cols-2 py-3 gap-2">
+            <Button
+              id="check"
+              className="w-full"
+              disabled={healFinishAt && healFinishAt > new Date()}
+              onClick={() => heal({ villageId: userData.villageId })}
+            >
+              <Clock className="mr-2 h-6 w-6" />
+              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
+            </Button>
+            <Button
+              id="check"
+              className="w-full"
+              color={canAfford ? "default" : "red"}
+              disabled={healFinishAt && healFinishAt <= new Date()}
+              onClick={() => heal({ villageId: userData.villageId })}
+            >
+              {canAfford ? (
+                <FastForward className="mr-3 h-6 w-6" />
+              ) : (
+                <Hand className="mr-3 h-6 w-6" />
+              )}
+              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
+            </Button>
+          </div>
+        </div>
+      )}
+      {!isPending && !isHospitalized && userData && !canHealOthers && (
+        <p className="p-3">You are not hospitalized.</p>
+      )}
+      {!isPending && !isHospitalized && canHealOthers && (
+        <HealOthersComponent userData={userData} timeDiff={timeDiff} />
+      )}
+      {isPending && <Loader explanation="Healing User" />}
+    </ContentBox>
+  );
+}
+
+interface HealOthersComponentProps {
+  userData: NonNullable<UserWithRelations>;
+  timeDiff: number;
+}
+
+/**
+ * Represents a component that allows the user to heal other hospitalized users.
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <HealOthersComponent userData={userData} />
+ * ```
+ *
+ * @param {HealOthersComponentProps} props - The component props.
+ * @returns {JSX.Element} The rendered component.
+ */
+const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
+  // Settings
+  const { userData, timeDiff } = props;
+
+  // Maximum heal capacity
+  const [maxHeal, setMaxHeal] = useState(
+    calcChakraToHealth(
+      userData,
+      calcCurrent(
+        userData.curChakra,
+        userData.maxChakra,
+        userData.status,
+        userData.regeneration,
+        userData.regenAt,
+        timeDiff,
+      ).current,
+    ),
+  );
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // How much the user can heal
+  useEffect(() => {
+    const foo = () => {
+      if (userData.curChakra < userData.maxChakra) {
+        setMaxHeal(
+          calcChakraToHealth(
+            userData,
+            calcCurrent(
+              userData.curChakra,
+              userData.maxChakra,
+              userData.status,
+              userData.regeneration,
+              userData.regenAt,
+              timeDiff,
+            ).current,
+          ),
+        );
+      }
+    };
+    if (userData.curChakra < userData.maxChakra) {
+      foo();
+      const interval = setInterval(foo, 1000);
+      return () => {
+        clearInterval(interval);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, timeDiff]);
+
+  // Mutations
+  const { mutate: userHeal, isPending } = api.hospital.userHeal.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await util.hospital.getHospitalizedUsers.invalidate();
+      await utils.hospital.getHospitalizedUsers.invalidate();
       if (data.success) {
-        await util.profile.getUser.invalidate();
+        await utils.profile.getUser.invalidate();
       }
     },
   });
-
-  const isLoading = isPendingHeal || isHealing;
 
   // Queries
   const { data: hospitalized } = api.hospital.getHospitalizedUsers.useQuery(undefined, {
@@ -83,6 +215,8 @@ export default function Hospital() {
             tooltip="Health"
             color="bg-red-500"
             showText={true}
+            lastRegenAt={user.userId === userData.userId ? userData.regenAt : undefined}
+            regen={user.userId === userData.userId ? userData.regeneration : undefined}
             status={user.status}
             current={user.curHealth}
             total={user.maxHealth}
@@ -139,74 +273,15 @@ export default function Hospital() {
     { key: "btns", header: "Heal", type: "jsx" },
   ];
 
-  // Heal finish time
-  const healFinishAt = userData && calcHealFinish({ user: userData, timeDiff, boost });
-  const healCost = userData && calcHealCost(userData);
-  const canAfford = userData && healCost && userData.money >= healCost;
-  const canHealOthers = hasRequiredRank(userData?.rank, MEDNIN_MIN_RANK);
-
-  // Heal finish time
-  if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!access) return <Loader explanation="Accessing Hospital" />;
-
+  // Render
   return (
-    <ContentBox
-      title={hospitalName}
-      subtitle="Emergency Department"
-      back_href="/village"
-      padding={false}
-    >
-      <Image
-        alt="hospital-image"
-        src="/hospital.webp"
-        width={512}
-        height={195}
-        className="w-full"
-        priority={true}
-      />
-      {!isLoading && isHospitalized && userData && healFinishAt && (
-        <div className="p-3">
-          <p>You are hospitalized, either wait or pay to expedite treatment.</p>
-          <div className="grid grid-cols-2 py-3 gap-2">
-            <Button
-              id="check"
-              className="w-full"
-              disabled={healFinishAt && healFinishAt > new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              <Clock className="mr-2 h-6 w-6" />
-              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
-            </Button>
-            <Button
-              id="check"
-              className="w-full"
-              color={canAfford ? "default" : "red"}
-              disabled={healFinishAt && healFinishAt <= new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              {canAfford ? (
-                <FastForward className="mr-3 h-6 w-6" />
-              ) : (
-                <Hand className="mr-3 h-6 w-6" />
-              )}
-              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
-            </Button>
-          </div>
-        </div>
+    <div>
+      {allHospitalized && allHospitalized.length > 0 ? (
+        <Table data={allHospitalized} columns={columns} />
+      ) : (
+        <p className="p-3">There are nobody injured for you to heal</p>
       )}
-      {!isLoading && !isHospitalized && userData && !canHealOthers && (
-        <p className="p-3">You are not hospitalized.</p>
-      )}
-      {!isLoading && !isHospitalized && canHealOthers && (
-        <div>
-          {allHospitalized && allHospitalized.length > 0 ? (
-            <Table data={allHospitalized} columns={columns} />
-          ) : (
-            <p className="p-3">There are nobody injured for you to heal</p>
-          )}
-        </div>
-      )}
-      {isLoading && <Loader explanation="Healing User" />}
-    </ContentBox>
+      {isPending && <Loader explanation="Healing User" />}
+    </div>
   );
-}
+};

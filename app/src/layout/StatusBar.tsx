@@ -24,7 +24,7 @@ interface StatusBarProps {
 /**
  * Calculate current state of the bar based on regen
  */
-const calcCurrent = (
+export const calcCurrent = (
   start?: number,
   total?: number,
   status?: UserStatus,
