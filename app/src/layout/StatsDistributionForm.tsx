@@ -85,22 +85,26 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
     <>
       <Form {...form}>
         <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
-          {statNames.map((stat, i) => (
-            <FormField
-              key={i}
-              control={form.control}
-              name={stat}
-              render={({ field }) => (
-                <FormItem className="pt-1">
-                  <FormLabel>{stat}</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder={stat} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ))}
+          {statNames.map((stat, i) => {
+            const maxValue = statSchema.shape[stat]._def.innerType._def.schema.maxValue;
+            if (maxValue === 0) return null;
+            return (
+              <FormField
+                key={i}
+                control={form.control}
+                name={stat}
+                render={({ field }) => (
+                  <FormItem className="pt-1">
+                    <FormLabel>{stat}</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder={stat} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            );
+          })}
           <Button
             id="create"
             className="w-full col-span-2 my-1"
