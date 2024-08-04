@@ -296,7 +296,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   useEffect(() => {
     const sceneRef = mountRef.current;
-    if (sceneRef && userData) {
+    if (sceneRef && userData && fetchedUsers !== undefined) {
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;
 
