@@ -60,15 +60,17 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
     onSuccess: async (data) => {
-      showMutationToast({
-        success: data.success,
-        message: "You enter the arena again",
-      });
       if (data.success) {
+        showMutationToast({
+          success: data.success,
+          message: "You enter the arena again",
+        });
         setBattleAtom(undefined);
         setBattleState({ battle: undefined, result: null, isPending: true });
         await utils.combat.getBattle.invalidate();
         await utils.profile.getUser.invalidate();
+      } else {
+        showMutationToast(data);
       }
     },
   });
