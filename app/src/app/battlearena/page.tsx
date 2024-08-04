@@ -141,11 +141,13 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
                     <SelectValue placeholder={`None`} />
                   </SelectTrigger>
                   <SelectContent>
-                    {aiData?.map((ai) => (
-                      <SelectItem key={ai.userId} value={ai.userId}>
-                        {ai.username} (lvl {ai.level})
-                      </SelectItem>
-                    ))}
+                    {aiData
+                      ?.filter((ai) => !ai.isSummon && ai.inArena)
+                      .map((ai) => (
+                        <SelectItem key={ai.userId} value={ai.userId}>
+                          {ai.username} (lvl {ai.level})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
