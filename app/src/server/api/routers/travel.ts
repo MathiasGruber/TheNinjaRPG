@@ -121,7 +121,7 @@ export const travelRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.status !== "TRAVEL") {
+      if (!["TRAVEL", "AWAKE"].includes(user.status)) {
         return {
           success: false,
           message: `Cannot finish travel because your status is: ${user.status.toLowerCase()}`,
