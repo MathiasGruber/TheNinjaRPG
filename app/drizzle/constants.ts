@@ -349,7 +349,7 @@ export const FED_SILVER_JUTSU_LOADOUTS = 2;
 export const FED_GOLD_JUTSU_LOADOUTS = 3;
 
 // Missions config
-export const MISSIONS_PER_DAY = 50;
+export const MISSIONS_PER_DAY = 75;
 
 // Clans config
 export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
