@@ -109,7 +109,7 @@ export default function CombatPage() {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {battle && userData?.status === "BATTLE" && !user?.isAi && (
+      {battle && userData?.status === "BATTLE" && (
         <ActionSelector
           items={actions}
           showBgColor={true}
