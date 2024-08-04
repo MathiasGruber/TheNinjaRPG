@@ -135,6 +135,7 @@ export const questsRouter = createTRPCRouter({
           .where(
             and(
               inArray(quest.questType, ["mission", "errand", "crime"]),
+              eq(quest.hidden, false),
               or(
                 isNull(quest.requiredVillage),
                 eq(quest.requiredVillage, input.villageId ?? ""),
