@@ -34,29 +34,6 @@ import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request
- * that goes through your tRPC endpoint. This is for the pages router
- * TODO: Deprecated once pages router no longer used!
- * @see https://trpc.io/docs/context
- */
-export const createPagesTRPCContext = (opts: CreateNextContextOptions) => {
-  const { req } = opts;
-  const sesh = getAuth(req);
-  const userId = sesh.userId;
-  // Get IP
-  const ip = req.headers["x-forwarded-for"];
-  const userIp = typeof ip === "string" ? ip.split(/, /)[0] : req.socket.remoteAddress;
-  // Get agent
-  const userAgent = req.headers["user-agent"];
-  return {
-    drizzle: drizzleDB,
-    userIp,
-    userId,
-    userAgent,
-  };
-};
-
-/**
- * This is the actual context you will use in your router. It will be used to process every request
  * that goes through your tRPC endpoint. This is for the app router.
  * @see https://trpc.io/docs/context
  */
@@ -87,7 +64,7 @@ export const createAppTRPCContext = (opts: {
  * This is where the tRPC API is initialized, connecting the context and transformer.
  */
 
-const t = initTRPC.context<typeof createPagesTRPCContext>().create({
+const t = initTRPC.context<typeof createAppTRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {

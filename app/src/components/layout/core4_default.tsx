@@ -514,24 +514,24 @@ const RightSideBar: React.FC<{
       {userData && notifications && notifications.length > 0 && (
         <>
           <SideBannerTitle>Notifications</SideBannerTitle>
-          <ul className="grid grid-cols-1 gap-1">
+          <ul className="grid grid-cols-1 gap-[1px]">
             {notifications
               .filter((n) => n.color !== "toast")
               .map((notification, i) => (
                 <Link key={i} href={notification.href}>
                   <div
-                    className={`flex flex-row items-center rounded-lg border-2 border-slate-800 p-1 pl-3 hover:opacity-70 ${
+                    className={`flex flex-row text-xs lg:text-base items-center rounded-lg border-2 border-slate-800 py-[1px] pl-3 hover:opacity-70 ${
                       notification.color
                         ? `bg-${notification.color}-600`
                         : "bg-slate-500"
                     }`}
                   >
                     {notification.color === "red" && (
-                      <ShieldAlert className="mr-2 h-6 w-6" />
+                      <ShieldAlert className="mr-1 h-5 w-5" />
                     )}
-                    {notification.color === "blue" && <Info className="mr-2 h-6 w-6" />}
+                    {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
                     {notification.color === "green" && (
-                      <ShieldCheck className="mr-2 h-6 w-6" />
+                      <ShieldCheck className="mr-1 h-5 w-5" />
                     )}
                     {notification.name}
                   </div>
