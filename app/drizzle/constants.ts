@@ -311,7 +311,7 @@ export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
 export const MEDNIN_REQUIRED_EXP = {
   NONE: 0,
   NOVICE: 0,
-  APPRENTICE: 200000,
+  APPRENTICE: 100000,
   MASTER: 400000,
 } as { [key in MEDNIN_RANK]: number };
 
