@@ -436,13 +436,10 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // User Jutsus
-  const {
-    data: userJutsus,
-    refetch: refetchUserJutsu,
-    isPending: isRefetchingUserJutsu,
-  } = api.jutsu.getUserJutsus.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: userJutsus, isPending: isRefetchingUserJutsu } =
+    api.jutsu.getUserJutsus.useQuery(undefined, {
+      staleTime: Infinity,
+    });
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {
       id: userJutsu.jutsuId,
@@ -459,9 +456,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUserJutsu();
           await utils.profile.getUser.invalidate();
         }
+        await utils.jutsu.getUserJutsus.invalidate();
       },
       onSettled: () => {
         document.body.style.cursor = "default";
@@ -475,9 +472,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await refetchUserJutsu();
           await utils.profile.getUser.invalidate();
         }
+        await utils.jutsu.getUserJutsus.invalidate();
       },
       onSettled: () => {
         document.body.style.cursor = "default";
@@ -625,7 +622,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                     targetDate={finishTrainingAt.finishTraining}
                     timeDiff={timeDiff}
                     onFinish={async () => {
-                      await refetchUserJutsu();
+                      await utils.jutsu.getUserJutsus.invalidate();
                     }}
                   />
                 </p>
