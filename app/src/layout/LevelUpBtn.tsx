@@ -64,6 +64,7 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
             className="w-full"
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               setShowModal(true);
             }}
           >
