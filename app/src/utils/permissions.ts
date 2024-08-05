@@ -2,7 +2,7 @@ import { UserRoles } from "@/drizzle/constants";
 import type { UserRole } from "@/drizzle/constants";
 
 export const canChangeContent = (role: UserRole) => {
-  return ["CONTENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
 export const canSubmitNotification = (role: UserRole) => {
