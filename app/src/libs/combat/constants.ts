@@ -86,3 +86,5 @@ export const StatNames = [
   "bukijutsuOffence",
   "bukijutsuDefence",
 ] as const;
+
+export const GenNames = ["strength", "intelligence", "willpower", "speed"] as const;

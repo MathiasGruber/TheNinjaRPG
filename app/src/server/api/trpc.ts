@@ -30,7 +30,6 @@ import type { NextRequest } from "next/server";
 import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
 import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import type { TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
-import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request

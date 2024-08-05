@@ -26,7 +26,7 @@ export default function MissionHall() {
   );
 
   const { data: hallData } = api.quests.missionHall.useQuery(
-    { villageId: userData?.villageId ?? "" },
+    { villageId: userData?.villageId ?? "", requiredLevel: userData?.level ?? 0 },
     { enabled: !!userData, staleTime: Infinity },
   );
 

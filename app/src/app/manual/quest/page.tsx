@@ -50,7 +50,7 @@ export default function ManualQuests() {
   const allQuests = quests?.pages
     .map((page) => page.data)
     .flat()
-    .map((q) => ({ ...q, village: q.village?.name ?? "Any" }));
+    .map((q) => ({ ...q, village: { name: q.village?.name ?? "Any" } }));
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Mutations
