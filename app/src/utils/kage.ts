@@ -2,7 +2,7 @@ import { hasRequiredRank } from "@/libs/train";
 import type { UserData } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
-export const KAGE_PRESTIGE_REQUIREMENT = 1000;
+export const KAGE_PRESTIGE_REQUIREMENT = 4000;
 export const RANK_REQUIREMENT = "JONIN";
 export const KAGE_PRESTIGE_COST = 1000;
 export const FRIENDLY_PRESTIGE_COST = 5;
