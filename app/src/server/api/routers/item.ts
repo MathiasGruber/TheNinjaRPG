@@ -222,6 +222,7 @@ export const itemRouter = createTRPCRouter({
       // Guard
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to sell");
+      if (useritem.item.isEventItem) return errorResponse("Cannot sell event items");
       // Mutate
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
