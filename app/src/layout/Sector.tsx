@@ -7,6 +7,10 @@ import Image from "next/image";
 import alea from "alea";
 import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
+import SliderField from "@/layout/SliderField";
+import { z } from "zod";
+import { useLocalStorage } from "@/hooks/localstorage";
+import { useForm } from "react-hook-form";
 import { Vector2, OrthographicCamera, Group } from "three";
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
@@ -21,6 +25,8 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { isLocationObjective } from "@/libs/quest";
 import { getAllyStatus } from "@/utils/alliance";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { round } from "@/utils/math";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -565,7 +571,42 @@ interface SorroundingUsersProps {
 }
 
 const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
-  const users = props.users.filter((user) => user.userId !== props.userId);
+  // Min level to show
+  const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
+
+  // Query
+  const { data } = api.village.getAll.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
+  // Form schema
+  const levelSliderSchema = z.object({
+    value: z.number().min(1).max(2),
+  });
+  type LevelSliderSchema = z.infer<typeof levelSliderSchema>;
+
+  // Form control
+  const {
+    register,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<LevelSliderSchema>({
+    resolver: zodResolver(levelSliderSchema),
+    defaultValues: { value: storedLvl || 1 },
+  });
+  const watchedLevel = round(watch("value", 2));
+
+  // Filter users
+  const users = props.users
+    .filter((user) => user.userId !== props.userId)
+    .filter((user) => user.level >= watchedLevel);
+
+  // Update the localStorage whenever we change
+  useEffect(() => {
+    setStoredLvl(watchedLevel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedLevel]);
 
   return (
     <Modal
@@ -573,10 +614,18 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
       setIsOpen={props.setIsOpen}
       isValid={false}
     >
-      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10">
+      {users.length === 0 && (
+        <p className="text-red-500">
+          No users above level {watchedLevel} in this sector
+        </p>
+      )}
+      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 pb-3">
         {users.map((user, i) => {
           const sameHex =
             user.latitude === props.hex.row && user.longitude === props.hex.col;
+          const village = data?.find((v) => v.id === user.villageId);
+          const villageName = village ? village.name : "Unknown";
+          const villageColor = village ? village.hexColor : "gray";
           return (
             <div key={i} className="relative">
               <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80 hover:cursor-pointer">
@@ -619,12 +668,30 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                 />
               </div>
               <p>{user.username}</p>
-              <p className="text-white ">
+              <p className="text-white leading-0">
                 Lvl. {user.level} [{user.longitude}, {user.latitude}]
+              </p>
+              <p className={`leading-0`} style={{ color: villageColor }}>
+                {villageName}
               </p>
             </div>
           );
         })}
+      </div>
+      <hr />
+      <div className="pt-3">
+        <SliderField
+          id="value"
+          default={0}
+          min={0}
+          max={100}
+          unit="value"
+          label="Select min level to show"
+          register={register}
+          setValue={setValue}
+          watchedValue={watchedLevel}
+          error={errors.value?.message}
+        />
       </div>
     </Modal>
   );

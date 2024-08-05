@@ -102,6 +102,8 @@ export const updateUserOnMap = async (
     username: string;
     avatar: string | null;
     location: string | null;
+    villageId?: string | null;
+    level: number;
   },
 ) => {
   await pusher.trigger(sector.toString(), "event", {
@@ -112,5 +114,7 @@ export const updateUserOnMap = async (
     username: user.username,
     sector: user.sector,
     location: user.location,
+    villageId: user?.villageId ?? null,
+    level: user.level,
   });
 };
