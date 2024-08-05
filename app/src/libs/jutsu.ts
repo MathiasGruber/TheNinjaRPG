@@ -93,7 +93,6 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "statClassification", type: "str_array", values: StatTypes },
     { id: "range", type: "number" },
     { id: "cooldown", type: "number" },
-    { id: "hidden", type: "number" },
     { id: "jutsuType", type: "str_array", values: JutsuTypes },
     { id: "bloodlineId", type: "db_values", values: bloodlines, resetButton: true },
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
@@ -102,6 +101,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "jutsuRank", type: "str_array", values: LetterRanks },
     { id: "requiredRank", type: "str_array", values: UserRanks },
     { id: "target", type: "str_array", values: AttackTargets },
+    { id: "hidden", type: "boolean" },
   ];
 
   return { jutsu, effects, form, formData, loading, setEffects, handleJutsuSubmit };
