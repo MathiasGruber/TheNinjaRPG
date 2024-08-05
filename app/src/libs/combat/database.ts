@@ -365,11 +365,6 @@ export const updateUser = async (
               ),
           ]
         : []),
-      // Increase count of daily arena battles
-      (user.dailyArenaFights =
-        curBattle.battleType === "ARENA"
-          ? user.dailyArenaFights + 1
-          : user.dailyArenaFights),
       // Update user data
       client
         .update(userData)
@@ -393,7 +388,9 @@ export const updateUser = async (
           taijutsuDefence: sql`taijutsuDefence + ${result.taijutsuDefence}`,
           bukijutsuDefence: sql`bukijutsuDefence + ${result.bukijutsuDefence}`,
           villagePrestige: sql`villagePrestige + ${result.villagePrestige}`,
-          dailyArenaFights: user.dailyArenaFights,
+          dailyArenaFights: sql`dailyArenaFights + ${
+            curBattle.battleType === "ARENA" ? 1 : 0
+          }`,
           questData: user.questData,
           battleId: null,
           regenAt: new Date(),
