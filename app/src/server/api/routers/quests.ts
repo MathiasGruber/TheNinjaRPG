@@ -120,7 +120,7 @@ export const questsRouter = createTRPCRouter({
       return events;
     }),
   missionHall: protectedProcedure
-    .input(z.object({ villageId: z.string(), requiredLevel: z.number() }))
+    .input(z.object({ villageId: z.string(), level: z.number() }))
     .query(async ({ ctx, input }) => {
       // Query
       const [user, summary] = await Promise.all([
@@ -136,7 +136,7 @@ export const questsRouter = createTRPCRouter({
             and(
               inArray(quest.questType, ["mission", "errand", "crime"]),
               eq(quest.hidden, false),
-              gte(quest.requiredLevel, input.requiredLevel),
+              lte(quest.requiredLevel, input.level),
               or(
                 isNull(quest.requiredVillage),
                 eq(quest.requiredVillage, input.villageId ?? ""),
@@ -197,7 +197,7 @@ export const questsRouter = createTRPCRouter({
         where: and(
           eq(quest.questType, input.type),
           eq(quest.requiredRank, input.rank),
-          gte(quest.requiredLevel, user.level),
+          lte(quest.requiredLevel, user.level),
           eq(quest.hidden, false),
           or(
             isNull(quest.requiredVillage),
