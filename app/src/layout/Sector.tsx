@@ -667,11 +667,11 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   priority
                 />
               </div>
-              <p>{user.username}</p>
-              <p className="text-white leading-0">
+              <p className="leading-0">{user.username}</p>
+              <p className="text-white leading-0  text-xs">
                 Lvl. {user.level} [{user.longitude}, {user.latitude}]
               </p>
-              <p className={`leading-0`} style={{ color: villageColor }}>
+              <p className="leading-0" style={{ color: villageColor }}>
                 {villageName}
               </p>
             </div>
