@@ -91,7 +91,7 @@ export const questsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       // Query
       const events = await ctx.drizzle
-        .select({ ...getTableColumns(quest) })
+        .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
         .from(quest)
         .leftJoin(
           questHistory,
@@ -101,10 +101,6 @@ export const questsRouter = createTRPCRouter({
           and(
             eq(quest.hidden, false),
             inArray(quest.questType, ["event"]),
-            or(
-              isNull(questHistory.userId),
-              and(lte(questHistory.previousAttempts, 1), eq(questHistory.completed, 0)),
-            ),
             ...(input.villageId
               ? [
                   or(
@@ -117,7 +113,9 @@ export const questsRouter = createTRPCRouter({
             ...(input.level ? [lte(quest.requiredLevel, input.level)] : []),
           ),
         );
-      return events;
+      return events.filter(
+        (e) => !e.previousAttempts || (e.previousAttempts <= 1 && e.completed === 0),
+      );
     }),
   missionHall: protectedProcedure
     .input(z.object({ villageId: z.string(), level: z.number() }))
@@ -223,12 +221,13 @@ export const questsRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [updatedUser, questData] = await Promise.all([
+      const [updatedUser, questData, prevAttempt] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
         }),
         fetchQuest(ctx.drizzle, input.questId),
+        fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, input.questId),
       ]);
       // Guards
       const { user } = updatedUser;
@@ -241,6 +240,9 @@ export const questsRouter = createTRPCRouter({
       }
       if (user.userQuests?.find((q) => q.quest.questType === "event" && !q.endAt)) {
         return errorResponse(`Already active event quest`);
+      }
+      if (prevAttempt && (prevAttempt.previousAttempts > 1 || prevAttempt.completed)) {
+        return errorResponse(`You have already attempted this quest`);
       }
       // Insert quest entry
       await upsertQuestEntry(ctx.drizzle, user, questData);
@@ -868,4 +870,14 @@ export const insertNextQuest = async (
     return { ...logEntry, quest: nextQuest };
   }
   return undefined;
+};
+
+export const fetchUserQuestByQuestId = async (
+  client: DrizzleClient,
+  userId: string,
+  questId: string,
+) => {
+  return await client.query.questHistory.findFirst({
+    where: and(eq(questHistory.userId, userId), eq(questHistory.questId, questId)),
+  });
 };
