@@ -264,8 +264,8 @@ const IncludeStats = {
   // static: directly equates to the amount returned
   // percentage: power is returned as a percentage
   // formula: power is used in stats-based formula to calculate return value
-  statTypes: z.array(z.enum(StatTypes)).min(1).optional(),
-  generalTypes: z.array(z.enum(GeneralType)).min(1).optional(),
+  statTypes: z.array(z.enum(StatTypes)).optional(),
+  generalTypes: z.array(z.enum(GeneralType)).optional(),
   elements: z.array(z.enum(ElementNames)).optional(),
 };
 
