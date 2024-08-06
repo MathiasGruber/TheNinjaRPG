@@ -79,7 +79,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
       if (regen !== undefined && current !== undefined && total !== undefined) {
         if (
           (state.current < total || current < total) &&
-          (state.current > 0 || current > 0)
+          (state.current >= 0 || current >= 0)
         ) {
           setState(calcCurrent(current, total, status, regen, lastRegenAt, timeDiff));
         }
