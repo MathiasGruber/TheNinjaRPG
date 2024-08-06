@@ -354,7 +354,7 @@ export const MISSIONS_PER_DAY = 75;
 // Clans config
 export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
 export const CLAN_CREATE_RYO_COST = 1000000;
-export const CLAN_RANK_REQUIREMENT = "CHUNIN";
+export const CLAN_RANK_REQUIREMENT = "GENIN";
 export const CLAN_MAX_MEMBERS = 50;
 export const CLAN_LOBBY_SECONDS = 120 * 10000;
 export const CLAN_BATTLE_REWARD_POINTS = 50;
