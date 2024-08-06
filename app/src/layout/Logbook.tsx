@@ -150,6 +150,11 @@ const LogbookHistory: React.FC = () => {
               <b>End:</b> {e.endAt.toLocaleString()}
             </p>
           )}
+          {e.completed === 1 ? (
+            <p className="text-green-500">Completed</p>
+          ) : (
+            <p className="text-red-500">Not Completed</p>
+          )}
         </div>
       ),
     }));
