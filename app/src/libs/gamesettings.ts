@@ -1,6 +1,5 @@
 import { gameSetting } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
-import { drizzleDB } from "@/server/db";
 import { nanoid } from "nanoid";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { secondsPassed } from "@/utils/time";
@@ -35,12 +34,13 @@ export const getGameSetting = async (client: DrizzleClient, name: string) => {
  * @returns - A promise that resolves when the update is complete.
  */
 export const updateGameSetting = async (
+  client: DrizzleClient,
   settingName: string,
   value: number,
   time: Date,
 ) => {
-  const setting = await getGameSetting(drizzleDB, settingName);
-  await drizzleDB
+  const setting = await getGameSetting(client, settingName);
+  await client
     .update(gameSetting)
     .set({ value, time })
     .where(eq(gameSetting.name, setting.name));
@@ -52,8 +52,8 @@ export const updateGameSetting = async (
  * @param hours - The number of hours for the game timer.
  * @returns A JSON response indicating the time left before the game can be run again.
  */
-export const checkGameTimer = async (hours: number) => {
-  const timer = await getGameSetting(drizzleDB, `timer-${hours}h`);
+export const checkGameTimer = async (client: DrizzleClient, hours: number) => {
+  const timer = await getGameSetting(client, `timer-${hours}h`);
   const deltaTime = 1000 * 60 * 60 * hours * 0.99;
   if (timer.time > new Date(Date.now() - deltaTime)) {
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(

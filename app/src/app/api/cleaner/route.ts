@@ -14,7 +14,7 @@ import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 export async function GET() {
   // Check timer
   const frequency = 1;
-  const response = await checkGameTimer(frequency);
+  const response = await checkGameTimer(drizzleDB, frequency);
   if (response) return response;
 
   try {
@@ -154,7 +154,7 @@ export async function GET() {
     );
 
     // Update timer
-    await updateGameSetting(`timer-${frequency}h`, 0, new Date());
+    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
 
     return Response.json(`OK`);
   } catch (cause) {

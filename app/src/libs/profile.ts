@@ -1,6 +1,15 @@
-import type { UserData } from "@/drizzle/schema";
+import type {
+  UserData,
+  Bloodline,
+  Village,
+  VillageStructure,
+  GameSetting,
+} from "@/drizzle/schema";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { structureBoost } from "@/utils/village";
+import { getReducedGainsDays } from "@/libs/train";
+import { getGameSettingBoost } from "@/libs/gamesettings";
 import type { UserRank } from "@/drizzle/constants";
 
 export function calcLevelRequirements(level: number): number {
@@ -132,4 +141,40 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
     }
   }
   return capitalizeFirstLetter(user.rank);
+};
+
+// Calculate user stats
+export const deduceActiveUserRegen = (
+  user: UserData & {
+    bloodline?: Bloodline | null;
+    village?: (Village & { structures?: VillageStructure[] }) | null;
+  },
+  settings: GameSetting[],
+) => {
+  let regeneration = user.regeneration;
+
+  // // Bloodline
+  if (user.bloodline?.regenIncrease) {
+    regeneration = regeneration + user.bloodline.regenIncrease;
+  }
+
+  // // Calculate percentage boost
+  let boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
+  if (user.status === "ASLEEP") {
+    boost += structureBoost("sleepRegenPerLvl", user.village?.structures);
+  }
+  regeneration *= (100 + boost) / 100;
+
+  // Reduce regen if just joined village
+  const reducedDays = getReducedGainsDays(user);
+  if (reducedDays > 0) {
+    regeneration *= 0.5;
+  }
+
+  // Increase by event
+  const setting = getGameSettingBoost("regenGainMultiplier", settings);
+  const gameFactor = setting?.value || 1;
+  regeneration *= gameFactor;
+
+  return regeneration;
 };

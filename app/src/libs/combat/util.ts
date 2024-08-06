@@ -9,6 +9,7 @@ import { realizeTag } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/utils/kage";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
+import { deduceActiveUserRegen } from "@/libs/profile";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralType } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
@@ -25,7 +26,7 @@ import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
-import type { Battle, VillageAlliance, Village } from "@/drizzle/schema";
+import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
@@ -137,7 +138,13 @@ export const shouldApplyEffectTimes = (
     "stunprevent",
     "summonprevent",
   ];
-  if (alwaysApply.includes(effect.type)) return 1;
+  // If always apply, then apply 1 time, but not if rounds set to 0
+  if (alwaysApply.includes(effect.type)) {
+    if (effect.rounds !== undefined && effect.rounds === 0) {
+      return 0;
+    }
+    return 1;
+  }
   // Get latest application of effect to the given target
   let applyTimes = 1;
   if (effect.rounds !== undefined && effect.timeTracker) {
@@ -702,6 +709,7 @@ export const rollInitiative = (
  */
 export const processUsersForBattle = (info: {
   users: BattleUserState[];
+  settings: GameSetting[];
   relations: VillageAlliance[];
   villages: Village[];
   battleType: BattleType;
@@ -709,7 +717,7 @@ export const processUsersForBattle = (info: {
   leftSideUserIds?: string[];
 }) => {
   // Destructure
-  const { users, relations, battleType, hide, leftSideUserIds } = info;
+  const { users, settings, relations, battleType, hide, leftSideUserIds } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -728,13 +736,11 @@ export const processUsersForBattle = (info: {
 
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
-    const regen =
-      (user.bloodline?.regenIncrease
-        ? user.regeneration + user.bloodline.regenIncrease
-        : user.regeneration) * secondsPassed(user.regenAt);
-    user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
-    user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
-    user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
+    const regen = deduceActiveUserRegen(user, settings);
+    const restored = (regen * secondsPassed(user.regenAt)) / 60;
+    user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
+    user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
+    user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
 
     // Add highest stat name to user
     const offences = {

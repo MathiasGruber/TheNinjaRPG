@@ -26,7 +26,7 @@ import {
 } from "@/libs/combat/database";
 import { fetchUpdatedUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
-import { userData, questHistory, quest } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema } from "@/libs/combat/types";
@@ -584,7 +584,8 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
   // Get user & target data, to be inserted into battle
-  const [villages, relations, achievements, users] = await Promise.all([
+  const [settings, villages, relations, achievements, users] = await Promise.all([
+    client.select().from(gameSetting),
     client.select().from(village),
     client.select().from(villageAlliance),
     client
@@ -720,6 +721,7 @@ export const initiateBattle = async (
   // Create the users array to be inserted into the battle
   const { userEffects, usersState, allSummons } = processUsersForBattle({
     users: users as BattleUserState[],
+    settings: settings,
     relations: relations,
     villages: villages,
     battleType: battleType,
@@ -762,6 +764,7 @@ export const initiateBattle = async (
     const { userEffects: summonEffects, usersState: summonState } =
       processUsersForBattle({
         users: summons as BattleUserState[],
+        settings: settings,
         relations: relations,
         villages: villages,
         battleType: battleType,

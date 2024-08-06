@@ -81,6 +81,7 @@ import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
+import { deduceActiveUserRegen } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
@@ -988,7 +989,7 @@ export const profileRouter = createTRPCRouter({
     const onlineDay = daily?.[0]?.count ?? 0;
     const newMax = maxOnline.value < onlineNow;
     if (newMax) {
-      await updateGameSetting("onlineUsers", onlineNow, new Date());
+      await updateGameSetting(ctx.drizzle, "onlineUsers", onlineNow, new Date());
     }
     // Return
     return { onlineNow, onlineDay, maxOnline: newMax ? onlineNow : maxOnline.value };
@@ -1327,29 +1328,7 @@ export const fetchUpdatedUser = async (props: {
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
-    // NOTE: We add this here, so that the "actual" current pools can be calculated on frontend,
-    //       and we can avoid running an database UPDATE on each load
-    if (user.bloodline?.regenIncrease) {
-      user.regeneration = user.regeneration + user.bloodline.regenIncrease;
-    }
-
-    // Calculate percentage boost
-    let boost = structureBoost("regenIncreasePerLvl", user?.village?.structures);
-    if (user.status === "ASLEEP") {
-      boost += structureBoost("sleepRegenPerLvl", user.village?.structures);
-    }
-    user.regeneration *= (100 + boost) / 100;
-
-    // Reduce regen if just joined village
-    const reducedDays = getReducedGainsDays(user);
-    if (reducedDays > 0) {
-      user.regeneration *= 0.5;
-    }
-
-    // Increase by event
-    const setting = getGameSettingBoost("regenGainMultiplier", settings);
-    const gameFactor = setting?.value || 1;
-    user.regeneration *= gameFactor;
+    user.regeneration = deduceActiveUserRegen(user, settings);
   }
 
   // Rewards, e.g. for activity streak

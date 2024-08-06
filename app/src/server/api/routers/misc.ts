@@ -107,6 +107,7 @@ export const miscRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       // Update
       await updateGameSetting(
+        ctx.drizzle,
         input.setting,
         parseInt(input.multiplier),
         secondsFromNow(input.days * 24 * 3600),

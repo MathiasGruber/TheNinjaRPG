@@ -18,7 +18,7 @@ import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
 export async function GET() {
   // Check timer
   const frequency = 24;
-  const response = await checkGameTimer(frequency);
+  const response = await checkGameTimer(drizzleDB, frequency);
   if (response) return response;
 
   // Query
@@ -145,7 +145,7 @@ export async function GET() {
     ]);
 
     // Update timer
-    await updateGameSetting(`timer-${frequency}h`, 0, new Date());
+    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
 
     return Response.json(`OK`);
   } catch (cause) {
