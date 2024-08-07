@@ -1225,8 +1225,8 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
         : e,
     );
     const right = rhs.statTypes?.map((e) =>
-      e === "Highest" && lhs.highestOffence
-        ? getStatTypeFromStat(lhs.highestOffence)
+      e === "Highest" && lhs.highestDefence
+        ? getStatTypeFromStat(lhs.highestDefence)
         : e,
     );
     left?.forEach((stat) => {
@@ -1241,6 +1241,13 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
         defended += 1;
       }
     });
+  }
+  // If no defending general types and the statTypes set to highest, defend
+  if (
+    !("generalTypes" in rhs) ||
+    (rhs.generalTypes?.length === 0 && rhs.statTypes?.includes("Highest"))
+  ) {
+    defended += 1;
   }
   if ("elements" in lhs) {
     lhs.elements?.forEach((stat) => {
