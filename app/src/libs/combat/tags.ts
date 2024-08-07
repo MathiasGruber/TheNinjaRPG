@@ -1244,8 +1244,11 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
   }
   // If no defending general types and the statTypes set to highest, defend
   if (
-    !("generalTypes" in rhs) ||
-    (rhs.generalTypes?.length === 0 && rhs.statTypes?.includes("Highest"))
+    // No types specified at all
+    !("generalTypes" in rhs && "statTypes" in rhs) ||
+    // No generals specified and stat to highest or none specified
+    (rhs.generalTypes?.length === 0 &&
+      (rhs.statTypes?.includes("Highest") || rhs.statTypes?.length === 0))
   ) {
     defended += 1;
   }
