@@ -2,6 +2,8 @@ import React from "react";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CircleHelp } from "lucide-react";
 import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
@@ -64,10 +66,20 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
         height={60}
       />
       <div className="basis-3/4">
-        <p className="font-bold pl-2">
-          {titlePrefix}
-          {title}
-        </p>
+        <div className="flex flex-row">
+          <p className="font-bold pl-2 grow">
+            {titlePrefix}
+            {title}
+          </p>
+          {objective.description && objective.description !== "" && (
+            <Popover>
+              <PopoverTrigger>
+                <CircleHelp className="h-5 w-5" />
+              </PopoverTrigger>
+              <PopoverContent>{objective.description}</PopoverContent>
+            </Popover>
+          )}
+        </div>
         <hr className="my-0" />
         <div className="pl-2">
           {"value" in parsed && (

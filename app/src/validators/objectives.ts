@@ -75,6 +75,8 @@ export const attackerFields = {
 
 export const baseObjectiveFields = {
   id: z.string(),
+  description: z.string().default(""),
+  successDescription: z.string().default(""),
 };
 
 export const SimpleObjective = z.object({
