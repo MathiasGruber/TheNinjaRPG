@@ -13,7 +13,7 @@ export function Toaster() {
   const { toasts } = useToast();
 
   return (
-    <ToastProvider>
+    <ToastProvider duration={30000}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
@@ -21,8 +21,7 @@ export function Toaster() {
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && <ToastDescription>{description}</ToastDescription>}
             </div>
-            {action}
-            <ToastClose />
+            {action ? action : <ToastClose />}
           </Toast>
         );
       })}

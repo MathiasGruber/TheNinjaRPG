@@ -14,6 +14,7 @@ export const showMutationToast = (data: {
   message: React.ReactNode;
   title?: string;
   action?: ToastActionElement;
+  variant?: "destructive" | "default";
 }) => {
   // Only show non-trivial messages
   if (data.message && data.message !== "OK") {
@@ -21,6 +22,7 @@ export const showMutationToast = (data: {
       toast({
         title: data?.title ?? "Success",
         description: data.message,
+        variant: data.variant ?? "default",
         action: data.action ?? (
           <ToastAction altText="OK" className="bg-green-600 h-10">
             <CheckCircle className="h-6 w-6 text-white my-4" />
@@ -31,6 +33,7 @@ export const showMutationToast = (data: {
       toast({
         title: data?.title ?? "Error",
         description: data.message,
+        variant: data.variant ?? "default",
         action: data.action ?? (
           <ToastAction altText="OK" className="bg-red-600 h-10">
             <XOctagon className="h-6 w-6 text-white my-4" />
