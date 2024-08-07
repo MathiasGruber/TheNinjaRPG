@@ -262,8 +262,8 @@ export const SP_PER_LVL = 50;
 export const CP_PER_LVL = 50;
 export const MAX_ATTRIBUTES = 5;
 export const RYO_CAP = 1000000000;
-export const MAX_STATS_CAP = 300000;
-export const MAX_GENS_CAP = 150000;
+export const MAX_STATS_CAP = 450000;
+export const MAX_GENS_CAP = 200000;
 
 // Caps lookup table
 export const USER_CAPS: {
