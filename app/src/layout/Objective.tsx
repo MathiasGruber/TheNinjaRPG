@@ -74,7 +74,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
           {objective.description && objective.description !== "" && (
             <Popover>
               <PopoverTrigger>
-                <CircleHelp className="h-5 w-5" />
+                <CircleHelp className="h-5 w-5 hover:text-orange-500 hover:cursor-pointer" />
               </PopoverTrigger>
               <PopoverContent>{objective.description}</PopoverContent>
             </Popover>

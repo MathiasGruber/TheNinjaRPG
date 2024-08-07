@@ -433,7 +433,10 @@ export const questsRouter = createTRPCRouter({
       }
 
       // Figure out if any finished quests & get rewards
-      const { rewards, trackers, userQuest, resolved } = getReward(user, input.questId);
+      const { rewards, trackers, userQuest, resolved, successDescriptions } = getReward(
+        user,
+        input.questId,
+      );
       user.questData = trackers;
 
       // Update user quest data
@@ -513,7 +516,7 @@ export const questsRouter = createTRPCRouter({
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
       rewards.reward_badges = badges.map((i) => i.name);
-      return { rewards, userQuest, resolved, badges };
+      return { successDescriptions, rewards, userQuest, resolved, badges };
     }),
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))

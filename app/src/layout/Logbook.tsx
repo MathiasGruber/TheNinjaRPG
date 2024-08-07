@@ -201,15 +201,34 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
-    onSuccess: async ({ rewards, userQuest, resolved, badges }) => {
+    onSuccess: async ({
+      successDescriptions,
+      rewards,
+      userQuest,
+      resolved,
+      badges,
+    }) => {
       if (userQuest) {
         const quest = userQuest.quest;
         const reward = (
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-2">
+            {successDescriptions.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {successDescriptions.map((description, i) => (
+                  <div key={`objective-success-${i}`}>
+                    <b>Objective {i + 1}:</b>
+                    <br />
+                    <i>{ReactHtmlParser(description)}</i>
+                  </div>
+                ))}
+              </div>
+            )}
             {resolved && quest.successDescription && (
-              <span className="mb-2">
+              <div>
+                <b>Quest Completed:</b>
+                <br />
                 <i>{ReactHtmlParser(quest.successDescription)}</i>
-              </span>
+              </div>
             )}
             <div className="flex flex-row items-center">
               <div className="flex flex-col basis-2/3">

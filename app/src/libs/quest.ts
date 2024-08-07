@@ -64,6 +64,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
   let rewards = ObjectiveReward.parse({});
   const { trackers } = getNewTrackers(user, [{ task: "any" }]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
+  const successDescriptions: string[] = [];
   let resolved = false;
   // Start mutating
   if (userQuest && !userQuest.completed) {
@@ -77,6 +78,9 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;
+        if (objective.successDescription) {
+          successDescriptions.push(objective.successDescription);
+        }
         if (objective.reward_money) {
           rewards.reward_money += objective.reward_money;
         }
@@ -107,7 +111,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
       }
     });
   }
-  return { rewards, trackers, userQuest, resolved };
+  return { rewards, trackers, userQuest, resolved, successDescriptions };
 };
 
 /**
