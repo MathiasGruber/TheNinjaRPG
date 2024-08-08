@@ -10,7 +10,15 @@
     },
     {
       "path": "/api/daily",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/daily",
+      "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/daily",
+      "schedule": "20 0 * * *"
     }
   ],
   "functions": {
