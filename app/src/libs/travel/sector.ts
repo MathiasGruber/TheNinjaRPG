@@ -333,17 +333,6 @@ export const drawVillage = (
   grid: Grid<TerrainHex>,
 ) => {
   const group = new Group();
-  // Village text
-  const pos = grid.getHex({ col: 10, row: 0 });
-  if (pos) {
-    const { height: h, x, y } = pos;
-    const text = loadTexture(`/villages/${village.name}Marker.png`);
-    const textMat = new SpriteMaterial({ map: text });
-    const textSprite = new Sprite(textMat);
-    textSprite.scale.set(h * 1.5, h * 0.5, 1);
-    textSprite.position.set(x, y + h, -7);
-    group.add(textSprite);
-  }
   // Village wall
   if (village.type === "VILLAGE") {
     const wall_tower_texture = loadTexture("/map/wall_stone_tower.webp");
