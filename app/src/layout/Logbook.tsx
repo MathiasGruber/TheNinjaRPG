@@ -15,6 +15,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import ReactHtmlParser from "react-html-parser";
+import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -375,6 +376,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               checkRewards={() => checkRewards({ questId: quest.id })}
               key={i}
               titlePrefix={`${i + 1}. `}
+              grayedOut={!isQuestObjectiveAvailable(quest, tracker, i)}
             />
           ))}
         </div>

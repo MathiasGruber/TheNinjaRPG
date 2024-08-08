@@ -27,6 +27,7 @@ import { isLocationObjective } from "@/libs/quest";
 import { getAllyStatus } from "@/utils/alliance";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
+import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -195,10 +196,12 @@ const Sector: React.FC<SectorProps> = (props) => {
         }
         if (userData) {
           userData?.userQuests?.forEach((userquest) => {
-            userquest.quest.content.objectives.forEach((objective) => {
+            const tracker = userData.questData?.find((q) => q.id === userquest.questId);
+            userquest.quest.content.objectives.forEach((objective, i) => {
               if (
+                (!tracker || isQuestObjectiveAvailable(userquest.quest, tracker, i)) &&
                 // If an objective is a location objective, then check quest
-                isLocationObjective(
+                (isLocationObjective(
                   {
                     sector: data.sector,
                     latitude: data.latitude,
@@ -206,10 +209,10 @@ const Sector: React.FC<SectorProps> = (props) => {
                   },
                   objective,
                 ) ||
-                // If we have attackers, check for these
-                (objective.attackers &&
-                  objective.attackers.length > 0 &&
-                  objective.attackers_chance > 0)
+                  // If we have attackers, check for these
+                  (objective.attackers &&
+                    objective.attackers.length > 0 &&
+                    objective.attackers_chance > 0))
               ) {
                 checkQuest();
               }

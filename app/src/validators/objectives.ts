@@ -167,6 +167,7 @@ export const QuestValidator = z
     questType: z.enum(QuestTypes),
     content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
     hidden: z.coerce.boolean(),
+    consecutiveObjectives: z.coerce.boolean(),
     expiresAt: z
       .string()
       .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")

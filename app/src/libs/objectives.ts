@@ -1,4 +1,6 @@
+import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType } from "@/validators/objectives";
+import type { QuestTrackerType } from "@/validators/objectives";
 
 export const getObjectiveImage = (objective: AllObjectivesType) => {
   switch (objective.task) {
@@ -95,4 +97,45 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
     default:
       return { image: "", title: "???" };
   }
+};
+
+/**
+ * Checks if an objective is complete based on the provided tracker and objective.
+ * @param tracker - The quest tracker object.
+ * @param objective - The objective to check.
+ * @returns An object containing the value, done status, and canCollect status of the objective.
+ */
+export const isObjectiveComplete = (
+  tracker: QuestTrackerType,
+  objective: AllObjectivesType,
+) => {
+  const status = tracker.goals.find((g) => g.id === objective.id);
+  const value = status?.value || 0;
+  const done = status?.done || ("value" in objective && value >= objective.value);
+  const canCollect = !status?.collected && done;
+  return { value, done, canCollect };
+};
+
+/**
+ * Checks if a quest objective is available. If the quest has consecutive objectives,
+ * the previous objective must be completed before the current one is available.
+ *
+ * @param quest - The quest object.
+ * @param tracker - The quest tracker object.
+ * @param objectiveIdx - The index of the objective to check.
+ * @returns A boolean indicating whether the objective is available.
+ */
+export const isQuestObjectiveAvailable = (
+  quest: Quest,
+  tracker: QuestTrackerType,
+  objectiveIdx: number,
+) => {
+  if (quest.consecutiveObjectives && objectiveIdx > 0) {
+    const prevObjective = quest.content.objectives[objectiveIdx - 1];
+    if (prevObjective) {
+      const { done } = isObjectiveComplete(tracker, prevObjective);
+      return done;
+    }
+  }
+  return true;
 };

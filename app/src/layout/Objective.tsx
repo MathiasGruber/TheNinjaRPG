@@ -10,6 +10,7 @@ import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getObjectiveSchema } from "@/validators/objectives";
+import { isObjectiveComplete } from "@/libs/objectives";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
@@ -21,6 +22,7 @@ interface ObjectiveProps {
   tracker: QuestTrackerType;
   checkRewards: () => void;
   tier?: number;
+  grayedOut?: boolean;
 }
 
 export const Objective: React.FC<ObjectiveProps> = (props) => {
@@ -33,10 +35,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   const parsed = objectiveSchema.parse(objective);
 
   // Derived status of the objective
-  const status = tracker.goals.find((g) => g.id === parsed.id);
-  const value = status?.value || 0;
-  const done = status?.done || ("value" in parsed && value >= parsed.value);
-  const canCollect = !status?.collected && done;
+  const { done, value, canCollect } = isObjectiveComplete(tracker, parsed);
 
   // Indicator icon
   const indicatorIcons = done ? (
@@ -57,7 +56,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   );
   // Show the objective
   return (
-    <div className="flex flex-row">
+    <div className={`flex flex-row ${props.grayedOut ? "grayscale opacity-30" : ""}`}>
       <Image
         className="self-start basis-1/4"
         alt={parsed.task}

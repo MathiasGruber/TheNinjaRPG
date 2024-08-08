@@ -2,6 +2,7 @@ import { ObjectiveReward } from "@/validators/objectives";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
+import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
@@ -18,16 +19,16 @@ export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
 /**
  * Get active objectives for a user
  */
-/**
- * Get active objectives for a user
- */
 export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
   const activeQuests = user.userQuests.map((uq) => uq.quest);
   const activeObjectives: AllObjectivesType[] = [];
   activeQuests.forEach((quest) => {
-    const questTracker = user.questData?.find((q) => q.id === quest.id);
-    quest?.content.objectives.forEach((objective) => {
-      const goal = questTracker?.goals.find((g) => g.id === objective.id);
+    const tracker = user.questData?.find((q) => q.id === quest.id);
+    quest?.content.objectives.forEach((objective, i) => {
+      if (tracker && !isQuestObjectiveAvailable(quest, tracker, i)) {
+        return;
+      }
+      const goal = tracker?.goals.find((g) => g.id === objective.id);
       if (goal && goal.done === false) {
         activeObjectives.push(objective);
       }
@@ -148,13 +149,18 @@ export const getNewTrackers = (
           questTracker = QuestTracker.parse({ id: quest.id });
         }
         // Update the goals of the quest
-        questTracker.goals = quest.content.objectives.map((objective) => {
+        questTracker.goals = quest.content.objectives.map((objective, i) => {
           // Get the current goal, or create it
           let status = questTracker?.goals.find((goal) => goal.id === objective.id);
           if (!status) {
             status = ObjectiveTracker.parse({ id: objective.id });
           }
           if (status.done) {
+            return status;
+          }
+
+          // If not available yet, just skip
+          if (!isQuestObjectiveAvailable(quest, questTracker, i)) {
             return status;
           }
 

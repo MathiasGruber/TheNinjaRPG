@@ -1638,6 +1638,7 @@ export const quest = mysqlTable(
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
     content: json("content").$type<QuestContentType>().notNull(),
     hidden: boolean("hidden").default(false).notNull(),
+    consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
