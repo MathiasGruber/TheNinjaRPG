@@ -527,7 +527,7 @@ const PayPalSubscriptionButton = (props: {
           onAccept={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            buy({ userId: userData.userId, status: props.buttonStatus });
+            buy({ userId: props.userId, status: props.buttonStatus });
           }}
         >
           You are about to purchase a federal subscription with reputation points. You

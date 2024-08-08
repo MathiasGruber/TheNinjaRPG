@@ -232,25 +232,30 @@ export const paypalRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [buyer, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
       // DERIVED
       const cost = fedStatusRepsCost(input.status);
       // Guard
       if (!cost || cost < 0) return errorResponse("Negative cost?");
-      if (user.reputationPoints < cost) return errorResponse(`Insufficient funds`);
-      if (user.federalStatus !== "NONE") return errorResponse(`Already subscribed`);
+      if (buyer.reputationPoints < cost) return errorResponse(`Insufficient funds`);
+      if (target.federalStatus !== "NONE") return errorResponse(`Already subscribed`);
       // Mutate
       await Promise.all([
         ctx.drizzle
           .update(userData)
-          .set({
-            federalStatus: input.status,
-            reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
-          })
+          .set({ federalStatus: input.status })
+          .where(
+            and(eq(userData.userId, target.userId), eq(userData.federalStatus, "NONE")),
+          ),
+        ctx.drizzle
+          .update(userData)
+          .set({ reputationPoints: sql`${userData.reputationPoints} - ${cost}` })
           .where(
             and(
-              eq(userData.userId, ctx.userId),
-              eq(userData.federalStatus, "NONE"),
+              eq(userData.userId, buyer.userId),
               gte(userData.reputationPoints, cost),
             ),
           ),
