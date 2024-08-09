@@ -609,6 +609,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Filter users
   const users = props.users
     .filter((user) => user.userId !== props.userId)
+    .filter((user) => user.status === "AWAKE")
     .filter((user) => user.level >= watchedLevel);
 
   // Update the localStorage whenever we change
@@ -625,7 +626,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
     >
       {users.length === 0 && (
         <p className="text-red-500">
-          No users above level {watchedLevel} in this sector
+          No awake users above level {watchedLevel} in this sector
         </p>
       )}
       <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 pb-3">
