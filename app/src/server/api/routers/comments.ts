@@ -462,7 +462,10 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   if (convo && (isPublic || inConversation)) {
     return convo;
   } else {
-    throw serverError("UNAUTHORIZED", "Conversation not found");
+    throw serverError(
+      "UNAUTHORIZED",
+      `Conversation ${params.id}-${params.title} not found`,
+    );
   }
 };
 
