@@ -827,6 +827,13 @@
       "when": 1723090992830,
       "tag": "0117_chilly_exodus",
       "breakpoints": false
+    },
+    {
+      "idx": 118,
+      "version": "5",
+      "when": 1723225379788,
+      "tag": "0118_fluffy_vargas",
+      "breakpoints": false
     }
   ]
 }

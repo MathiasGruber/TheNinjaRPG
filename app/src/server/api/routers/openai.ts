@@ -25,7 +25,7 @@ type ReturnQuest = {
   successDescription: string;
   objectives: string[];
   questType: QuestType;
-  requiredRank: LetterRank;
+  questRank: LetterRank;
 };
 
 type ReturnBadge = {
@@ -157,7 +157,7 @@ export const openaiRouter = createTRPCRouter({
             type: "string",
             enum: QuestTypes,
           },
-          requiredRank: {
+          questRank: {
             type: "string",
             enum: LetterRanks,
           },
@@ -165,7 +165,7 @@ export const openaiRouter = createTRPCRouter({
         required: [
           "name",
           "questType",
-          "requiredRank",
+          "questRank",
           "description",
           "successDescription",
           "objectives",

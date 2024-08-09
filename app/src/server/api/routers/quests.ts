@@ -109,8 +109,13 @@ export const questsRouter = createTRPCRouter({
                   ),
                 ]
               : []),
-            ...(input.rank ? [inArray(quest.requiredRank, input.rank)] : []),
-            ...(input.level ? [lte(quest.requiredLevel, input.level)] : []),
+            ...(input.rank ? [inArray(quest.questRank, input.rank)] : []),
+            ...(input.level
+              ? [
+                  lte(quest.requiredLevel, input.level),
+                  gte(quest.maxLevel, input.level),
+                ]
+              : []),
           ),
         );
       return events.filter(
@@ -126,7 +131,7 @@ export const questsRouter = createTRPCRouter({
         ctx.drizzle
           .select({
             type: quest.questType,
-            rank: quest.requiredRank,
+            rank: quest.questRank,
             count: sql<number>`COUNT(*)`.mapWith(Number),
           })
           .from(quest)
@@ -135,13 +140,14 @@ export const questsRouter = createTRPCRouter({
               inArray(quest.questType, ["mission", "errand", "crime"]),
               eq(quest.hidden, false),
               lte(quest.requiredLevel, input.level),
+              gte(quest.maxLevel, input.level),
               or(
                 isNull(quest.requiredVillage),
                 eq(quest.requiredVillage, input.villageId ?? ""),
               ),
             ),
           )
-          .groupBy(quest.questType, quest.requiredRank),
+          .groupBy(quest.questType, quest.questRank),
       ]);
       // Guards
       if (!user) throw serverError("PRECONDITION_FAILED", "User does not exist");
@@ -194,8 +200,9 @@ export const questsRouter = createTRPCRouter({
       const results = await ctx.drizzle.query.quest.findMany({
         where: and(
           eq(quest.questType, input.type),
-          eq(quest.requiredRank, input.rank),
+          eq(quest.questRank, input.rank),
           lte(quest.requiredLevel, user.level),
+          gte(quest.maxLevel, user.level),
           eq(quest.hidden, false),
           or(
             isNull(quest.requiredVillage),
@@ -235,7 +242,7 @@ export const questsRouter = createTRPCRouter({
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
       if (user.isBanned) return errorResponse("You are banned");
-      if (!ranks.includes(questData.requiredRank)) {
+      if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
       }
       if (user.userQuests?.find((q) => q.quest.questType === "event" && !q.endAt)) {
@@ -335,7 +342,7 @@ export const questsRouter = createTRPCRouter({
         });
         // Check if quest is changed to be an event
         if (entry.questType !== "event" && input.data.questType === "event") {
-          const roles = availableRanks(input.data.requiredRank);
+          const roles = availableRanks(input.data.questRank);
           await upsertQuestEntries(
             ctx.drizzle,
             entry,
@@ -473,7 +480,7 @@ export const questsRouter = createTRPCRouter({
         (resolved &&
           getQuestCounterFieldName(
             userQuest?.quest.questType,
-            userQuest?.quest.requiredRank,
+            userQuest?.quest.questRank,
           )) ||
         undefined;
 
@@ -760,9 +767,10 @@ export const fetchUncompletedQuests = async (
       and(
         eq(quest.questType, type),
         lte(quest.requiredLevel, user.level),
+        gte(quest.maxLevel, user.level),
         ...(availableLetters.length > 0
-          ? [inArray(quest.requiredRank, availableLetters)]
-          : [eq(quest.requiredRank, "D")]),
+          ? [inArray(quest.questRank, availableLetters)]
+          : [eq(quest.questRank, "D")]),
         isNull(questHistory.completed),
         or(
           isNull(quest.requiredVillage),

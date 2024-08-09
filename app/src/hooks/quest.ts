@@ -131,8 +131,9 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     { id: "hidden", type: "boolean", label: "Hidden" },
     { id: "consecutiveObjectives", type: "boolean", label: "Consecutive Objectives" },
     { id: "questType", type: "str_array", values: QuestTypes },
-    { id: "requiredRank", type: "str_array", values: LetterRanks },
+    { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
+    { id: "maxLevel", type: "number" },
   ];
 
   // Add villages if they exist

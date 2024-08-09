@@ -307,9 +307,19 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Required Rank</b>: {item.requiredRank}
               </p>
             )}
+            {"questRank" in item && item.questRank && (
+              <p>
+                <b>Minimum Rank</b>: {item.questRank}
+              </p>
+            )}
             {"requiredLevel" in item && item.requiredLevel && (
               <p>
                 <b>Required Level</b>: {item.requiredLevel}
+              </p>
+            )}
+            {"maxLevel" in item && item.maxLevel && (
+              <p>
+                <b>Max Level</b>: {item.maxLevel}
               </p>
             )}
             {"timeFrame" in item && item.timeFrame && (

@@ -1630,8 +1630,9 @@ export const quest = mysqlTable(
     image: varchar("image", { length: 191 }),
     description: varchar("description", { length: 5000 }),
     successDescription: varchar("successDescription", { length: 5000 }),
-    requiredRank: mysqlEnum("requiredRank", consts.LetterRanks).default("D").notNull(),
+    questRank: mysqlEnum("questRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
+    maxLevel: int("maxLevel").default(100).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
     tierLevel: int("tierLevel"),
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
@@ -1651,8 +1652,9 @@ export const quest = mysqlTable(
     return {
       tierLevel: unique("tierLevel").on(table.tierLevel),
       questTypeIdx: index("Quest_questType_idx").on(table.questType),
-      requiredRankIdx: index("Quest_requiredRank_idx").on(table.requiredRank),
+      questRankIdx: index("Quest_questRank_idx").on(table.questRank),
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
+      maxLevelIdx: index("Quest_maxLevel_idx").on(table.maxLevel),
       requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
     };
   },

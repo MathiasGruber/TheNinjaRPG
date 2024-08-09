@@ -109,7 +109,7 @@ export async function GET() {
               where: and(
                 eq(quest.questType, "daily"),
                 isNotNull(quest.content),
-                inArray(quest.requiredRank, ranks),
+                inArray(quest.questRank, ranks),
                 or(
                   isNull(quest.requiredVillage),
                   eq(quest.requiredVillage, village.id ?? ""),
