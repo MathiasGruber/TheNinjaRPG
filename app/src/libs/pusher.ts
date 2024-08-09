@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { UserStatus } from "@/drizzle/constants";
 
 // declare Pusher class with async send method
 // Taken from https://github.com/pusher/pusher-http-node/issues/173
@@ -104,6 +105,7 @@ export const updateUserOnMap = async (
     location: string | null;
     villageId?: string | null;
     level: number;
+    status: UserStatus;
   },
 ) => {
   await pusher.trigger(sector.toString(), "event", {
@@ -113,6 +115,7 @@ export const updateUserOnMap = async (
     avatar: user.avatar,
     username: user.username,
     sector: user.sector,
+    status: user.status,
     location: user.location,
     villageId: user?.villageId ?? null,
     level: user.level,

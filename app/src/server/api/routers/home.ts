@@ -5,6 +5,7 @@ import { userData } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
+import type { UserStatus } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
@@ -28,7 +29,7 @@ export const homeRouter = createTRPCRouter({
         return errorResponse("Wrong sector");
       }
       // Mutate
-      const newStatus = user.status === "ASLEEP" ? "AWAKE" : "ASLEEP";
+      const newStatus: UserStatus = user.status === "ASLEEP" ? "AWAKE" : "ASLEEP";
       if (user.status === "ASLEEP") {
         await ctx.drizzle
           .update(userData)
@@ -58,6 +59,7 @@ export const homeRouter = createTRPCRouter({
         level: user.level,
         villageId: user.villageId,
         username: user.username,
+        status: newStatus,
         location: "",
         userId: ctx.userId,
       };

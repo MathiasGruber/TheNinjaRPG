@@ -62,6 +62,7 @@ export const UserStatuses = [
   "QUEUED",
   "ASLEEP",
 ] as const;
+export type UserStatus = (typeof UserStatuses)[number];
 
 export const FederalStatuses = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
 export type FederalStatus = (typeof FederalStatuses)[number];

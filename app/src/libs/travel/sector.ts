@@ -206,9 +206,9 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
     alphaMap: highlightTexture,
   });
   const highlightColor =
-    userData.status === "ALLY"
+    userData.allianceStatus === "ALLY"
       ? parseInt("008000", 16)
-      : userData.status === "NEUTRAL"
+      : userData.allianceStatus === "NEUTRAL"
         ? parseInt("2986CC", 16)
         : parseInt("FF0000", 16);
   const highlightSprite = new Sprite(highlightMaterial);

@@ -146,9 +146,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Convenience method for updating user list
   const updateUsersList = (data: UserData) => {
     if (users.current) {
-      const status = getAllyStatus(userData?.village, data.villageId);
+      const allianceStatus = getAllyStatus(userData?.village, data.villageId);
       const idx = users.current.findIndex((user) => user.userId === data.userId);
-      const enrichedData = { ...data, status };
+      const enrichedData = { ...data, allianceStatus };
       if (idx !== -1) {
         users.current[idx] = enrichedData;
       } else {
@@ -290,8 +290,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   useEffect(() => {
     if (userData) {
       const enrichedData = fetchedUsers?.map((user) => {
-        const status = getAllyStatus(userData?.village, user.villageId);
-        return { ...user, status };
+        const allianceStatus = getAllyStatus(userData?.village, user.villageId);
+        return { ...user, allianceStatus };
       });
       setSorrounding(enrichedData || []);
       users.current = enrichedData || [];

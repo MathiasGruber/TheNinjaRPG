@@ -42,6 +42,7 @@ export const travelRouter = createTRPCRouter({
             curHealth: true,
             maxHealth: true,
             sector: true,
+            status: true,
             avatar: true,
             level: true,
             rank: true,
@@ -247,7 +248,7 @@ export const travelRouter = createTRPCRouter({
           }
         }
         // Final output
-        const output = { ...input, location, userId: userId };
+        const output = { ...input, location, userId: userId, status: "AWAKE" as const };
 
         void updateUserOnMap(pusher, input.sector, output);
         return { success: true, message: "OK", data: output };
