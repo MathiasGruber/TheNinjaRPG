@@ -446,11 +446,13 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
       return await client.query.conversation.findFirst({
         where: eq(conversation.id, id),
         with: { users: true },
+        orderBy: [desc(conversation.isPublic)],
       });
-    } else if (title && userId) {
+    } else if (title) {
       return await client.query.conversation.findFirst({
         where: eq(conversation.title, title),
         with: { users: true },
+        orderBy: [desc(conversation.isPublic)],
       });
     } else {
       throw serverError("BAD_REQUEST", "Invalid request");
