@@ -29,6 +29,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
@@ -64,6 +65,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const users = useRef<SectorUser[] | null>(null);
   const showUsers = useRef<boolean>(showActive);
+  const userRef = useRef<UserWithRelations>(undefined);
   const mouse = new Vector2();
 
   // tRPC utility
@@ -297,15 +299,19 @@ const Sector: React.FC<SectorProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedUsers]);
 
-  // Update user location if new userData
+  // Update information whenever we fetch new user data
   useEffect(() => {
-    if (userData) updateUsersList(userData);
+    if (userData) {
+      updateUsersList(userData);
+      userRef.current = userData;
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
   useEffect(() => {
     const sceneRef = mountRef.current;
-    if (sceneRef && userData && fetchedUsers !== undefined) {
+    if (sceneRef && userRef.current && fetchedUsers !== undefined) {
       // Used for map size calculations
       const hexagonLengthToWidth = 0.885;
 
@@ -370,8 +376,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Set the origin
       if (!origin.current) {
         origin.current = grid?.current?.getHex({
-          col: userData.longitude,
-          row: userData.latitude,
+          col: userRef.current.longitude,
+          row: userRef.current.latitude,
         });
       }
 
@@ -388,9 +394,6 @@ const Sector: React.FC<SectorProps> = (props) => {
         controls.target.set(-WIDTH / 2 - x, -HEIGHT / 2 - y, 0);
         camera.position.copy(controls.target);
       }
-
-      // Draw quest data on the map
-      drawQuest({ group_quest, user: userData, grid: grid.current });
 
       // Add the group to the scene
       scene.add(group_tiles);
@@ -454,13 +457,13 @@ const Sector: React.FC<SectorProps> = (props) => {
         raycaster.setFromCamera(mouse, camera);
 
         // Assume we have user, users and a grid
-        if (userData && users.current && grid.current) {
+        if (userRef.current && users.current && grid.current) {
           // Draw all users on the map + indicators for positions with multiple users
           userAngle = drawUsers({
             group_users: group_users,
             users: showUsers.current
               ? users.current
-              : users.current.filter((u) => u.userId === userData.userId),
+              : users.current.filter((u) => u.userId === userRef?.current?.userId),
             grid: grid.current,
             lastTime: lastTime,
             angle: userAngle,
@@ -472,9 +475,12 @@ const Sector: React.FC<SectorProps> = (props) => {
             group_users,
             raycaster,
             users: users.current,
-            userData,
+            userData: userRef.current,
             currentTooltips,
           });
+
+          // Draw quests
+          drawQuest({ group_quest, user: userRef.current, grid: grid.current });
         }
 
         // Detect intersections with tiles for movement
@@ -514,7 +520,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.sector, isAttacking, userData?.questData, fetchedUsers]);
+  }, [props.sector, isAttacking, fetchedUsers]);
 
   return (
     <>

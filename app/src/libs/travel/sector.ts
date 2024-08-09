@@ -38,17 +38,19 @@ export const drawQuest = (info: {
 }) => {
   const { user, grid, group_quest } = info;
   const activeObjectives = getActiveObjectives(user);
+  const drawnIds = new Set<string>();
   activeObjectives
     .filter((o) => LocationTasks.find((t) => t === o.task))
     .filter((o) => "sector" in o && o.sector === user.sector)
     .map((objective) => {
-      if (!("image" in objective) || !objective.image) return null;
+      let mesh = group_quest.getObjectByName(objective.id);
       const { latitude: y, longitude: x } = objective as ComplexObjectiveFields;
       const hex = findHex(grid, { x, y });
       if (!hex) return null;
-      const { height: h, width: w } = hex;
-      let mesh = group_quest.getObjectByName(objective.id);
       if (!mesh) {
+        // Check if should be drawn
+        if (!("image" in objective) || !objective.image) return null;
+        const { height: h, width: w } = hex;
         mesh = new Group();
         mesh.name = objective.id;
         // Marker
@@ -86,7 +88,14 @@ export const drawQuest = (info: {
         group_quest.add(mesh);
       }
       mesh.position.set(-hex.center.x, -hex.center.y, 0);
+      drawnIds.add(mesh.name);
     });
+  // Hide all user counters which are not used anymore
+  group_quest.children.forEach((object) => {
+    if (!drawnIds.has(object.name)) {
+      object.visible = false;
+    }
+  });
 };
 
 /**
