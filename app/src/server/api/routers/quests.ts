@@ -20,7 +20,7 @@ import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
-import { missionHallSettings } from "@/libs/quest";
+import { getMissionHallSettings } from "@/libs/quest";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
@@ -160,7 +160,7 @@ export const questsRouter = createTRPCRouter({
   startRandom: protectedProcedure
     .input(
       z.object({
-        type: z.enum(["errand", "mission"]),
+        type: z.enum(["errand", "mission", "crime"]),
         rank: z.enum(LetterRanks),
       }),
     )
@@ -175,7 +175,7 @@ export const questsRouter = createTRPCRouter({
         return errorResponse("User does not exist");
       }
       // Fetch settings
-      const settings = missionHallSettings.find(
+      const settings = getMissionHallSettings(user.isOutlaw).find(
         (s) => s.type === input.type && s.rank === input.rank,
       );
       if (!settings) {

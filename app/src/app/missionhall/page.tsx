@@ -9,7 +9,7 @@ import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { getQuestCounterFieldName } from "@/validators/user";
-import { missionHallSettings } from "@/libs/quest";
+import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 
@@ -69,7 +69,7 @@ export default function MissionHall() {
       )}
       {!currentQuest && !isPending && (
         <div className="grid grid-cols-3 italic p-3 gap-4 text-center">
-          {missionHallSettings.map((setting, i) => {
+          {getMissionHallSettings(userData.isOutlaw).map((setting, i) => {
             // Count how many of this type and rank are available
             const count =
               hallData?.find(

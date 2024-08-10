@@ -251,62 +251,59 @@ export const getNewTrackers = (
   return { trackers, notifications, consequences };
 };
 
-export const missionHallSettings = [
-  {
-    type: "errand",
-    rank: "D",
-    name: "Errand",
-    image: "/missions/errands.webp",
-    delayMinutes: 1,
-    description:
-      "Errands typically involve simple tasks such as fetching an item somewhere in the village, delivering groceries, etc.",
-  },
-  {
-    type: "mission",
-    rank: "D",
-    name: "D-rank",
-    image: "/missions/D_mission.webp",
-    delayMinutes: 5,
-    description:
-      "D-rank missions are the lowest rank of missions. They are usually simple missions that have a low chance of danger, finding & retrieving items, doing manual labor, or fetching a lost cat",
-  },
-  {
-    type: "mission",
-    rank: "C",
-    name: "C-rank",
-    image: "/missions/C_mission.webp",
-    delayMinutes: 10,
-    description:
-      "C-rank missions are the second lowest rank of missions. They are usually missions that have a chance of danger, e.g. escorting a client through friendly territory, etc.",
-  },
-  {
-    type: "mission",
-    rank: "B",
-    name: "B-rank",
-    image: "/missions/B_mission.webp",
-    delayMinutes: 15,
-    description:
-      "B-rank missions are the third highest rank of missions. They are usually missions that have a decent chance of danger, e.g. escorting a client through neutral or enemy territory.",
-  },
-  {
-    type: "mission",
-    rank: "A",
-    name: "A-rank",
-    image: "/missions/A_mission.webp",
-    delayMinutes: 20,
-    description:
-      "A-rank missions are the second highest rank of missions. They usually have a high chance of danger and are considered to be very difficult, e.g. assassinating a target, etc.",
-  },
-  {
-    type: "mission",
-    rank: "S",
-    name: "S-rank",
-    image: "/missions/S_mission.webp",
-    delayMinutes: 25,
-    description:
-      "S-rank missions are the highest rank of missions. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.",
-  },
-] as const;
+export const getMissionHallSettings = (isOutlaw: boolean) => {
+  const type = isOutlaw ? "crime" : "mission";
+  return [
+    {
+      type: "errand",
+      rank: "D",
+      name: "Errand",
+      image: "/missions/errands.webp",
+      delayMinutes: 1,
+      description: `Errands typically involve simple tasks such as fetching an item somewhere in the village, delivering groceries, etc.`,
+    },
+    {
+      type: type,
+      rank: "D",
+      name: "D-rank",
+      image: "/missions/D_mission.webp",
+      delayMinutes: 5,
+      description: `D-rank ${type}s are the lowest rank of ${type}s. They are usually simple ${type}s that have a low chance of danger, finding & retrieving items, doing manual labor, or fetching a lost cat`,
+    },
+    {
+      type: type,
+      rank: "C",
+      name: "C-rank",
+      image: "/missions/C_mission.webp",
+      delayMinutes: 10,
+      description: `C-rank ${type}s are the second lowest rank of ${type}s. They are usually ${type}s that have a chance of danger, e.g. escorting a client through friendly territory, etc.`,
+    },
+    {
+      type: type,
+      rank: "B",
+      name: "B-rank",
+      image: "/missions/B_mission.webp",
+      delayMinutes: 15,
+      description: `B-rank ${type}s are the third highest rank of ${type}s. They are usually ${type}s that have a decent chance of danger, e.g. escorting a client through neutral or enemy territory.`,
+    },
+    {
+      type: type,
+      rank: "A",
+      name: "A-rank",
+      image: "/missions/A_mission.webp",
+      delayMinutes: 20,
+      description: `A-rank ${type}s are the second highest rank of ${type}s. They usually have a high chance of danger and are considered to be very difficult, e.g. assassinating a target, etc.`,
+    },
+    {
+      type: type,
+      rank: "S",
+      name: "S-rank",
+      image: "/missions/S_mission.webp",
+      delayMinutes: 25,
+      description: `S-rank ${type}s are the highest rank of ${type}s. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.`,
+    },
+  ] as const;
+};
 
 export const mockAchievementHistoryEntries = (
   quests: Quest[],
