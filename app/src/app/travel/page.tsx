@@ -171,6 +171,7 @@ export default function Travel() {
   // Battle scene
   const SectorComponent = useMemo(() => {
     return (
+      userData &&
       currentTile &&
       currentSector && (
         <Sector

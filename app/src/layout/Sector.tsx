@@ -63,7 +63,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const pathFinder = useRef<PathCalculator | null>(null);
   const grid = useRef<Grid<TerrainHex> | null>(null);
-  const users = useRef<SectorUser[] | null>(null);
+  const users = useRef<SectorUser[]>([]);
   const showUsers = useRef<boolean>(showActive);
   const userRef = useRef<UserWithRelations>(undefined);
   const mouse = new Vector2();
@@ -242,7 +242,9 @@ const Sector: React.FC<SectorProps> = (props) => {
     if (pusher) {
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
-        if (data.userId !== userData?.userId) updateUsersList(data);
+        if (data.userId !== userData?.userId) {
+          updateUsersList(data);
+        }
       });
       return () => {
         pusher.unsubscribe(props.sector.toString());
