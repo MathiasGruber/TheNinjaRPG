@@ -3,6 +3,7 @@ import ContentImage from "./ContentImage";
 import { useUserData } from "@/utils/UserContext";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { Info } from "lucide-react";
+import { canChangeContent } from "@/utils/permissions";
 import {
   Tooltip,
   TooltipContent,
@@ -44,7 +45,10 @@ interface ActionSelectorProps {
 }
 
 export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
-  const filtered = props.items?.filter((i) => !i.hidden);
+  const { data: userData } = useUserData();
+  const filtered = props.items?.filter(
+    (i) => !i.hidden || (userData && canChangeContent(userData.role)),
+  );
   const base = "grid gap-1 grid-cols-6 md:grid-cols-8 text-xs";
   const bgColor = props.showBgColor
     ? "border-b-2 border-l-2 border-r-2 bg-slate-50 text-black"

@@ -414,9 +414,11 @@ export const itemRouter = createTRPCRouter({
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
-      if (info.hidden) return errorResponse("Item is hidden, cannot be bought");
       if (!info.inShop) return errorResponse("Item is not for sale");
       if (user.isBanned) return errorResponse("You are banned");
+      if (info.hidden && !canChangeContent(user.role)) {
+        return errorResponse("Item is hidden, cannot be bought");
+      }
       if (userItemsCount >= calcMaxItems(user)) {
         return errorResponse("Inventory is full");
       }

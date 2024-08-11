@@ -248,7 +248,7 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
-      if (questData.hidden || !canChangeContent(user.role)) {
+      if (questData.hidden && !canChangeContent(user.role)) {
         return errorResponse("Quest is hidden");
       }
       if (user.isBanned) return errorResponse("You are banned");

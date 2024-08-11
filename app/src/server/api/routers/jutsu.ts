@@ -370,12 +370,14 @@ export const jutsuRouter = createTRPCRouter({
       const maxEquip = userData && calcJutsuEquipLimit(user);
       // Guards
       if (!info) return errorResponse("Jutsu not found");
-      if (info.hidden) return errorResponse("Jutsu is hidden, cannot be trained");
       if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
       if (user.status !== "AWAKE") return errorResponse("Must be awake");
       const level = userjutsu ? userjutsu.level : 0;
       const trainTime = calcJutsuTrainTime(info, level, user);
       const trainCost = calcJutsuTrainCost(info, level);
+      if (info.hidden && !canChangeContent(user.role)) {
+        return errorResponse("Jutsu is hidden, cannot be trained");
+      }
       if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
         return errorResponse("You are already training a jutsu");
       }
