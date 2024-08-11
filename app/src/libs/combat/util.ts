@@ -406,7 +406,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // If Combat, then double the experience gain
       if (["COMBAT", "CLAN_BATTLE", "TOURNAMENT"].includes(battleType)) {
-        experience *= 2;
+        experience *= 1.5;
       }
 
       // Find users who did not leave battle yet
