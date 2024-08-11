@@ -90,37 +90,44 @@ export const questsRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Query
-      const events = await ctx.drizzle
-        .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
-        .from(quest)
-        .leftJoin(
-          questHistory,
-          and(eq(quest.id, questHistory.questId), eq(questHistory.userId, ctx.userId)),
-        )
-        .where(
-          and(
-            eq(quest.hidden, false),
-            inArray(quest.questType, ["event"]),
-            ...(input.villageId
-              ? [
-                  or(
-                    isNull(quest.requiredVillage),
-                    eq(quest.requiredVillage, input.villageId ?? ""),
-                  ),
-                ]
-              : []),
-            ...(input.rank ? [inArray(quest.questRank, input.rank)] : []),
-            ...(input.level
-              ? [
-                  lte(quest.requiredLevel, input.level),
-                  gte(quest.maxLevel, input.level),
-                ]
-              : []),
+      const [user, events] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle
+          .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
+          .from(quest)
+          .leftJoin(
+            questHistory,
+            and(
+              eq(quest.id, questHistory.questId),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          )
+          .where(
+            and(
+              inArray(quest.questType, ["event"]),
+              ...(input.villageId
+                ? [
+                    or(
+                      isNull(quest.requiredVillage),
+                      eq(quest.requiredVillage, input.villageId ?? ""),
+                    ),
+                  ]
+                : []),
+              ...(input.rank ? [inArray(quest.questRank, input.rank)] : []),
+              ...(input.level
+                ? [
+                    lte(quest.requiredLevel, input.level),
+                    gte(quest.maxLevel, input.level),
+                  ]
+                : []),
+            ),
           ),
+      ]);
+      return events
+        .filter((e) => !e.hidden || canChangeContent(user.role))
+        .filter(
+          (e) => !e.previousAttempts || (e.previousAttempts <= 1 && e.completed === 0),
         );
-      return events.filter(
-        (e) => !e.previousAttempts || (e.previousAttempts <= 1 && e.completed === 0),
-      );
     }),
   missionHall: protectedProcedure
     .input(z.object({ villageId: z.string(), level: z.number() }))
@@ -241,6 +248,9 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
+      if (questData.hidden || !canChangeContent(user.role)) {
+        return errorResponse("Quest is hidden");
+      }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);

@@ -3,6 +3,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
+import { canChangeContent } from "@/utils/permissions";
 import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
@@ -310,7 +311,7 @@ export const mockAchievementHistoryEntries = (
   user: NonNullable<UserWithRelations>,
 ) => {
   return quests
-    .filter((q) => !q.hidden)
+    .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
     .map((a) => ({
       id: a.id,
