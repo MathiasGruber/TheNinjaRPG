@@ -715,11 +715,14 @@ export const heal = (
     effect.calculation === "percentage"
       ? target.maxHealth * (power / 100) * applyTimes
       : power * applyTimes;
-  consequences.set(effect.id, {
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    heal,
-  });
+  // If rounds=0 apply immidiately, otherwise only on following rounds
+  if ((effect.rounds === 0 && effect.isNew) || !effect.isNew) {
+    consequences.set(effect.id, {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      heal,
+    });
+  }
   return getInfo(target, effect, "will heal");
 };
 
