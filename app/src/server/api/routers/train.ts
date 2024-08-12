@@ -218,10 +218,10 @@ export const trainRouter = createTRPCRouter({
     }),
   getTrainingLog: protectedProcedure
     .input(z.object({ userId: z.string() }))
-    .query(async ({ ctx }) => {
+    .query(async ({ ctx, input }) => {
       return ctx.drizzle.query.trainingLog.findMany({
         where: and(
-          eq(trainingLog.userId, ctx.userId),
+          eq(trainingLog.userId, input.userId),
           gt(trainingLog.trainingFinishedAt, sql`NOW() - INTERVAL 1 DAY`),
         ),
       });
