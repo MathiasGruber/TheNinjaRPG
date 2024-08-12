@@ -1046,6 +1046,9 @@ export const trainingLog = mysqlTable(
       userIdIdx: index("TrainingLog_userId_idx").on(table.userId),
       speedIdx: index("TrainingLog_speed_idx").on(table.speed),
       statIdx: index("TrainingLog_stat_idx").on(table.stat),
+      finishdAtIdx: index("TrainingLog_trainingFinishedAt_idx").on(
+        table.trainingFinishedAt,
+      ),
     };
   },
 );

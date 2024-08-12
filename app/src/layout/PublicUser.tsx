@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
 import ReactHtmlParser from "react-html-parser";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
+import { TrainingSpeeds } from "@/drizzle/constants";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
@@ -24,7 +26,9 @@ import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/validators/reports";
 import { useUserData } from "@/utils/UserContext";
 import { useUserEditForm } from "@/hooks/profile";
+import { Chart as ChartJS } from "chart.js/auto";
 import type { UpdateUserSchema } from "@/validators/user";
+import { groupBy } from "@/utils/grouping";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -38,6 +42,7 @@ interface PublicUserComponentProps {
   showReports?: boolean;
   showTransactions?: boolean;
   showActionLogs?: boolean;
+  showTrainingLogs?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -52,6 +57,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showReports,
   showTransactions,
   showActionLogs,
+  showTrainingLogs,
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
@@ -404,6 +410,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           })}
         </ContentBox>
       )}
+      {/* USER TRAINING LOG */}
+      {showTrainingLogs && <UserTrainingLog userId={profile.userId} />}
       {/* USER ACTION LOG */}
       {enableLogs && <ActionLogs table="user" relatedId={userId} initialBreak={true} />}
     </>
@@ -448,5 +456,119 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
         onAccept={handleUserSubmit}
       />
     </Confirm>
+  );
+};
+
+interface TrainingStatsComponentProps {
+  userId: string;
+}
+
+const UserTrainingLog: React.FC<TrainingStatsComponentProps> = ({ userId }) => {
+  // State
+  const chart = useRef<HTMLCanvasElement>(null);
+
+  // Query
+  const { data: logEntries } = api.train.getTrainingLog.useQuery(
+    { userId: userId },
+    { staleTime: Infinity },
+  );
+
+  // Create dataset for each training speed
+  const x = [...Array(24).keys()];
+  const datasets =
+    logEntries &&
+    TrainingSpeeds.map((speed) => {
+      const hourlyEvents = groupBy(
+        logEntries
+          .filter((e) => e.speed === speed)
+          .map((e) => ({
+            ...e,
+            hourAtDay: e.trainingFinishedAt.getHours(),
+          })),
+        "hourAtDay",
+      );
+      return {
+        label: speed,
+        data: x.map((i) => {
+          return {
+            x: i,
+            y: hourlyEvents.get(i)?.length || 0,
+            tooltip: "test",
+          };
+        }),
+      };
+    });
+
+  // Create chart
+  useEffect(() => {
+    const ctx = chart?.current?.getContext("2d");
+    if (ctx && datasets) {
+      // Update stats chart
+      const localTheme = localStorage.getItem("theme");
+      ChartJS.defaults.color = localTheme === "dark" ? "#FFFFFF" : "#000000";
+      const myChart = new ChartJS(ctx, {
+        type: "bar",
+        options: {
+          maintainAspectRatio: false,
+          responsive: true,
+          aspectRatio: 1.1,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1,
+              },
+              title: {
+                display: false,
+                text: "#Events",
+              },
+              stacked: true,
+            },
+            x: {
+              stacked: true,
+              title: {
+                display: true,
+                text: "Hour of Day",
+              },
+            },
+          },
+          plugins: {
+            legend: {
+              position: "bottom",
+              display: true,
+            },
+            tooltip: {
+              callbacks: {
+                title: function (tooltipItems) {
+                  return `Training at hour ${tooltipItems?.[0]?.label || "unknown"}`;
+                },
+              },
+            },
+          },
+        },
+        data: {
+          labels: x,
+          datasets: datasets,
+        },
+      });
+
+      // Remove on unmount
+      return () => {
+        myChart.destroy();
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasets]);
+
+  return (
+    <ContentBox
+      title="Training Log"
+      subtitle="User activity last 7 days"
+      initialBreak={true}
+    >
+      <div className="relative w-[99%] p-3">
+        <canvas ref={chart} id="chart"></canvas>
+      </div>
+    </ContentBox>
   );
 };

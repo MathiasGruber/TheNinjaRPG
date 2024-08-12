@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { trainingSpeedSeconds } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
+import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
 import { canTrainJutsu } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
@@ -284,7 +285,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
 
   // Mutations
   const { mutate: startTraining, isPending: isStarting } =
-    api.profile.startTraining.useMutation({
+    api.train.startTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
@@ -294,7 +295,18 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
     });
 
   const { mutate: stopTraining, isPending: isStopping } =
-    api.profile.stopTraining.useMutation({
+    api.train.stopTraining.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          await utils.train.getLatestTrainingCount.invalidate();
+        }
+      },
+    });
+
+  const { mutate: changeSpeed, isPending: isChaning } =
+    api.train.updateTrainingSpeed.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
@@ -303,15 +315,10 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const { mutate: changeSpeed, isPending: isChaning } =
-    api.profile.updateTrainingSpeed.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
-        }
-      },
-    });
+  const { data } = api.train.getLatestTrainingCount.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const dailyTrainings = data?.count || 0;
 
   const isPending = isStarting || isStopping || isChaning;
 
@@ -325,7 +332,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   return (
     <ContentBox
       title="Training"
-      subtitle={`Training (${efficiency}% efficiency)`}
+      subtitle={`Training (${efficiency}% efficiency) [${dailyTrainings} / ${MAX_DAILY_TRAININGS}]`}
       back_href="/village"
       topRightContent={
         <NavTabs

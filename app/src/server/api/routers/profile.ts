@@ -1,19 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import {
-  count,
-  eq,
-  ne,
-  sql,
-  gte,
-  and,
-  or,
-  like,
-  asc,
-  desc,
-  isNull,
-  isNotNull,
-} from "drizzle-orm";
+import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed, secondsFromNow } from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -33,7 +20,6 @@ import {
   quest,
   questHistory,
   reportLog,
-  trainingLog,
   user2conversation,
   userAttribute,
   userData,
@@ -60,16 +46,10 @@ import { insertUserDataSchema } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { calcLevelRequirements } from "@/libs/profile";
 import { activityStreakRewards } from "@/libs/profile";
-import { energyPerSecond } from "@/libs/train";
-import { trainingMultiplier } from "@/libs/train";
-import { trainEfficiency } from "@/libs/train";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
-import { calcIsInVillage } from "@/libs/travel/controls";
-import { UserStatNames } from "@/drizzle/constants";
-import { TrainingSpeeds } from "@/drizzle/constants";
 import {
   getGameSettingBoost,
   getGameSetting,
@@ -80,7 +60,6 @@ import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
-import { structureBoost } from "@/utils/village";
 import { capUserStats } from "@/libs/profile";
 import { deduceActiveUserRegen } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
@@ -116,164 +95,6 @@ export const profileRouter = createTRPCRouter({
       orderBy: asc(userData.level),
     });
   }),
-  // Start training of a specific attribute
-  startTraining: protectedProcedure
-    .input(z.object({ stat: z.enum(UserStatNames) }))
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      // Query
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        userIp: ctx.userIp,
-        forceRegen: true,
-      });
-      // Derived
-      if (!user) throw serverError("NOT_FOUND", "User not found");
-      const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
-      // Guard
-      if (user.status !== "AWAKE") return errorResponse("Must be awake to train");
-      if (!user.isOutlaw) {
-        if (!inVillage) return errorResponse("Must be in your own village");
-        if (user.sector !== user.village?.sector) return errorResponse("Wrong sector");
-      }
-      if (user.trainingSpeed !== "8hrs" && user.isBanned) {
-        return errorResponse("Only 8hrs training interval allowed when banned");
-      }
-
-      // Mutate
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({ trainingStartedAt: new Date(), currentlyTraining: input.stat })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            isNull(userData.currentlyTraining),
-            eq(userData.status, "AWAKE"),
-          ),
-        );
-      if (result.rowsAffected === 0) {
-        return errorResponse("You are already training");
-      } else {
-        return { success: true, message: `Started training` };
-      }
-    }),
-  // Stop training
-  stopTraining: protectedProcedure
-    .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
-      // Query
-      const { user, settings } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        forceRegen: true,
-      });
-      // Guard
-      if (!user) throw serverError("NOT_FOUND", "User not found");
-      if (user.status !== "AWAKE") return errorResponse("Must be awake");
-      if (!user.trainingStartedAt) return errorResponse("Not currently training");
-      if (!user.currentlyTraining) return errorResponse("Not currently training");
-      // Derived training gain
-      const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
-      const gameFactor = trainSetting?.value || 1;
-      const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
-      const clanBoost = user?.clan?.trainingBoost || 0;
-      const factor = gameFactor * (1 + boost / 100 + clanBoost / 100);
-      const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
-      const minutes = seconds / 60;
-      const energySpent = Math.min(
-        Math.floor(energyPerSecond(user.trainingSpeed) * seconds),
-        100,
-      );
-      const trainingAmount =
-        factor * energySpent * trainEfficiency(user) * trainingMultiplier(user);
-      // Mutate
-      const { trackers } = getNewTrackers(user, [
-        { task: "stats_trained", increment: trainingAmount },
-        { task: "minutes_training", increment: minutes },
-      ]);
-      user.questData = trackers;
-      const [result] = await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({
-            trainingStartedAt: null,
-            currentlyTraining: null,
-            experience: sql`experience + ${trainingAmount}`,
-            strength:
-              user.currentlyTraining === "strength"
-                ? sql`strength + ${trainingAmount}`
-                : sql`strength`,
-            intelligence:
-              user.currentlyTraining === "intelligence"
-                ? sql`intelligence + ${trainingAmount}`
-                : sql`intelligence`,
-            willpower:
-              user.currentlyTraining === "willpower"
-                ? sql`willpower + ${trainingAmount}`
-                : sql`willpower`,
-            speed:
-              user.currentlyTraining === "speed"
-                ? sql`speed + ${trainingAmount}`
-                : sql`speed`,
-            ninjutsuOffence:
-              user.currentlyTraining === "ninjutsuOffence"
-                ? sql`ninjutsuOffence + ${trainingAmount}`
-                : sql`ninjutsuOffence`,
-            ninjutsuDefence:
-              user.currentlyTraining === "ninjutsuDefence"
-                ? sql`ninjutsuDefence + ${trainingAmount}`
-                : sql`ninjutsuDefence`,
-            genjutsuOffence:
-              user.currentlyTraining === "genjutsuOffence"
-                ? sql`genjutsuOffence + ${trainingAmount}`
-                : sql`genjutsuOffence`,
-            genjutsuDefence:
-              user.currentlyTraining === "genjutsuDefence"
-                ? sql`genjutsuDefence + ${trainingAmount}`
-                : sql`genjutsuDefence`,
-            taijutsuOffence:
-              user.currentlyTraining === "taijutsuOffence"
-                ? sql`taijutsuOffence + ${trainingAmount}`
-                : sql`taijutsuOffence`,
-            taijutsuDefence:
-              user.currentlyTraining === "taijutsuDefence"
-                ? sql`taijutsuDefence + ${trainingAmount}`
-                : sql`taijutsuDefence`,
-            bukijutsuDefence:
-              user.currentlyTraining === "bukijutsuDefence"
-                ? sql`bukijutsuDefence + ${trainingAmount}`
-                : sql`bukijutsuDefence`,
-            bukijutsuOffence:
-              user.currentlyTraining === "bukijutsuOffence"
-                ? sql`bukijutsuOffence + ${trainingAmount}`
-                : sql`bukijutsuOffence`,
-            questData: user.questData,
-          })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              isNotNull(userData.currentlyTraining),
-              eq(userData.status, "AWAKE"),
-            ),
-          ),
-        ctx.drizzle.insert(trainingLog).values({
-          userId: ctx.userId,
-          amount: trainingAmount,
-          stat: user.currentlyTraining,
-          speed: user.trainingSpeed,
-          trainingFinishedAt: new Date(),
-        }),
-      ]);
-      if (result.rowsAffected === 0) {
-        return { success: false, message: "You are not training" };
-      } else {
-        return {
-          success: true,
-          message: `You gained ${trainingAmount} ${user.currentlyTraining}`,
-        };
-      }
-    }),
   // Update user with new level
   levelUp: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     // Query
@@ -515,34 +336,6 @@ export const profileRouter = createTRPCRouter({
         return { success: true, message: `AI deleted` };
       } else {
         return { success: false, message: `Not allowed to delete AI` };
-      }
-    }),
-  // Update user training speed
-  updateTrainingSpeed: protectedProcedure
-    .input(z.object({ speed: z.enum(TrainingSpeeds) }))
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      if (!user) {
-        throw serverError("NOT_FOUND", "User not found");
-      }
-      if (user.currentlyTraining) {
-        return {
-          success: false,
-          message: "Cannot change training speed while training",
-        };
-      }
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({ trainingSpeed: input.speed })
-        .where(eq(userData.userId, ctx.userId));
-      if (result.rowsAffected === 0) {
-        return { success: false, message: "Could not update user" };
-      } else {
-        return { success: true, message: "Training speed updated" };
       }
     }),
   // Update user
