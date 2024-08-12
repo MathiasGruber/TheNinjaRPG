@@ -33,6 +33,7 @@ import {
   quest,
   questHistory,
   reportLog,
+  trainingLog,
   user2conversation,
   userAttribute,
   userData,
@@ -192,69 +193,78 @@ export const profileRouter = createTRPCRouter({
         { task: "minutes_training", increment: minutes },
       ]);
       user.questData = trackers;
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          trainingStartedAt: null,
-          currentlyTraining: null,
-          experience: sql`experience + ${trainingAmount}`,
-          strength:
-            user.currentlyTraining === "strength"
-              ? sql`strength + ${trainingAmount}`
-              : sql`strength`,
-          intelligence:
-            user.currentlyTraining === "intelligence"
-              ? sql`intelligence + ${trainingAmount}`
-              : sql`intelligence`,
-          willpower:
-            user.currentlyTraining === "willpower"
-              ? sql`willpower + ${trainingAmount}`
-              : sql`willpower`,
-          speed:
-            user.currentlyTraining === "speed"
-              ? sql`speed + ${trainingAmount}`
-              : sql`speed`,
-          ninjutsuOffence:
-            user.currentlyTraining === "ninjutsuOffence"
-              ? sql`ninjutsuOffence + ${trainingAmount}`
-              : sql`ninjutsuOffence`,
-          ninjutsuDefence:
-            user.currentlyTraining === "ninjutsuDefence"
-              ? sql`ninjutsuDefence + ${trainingAmount}`
-              : sql`ninjutsuDefence`,
-          genjutsuOffence:
-            user.currentlyTraining === "genjutsuOffence"
-              ? sql`genjutsuOffence + ${trainingAmount}`
-              : sql`genjutsuOffence`,
-          genjutsuDefence:
-            user.currentlyTraining === "genjutsuDefence"
-              ? sql`genjutsuDefence + ${trainingAmount}`
-              : sql`genjutsuDefence`,
-          taijutsuOffence:
-            user.currentlyTraining === "taijutsuOffence"
-              ? sql`taijutsuOffence + ${trainingAmount}`
-              : sql`taijutsuOffence`,
-          taijutsuDefence:
-            user.currentlyTraining === "taijutsuDefence"
-              ? sql`taijutsuDefence + ${trainingAmount}`
-              : sql`taijutsuDefence`,
-          bukijutsuDefence:
-            user.currentlyTraining === "bukijutsuDefence"
-              ? sql`bukijutsuDefence + ${trainingAmount}`
-              : sql`bukijutsuDefence`,
-          bukijutsuOffence:
-            user.currentlyTraining === "bukijutsuOffence"
-              ? sql`bukijutsuOffence + ${trainingAmount}`
-              : sql`bukijutsuOffence`,
-          questData: user.questData,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            isNotNull(userData.currentlyTraining),
-            eq(userData.status, "AWAKE"),
+      const [result] = await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            trainingStartedAt: null,
+            currentlyTraining: null,
+            experience: sql`experience + ${trainingAmount}`,
+            strength:
+              user.currentlyTraining === "strength"
+                ? sql`strength + ${trainingAmount}`
+                : sql`strength`,
+            intelligence:
+              user.currentlyTraining === "intelligence"
+                ? sql`intelligence + ${trainingAmount}`
+                : sql`intelligence`,
+            willpower:
+              user.currentlyTraining === "willpower"
+                ? sql`willpower + ${trainingAmount}`
+                : sql`willpower`,
+            speed:
+              user.currentlyTraining === "speed"
+                ? sql`speed + ${trainingAmount}`
+                : sql`speed`,
+            ninjutsuOffence:
+              user.currentlyTraining === "ninjutsuOffence"
+                ? sql`ninjutsuOffence + ${trainingAmount}`
+                : sql`ninjutsuOffence`,
+            ninjutsuDefence:
+              user.currentlyTraining === "ninjutsuDefence"
+                ? sql`ninjutsuDefence + ${trainingAmount}`
+                : sql`ninjutsuDefence`,
+            genjutsuOffence:
+              user.currentlyTraining === "genjutsuOffence"
+                ? sql`genjutsuOffence + ${trainingAmount}`
+                : sql`genjutsuOffence`,
+            genjutsuDefence:
+              user.currentlyTraining === "genjutsuDefence"
+                ? sql`genjutsuDefence + ${trainingAmount}`
+                : sql`genjutsuDefence`,
+            taijutsuOffence:
+              user.currentlyTraining === "taijutsuOffence"
+                ? sql`taijutsuOffence + ${trainingAmount}`
+                : sql`taijutsuOffence`,
+            taijutsuDefence:
+              user.currentlyTraining === "taijutsuDefence"
+                ? sql`taijutsuDefence + ${trainingAmount}`
+                : sql`taijutsuDefence`,
+            bukijutsuDefence:
+              user.currentlyTraining === "bukijutsuDefence"
+                ? sql`bukijutsuDefence + ${trainingAmount}`
+                : sql`bukijutsuDefence`,
+            bukijutsuOffence:
+              user.currentlyTraining === "bukijutsuOffence"
+                ? sql`bukijutsuOffence + ${trainingAmount}`
+                : sql`bukijutsuOffence`,
+            questData: user.questData,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              isNotNull(userData.currentlyTraining),
+              eq(userData.status, "AWAKE"),
+            ),
           ),
-        );
+        ctx.drizzle.insert(trainingLog).values({
+          userId: ctx.userId,
+          amount: trainingAmount,
+          stat: user.currentlyTraining,
+          speed: user.trainingSpeed,
+          trainingFinishedAt: new Date(),
+        }),
+      ]);
       if (result.rowsAffected === 0) {
         return { success: false, message: "You are not training" };
       } else {

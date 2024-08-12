@@ -1029,6 +1029,27 @@ export const actionLogRelations = relations(actionLog, ({ one }) => ({
   }),
 }));
 
+export const trainingLog = mysqlTable(
+  "TrainingLog",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    amount: double("amount").notNull(),
+    stat: mysqlEnum("stat", consts.UserStatNames),
+    speed: mysqlEnum("speed", consts.TrainingSpeeds),
+    trainingFinishedAt: datetime("trainingFinishedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("TrainingLog_userId_idx").on(table.userId),
+      speedIdx: index("TrainingLog_speed_idx").on(table.speed),
+      statIdx: index("TrainingLog_stat_idx").on(table.stat),
+    };
+  },
+);
+
 export const userAttribute = mysqlTable(
   "UserAttribute",
   {
