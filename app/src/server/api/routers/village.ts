@@ -91,11 +91,16 @@ export const villageRouter = createTRPCRouter({
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
       // Mutate with guard
+      const newHealth = user.curHealth + (user.maxHealth * healPercentage) / 100;
+      const newStamina = user.curStamina + (user.maxStamina * healPercentage) / 100;
+      const newChakra = user.curChakra + (user.maxChakra * healPercentage) / 100;
       const result = await ctx.drizzle
         .update(userData)
         .set({
           money: user.money - cost,
-          curHealth: user.curHealth + (user.maxHealth * healPercentage) / 100,
+          curHealth: Math.min(user.maxHealth, newHealth),
+          curStamina: Math.min(user.maxStamina, newStamina),
+          curChakra: Math.min(user.maxChakra, newChakra),
         })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
       if (result.rowsAffected === 0) {

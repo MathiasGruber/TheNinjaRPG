@@ -99,14 +99,17 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
 
   // Checks
   const canAfford = userData.money >= cost;
-  const left = (100 * (userData.maxHealth - userData.curHealth)) / userData.maxHealth;
-  const healTooMuch = healPerc > left + 10;
+  const dHP = (100 * (userData.maxHealth - userData.curHealth)) / userData.maxHealth;
+  const dSP = (100 * (userData.maxStamina - userData.curStamina)) / userData.maxStamina;
+  const dCP = (100 * (userData.maxChakra - userData.curChakra)) / userData.maxChakra;
+  const noDiff = dHP === 0 && dSP === 0 && dCP === 0;
+  const healTooMuch = healPerc > dHP + 10 && healPerc > dSP + 10 && healPerc > dCP + 10;
 
   // Click handler
   const onClick = () => {
     if (!canAfford) {
       showMutationToast({ success: false, message: "You don't have enough money" });
-    } else if (left === 0 || healTooMuch) {
+    } else if (noDiff || healTooMuch) {
       showMutationToast({ success: false, message: "You don't need to eat that much" });
     } else {
       onPurchase();
@@ -120,10 +123,10 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
         src={image}
         width={256}
         height={256}
-        className={`hover:opacity-30 ${!canAfford || healTooMuch || left === 0 ? "grayscale opacity-50 cursor-not-allowed" : ""}`}
+        className={`hover:opacity-30 ${!canAfford || healTooMuch || noDiff ? "grayscale opacity-50 cursor-not-allowed" : ""}`}
       />
       <p>{title}</p>
-      <p className="text-green-700">+{healPerc.toFixed()}% HP</p>
+      <p className="text-green-700">+{healPerc.toFixed()}% HP/SP/CP</p>
       <p className="text-red-700">-{cost.toFixed(2)} ryo</p>
     </div>
   );
