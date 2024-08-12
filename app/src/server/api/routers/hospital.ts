@@ -102,6 +102,8 @@ export const hospitalRouter = createTRPCRouter({
       const chakraCost = calcHealthToChakra(u, toHeal);
       const expGain = t.userId !== u.userId ? MEDNIN_HEAL_TO_EXP * toHeal : 0;
       // Guard
+      if (u.isBanned) return errorResponse("You are banned");
+      if (t.isBanned) return errorResponse("Target is banned");
       if (u.status !== "AWAKE") {
         return errorResponse("You can't heal while you're not awake");
       }
