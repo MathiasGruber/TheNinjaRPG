@@ -1,4 +1,4 @@
-import { StatTypes, GeneralType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
@@ -251,7 +251,7 @@ export const mainFilters = [
   "StaticAnimation",
   "DisappearAnimation",
 ] as const;
-export const statFilters = [...StatTypes, ...GeneralType] as const;
+export const statFilters = [...StatTypes, ...GeneralTypes] as const;
 export const effectFilters = tagTypes;
 export const rarities = ["ALL", ...LetterRanks] as const;
 export type FilterType = (typeof mainFilters)[number];

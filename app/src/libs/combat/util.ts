@@ -11,7 +11,7 @@ import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { deduceActiveUserRegen } from "@/libs/profile";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
-import { StatTypes, GeneralType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
@@ -524,7 +524,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             "bukijutsuOffence",
             "bukijutsuDefence",
           ];
-          user.usedGenerals = ["Strength", "Intelligence", "Willpower", "Speed"];
+          user.usedGenerals = ["strength", "intelligence", "willpower", "speed"];
           total = 12;
         }
         let assignedExp = 0;
@@ -754,7 +754,7 @@ export const processUsersForBattle = (info: {
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
 
-    // Add highest stat name to user
+    // Add highest offence name to user
     const offences = {
       ninjutsuOffence: user.ninjutsuOffence,
       genjutsuOffence: user.genjutsuOffence,
@@ -765,6 +765,8 @@ export const processUsersForBattle = (info: {
     user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
       offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
     ) as offenceKey;
+
+    // Add highest defence name to user
     const defences = {
       ninjutsuDefence: user.ninjutsuDefence,
       genjutsuDefence: user.genjutsuDefence,
@@ -775,6 +777,19 @@ export const processUsersForBattle = (info: {
     user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
       defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur,
     ) as defenceKey;
+
+    // Add highest generals to user
+    const generals = {
+      strength: user.strength,
+      intelligence: user.intelligence,
+      willpower: user.willpower,
+      speed: user.speed,
+    };
+    type generalKey = keyof typeof generals;
+    // The the two highest generals
+    user.highestGenerals = Object.keys(generals)
+      .sort((a, b) => generals[b as generalKey] - generals[a as generalKey])
+      .slice(0, 2) as generalKey[];
 
     // By default set iAmHere to false
     user.iAmHere = false;
@@ -834,7 +849,7 @@ export const processUsersForBattle = (info: {
       const effect = DecreaseDamageTakenTag.parse({
         target: "SELF",
         statTypes: StatTypes,
-        generalTypes: GeneralType,
+        generalTypes: GeneralTypes,
         type: "decreasedamagetaken",
         power: boost,
         rounds: undefined,

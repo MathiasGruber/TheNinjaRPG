@@ -65,6 +65,7 @@ export const privateState = [
   "bukijutsuDefence",
   "highestOffence",
   "highestDefence",
+  "highestGenerals",
   "strength",
   "intelligence",
   "willpower",

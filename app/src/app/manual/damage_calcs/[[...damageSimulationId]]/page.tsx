@@ -12,7 +12,7 @@ import Toggle from "@/components/control/Toggle";
 import { Button } from "@/components/ui/button";
 import { damageUser } from "@/libs/combat/tags";
 import { calcLevel, calcHP } from "@/libs/profile";
-import { StatTypes, GeneralType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { statSchema, actSchema } from "@/libs/combat/types";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -373,7 +373,7 @@ export default function Simulator({
                     <FormLabel>Set Generals</FormLabel>
                     <MultiSelect
                       selected={field.value ? field.value : []}
-                      options={GeneralType.map((o) => ({ label: o, value: o }))}
+                      options={GeneralTypes.map((o) => ({ label: o, value: o }))}
                       onChange={field.onChange}
                     />
                     <FormMessage />

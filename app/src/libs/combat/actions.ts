@@ -55,7 +55,7 @@ export const availableUserActions = (
         power: 15,
         powerPerLevel: 0.1,
         statTypes: [],
-        generalTypes: ["Strength", "Speed"],
+        generalTypes: ["Highest"],
         rounds: 0,
         appearAnimation: "hit",
       }),

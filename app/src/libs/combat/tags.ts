@@ -6,6 +6,8 @@ import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames } from "./constants";
+import type { GeneralType } from "@/drizzle/constants";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -66,13 +68,36 @@ export const absorb = (
   );
 };
 
-export const getAffected = (effect: UserEffect) => {
+export const getAffected = (effect: UserEffect, type?: "offence" | "defence") => {
+  console.log(effect);
   const stats: string[] = [];
-  if ("statTypes" in effect || "generalTypes" in effect) {
-    if (effect.statTypes) stats.push(...effect.statTypes);
-    if (effect.generalTypes) stats.push(...effect.generalTypes);
+  if ("statTypes" in effect && effect.statTypes) {
+    effect.statTypes.forEach((stat) => {
+      if (stat === "Highest") {
+        if (effect.highestOffence && (!type || type === "offence")) {
+          stats.push(getStatTypeFromStat(effect.highestOffence));
+        }
+        if (effect.highestDefence && (!type || type === "defence")) {
+          stats.push(getStatTypeFromStat(effect.highestDefence));
+        }
+      } else {
+        stats.push(stat);
+      }
+    });
   }
-  let result = `${stats.join(", ")}`;
+  if ("generalTypes" in effect && effect.generalTypes) {
+    effect.generalTypes.forEach((general) => {
+      if (general === "Highest") {
+        effect.highestGenerals?.forEach((gen) => {
+          stats.push(capitalizeFirstLetter(gen));
+        });
+      } else {
+        stats.push(general);
+      }
+    });
+  }
+  const uniqueStats = [...new Set(stats)];
+  let result = `${uniqueStats.join(", ")}`;
   if ("elements" in effect && effect.elements && effect.elements.length > 0) {
     result += ` and elements ${effect.elements.join(", ")}`;
   }
@@ -181,7 +206,17 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
         }
       });
       effect.generalTypes?.forEach((general) => {
-        if (general === "Strength") {
+        if (general === "Highest") {
+          if (effect.calculation === "static") {
+            target.highestGenerals.forEach((gen) => {
+              target[gen] += power;
+            });
+          } else if (effect.calculation === "percentage") {
+            target.highestGenerals.forEach((gen) => {
+              target[gen] *= (100 + power) / 100;
+            });
+          }
+        } else if (general === "Strength") {
           if (effect.calculation === "static") {
             target.strength += power;
           } else if (effect.calculation === "percentage") {
@@ -230,7 +265,7 @@ export const adjustDamageGiven = (
   target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  const affected = getAffected(effect);
+  const affected = getAffected(effect, "offence");
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.userId === effect.targetId && consequence.damage) {
@@ -281,7 +316,7 @@ export const adjustDamageTaken = (
   target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  const affected = getAffected(effect);
+  const affected = getAffected(effect, "defence");
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId && consequence.damage) {
@@ -548,7 +583,13 @@ export const updateStatUsage = (
   }
   if ("generalTypes" in effect) {
     effect.generalTypes?.forEach((general) => {
-      user.usedGenerals.push(general);
+      if (general === "Highest") {
+        user.highestGenerals.forEach((gen) => {
+          user.usedGenerals.push(gen as Lowercase<typeof gen>);
+        });
+      } else {
+        user.usedGenerals.push(general.toLowerCase() as Lowercase<typeof general>);
+      }
     });
   }
 };
@@ -593,8 +634,9 @@ export const damageCalc = (
         calcs.push(powerEffect(left, right, avg_exp));
       }
     });
-    effect.generalTypes?.forEach((generalType) => {
-      const gen = generalType.toLowerCase();
+    // Apply an element of all these generals
+    const generals = getLowercaseGenerals(effect.generalTypes, origin);
+    generals.forEach((gen) => {
       if (origin && gen in origin && gen in target) {
         const left = origin[gen as keyof typeof origin] as number;
         const right = target[gen as keyof typeof target] as number;
@@ -1166,6 +1208,24 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
  * ***********************************************
  */
 
+/**
+ * Returns an array of lowercase generals based on the input array of generals and the user's highest generals.
+ * If the input array contains the value "Highest", the function will include the user's highest generals in the result.
+ *
+ * @param generals - An array of GeneralType values.
+ * @param user - An optional BattleUserState object.
+ * @returns An array of lowercase generals.
+ */
+export const getLowercaseGenerals = (
+  generals?: GeneralType[],
+  user?: BattleUserState | UserEffect,
+) => {
+  return [
+    ...(generals?.filter((g) => g !== "Highest").map((g) => g.toLowerCase()) || []),
+    ...(generals?.find((g) => g === "Highest") ? user?.highestGenerals || [] : []),
+  ];
+};
+
 const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
   if (effect.isNew && effect.rounds) {
     const info: ActionEffect = {
@@ -1238,11 +1298,11 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
       }
     });
   }
-  if ("generalTypes" in lhs) {
-    lhs.generalTypes?.forEach((stat) => {
-      if ("generalTypes" in rhs && rhs.generalTypes?.includes(stat)) {
-        defended += 1;
-      }
+  if ("generalTypes" in lhs && "generalTypes" in rhs) {
+    const left = getLowercaseGenerals(lhs.generalTypes, lhs);
+    const right = getLowercaseGenerals(rhs.generalTypes, rhs);
+    left.forEach((stat) => {
+      if (right.includes(stat)) defended += 1;
     });
   }
   // If no defending general types and the statTypes set to highest, defend

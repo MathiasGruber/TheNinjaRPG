@@ -4,7 +4,7 @@ import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
-import { StatTypes, GeneralType, PoolType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes, PoolType } from "@/drizzle/constants";
 import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
@@ -45,7 +45,7 @@ export type BattleUserState = UserWithRelations & {
   originalMoney: number;
   direction: "left" | "right";
   allyVillage: boolean;
-  usedGenerals: (typeof GeneralType)[number][];
+  usedGenerals: (typeof GenNames)[number][];
   usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
 };
@@ -266,7 +266,7 @@ const IncludeStats = {
   // percentage: power is returned as a percentage
   // formula: power is used in stats-based formula to calculate return value
   statTypes: z.array(z.enum(StatTypes)).optional(),
-  generalTypes: z.array(z.enum(GeneralType)).optional(),
+  generalTypes: z.array(z.enum(GeneralTypes)).optional(),
   elements: z.array(z.enum(ElementNames)).optional(),
 };
 
@@ -751,6 +751,7 @@ export type BattleEffect = ZodAllTags & {
   power?: number;
   highestOffence?: (typeof StatNames)[number];
   highestDefence?: (typeof StatNames)[number];
+  highestGenerals?: (typeof GenNames)[number][];
   longitude: number;
   latitude: number;
   barrierAbsorb: number;
@@ -1078,5 +1079,5 @@ export type StatSchemaType = z.infer<typeof statSchema>;
 export const actSchema = z.object({
   power: z.coerce.number().min(1).max(100).default(1),
   statTypes: z.array(z.enum(StatTypes)).default(["Ninjutsu"]),
-  generalTypes: z.array(z.enum(GeneralType)).default(["Strength"]),
+  generalTypes: z.array(z.enum(GeneralTypes)).default(["Strength"]),
 });

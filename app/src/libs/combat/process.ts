@@ -73,6 +73,7 @@ export const realizeTag = <T extends BattleEffect>(
   tag.castThisRound = true;
   tag.highestOffence = user.highestOffence;
   tag.highestDefence = user.highestDefence;
+  tag.highestGenerals = user.highestGenerals;
   tag.barrierAbsorb = barrierAbsorb;
   return structuredClone(tag);
 };

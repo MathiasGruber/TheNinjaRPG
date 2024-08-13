@@ -14,7 +14,6 @@ import { getGameSettingBoost } from "@/libs/gamesettings";
 import { structureBoost } from "@/utils/village";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
-import type { DrizzleClient } from "@/server/db";
 
 export const trainRouter = createTRPCRouter({
   // Start training of a specific attribute
@@ -49,7 +48,10 @@ export const trainRouter = createTRPCRouter({
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
-        .set({ trainingStartedAt: new Date(), currentlyTraining: input.stat })
+        .set({
+          trainingStartedAt: new Date(),
+          currentlyTraining: input.stat,
+        })
         .where(
           and(
             eq(userData.userId, ctx.userId),
