@@ -104,6 +104,7 @@ export const updateUserOnMap = async (
     avatar: string | null;
     location: string | null;
     villageId?: string | null;
+    battleId?: string | null;
     level: number;
     status: UserStatus;
   },
@@ -118,6 +119,7 @@ export const updateUserOnMap = async (
     status: user.status,
     location: user.location,
     villageId: user?.villageId ?? null,
+    battleId: user?.battleId ?? null,
     level: user.level,
   });
 };

@@ -280,6 +280,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           sector: sector,
           avatar: userData.avatar,
           villageId: userData.villageId,
+          battleId: userData.battleId,
           username: userData.username,
           level: userData.level,
         });
@@ -444,6 +445,12 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             } else if (showUsers.current && i.object.userData.type === "marker") {
               return true;
+            } else if (
+              i.object.userData.type === "battleMarker" &&
+              i.object.userData.battleId
+            ) {
+              void router.push(`/battlelog/${i.object.userData.battleId}`);
+              return false;
             }
             return true;
           });

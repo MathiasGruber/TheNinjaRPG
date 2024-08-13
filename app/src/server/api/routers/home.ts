@@ -58,6 +58,7 @@ export const homeRouter = createTRPCRouter({
         avatar: user.avatar,
         level: user.level,
         villageId: user.villageId,
+        battleId: user.battleId,
         username: user.username,
         status: newStatus,
         location: "",

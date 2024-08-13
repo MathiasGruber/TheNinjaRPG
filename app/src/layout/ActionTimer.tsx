@@ -4,12 +4,11 @@ import Loader from "./Loader";
 import { useUserData } from "@/utils/UserContext";
 import { calcActiveUser } from "@/libs/combat/actions";
 import type { CombatAction } from "@/libs/combat/types";
-import type { ReturnedUserState } from "@/libs/combat/types";
 import type { ReturnedBattle } from "@/libs/combat/types";
 
 interface ActionTimerProps {
-  action: CombatAction | undefined;
-  user: ReturnedUserState;
+  action?: CombatAction | undefined;
+  user: { userId: string | undefined; actionPoints: number };
   battle: ReturnedBattle;
   isPending: boolean;
 }

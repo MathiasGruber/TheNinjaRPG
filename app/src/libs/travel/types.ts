@@ -43,4 +43,5 @@ export interface SectorUser {
   updatedAt: Date;
   allianceStatus: AllianceState;
   status: UserStatus;
+  battleId: string | null;
 }

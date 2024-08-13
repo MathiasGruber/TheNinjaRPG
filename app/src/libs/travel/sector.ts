@@ -278,6 +278,84 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 /**
  * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
+export const createCombatSprite = (
+  firstUser: SectorUser,
+  secondUser: SectorUser,
+  battleId: string,
+  hex: TerrainHex,
+) => {
+  // Group is used to group components of the user Marker
+  const group = new Group();
+  const { height: h, width: w } = hex;
+
+  // Highlight sprite
+  const highlightTexture = loadTexture("/map/userMarker.webp");
+  const highlightMaterial = new SpriteMaterial({
+    map: highlightTexture,
+    alphaMap: highlightTexture,
+  });
+  const highlightColor = parseInt("FF0000", 16);
+  const highlightSprite = new Sprite(highlightMaterial);
+  highlightSprite.userData.type = "marker";
+  highlightSprite.scale.set(h * 1.1, h * 1.3, 1);
+  highlightSprite.position.set(w / 2, h * 0.9, -6);
+  highlightSprite.userData.type = "battleMarker";
+  highlightSprite.userData.battleId = battleId;
+  highlightSprite.material.color.setHex(highlightColor);
+  group.add(highlightSprite);
+
+  // Marker
+  const marker = loadTexture("/map/userMarker.webp");
+  const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
+  const markerSprite = new Sprite(markerMat);
+  markerSprite.userData.type = "marker";
+  Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 1));
+  Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
+  group.add(markerSprite);
+
+  // User 1: Avatar Sprite
+  const alphaMap1 = loadTexture("/map/userSpriteMaskLeft.webp");
+  const map1 = loadTexture(firstUser.avatar ? `${firstUser.avatar}?1=1` : "");
+  map1.generateMipmaps = false;
+  map1.minFilter = LinearFilter;
+  const material1 = new SpriteMaterial({ map: map1, alphaMap: alphaMap1 });
+  const sprite1 = new Sprite(material1);
+  Object.assign(sprite1.scale, new Vector3(h * 0.8, h * 0.8, 1));
+  Object.assign(sprite1.position, new Vector3(w / 2, h * 1.0, -6));
+  group.add(sprite1);
+
+  // User 2: Avatar Sprite
+  const alphaMap2 = loadTexture("/map/userSpriteMaskRight.webp");
+  const map2 = loadTexture(secondUser.avatar ? `${secondUser.avatar}?1=1` : "");
+  map2.generateMipmaps = false;
+  map2.minFilter = LinearFilter;
+  const material2 = new SpriteMaterial({ map: map2, alphaMap: alphaMap2 });
+  const sprite2 = new Sprite(material2);
+  Object.assign(sprite2.scale, new Vector3(h * 0.8, h * 0.8, 1));
+  Object.assign(sprite2.position, new Vector3(w / 2, h * 1.0, -6));
+  group.add(sprite2);
+
+  const map = loadTexture("/map/vsIcon.webp");
+  map.generateMipmaps = false;
+  map.minFilter = LinearFilter;
+  const material = new SpriteMaterial({ map: map });
+  const sprite = new Sprite(material);
+  Object.assign(sprite.scale, new Vector3(h * 0.6, h * 0.6, 1));
+  Object.assign(sprite.position, new Vector3(w / 2, h * 0.5, -6));
+  group.add(sprite);
+
+  // Name
+  group.name = battleId;
+  group.userData.type = "user";
+  group.userData.battleId = battleId;
+  group.userData.hex = hex;
+
+  return group;
+};
+
+/**
+ * User sprite, which loads the avatar image and displays the health bar as a js sprite
+ */
 export const createMultipleUserSprite = (
   nUsers: number,
   location: string,
@@ -435,14 +513,16 @@ export const drawUsers = (info: {
     if (tileUsers[0]) {
       // Determine the location
       const firstUser = tileUsers[0];
-      const nUsers = tileUsers.length;
+      const awakeUsers = tileUsers.filter((u) => u.status === "AWAKE");
+      const combatUsers = tileUsers.filter((u) => u.status === "BATTLE");
+      const nUsers = awakeUsers.length;
       const hex = findHex(info.grid, {
         x: firstUser.longitude,
         y: firstUser.latitude,
       });
       if (hex) {
-        // Loop through the users in the group
-        tileUsers.forEach((user, i) => {
+        // Loop through the users in the group who are awake
+        awakeUsers.forEach((user, i) => {
           let userMesh = info.group_users.getObjectByName(user.userId);
           if (!userMesh && hex) {
             userMesh = createUserSprite(user, hex);
@@ -463,8 +543,36 @@ export const drawUsers = (info: {
             drawnIds.add(userMesh.name);
           }
         });
+        // Loop through the users in the group who are awake
+        const battleGroups = groupBy(combatUsers, "battleId");
+        let i = 0;
+        battleGroups.forEach((tileCombatUsers, battleId) => {
+          i += 1;
+          const firstUser = tileCombatUsers[0];
+          const secondUser = tileCombatUsers[1];
+          if (firstUser && secondUser && battleId) {
+            let userMesh = info.group_users.getObjectByName(battleId);
+            if (!userMesh && hex) {
+              userMesh = createCombatSprite(firstUser, secondUser, battleId, hex);
+              info.group_users.add(userMesh);
+            }
+            if (userMesh && info.grid) {
+              userMesh.visible = true;
+              userMesh.userData.tile = hex;
+              let { x, y } = hex.center;
+              const spread = 0.1;
+              if (battleGroups.size > 1) {
+                const angleChange = (i / tileUsers.length) * 2 * Math.PI + phi;
+                x += spread * hex.width * Math.sin(angleChange);
+                y -= spread * hex.height * Math.cos(angleChange);
+              }
+              userMesh.position.set(-x, -y, 0);
+              drawnIds.add(userMesh.name);
+            }
+          }
+        });
         // Add indicator of how many users are there if more than 1
-        if (nUsers > 2 && tileUsers[0]) {
+        if (nUsers > 2 && awakeUsers) {
           const indicatorName = `${hex.col}-${hex.row}-${nUsers}`;
           let indicatorMesh = info.group_users.getObjectByName(indicatorName);
           if (!indicatorMesh) {
@@ -519,6 +627,12 @@ export const intersectUsers = (info: {
         g.longitude === userHex.col &&
         g.userId !== userData.userId,
     );
+    if (userMesh.userData.battleId) {
+      if (document.body.style.cursor !== "wait") {
+        document.body.style.cursor = "pointer";
+        newUserTooltips.add(userMesh.name);
+      }
+    }
     if (locationUsers.length === 1 && userMesh) {
       const userId = userMesh.userData.userId as string;
       const attack = userMesh?.children[2] as Sprite;

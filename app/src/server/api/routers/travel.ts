@@ -50,12 +50,13 @@ export const travelRouter = createTRPCRouter({
             immunityUntil: true,
             updatedAt: true,
             villageId: true,
+            battleId: true,
           },
           where: and(
             eq(userData.sector, input.sector),
-            eq(userData.status, "AWAKE"),
+            inArray(userData.status, ["AWAKE", "BATTLE"]),
             or(
-              gte(userData.updatedAt, secondsFromNow(-300)),
+              gte(userData.updatedAt, secondsFromNow(-36000)),
               eq(userData.userId, ctx.userId),
             ),
           ),
@@ -153,6 +154,7 @@ export const travelRouter = createTRPCRouter({
           .max(SECTOR_HEIGHT - 1),
         sector: z.number().int(),
         villageId: z.string().nullish(),
+        battleId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
         username: z.string(),
@@ -170,6 +172,7 @@ export const travelRouter = createTRPCRouter({
               userId: z.string(),
               avatar: z.string(),
               sector: z.number(),
+              battleId: z.string().nullish(),
               villageId: z.string().nullish(),
             })
             .optional(),

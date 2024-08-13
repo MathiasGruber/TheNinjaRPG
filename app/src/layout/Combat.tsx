@@ -27,7 +27,7 @@ import type { BattleState } from "@/libs/combat/types";
 import type { TerrainHex } from "@/libs/hexgrid";
 
 interface CombatProps {
-  action: CombatAction | undefined;
+  action?: CombatAction | undefined;
   battleState: BattleState;
   userId: string;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | undefined>>;

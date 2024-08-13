@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
+import ActionTimer from "@/layout/ActionTimer";
 import ContentBox from "@/layout/ContentBox";
 import CombatHistory from "@/layout/CombatHistory";
 import type { BattleState } from "@/libs/combat/types";
@@ -52,10 +53,19 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
 
   return (
     <ContentBox
-      title="Battle Log"
-      subtitle="Logs only saved for 3 hours!"
+      title="Spectate"
+      subtitle="Available for 3h!"
       back_href="/profile"
       padding={false}
+      topRightContent={
+        battle && (
+          <ActionTimer
+            user={{ userId: userId, actionPoints: 0 }}
+            battle={battle}
+            isPending={battleState.isPending}
+          />
+        )
+      }
     >
       {combat}
       <CombatHistory battleId={battleId} />
