@@ -300,7 +300,6 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
         showMutationToast(data);
         if (data.success) {
           await utils.profile.getUser.invalidate();
-          await utils.train.getLatestTrainingCount.invalidate();
         }
       },
     });
@@ -315,11 +314,6 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
       },
     });
 
-  const { data } = api.train.getLatestTrainingCount.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const dailyTrainings = data?.count || 0;
-
   const isPending = isStarting || isStopping || isChaning;
 
   // Convenience definitions
@@ -332,7 +326,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   return (
     <ContentBox
       title="Training"
-      subtitle={`Training (${efficiency}% efficiency) [${dailyTrainings} / ${MAX_DAILY_TRAININGS}]`}
+      subtitle={`Training (${efficiency}% efficiency) [${userData.dailyTrainings} / ${MAX_DAILY_TRAININGS}]`}
       back_href="/village"
       topRightContent={
         <NavTabs

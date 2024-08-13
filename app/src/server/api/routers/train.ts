@@ -23,16 +23,12 @@ export const trainRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [updatedUser, trainCount] = await Promise.all([
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-          userIp: ctx.userIp,
-          forceRegen: true,
-        }),
-        getLatestTrainingCount(ctx.drizzle, ctx.userId),
-      ]);
-      const { user } = updatedUser;
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+        userIp: ctx.userIp,
+        forceRegen: true,
+      });
       // Derived
       if (!user) throw serverError("NOT_FOUND", "User not found");
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
@@ -45,7 +41,7 @@ export const trainRouter = createTRPCRouter({
       if (user.trainingSpeed !== "8hrs" && user.isBanned) {
         return errorResponse("Only 8hrs training interval allowed when banned");
       }
-      if (trainCount > MAX_DAILY_TRAININGS) {
+      if (user.dailyTrainings >= MAX_DAILY_TRAININGS) {
         return errorResponse(
           `Training more than ${MAX_DAILY_TRAININGS} times within 24 hours not allowed`,
         );
@@ -109,6 +105,7 @@ export const trainRouter = createTRPCRouter({
             trainingStartedAt: null,
             currentlyTraining: null,
             experience: sql`experience + ${trainingAmount}`,
+            dailyTrainings: sql`dailyTrainings + 1`,
             strength:
               user.currentlyTraining === "strength"
                 ? sql`strength + ${trainingAmount}`
@@ -211,11 +208,6 @@ export const trainRouter = createTRPCRouter({
         return { success: true, message: "Training speed updated" };
       }
     }),
-  getLatestTrainingCount: protectedProcedure
-    .output(z.object({ count: z.number() }))
-    .query(async ({ ctx }) => {
-      return { count: await getLatestTrainingCount(ctx.drizzle, ctx.userId) };
-    }),
   getTrainingLog: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -227,26 +219,3 @@ export const trainRouter = createTRPCRouter({
       });
     }),
 });
-
-/**
- * Retrieves the count of the latest training logs for a specific user.
- *
- * @param client - The DrizzleClient instance used to execute the query.
- * @param userId - The ID of the user for whom to retrieve the training count.
- * @returns The count of the latest training logs for the specified user.
- */
-export const getLatestTrainingCount = async (client: DrizzleClient, userId: string) => {
-  const result = await client
-    .select({
-      count: sql<number>`COUNT(*)`.mapWith(Number),
-    })
-    .from(trainingLog)
-    .where(
-      and(
-        eq(trainingLog.userId, userId),
-        gt(trainingLog.trainingFinishedAt, sql`NOW() - INTERVAL 1 DAY`),
-      ),
-    );
-
-  return result?.[0]?.count || 0;
-};

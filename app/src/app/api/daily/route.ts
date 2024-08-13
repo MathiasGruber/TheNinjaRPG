@@ -93,6 +93,7 @@ export async function GET() {
       villagePrestige: sql`${userData.villagePrestige} + 1`,
       dailyArenaFights: 0,
       dailyMissions: 0,
+      dailyTrainings: 0,
     });
 
     // STEP 4: Update daily quests
