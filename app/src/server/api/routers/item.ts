@@ -222,13 +222,14 @@ export const itemRouter = createTRPCRouter({
       // Guard
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to sell");
-      if (useritem.item.isEventItem) return errorResponse("Cannot sell event items");
-      // Mutate
+      // Derived
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const discount = Math.max(sDiscount + aDiscount, 50);
       const factor = (100 - discount) / 100;
-      const cost = useritem.item.cost * useritem.quantity * factor;
+      const isEventItem = useritem.item.isEventItem;
+      const cost = isEventItem ? 0 : useritem.item.cost * useritem.quantity * factor;
+      // Mutate
       await Promise.all([
         ctx.drizzle.delete(userItem).where(eq(userItem.id, input.userItemId)),
         ctx.drizzle
@@ -238,7 +239,10 @@ export const itemRouter = createTRPCRouter({
       ]);
       return {
         success: true,
-        message: `You sold ${useritem.item.name} for ${cost} ryo`,
+        message:
+          cost > 0
+            ? `You sold ${useritem.item.name} for ${cost} ryo`
+            : `You dropped ${useritem.item.name}`,
       };
     }),
   // Use user item

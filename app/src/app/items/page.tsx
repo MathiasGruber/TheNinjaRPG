@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Merge, CircleDollarSign, Cookie } from "lucide-react";
+import { Merge, CircleDollarSign, Cookie, ArrowDownToLine } from "lucide-react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -215,14 +215,25 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                 </Button>
               )}
               <div className="grow"></div>
-              <Button
-                id="sell"
-                variant="destructive"
-                onClick={() => sell({ userItemId: item.id })}
-              >
-                <CircleDollarSign className="mr-2 h-5 w-5" />
-                Sell Item [{Math.floor(item.cost / 2)} ryo]
-              </Button>
+              {item.isEventItem ? (
+                <Button
+                  id="sell"
+                  variant="destructive"
+                  onClick={() => sell({ userItemId: item.id })}
+                >
+                  <ArrowDownToLine className="mr-2 h-5 w-5" />
+                  Drop Item
+                </Button>
+              ) : (
+                <Button
+                  id="sell"
+                  variant="destructive"
+                  onClick={() => sell({ userItemId: item.id })}
+                >
+                  <CircleDollarSign className="mr-2 h-5 w-5" />
+                  Sell Item [{Math.floor(item.cost / 2)} ryo]
+                </Button>
+              )}
             </div>
           )}
           {isMerging && <Loader explanation={`Merging ${item.name} stacks`} />}

@@ -232,6 +232,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Item type</b>: {item.itemType.toLowerCase()}
               </p>
             )}
+            {"isEventItem" in item && item.isEventItem && (
+              <p>
+                <b>Event Item</b>: yes
+              </p>
+            )}
             {"cooldown" in item && item.cooldown > 0 && (
               <p>
                 <b>Cooldown</b>: {item.cooldown}
