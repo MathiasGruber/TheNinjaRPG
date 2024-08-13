@@ -191,74 +191,74 @@ export const getNewTrackers = (
           }
 
           // Specific updates requested by the caller
-          tasks.forEach((taskUpdate) => {
-            // const taskUpdate = tasks.find((t) => t.task === task);
-            // if (taskUpdate) {
-            // If objective has a value, increment it
-            if ("value" in objective) {
-              if (taskUpdate.increment) {
-                status.value += taskUpdate.increment;
+          tasks
+            .filter((taskUpdate) => taskUpdate.task === task)
+            .forEach((taskUpdate) => {
+              // If objective has a value, increment it
+              if ("value" in objective) {
+                if (taskUpdate.increment) {
+                  status.value += taskUpdate.increment;
+                }
+                if (taskUpdate.value) {
+                  status.value = taskUpdate.value;
+                }
               }
-              if (taskUpdate.value) {
-                status.value = taskUpdate.value;
-              }
-            }
-            // If objective has a location, set to completed
-            if (isLocationObjective(user, objective)) {
-              if (task === "move_to_location") {
-                notifications.push(`You arrived at destination for ${quest.name}.`);
-                status.done = true;
-              } else if (
-                task === "collect_item" &&
-                "item_name" in objective &&
-                "collect_item_id" in objective &&
-                objective.collect_item_id
-              ) {
-                notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
-                consequences.push({ type: "item", id: objective.collect_item_id });
-                status.done = true;
+              // If objective has a location, set to completed
+              if (isLocationObjective(user, objective)) {
+                if (task === "move_to_location") {
+                  notifications.push(`You arrived at destination for ${quest.name}.`);
+                  status.done = true;
+                } else if (
+                  task === "collect_item" &&
+                  "item_name" in objective &&
+                  "collect_item_id" in objective &&
+                  objective.collect_item_id
+                ) {
+                  notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
+                  consequences.push({ type: "item", id: objective.collect_item_id });
+                  status.done = true;
+                }
+                if (task === "defeat_opponents" && "opponent_ai" in objective) {
+                  if (
+                    objective.opponent_ai &&
+                    objective.opponent_ai !== taskUpdate.contentId
+                  ) {
+                    notifications.push(`Attacking target for ${quest.name}.`);
+                    consequences.push({
+                      type: "combat",
+                      id: objective.opponent_ai,
+                      scale: objective.opponent_scaled_to_user,
+                    });
+                  }
+                }
               }
               if (task === "defeat_opponents" && "opponent_ai" in objective) {
                 if (
+                  taskUpdate.text &&
                   objective.opponent_ai &&
-                  objective.opponent_ai !== taskUpdate.contentId
+                  objective.opponent_ai === taskUpdate.contentId
                 ) {
-                  notifications.push(`Attacking target for ${quest.name}.`);
-                  consequences.push({
-                    type: "combat",
-                    id: objective.opponent_ai,
-                    scale: objective.opponent_scaled_to_user,
-                  });
-                }
-              }
-            }
-            if (task === "defeat_opponents" && "opponent_ai" in objective) {
-              if (
-                taskUpdate.text &&
-                objective.opponent_ai &&
-                objective.opponent_ai === taskUpdate.contentId
-              ) {
-                if (taskUpdate.text === "Won") {
-                  if (objective.successDescription) {
-                    notifications.push(objective.successDescription);
-                  }
-                  status.done = true;
-                } else if (taskUpdate.text === "Lost") {
-                  if (objective.failDescription) {
-                    notifications.push(objective.failDescription);
-                  }
-                } else if (taskUpdate.text === "Draw") {
-                  if (objective.drawDescription) {
-                    notifications.push(objective.drawDescription);
-                  }
-                } else if (taskUpdate.text === "Fled") {
-                  if (objective.fleeDescription) {
-                    notifications.push(objective.fleeDescription);
+                  if (taskUpdate.text === "Won") {
+                    if (objective.successDescription) {
+                      notifications.push(objective.successDescription);
+                    }
+                    status.done = true;
+                  } else if (taskUpdate.text === "Lost") {
+                    if (objective.failDescription) {
+                      notifications.push(objective.failDescription);
+                    }
+                  } else if (taskUpdate.text === "Draw") {
+                    if (objective.drawDescription) {
+                      notifications.push(objective.drawDescription);
+                    }
+                  } else if (taskUpdate.text === "Fled") {
+                    if (objective.fleeDescription) {
+                      notifications.push(objective.fleeDescription);
+                    }
                   }
                 }
               }
-            }
-          });
+            });
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
           }
