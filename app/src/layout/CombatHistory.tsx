@@ -2,6 +2,7 @@ import React from "react";
 import Loader from "./Loader";
 import { api } from "@/utils/api";
 import { groupBy } from "@/utils/grouping";
+import { insertComponentsIntoText } from "@/utils/string";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 
@@ -85,9 +86,20 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                       : effect.color === "blue"
                         ? "text-blue-500"
                         : "text-green-500";
+                  const text = insertComponentsIntoText(effect.txt, {
+                    Highest: <span className="text-yellow-500">Highest</span>,
+                    Taijutsu: <span className="text-green-500">Taijutsu</span>,
+                    Bukijutsu: <span className="text-red-500">Bukijutsu</span>,
+                    Ninjutsu: <span className="text-blue-500">Ninjutsu</span>,
+                    Genjutsu: <span className="text-purple-500">Genjutsu</span>,
+                    Strength: <span className="text-black">Strength</span>,
+                    Intelligence: <span className="text-teal-500">Intelligence</span>,
+                    Willpower: <span className="text-orange-500">Willpower</span>,
+                    Speed: <span className="text-cyan-500">Speed</span>,
+                  });
                   return (
                     <p key={i} className={color}>
-                      - {effect.txt}
+                      - {text}
                     </p>
                   );
                 })}
