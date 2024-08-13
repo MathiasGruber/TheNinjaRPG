@@ -134,6 +134,7 @@ export const getNewTrackers = (
     task: AllObjectiveTask | "any";
     increment?: number;
     value?: number;
+    text?: string;
     contentId?: string;
   }[],
 ) => {
@@ -190,8 +191,9 @@ export const getNewTrackers = (
           }
 
           // Specific updates requested by the caller
-          const taskUpdate = tasks.find((t) => t.task === task);
-          if (taskUpdate) {
+          tasks.forEach((taskUpdate) => {
+            // const taskUpdate = tasks.find((t) => t.task === task);
+            // if (taskUpdate) {
             // If objective has a value, increment it
             if ("value" in objective) {
               if (taskUpdate.increment) {
@@ -232,14 +234,31 @@ export const getNewTrackers = (
             }
             if (task === "defeat_opponents" && "opponent_ai" in objective) {
               if (
+                taskUpdate.text &&
                 objective.opponent_ai &&
                 objective.opponent_ai === taskUpdate.contentId
               ) {
-                notifications.push(`Opponent defeated for ${quest.name}.`);
-                status.done = true;
+                if (taskUpdate.text === "Won") {
+                  if (objective.successDescription) {
+                    notifications.push(objective.successDescription);
+                  }
+                  status.done = true;
+                } else if (taskUpdate.text === "Lost") {
+                  if (objective.failDescription) {
+                    notifications.push(objective.failDescription);
+                  }
+                } else if (taskUpdate.text === "Draw") {
+                  if (objective.drawDescription) {
+                    notifications.push(objective.drawDescription);
+                  }
+                } else if (taskUpdate.text === "Fled") {
+                  if (objective.fleeDescription) {
+                    notifications.push(objective.fleeDescription);
+                  }
+                }
               }
             }
-          }
+          });
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
           }

@@ -122,6 +122,9 @@ export const DefeatOpponents = z.object({
   opponent_name: z.string().min(3).default("Opponent"),
   opponent_ai: z.string().min(10).optional().nullish(),
   opponent_scaled_to_user: z.coerce.boolean().default(false),
+  failDescription: z.string().default("You failed to defeat the opponent"),
+  fleeDescription: z.string().default("You fled from the opponent"),
+  drawDescription: z.string().default("The battle ended in a draw"),
   ...complexObjectiveFields,
 });
 

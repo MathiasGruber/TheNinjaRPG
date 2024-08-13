@@ -401,7 +401,6 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Calculate ELO change if user had won. User gets 1/4th if they lost
       const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
-      const outcome = user.fledBattle ? "Fled" : didWin ? "Won" : "Lost";
       let experience = didWin ? eloDiff * expBoost : 0;
 
       // If Combat, then double the experience gain
@@ -414,6 +413,18 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const targetUsers = targets.filter((u) => !u.isAi);
       const friendsLeft = friendsUsers.filter((u) => !u.leftBattle);
       const targetsLeft = targetUsers.filter((u) => !u.leftBattle);
+      const friendsAlive = friends.filter((u) => u.curHealth > 0).length;
+      const targetsAlive = targets.filter((u) => u.curHealth > 0).length;
+      const totalAlive = friendsAlive + targetsAlive;
+
+      // Figure outcome status from battle
+      const outcome = user.fledBattle
+        ? "Fled"
+        : totalAlive > 0
+          ? didWin
+            ? "Won"
+            : "Lost"
+          : "Draw";
 
       // Tokens & prestige
       let deltaTokens = 0;
@@ -492,6 +503,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         targetsLeft: targetsLeft.length,
         villageTokens: deltaTokens,
         clanPoints: clanPoints,
+        notifications: [],
       };
 
       // Things to reward for non-spars

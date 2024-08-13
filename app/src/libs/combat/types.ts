@@ -109,6 +109,7 @@ export type CombatResult = {
   targetsLeft: number;
   villageTokens: number;
   clanPoints: number;
+  notifications: string[];
 };
 
 export type CombatAction = {

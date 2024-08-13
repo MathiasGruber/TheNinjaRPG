@@ -12,7 +12,6 @@ import {
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
-import { stillInBattle } from "./actions";
 import { battleJutsuExp } from "@/libs/train";
 import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
@@ -303,17 +302,19 @@ export const updateUser = async (
         ]);
         user.questData = trackers;
       }
-      const { trackers } = getNewTrackers(
-        user,
-        curBattle.usersState
-          .filter((u) => !stillInBattle(u))
-          .map((u) => ({
-            task: "defeat_opponents",
-            contentId: u.userId,
-          })),
-      );
-      user.questData = trackers;
     }
+    // Update trackers
+    const { trackers, notifications } = getNewTrackers(
+      user,
+      curBattle.usersState.map((u) => ({
+        task: "defeat_opponents",
+        contentId: u.userId,
+        text: result.outcome,
+      })),
+    );
+    user.questData = trackers;
+    // Add notifications to combatResult
+    result.notifications.push(...notifications);
     // Is it a kage challenge
     const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
     // Any items to be deleted?

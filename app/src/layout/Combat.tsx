@@ -86,6 +86,15 @@ const Combat: React.FC<CombatProps> = (props) => {
       if (data.notification) {
         showMutationToast({ success: true, message: data.notification });
       }
+      if (data?.result?.notifications.length !== 0) {
+        data?.result?.notifications.forEach((notification) => {
+          showMutationToast({
+            success: true,
+            title: "Quest Update",
+            message: notification,
+          });
+        });
+      }
       // Update battle history
       if (battleId && data.logEntries) {
         const prevData = utils.combat.getBattleEntries.getData({
