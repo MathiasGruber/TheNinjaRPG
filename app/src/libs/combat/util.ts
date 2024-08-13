@@ -392,9 +392,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Experience boost
       let expBoost = 1;
-      user.village?.structures?.forEach((s) => {
-        expBoost += (s.arenaRewardPerLvl * s.level) / 100;
-      });
+      if (battleType === "ARENA") {
+        user.village?.structures?.forEach((s) => {
+          expBoost += (s.arenaRewardPerLvl * s.level) / 100;
+        });
+      }
       if (user?.clan?.trainingBoost && user.clan.trainingBoost > 0) {
         expBoost += user.clan.trainingBoost / 100;
       }
@@ -404,7 +406,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       let experience = didWin ? eloDiff * expBoost : 0;
 
       // If Combat, then double the experience gain
-      if (["COMBAT", "CLAN_BATTLE", "TOURNAMENT"].includes(battleType)) {
+      if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
       }
 
