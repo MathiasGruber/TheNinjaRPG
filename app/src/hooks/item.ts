@@ -91,6 +91,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "canStack", type: "boolean" },
     { id: "hidden", type: "boolean" },
     { id: "isEventItem", type: "boolean" },
+    { id: "inShop", type: "boolean" },
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };
