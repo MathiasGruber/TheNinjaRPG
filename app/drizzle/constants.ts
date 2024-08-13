@@ -338,7 +338,7 @@ export const RYO_FOR_REP_DAYS_FROZEN = 7;
 export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
 
 // Reputation purchase config
-export const MAX_REPS_PER_MONTH = 2000;
+export const MAX_REPS_PER_MONTH = 4000;
 
 // Federal config
 export const FED_NORMAL_REPS_COST = 15;
