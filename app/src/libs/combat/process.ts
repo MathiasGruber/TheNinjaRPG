@@ -50,13 +50,15 @@ export const checkFriendlyFire = (
 /**
  * Realize tag with information about how powerful tag is
  */
-export const realizeTag = <T extends BattleEffect>(
-  tag: T,
-  user: BattleUserState,
-  level: number | undefined,
-  round: number = 0,
-  barrierAbsorb: number = 0,
-): T => {
+export const realizeTag = <T extends BattleEffect>(props: {
+  tag: T;
+  user: BattleUserState;
+  target?: BattleUserState | undefined;
+  level: number | undefined;
+  round?: number;
+  barrierAbsorb?: number;
+}): T => {
+  const { tag, user, target, level, round, barrierAbsorb } = props;
   if ("rounds" in tag) {
     tag.timeTracker = {};
   }
@@ -64,7 +66,7 @@ export const realizeTag = <T extends BattleEffect>(
     tag.power = tag.power;
   }
   tag.id = nanoid();
-  tag.createdRound = round;
+  tag.createdRound = round || 0;
   tag.creatorId = user.userId;
   tag.villageId = user.villageId;
   tag.targetType = "user";
@@ -74,7 +76,12 @@ export const realizeTag = <T extends BattleEffect>(
   tag.highestOffence = user.highestOffence;
   tag.highestDefence = user.highestDefence;
   tag.highestGenerals = user.highestGenerals;
-  tag.barrierAbsorb = barrierAbsorb;
+  tag.barrierAbsorb = barrierAbsorb || 0;
+  if (target) {
+    tag.targetHighestOffence = target.highestOffence;
+    tag.targetHighestDefence = target.highestDefence;
+    tag.targetHighestGenerals = target.highestGenerals;
+  }
   return structuredClone(tag);
 };
 

@@ -752,6 +752,9 @@ export type BattleEffect = ZodAllTags & {
   highestOffence?: (typeof StatNames)[number];
   highestDefence?: (typeof StatNames)[number];
   highestGenerals?: (typeof GenNames)[number][];
+  targetHighestOffence?: (typeof StatNames)[number];
+  targetHighestDefence?: (typeof StatNames)[number];
+  targetHighestGenerals?: (typeof GenNames)[number][];
   longitude: number;
   latitude: number;
   barrierAbsorb: number;

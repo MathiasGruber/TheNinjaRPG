@@ -320,25 +320,26 @@ export const insertAction = (info: {
         const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
         action.effects.forEach((tag) => {
           if (tag.target === "SELF") {
-            const effect = realizeTag(
-              tag as UserEffect,
+            const effect = realizeTag({
               user,
-              action.level,
-              battle.round,
-              totalAbsorb,
-            );
+              target: user,
+              tag: tag as UserEffect,
+              level: action.level,
+              round: battle.round,
+              barrierAbsorb: totalAbsorb,
+            });
             if (effect && checkFriendlyFire(effect, user, alive)) {
               effect.targetId = user.userId;
               usersEffects.push(effect);
             }
           } else if (!tag.target || tag.target === "INHERIT") {
-            const effect = realizeTag(
-              tag as GroundEffect,
+            const effect = realizeTag({
               user,
-              action.level,
-              battle.round,
-              totalAbsorb,
-            );
+              tag: tag as GroundEffect,
+              level: action.level,
+              round: battle.round,
+              barrierAbsorb: totalAbsorb,
+            });
             effect.longitude = tile.col;
             effect.latitude = tile.row;
             groundEffects.push({ ...effect });
@@ -356,13 +357,14 @@ export const insertAction = (info: {
         // ADD USER EFFECTS
         const target = getTargetUser(alive, action.target, tile, user.userId);
         action.effects.forEach((tag) => {
-          const effect = realizeTag(
-            tag as UserEffect,
+          const effect = realizeTag({
             user,
-            action.level,
-            battle.round,
-            totalAbsorb,
-          );
+            target,
+            tag: tag as UserEffect,
+            level: action.level,
+            round: battle.round,
+            barrierAbsorb: totalAbsorb,
+          });
           if (effect) {
             effect.longitude = tile.col;
             effect.latitude = tile.row;

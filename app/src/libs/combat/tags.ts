@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import type { StatNames } from "./constants";
+import type { StatNames, GenNames } from "./constants";
 import type { GeneralType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
@@ -69,16 +69,17 @@ export const absorb = (
 };
 
 export const getAffected = (effect: UserEffect, type?: "offence" | "defence") => {
-  console.log(effect);
   const stats: string[] = [];
   if ("statTypes" in effect && effect.statTypes) {
     effect.statTypes.forEach((stat) => {
       if (stat === "Highest") {
-        if (effect.highestOffence && (!type || type === "offence")) {
-          stats.push(getStatTypeFromStat(effect.highestOffence));
+        const highestOffence = effect.targetHighestOffence || effect.highestOffence;
+        if (highestOffence && (!type || type === "offence")) {
+          stats.push(getStatTypeFromStat(highestOffence));
         }
-        if (effect.highestDefence && (!type || type === "defence")) {
-          stats.push(getStatTypeFromStat(effect.highestDefence));
+        const highestDefence = effect.targetHighestDefence || effect.highestDefence;
+        if (highestDefence && (!type || type === "defence")) {
+          stats.push(getStatTypeFromStat(highestDefence));
         }
       } else {
         stats.push(stat);
@@ -88,7 +89,8 @@ export const getAffected = (effect: UserEffect, type?: "offence" | "defence") =>
   if ("generalTypes" in effect && effect.generalTypes) {
     effect.generalTypes.forEach((general) => {
       if (general === "Highest") {
-        effect.highestGenerals?.forEach((gen) => {
+        const highestGenerals = effect.targetHighestGenerals || effect.highestGenerals;
+        highestGenerals?.forEach((gen) => {
           stats.push(capitalizeFirstLetter(gen));
         });
       } else {
@@ -635,7 +637,7 @@ export const damageCalc = (
       }
     });
     // Apply an element of all these generals
-    const generals = getLowercaseGenerals(effect.generalTypes, origin);
+    const generals = getLowercaseGenerals(effect.generalTypes, origin?.highestGenerals);
     generals.forEach((gen) => {
       if (origin && gen in origin && gen in target) {
         const left = origin[gen as keyof typeof origin] as number;
@@ -1218,11 +1220,11 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
  */
 export const getLowercaseGenerals = (
   generals?: GeneralType[],
-  user?: BattleUserState | UserEffect,
+  highestGenerals?: (typeof GenNames)[number][],
 ) => {
   return [
     ...(generals?.filter((g) => g !== "Highest").map((g) => g.toLowerCase()) || []),
-    ...(generals?.find((g) => g === "Highest") ? user?.highestGenerals || [] : []),
+    ...(generals?.find((g) => g === "Highest") ? highestGenerals || [] : []),
   ];
 };
 
@@ -1277,19 +1279,19 @@ export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
  * Returns a ratio between 0 to 1, 0 indicating e.g. that none of the stats in LHS are
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
-const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
+const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
   let defended = 0;
   // Calculate how much damage to adjust based on stats.
-  if ("statTypes" in lhs && "statTypes" in rhs) {
+  if ("statTypes" in dmgEffect && "statTypes" in effect) {
     // Convert "Highest" -> "Ninjutsu" etc.
-    const left = lhs.statTypes?.map((e) =>
-      e === "Highest" && lhs.highestOffence
-        ? getStatTypeFromStat(lhs.highestOffence)
+    const left = dmgEffect.statTypes?.map((e) =>
+      e === "Highest" && dmgEffect.highestOffence
+        ? getStatTypeFromStat(dmgEffect.highestOffence)
         : e,
     );
-    const right = rhs.statTypes?.map((e) =>
-      e === "Highest" && lhs.highestDefence
-        ? getStatTypeFromStat(lhs.highestDefence)
+    const right = effect.statTypes?.map((e) =>
+      e === "Highest" && effect.highestDefence
+        ? getStatTypeFromStat(effect.targetHighestDefence || effect.highestDefence)
         : e,
     );
     left?.forEach((stat) => {
@@ -1298,9 +1300,15 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
       }
     });
   }
-  if ("generalTypes" in lhs && "generalTypes" in rhs) {
-    const left = getLowercaseGenerals(lhs.generalTypes, lhs);
-    const right = getLowercaseGenerals(rhs.generalTypes, rhs);
+  if ("generalTypes" in dmgEffect && "generalTypes" in effect) {
+    const left = getLowercaseGenerals(
+      dmgEffect.generalTypes,
+      dmgEffect.highestGenerals,
+    );
+    const right = getLowercaseGenerals(
+      effect.generalTypes,
+      effect.targetHighestGenerals || effect.highestGenerals,
+    );
     left.forEach((stat) => {
       if (right.includes(stat)) defended += 1;
     });
@@ -1308,16 +1316,16 @@ const getEfficiencyRatio = (lhs: UserEffect, rhs: UserEffect) => {
   // If no defending general types and the statTypes set to highest, defend
   if (
     // No types specified at all
-    !("generalTypes" in rhs && "statTypes" in rhs) ||
+    !("generalTypes" in effect && "statTypes" in effect) ||
     // No generals specified and stat to highest or none specified
-    (rhs.generalTypes?.length === 0 &&
-      (rhs.statTypes?.includes("Highest") || rhs.statTypes?.length === 0))
+    (effect.generalTypes?.length === 0 &&
+      (effect.statTypes?.includes("Highest") || effect.statTypes?.length === 0))
   ) {
     defended += 1;
   }
-  if ("elements" in lhs) {
-    lhs.elements?.forEach((stat) => {
-      if ("elements" in rhs && rhs.elements?.includes(stat)) {
+  if ("elements" in dmgEffect) {
+    dmgEffect.elements?.forEach((stat) => {
+      if ("elements" in effect && effect.elements?.includes(stat)) {
         defended += 1;
       }
     });

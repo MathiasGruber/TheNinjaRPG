@@ -856,7 +856,12 @@ export const processUsersForBattle = (info: {
         power: boost,
         rounds: undefined,
       }) as unknown as UserEffect;
-      const realized = realizeTag(effect, user, user.level);
+      const realized = realizeTag({
+        tag: effect,
+        target: user,
+        user,
+        level: user.level,
+      });
       realized.isNew = false;
       realized.castThisRound = false;
       realized.targetId = user.userId;
@@ -867,7 +872,12 @@ export const processUsersForBattle = (info: {
     if (user.bloodline?.effects) {
       const effects = user.bloodline.effects as unknown as UserEffect[];
       effects.forEach((effect) => {
-        const realized = realizeTag(effect, user, user.level);
+        const realized = realizeTag({
+          tag: effect,
+          user,
+          target: user,
+          level: user.level,
+        });
         realized.isNew = false;
         realized.castThisRound = false;
         realized.targetId = user.userId;
@@ -932,7 +942,12 @@ export const processUsersForBattle = (info: {
       if (itemType === "ARMOR" || itemType === "ACCESSORY") {
         if (useritem.item.effects && useritem.equipped !== "NONE") {
           effects.forEach((effect) => {
-            const realized = realizeTag(effect, user, user.level);
+            const realized = realizeTag({
+              tag: effect,
+              user,
+              target: user,
+              level: user.level,
+            });
             realized.isNew = false;
             realized.castThisRound = false;
             realized.targetId = user.userId;
