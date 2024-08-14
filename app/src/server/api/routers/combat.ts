@@ -646,7 +646,8 @@ export const initiateBattle = async (
 
     // Check if user is asleep
     if (
-      !["AWAKE", "QUEUED"].includes(user.status) &&
+      ((user.status !== "AWAKE" && battleType !== "CLAN_BATTLE") ||
+        (user.status !== "QUEUED" && battleType === "CLAN_BATTLE")) &&
       !AutoBattleTypes.includes(battleType)
     ) {
       return { success: false, message: `User ${user.username} is not awake` };
