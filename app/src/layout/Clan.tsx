@@ -356,6 +356,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   // Prepare data for table
   const clanBattles = data.map((battle) => {
+    console.log(battle);
     const challengers = battle.queue.filter((q) => q.user.clanId === battle.clan1Id);
     const defenders = battle.queue.filter((q) => q.user.clanId === battle.clan2Id);
     const startTime = secondsFromDate(CLAN_LOBBY_SECONDS, battle.createdAt);
