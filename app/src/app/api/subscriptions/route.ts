@@ -23,7 +23,7 @@ export async function GET() {
         isNotNull(paypalSubscription.orderId),
         lte(
           paypalSubscription.updatedAt,
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 31),
         ),
       ),
     });
@@ -56,14 +56,14 @@ export async function GET() {
         isNull(paypalSubscription.orderId),
         lte(
           paypalSubscription.createdAt,
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 31),
         ),
       ),
     });
     void repSubscriptions.map(async (subscription) => {
       const isDone =
         new Date(subscription.createdAt) <
-        new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
+        new Date(Date.now() - 1000 * 60 * 60 * 24 * 31);
       await drizzleDB
         .update(paypalSubscription)
         .set({
