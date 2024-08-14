@@ -283,7 +283,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     }[],
   ) => {
     const canJoin = clan.id === userClanId;
-    const empties = Array(6 - queue.length).fill(null);
+    const crewLength = Math.max(6, queue.length);
+    const empties = Array(crewLength - queue.length).fill(null);
     return (
       <div className="flex flex-row">
         <div className="w-20 text-center">
@@ -356,7 +357,6 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   // Prepare data for table
   const clanBattles = data.map((battle) => {
-    console.log(battle);
     const challengers = battle.queue.filter((q) => q.user.clanId === battle.clan1Id);
     const defenders = battle.queue.filter((q) => q.user.clanId === battle.clan2Id);
     const startTime = secondsFromDate(CLAN_LOBBY_SECONDS, battle.createdAt);
