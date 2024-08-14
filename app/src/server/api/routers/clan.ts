@@ -640,10 +640,11 @@ export const clanRouter = createTRPCRouter({
       ]);
       // Derived
       const queued = clanBattleData?.queue.some((q) => q.userId === user.userId);
+      const battleId = input.clanBattleId;
       // Guards
       if (!user) return errorResponse("User not found");
       if (!clanBattleData) return errorResponse("Clan battle not found");
-      if (user.status !== "QUEUED") return errorResponse("Must be queued to leave");
+      if (user.status !== "QUEUED") return errorResponse(`Not queued in ${battleId}`);
       if (!queued) return errorResponse("Not in the queue");
       // Mutation
       await Promise.all([
