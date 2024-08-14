@@ -808,7 +808,7 @@ const LookupSubscription = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} placeholder="Subscription ID" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
