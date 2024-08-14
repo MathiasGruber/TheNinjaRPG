@@ -73,11 +73,11 @@ export const getAffected = (effect: UserEffect, type?: "offence" | "defence") =>
   if ("statTypes" in effect && effect.statTypes) {
     effect.statTypes.forEach((stat) => {
       if (stat === "Highest") {
-        const highestOffence = effect.targetHighestOffence || effect.highestOffence;
+        const highestOffence = effect.highestOffence;
         if (highestOffence && (!type || type === "offence")) {
           stats.push(getStatTypeFromStat(highestOffence));
         }
-        const highestDefence = effect.targetHighestDefence || effect.highestDefence;
+        const highestDefence = effect.highestDefence;
         if (highestDefence && (!type || type === "defence")) {
           stats.push(getStatTypeFromStat(highestDefence));
         }
@@ -89,7 +89,7 @@ export const getAffected = (effect: UserEffect, type?: "offence" | "defence") =>
   if ("generalTypes" in effect && effect.generalTypes) {
     effect.generalTypes.forEach((general) => {
       if (general === "Highest") {
-        const highestGenerals = effect.targetHighestGenerals || effect.highestGenerals;
+        const highestGenerals = effect.highestGenerals;
         highestGenerals?.forEach((gen) => {
           stats.push(capitalizeFirstLetter(gen));
         });
@@ -1291,7 +1291,7 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
     );
     const right = effect.statTypes?.map((e) =>
       e === "Highest" && effect.highestDefence
-        ? getStatTypeFromStat(effect.targetHighestDefence || effect.highestDefence)
+        ? getStatTypeFromStat(effect.highestDefence)
         : e,
     );
     left?.forEach((stat) => {
@@ -1305,10 +1305,7 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
       dmgEffect.generalTypes,
       dmgEffect.highestGenerals,
     );
-    const right = getLowercaseGenerals(
-      effect.generalTypes,
-      effect.targetHighestGenerals || effect.highestGenerals,
-    );
+    const right = getLowercaseGenerals(effect.generalTypes, effect.highestGenerals);
     left.forEach((stat) => {
       if (right.includes(stat)) defended += 1;
     });
