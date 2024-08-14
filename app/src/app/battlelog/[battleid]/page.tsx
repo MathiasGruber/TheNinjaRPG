@@ -68,7 +68,7 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
       }
     >
       {combat}
-      <CombatHistory battleId={battleId} />
+      <CombatHistory battleId={battleId} battleVersion={versionId} />
     </ContentBox>
   );
 }
