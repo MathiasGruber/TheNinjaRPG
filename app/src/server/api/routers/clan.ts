@@ -647,28 +647,48 @@ export const clanRouter = createTRPCRouter({
       if (user.status !== "QUEUED") return errorResponse(`Not queued in ${battleId}`);
       if (!queued) return errorResponse("Not in the queue");
       // Mutation
-      await Promise.all([
-        ...(clanBattleData.queue.length === 1
-          ? [
-              ctx.drizzle
-                .delete(mpvpBattleQueue)
-                .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
-            ]
-          : []),
-        ctx.drizzle
-          .delete(mpvpBattleUser)
-          .where(
-            and(
-              eq(mpvpBattleUser.clanBattleId, input.clanBattleId),
-              eq(mpvpBattleUser.userId, ctx.userId),
-            ),
-          ),
-        ctx.drizzle
-          .update(userData)
-          .set({ status: "AWAKE" })
-          .where(eq(userData.userId, ctx.userId)),
+      await removeFromClanBattle(
+        ctx.drizzle,
+        clanBattleData.queue,
+        input.clanBattleId,
+        ctx.userId,
+      );
+      return { success: true, message: "Left clan battle" };
+    }),
+  kickFromClanBattle: protectedProcedure
+    .input(
+      z.object({ clanBattleId: z.string(), targetId: z.string(), clanId: z.string() }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, target, fetchedClan, clanBattleData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.targetId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchClanBattle(ctx.drizzle, input.clanBattleId),
       ]);
-      return { success: true, message: "Clan battle deleted" };
+      // Derived
+      const queued = clanBattleData?.queue.some((q) => q.userId === target.userId);
+      const battleId = input.clanBattleId;
+      // Derived
+      const isLeader = user.userId === fetchedClan?.leaderId;
+      const isColeader = checkCoLeader(user.userId, fetchedClan);
+      const isMemberColeader = checkCoLeader(input.targetId, fetchedClan);
+      // Guards
+      if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (target.status !== "QUEUED") return errorResponse(`Not queued in ${battleId}`);
+      if (!queued) return errorResponse("Not in the queue");
+      if (!isLeader && !isColeader) return errorResponse("Not allowed");
+      if (!isLeader && isMemberColeader) return errorResponse("Only leader can kick");
+      // Mutation
+      await removeFromClanBattle(
+        ctx.drizzle,
+        clanBattleData.queue,
+        input.clanBattleId,
+        target.userId,
+      );
+      return { success: true, message: "Kicked from clan battle" };
     }),
   initiateClanBattle: protectedProcedure
     .input(z.object({ clanBattleId: z.string() }))
@@ -818,6 +838,37 @@ export const removeFromClan = async (
 };
 
 /**
+ * Removes a user from a clan battle.
+ *
+ * @param client - The DrizzleClient instance used to interact with the database.
+ * @param currentQueue - The current queue of users in the clan battle.
+ * @param clanBattleId - The ID of the clan battle.
+ * @param userId - The ID of the user to remove from the clan battle.
+ * @returns A Promise that resolves when the user has been removed from the clan battle.
+ */
+export const removeFromClanBattle = async (
+  client: DrizzleClient,
+  currentQueue: { userId: string }[],
+  clanBattleId: string,
+  userId: string,
+) => {
+  await Promise.all([
+    ...(currentQueue.length === 1
+      ? [client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanBattleId))]
+      : []),
+    client
+      .delete(mpvpBattleUser)
+      .where(
+        and(
+          eq(mpvpBattleUser.clanBattleId, clanBattleId),
+          eq(mpvpBattleUser.userId, userId),
+        ),
+      ),
+    client.update(userData).set({ status: "AWAKE" }).where(eq(userData.userId, userId)),
+  ]);
+};
+
+/**
  * Fetches a clan battle by its ID.
  * @param client - The Drizzle client.
  * @param clanBattleId - The ID of the clan battle to fetch.
@@ -847,7 +898,17 @@ export const fetchClanBattles = async (client: DrizzleClient, clanId: string) =>
     with: {
       queue: {
         columns: { userId: true },
-        with: { user: { columns: { clanId: true, avatar: true, username: true } } },
+        with: {
+          user: {
+            columns: {
+              clanId: true,
+              avatar: true,
+              username: true,
+              level: true,
+              rank: true,
+            },
+          },
+        },
       },
       clan1: { columns: { id: true, name: true, image: true } },
       clan2: { columns: { id: true, name: true, image: true } },

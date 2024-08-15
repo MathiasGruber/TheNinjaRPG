@@ -17,6 +17,7 @@ import { DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
 import { FilePenLine, List, CirclePlay } from "lucide-react";
 import { UploadButton } from "@/utils/uploadthing";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ClanSearchSelect from "@/layout/ClanSearchSelect";
 import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
@@ -42,6 +43,7 @@ import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { secondsFromDate } from "@/utils/time";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -260,6 +262,16 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     },
   });
 
+  const { mutate: kick } = api.clan.kickFromClanBattle.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.clan.getClanBattles.invalidate();
+      }
+    },
+  });
+
   const { mutate: initiate, isPending: isInitiating } =
     api.clan.initiateClanBattle.useMutation({
       onSuccess: async (data) => {
@@ -279,7 +291,13 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     clan: { id: string; image: string; name: string },
     queue: {
       userId: string;
-      user: { username: string; avatar: string | null; clanId: string | null };
+      user: {
+        username: string;
+        avatar: string | null;
+        clanId: string | null;
+        level: number;
+        rank: string;
+      };
     }[],
   ) => {
     const canJoin = clan.id === userClanId;
@@ -300,13 +318,42 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         <div className="grid grid-cols-3">
           {queue.map((q) => (
             <div key={q.userId} className="w-10 flex flex-row items-center">
-              <AvatarImage
-                href={q.user.avatar}
-                alt={q.user.username}
-                size={50}
-                hover_effect={true}
-                priority
-              />
+              <Popover>
+                <PopoverTrigger>
+                  <AvatarImage
+                    href={q.user.avatar}
+                    alt={q.user.username}
+                    size={50}
+                    hover_effect={true}
+                    priority
+                  />
+                </PopoverTrigger>
+                <PopoverContent>
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <p className="font-bold">{q.user.username}</p>
+                      <p>
+                        Lvl. {q.user.level} {capitalizeFirstLetter(q.user.rank)}
+                      </p>
+                    </div>
+                    {userData && canCreate && userData.clanId === clan.id && (
+                      <Button
+                        className="w-full"
+                        onClick={() =>
+                          kick({
+                            clanBattleId: battleId,
+                            targetId: q.userId,
+                            clanId: clan.id,
+                          })
+                        }
+                      >
+                        <DoorOpen className="mr-2 h-5 w-5" />
+                        Kick
+                      </Button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           ))}
           {empties.map((_, i) => (
@@ -327,7 +374,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
   // Query
   const { data } = api.clan.getClanBattles.useQuery(
     { clanId: clanId },
-    { refetchInterval: 5000 },
+    { refetchInterval: 10000 },
   );
 
   // Clan search
