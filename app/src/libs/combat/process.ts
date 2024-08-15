@@ -215,7 +215,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     // Remember the effect
     const idx = `${e.type}-${e.creatorId}-${e.targetId}-${e.fromType}`;
     // TODO: Right now disabling tag stack check
-    const cacheCheck = true; // !appliedEffects.has(idx) || e.fromType === "bloodline";
+    const cacheCheck = !appliedEffects.has(idx) || e.fromType === "bloodline";
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier" && curUser) {
       const result = damageBarrier(newGroundEffects, curUser, e);
