@@ -238,35 +238,36 @@ export const getNewTrackers = (
                   objective.opponent_ai &&
                   objective.opponent_ai === taskUpdate.contentId
                 ) {
-                  if (objective.completionOutcome === "Any") {
+                  const completionOutcome = objective.completionOutcome || "Win";
+                  if (completionOutcome === "Any") {
                     status.done = true;
                   }
                   if (taskUpdate.text === "Won") {
                     if (objective.successDescription) {
                       notifications.push(objective.successDescription);
                     }
-                    if (objective.completionOutcome === "Win") {
+                    if (completionOutcome === "Win") {
                       status.done = true;
                     }
                   } else if (taskUpdate.text === "Lost") {
                     if (objective.failDescription) {
                       notifications.push(objective.failDescription);
                     }
-                    if (objective.completionOutcome === "Lose") {
+                    if (completionOutcome === "Lose") {
                       status.done = true;
                     }
                   } else if (taskUpdate.text === "Draw") {
                     if (objective.drawDescription) {
                       notifications.push(objective.drawDescription);
                     }
-                    if (objective.completionOutcome === "Draw") {
+                    if (completionOutcome === "Draw") {
                       status.done = true;
                     }
                   } else if (taskUpdate.text === "Fled") {
                     if (objective.fleeDescription) {
                       notifications.push(objective.fleeDescription);
                     }
-                    if (objective.completionOutcome === "Flee") {
+                    if (completionOutcome === "Flee") {
                       status.done = true;
                     }
                   }
