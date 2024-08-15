@@ -682,6 +682,12 @@ export const clanRouter = createTRPCRouter({
       if (!isLeader && !isColeader) return errorResponse("Not allowed");
       if (!isLeader && isMemberColeader) return errorResponse("Only leader can kick");
       // Mutation
+      void pusher.trigger(target.userId, "event", {
+        type: "userMessage",
+        message: `${user.username} kicked you out of a clan battle.`,
+        route: "/clanhall",
+        routeText: "To Clan Hall",
+      });
       await removeFromClanBattle(
         ctx.drizzle,
         clanBattleData.queue,
