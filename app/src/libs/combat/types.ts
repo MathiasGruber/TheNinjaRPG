@@ -159,7 +159,9 @@ export type PerformActionType = z.infer<typeof performActionSchema>;
 export type Consequence = {
   userId: string;
   targetId: string;
-  heal?: number;
+  heal_hp?: number;
+  heal_sp?: number;
+  heal_cp?: number;
   damage?: number;
   reflect?: number;
   recoil?: number;
@@ -444,6 +446,7 @@ export const FleePreventTag = z.object({
 export const HealTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
+  ...PoolAttributes,
   type: z.literal("heal").default("heal"),
   description: msg("Heals the target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),

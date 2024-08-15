@@ -3,6 +3,7 @@ import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
 import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
 import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
+import { HealTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames } from "./constants";
@@ -372,14 +373,14 @@ export const adjustHealGiven = (
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       // Adjust heal
-      if (consequence.userId === effect.targetId && consequence.heal) {
+      if (consequence.userId === effect.targetId && consequence.heal_hp) {
         const healEffect = usersEffects.find((e) => e.id === effectId);
         if (healEffect) {
           const change =
             effect.calculation === "percentage"
-              ? (power / 100) * consequence.heal
+              ? (power / 100) * consequence.heal_hp
               : power;
-          consequence.heal = consequence.heal + change;
+          consequence.heal_hp = consequence.heal_hp + change;
         }
       }
       // Adjust lifesteal
@@ -755,16 +756,31 @@ export const heal = (
   applyTimes: number,
 ) => {
   const { power } = getPower(effect);
-  const heal =
-    effect.calculation === "percentage"
+  const parsedEffect = HealTag.parse(effect);
+  const poolsAffects = parsedEffect.poolsAffected || ["Health"];
+  const heal_hp = poolsAffects.includes("Health")
+    ? effect.calculation === "percentage"
       ? target.maxHealth * (power / 100) * applyTimes
-      : power * applyTimes;
+      : power * applyTimes
+    : 0;
+  const heal_sp = poolsAffects.includes("Stamina")
+    ? effect.calculation === "percentage"
+      ? target.maxStamina * (power / 100) * applyTimes
+      : power * applyTimes
+    : 0;
+  const heal_cp = poolsAffects.includes("Chakra")
+    ? effect.calculation === "percentage"
+      ? target.maxChakra * (power / 100) * applyTimes
+      : power * applyTimes
+    : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if ((effect.rounds === 0 && effect.isNew) || !effect.isNew) {
     consequences.set(effect.id, {
       userId: effect.creatorId,
       targetId: effect.targetId,
-      heal,
+      heal_hp,
+      heal_sp,
+      heal_cp,
     });
   }
   return getInfo(target, effect, "will heal");

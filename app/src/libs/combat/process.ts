@@ -342,11 +342,27 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             color: "red",
           });
         }
-        if (c.heal && c.heal > 0) {
-          target.curHealth += c.heal;
+        if (c.heal_hp && c.heal_hp > 0) {
+          target.curHealth += c.heal_hp;
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
-            txt: `${target.username} heals ${c.heal} HP`,
+            txt: `${target.username} heals ${c.heal_hp} HP`,
+            color: "green",
+          });
+        }
+        if (c.heal_sp && c.heal_sp > 0) {
+          target.curStamina += c.heal_sp;
+          target.curStamina = Math.min(target.maxStamina, target.curStamina);
+          actionEffects.push({
+            txt: `${target.username} heals ${c.heal_sp} SP`,
+            color: "green",
+          });
+        }
+        if (c.heal_cp && c.heal_cp > 0) {
+          target.curChakra += c.heal_cp;
+          target.curChakra = Math.min(target.maxChakra, target.curChakra);
+          actionEffects.push({
+            txt: `${target.username} heals ${c.heal_cp} CP`,
             color: "green",
           });
         }
