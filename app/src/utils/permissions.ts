@@ -22,8 +22,7 @@ export const canChangeUserRole = (role: UserRole) => {
 };
 
 export const canSwapVillage = (role: UserRole) => {
-  return true;
-  // return role !== "USER";
+  return role !== "USER";
 };
 
 export const canSwapBloodline = (role: UserRole) => {
