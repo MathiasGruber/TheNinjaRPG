@@ -318,7 +318,7 @@ export const adjustDamageTaken = (
   target: BattleUserState,
 ) => {
   const { power, adverb, qualifier } = getPower(effect);
-  const affected = getAffected(effect, "defence");
+  const affected = getAffected(effect, "offence");
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId && consequence.damage) {
