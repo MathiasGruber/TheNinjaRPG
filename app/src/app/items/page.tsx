@@ -147,6 +147,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
+        await utils.profile.getUser.invalidate();
         await utils.item.getUserItems.invalidate();
       }
     },

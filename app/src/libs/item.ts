@@ -26,6 +26,8 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
       return true;
     } else if (effect.type === "removebloodline" && userData.bloodlineId) {
       return true;
+    } else if (effect.type === "heal") {
+      return true;
     }
   }
 

@@ -4,7 +4,7 @@ import { eq, sql, gte, and } from "drizzle-orm";
 import { item, userItem, userData, actionLog } from "@/drizzle/schema";
 import { bloodline } from "@/drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
-import { fetchUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
@@ -19,6 +19,7 @@ import { getRandomElement } from "@/utils/array";
 import { calcMaxItems } from "@/libs/item";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
+import { HealTag } from "@/libs/combat/types";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -313,16 +314,22 @@ export const itemRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, useritem, bloodlines] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [updatedUser, useritem, bloodlines] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+          forceRegen: true,
+        }),
         fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
         ctx.drizzle.query.bloodline.findMany({
           columns: { id: true, name: true, rank: true, villageId: true },
           where: eq(bloodline.hidden, false),
         }),
       ]);
+      const { user } = updatedUser;
 
       // Guard
+      if (!user) return errorResponse("User not found");
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
       if (!nonCombatConsume(useritem.item, user)) {
@@ -334,6 +341,8 @@ export const itemRouter = createTRPCRouter({
       const updates = {
         bloodlineId: user.bloodlineId,
         curHealth: user.curHealth,
+        curStamina: user.curStamina,
+        curChakra: user.curChakra,
       };
 
       // Calculations
@@ -357,13 +366,53 @@ export const itemRouter = createTRPCRouter({
           } else {
             messages.push(`Your bloodline could not be removed successfully.`);
           }
+        } else if (effect.type === "heal") {
+          const parsedEffect = HealTag.parse(effect);
+          const poolsAffects = parsedEffect.poolsAffected || ["Health"];
+          poolsAffects.forEach((pool) => {
+            switch (pool) {
+              case "Health":
+                const oldHp = updates.curHealth;
+                updates.curHealth = Math.min(
+                  user.curHealth +
+                    (effect.calculation === "percentage"
+                      ? user.maxHealth * (effect.power / 100)
+                      : effect.power),
+                  user.maxHealth,
+                );
+                messages.push(`You healed ${Math.ceil(updates.curHealth - oldHp)} HP`);
+                break;
+              case "Chakra":
+                const oldCp = updates.curChakra;
+                updates.curChakra = Math.min(
+                  user.curChakra +
+                    (effect.calculation === "percentage"
+                      ? user.maxChakra * (effect.power / 100)
+                      : effect.power),
+                  user.maxChakra,
+                );
+                messages.push(`You healed ${Math.ceil(updates.curChakra - oldCp)} CP`);
+                break;
+              case "Stamina":
+                const oldSp = updates.curStamina;
+                updates.curStamina = Math.min(
+                  user.curStamina +
+                    (effect.calculation === "percentage"
+                      ? user.maxStamina * (effect.power / 100)
+                      : effect.power),
+                  user.maxStamina,
+                );
+                messages.push(`You healed ${Math.ceil(updates.curStamina - oldSp)} SP`);
+                break;
+            }
+          });
         }
       });
       // Mutate
       await Promise.all([
         ctx.drizzle
           .update(userData)
-          .set({ bloodlineId: updates.bloodlineId })
+          .set(updates)
           .where(eq(userData.userId, ctx.userId)),
         useritem.quantity > 1
           ? ctx.drizzle
