@@ -190,6 +190,8 @@ export const paypalRouter = createTRPCRouter({
                   subscriptionId: subscription.id,
                 });
                 return `Subscription ID ${info.paypal_reference_id} synced`;
+              } else {
+                return `Subscription ID ${info.paypal_reference_id} not found`;
               }
             } else {
               const stored = await ctx.drizzle.query.paypalTransaction.findFirst({
