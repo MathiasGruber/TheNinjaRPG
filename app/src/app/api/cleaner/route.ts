@@ -165,7 +165,7 @@ export async function GET() {
 
     // Step 20: Clear mpvp battle queue entries
     await drizzleDB.execute(
-      sql`DELETE FROM ${mpvpBattleQueue} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 0 DAY`,
+      sql`DELETE FROM ${mpvpBattleQueue} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
     );
 
     // Step 21: Clear mpvp battle user entries
