@@ -405,6 +405,7 @@ export const updateUser = async (
                 status: "HOSPITALIZED",
                 longitude: HOSPITAL_LONG,
                 latitude: HOSPITAL_LAT,
+                villageId: user.villageId,
                 sector: user.allyVillage ? user.sector : user.village?.sector,
                 immunityUntil:
                   curBattle.battleType === "COMBAT"
