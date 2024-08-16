@@ -66,7 +66,13 @@ export default function Travel() {
     staleTime: Infinity,
     enabled: userData !== undefined,
   });
-  const villages = data?.filter((v) => ["VILLAGE", "SAFEZONE"].includes(v.type));
+  const villages = data?.filter((v) => {
+    if (userData?.isOutlaw) {
+      return true;
+    } else {
+      return ["VILLAGE", "SAFEZONE"].includes(v.type);
+    }
+  });
   const sectorVillage = villages?.find((v) => v.sector === userData?.sector);
 
   // Router for forwarding
@@ -204,6 +210,8 @@ export default function Travel() {
   // Derived
   const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
   const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
+
+  console.log(villages);
 
   return (
     <>

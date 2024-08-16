@@ -188,8 +188,8 @@ const Map: React.FC<MapProps> = (props) => {
               context.fillStyle = "black";
               context.strokeStyle = "#F0F0F0";
               context.font = `${f}px arial narrow`;
-              context.strokeText(highlight.name, w / 2, h / 2);
-              context.fillText(highlight.name, w / 2, h / 2);
+              context.strokeText(highlight.mapName || highlight.name, w / 2, h / 2);
+              context.fillText(highlight.mapName || highlight.name, w / 2, h / 2);
             }
             const texture = createTexture(canvas);
             texture.generateMipmaps = false;

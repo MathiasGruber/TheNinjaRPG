@@ -1467,6 +1467,7 @@ export const village = mysqlTable(
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
+    mapName: varchar("mapName", { length: 191 }),
     sector: int("sector").default(1).notNull(),
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),

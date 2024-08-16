@@ -855,6 +855,13 @@
       "when": 1723552668292,
       "tag": "0121_nifty_shen",
       "breakpoints": false
+    },
+    {
+      "idx": 122,
+      "version": "5",
+      "when": 1723802526120,
+      "tag": "0122_square_bishop",
+      "breakpoints": false
     }
   ]
 }
