@@ -20,7 +20,11 @@ export const homeRouter = createTRPCRouter({
       // Guard
       if (!user) return errorResponse("User not found");
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
-      if (!inVillage) return errorResponse("You must be in a village to sleep");
+      if (user.isOutlaw && inVillage) {
+        return errorResponse("You can't sleep in a village as an outlaw");
+      } else if (!user.isOutlaw && !inVillage) {
+        return errorResponse("You can't sleep outside a village as a non-outlaw");
+      }
       if (user.isBanned) return errorResponse("You are banned");
       if (!["ASLEEP", "AWAKE"].includes(user.status)) {
         return errorResponse("Invalid status, must be awake or asleep");
