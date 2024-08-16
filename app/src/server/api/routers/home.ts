@@ -5,6 +5,7 @@ import { userData } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
+import { fetchSectorVillage } from "@/routers/village";
 import type { UserStatus } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
@@ -21,7 +22,10 @@ export const homeRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
       if (user.isOutlaw && inVillage) {
-        return errorResponse("You can't sleep in a village as an outlaw");
+        const sectorVillage = await fetchSectorVillage(ctx.drizzle, user?.sector ?? -1);
+        if (sectorVillage && sectorVillage.type !== "OUTLAW") {
+          return errorResponse("You can't sleep in a village as an outlaw");
+        }
       } else if (!user.isOutlaw && !inVillage) {
         return errorResponse("You can't sleep outside a village as a non-outlaw");
       }
