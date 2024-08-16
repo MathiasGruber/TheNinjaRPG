@@ -6,11 +6,14 @@ export const buyRepsSchema = z.object({
 
 export type BuyRepsSchema = z.infer<typeof buyRepsSchema>;
 
-export const searchPaypalSchema = z
+export const searchPaypalTransactionSchema = z
   .object({
-    text: z.string().min(4).max(255),
+    transactionId: z.string().min(4).max(255),
+    transactionDate: z.date(),
   })
   .strict()
   .required();
 
-export type SearchPaypalSchema = z.infer<typeof searchPaypalSchema>;
+export type SearchPaypalTransactionSchema = z.infer<
+  typeof searchPaypalTransactionSchema
+>;

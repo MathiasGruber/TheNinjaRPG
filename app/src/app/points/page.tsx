@@ -23,10 +23,10 @@ import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";
 import { FederalStatuses } from "@/drizzle/constants";
 import { buyRepsSchema } from "@/validators/points";
-import { searchPaypalSchema } from "@/validators/points";
+import { searchPaypalTransactionSchema } from "@/validators/points";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
-import { Check, ChevronsUp, Search } from "lucide-react";
+import { Check, ChevronsUp, Search, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { MAX_REPS_PER_MONTH } from "@/drizzle/constants";
@@ -42,15 +42,20 @@ import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { cn } from "@/libs/shadui";
+import { format } from "date-fns";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import type { z } from "zod";
 import type { BuyRepsSchema } from "@/validators/points";
-import type { SearchPaypalSchema } from "@/validators/points";
+import type { SearchPaypalTransactionSchema } from "@/validators/points";
 import type { ArrayElement } from "@/utils/typeutils";
 
 const CURRENCY = "USD";
@@ -109,8 +114,8 @@ export default function PaypalShop() {
           {activeTab === "Reputation" && (
             <TransactionHistory userId={userData.userId} />
           )}
+          {activeTab === "Reputation" && <LookupTransaction />}
           {activeTab === "Federal" && <SubscriptionsOverview />}
-          {activeTab === "Federal" && <LookupSubscription />}
         </PayPalScriptProvider>
       )}
     </>
@@ -766,17 +771,17 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
 /**
  * Lookup paypal subscription
  */
-const LookupSubscription = () => {
+const LookupTransaction = () => {
   // tRPC utility
   const utils = api.useUtils();
 
   // Form
-  const searchForm = useForm<SearchPaypalSchema>({
-    resolver: zodResolver(searchPaypalSchema),
+  const searchForm = useForm<SearchPaypalTransactionSchema>({
+    resolver: zodResolver(searchPaypalTransactionSchema),
   });
 
-  // Sync subscription
-  const { mutate, isPending } = api.paypal.resolveSubscription.useMutation({
+  // Sync transaction
+  const { mutate, isPending } = api.paypal.resolveTransaction.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
@@ -787,33 +792,77 @@ const LookupSubscription = () => {
 
   // Submit handler
   const handleSubmitRequest = searchForm.handleSubmit(
-    (data) => mutate({ subscriptionId: data.text }),
+    (data) => mutate(data),
     (errors) => console.error(errors),
   );
 
   // Render input form
   return (
     <ContentBox
-      title="Lookup Subscription"
-      subtitle="Missing federal support? Check subscription status here!"
+      title="Lookup Transaction"
+      subtitle="Missing Points or Fed Support? Check status here!"
       initialBreak={true}
     >
       {isPending && <Loader explanation="Searching..." />}
       {!isPending && (
         <Form {...searchForm}>
           <form onSubmit={handleSubmitRequest} className="relative">
-            <FormField
-              control={searchForm.control}
-              name="text"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input {...field} placeholder="Subscription ID" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="flex flex-row gap-2">
+              <FormField
+                control={searchForm.control}
+                name="transactionDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col basis-1/2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full text-left font-normal text-black",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>Approx. date of purchase</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={searchForm.control}
+                name="transactionId"
+                render={({ field }) => (
+                  <FormItem className="basis-1/2">
+                    <FormControl>
+                      <Input {...field} placeholder="Transaction ID" />
+                    </FormControl>
+                    <FormDescription>Find on paypal receipt</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <Button className="absolute top-0 right-0" type="submit">
               <Search className="mr-1 h-5 w-5" />
             </Button>

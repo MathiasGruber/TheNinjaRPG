@@ -68,3 +68,15 @@ export const getTimeLeftStr = (
 export const sleep = (ms: number) => {
   return new Promise((res) => setTimeout(res, ms));
 };
+
+/**
+ * Adds the specified number of days to the given date
+ *
+ * @param {Date} date - The date to which the days should be added.
+ * @param {number} days - The number of days to add.
+ * @returns {Date} - The new date after adding the specified number of days.
+ */
+export const addDays = (date: Date, days: number) => {
+  const newDate = new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+  return newDate;
+};

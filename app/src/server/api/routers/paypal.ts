@@ -11,6 +11,8 @@ import { serverError } from "../trpc";
 import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
 import { canSeeSecretData } from "@/utils/permissions";
+import { searchPaypalTransactionSchema } from "@/validators/points";
+import { addDays } from "@/utils/time";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -45,6 +47,25 @@ type PaypalSubscription = {
   custom_id: string;
   plan_id: string;
   status: string;
+};
+
+type PaypalTransaction = {
+  transaction_info: {
+    transaction_id: string;
+    transaction_initiation_date: string;
+    transaction_updated_date: string;
+    paypal_reference_id: string;
+    paypal_reference_id_type: "ODR" | "TXN" | "SUB" | "PAP";
+    transaction_amount: PaypalAmount;
+    transaction_status: "D" | "P" | "S" | "V";
+    custom_field: string;
+    invoice_id: string;
+  };
+  cart_info: {
+    item_details: {
+      total_item_amount: PaypalAmount;
+    }[];
+  };
 };
 
 export const paypalRouter = createTRPCRouter({
@@ -121,6 +142,85 @@ export const paypalRouter = createTRPCRouter({
         });
       }
       return { success: true, message: "Reputation points purchased" };
+    }),
+  resolveTransaction: protectedProcedure
+    .input(searchPaypalTransactionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch potential transactions from paypal
+      const token = await getPaypalAccessToken();
+      const transactions = await getPaypalTransactions(
+        input.transactionId,
+        input.transactionDate,
+        token,
+      );
+      // Sync all these to the database & store notifications
+      const notifications = await Promise.all(
+        transactions
+          .filter((t) => t.transaction_info.transaction_status === "S")
+          .map(async (t) => {
+            // Derived
+            const info = t.transaction_info;
+            const createdByUserId = info.custom_field?.split("-")?.[0];
+            const affectedUserId = info.custom_field?.split("-")?.[1];
+            const value = info.transaction_amount.value;
+            const currency = info.transaction_amount.currency_code;
+            // If data could not be parsed
+            if (!value || !currency || !createdByUserId || !affectedUserId) {
+              return `Transaction ID ${info.transaction_id} invalid`;
+            }
+            // Handle different cases
+            console.log(info, value);
+            if (info.paypal_reference_id_type === "SUB") {
+              const subscription = await getPaypalSubscription(
+                info.paypal_reference_id,
+                token,
+              );
+              if (subscription) {
+                const newStatus =
+                  subscription.status === "ACTIVE"
+                    ? plan2FedStatus(subscription.plan_id)
+                    : "NONE";
+                await updateSubscription({
+                  client: ctx.drizzle,
+                  createdById: createdByUserId,
+                  affectedUserId: affectedUserId,
+                  federalStatus: newStatus,
+                  status: subscription.status,
+                  subscriptionId: subscription.id,
+                });
+                return `Subscription ID ${info.paypal_reference_id} synced`;
+              }
+            } else {
+              const stored = await ctx.drizzle.query.paypalTransaction.findFirst({
+                where: eq(paypalTransaction.transactionId, info.transaction_id),
+              });
+              if (stored) {
+                return `Transaction ID ${info.transaction_id} already processed`;
+              } else {
+                await updateReps({
+                  client: ctx.drizzle,
+                  createdById: createdByUserId,
+                  transactionId: info.transaction_id,
+                  transactionUpdatedDate: info.transaction_updated_date,
+                  orderId: nanoid(),
+                  affectedUserId: affectedUserId,
+                  invoiceId: info.invoice_id,
+                  value: parseFloat(value),
+                  currency: currency,
+                  status: "COMPLETED",
+                  reps: dollars2reps(parseFloat(value)),
+                  raw: t,
+                });
+                return `Transaction ID ${info.transaction_id} synced!`;
+              }
+            }
+          }),
+      );
+      return {
+        success: true,
+        message: notifications.join(", "),
+      };
     }),
   resolveSubscription: protectedProcedure
     .input(
@@ -453,6 +553,34 @@ export const updateReps = async (input: {
     status: input.status,
     rawData: input.raw,
   });
+};
+
+/**
+ * Fetch a subscrioption from paypal
+ */
+export const getPaypalTransactions = async (
+  transactionId: string,
+  transactionDate: Date,
+  token: string,
+) => {
+  console.log("transactionDate", transactionDate.getTime(), typeof transactionDate);
+  // Current date in 2014-07-12T00:00:00-0700 format
+  const startDate = addDays(transactionDate, -14);
+  const endDate = addDays(transactionDate, 14);
+  return await fetch(
+    `${process.env.NEXT_PUBLIC_PAYPAL_URL}/v1/reporting/transactions?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&transaction_id=${transactionId}&fields=all`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+    },
+  )
+    .then((response) => response.json())
+    .then((data: { transaction_details: PaypalTransaction[] }) => {
+      return data.transaction_details;
+    });
 };
 
 /**
