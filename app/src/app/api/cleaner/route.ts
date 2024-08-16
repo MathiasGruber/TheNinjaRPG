@@ -4,7 +4,12 @@ import { drizzleDB } from "@/server/db";
 import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/schema";
 import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
-import { userItem, trainingLog } from "@/drizzle/schema";
+import {
+  userItem,
+  trainingLog,
+  mpvpBattleQueue,
+  mpvpBattleUser,
+} from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -156,6 +161,21 @@ export async function GET() {
     // Step 19: Clear training log entries
     await drizzleDB.execute(
       sql`DELETE FROM ${trainingLog} WHERE trainingFinishedAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
+    );
+
+    // Step 20: Clear mpvp battle queue entries
+    await drizzleDB.execute(
+      sql`DELETE FROM ${mpvpBattleQueue} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 0 DAY`,
+    );
+
+    // Step 21: Clear mpvp battle user entries
+    await drizzleDB.execute(
+      sql`DELETE FROM ${mpvpBattleUser} a WHERE NOT EXISTS (SELECT id FROM ${mpvpBattleQueue} b WHERE b.id = a.clanBattleId)`,
+    );
+
+    // Step 22: Set status to AWAKE for users who are QUEUED if they do not have any mpvpBattleUser entries
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="QUEUED" AND NOT EXISTS (SELECT id FROM ${mpvpBattleUser} b WHERE b.userId = a.userId)`,
     );
 
     // Update timer

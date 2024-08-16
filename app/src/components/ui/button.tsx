@@ -52,7 +52,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     const animation = props.animation ? "animate-pulse hover:animate-none" : "";
     return (
-      <div className={cn("relative", className)}>
+      <div className={cn("relative")}>
         <Comp
           className={cn(buttonVariants({ variant, size, className }), animation)}
           ref={ref}

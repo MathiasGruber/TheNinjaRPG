@@ -8,6 +8,7 @@ import {
   userData,
   userItem,
   userJutsu,
+  mpvpBattleQueue,
 } from "@/drizzle/schema";
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
@@ -37,6 +38,7 @@ type DataBattleAction = {
 export const updateBattle = async (
   client: DrizzleClient,
   result: CombatResult | null,
+  userId: string,
   newBattle: CompleteBattle,
   fetchedVersion: number,
 ) => {
@@ -45,7 +47,19 @@ export const updateBattle = async (
 
   // Update the battle, return undefined if the battle was updated by another process
   if (battleOver) {
-    await client.delete(battle).where(eq(battle.id, newBattle.id));
+    const user = newBattle.usersState.find((u) => u.userId === userId);
+    const other = newBattle.usersState.find((u) => u.userId !== userId);
+    await Promise.all([
+      client.delete(battle).where(eq(battle.id, newBattle.id)),
+      ...(newBattle.battleType === "CLAN_BATTLE" && user && other
+        ? [
+            client
+              .update(mpvpBattleQueue)
+              .set({ winnerId: result?.didWin ? user.clanId : other.clanId })
+              .where(eq(mpvpBattleQueue.battleId, newBattle.id)),
+          ]
+        : []),
+    ]);
   } else {
     const result = await client
       .update(battle)

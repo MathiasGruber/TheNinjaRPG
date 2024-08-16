@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { api } from "@/utils/api";
 import { sleep } from "@/utils/time";
+import { cn } from "src/libs/shadui";
 
 interface AvatarImageProps {
   href?: string | null;
@@ -13,6 +14,7 @@ interface AvatarImageProps {
   priority?: boolean;
   hover_effect?: boolean;
   refetchUserData?: boolean;
+  className?: string;
 }
 
 const AvatarImage: React.FC<AvatarImageProps> = (props) => {
@@ -55,11 +57,12 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
       ></div>
     );
   } else {
+    const base =
+      "relative max-w-80 m-auto w-5/6 aspect-square rounded-2xl border-2 border-black";
+    const hover = props.hover_effect ? "hover:border-amber-500 hover:opacity-80" : "";
     return (
       <Image
-        className={`relative max-w-80 m-auto w-5/6 aspect-square rounded-2xl border-2 border-black ${
-          props.hover_effect ? "hover:border-amber-500 hover:opacity-80" : ""
-        }`}
+        className={cn(base, hover, props.className)}
         src={href}
         alt={(props.alt || "unknown") + " AvatarImage"}
         width={props.size}

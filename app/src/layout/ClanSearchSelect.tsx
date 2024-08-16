@@ -32,6 +32,8 @@ interface ClanSearchSelectProps {
     },
     any
   >;
+  showOwn: boolean;
+  userClanId?: string | null;
   selectedClans?: SelectedClan[];
   label?: string;
   inline?: boolean;
@@ -109,28 +111,30 @@ const ClanSearchSelect: React.FC<ClanSearchSelectProps> = (props) => {
       )}
       {searchResults && watchName && (
         <div className="mt-1 w-full rounded-lg border-2 border-slate-500 bg-slate-100">
-          {searchResults?.map((clan) => (
-            <div
-              className="flex flex-row items-center p-2.5 hover:bg-slate-200"
-              key={clan.id}
-              onClick={(e) => {
-                e.preventDefault();
-                let newSelected = getUnique([...watchClans, clan], "id");
-                if (props.maxClans && newSelected.length > props.maxClans) {
-                  newSelected = newSelected.slice(1);
-                }
-                form.setValue("name", "");
-                form.setValue("clans", newSelected);
-              }}
-            >
-              <div className="basis-1/12">
-                <AvatarImage href={clan.image} alt={clan.name} size={100} priority />
+          {searchResults
+            ?.filter((c) => props.showOwn || c.id !== props.userClanId)
+            .map((clan) => (
+              <div
+                className="flex flex-row items-center p-2.5 hover:bg-slate-200"
+                key={clan.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  let newSelected = getUnique([...watchClans, clan], "id");
+                  if (props.maxClans && newSelected.length > props.maxClans) {
+                    newSelected = newSelected.slice(1);
+                  }
+                  form.setValue("name", "");
+                  form.setValue("clans", newSelected);
+                }}
+              >
+                <div className="basis-1/12">
+                  <AvatarImage href={clan.image} alt={clan.name} size={100} priority />
+                </div>
+                <div className="ml-2">
+                  <p>{clan.name}</p>
+                </div>
               </div>
-              <div className="ml-2">
-                <p>{clan.name}</p>
-              </div>
-            </div>
-          ))}
+            ))}
           {searchResults.length === 0 && <div className="p-2.5">No clans found</div>}
         </div>
       )}

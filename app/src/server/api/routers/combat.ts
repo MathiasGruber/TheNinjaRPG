@@ -102,7 +102,13 @@ export const combatRouter = createTRPCRouter({
             if (!hadActivity && actId && activeUser) {
               const { newBattle, actionEffects } = applyEffects(userBattle, actId);
               await Promise.all([
-                updateBattle(ctx.drizzle, result, newBattle, fetchedVersion),
+                updateBattle(
+                  ctx.drizzle,
+                  result,
+                  ctx.userId,
+                  newBattle,
+                  fetchedVersion,
+                ),
                 createAction(ctx.drizzle, newBattle, [
                   {
                     battleRound: actionRound,
@@ -113,7 +119,13 @@ export const combatRouter = createTRPCRouter({
                 ]),
               ]);
             } else {
-              await updateBattle(ctx.drizzle, result, userBattle, fetchedVersion);
+              await updateBattle(
+                ctx.drizzle,
+                result,
+                ctx.userId,
+                userBattle,
+                fetchedVersion,
+              );
             }
           }
 
@@ -366,7 +378,7 @@ export const combatRouter = createTRPCRouter({
            */
           try {
             newBattle.version = newBattle.version + nActions;
-            await updateBattle(db, result, newBattle, battle.version);
+            await updateBattle(db, result, suid, newBattle, battle.version);
             const [logEntries] = await Promise.all([
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),

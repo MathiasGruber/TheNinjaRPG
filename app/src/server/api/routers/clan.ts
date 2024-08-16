@@ -724,6 +724,7 @@ export const clanRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (clanBattleData.battleId) return errorResponse("Battle already initiated");
       if (!allIds) return errorResponse("No users");
       if (maxOnEachSide === 0) return errorResponse("Not enough users");
       if (
@@ -745,24 +746,29 @@ export const clanRouter = createTRPCRouter({
         "CLAN_BATTLE",
         determineArenaBackground("coliseum.webp"),
       );
+
       if (result.success) {
-        await Promise.all([
-          ctx.drizzle
-            .delete(mpvpBattleQueue)
-            .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
-          ctx.drizzle
-            .delete(mpvpBattleUser)
-            .where(eq(mpvpBattleUser.clanBattleId, input.clanBattleId)),
-          ctx.drizzle
-            .update(userData)
-            .set({ status: "AWAKE" })
-            .where(
-              and(inArray(userData.userId, allIds), eq(userData.status, "QUEUED")),
-            ),
-        ]);
+        await ctx.drizzle
+          .update(mpvpBattleQueue)
+          .set({ battleId: result.message })
+          .where(eq(mpvpBattleQueue.id, input.clanBattleId));
+        // await Promise.all([
+        //   ctx.drizzle
+        //     .delete(mpvpBattleQueue)
+        //     .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
+        //   ctx.drizzle
+        //     .delete(mpvpBattleUser)
+        //     .where(eq(mpvpBattleUser.clanBattleId, input.clanBattleId)),
+        //   ctx.drizzle
+        //     .update(userData)
+        //     .set({ status: "AWAKE" })
+        //     .where(
+        //       and(inArray(userData.userId, allIds), eq(userData.status, "QUEUED")),
+        //     ),
+        // ]);
         return { success: true, message: "Clan battle initiated" };
       }
-      return errorResponse("Failed to initiate battle");
+      return errorResponse("Failed to initiate clan battle");
     }),
 });
 

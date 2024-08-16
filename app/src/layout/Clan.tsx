@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/form";
 import { DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
-import { FilePenLine, List, CirclePlay } from "lucide-react";
+import { FilePenLine, List, CirclePlay, ScanEye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Medal, HeartCrack } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadButton } from "@/utils/uploadthing";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ClanSearchSelect from "@/layout/ClanSearchSelect";
@@ -289,6 +292,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     battleId: string,
     userClanId: string | null,
     clan: { id: string; image: string; name: string },
+    winnerId: string | null,
     queue: {
       userId: string;
       user: {
@@ -303,10 +307,16 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     const canJoin = clan.id === userClanId;
     const crewLength = Math.max(6, queue.length);
     const empties = Array(crewLength - queue.length).fill(null);
+    const border = winnerId
+      ? clan.id === winnerId
+        ? "border-green-500 border-2"
+        : "border-red-500 border-2"
+      : "";
     return (
       <div className="flex flex-row">
         <div className="w-20 text-center">
           <AvatarImage
+            className={border}
             href={clan.image}
             alt={clan.name}
             size={100}
@@ -321,6 +331,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
               <Popover>
                 <PopoverTrigger>
                   <AvatarImage
+                    className={border}
                     href={q.user.avatar}
                     alt={q.user.username}
                     size={50}
@@ -408,16 +419,21 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     const defenders = battle.queue.filter((q) => q.user.clanId === battle.clan2Id);
     const startTime = secondsFromDate(CLAN_LOBBY_SECONDS, battle.createdAt);
     const inBattle = battle.queue.some((q) => q.userId === userData.userId);
+    const userClan = userData.clanId;
+    const winnerId = battle.winnerId;
+    const hasStarted = !!battle.battleId;
+    const hasConcluded = !!battle.winnerId;
     return {
       ...battle,
-      clan1name: showClanSide(battle.id, userData.clanId, battle.clan1, challengers),
-      clan2name: showClanSide(battle.id, userData.clanId, battle.clan2, defenders),
+      clan1name: showClanSide(battle.id, userClan, battle.clan1, winnerId, challengers),
+      clan2name: showClanSide(battle.id, userClan, battle.clan2, winnerId, defenders),
       countdown: (
         <div className="flex flex-col gap-1">
           {isInitiating ? (
             <Loader explanation="Starting battle" />
           ) : (
-            inBattle && (
+            inBattle &&
+            !hasStarted && (
               <>
                 <Button onClick={() => initiate({ clanBattleId: battle.id })}>
                   <CirclePlay className="h-6 w-6 mr-2" /> Start
@@ -427,6 +443,26 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                 </Button>
               </>
             )
+          )}
+          {hasStarted && (
+            <Link href={`/battlelog/${battle.battleId}`}>
+              <Button>
+                <ScanEye className="h-6 w-6 mr-2" /> View
+              </Button>
+            </Link>
+          )}
+          {hasConcluded && (
+            <p>
+              {battle.winnerId === clanId ? (
+                <Badge className="bg-green-600">
+                  <Medal className="h-6 w-6 mr-2" /> Victory
+                </Badge>
+              ) : (
+                <Badge className="bg-red-600">
+                  <HeartCrack className="h-6 w-6 mr-2" /> Defeat
+                </Badge>
+              )}
+            </p>
           )}
           <Countdown targetDate={startTime} timeDiff={timeDiff} onEndShow=" " />
         </div>
@@ -472,6 +508,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                   label="Search for clan"
                   selectedClans={[]}
                   inline={true}
+                  showOwn={false}
+                  userClanId={clanId}
                   maxClans={1}
                 />
               </Confirm>
@@ -1123,29 +1161,48 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
     <>
       {/** OVERVIEW */}
       <ClanInfo back_href={back_href} clanData={clanData} />
-      {/* SHOW ORDERS  */}
-      <ClanOrders
-        clanId={clanData.id}
-        order={clanData.leaderOrder}
-        canPost={isLeader || isColeader}
-      />
-      {/* SHOW Battles  */}
-      <ClanBattles clanId={clanData.id} canCreate={isLeader || isColeader} />
-      {/* REQUESTS SYSTEM  */}
-      <ClanRequests clanId={clanData.id} isLeader={isLeader} />
-      {/* TOURNAMENT */}
-      <Tournament
-        userData={userData}
-        tournamentId={clanData.id}
-        rewards={ObjectiveReward.parse({ reward_money: clanData.bank })}
-        title="Clan Tournaments"
-        subtitle="Initiated by leader"
-        type="CLAN"
-        canCreate={(isLeader || isColeader) && clanData.bank > 0}
-        canJoin={userData.clanId === clanData.id}
-      />
-      {/* MEMBERS */}
-      <ClanMembers userId={userData.userId} clanId={clanData.id} />
+      <div className="w-full pt-2">
+        <Tabs
+          defaultValue="orders"
+          className="flex flex-col items-center justify-center"
+        >
+          <TabsList className="text-center">
+            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="battles">Battles</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+          </TabsList>
+          <TabsContent value="orders">
+            <ClanOrders
+              clanId={clanData.id}
+              order={clanData.leaderOrder}
+              canPost={isLeader || isColeader}
+            />
+          </TabsContent>
+          <TabsContent value="battles">
+            <ClanBattles clanId={clanData.id} canCreate={isLeader || isColeader} />
+          </TabsContent>
+          <TabsContent value="requests">
+            <ClanRequests clanId={clanData.id} isLeader={isLeader} />
+          </TabsContent>
+          <TabsContent value="tournaments">
+            <Tournament
+              userData={userData}
+              tournamentId={clanData.id}
+              rewards={ObjectiveReward.parse({ reward_money: clanData.bank })}
+              title="Clan Tournaments"
+              subtitle="Initiated by leader"
+              type="CLAN"
+              canCreate={(isLeader || isColeader) && clanData.bank > 0}
+              canJoin={userData.clanId === clanData.id}
+            />
+          </TabsContent>
+          <TabsContent value="members">
+            <ClanMembers userId={userData.userId} clanId={clanData.id} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </>
   );
 };
