@@ -16,6 +16,7 @@ import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent } from "./tags";
 import { clear, cleanse, summon, summonPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
+import { BATTLE_TAG_STACKING } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
 import type { AnimationName } from "./types";
@@ -214,8 +215,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     const newUser = newUsersState.find((u) => u.userId === e.creatorId);
     // Remember the effect
     const idx = `${e.type}-${e.creatorId}-${e.targetId}-${e.fromType}`;
-    // TODO: Right now disabling tag stack check
-    const cacheCheck = true; // !appliedEffects.has(idx) || e.fromType === "bloodline";
+    // Determine whether the tags should stack
+    const cacheCheck = BATTLE_TAG_STACKING
+      ? true
+      : !appliedEffects.has(idx) || e.fromType === "bloodline";
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier" && curUser) {
       const result = damageBarrier(newGroundEffects, curUser, e);

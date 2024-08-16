@@ -331,6 +331,7 @@ export const MAX_DAILY_TRAININGS = 64;
 
 // Combat config
 export const BATTLE_ARENA_DAILY_LIMIT = 100;
+export const BATTLE_TAG_STACKING = true;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 
 // Black market config

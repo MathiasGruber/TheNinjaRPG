@@ -301,6 +301,7 @@ export const insertAction = (info: {
     // Bookkeeping
     let targetUsernames: string[] = [];
     let targetGenders: string[] = [];
+    const appliedEffects = new Set<string>();
     const barrierAttacks: string[] = [];
     // Path finder on grid
     const aStar = new PathCalculator(grid);
@@ -329,8 +330,12 @@ export const insertAction = (info: {
               barrierAbsorb: totalAbsorb,
             });
             if (effect && checkFriendlyFire(effect, user, alive)) {
-              effect.targetId = user.userId;
-              usersEffects.push(effect);
+              const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
+              if (!appliedEffects.has(idx)) {
+                effect.targetId = user.userId;
+                usersEffects.push(effect);
+                appliedEffects.add(idx);
+              }
             }
           } else if (!tag.target || tag.target === "INHERIT") {
             const effect = realizeTag({
@@ -378,10 +383,11 @@ export const insertAction = (info: {
                 usersEffects.push(effect);
               }
             } else if (tag.target === "SELF") {
-              // Overwrite: apply UserEffect to self
-              if (checkFriendlyFire(effect, user, alive)) {
+              const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
+              if (!appliedEffects.has(idx) && checkFriendlyFire(effect, user, alive)) {
                 effect.targetId = user.userId;
                 usersEffects.push(effect);
+                appliedEffects.add(idx);
               }
             }
             // Extra: If no target, check if there is a barrier & apply damage only
