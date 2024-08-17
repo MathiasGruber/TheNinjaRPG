@@ -5,6 +5,7 @@ import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
+import Accordion from "@/layout/Accordion";
 import { Button } from "@/components/ui/button";
 import { Sparkles, X } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
@@ -28,14 +29,13 @@ type tabType = (typeof tabs)[number];
 const Logbook: React.FC<LogbookProps> = () => {
   // State
   const [tab, setTab] = useState<tabType | null>(null);
-  const { data: userData } = useRequiredUserData();
 
   return (
     <ContentBox
       title="LogBook"
       subtitle="Character Activites"
       initialBreak={true}
-      padding={tab === "Active"}
+      padding={false}
       topRightContent={
         <NavTabs
           id="logbook-toggle"
@@ -45,14 +45,7 @@ const Logbook: React.FC<LogbookProps> = () => {
         />
       }
     >
-      {tab === "Active" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {userData?.userQuests?.map((uq, i) => {
-            const tracker = userData?.questData?.find((q) => q.id === uq.questId);
-            return tracker && <LogbookEntry key={i} userQuest={uq} tracker={tracker} />;
-          })}
-        </div>
-      )}
+      {tab === "Active" && <LogbookActive />}
       {tab === "History" && <LogbookHistory />}
       {tab === "Battles" && <LogbookBattles />}
     </ContentBox>
@@ -60,6 +53,47 @@ const Logbook: React.FC<LogbookProps> = () => {
 };
 
 export default Logbook;
+
+/**
+ * Renders the active logbook component.
+ * @returns The active logbook component.
+ */
+const LogbookActive: React.FC = () => {
+  const { data: userData } = useRequiredUserData();
+  const [activeElement, setActiveElement] = useState<string>("");
+
+  useEffect(() => {
+    if (userData && !activeElement) {
+      const firstUserQuest = userData.userQuests?.[0];
+      if (firstUserQuest) {
+        setActiveElement(firstUserQuest.quest.name);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData]);
+
+  return (
+    <div className="">
+      {userData?.userQuests
+        ?.filter((uq) => uq.quest.questType !== "achievement")
+        .map((uq, i) => {
+          const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+          return (
+            tracker && (
+              <Accordion
+                title={uq.quest.name}
+                selectedTitle={activeElement}
+                unselectedSubtitle="Generate a new avatar"
+                onClick={setActiveElement}
+              >
+                <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+              </Accordion>
+            )
+          );
+        })}
+    </div>
+  );
+};
 
 /**
  * Renders a logbook of battles.
@@ -137,28 +171,31 @@ const LogbookHistory: React.FC = () => {
   const allHistory = history?.pages
     .map((page) => page.data)
     .flat()
-    .map((e) => ({
-      image: e.quest.image,
-      questType: e.questType,
-      name: e.quest.name,
-      info: (
-        <div>
-          <p>
-            <b>Start:</b> {e.startedAt.toLocaleString()}
-          </p>
-          {e.endAt && (
+    .filter((e) => e.quest)
+    .map((e) => {
+      return {
+        image: e.quest.image,
+        questType: e.questType,
+        name: e.quest.name,
+        info: (
+          <div>
             <p>
-              <b>End:</b> {e.endAt.toLocaleString()}
+              <b>Start:</b> {e.startedAt.toLocaleString()}
             </p>
-          )}
-          {e.completed === 1 ? (
-            <p className="text-green-500">Completed</p>
-          ) : (
-            <p className="text-red-500">Not Completed</p>
-          )}
-        </div>
-      ),
-    }));
+            {e.endAt && (
+              <p>
+                <b>End:</b> {e.endAt.toLocaleString()}
+              </p>
+            )}
+            {e.completed === 1 ? (
+              <p className="text-green-500">Completed</p>
+            ) : (
+              <p className="text-red-500">Not Completed</p>
+            )}
+          </div>
+        ),
+      };
+    });
 
   type Entry = ArrayElement<typeof allHistory>;
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
@@ -178,6 +215,7 @@ const LogbookHistory: React.FC = () => {
 interface LogbookEntryProps {
   userQuest: UserQuest;
   tracker: QuestTrackerType;
+  hideTitle?: boolean;
 }
 
 /**
@@ -194,7 +232,7 @@ interface LogbookEntryProps {
  */
 export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { data: userData } = useRequiredUserData();
-  const { userQuest, tracker } = props;
+  const { userQuest, tracker, hideTitle } = props;
   const quest = userQuest.quest;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
   const allDone = tracker?.goals.every((g) => g.done);
@@ -353,10 +391,14 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       }
     >
       <div className="flex flex-col h-full">
-        <div className="font-bold text-xl">
-          Current {capitalizeFirstLetter(quest.questType)}
-        </div>
-        <div className="font-bold text-sm">{quest.name}</div>
+        {!hideTitle && (
+          <>
+            <div className="font-bold text-xl">
+              Current {capitalizeFirstLetter(quest.questType)}
+            </div>
+            <div className="font-bold text-sm">{quest.name}</div>
+          </>
+        )}
         <div className="pt-2">
           <Reward info={quest.content.reward} />
           <EventTimer quest={quest} tracker={tracker} />
