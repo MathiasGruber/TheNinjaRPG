@@ -807,7 +807,7 @@ const LookupTransaction = () => {
       {!isPending && (
         <Form {...searchForm}>
           <form onSubmit={handleSubmitRequest} className="relative">
-            <div className="flex flex-row gap-2">
+            <div className="relative flex flex-row gap-2">
               <FormField
                 control={searchForm.control}
                 name="transactionDate"
@@ -862,10 +862,10 @@ const LookupTransaction = () => {
                   </FormItem>
                 )}
               />
+              <Button className="absolute top-0 right-0" type="submit">
+                <Search className="mr-1 h-5 w-5" />
+              </Button>
             </div>
-            <Button className="absolute top-0 right-0" type="submit">
-              <Search className="mr-1 h-5 w-5" />
-            </Button>
           </form>
         </Form>
       )}

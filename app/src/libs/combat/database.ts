@@ -45,21 +45,21 @@ export const updateBattle = async (
   // Calculations
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
 
-  // Update the battle, return undefined if the battle was updated by another process
-  if (battleOver) {
+  // If user won and it's a clan battle, update the clan battle queue
+  if (result && result.didWin && newBattle.battleType === "CLAN_BATTLE") {
     const user = newBattle.usersState.find((u) => u.userId === userId);
     const other = newBattle.usersState.find((u) => u.userId !== userId);
-    await Promise.all([
-      client.delete(battle).where(eq(battle.id, newBattle.id)),
-      ...(newBattle.battleType === "CLAN_BATTLE" && user && other
-        ? [
-            client
-              .update(mpvpBattleQueue)
-              .set({ winnerId: result?.didWin ? user.clanId : other.clanId })
-              .where(eq(mpvpBattleQueue.battleId, newBattle.id)),
-          ]
-        : []),
-    ]);
+    if (user && other) {
+      await client
+        .update(mpvpBattleQueue)
+        .set({ winnerId: result?.didWin ? user.clanId : other.clanId })
+        .where(eq(mpvpBattleQueue.battleId, newBattle.id));
+    }
+  }
+
+  // Update the battle, return undefined if the battle was updated by another process
+  if (battleOver) {
+    await client.delete(battle).where(eq(battle.id, newBattle.id));
   } else {
     const result = await client
       .update(battle)
