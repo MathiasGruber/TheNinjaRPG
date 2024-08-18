@@ -16,6 +16,7 @@ import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { allObjectiveTasks } from "@/validators/objectives";
+import { CollectItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
@@ -29,7 +30,6 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
-import type { CollectItemType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
@@ -474,10 +474,14 @@ export const questsRouter = createTRPCRouter({
       const senseiId = hasSensei && isMission ? user.senseiId : null;
 
       // Get potential items to delete
-      const itemQuests = userQuest?.quest.content.objectives.filter(
-        (o) => o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
-      ) as CollectItemType[];
-      const deleteItemIds = itemQuests.map((o) => o.collect_item_id) as string[];
+      const deleteItemIds =
+        userQuest?.quest.content.objectives
+          .filter(
+            (o) =>
+              o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
+          )
+          .map((o) => CollectItem.parse(o))
+          .map((o) => o.collect_item_id as string) || [];
 
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
