@@ -53,7 +53,6 @@ export default function Travel() {
   const utils = api.useUtils();
 
   // Current and target sectors & positions
-  const [currentSector, setCurrentSector] = useState<number | null>(null);
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
   const [hoverPosition, setHoverPosition] = useState<SectorPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
@@ -79,6 +78,7 @@ export default function Travel() {
   const router = useRouter();
 
   // Sector tab link
+  const currentSector = userData?.sector;
   const sectorLink = currentSector
     ? currentPosition
       ? `You (${currentPosition.x}, ${currentPosition.y})`
@@ -101,8 +101,7 @@ export default function Travel() {
   const highlightedSector = sectorForm.watch("sector");
 
   useEffect(() => {
-    if (!currentSector && userData && globe) {
-      setCurrentSector(userData.sector);
+    if (userData && globe) {
       setCurrentPosition({ x: userData.longitude, y: userData.latitude });
       setCurrentTile(globe.tiles[userData.sector] as GlobalTile);
     }
@@ -127,7 +126,6 @@ export default function Travel() {
           await utils.profile.getUser.invalidate();
           setShowModal(false);
           setActiveTab(globalLink);
-          setCurrentSector(data.sector);
           if (globe) {
             setCurrentTile(globe.tiles[data.sector] as GlobalTile);
           }
