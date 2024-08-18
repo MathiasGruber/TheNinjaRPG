@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { showMutationToast } from "@/libs/toast";
 
 interface Pagination {
@@ -14,6 +15,7 @@ export const useInfinitePagination = ({
 }: Pagination) => {
   const [page, setPage] = useState(0);
   const observer = useRef<IntersectionObserver | null>();
+  const { isSignedIn } = useAuth();
 
   /**
    * Mount only once
@@ -43,7 +45,10 @@ export const useInfinitePagination = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      if (page > 0) await fetchNextPage();
+      if (page > 0 && isSignedIn) {
+        console.log("Fetching next page");
+        await fetchNextPage();
+      }
     };
     if (hasNextPage) {
       fetchData().catch(() => {
@@ -54,5 +59,5 @@ export const useInfinitePagination = ({
         });
       });
     }
-  }, [fetchNextPage, hasNextPage, page]);
+  }, [fetchNextPage, isSignedIn, hasNextPage, page]);
 };
