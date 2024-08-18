@@ -14,6 +14,7 @@ Sentry.init({
   ignoreErrors: [
     "ClerkJS: Token refresh failed",
     "Converting circular structure to JSON",
+    "Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'",
   ],
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
