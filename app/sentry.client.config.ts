@@ -11,7 +11,10 @@ Sentry.init({
   tracesSampleRate: 0.001,
 
   // Which errors to ignore from frontend
-  ignoreErrors: ["ClerkJS: Token refresh failed"],
+  ignoreErrors: [
+    "ClerkJS: Token refresh failed",
+    "Converting circular structure to JSON",
+  ],
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
