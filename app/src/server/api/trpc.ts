@@ -19,7 +19,7 @@
 import { drizzleDB } from "@/server/db";
 import * as Sentry from "@sentry/node";
 import { initTRPC, TRPCError } from "@trpc/server";
-import { getAuth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { ZodError } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
@@ -42,8 +42,8 @@ export const createAppTRPCContext = (opts: {
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
 }) => {
-  const { req, readHeaders } = opts;
-  const sesh = getAuth(req);
+  const { readHeaders } = opts;
+  const sesh = auth();
   const userId = sesh.userId;
   // Get IP
   const ip = readHeaders.get("x-forwarded-for") || undefined;
@@ -142,8 +142,9 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx, path, getRawInput, next }
   // Check that the user is authed
   if (!ctx.userId) {
     const rawInput = await getRawInput();
+    const sesh = auth();
     throw new TRPCError({
-      message: `Path: ${path}. Data: ${JSON.stringify(rawInput)}`,
+      message: `Path: ${path}. Data: ${JSON.stringify(rawInput)}. Auth: ${JSON.stringify(sesh)}`,
       code: "UNAUTHORIZED",
       cause: rawInput,
     });
