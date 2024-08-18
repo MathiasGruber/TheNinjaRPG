@@ -8,8 +8,8 @@ import type { FederalStatus } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 
 export const getUserFederalStatus = (user: UserData) => {
-  if (user.federalStatus !== "GOLD" && user.role !== "USER") {
-    return "SILVER";
+  if (user.role !== "USER") {
+    return "GOLD";
   } else {
     return user.federalStatus;
   }
