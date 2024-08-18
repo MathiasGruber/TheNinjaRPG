@@ -51,7 +51,8 @@ export const useInfinitePagination = ({
       }
     };
     if (hasNextPage) {
-      fetchData().catch(() => {
+      fetchData().catch((error) => {
+        console.error(error);
         showMutationToast({
           success: false,
           title: "Error fetching batch",
