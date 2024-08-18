@@ -135,11 +135,11 @@ dependencies:
     specifier: ^16.1.4
     version: 16.1.4
   drizzle-orm:
-    specifier: 0.31.2
-    version: 0.31.2(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0)
+    specifier: 0.33.0
+    version: 0.33.0(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0)
   drizzle-zod:
     specifier: 0.5.1
-    version: 0.5.1(drizzle-orm@0.31.2)(zod@3.22.4)
+    version: 0.5.1(drizzle-orm@0.33.0)(zod@3.22.4)
   emoji-picker-react:
     specifier: ^4.9.2
     version: 4.9.2(react@18.2.0)
@@ -4684,8 +4684,8 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.31.2(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0):
-    resolution: {integrity: sha512-QnenevbnnAzmbNzQwbhklvIYrDE8YER8K7kSrAWQSV1YvFCdSQPzj+jzqRdTSsV2cDqSpQ0NXGyL1G9I43LDLg==}
+  /drizzle-orm@0.33.0(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0):
+    resolution: {integrity: sha512-SHy72R2Rdkz0LEq0PSG/IdvnT3nGiWuRk+2tXZQ90GVq/XQhpCzu/EFT3V2rox+w8MlkBQxifF8pCStNYnERfA==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=3'
@@ -4695,6 +4695,7 @@ packages:
       '@op-engineering/op-sqlite': '>=2'
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1'
+      '@prisma/client': '*'
       '@tidbcloud/serverless': '*'
       '@types/better-sqlite3': '*'
       '@types/pg': '*'
@@ -4710,6 +4711,7 @@ packages:
       mysql2: '>=2'
       pg: '>=8'
       postgres: '>=3'
+      prisma: '*'
       react: '>=18'
       sql.js: '>=1'
       sqlite3: '>=5'
@@ -4729,6 +4731,8 @@ packages:
       '@opentelemetry/api':
         optional: true
       '@planetscale/database':
+        optional: true
+      '@prisma/client':
         optional: true
       '@tidbcloud/serverless':
         optional: true
@@ -4760,6 +4764,8 @@ packages:
         optional: true
       postgres:
         optional: true
+      prisma:
+        optional: true
       react:
         optional: true
       sql.js:
@@ -4774,13 +4780,13 @@ packages:
       react: 18.2.0
     dev: false
 
-  /drizzle-zod@0.5.1(drizzle-orm@0.31.2)(zod@3.22.4):
+  /drizzle-zod@0.5.1(drizzle-orm@0.33.0)(zod@3.22.4):
     resolution: {integrity: sha512-C/8bvzUH/zSnVfwdSibOgFjLhtDtbKYmkbPbUCq46QZyZCH6kODIMSOgZ8R7rVjoI+tCj3k06MRJMDqsIeoS4A==}
     peerDependencies:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
-      drizzle-orm: 0.31.2(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0)
+      drizzle-orm: 0.33.0(@opentelemetry/api@1.9.0)(@planetscale/database@1.16.0)(@types/react@18.2.48)(mysql2@3.10.1)(react@18.2.0)
       zod: 3.22.4
     dev: false
 

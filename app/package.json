@@ -58,7 +58,7 @@
     "date-fns": "^3.6.0",
     "deep-object-diff": "^1.1.9",
     "dotenv": "^16.1.4",
-    "drizzle-orm": "0.31.2",
+    "drizzle-orm": "0.33.0",
     "drizzle-zod": "0.5.1",
     "emoji-picker-react": "^4.9.2",
     "honeycomb-grid": "4.1.5",
