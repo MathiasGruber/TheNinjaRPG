@@ -141,7 +141,7 @@ export const combatRouter = createTRPCRouter({
           return { battle: newMaskedBattle, result: result };
         } catch (e) {
           // If any of the above fails, retry the whole procedure
-          if (e instanceof Error) e.message += ` (Attempt ${attempts})`;
+          if (e instanceof Error && e.message) e.message += ` (Attempt ${attempts})`;
           if (attempts > 2) throw e;
         }
       }
