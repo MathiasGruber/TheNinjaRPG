@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, or, gte, like, inArray } from "drizzle-orm";
+import { eq, sql, and, or, gte, like, inArray, isNull } from "drizzle-orm";
+import { getTableColumns } from "drizzle-orm";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -543,7 +544,7 @@ export const clanRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchClan(ctx.drizzle, input.challengerClanId),
         fetchClan(ctx.drizzle, input.targetClanId),
-        fetchUserClanBattles(ctx.drizzle, ctx.userId),
+        fetchActiveUserClanBattles(ctx.drizzle, ctx.userId),
       ]);
       // Derived
       const isLeader = challenger?.leaderId === user.userId;
@@ -601,7 +602,7 @@ export const clanRouter = createTRPCRouter({
       const [user, clanBattleData, queries] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchClanBattle(ctx.drizzle, input.clanBattleId),
-        fetchUserClanBattles(ctx.drizzle, ctx.userId),
+        fetchActiveUserClanBattles(ctx.drizzle, ctx.userId),
       ]);
       // Guards
       if (!user) return errorResponse("User not found");
@@ -925,6 +926,7 @@ export const fetchClanBattles = async (client: DrizzleClient, clanId: string) =>
       clan1: { columns: { id: true, name: true, image: true } },
       clan2: { columns: { id: true, name: true, image: true } },
     },
+    orderBy: (mpvpBattleQueue, { desc }) => [desc(mpvpBattleQueue.createdAt)],
   });
 };
 
@@ -934,7 +936,21 @@ export const fetchClanBattles = async (client: DrizzleClient, clanId: string) =>
  * @param userId - The ID of the user.
  * @returns - A promise that resolves to an array of clan battle queue items.
  */
-export const fetchUserClanBattles = async (client: DrizzleClient, userId: string) => {
+export const fetchActiveUserClanBattles = async (
+  client: DrizzleClient,
+  userId: string,
+) => {
+  return await client
+    .select(getTableColumns(mpvpBattleUser))
+    .from(mpvpBattleUser)
+    .innerJoin(
+      mpvpBattleQueue,
+      and(
+        eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
+        isNull(mpvpBattleQueue.winnerId),
+      ),
+    )
+    .where(eq(mpvpBattleUser.userId, userId));
   return await client.query.mpvpBattleUser.findMany({
     where: eq(mpvpBattleUser.userId, userId),
   });

@@ -47,6 +47,8 @@ import { clanRenameSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { secondsFromDate } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { useLocalStorage } from "@/hooks/localstorage";
+import { cn } from "src/libs/shadui";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -307,11 +309,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     const canJoin = clan.id === userClanId;
     const crewLength = Math.max(6, queue.length);
     const empties = Array(crewLength - queue.length).fill(null);
-    const border = winnerId
-      ? clan.id === winnerId
-        ? "border-green-500 border-2"
-        : "border-red-500 border-2"
-      : "";
+    const hasWinner = !!winnerId;
+    const border = hasWinner ? "grayscale border-2" : "";
     return (
       <div className="flex flex-row">
         <div className="w-20 text-center">
@@ -320,7 +319,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
             href={clan.image}
             alt={clan.name}
             size={100}
-            hover_effect={true}
+            hover_effect={!hasWinner}
             priority
           />
           {clan.name}
@@ -335,7 +334,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                     href={q.user.avatar}
                     alt={q.user.username}
                     size={50}
-                    hover_effect={true}
+                    hover_effect={!hasWinner}
                     priority
                   />
                 </PopoverTrigger>
@@ -347,21 +346,24 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                         Lvl. {q.user.level} {capitalizeFirstLetter(q.user.rank)}
                       </p>
                     </div>
-                    {userData && canCreate && userData.clanId === clan.id && (
-                      <Button
-                        className="w-full"
-                        onClick={() =>
-                          kick({
-                            clanBattleId: battleId,
-                            targetId: q.userId,
-                            clanId: clan.id,
-                          })
-                        }
-                      >
-                        <DoorOpen className="mr-2 h-5 w-5" />
-                        Kick
-                      </Button>
-                    )}
+                    {userData &&
+                      canCreate &&
+                      !hasWinner &&
+                      userData.clanId === clan.id && (
+                        <Button
+                          className="w-full"
+                          onClick={() =>
+                            kick({
+                              clanBattleId: battleId,
+                              targetId: q.userId,
+                              clanId: clan.id,
+                            })
+                          }
+                        >
+                          <DoorOpen className="mr-2 h-5 w-5" />
+                          Kick
+                        </Button>
+                      )}
                   </div>
                 </PopoverContent>
               </Popover>
@@ -370,7 +372,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
           {empties.map((_, i) => (
             <div className="flex flex-row items-center w-10" key={i}>
               <div
-                className={`rounded-2xl border-2 border-black aspect-square w-5/6 flex flex-row items-center justify-center font-bold bg-slate-100 opacity-50 ${canJoin ? "hover:opacity-100 hover:cursor-pointer hover:border-orange-500 hover:bg-orange-100" : ""}`}
+                className={`rounded-2xl border-2 border-black aspect-square w-5/6 flex flex-row items-center justify-center font-bold bg-slate-100 opacity-50 ${canJoin && !hasWinner ? "hover:opacity-100 hover:cursor-pointer hover:border-orange-500 hover:bg-orange-100" : ""}`}
                 onClick={() => canJoin && join({ clanBattleId: battleId })}
               >
                 ?
@@ -435,10 +437,16 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
             inBattle &&
             !hasStarted && (
               <>
-                <Button onClick={() => initiate({ clanBattleId: battle.id })}>
+                <Button
+                  className="w-full"
+                  onClick={() => initiate({ clanBattleId: battle.id })}
+                >
                   <CirclePlay className="h-6 w-6 mr-2" /> Start
                 </Button>
-                <Button onClick={() => leave({ clanBattleId: battle.id })}>
+                <Button
+                  className="w-full"
+                  onClick={() => leave({ clanBattleId: battle.id })}
+                >
                   <DoorOpen className="h-6 w-6 mr-2" /> Leave
                 </Button>
               </>
@@ -446,23 +454,24 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
           )}
           {hasStarted && (
             <Link href={`/battlelog/${battle.battleId}`}>
-              <Button>
-                <ScanEye className="h-6 w-6 mr-2" /> View
+              <Button className={cn(hasConcluded ? "grayscale" : "", "w-full")}>
+                <ScanEye className="h-6 w-6 mr-2" />{" "}
+                {hasConcluded ? "Review" : "Spectate"}
               </Button>
             </Link>
           )}
           {hasConcluded && (
-            <p>
+            <div>
               {battle.winnerId === clanId ? (
-                <Badge className="bg-green-600">
+                <Badge className="bg-green-600 w-full">
                   <Medal className="h-6 w-6 mr-2" /> Victory
                 </Badge>
               ) : (
-                <Badge className="bg-red-600">
+                <Badge className="bg-red-600 w-full">
                   <HeartCrack className="h-6 w-6 mr-2" /> Defeat
                 </Badge>
               )}
-            </p>
+            </div>
           )}
           <Countdown targetDate={startTime} timeDiff={timeDiff} onEndShow=" " />
         </div>
@@ -1140,7 +1149,8 @@ interface ClanProfileProps {
 }
 
 export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
-  // Destructure
+  // Destructure & state
+  const [showActive, setShowActive] = useLocalStorage<string>("clanPageTab", "orders");
   const { userData } = useRequireInVillage("/clanhall");
   const { clanId, back_href } = props;
 
@@ -1163,8 +1173,9 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
       <ClanInfo back_href={back_href} clanData={clanData} />
       <div className="w-full pt-2">
         <Tabs
-          defaultValue="orders"
+          defaultValue={showActive}
           className="flex flex-col items-center justify-center"
+          onValueChange={(value) => setShowActive(value)}
         >
           <TabsList className="text-center">
             <TabsTrigger value="orders">Orders</TabsTrigger>
