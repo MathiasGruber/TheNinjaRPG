@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { and, eq, sql, asc, isNotNull } from "drizzle-orm";
-import { userJutsu, userItem, userData } from "@/drizzle/schema";
+import { userJutsu, userItem, userData, bloodline } from "@/drizzle/schema";
 import { dataBattleAction, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, publicProcedure, serverError } from "../trpc";
 import { fetchJutsu } from "./jutsu";
@@ -10,6 +10,31 @@ import { fetchUser } from "./profile";
 import { BattleTypes } from "@/drizzle/constants";
 
 export const dataRouter = createTRPCRouter({
+  getBloodlineBalanceStatistics: publicProcedure
+    .input(z.object({ battleType: z.enum(BattleTypes) }))
+    .query(async ({ ctx, input }) => {
+      const usage = await ctx.drizzle
+        .select({
+          name: bloodline.name,
+          battleWon: dataBattleAction.battleWon,
+          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+        })
+        .from(dataBattleAction)
+        .leftJoin(bloodline, eq(dataBattleAction.contentId, bloodline.id))
+        .groupBy(
+          bloodline.name,
+          dataBattleAction.battleWon,
+          dataBattleAction.battleType,
+        )
+        .where(
+          and(
+            eq(dataBattleAction.type, "bloodline"),
+            isNotNull(bloodline.name),
+            eq(dataBattleAction.battleType, input.battleType),
+          ),
+        );
+      return usage;
+    }),
   getJutsuBalanceStatistics: publicProcedure
     .input(z.object({ battleType: z.enum(BattleTypes) }))
     .query(async ({ ctx, input }) => {

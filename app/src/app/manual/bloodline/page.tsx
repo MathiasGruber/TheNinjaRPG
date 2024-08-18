@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import { Button } from "@/components/ui/button";
-import { FilePlus, SquarePen } from "lucide-react";
+import { FilePlus, SquarePen, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -64,7 +65,19 @@ export default function ManualBloodlines() {
 
   return (
     <>
-      <ContentBox title="Bloodlines" subtitle="What are they?" back_href="/manual">
+      <ContentBox
+        title="Bloodlines"
+        subtitle="What are they?"
+        back_href="/manual"
+        topRightContent={
+          <Link href="/manual/bloodline/balance">
+            <Button id="bloodline-statistics">
+              <Presentation className="mr-2 h-6 w-6" />
+              Balance Statistics
+            </Button>
+          </Link>
+        }
+      >
         <p>
           Bloodlines are anomalies of the DNA that allow the wielders unique abilities,
           e.g. enhanced chakra control, enhanced stamina, regenerative effects, improved
