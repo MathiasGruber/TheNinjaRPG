@@ -142,9 +142,8 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx, path, getRawInput, next }
   // Check that the user is authed
   if (!ctx.userId) {
     const rawInput = await getRawInput();
-    const sesh = auth();
     throw new TRPCError({
-      message: `Path: ${path}. Data: ${JSON.stringify(rawInput)}. Auth: ${JSON.stringify(sesh)}`,
+      message: `Unauthorized endpoint. Path: ${path}. Data: ${JSON.stringify(rawInput)}`,
       code: "UNAUTHORIZED",
       cause: rawInput,
     });
