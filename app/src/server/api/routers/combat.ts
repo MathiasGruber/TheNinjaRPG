@@ -251,7 +251,8 @@ export const combatRouter = createTRPCRouter({
             /* PERFORM USER ACTION */
             const actions = availableUserActions(newBattle, suid, true, true);
             const action = actions.find((a) => a.id === input.actionId);
-            if (!action) throw serverError("CONFLICT", `Invalid action`);
+            if (!action)
+              throw serverError("CONFLICT", `Invalid action: ${input.actionId}`);
             if (AutoBattleTypes.includes(battle.battleType)) {
               throw serverError("FORBIDDEN", `Cheater`);
             }
