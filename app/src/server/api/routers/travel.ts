@@ -29,7 +29,7 @@ export const travelRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.sector !== input.sector) {
-        throw serverError("FORBIDDEN", `You are not in sector ${input.sector}`);
+        throw serverError("FORBIDDEN", `In sector ${user.sector}, not ${input.sector}`);
       }
       const [users, villageData] = await Promise.all([
         ctx.drizzle.query.userData.findMany({
