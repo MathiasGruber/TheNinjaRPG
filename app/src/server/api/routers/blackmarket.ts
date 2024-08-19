@@ -125,6 +125,7 @@ export const blackMarketRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
       // Guard
+      return errorResponse("Temp disable");
       if (!offer) return errorResponse("Offer not found");
       if (offer.purchaserUserId) return errorResponse("Offer already taken");
       if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
