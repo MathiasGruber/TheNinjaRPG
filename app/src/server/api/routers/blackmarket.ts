@@ -130,34 +130,33 @@ export const blackMarketRouter = createTRPCRouter({
       if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
       if (user.money < offer.requestedRyo) return errorResponse("Not enough ryo");
       // Mutate
-      return errorResponse("Temp disable");
-      // const result = await ctx.drizzle
-      //   .update(userData)
-      //   .set({
-      //     money: sql`${userData.money} - ${offer.requestedRyo}`,
-      //     reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-      //   })
-      //   .where(
-      //     and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
-      //   );
-      // if (result.rowsAffected === 0) {
-      //   return errorResponse("Not enough ryo");
-      // }
-      // await Promise.all([
-      //   ctx.drizzle
-      //     .update(userData)
-      //     .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
-      //     .where(eq(userData.userId, offer.creatorUserId)),
-      //   ctx.drizzle
-      //     .update(ryoTrade)
-      //     .set({ purchaserUserId: ctx.userId })
-      //     .where(eq(ryoTrade.id, input.offerId)),
-      // ]);
-      // // Response
-      // return {
-      //   success: true,
-      //   message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
-      // };
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: sql`${userData.money} - ${offer.requestedRyo}`,
+          reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+        })
+        .where(
+          and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Not enough ryo");
+      }
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+          .where(eq(userData.userId, offer.creatorUserId)),
+        ctx.drizzle
+          .update(ryoTrade)
+          .set({ purchaserUserId: ctx.userId })
+          .where(eq(ryoTrade.id, input.offerId)),
+      ]);
+      // Response
+      return {
+        success: true,
+        message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
+      };
     }),
   // Update custom title
   updateCustomTitle: protectedProcedure

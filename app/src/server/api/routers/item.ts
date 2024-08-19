@@ -486,8 +486,6 @@ export const itemRouter = createTRPCRouter({
           }
         });
       }
-
-      return errorResponse("Temp disable");
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
