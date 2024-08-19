@@ -607,6 +607,7 @@ export const clanRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (!clanBattleData) return errorResponse("Clan battle not found");
+      if (clanBattleData.battleId) return errorResponse("Clan battle already started");
       if (!user.clanId) return errorResponse("Not in a clan");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to join");
       if (queries.length > 0) return errorResponse("Already in queue");
