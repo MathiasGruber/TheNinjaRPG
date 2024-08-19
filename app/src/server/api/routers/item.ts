@@ -464,7 +464,6 @@ export const itemRouter = createTRPCRouter({
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const factor = (100 - sDiscount - aDiscount) / 100;
       // Guard
-      return errorResponse("Temp disable");
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
@@ -488,6 +487,7 @@ export const itemRouter = createTRPCRouter({
         });
       }
 
+      return errorResponse("Temp disable");
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
