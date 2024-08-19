@@ -20,7 +20,7 @@ export async function GET() {
   // Check timer
   const frequency = 24;
   const response = await checkGameTimer(drizzleDB, frequency);
-  // if (response) return response;
+  if (response) return response;
 
   // Query
   const villages = await drizzleDB.query.village.findMany({
