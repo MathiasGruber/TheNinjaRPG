@@ -685,8 +685,8 @@ class OrbitControls extends EventDispatcher {
     function handleTouchMoveDolly(event) {
       const position = getSecondPointerPosition(event);
 
-      const dx = event.pageX - position.x;
-      const dy = event.pageY - position.y;
+      const dx = position ? event.pageX - position.x : 0;
+      const dy = position ? event.pageY - position.y : 0;
 
       const distance = Math.sqrt(dx * dx + dy * dy);
 
