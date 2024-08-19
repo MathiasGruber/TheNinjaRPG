@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { structureBoost } from "@/utils/village";
+import { structureBoost, calcBankInterest } from "@/utils/village";
 import {
   Form,
   FormControl,
@@ -38,7 +38,8 @@ export default function Bank() {
   const bank = userData?.bank ?? 0;
 
   // Current interest
-  const interest = structureBoost("bankInterestPerLvl", userData?.village?.structures);
+  const boost = structureBoost("bankInterestPerLvl", userData?.village?.structures);
+  const interest = calcBankInterest(boost);
 
   // tRPC utils
   const utils = api.useUtils();

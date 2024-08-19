@@ -28,6 +28,7 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { hasRequiredRank } from "@/libs/train";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
+import { calcBankInterest } from "@/utils/village";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
 
@@ -359,7 +360,9 @@ const StructureRewardEntries = (structure: VillageStructure) => {
       msgs.push(`Arena Rewards: +${structure.arenaRewardPerLvl * level}%`);
     }
     if (structure.bankInterestPerLvl > 0) {
-      msgs.push(`Bank Interest: +${structure.bankInterestPerLvl * level}%`);
+      msgs.push(
+        `Bank Interest: +${calcBankInterest(structure.bankInterestPerLvl * level)}%`,
+      );
     }
     if (structure.blackDiscountPerLvl > 0) {
       msgs.push(`Market discount: ${structure.blackDiscountPerLvl * level}%`);

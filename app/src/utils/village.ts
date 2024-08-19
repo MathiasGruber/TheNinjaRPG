@@ -69,6 +69,18 @@ export const structureBoost = (
 };
 
 /**
+ * Calculates the bank interest rate based on the boost value. Boost value is
+ * the sum of all bank interest boosts from village structures multiplied by the
+ * level of the structure.
+ *
+ * @param boost - The boost value to calculate the interest rate.
+ * @returns The calculated bank interest rate.
+ */
+export const calcBankInterest = (boost: number) => {
+  return boost > 1 ? 1 + (boost - 1) * 0.1 : 1;
+};
+
+/**
  * Calculates the cost of upgrading a village structure.
  *
  * @param structure - The village structure to upgrade.

@@ -10,6 +10,7 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { upsertQuestEntries } from "@/routers/quests";
 import { structureBoost } from "@/utils/village";
+import { calcBankInterest } from "@/utils/village";
 import { RYO_CAP } from "@/drizzle/constants";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
@@ -19,7 +20,7 @@ export async function GET() {
   // Check timer
   const frequency = 24;
   const response = await checkGameTimer(drizzleDB, frequency);
-  if (response) return response;
+  // if (response) return response;
 
   // Query
   const villages = await drizzleDB.query.village.findMany({
@@ -30,12 +31,17 @@ export async function GET() {
     // STEP 1: Bank interest for each village
     await Promise.all(
       villages.map((village) => {
-        const interest = structureBoost("bankInterestPerLvl", village.structures);
-        const factor = 1 + interest / 100;
+        const boost = structureBoost("bankInterestPerLvl", village.structures);
+        const factor = 1 + calcBankInterest(boost) / 100;
+        const factorNormal = factor + FED_NORMAL_BANK_INTEREST / 100;
+        const factorSilver = factor + FED_SILVER_BANK_INTEREST / 100;
+        const factorGold = factor + FED_GOLD_BANK_INTEREST / 100;
         return Promise.all([
           drizzleDB
             .update(userData)
-            .set({ bank: sql`${userData.bank} * ${factor}` })
+            .set({
+              bank: sql`${userData.bank} + LEAST(${userData.bank} * ${factor} - ${userData.bank}, 1000000)`,
+            })
             .where(
               and(
                 eq(userData.villageId, village.id),
@@ -46,7 +52,7 @@ export async function GET() {
           drizzleDB
             .update(userData)
             .set({
-              bank: sql`${userData.bank} * ${factor + FED_NORMAL_BANK_INTEREST / 100}`,
+              bank: sql`${userData.bank} + LEAST(${userData.bank} * ${factorNormal} - ${userData.bank}, 1000000)`,
             })
             .where(
               and(
@@ -58,7 +64,7 @@ export async function GET() {
           drizzleDB
             .update(userData)
             .set({
-              bank: sql`${userData.bank} * ${factor + FED_SILVER_BANK_INTEREST / 100}`,
+              bank: sql`${userData.bank} + LEAST(${userData.bank} * ${factorSilver} - ${userData.bank}, 1000000)`,
             })
             .where(
               and(
@@ -70,7 +76,7 @@ export async function GET() {
           drizzleDB
             .update(userData)
             .set({
-              bank: sql`${userData.bank} * ${factor + FED_GOLD_BANK_INTEREST / 100}`,
+              bank: sql`${userData.bank} + LEAST(${userData.bank} * ${factorGold} - ${userData.bank}, 1000000)`,
             })
             .where(
               and(
