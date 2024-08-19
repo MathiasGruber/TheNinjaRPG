@@ -4,14 +4,17 @@ import { ChevronsDown } from "lucide-react";
 interface AccordionProps {
   title: string;
   selectedTitle: string;
-  unselectedSubtitle: string;
+  titlePrefix?: string;
+  unselectedSubtitle?: string | React.ReactNode;
   selectedSubtitle?: string | React.ReactNode;
   children: string | React.ReactNode;
   onClick: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const Accordion: React.FC<AccordionProps> = (props) => {
-  const { title, unselectedSubtitle, selectedSubtitle, children, onClick } = props;
+  const { title, titlePrefix } = props;
+  const { unselectedSubtitle, selectedSubtitle, children, onClick } = props;
+
   const active = title === props.selectedTitle;
   return (
     <div
@@ -22,9 +25,13 @@ const Accordion: React.FC<AccordionProps> = (props) => {
     >
       <div className="flex flex-row items-center">
         <div>
-          <h2 className="font-bold mt-2">{title}</h2>
+          <h2 className="font-bold mt-2">
+            {titlePrefix}
+            {title}
+          </h2>
           <div className="italic">
-            {active && selectedSubtitle ? selectedSubtitle : unselectedSubtitle}
+            {active && selectedSubtitle}
+            {!active && unselectedSubtitle}
           </div>
         </div>
         <div className="grow"></div>

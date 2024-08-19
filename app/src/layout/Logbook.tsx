@@ -83,7 +83,7 @@ const LogbookActive: React.FC = () => {
               <Accordion
                 title={uq.quest.name}
                 selectedTitle={activeElement}
-                unselectedSubtitle={`Active ${capitalizeFirstLetter(uq.quest.questType)}`}
+                titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
                 onClick={setActiveElement}
               >
                 <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />

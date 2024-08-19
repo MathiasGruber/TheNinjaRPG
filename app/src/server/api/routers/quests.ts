@@ -255,8 +255,11 @@ export const questsRouter = createTRPCRouter({
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
       }
-      if (user.userQuests?.find((q) => q.quest.questType === "event" && !q.endAt)) {
-        return errorResponse(`Already active event quest`);
+      const current = user.userQuests?.filter(
+        (q) => q.quest.questType === "event" && !q.endAt,
+      );
+      if (current && current.length >= 4) {
+        return errorResponse(`Already 4 active event quests`);
       }
       if (prevAttempt && (prevAttempt.previousAttempts > 1 || prevAttempt.completed)) {
         return errorResponse(`You have already attempted this quest`);

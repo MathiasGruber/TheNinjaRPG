@@ -37,11 +37,12 @@ export interface ItemWithEffectsProps {
   imageExtra?: React.ReactNode;
   showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
+  hideTitle?: boolean;
   onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, showStatistic, onDelete } = props;
+  const { item, showEdit, showStatistic, hideTitle, onDelete } = props;
   const { data: userData } = useUserData();
 
   // Extract effects if they exist
@@ -109,9 +110,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
         <div className="flex flex-row">
           <div className="relative block md:hidden md:basis-1/3">{image}</div>
           <div className="relative flex basis-full flex-col pl-5 md:pl-0">
-            <h3 className="text-xl font-bold tracking-tight text-popover-foreground">
-              {item.name}
-            </h3>
+            {!hideTitle ? (
+              <h3 className="text-xl font-bold tracking-tight text-popover-foreground">
+                {item.name}
+              </h3>
+            ) : (
+              <br />
+            )}
             <div className="flex flex-row gap-2">
               {item.createdAt && (
                 <div>
@@ -361,7 +366,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
           {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>
               <p className="font-bold">Objectives</p>
-              <div className="flex flex-row gap-3 p-2">
+              <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
                 {objectives.map((objective, i) => {
                   const { image, title } = getObjectiveImage(objective);
                   return (

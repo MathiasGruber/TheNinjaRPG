@@ -1,29 +1,26 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
 import Image from "next/image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import Accordion from "@/layout/Accordion";
 import { LogbookEntry } from "@/layout/Logbook";
 import { Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function AdministrationBuilding() {
   const util = api.useUtils();
 
+  const [activeElement, setActiveElement] = useState<string>("");
   const { userData, access } = useRequireInVillage("/adminbuilding");
-
-  const currentQuest = userData?.userQuests?.find(
-    (q) => ["event"].includes(q.quest.questType) && !q.endAt,
-  );
-  const currentTracker = userData?.questData?.find(
-    (q) => q.id === currentQuest?.questId,
-  );
 
   // Query
   const { data: hallData } = api.quests.allianceBuilding.useQuery(
@@ -35,6 +32,7 @@ export default function AdministrationBuilding() {
     { enabled: !!userData, staleTime: Infinity },
   );
 
+  // Mutations
   const { mutate: startQuest, isPending } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -42,6 +40,20 @@ export default function AdministrationBuilding() {
     },
   });
 
+  // Default active tab
+  useEffect(() => {
+    if (userData && !activeElement) {
+      const currentQuest = userData?.userQuests?.find((uq) =>
+        ["event"].includes(uq.quest.questType),
+      );
+      if (currentQuest) {
+        setActiveElement(currentQuest.quest.name);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData]);
+
+  // Guard
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Hall" />;
   if (userData.isBanned) return <BanInfo />;
@@ -73,33 +85,54 @@ export default function AdministrationBuilding() {
         in your noble pursuits.
       </p>
       {isPending && <Loader explanation="Accepting..." />}
-      {currentQuest && currentTracker && (
-        <div className="p-3">
-          <LogbookEntry userQuest={currentQuest} tracker={currentTracker} />
-        </div>
-      )}
-      {!currentQuest && !isPending && (
-        <div className="p-3">
+      {!isPending && (
+        <div className="mt-3 bg-popover">
           {hallData?.length === 0 && (
             <p className="font-bold">No current quests for you</p>
           )}
-          {hallData?.map((quest, i) => (
-            <div key={i}>
-              <ItemWithEffects
-                item={quest}
-                showEdit="quest"
-                imageExtra={
-                  <Button
-                    className="mt-2"
-                    onClick={() => startQuest({ questId: quest.id })}
-                  >
-                    <Gamepad2 className="mr-1 h-6 w-6" />
-                    Take Quest
-                  </Button>
-                }
-              />
-            </div>
-          ))}
+          {hallData?.map((quest, i) => {
+            const currentQuest = userData?.userQuests?.find(
+              (uq) => uq.quest.id === quest.id && !uq.endAt,
+            );
+            const currentTracker = userData?.questData?.find((q) => q.id === quest.id);
+            const active = currentQuest && currentTracker;
+
+            return (
+              <div key={i}>
+                <Accordion
+                  title={quest.name}
+                  selectedTitle={activeElement}
+                  titlePrefix={`${active ? "Active" : "Available"}: `}
+                  onClick={setActiveElement}
+                >
+                  {active ? (
+                    <div className="p-3">
+                      <LogbookEntry
+                        userQuest={currentQuest}
+                        tracker={currentTracker}
+                        hideTitle
+                      />
+                    </div>
+                  ) : (
+                    <ItemWithEffects
+                      item={quest}
+                      showEdit="quest"
+                      imageExtra={
+                        <Button
+                          className="mt-2"
+                          onClick={() => startQuest({ questId: quest.id })}
+                        >
+                          <Gamepad2 className="mr-1 h-6 w-6" />
+                          Take Quest
+                        </Button>
+                      }
+                      hideTitle
+                    />
+                  )}
+                </Accordion>
+              </div>
+            );
+          })}
         </div>
       )}
     </ContentBox>
