@@ -5,6 +5,10 @@
       "schedule": "0 0 * * *"
     },
     {
+      "path": "/api/transactions",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cleaner",
       "schedule": "*/10 * * * *"
     },

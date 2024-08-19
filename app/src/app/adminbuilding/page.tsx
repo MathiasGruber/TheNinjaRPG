@@ -12,7 +12,6 @@ import { Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
-import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 

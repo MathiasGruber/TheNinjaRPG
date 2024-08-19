@@ -15,8 +15,18 @@ import { RYO_CAP } from "@/drizzle/constants";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
+import { cookies } from "next/headers";
 
+/**
+ * DANGER ZONE
+ * This function is responsible for the daily update of the game state.
+ * It is a critical function that should be handled with care!!!
+ * @returns
+ */
 export async function GET() {
+  // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
+  cookies();
+
   // Check timer
   const frequency = 24;
   const response = await checkGameTimer(drizzleDB, frequency);
