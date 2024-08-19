@@ -24,53 +24,48 @@ const pusher = getServerPusher();
 
 export const travelRouter = createTRPCRouter({
   // Get users within a given sector
-  getSectorData: protectedProcedure
-    .input(z.object({ sector: z.number().int() }))
-    .query(async ({ input, ctx }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.sector !== input.sector) {
-        throw serverError("FORBIDDEN", `In sector ${user.sector}, not ${input.sector}`);
-      }
-      const [users, villageData] = await Promise.all([
-        ctx.drizzle.query.userData.findMany({
-          columns: {
-            userId: true,
-            username: true,
-            longitude: true,
-            latitude: true,
-            location: true,
-            curHealth: true,
-            maxHealth: true,
-            sector: true,
-            status: true,
-            avatar: true,
-            level: true,
-            rank: true,
-            isOutlaw: true,
-            immunityUntil: true,
-            updatedAt: true,
-            villageId: true,
-            battleId: true,
-          },
-          where: and(
-            eq(userData.sector, input.sector),
-            inArray(userData.status, ["AWAKE", "BATTLE"]),
-            or(
-              gte(userData.updatedAt, secondsFromNow(-36000)),
-              eq(userData.userId, ctx.userId),
-            ),
+  getSectorData: protectedProcedure.query(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    const [users, villageData] = await Promise.all([
+      ctx.drizzle.query.userData.findMany({
+        columns: {
+          userId: true,
+          username: true,
+          longitude: true,
+          latitude: true,
+          location: true,
+          curHealth: true,
+          maxHealth: true,
+          sector: true,
+          status: true,
+          avatar: true,
+          level: true,
+          rank: true,
+          isOutlaw: true,
+          immunityUntil: true,
+          updatedAt: true,
+          villageId: true,
+          battleId: true,
+        },
+        where: and(
+          eq(userData.sector, user.sector),
+          inArray(userData.status, ["AWAKE", "BATTLE"]),
+          or(
+            gte(userData.updatedAt, secondsFromNow(-36000)),
+            eq(userData.userId, ctx.userId),
           ),
-        }),
-        ctx.drizzle.query.village.findFirst({
-          where: and(
-            eq(village.sector, input.sector),
-            inArray(village.type, ["VILLAGE", "SAFEZONE"]),
-          ),
-          with: { structures: true },
-        }),
-      ]);
-      return { users, village: villageData };
-    }),
+        ),
+      }),
+      ctx.drizzle.query.village.findFirst({
+        where: and(
+          eq(village.sector, user.sector),
+          inArray(village.type, ["VILLAGE", "SAFEZONE"]),
+        ),
+        with: { structures: true },
+      }),
+    ]);
+    return { users, village: villageData };
+  }),
   // Get village & alliance information for a given sector
   getVillageInSector: protectedProcedure
     .input(z.object({ sector: z.number().int(), isOutlaw: z.boolean().default(false) }))
