@@ -12,6 +12,7 @@ Sentry.init({
 
   // Which errors to ignore from frontend
   ignoreErrors: [
+    "window.ethereum",
     "ClerkJS: Token refresh failed",
     "Converting circular structure to JSON",
     "Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'",
