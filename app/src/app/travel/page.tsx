@@ -209,8 +209,6 @@ export default function Travel() {
   const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
   const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
 
-  console.log(villages);
-
   return (
     <>
       <ContentBox

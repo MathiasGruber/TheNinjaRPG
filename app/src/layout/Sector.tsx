@@ -73,10 +73,10 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Data from db
   const { data: userData, pusher } = useRequiredUserData();
-  const { data } = api.travel.getSectorData.useQuery(undefined, {
-    enabled: sector !== undefined,
-    staleTime: Infinity,
-  });
+  const { data } = api.travel.getSectorData.useQuery(
+    { sector: sector },
+    { enabled: sector !== undefined, staleTime: Infinity },
+  );
   const villageData = data?.village;
   const fetchedUsers = data?.users;
 
