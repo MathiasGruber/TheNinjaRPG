@@ -1256,6 +1256,8 @@ export const fetchPublicUsers = async (
         return [desc(userData.updatedAt)];
       case "Strongest":
         return [desc(userData.level), desc(userData.experience)];
+      case "PvP":
+        return [desc(userData.pvpStreak), desc(userData.experience)];
       case "Weakest":
         return [asc(userData.level), asc(userData.experience)];
       case "Staff":
@@ -1291,6 +1293,7 @@ export const fetchPublicUsers = async (
         updatedAt: true,
         reputationPointsTotal: true,
         lastIp: true,
+        pvpStreak: true,
       },
       // If AI, also include relations information
       with: {

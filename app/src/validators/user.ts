@@ -84,7 +84,7 @@ export const getPublicUsersSchema = z.object({
   cursor: z.number().nullish(),
   limit: z.number().min(1).max(100),
   isAi: z.boolean().default(false),
-  orderBy: z.enum(["Online", "Strongest", "Weakest", "Staff"]),
+  orderBy: z.enum(["Online", "Strongest", "Weakest", "PvP", "Staff"]),
   villageId: z.string().optional(),
   username: z
     .string()

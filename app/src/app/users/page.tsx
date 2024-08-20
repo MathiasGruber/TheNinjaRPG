@@ -5,6 +5,7 @@ import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
+import NavTabs from "@/layout/NavTabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,13 +15,6 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { canSeeSecretData } from "@/utils/permissions";
 import { Input } from "@/components/ui/input";
 import { Filter } from "lucide-react";
@@ -33,7 +27,7 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
   const { data: userData } = useUserData();
-  const tabNames = ["Online", "Strongest", "Staff"] as const;
+  const tabNames = ["Online", "Strongest", "PvP", "Staff"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -95,6 +89,8 @@ export default function Users() {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
   } else if (activeTab === "Staff") {
     columns.push({ key: "role", header: "Role", type: "capitalized" });
+  } else if (activeTab === "PvP") {
+    columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
   }
   if (userData && canSeeSecretData(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
@@ -104,51 +100,41 @@ export default function Users() {
 
   return (
     <ContentBox
-      title={`Users (${userCountNow} online)`}
-      subtitle={`${activeTab} users`}
+      title={`Users`}
+      subtitle={`Top ${activeTab}`}
       padding={false}
       topRightContent={
-        <Confirm
-          title="Sorting and Filtering"
-          button={
-            <Button id="create-jutsu">
-              <Filter className="sm:mr-2 h-6 w-6 hover:text-orange-500" />
-              <p className="hidden sm:block">Filter</p>
-            </Button>
-          }
-          onAccept={(e) => {
-            e.preventDefault();
-          }}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Form {...usernameForm}>
-                <Label htmlFor="rank">Username</Label>
-                <FormField
-                  control={usernameForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem className="w-full">
-                      <FormControl>
-                        <Input id="username" placeholder="Search" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </Form>
-            </div>
-            {userData && canSeeSecretData(userData.role) && (
+        <div className="flex flex-row">
+          <NavTabs
+            id="tab"
+            fontSize="text-xs"
+            current={activeTab}
+            options={tabNames}
+            setValue={setActiveTab}
+          />
+          <Confirm
+            title="Sorting and Filtering"
+            button={
+              <Button id="create-jutsu">
+                <Filter className="sm:mr-2 h-6 w-6 hover:text-orange-500" />
+                <p className="hidden sm:block">Filter</p>
+              </Button>
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+            }}
+          >
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Form {...ipForm}>
-                  <Label htmlFor="rank">IP Search</Label>
+                <Form {...usernameForm}>
+                  <Label htmlFor="rank">Username</Label>
                   <FormField
-                    control={ipForm.control}
-                    name="term"
+                    control={usernameForm.control}
+                    name="username"
                     render={({ field }) => (
                       <FormItem className="w-full">
                         <FormControl>
-                          <Input id="term" placeholder="Search" {...field} />
+                          <Input id="username" placeholder="Search" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -156,24 +142,28 @@ export default function Users() {
                   />
                 </Form>
               </div>
-            )}
-            <div>
-              <Label htmlFor="rank">Sorting</Label>
-              <Select onValueChange={(e) => setActiveTab(e as TabName)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={activeTab} />
-                </SelectTrigger>
-                <SelectContent>
-                  {tabNames.map((tab) => (
-                    <SelectItem key={tab} value={tab}>
-                      {tab}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {userData && canSeeSecretData(userData.role) && (
+                <div>
+                  <Form {...ipForm}>
+                    <Label htmlFor="rank">IP Search</Label>
+                    <FormField
+                      control={ipForm.control}
+                      name="term"
+                      render={({ field }) => (
+                        <FormItem className="w-full">
+                          <FormControl>
+                            <Input id="term" placeholder="Search" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </Form>
+                </div>
+              )}
             </div>
-          </div>
-        </Confirm>
+          </Confirm>
+        </div>
       }
     >
       <div className="p-2 grid grid-cols-3 text-center">
