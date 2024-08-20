@@ -448,6 +448,7 @@ export const HealTag = z.object({
   ...PowerAttributes,
   ...PoolAttributes,
   type: z.literal("heal").default("heal"),
+  rounds: z.coerce.number().int().min(0).max(100).default(0),
   description: msg("Heals the target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
