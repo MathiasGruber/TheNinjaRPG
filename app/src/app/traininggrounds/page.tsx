@@ -37,8 +37,10 @@ import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
-import { Handshake } from "lucide-react";
+import { Handshake, UserRoundCheck } from "lucide-react";
 import { SENSEI_RANKS } from "@/drizzle/constants";
+import { USER_CAPS } from "@/drizzle/constants";
+import { cn } from "src/libs/shadui";
 import type { z } from "zod";
 import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
@@ -316,12 +318,12 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
 
   const isPending = isStarting || isStopping || isChaning;
 
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isPending) return <Loader explanation="Processing..." />;
+
   // Convenience definitions
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
   const iconClassName = "w-5 h-5 absolute top-1 right-1 text-blue-500";
-
-  if (!userData) return <Loader explanation="Loading userdata" />;
-  if (isPending) return <Loader explanation="Processing..." />;
 
   return (
     <ContentBox
@@ -340,6 +342,11 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
         {UserStatNames.map((stat, i) => {
           const part = stat.match(/[a-z]+/g)?.[0] as string;
           const label = part.charAt(0).toUpperCase() + part.slice(1);
+          const cap =
+            stat.includes("Offence") || stat.includes("Defence")
+              ? USER_CAPS[userData.rank].STATS_CAP
+              : USER_CAPS[userData.rank].GENS_CAP;
+          const overCap = userData[stat] >= cap;
           const icon = stat.includes("Offence") ? (
             <Swords className={iconClassName} />
           ) : stat.includes("Defence") ? (
@@ -350,17 +357,31 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
           return (
             <div
               key={i}
-              className={trainItemClassName}
-              onClick={() => startTraining({ stat })}
+              onClick={() =>
+                overCap
+                  ? showMutationToast({ success: false, message: "Already capped" })
+                  : startTraining({ stat })
+              }
+              className="relative"
             >
-              <Image
-                src={`/training/${stat}.png`}
-                alt={label}
-                width={256}
-                height={256}
-              />
-              {icon}
-              {label}
+              <div
+                className={cn(
+                  trainItemClassName,
+                  overCap ? "grayscale opacity-50" : "",
+                )}
+              >
+                <Image
+                  src={`/training/${stat}.png`}
+                  alt={label}
+                  width={256}
+                  height={256}
+                />
+                {icon}
+                {label}
+              </div>
+              {overCap && (
+                <UserRoundCheck className="w-10 h-10 text-slate-100 absolute left-[50%] translate-x-[-50%] top-[50%] translate-y-[-50%] hover:cursor-pointer" />
+              )}
             </div>
           );
         })}
