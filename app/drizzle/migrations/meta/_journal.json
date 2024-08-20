@@ -862,6 +862,13 @@
       "when": 1723802526120,
       "tag": "0122_square_bishop",
       "breakpoints": false
+    },
+    {
+      "idx": 123,
+      "version": "5",
+      "when": 1724145712375,
+      "tag": "0123_thick_nightmare",
+      "breakpoints": false
     }
   ]
 }

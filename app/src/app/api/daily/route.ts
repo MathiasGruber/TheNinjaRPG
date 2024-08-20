@@ -109,6 +109,7 @@ export async function GET() {
       villagePrestige: sql`${userData.villagePrestige} + 1`,
       dailyArenaFights: 0,
       dailyMissions: 0,
+      dailyErrands: 0,
       dailyTrainings: 0,
     });
 

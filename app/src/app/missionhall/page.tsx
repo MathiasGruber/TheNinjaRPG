@@ -12,6 +12,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export default function MissionHall() {
   const util = api.useUtils();
@@ -44,12 +45,13 @@ export default function MissionHall() {
   // Derived
   const availableUserRanks = availableQuestLetterRanks(userData.rank);
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
+  const errandsLeft = MISSIONS_PER_DAY - userData.dailyErrands;
   const classifier = userData.isOutlaw ? "crime" : "mission";
 
   return (
     <ContentBox
       title={userData.isOutlaw ? "Crimes Board" : "Mission Hall"}
-      subtitle={`Daily ${classifier}s [${userData.dailyMissions} / ${MISSIONS_PER_DAY}]`}
+      subtitle={`${capitalizeFirstLetter(classifier)}s [${userData.dailyMissions} / ${MISSIONS_PER_DAY}] - Errands [${userData.dailyErrands} / ${MISSIONS_PER_DAY}]`}
       back_href="/village"
       padding={false}
     >
@@ -76,17 +78,18 @@ export default function MissionHall() {
                 (point) => point.type === setting.type && point.rank === setting.rank,
               )?.count ?? 0;
             // Check is user rank is high enough for this quest
-            const isRankAllowed =
-              availableUserRanks.includes(setting.rank) || setting.name === "Errand";
+            const isErrand = setting.type === "errand";
+            const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
             const missionOrCrime = userData?.villageId === "" ? "crime" : "mission";
             const type = setting.type === "errand" ? "errand" : missionOrCrime;
             const completedField = getQuestCounterFieldName(type, setting.rank);
+            const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
             return (
               <div
                 key={i}
                 className={
-                  count === 0 || missionsLeft <= 0 || !isRankAllowed
+                  count === 0 || capped || !isRankAllowed
                     ? "filter grayscale"
                     : "hover:cursor-pointer hover:opacity-30"
                 }

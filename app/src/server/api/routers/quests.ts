@@ -182,15 +182,19 @@ export const questsRouter = createTRPCRouter({
         return errorResponse("User does not exist");
       }
       // Fetch settings
-      const settings = getMissionHallSettings(user.isOutlaw).find(
+      const setting = getMissionHallSettings(user.isOutlaw).find(
         (s) => s.type === input.type && s.rank === input.rank,
       );
-      if (!settings) {
-        return errorResponse("Settings not found");
-      }
+      const isErrand = setting?.type === "errand";
       // Guards
+      if (!setting) return errorResponse("Setting not found");
       if (user.isBanned) return errorResponse("You are banned");
-      if (user.dailyMissions >= MISSIONS_PER_DAY) return errorResponse("Limit reached");
+      if (
+        (!isErrand && user.dailyMissions >= MISSIONS_PER_DAY) ||
+        (isErrand && user.dailyErrands >= MISSIONS_PER_DAY)
+      ) {
+        return errorResponse("Limit reached");
+      }
       // Check if user is allowed to perform this rank
       const ranks = availableQuestLetterRanks(user.rank);
       if (!ranks.includes(input.rank) && input.type === "mission") {
@@ -225,7 +229,11 @@ export const questsRouter = createTRPCRouter({
         upsertQuestEntry(ctx.drizzle, user, result),
         ctx.drizzle
           .update(userData)
-          .set({ dailyMissions: sql`${userData.dailyMissions} + 1` })
+          .set(
+            isErrand
+              ? { dailyErrands: sql`${userData.dailyErrands} + 1` }
+              : { dailyMissions: sql`${userData.dailyMissions} + 1` },
+          )
           .where(eq(userData.userId, user.userId)),
       ]);
       return { success: true, message: `Quest started: ${result.name}` };
