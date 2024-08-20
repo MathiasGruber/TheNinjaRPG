@@ -441,10 +441,12 @@ const removeEffects = (
     text += `${target.username} could not be cleared of ${type} status effects this round. `;
   }
 
-  if (!effect.castThisRound && effect.power === 100) {
+  // Note: add !effect.castThisRound && to remove effects only after the round
+  if (effect.power === 100) {
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
       .filter((e) => e.fromType !== "bloodline")
+      .filter((e) => e.fromType !== "armor")
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .map((e) => {
         e.rounds = 0;
