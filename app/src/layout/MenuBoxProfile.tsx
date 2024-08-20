@@ -14,6 +14,7 @@ import {
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell, Star } from "lucide-react";
+import { LayoutList } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -22,6 +23,7 @@ import { secondsFromDate } from "@/utils/time";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
+import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -328,6 +330,21 @@ const MenuBoxProfile: React.FC = () => {
               <TooltipContent>Reputation points for use in black market</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {userData && userData.dailyMissions < MISSIONS_PER_DAY && (
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <Link href="/missionhall" className="hover:text-orange-500">
+                    <div className="flex flex-row items-center">
+                      <LayoutList className="h-6 w-6 mr-2" />{" "}
+                      {userData?.dailyMissions ?? "??"} / {MISSIONS_PER_DAY}
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Daily missions to complete</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         {/* ACTIVE EFFECTS */}
         {active && (

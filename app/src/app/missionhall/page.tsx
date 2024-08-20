@@ -8,7 +8,6 @@ import Image from "next/image";
 import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableQuestLetterRanks } from "@/libs/train";
-import { getQuestCounterFieldName } from "@/validators/user";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
@@ -51,7 +50,9 @@ export default function MissionHall() {
   return (
     <ContentBox
       title={userData.isOutlaw ? "Crimes Board" : "Mission Hall"}
-      subtitle={`${capitalizeFirstLetter(classifier)}s [${userData.dailyMissions} / ${MISSIONS_PER_DAY}] - Errands [${userData.dailyErrands} / ${MISSIONS_PER_DAY}]`}
+      subtitle={
+        userData.isOutlaw ? "Small and big assignments" : "Help the village grow"
+      }
       back_href="/village"
       padding={false}
     >
@@ -63,6 +64,11 @@ export default function MissionHall() {
         className="w-full"
         priority={true}
       />
+      <p className="text-center p-3 text-xl font-bold">
+        Errands [{userData.dailyErrands} / {MISSIONS_PER_DAY}] -{" "}
+        {capitalizeFirstLetter(classifier)}s [{userData.dailyMissions} /{" "}
+        {MISSIONS_PER_DAY}]
+      </p>
       {isPending && <Loader explanation="Accepting..." />}
       {currentQuest && currentTracker && (
         <div className="p-3">
@@ -82,8 +88,6 @@ export default function MissionHall() {
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
             const missionOrCrime = userData?.villageId === "" ? "crime" : "mission";
-            const type = setting.type === "errand" ? "errand" : missionOrCrime;
-            const completedField = getQuestCounterFieldName(type, setting.rank);
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
             return (
               <div
@@ -100,8 +104,7 @@ export default function MissionHall() {
               >
                 <Image alt="small" src={setting.image} width={256} height={256} />
                 <p className="font-bold">{setting.name}</p>
-                <p>[{count} available]</p>
-                {completedField && <p>[{userData[completedField]} completed]</p>}
+                <p>[Random out of {count} available]</p>
               </div>
             );
           })}
