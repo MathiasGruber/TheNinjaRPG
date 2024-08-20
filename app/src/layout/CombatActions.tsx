@@ -84,7 +84,9 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
             <div key={i} ref={i === filtered.length - 1 ? props.setLastElement : null}>
               <ActionOption
                 className={`pr-1 h-full  ${
-                  isHighlight ? "rounded-xl border-2 border-amber-500 bg-amber-300" : ""
+                  isHighlight
+                    ? "rounded-xl border-2 border-amber-500 bg-amber-300 text-black"
+                    : ""
                 } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
                 src={item.image}
                 isGreyed={isGreyed}
