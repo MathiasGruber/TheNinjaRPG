@@ -179,7 +179,7 @@ export default function Users() {
       <div className="p-2 grid grid-cols-3 text-center">
         <p>
           <b>Online last 5min</b>
-          <br /> {maxOnline} users
+          <br /> {userCountNow} users
         </p>
         <p>
           <b>Max Online Ever</b>
