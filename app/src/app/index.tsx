@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@clerk/nextjs";
 import { useUserData } from "@/utils/UserContext";
@@ -86,16 +86,28 @@ const Welcome: React.FC = () => {
           sprinkled with a bit of AI technology.
         </p>
 
-        <div className="w-full flex justify-end pb-8">
+        <div className="w-full flex justify-center items-center py-6 gap-8">
           <Link href="/signup">
             <Button
-              id="edit_comment"
+              id="signup_btn"
               decoration="gold"
               className="font-bold w-full text-xl"
               size="lg"
             >
               <UserPlus className="h-6 w-6 mr-2" />
-              Register Now
+              Register
+            </Button>
+          </Link>
+          <p className="text-3xl font-bold italic">OR</p>
+          <Link href="/login">
+            <Button
+              id="signin_btn"
+              decoration="gold"
+              className="font-bold w-full text-xl"
+              size="lg"
+            >
+              <LogIn className="h-6 w-6 mr-2" />
+              Log In
             </Button>
           </Link>
         </div>
