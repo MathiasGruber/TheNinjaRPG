@@ -556,7 +556,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
         }
       >
         {!isFetching && userData && (
-          <>
+          <div className="max-h-[320px] overflow-y-scroll">
             <ActionSelector
               items={alljutsus}
               counts={userJutsuCounts}
@@ -609,7 +609,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                 </div>
               </Modal>
             )}
-          </>
+          </div>
         )}
         {isFetching && <Loader explanation="Loading jutsu" />}
         {finishTrainingAt?.finishTraining && (
