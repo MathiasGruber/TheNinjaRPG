@@ -309,6 +309,7 @@ export const insertAction = (info: {
     affectedTiles.forEach((tile) => {
       // Calculate how many barriers are between origin & target
       const { barriers, totalAbsorb } = getBarriersBetween(
+        actorId,
         aStar,
         groundEffects,
         userHex,

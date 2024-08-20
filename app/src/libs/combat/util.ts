@@ -82,6 +82,7 @@ export const findBarrier = (
 
 /** Get a copy of the barriers between two tiles on the grid, as well as the total absorbtion along that path */
 export const getBarriersBetween = (
+  userId: string,
   aStar: PathCalculator,
   groundEffects: GroundEffect[],
   origin: TerrainHex,
@@ -91,7 +92,8 @@ export const getBarriersBetween = (
   const barriers = (aStar
     .getShortestPath(origin, target)
     ?.map((t) => structuredClone(findBarrier(groundEffects, t.col, t.row)))
-    .filter((b) => b !== undefined) ?? []) as BattleEffect[];
+    .filter((b) => b !== undefined)
+    .filter((b) => b.creatorId !== userId) ?? []) as BattleEffect[];
   // Calculate how much total is absorbed by the barriers
   const totalAbsorb = barriers.reduce((acc, b) => {
     if ("absorbPercentage" in b) {
