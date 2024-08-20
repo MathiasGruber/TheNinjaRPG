@@ -92,8 +92,7 @@ export const getBarriersBetween = (
   const barriers = (aStar
     .getShortestPath(origin, target)
     ?.map((t) => structuredClone(findBarrier(groundEffects, t.col, t.row)))
-    .filter((b) => b !== undefined)
-    .filter((b) => b.creatorId !== userId) ?? []) as BattleEffect[];
+    .filter((b) => b !== undefined && b.creatorId !== userId) ?? []) as BattleEffect[];
   // Calculate how much total is absorbed by the barriers
   const totalAbsorb = barriers.reduce((acc, b) => {
     if ("absorbPercentage" in b) {
