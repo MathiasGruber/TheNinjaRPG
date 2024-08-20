@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
+import { eq, ne, inArray, isNull, isNotNull, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { quest, questHistory, userData, userRequest } from "@/drizzle/schema";
 import { anbuSquad, clan } from "@/drizzle/schema";
@@ -56,6 +56,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "NONE"),
+                eq(userData.role, "USER"),
                 lt(userData.bank, RYO_CAP),
               ),
             ),
@@ -68,6 +69,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "NORMAL"),
+                eq(userData.role, "USER"),
                 lt(userData.bank, RYO_CAP),
               ),
             ),
@@ -80,6 +82,7 @@ export async function GET() {
               and(
                 eq(userData.villageId, village.id),
                 eq(userData.federalStatus, "SILVER"),
+                eq(userData.role, "USER"),
                 lt(userData.bank, RYO_CAP),
               ),
             ),
@@ -91,7 +94,7 @@ export async function GET() {
             .where(
               and(
                 eq(userData.villageId, village.id),
-                eq(userData.federalStatus, "GOLD"),
+                or(eq(userData.federalStatus, "GOLD"), ne(userData.role, "USER")),
                 lt(userData.bank, RYO_CAP),
               ),
             ),
