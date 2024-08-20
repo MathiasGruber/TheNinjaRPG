@@ -955,6 +955,7 @@ export const processUsersForBattle = (info: {
               level: user.level,
             });
             realized.isNew = false;
+            realized.fromType = "armor";
             realized.castThisRound = false;
             realized.targetId = user.userId;
             userEffects.push(realized);

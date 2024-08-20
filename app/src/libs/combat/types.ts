@@ -768,7 +768,7 @@ export type GroundEffect = BattleEffect;
 export type UserEffect = BattleEffect & {
   targetId: string;
   fromGround?: boolean;
-  fromType?: "jutsu" | "item" | "basic" | "bloodline";
+  fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
 };
 
 export type ActionEffect = {
