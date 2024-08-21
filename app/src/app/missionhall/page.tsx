@@ -87,7 +87,6 @@ export default function MissionHall() {
             const isErrand = setting.type === "errand";
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
-            const missionOrCrime = userData?.villageId === "" ? "crime" : "mission";
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
             return (
               <div

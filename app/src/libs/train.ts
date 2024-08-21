@@ -9,7 +9,6 @@ import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
 import { getUserElements } from "@/validators/user";
-import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
@@ -196,14 +195,16 @@ export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
   return Math.floor(Math.pow(base, 1 + level / 20));
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const calcForgetReturn = (jutsu: Jutsu, level: number) => {
-  const discount = 0.9;
-  let result = 0;
-  const refundLevel = Math.min(level, JUTSU_LEVEL_CAP);
-  for (let i = 0; i < refundLevel; i++) {
-    result += calcJutsuTrainCost(jutsu, i);
-  }
-  return result * discount;
+  return 0;
+  // const discount = 0.9;
+  // let result = 0;
+  // const refundLevel = Math.min(level, JUTSU_LEVEL_CAP);
+  // for (let i = 0; i < refundLevel; i++) {
+  //   result += calcJutsuTrainCost(jutsu, i);
+  // }
+  // return result * discount;
 };
 
 export const calcJutsuEquipLimit = (userdata: UserData) => {
