@@ -99,11 +99,11 @@ export const blackMarketRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchOffer(ctx.drizzle, input.offerId),
       ]);
+      if (!offer) return errorResponse("Offer not found");
       // Derived
       const isTerr = user.username === "Terriator";
       const creatorId = offer?.creatorUserId;
       // Guard
-      if (!offer) return errorResponse("Offer not found");
       if (creatorId !== ctx.userId && !isTerr) return errorResponse("Not yours");
       // Check time
       const delistSeconds = 3600 * 24 * RYO_FOR_REP_DAYS_FROZEN;
