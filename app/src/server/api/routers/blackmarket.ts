@@ -99,14 +99,16 @@ export const blackMarketRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchOffer(ctx.drizzle, input.offerId),
       ]);
+      // Derived
+      const isTerr = user.username === "Terriator";
+      const creatorId = offer?.creatorUserId;
       // Guard
-      if (!user) return errorResponse("User not found");
       if (!offer) return errorResponse("Offer not found");
-      if (offer.creatorUserId !== ctx.userId) return errorResponse("Not yours");
+      if (creatorId !== ctx.userId && !isTerr) return errorResponse("Not yours");
       // Check time
       const delistSeconds = 3600 * 24 * RYO_FOR_REP_DAYS_FROZEN;
       const delistDate = secondsFromDate(delistSeconds, offer.createdAt);
-      const canDelist = new Date() >= delistDate || user.username === "Terriator";
+      const canDelist = new Date() >= delistDate || isTerr;
       if (!canDelist) return errorResponse("Offer is frozen");
       // Mutate
       await Promise.all([
@@ -116,7 +118,7 @@ export const blackMarketRouter = createTRPCRouter({
           .set({
             reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
           })
-          .where(eq(userData.userId, ctx.userId)),
+          .where(eq(userData.userId, creatorId)),
       ]);
       // Response
       return { success: true, message: "Offer delisted" };

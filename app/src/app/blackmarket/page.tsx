@@ -175,10 +175,10 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
     .map((offer) => {
       const hasRyo = userData.money >= offer.requestedRyo;
       const owner = offer.creatorUserId === userData.userId;
+      const isTerr = userData.username === "Terriator";
       const canDelist =
         new Date() >=
-          secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt) ||
-        userData?.username === "Terriator";
+        secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt);
       return {
         ...offer,
         info: (
@@ -195,7 +195,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                 Buy
               </Button>
             )}
-            {owner && canDelist && (
+            {(isTerr || (owner && canDelist)) && (
               <Button onClick={() => delist({ offerId: offer.id })}>
                 <X className="h-6 w-6" />
               </Button>
