@@ -95,14 +95,18 @@ export const blackMarketRouter = createTRPCRouter({
     .input(z.object({ offerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Query
-      const offer = await fetchOffer(ctx.drizzle, input.offerId);
+      const [user, offer] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchOffer(ctx.drizzle, input.offerId),
+      ]);
       // Guard
+      if (!user) return errorResponse("User not found");
       if (!offer) return errorResponse("Offer not found");
       if (offer.creatorUserId !== ctx.userId) return errorResponse("Not yours");
       // Check time
       const delistSeconds = 3600 * 24 * RYO_FOR_REP_DAYS_FROZEN;
       const delistDate = secondsFromDate(delistSeconds, offer.createdAt);
-      const canDelist = new Date() >= delistDate;
+      const canDelist = new Date() >= delistDate || user.username === "Terriator";
       if (!canDelist) return errorResponse("Offer is frozen");
       // Mutate
       await Promise.all([

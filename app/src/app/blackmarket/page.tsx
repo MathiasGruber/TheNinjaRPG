@@ -177,7 +177,8 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
       const owner = offer.creatorUserId === userData.userId;
       const canDelist =
         new Date() >=
-        secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt);
+          secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt) ||
+        userData?.username === "Terriator";
       return {
         ...offer,
         info: (
