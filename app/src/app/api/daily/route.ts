@@ -32,6 +32,9 @@ export async function GET() {
   const response = await checkGameTimer(drizzleDB, frequency);
   if (response) return response;
 
+  // Update timer
+  await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
+
   // Query
   const villages = await drizzleDB.query.village.findMany({
     with: { structures: true },
@@ -164,9 +167,6 @@ export async function GET() {
         ryoBoost: sql`CASE WHEN ${clan.ryoBoost} > 0 THEN ${clan.ryoBoost} - 1 ELSE ${clan.ryoBoost} END`,
       }),
     ]);
-
-    // Update timer
-    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
 
     return Response.json(`OK`);
   } catch (cause) {
