@@ -57,6 +57,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
+  const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
+  console.log("========= DRAWING: ", storedLvl);
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
@@ -65,6 +67,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const grid = useRef<Grid<TerrainHex> | null>(null);
   const users = useRef<SectorUser[]>([]);
   const showUsers = useRef<boolean>(showActive);
+  const minLevelDraw = useRef<number>(storedLvl);
   const userRef = useRef<UserWithRelations>(undefined);
   const mouse = new Vector2();
 
@@ -237,6 +240,10 @@ const Sector: React.FC<SectorProps> = (props) => {
       }
     },
   });
+
+  useEffect(() => {
+    minLevelDraw.current = storedLvl;
+  }, [storedLvl]);
 
   useEffect(() => {
     if (pusher) {
@@ -476,6 +483,7 @@ const Sector: React.FC<SectorProps> = (props) => {
             grid: grid.current,
             lastTime: lastTime,
             angle: userAngle,
+            minLevel: minLevelDraw.current,
           });
           lastTime = Date.now();
 
@@ -540,6 +548,8 @@ const Sector: React.FC<SectorProps> = (props) => {
           users={sorrounding}
           userId={userData.userId}
           hex={origin.current}
+          storedLvl={storedLvl}
+          setStoredLvl={setStoredLvl}
           attackUser={(userId) => {
             const target = sorrounding.find((u) => u.userId === userId);
             if (target && !isAttacking) {
@@ -584,13 +594,15 @@ interface SorroundingUsersProps {
   userId: string;
   hex: TerrainHex;
   users: SectorUser[];
+  storedLvl: number;
+  setStoredLvl: React.Dispatch<React.SetStateAction<number>>;
   attackUser: (userId: string) => void;
   move: (longitude: number, latitude: number) => void;
 }
 
 const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Min level to show
-  const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
+  const { storedLvl, setStoredLvl } = props;
 
   // Query
   const { data } = api.village.getAll.useQuery(undefined, {

@@ -493,13 +493,16 @@ export const drawUsers = (info: {
   grid: Grid<TerrainHex>;
   lastTime: number;
   angle: number;
+  minLevel: number;
 }) => {
   // Group the users by their location
   const groups = groupBy(
-    info.users.map((user) => ({
-      ...user,
-      group: `${user.latitude},${user.longitude}`,
-    })),
+    info.users
+      .filter((user) => user.level >= info.minLevel)
+      .map((user) => ({
+        ...user,
+        group: `${user.latitude},${user.longitude}`,
+      })),
     "group",
   );
 
