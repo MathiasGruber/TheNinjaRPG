@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import Conversation from "@/layout/Conversation";
 import BanInfo from "@/layout/BanInfo";
@@ -58,20 +59,28 @@ export default function Tavern() {
   if (isPending) return <Loader explanation="Getting sector information" />;
 
   // Tavern selector
-  const tavernSelector = (
-    <Select onValueChange={(e) => setActiveTab(e)}>
-      <SelectTrigger>
-        <SelectValue placeholder={activeTab} />
-      </SelectTrigger>
-      <SelectContent>
-        {availTaverns?.map((village) => (
-          <SelectItem key={village} value={village}>
-            {village}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
+  const tavernSelector =
+    userData?.role !== "USER" ? (
+      <Select onValueChange={(e) => setActiveTab(e)}>
+        <SelectTrigger>
+          <SelectValue placeholder={activeTab} />
+        </SelectTrigger>
+        <SelectContent>
+          {availTaverns?.map((village) => (
+            <SelectItem key={village} value={village}>
+              {village}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : (
+      <NavTabs
+        id="tavernSelector"
+        current={activeTab}
+        options={availTaverns}
+        setValue={setActiveTab}
+      />
+    );
 
   const conversation = activeTab ?? "Global";
   return (
