@@ -58,7 +58,6 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
   const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
-  console.log("========= DRAWING: ", storedLvl);
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);

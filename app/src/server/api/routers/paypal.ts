@@ -435,6 +435,7 @@ export const updateSubscription = async (input: {
         .set({
           status: input.status,
           federalStatus: input.federalStatus,
+          updatedAt: new Date(),
         })
         .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
     } else {
@@ -544,24 +545,36 @@ export const syncTransactions = async (
         }
         // Handle different cases
         if (info.paypal_reference_id_type === "SUB") {
-          const subscription = await getPaypalSubscription(
-            info.paypal_reference_id,
-            token,
-          );
-          if (subscription) {
+          // Fetch from internal & paypal
+          const [externalSubscription, internalSubscription] = await Promise.all([
+            getPaypalSubscription(info.paypal_reference_id, token),
+            client.query.paypalSubscription.findFirst({
+              where: and(
+                eq(paypalSubscription.subscriptionId, info.paypal_reference_id),
+                gte(
+                  paypalSubscription.updatedAt,
+                  new Date(Date.now() - 1000 * 60 * 60 * 24 * 31),
+                ),
+              ),
+            }),
+          ]);
+          // Update if we found external and it's time to update internal
+          if (externalSubscription && !internalSubscription) {
             const newStatus =
-              subscription.status === "ACTIVE"
-                ? plan2FedStatus(subscription.plan_id)
+              externalSubscription.status === "ACTIVE"
+                ? plan2FedStatus(externalSubscription.plan_id)
                 : "NONE";
             await updateSubscription({
               client: client,
               createdById: createdByUserId,
               affectedUserId: affectedUserId,
               federalStatus: newStatus,
-              status: subscription.status,
-              subscriptionId: subscription.id,
+              status: externalSubscription.status,
+              subscriptionId: externalSubscription.id,
             });
             return `Subscription ID ${info.paypal_reference_id} synced`;
+          } else if (externalSubscription && internalSubscription) {
+            return `Subscription ID ${info.paypal_reference_id} already synced`;
           } else {
             return `Subscription ID ${info.paypal_reference_id} not found`;
           }
