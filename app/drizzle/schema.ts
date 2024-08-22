@@ -184,6 +184,7 @@ export const bloodline = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
+    statClassification: mysqlEnum("statClassification", consts.StatTypes),
     description: text("description").notNull(),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     regenIncrease: int("regenIncrease").default(0).notNull(),
@@ -209,8 +210,12 @@ export const bloodline = mysqlTable(
 export type Bloodline = InferSelectModel<typeof bloodline>;
 export type BloodlineRank = Bloodline["rank"];
 
-export const bloodlineRelations = relations(bloodline, ({ many }) => ({
+export const bloodlineRelations = relations(bloodline, ({ one, many }) => ({
   users: many(userData),
+  village: one(village, {
+    fields: [bloodline.villageId],
+    references: [village.id],
+  }),
 }));
 
 export const bloodlineRolls = mysqlTable(

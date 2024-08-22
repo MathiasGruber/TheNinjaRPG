@@ -71,7 +71,12 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     refetch: refetchBloodlines,
     isFetching: fetchingBloodline,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { limit: 500, effect: tagType, stat: stat, showHidden: true },
+    {
+      limit: 500,
+      effect: [tagType],
+      ...(stat ? { stat: [stat] } : {}),
+      showHidden: true,
+    },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, or, sql, gte, and, inArray, isNull, isNotNull } from "drizzle-orm";
+import { eq, or, sql, gte, and, inArray, isNull, isNotNull, like } from "drizzle-orm";
 import { LetterRanks } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
@@ -12,10 +12,10 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { effectFilters, statFilters } from "@/libs/train";
+import { statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { DEFAULT_IMAGE, StatTypes } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -33,28 +33,60 @@ export const bloodlineRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
-        rank: z.enum(LetterRanks).optional(),
         showHidden: z.boolean().optional().nullable(),
-        effect: z.string().optional(),
-        stat: z.enum(statFilters).optional(),
+        // Filtering options
+        name: z.string().min(0).max(256).optional(),
+        classification: z.enum(StatTypes).optional(),
+        village: z.string().optional(),
+        stat: z.array(z.enum(statFilters)).optional(),
+        effect: z.array(z.string()).optional(),
+        rank: z.enum(LetterRanks).optional(),
+        element: z.array(z.string()).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      if (input.effect && !(effectFilters as string[]).includes(input.effect)) {
-        throw serverError("PRECONDITION_FAILED", `Invalid filter: ${input.effect}`);
-      }
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
+        with: { village: { columns: { name: true } } },
         where: and(
+          ...(input.name ? [like(bloodline.name, `%${input.name}%`)] : []),
+          ...(input.classification
+            ? [eq(bloodline.statClassification, input.classification)]
+            : []),
+          ...(input.village ? [eq(bloodline.villageId, input.village)] : []),
+          ...(input.stat && input.stat.length > 0
+            ? [
+                and(
+                  ...input.stat.map(
+                    (s) =>
+                      sql`JSON_SEARCH(${bloodline.effects},'one',${s}) IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
+          ...(input.effect && input.effect.length > 0
+            ? [
+                or(
+                  ...input.effect.map(
+                    (e) =>
+                      sql`JSON_SEARCH(${bloodline.effects},'one',${e}) IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
           ...[input.rank ? eq(bloodline.rank, input.rank) : isNotNull(bloodline.rank)],
+          ...(input.element && input.element.length > 0
+            ? [
+                and(
+                  ...input.element.map(
+                    (e) =>
+                      sql`JSON_SEARCH(${bloodline.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
           ...(input.showHidden ? [] : [eq(bloodline.hidden, false)]),
-          ...(input.effect
-            ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.effect}) IS NOT NULL`]
-            : []),
-          ...(input.stat
-            ? [sql`JSON_SEARCH(${bloodline.effects},'one',${input.stat}) IS NOT NULL`]
-            : []),
         ),
         offset: skip,
         limit: input.limit,

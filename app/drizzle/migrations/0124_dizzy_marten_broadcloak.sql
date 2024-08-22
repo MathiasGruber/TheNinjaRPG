@@ -1,0 +1,1 @@
+ALTER TABLE `Bloodline` ADD `statClassification` enum('Highest','Ninjutsu','Genjutsu','Taijutsu','Bukijutsu');

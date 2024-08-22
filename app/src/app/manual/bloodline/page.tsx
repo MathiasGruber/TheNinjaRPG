@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
-import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
+import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFiltering";
 import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen, Presentation } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -15,13 +15,14 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
-import { LetterRanks } from "@/drizzle/constants";
 
 export default function ManualBloodlines() {
   // Settings
   const { data: userData } = useUserData();
-  const [rank, setRank] = useState<(typeof LetterRanks)[number]>("D");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Router for forwarding
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function ManualBloodlines() {
     fetchNextPage,
     hasNextPage,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { rank: rank, limit: 20, showHidden: true },
+    { limit: 20, ...getFilter(state), showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -99,27 +100,26 @@ export default function ManualBloodlines() {
         subtitle="All bloodlines"
         initialBreak={true}
         topRightContent={
-          <div className="sm:flex sm:flex-row">
+          <div className="flex flex-row gap-1 items-center">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-row gap-1">
+              <>
                 <Button id="create-bloodline" onClick={() => create()}>
-                  <FilePlus className="mr-1 h-5 w-5" />
+                  <FilePlus className="sm:mr-2 h-5 w-5" />
                   New
                 </Button>
                 <MassEditContent
                   title="Mass Edit Bloodlines"
                   type="bloodline"
                   button={
-                    <Button id="create-bloodline" className="sm:mr-5">
-                      <SquarePen className="mr-2 h-6 w-6" />
+                    <Button id="create-bloodline">
+                      <SquarePen className="sm:mr-2 h-6 w-6" />
                       Edit
                     </Button>
                   }
                 />
-              </div>
+              </>
             )}
-            <div className="grow"></div>
-            <NavTabs current={rank} options={LetterRanks} setValue={setRank} />
+            <BloodFiltering state={state} />
           </div>
         }
       >

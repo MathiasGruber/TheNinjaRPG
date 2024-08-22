@@ -4,16 +4,16 @@ import { FlaskConical, Scissors, Star } from "lucide-react";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
+import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFiltering";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
-import type { Bloodline, BloodlineRank } from "@/drizzle/schema";
+import type { Bloodline } from "@/drizzle/schema";
 
 /**
  * Show Current bloodline & let user remove it
@@ -29,15 +29,17 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
   // State
   const { data: userData } = useRequiredUserData();
   const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
-  const [rank, setRank] = useState<BloodlineRank>("A");
   const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  // Two-level filtering
+  const state = useFiltering("A");
 
   // utils
   const utils = api.useUtils();
 
   // Fetch data
   const { data: bloodlines, isFetching } = api.bloodline.getAll.useInfiniteQuery(
-    { rank: rank, limit: 500 },
+    { ...getFilter(state), limit: 500 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -63,6 +65,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
     });
 
   // Derived calculations
+  const rank = state.rank === "None" ? "D" : state.rank;
   const cost = BLOODLINE_COST[rank];
   const canAfford = userData?.reputationPoints && userData.reputationPoints >= cost;
 
@@ -72,10 +75,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
       subtitle="Purchase special abilities"
       initialBreak={props.initialBreak}
       topRightContent={
-        <>
-          <div className="grow"></div>
-          <NavTabs current={rank} options={["D", "C", "B", "A"]} setValue={setRank} />
-        </>
+        <BloodFiltering state={state} limitRanks={["D", "C", "B", "A"]} />
       }
     >
       {userData && (
