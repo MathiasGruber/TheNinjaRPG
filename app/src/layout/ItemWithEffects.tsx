@@ -4,6 +4,7 @@ import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
 import Confirm from "@/layout/Confirm";
 import ReactHtmlParser from "react-html-parser";
+import ElementImage from "@/layout/ElementImage";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { SquarePen, Trash2, BarChartBig } from "lucide-react";
@@ -204,7 +205,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Class</b>: {capitalizeFirstLetter(item.statClassification)}
               </p>
             )}
-            {"level" in item && item.level && item.level > 0 && (
+            {"level" in item && item.level !== undefined && item.level > 0 && (
               <p>
                 <b>Level</b>: {item.level}
               </p>
@@ -480,9 +481,17 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       {"elements" in parsedEffect &&
                         parsedEffect.elements &&
                         parsedEffect.elements.length > 0 && (
-                          <span>
+                          <span className="row-span-2">
                             <b>Elements: </b>
-                            {parsedEffect.elements.join(", ")}
+                            <div className="flex flex-row items-center">
+                              {parsedEffect.elements.map((element, i) => (
+                                <ElementImage
+                                  key={`${element}-${i}`}
+                                  element={element}
+                                  className="w-8"
+                                />
+                              ))}
+                            </div>
                           </span>
                         )}
                     </div>

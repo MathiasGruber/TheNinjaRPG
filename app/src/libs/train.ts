@@ -252,7 +252,17 @@ export const mainFilters = [
   "StaticAnimation",
   "DisappearAnimation",
 ] as const;
-export const statFilters = [...StatTypes, ...GeneralTypes] as const;
+export const statFilters = [
+  "Highest",
+  "Ninjutsu",
+  "Genjutsu",
+  "Taijutsu",
+  "Bukijutsu",
+  "Strength",
+  "Intelligence",
+  "Willpower",
+  "Speed",
+] as const;
 export const effectFilters = tagTypes;
 export const rarities = ["ALL", ...LetterRanks] as const;
 export type FilterType = (typeof mainFilters)[number];

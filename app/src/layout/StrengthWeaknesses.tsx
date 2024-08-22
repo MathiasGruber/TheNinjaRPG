@@ -222,12 +222,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
             <p className="font-bold pt-2">Elemental Proficiency</p>
             <div className="flex flex-row w-full justify-center gap-2 pt-2">
               {userElements.map((element) => (
-                <div key={element} className="relative">
-                  <ElementImage element={element} className="w-14" />
-                  <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 rounded-md bg-gray-800 p-2 text-sm font-bold text-gray-100 opacity-0 transition-opacity hover:opacity-100">
-                    {element}
-                  </span>
-                </div>
+                <ElementImage key={element} element={element} className="w-14" />
               ))}
             </div>
             {userElements.length === 0 && (

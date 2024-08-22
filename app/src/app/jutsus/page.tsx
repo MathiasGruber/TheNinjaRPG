@@ -25,11 +25,15 @@ import { api } from "@/utils/api";
 import { getUserElements } from "@/validators/user";
 import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
+import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 
 export default function MyJutsu() {
   // tRPC utility
   const utils = api.useUtils();
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Settings
   const now = new Date();
@@ -41,7 +45,7 @@ export default function MyJutsu() {
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
-    undefined,
+    getFilter(state),
     { staleTime: Infinity },
   );
   const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
@@ -159,18 +163,22 @@ export default function MyJutsu() {
     : 0;
 
   // Loaders
-  if (!userData) {
-    return <Loader explanation="Loading userdata" />;
-  } else if (isFetching) {
-    return <Loader explanation="Loading jutsus" />;
-  }
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
     <ContentBox
       title="Jutsu Management"
       subtitle={subtitle}
-      topRightContent={!isOpen && <LoadoutSelector />}
+      topRightContent={
+        !isOpen && (
+          <div className="flex flex-row items-center gap-2">
+            <LoadoutSelector />
+            <JutsuFiltering state={state} />
+          </div>
+        )
+      }
     >
+      {isFetching && <Loader explanation="Loading Jutsu" />}
       <ActionSelector
         items={allJutsu}
         counts={userJutsuCounts}

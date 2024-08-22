@@ -1,25 +1,25 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, inArray, isNotNull, sql, and, or, gte, ne, like } from "drizzle-orm";
+import { eq, inArray, isNotNull, sql, and, or, gte, ne, like, desc } from "drizzle-orm";
 import { jutsu, userJutsu, userData, actionLog, jutsuLoadout } from "@/drizzle/schema";
-import { LetterRanks } from "@/drizzle/constants";
+import { bloodline } from "@/drizzle/schema";
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
-import { JutsuValidator, animationNames } from "@/libs/combat/types";
+import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
-import { statFilters } from "@/libs/train";
 import { fedJutsuLoadouts } from "@/utils/paypal";
-import { UserRanks, StatTypes } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
+import { jutsuFilteringSchema } from "@/validators/jutsu";
+import type { JutsuFilteringSchema } from "@/validators/jutsu";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 
@@ -40,21 +40,10 @@ export const jutsuRouter = createTRPCRouter({
     }),
   getAll: publicProcedure
     .input(
-      z.object({
+      jutsuFilteringSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
         hideAi: z.boolean().optional(),
-        rarity: z.enum(LetterRanks).optional(),
-        rank: z.enum(UserRanks).optional(),
-        bloodline: z.string().optional(),
-        stat: z.array(z.enum(statFilters)).optional(),
-        effect: z.array(z.string()).optional(),
-        element: z.array(z.string()).optional(),
-        appear: z.enum(animationNames).optional(),
-        static: z.enum(animationNames).optional(),
-        disappear: z.enum(animationNames).optional(),
-        classification: z.enum(StatTypes).optional(),
-        name: z.string().min(0).max(256).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -62,22 +51,46 @@ export const jutsuRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.jutsu.findMany({
         where: and(
-          ...[
-            input.rarity
-              ? eq(jutsu.jutsuRank, input.rarity)
-              : isNotNull(jutsu.jutsuRank),
-          ],
+          ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
+          ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
           ...[
             input.rank
               ? eq(jutsu.requiredRank, input.rank)
               : isNotNull(jutsu.requiredRank),
           ],
-          ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+          ...[
+            input.rarity
+              ? eq(jutsu.jutsuRank, input.rarity)
+              : isNotNull(jutsu.jutsuRank),
+          ],
+          ...(input.appear
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
+              ]
+            : []),
+          ...(input.static
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
+              ]
+            : []),
+          ...(input.disappear
+            ? [
+                sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
+              ]
+            : []),
           ...(input.classification
             ? [eq(jutsu.statClassification, input.classification)]
             : []),
-          ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
-          ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
+          ...(input.element && input.element.length > 0
+            ? [
+                and(
+                  ...input.element.map(
+                    (e) =>
+                      sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
           ...(input.stat && input.stat.length > 0
             ? [
                 and(
@@ -96,31 +109,7 @@ export const jutsuRouter = createTRPCRouter({
                 ),
               ]
             : []),
-          ...(input.element && input.element.length > 0
-            ? [
-                and(
-                  ...input.element.map(
-                    (e) =>
-                      sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
-                  ),
-                ),
-              ]
-            : []),
-          ...(input.appear
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.static
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.disappear
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
-              ]
-            : []),
+          ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
         ),
         orderBy: (table, { desc }) => desc(table.updatedAt),
         offset: skip,
@@ -335,18 +324,20 @@ export const jutsuRouter = createTRPCRouter({
       }
     }),
   // Get all uset jutsu
-  getUserJutsus: protectedProcedure.query(async ({ ctx }) => {
-    const [user, results] = await Promise.all([
-      fetchUser(ctx.drizzle, ctx.userId),
-      fetchUserJutsus(ctx.drizzle, ctx.userId),
-    ]);
-    return results.filter((userjutsu) => {
-      return (
-        userjutsu.jutsu?.bloodlineId === "" ||
-        user?.bloodlineId === userjutsu.jutsu?.bloodlineId
-      );
-    });
-  }),
+  getUserJutsus: protectedProcedure
+    .input(jutsuFilteringSchema)
+    .query(async ({ ctx, input }) => {
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId, input),
+      ]);
+      return results.filter((userjutsu) => {
+        return (
+          userjutsu.jutsu?.bloodlineId === "" ||
+          user?.bloodlineId === userjutsu.jutsu?.bloodlineId
+        );
+      });
+    }),
   // Start training a given jutsu
   startTraining: protectedProcedure
     .input(z.object({ jutsuId: z.string() }))
@@ -555,30 +546,88 @@ export const fetchJutsu = async (client: DrizzleClient, id: string) => {
   });
 };
 
-export const fetchUserJutsus = async (client: DrizzleClient, userId: string) => {
-  const userjutsus = await client.query.userJutsu.findMany({
-    with: {
-      jutsu: {
-        with: {
-          bloodline: true,
-        },
-      },
+export const fetchUserJutsus = async (
+  client: DrizzleClient,
+  userId: string,
+  input?: JutsuFilteringSchema,
+) => {
+  // Fetch filtered data
+  const userjutsus = await client
+    .select()
+    .from(userJutsu)
+    .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
+    .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
+    .where(
+      and(
+        eq(userJutsu.userId, userId),
+        ne(jutsu.jutsuType, "AI"),
+        ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
+        ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+        ...[
+          input?.rank
+            ? eq(jutsu.requiredRank, input.rank)
+            : isNotNull(jutsu.requiredRank),
+        ],
+        ...[
+          input?.rarity
+            ? eq(jutsu.jutsuRank, input.rarity)
+            : isNotNull(jutsu.jutsuRank),
+        ],
+        ...(input?.appear
+          ? [
+              sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
+            ]
+          : []),
+        ...(input?.static
+          ? [
+              sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
+            ]
+          : []),
+        ...(input?.disappear
+          ? [
+              sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
+            ]
+          : []),
+        ...(input?.classification
+          ? [eq(jutsu.statClassification, input.classification)]
+          : []),
+        ...(input?.element && input.element.length > 0
+          ? [
+              and(
+                ...input.element.map(
+                  (e) =>
+                    sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
+                ),
+              ),
+            ]
+          : []),
+        ...(input?.stat && input.stat.length > 0
+          ? [
+              and(
+                ...input.stat.map(
+                  (s) => sql`JSON_SEARCH(${jutsu.effects},'one',${s}) IS NOT NULL`,
+                ),
+              ),
+            ]
+          : []),
+        ...(input?.effect && input.effect.length > 0
+          ? [
+              or(
+                ...input.effect.map(
+                  (e) => sql`JSON_SEARCH(${jutsu.effects},'one',${e}) IS NOT NULL`,
+                ),
+              ),
+            ]
+          : []),
+      ),
+    )
+    .orderBy(desc(userJutsu.level));
+  // Return in an optimized manner
+  return userjutsus.map((result) => ({
+    ...result.UserJutsu,
+    jutsu: {
+      ...result.Jutsu,
+      bloodline: result.Bloodline,
     },
-    where: eq(userJutsu.userId, userId),
-    orderBy: (table, { desc }) => desc(table.level),
-  });
-  // CORRECTOR START: This code fixes if anyone has an AI jutsu equipped
-  const equippedAiJutsus = userjutsus
-    .filter((j) => j.jutsu?.jutsuType === "AI" && j.equipped === 1)
-    .map((j) => j.jutsuId);
-  if (equippedAiJutsus.length > 0) {
-    await client
-      .update(userJutsu)
-      .set({ equipped: 0 })
-      .where(
-        and(eq(userJutsu.userId, userId), inArray(userJutsu.jutsuId, equippedAiJutsus)),
-      );
-  }
-  // CORRECTOR END: This code fixes if anyone has an AI jutsu equipped
-  return userjutsus.filter((userjutsu) => userjutsu.jutsu?.jutsuType !== "AI");
+  }));
 };

@@ -3,6 +3,7 @@ import ContentImage from "./ContentImage";
 import { useUserData } from "@/utils/UserContext";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { Info } from "lucide-react";
+import ElementImage from "@/layout/ElementImage";
 import { canChangeContent } from "@/utils/permissions";
 import {
   Tooltip,
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "src/libs/shadui";
 import type { ItemRarity } from "@/drizzle/schema";
+import type { ZodAllTags } from "@/libs/combat/types";
 
 interface ActionSelectorProps {
   className?: string;
@@ -22,6 +24,7 @@ interface ActionSelectorProps {
     warning?: string;
     rarity?: ItemRarity;
     type?: "jutsu" | "item" | "basic" | "village";
+    effects?: ZodAllTags[];
     highlight?: boolean;
     hidden?: boolean | number;
     updatedAt?: number | Date;
@@ -79,9 +82,18 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
             (props.selectedId !== undefined && props.selectedId !== item.id) ||
             (props.greyedIds !== undefined && props.greyedIds.includes(item.id));
           const isHighlight = item.highlight ?? false;
+          const elements = item.effects
+            ? item.effects.flatMap((e) =>
+                "elements" in e && e.elements ? e.elements : [],
+              )
+            : [];
 
           return (
-            <div key={i} ref={i === filtered.length - 1 ? props.setLastElement : null}>
+            <div
+              key={i}
+              ref={i === filtered.length - 1 ? props.setLastElement : null}
+              className="relative"
+            >
               <ActionOption
                 className={`pr-1 h-full  ${
                   isHighlight
@@ -104,6 +116,15 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                   props.onClick(item.id);
                 }}
               />
+              {elements.map((element, i) => (
+                <div
+                  key={i}
+                  className={`absolute top-[-5px]`}
+                  style={{ right: `${i * 10}px` }}
+                >
+                  <ElementImage element={element} className="w-6" />
+                </div>
+              ))}
             </div>
           );
         })}

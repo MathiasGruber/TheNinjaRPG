@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, or, sql, gte, and, inArray, isNull, isNotNull, like } from "drizzle-orm";
-import { LetterRanks } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
 import { userJutsu, jutsu } from "@/drizzle/schema";
@@ -12,12 +11,12 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { statFilters } from "@/libs/train";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
-import { DEFAULT_IMAGE, StatTypes } from "@/drizzle/constants";
+import { DEFAULT_IMAGE } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
 import { calculateContentDiff } from "@/utils/diff";
+import { bloodlineFilteringSchema } from "@/validators/bloodline";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { BloodlineRank, UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -30,18 +29,10 @@ export const bloodlineRouter = createTRPCRouter({
   }),
   getAll: publicProcedure
     .input(
-      z.object({
+      bloodlineFilteringSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
         showHidden: z.boolean().optional().nullable(),
-        // Filtering options
-        name: z.string().min(0).max(256).optional(),
-        classification: z.enum(StatTypes).optional(),
-        village: z.string().optional(),
-        stat: z.array(z.enum(statFilters)).optional(),
-        effect: z.array(z.string()).optional(),
-        rank: z.enum(LetterRanks).optional(),
-        element: z.array(z.string()).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {

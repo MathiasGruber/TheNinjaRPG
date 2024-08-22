@@ -459,7 +459,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
 
   // User Jutsus
   const { data: userJutsus, isPending: isRefetchingUserJutsu } =
-    api.jutsu.getUserJutsus.useQuery(undefined, {
+    api.jutsu.getUserJutsus.useQuery(getFilter(state), {
       staleTime: Infinity,
     });
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
