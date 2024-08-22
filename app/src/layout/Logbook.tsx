@@ -81,6 +81,7 @@ const LogbookActive: React.FC = () => {
           return (
             tracker && (
               <Accordion
+                key={i}
                 title={uq.quest.name}
                 selectedTitle={activeElement}
                 titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}

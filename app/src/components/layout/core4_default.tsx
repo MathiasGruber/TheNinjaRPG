@@ -62,31 +62,31 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
    * SIDEBAR: Left Side
    */
   const leftSideBar = (
-    <>
+    <div onClick={() => setLeftSideBarOpen(false)}>
       <SignedIn>
         <SideBannerTitle>{userData?.username || "Loading user..."}</SideBannerTitle>
         <MenuBoxProfile />
       </SignedIn>
       <SignedOut>
         <SideBannerTitle>Participate</SideBannerTitle>
-        <div className="grid grid-cols-1 lg:grid-cols-2 pt-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-1 lg:grid-cols-2 pt-4 gap-4">
           <Link
             href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiGithub size={60} className="text-white w-1/2" />
+            <SiGithub size={60} className="dark:text-white text-black w-1/2" />
             <p>Contribute</p>
           </Link>
           <Link
             href="https://discord.gg/grPmTr4z9C"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiDiscord size={60} className="text-white w-1/2" />
+            <SiDiscord size={60} className="dark:text-white text-black w-1/2" />
             <p>Community</p>
           </Link>
         </div>
       </SignedOut>
-    </>
+    </div>
   );
 
   /**
@@ -143,12 +143,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <SignedIn>
         <UserButton />
       </SignedIn>
-      <Link href="/event">
+      <Link href="/event" onClick={() => setLeftSideBarOpen(false)}>
         <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
       </Link>
       <Eclipse
         className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
+          setLeftSideBarOpen(false);
           const localTheme = localStorage.getItem("theme");
           if (!localTheme || localTheme === "light") {
             localStorage.setItem("theme", "dark");
@@ -338,7 +339,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           <SheetTrigger className="absolute top-4 left-4">
             <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
-          <SheetContent side="left" onClick={() => setLeftSideBarOpen(false)}>
+          <SheetContent side="left">
             <SheetHeader className="text-left">
               <SideBannerTitle>Main Menu</SideBannerTitle>
               <div className="mt-1 grid gap-3 grid-cols-2">
@@ -347,6 +348,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                     <Link
                       key={i}
                       href={system.href}
+                      onClick={() => setLeftSideBarOpen(false)}
                       className={system.className ? system.className : ""}
                     >
                       <Button
