@@ -141,7 +141,12 @@ export const getNewTrackers = (
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
-  const consequences: { type: "item" | "combat"; id: string; scale?: boolean }[] = [];
+  const consequences: {
+    type: "item" | "combat";
+    id: string;
+    scaleStats?: boolean;
+    scaleExperience?: number;
+  }[] = [];
   const trackers = activeQuests
     .map((quest) => {
       if (quest) {
@@ -227,7 +232,8 @@ export const getNewTrackers = (
                     consequences.push({
                       type: "combat",
                       id: objective.opponent_ai,
-                      scale: objective.opponent_scaled_to_user,
+                      scaleStats: objective.opponent_scaled_to_user,
+                      scaleExperience: objective.scaleExperienceGain,
                     });
                   }
                 }

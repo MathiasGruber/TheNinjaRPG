@@ -126,6 +126,7 @@ export const DefeatOpponents = z.object({
   failDescription: z.string().default("You failed to defeat the opponent"),
   fleeDescription: z.string().default("You fled from the opponent"),
   drawDescription: z.string().default("The battle ended in a draw"),
+  scaleExperienceGain: z.coerce.number().min(0).max(1).default(1),
   ...complexObjectiveFields,
 });
 

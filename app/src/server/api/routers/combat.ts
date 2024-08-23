@@ -596,6 +596,7 @@ export const initiateBattle = async (
   },
   battleType: BattleType,
   background = "forest.webp",
+  scaleExperience = 1,
 ): Promise<BaseServerResponse> => {
   // Destructure
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
@@ -710,7 +711,7 @@ export const initiateBattle = async (
   }
 
   // Get previous battles between these two users within last 60min
-  let rewardScaling = users.length / 2;
+  let rewardScaling = (scaleExperience * users.length) / 2;
   if (!["ARENA", "QUEST"].includes(battleType)) {
     const results = await client
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
