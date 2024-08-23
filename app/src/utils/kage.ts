@@ -5,7 +5,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 export const KAGE_PRESTIGE_REQUIREMENT = 4000;
 export const RANK_REQUIREMENT = "JONIN";
 export const KAGE_PRESTIGE_COST = 1000;
-export const FRIENDLY_PRESTIGE_COST = 5;
+export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
 
 /**
