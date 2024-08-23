@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, and, ne, sql, gte, isNull } from "drizzle-orm";
 import { userData, village, villageStructure } from "@/drizzle/schema";
+import { kageDefendedChallenges } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
@@ -9,6 +10,7 @@ import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
+import { KAGE_MAX_DAILIES } from "@/utils/kage";
 import type { DrizzleClient } from "@/server/db";
 
 export const kageRouter = createTRPCRouter({
@@ -17,17 +19,29 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage, village] = await Promise.all([
+      const [user, kage, village, previous] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.kageId),
         fetchVillage(ctx.drizzle, input.villageId),
+        ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(kageDefendedChallenges)
+          .where(
+            and(
+              eq(kageDefendedChallenges.villageId, input.villageId),
+              eq(kageDefendedChallenges.userId, ctx.userId),
+              gte(kageDefendedChallenges.createdAt, sql`NOW() - INTERVAL 1 DAY`),
+            ),
+          ),
       ]);
+      const previousCount = previous?.[0]?.count || 0;
       // Guards
       if (!village) return errorResponse("Village not found");
       if (kage.villageId !== village.id) return errorResponse("No longer kage");
       if (kage.villageId !== user.villageId) return errorResponse("Wrong village");
       if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
+      if (previousCount >= KAGE_MAX_DAILIES) return errorResponse("Max for today");
       // Start the battle
       return await initiateBattle(
         {

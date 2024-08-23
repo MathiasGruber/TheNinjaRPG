@@ -7,6 +7,7 @@ export const RANK_REQUIREMENT = "JONIN";
 export const KAGE_PRESTIGE_COST = 1000;
 export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
+export const KAGE_MAX_DAILIES = 3;
 
 /**
  * Checks if a user can challenge the Kage.
