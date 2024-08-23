@@ -371,9 +371,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
     // If single village, then friends/targets are the opposing team. If MPvP, separate by village
-    const villageIds = [
-      ...new Set(users.filter(stillInBattle).map((u) => u.villageId)),
-    ];
+    const villageIds = [...new Set(users.map((u) => u.villageId))];
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
     if (battleType === "CLAN_BATTLE") {
@@ -415,6 +413,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // If Combat, then double the experience gain
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
+      }
+
+      // If killing ally, then no experience
+      if (battleType === "COMBAT" && villageIds.length === 1) {
+        experience = 0;
       }
 
       // Find users who did not leave battle yet
