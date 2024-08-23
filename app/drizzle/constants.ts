@@ -131,6 +131,7 @@ export const AttackTargets = [
   "GROUND",
   "EMPTY_GROUND",
 ] as const;
+export type AttackTarget = (typeof AttackTargets)[number];
 
 export const AttackMethods = [
   "SINGLE",
@@ -140,6 +141,7 @@ export const AttackMethods = [
   "AOE_CIRCLE_SHOOT",
   "AOE_SPIRAL_SHOOT",
 ] as const;
+export type AttackMethod = (typeof AttackMethods)[number];
 
 export const JutsuTypes = [
   "NORMAL",

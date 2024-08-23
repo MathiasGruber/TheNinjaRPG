@@ -51,64 +51,7 @@ export const jutsuRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.jutsu.findMany({
         where: and(
-          ...(input.name ? [like(jutsu.name, `%${input.name}%`)] : []),
-          ...(input.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
-          ...[
-            input.rank
-              ? eq(jutsu.requiredRank, input.rank)
-              : isNotNull(jutsu.requiredRank),
-          ],
-          ...[
-            input.rarity
-              ? eq(jutsu.jutsuRank, input.rarity)
-              : isNotNull(jutsu.jutsuRank),
-          ],
-          ...(input.appear
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.static
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.disappear
-            ? [
-                sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
-              ]
-            : []),
-          ...(input.classification
-            ? [eq(jutsu.statClassification, input.classification)]
-            : []),
-          ...(input.element && input.element.length > 0
-            ? [
-                and(
-                  ...input.element.map(
-                    (e) =>
-                      sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
-                  ),
-                ),
-              ]
-            : []),
-          ...(input.stat && input.stat.length > 0
-            ? [
-                and(
-                  ...input.stat.map(
-                    (s) => sql`JSON_SEARCH(${jutsu.effects},'one',${s}) IS NOT NULL`,
-                  ),
-                ),
-              ]
-            : []),
-          ...(input.effect && input.effect.length > 0
-            ? [
-                or(
-                  ...input.effect.map(
-                    (e) => sql`JSON_SEARCH(${jutsu.effects},'one',${e}) IS NOT NULL`,
-                  ),
-                ),
-              ]
-            : []),
+          ...jutsuDatabaseFilter(input),
           ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
         ),
         orderBy: (table, { desc }) => desc(table.updatedAt),
@@ -561,64 +504,7 @@ export const fetchUserJutsus = async (
       and(
         eq(userJutsu.userId, userId),
         ne(jutsu.jutsuType, "AI"),
-        ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
-        ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
-        ...[
-          input?.rank
-            ? eq(jutsu.requiredRank, input.rank)
-            : isNotNull(jutsu.requiredRank),
-        ],
-        ...[
-          input?.rarity
-            ? eq(jutsu.jutsuRank, input.rarity)
-            : isNotNull(jutsu.jutsuRank),
-        ],
-        ...(input?.appear
-          ? [
-              sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
-            ]
-          : []),
-        ...(input?.static
-          ? [
-              sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
-            ]
-          : []),
-        ...(input?.disappear
-          ? [
-              sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
-            ]
-          : []),
-        ...(input?.classification
-          ? [eq(jutsu.statClassification, input.classification)]
-          : []),
-        ...(input?.element && input.element.length > 0
-          ? [
-              and(
-                ...input.element.map(
-                  (e) =>
-                    sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
-                ),
-              ),
-            ]
-          : []),
-        ...(input?.stat && input.stat.length > 0
-          ? [
-              and(
-                ...input.stat.map(
-                  (s) => sql`JSON_SEARCH(${jutsu.effects},'one',${s}) IS NOT NULL`,
-                ),
-              ),
-            ]
-          : []),
-        ...(input?.effect && input.effect.length > 0
-          ? [
-              or(
-                ...input.effect.map(
-                  (e) => sql`JSON_SEARCH(${jutsu.effects},'one',${e}) IS NOT NULL`,
-                ),
-              ),
-            ]
-          : []),
+        ...jutsuDatabaseFilter(input),
       ),
     )
     .orderBy(desc(userJutsu.level));
@@ -630,4 +516,68 @@ export const fetchUserJutsus = async (
       bloodline: result.Bloodline,
     },
   }));
+};
+
+/**
+ * Translates the input filtering schema into database filters.
+ * @param input
+ * @returns
+ */
+export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
+  return [
+    ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
+    ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+    ...[
+      input?.rank ? eq(jutsu.requiredRank, input.rank) : isNotNull(jutsu.requiredRank),
+    ],
+    ...[input?.rarity ? eq(jutsu.jutsuRank, input.rarity) : isNotNull(jutsu.jutsuRank)],
+    ...(input?.appear
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects},'one',${input.appear},NULL,'$[*].appearAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.static
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects},'one',${input.static},NULL,'$[*].staticAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.disappear
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects},'one',${input.disappear},NULL,'$[*].disappearAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.classification
+      ? [eq(jutsu.statClassification, input.classification)]
+      : []),
+    ...(input?.element && input.element.length > 0
+      ? [
+          and(
+            ...input.element.map(
+              (e) =>
+                sql`JSON_SEARCH(${jutsu.effects},'one',${e},NULL,'$[*].elements') IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+    ...[input?.method ? eq(jutsu.method, input.method) : isNotNull(jutsu.method)],
+    ...(input?.stat && input.stat.length > 0
+      ? [
+          and(
+            ...input.stat.map(
+              (s) => sql`JSON_SEARCH(${jutsu.effects},'one',${s}) IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+    ...(input?.effect && input.effect.length > 0
+      ? [
+          or(
+            ...input.effect.map(
+              (e) => sql`JSON_SEARCH(${jutsu.effects},'one',${e}) IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+    ...[input?.target ? eq(jutsu.target, input.target) : isNotNull(jutsu.target)],
+  ];
 };

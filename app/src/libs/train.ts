@@ -1,4 +1,3 @@
-import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";

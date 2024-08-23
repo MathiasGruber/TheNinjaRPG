@@ -6,6 +6,7 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
+import NavTabs from "@/layout/NavTabs";
 import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFiltering";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
@@ -75,7 +76,14 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
       subtitle="Purchase special abilities"
       initialBreak={props.initialBreak}
       topRightContent={
-        <BloodFiltering state={state} limitRanks={["D", "C", "B", "A"]} />
+        <div className="flex flex-row gap-2">
+          <NavTabs
+            current={state.rank}
+            options={["D", "C", "B", "A"]}
+            setValue={state.setRank}
+          />
+          <BloodFiltering state={state} limitRanks={["D", "C", "B", "A"]} />
+        </div>
       }
     >
       {userData && (

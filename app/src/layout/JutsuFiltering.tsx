@@ -27,8 +27,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchNameSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
-import { StatTypes } from "@/drizzle/constants";
+import { StatTypes, AttackMethods, AttackTargets } from "@/drizzle/constants";
 import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
+import type { AttackMethod, AttackTarget } from "@/drizzle/constants";
 import type { SearchNameSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { StatGenType, EffectType, RarityType } from "@/libs/train";
@@ -43,9 +44,11 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const { setBloodline, setStat, setEffect, setRarity } = props.state;
   const { setAppearAnim, setRemoveAnim, setStaticAnim } = props.state;
   const { setName, setElement, setRank, setClassification } = props.state;
+  const { setMethod, setTarget } = props.state;
 
   const { name, bloodline, stat, effect, rarity, element } = props.state;
   const { rank, appearAnim, staticAnim, removeAnim, classification } = props.state;
+  const { method, target } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines
@@ -269,6 +272,50 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               onChange={setStat}
             />
           </div>
+
+          {/* Method */}
+          <div className="">
+            <Label htmlFor="method">Method</Label>
+            <div className="flex flex-row items-center">
+              <Select onValueChange={(m) => setMethod(m as AttackMethod)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={method || "None"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem key={"None"} value="None">
+                    None
+                  </SelectItem>
+                  {AttackMethods.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Target */}
+          <div className="">
+            <Label htmlFor="method">Target</Label>
+            <div className="flex flex-row items-center">
+              <Select onValueChange={(m) => setTarget(m as AttackTarget)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={target || "None"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem key={"None"} value="None">
+                    None
+                  </SelectItem>
+                  {AttackTargets.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -280,18 +327,19 @@ export default JutsuFiltering;
 /** tRPC filter to be used on api.jutsu.getAll */
 export const getFilter = (state: JutsuFilteringState) => {
   return {
-    name: state.name ? state.name : undefined,
+    appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
     bloodline: state.bloodline !== "None" ? state.bloodline : undefined,
+    classification: state.classification !== "None" ? state.classification : undefined,
+    disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
+    effect: state.effect.length !== 0 ? (state.effect as EffectType[]) : undefined,
+    element: state.element.length !== 0 ? (state.element as ElementName[]) : undefined,
+    method: state.method !== "None" ? state.method : undefined,
+    name: state.name ? state.name : undefined,
     rank: state.rank !== "NONE" ? state.rank : undefined,
     rarity: state.rarity !== "ALL" ? state.rarity : undefined,
-    appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
-    disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
-    static: state.staticAnim !== "None" ? state.staticAnim : undefined,
-    classification: state.classification !== "None" ? state.classification : undefined,
-    // Multiple selects
-    element: state.element.length !== 0 ? (state.element as ElementName[]) : undefined,
     stat: state.stat.length !== 0 ? (state.stat as StatGenType[]) : undefined,
-    effect: state.effect.length !== 0 ? (state.effect as EffectType[]) : undefined,
+    static: state.staticAnim !== "None" ? state.staticAnim : undefined,
+    target: state.target !== "None" ? state.target : undefined,
   };
 };
 
@@ -299,43 +347,48 @@ export const getFilter = (state: JutsuFilteringState) => {
 export const useFiltering = () => {
   // State variables
   type None = "None";
-  const [rarity, setRarity] = useState<RarityType>("ALL");
-  const [rank, setRank] = useState<UserRank>("NONE");
-  const [name, setName] = useState<string>("");
-  const [bloodline, setBloodline] = useState<string>("None");
   const [appearAnim, setAppearAnim] = useState<AnimationName | None>("None");
-  const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
-  const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
+  const [bloodline, setBloodline] = useState<string>("None");
   const [classification, setClassification] = useState<StatType | None>("None");
-  // Multiple selects
-  const [element, setElement] = useState<string[]>([]);
-  const [stat, setStat] = useState<string[]>([]);
   const [effect, setEffect] = useState<string[]>([]);
+  const [element, setElement] = useState<string[]>([]);
+  const [method, setMethod] = useState<AttackMethod | None>("None");
+  const [name, setName] = useState<string>("");
+  const [rank, setRank] = useState<UserRank>("NONE");
+  const [rarity, setRarity] = useState<RarityType>("ALL");
+  const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
+  const [stat, setStat] = useState<string[]>([]);
+  const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
+  const [target, setTarget] = useState<AttackTarget | None>("None");
 
   // Return all
   return {
-    name,
-    classification,
-    bloodline,
-    stat,
-    effect,
-    rarity,
-    rank,
     appearAnim,
-    staticAnim,
-    removeAnim,
+    bloodline,
+    classification,
+    effect,
     element,
-    setName,
-    setClassification,
-    setBloodline,
-    setStat,
-    setEffect,
-    setRarity,
-    setRank,
+    method,
+    name,
+    rank,
+    rarity,
+    removeAnim,
+    stat,
+    staticAnim,
+    target,
     setAppearAnim,
-    setStaticAnim,
-    setRemoveAnim,
+    setBloodline,
+    setClassification,
+    setEffect,
     setElement,
+    setMethod,
+    setName,
+    setRank,
+    setRarity,
+    setRemoveAnim,
+    setStat,
+    setStaticAnim,
+    setTarget,
   };
 };
 
