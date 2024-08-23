@@ -54,7 +54,7 @@ export const updateGameSetting = async (
  */
 export const checkGameTimer = async (client: DrizzleClient, hours: number) => {
   const timer = await getGameSetting(client, `timer-${hours}h`);
-  const deltaTime = 1000 * 60 * 60 * hours * 0.99;
+  const deltaTime = 1000 * 60 * 60 * hours * 0.9999;
   if (timer.time > new Date(Date.now() - deltaTime)) {
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(
       timer.time.getTime() + deltaTime - Date.now(),
