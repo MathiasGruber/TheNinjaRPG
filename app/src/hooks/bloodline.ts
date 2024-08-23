@@ -5,6 +5,7 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { api } from "@/utils/api";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { LetterRanks } from "@/drizzle/constants";
+import { StatTypes } from "@/drizzle/constants";
 import type { Bloodline } from "@/drizzle/schema";
 import type { ZodBloodlineTags, ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
@@ -22,8 +23,8 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   const form = useForm<ZodBloodlineType>({
     mode: "all",
     criteriaMode: "all",
-    values: bloodline,
-    defaultValues: bloodline,
+    values: bloodline as ZodBloodlineType,
+    defaultValues: bloodline as ZodBloodlineType,
     resolver: zodResolver(BloodlineValidator),
   });
 
@@ -74,6 +75,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
     { id: "hidden", type: "number", label: "Hidden" },
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
     { id: "rank", type: "str_array", values: LetterRanks },
+    { id: "statClassification", type: "str_array", values: StatTypes },
     { id: "description", type: "richinput", doubleWidth: true },
   ];
 

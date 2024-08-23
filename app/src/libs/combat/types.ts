@@ -945,6 +945,7 @@ export const BloodlineValidator = z.object({
   description: z.string(),
   rank: z.enum(LetterRanks),
   regenIncrease: z.coerce.number().int().min(0).max(100),
+  statClassification: z.enum(StatTypes),
   villageId: z.string().nullable(),
   hidden: z.coerce.boolean().optional(),
   effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
