@@ -371,7 +371,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
     // If single village, then friends/targets are the opposing team. If MPvP, separate by village
-    const villageIds = [...new Set(users.map((u) => u.villageId))];
+    const villageIds = [
+      ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
+    ];
     let targets: BattleUserState[] = [];
     let friends: BattleUserState[] = [];
     if (battleType === "CLAN_BATTLE") {
