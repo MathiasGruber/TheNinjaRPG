@@ -794,6 +794,7 @@ export const fetchUncompletedQuests = async (
         eq(quest.questType, type),
         lte(quest.requiredLevel, user.level),
         gte(quest.maxLevel, user.level),
+        lte(quest.requiredLevel, user.level),
         ...(availableLetters.length > 0
           ? [inArray(quest.questRank, availableLetters)]
           : [eq(quest.questRank, "D")]),
