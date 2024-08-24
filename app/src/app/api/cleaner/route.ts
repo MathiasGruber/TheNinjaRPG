@@ -4,12 +4,8 @@ import { drizzleDB } from "@/server/db";
 import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/schema";
 import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
-import {
-  userItem,
-  trainingLog,
-  mpvpBattleQueue,
-  mpvpBattleUser,
-} from "@/drizzle/schema";
+import { userItem, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
+import { trainingLog, village } from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -23,6 +19,9 @@ export async function GET() {
   if (response) return response;
 
   try {
+    // Update timer
+    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
+
     // Step 1: Delete from battle table where updatedAt is older than 1 day
     await drizzleDB
       .delete(battle)
@@ -98,7 +97,7 @@ export async function GET() {
       sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.clanId) AND a.clanId IS NOT NULL`,
     );
 
-    // Step 3: Bank transfers from deleted users
+    // Step 13: Bank transfers from deleted users
     await drizzleDB.execute(
       sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.senderId)`,
     );
@@ -106,7 +105,7 @@ export async function GET() {
       sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.receiverId)`,
     );
 
-    // Step 13: Clear users older than 60 days
+    // Step 14: Clear users older than 60 days
     await drizzleDB.execute(
       sql`DELETE FROM ${userData} WHERE experience < 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY AND reputationPointsTotal <= 5`,
     );
@@ -114,17 +113,17 @@ export async function GET() {
       sql`DELETE FROM ${userData} WHERE experience < 10000 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
     );
 
-    // Step 14: Clear bloodline rolls older than 1 day
+    // Step 15: Clear bloodline rolls older than 1 day
     await drizzleDB.execute(
       sql`DELETE FROM ${bloodlineRolls} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 15: Clear concept rolls older than 1 day
+    // Step 16: Clear concept rolls older than 1 day
     await drizzleDB.execute(
       sql`DELETE FROM ${conceptImage} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 15: Clear forums older than 1 day
+    // Step 17: Clear forums older than 1 day
     await drizzleDB.execute(
       sql`DELETE FROM ${forumThread} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
@@ -135,22 +134,22 @@ export async function GET() {
       sql`DELETE FROM ${forumPost} a WHERE NOT EXISTS (SELECT id FROM ${forumThread} b WHERE b.id = a.threadId)`,
     );
 
-    // Step 16: Historical avatars
+    // Step 18: Historical avatars
     await drizzleDB.execute(
       sql`DELETE FROM ${historicalAvatar} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 17: Historical avatars
+    // Step 19: Historical avatars
     await drizzleDB.execute(
       sql`DELETE FROM ${questHistory} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 18: User attributes
+    // Step 20: User attributes
     await drizzleDB.execute(
       sql`DELETE FROM ${userAttribute} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 18: User jutsu & items
+    // Step 21: User jutsu & items
     await drizzleDB.execute(
       sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
@@ -158,28 +157,30 @@ export async function GET() {
       sql`DELETE FROM ${userItem} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
     );
 
-    // Step 19: Clear training log entries
+    // Step 22: Clear training log entries
     await drizzleDB.execute(
       sql`DELETE FROM ${trainingLog} WHERE trainingFinishedAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
     );
 
-    // Step 20: Clear mpvp battle queue entries
+    // Step 23: Clear mpvp battle queue entries
     await drizzleDB.execute(
       sql`DELETE FROM ${mpvpBattleQueue} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
     );
 
-    // Step 21: Clear mpvp battle user entries
+    // Step 24: Clear mpvp battle user entries
     await drizzleDB.execute(
       sql`DELETE FROM ${mpvpBattleUser} a WHERE NOT EXISTS (SELECT id FROM ${mpvpBattleQueue} b WHERE b.id = a.clanBattleId)`,
     );
 
-    // Step 22: Set status to AWAKE for users who are QUEUED if they do not have any mpvpBattleUser entries
+    // Step 25: Set status to AWAKE for users who are QUEUED if they do not have any mpvpBattleUser entries
     await drizzleDB.execute(
       sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="QUEUED" AND NOT EXISTS (SELECT id FROM ${mpvpBattleUser} b WHERE b.userId = a.userId)`,
     );
 
-    // Update timer
-    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
+    // Step 26: Update the population of each village
+    await drizzleDB.execute(
+      sql`UPDATE ${village} a SET a.populationCount = (SELECT COUNT(*) FROM ${userData} b WHERE b.villageId = a.id)`,
+    );
 
     return Response.json(`OK`);
   } catch (cause) {

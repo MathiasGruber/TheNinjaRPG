@@ -1486,6 +1486,7 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     hexColor: varchar("hexColor", { length: 191 }).default("#000000").notNull(),
+    populationCount: int("populationCount").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1525,7 +1526,7 @@ export const villageStructure = mysqlTable(
     maxSp: int("maxSp").default(100).notNull(),
     allyAccess: tinyint("allyAccess").default(1).notNull(),
     // upgrade cust & current level
-    baseCost: int("baseCost").default(3000).notNull(),
+    baseCost: int("baseCost").default(10000).notNull(),
     level: int("level").default(1).notNull(),
     maxLevel: int("maxLevel").default(10).notNull(),
     // Per level advantages
