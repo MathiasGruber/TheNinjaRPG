@@ -516,14 +516,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
         villageTokens: deltaTokens,
-        clanPoints: clanPoints,
+        clanPoints: clanPoints * battle.rewardScaling,
         notifications: [],
       };
 
       // Things to reward for non-spars
       if (battleType !== "SPARRING") {
         // Money stolen/given
-        result["money"] = moneyDelta;
+        result["money"] = moneyDelta * battle.rewardScaling;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
         let total = user.usedStats.length + user.usedGenerals.length;

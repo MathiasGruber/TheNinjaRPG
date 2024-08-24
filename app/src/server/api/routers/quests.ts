@@ -582,6 +582,7 @@ export const questsRouter = createTRPCRouter({
                 type: "combat",
                 id: randomOpponent,
                 scaleStats: objective.attackers_scaled_to_user,
+                scaleGains: objective.attackers_scale_gains,
               };
               notifications.push("You have been attacked!");
             }
@@ -622,7 +623,7 @@ export const questsRouter = createTRPCRouter({
                   },
                   "QUEST",
                   determineCombatBackground("ground"),
-                  opponent.scaleExperience || 1,
+                  opponent.scaleGains ?? 1,
                 )
               : undefined,
           ],

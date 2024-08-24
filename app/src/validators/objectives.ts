@@ -71,6 +71,7 @@ export const attackerFields = {
   attackers: z.array(z.string()).default([]),
   attackers_chance: z.coerce.number().min(0).max(100).default(0),
   attackers_scaled_to_user: z.coerce.boolean().default(false),
+  attackers_scale_gains: z.coerce.number().min(0).max(1).default(1),
 };
 
 export const baseObjectiveFields = {
@@ -126,7 +127,7 @@ export const DefeatOpponents = z.object({
   failDescription: z.string().default("You failed to defeat the opponent"),
   fleeDescription: z.string().default("You fled from the opponent"),
   drawDescription: z.string().default("The battle ended in a draw"),
-  scaleExperienceGain: z.coerce.number().min(0).max(1).default(1),
+  scaleGains: z.coerce.number().min(0).max(1).default(1),
   ...complexObjectiveFields,
 });
 
