@@ -28,6 +28,7 @@ import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
@@ -534,7 +535,9 @@ export const questsRouter = createTRPCRouter({
           ? [
               ctx.drizzle
                 .update(userData)
-                .set({ money: sql`${userData.money} + 1000` })
+                .set({
+                  money: sql`${userData.money} + ${SENSEI_STUDENT_RYO_PER_MISSION}`,
+                })
                 .where(eq(userData.userId, senseiId)),
               ctx.drizzle.insert(bankTransfers).values({
                 senderId: ctx.userId,

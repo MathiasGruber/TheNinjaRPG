@@ -311,6 +311,7 @@ export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
 
 // Sensei config
 export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
+export const SENSEI_STUDENT_RYO_PER_MISSION = 100;
 
 // Medical Ninja config
 export const MEDNIN_HEALABLE_STATES = ["HOSPITALIZED", "AWAKE"] as const;
