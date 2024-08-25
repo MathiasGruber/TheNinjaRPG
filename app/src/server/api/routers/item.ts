@@ -529,7 +529,7 @@ export const fetchUserItems = async (client: DrizzleClient, userId: string) => {
     where: eq(userItem.userId, userId),
     with: { item: true },
   });
-  return useritems.filter((ui) => !ui.item.hidden);
+  return useritems.filter((ui) => ui.item && !ui.item.hidden);
 };
 
 export const fetchUserItem = async (
