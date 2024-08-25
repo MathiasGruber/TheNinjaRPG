@@ -550,6 +550,7 @@ export const syncTransactions = async (
             getPaypalSubscription(info.paypal_reference_id, token),
             client.query.paypalSubscription.findFirst({
               where: and(
+                eq(paypalSubscription.status, "ACTIVE"),
                 eq(paypalSubscription.subscriptionId, info.paypal_reference_id),
                 gte(
                   paypalSubscription.updatedAt,
