@@ -194,14 +194,14 @@ export const kageRouter = createTRPCRouter({
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
       if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
-      const cost = calcStructureUpgrade(structure);
-      if (userVillage.tokens < cost) return errorResponse("Not enough tokens");
+      const { total } = calcStructureUpgrade(structure, userVillage);
+      if (userVillage.tokens < total) return errorResponse("Not enough tokens");
 
       // Mutate cost
       const villageUpdate = await ctx.drizzle
         .update(village)
-        .set({ tokens: sql`${village.tokens} - ${cost}` })
-        .where(and(eq(village.id, input.villageId), gte(village.tokens, cost)));
+        .set({ tokens: sql`${village.tokens} - ${total}` })
+        .where(and(eq(village.id, input.villageId), gte(village.tokens, total)));
       if (villageUpdate.rowsAffected === 0) return errorResponse("1st update failed");
 
       // If success, upgrade structure

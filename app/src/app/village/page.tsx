@@ -29,6 +29,7 @@ import { hasRequiredRank } from "@/libs/train";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { calcBankInterest } from "@/utils/village";
+import type { Village } from "@/drizzle/schema";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
 
@@ -128,7 +129,8 @@ export default function VillageOverview() {
                   <TooltipTrigger>
                     <Link href={href}>
                       <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
-                        <Users className="w-6 h-6 mr-2" /> {data?.population}
+                        <Users className="w-6 h-6 mr-2" />{" "}
+                        {villageData?.populationCount}
                       </div>
                     </Link>
                   </TooltipTrigger>
@@ -187,6 +189,7 @@ export default function VillageOverview() {
               <div key={i} className="p-2">
                 <Building
                   structure={structure}
+                  village={villageData}
                   key={structure.id}
                   textPosition="bottom"
                   showBar
@@ -233,13 +236,14 @@ export default function VillageOverview() {
 
 interface BuildingProps {
   structure: VillageStructure;
+  village: Village;
   showBar?: boolean;
   textPosition: "bottom" | "right";
 }
 
 const Building: React.FC<BuildingProps> = (props) => {
   // Destructure
-  const { structure, showBar, textPosition } = props;
+  const { structure, village, showBar, textPosition } = props;
 
   // State
   const { data: userData } = useRequiredUserData();
@@ -259,7 +263,7 @@ const Building: React.FC<BuildingProps> = (props) => {
           </Tooltip>
         </TooltipProvider>
         {userData && userData?.village?.kageId === userData?.userId && (
-          <UpgradeButton structure={structure} />
+          <UpgradeButton structure={structure} village={village} />
         )}
       </div>
     </div>
@@ -298,7 +302,13 @@ const Building: React.FC<BuildingProps> = (props) => {
   );
 };
 
-const UpgradeButton = ({ structure }: { structure: VillageStructure }) => {
+const UpgradeButton = ({
+  structure,
+  village,
+}: {
+  structure: VillageStructure;
+  village: Village;
+}) => {
   const utils = api.useUtils();
 
   const { data } = api.village.get.useQuery(
@@ -316,8 +326,8 @@ const UpgradeButton = ({ structure }: { structure: VillageStructure }) => {
   });
 
   const currentFunds = data?.villageData.tokens ?? 0;
-  const upgradeCost = calcStructureUpgrade(structure);
-  const canAfford = upgradeCost <= currentFunds;
+  const { cost, tax, total } = calcStructureUpgrade(structure, village);
+  const canAfford = total <= currentFunds;
   const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
 
   return (
@@ -336,7 +346,10 @@ const UpgradeButton = ({ structure }: { structure: VillageStructure }) => {
             <CircleArrowUp className="h-4 w-4 hover:text-orange-500 hover:cursor-pointer" />
           }
         >
-          <p>Upgrading this structure will cost {upgradeCost} village tokens.</p>
+          <p>
+            Upgrading this structure will cost a total of {total} village tokens (base
+            cost of {cost} + {tax} population tax).
+          </p>
           <p>You currently have {currentFunds} village tokens.</p>
         </Confirm>
       )}

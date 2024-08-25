@@ -40,12 +40,8 @@ export const villageRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       // Fetch in parallel
-      const [villageData, counts, defendedChallenges] = await Promise.all([
+      const [villageData, defendedChallenges] = await Promise.all([
         fetchVillage(ctx.drizzle, input.id),
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)`.mapWith(Number) })
-          .from(userData)
-          .where(eq(userData.villageId, input.id)),
         ctx.drizzle.query.kageDefendedChallenges.findMany({
           with: {
             user: {
@@ -65,11 +61,8 @@ export const villageRouter = createTRPCRouter({
       // Guards
       if (!villageData) throw serverError("NOT_FOUND", "Village not found");
 
-      // Derived
-      const population = counts?.[0]?.count || 0;
-
       // Return
-      return { villageData, population, defendedChallenges };
+      return { villageData, defendedChallenges };
     }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
