@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, gt, and, asc, isNull } from "drizzle-orm";
+import { eq, sql, gt, and, asc, isNull, isNotNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { fetchUser } from "./profile";
 import { round } from "@/utils/math";
@@ -12,6 +13,8 @@ import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
+import { RYO_FOR_REP_MAX_LISTINGS } from "@/drizzle/constants";
+import { RYO_FOR_REP_MIN_REPS } from "@/drizzle/constants";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -23,12 +26,18 @@ export const blackMarketRouter = createTRPCRouter({
       z.object({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100).nullish(),
+        activeToggle: z.boolean().nullish(),
+        creator: z.string().nullish(),
+        buyer: z.string().nullish(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input?.cursor ? input.cursor : 0;
       const limit = input?.limit ? input.limit : 100;
       const skip = currentCursor * limit;
+      const creator = alias(userData, "creator");
+      const buyer = alias(userData, "buyer");
+      const allowed = alias(userData, "allowed");
       const results = await ctx.drizzle
         .select({
           id: ryoTrade.id,
@@ -37,12 +46,26 @@ export const blackMarketRouter = createTRPCRouter({
           requestedRyo: ryoTrade.requestedRyo,
           createdAt: ryoTrade.createdAt,
           ryoPerRep: ryoTrade.ryoPerRep,
-          username: userData.username,
-          avatar: userData.avatar,
+          creatorUsername: creator.username,
+          creatorAvatar: creator.avatar,
+          purchaserUsername: buyer.username,
+          purchaserAvatar: buyer.avatar,
+          allowedUsername: allowed.username,
+          allowedAvatar: allowed.avatar,
         })
         .from(ryoTrade)
-        .innerJoin(userData, eq(ryoTrade.creatorUserId, userData.userId))
-        .where(isNull(ryoTrade.purchaserUserId))
+        .innerJoin(creator, eq(ryoTrade.creatorUserId, creator.userId))
+        .leftJoin(buyer, eq(ryoTrade.purchaserUserId, buyer.userId))
+        .leftJoin(allowed, eq(ryoTrade.allowedPurchaserId, allowed.userId))
+        .where(
+          and(
+            input.activeToggle
+              ? isNull(ryoTrade.purchaserUserId)
+              : isNotNull(ryoTrade.purchaserUserId),
+            ...(input.creator ? [eq(creator.username, input.creator)] : []),
+            ...(input.buyer ? [eq(buyer.username, input.buyer)] : []),
+          ),
+        )
         .orderBy((table) => [asc(table.ryoPerRep)])
         .limit(limit)
         .offset(skip);
@@ -54,42 +77,55 @@ export const blackMarketRouter = createTRPCRouter({
       z.object({
         reps: z.coerce.number().int().min(1),
         ryo: z.coerce.number().int().min(1),
+        allowedUser: z.string().nullish(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      return errorResponse("Temporarily Closed");
-      // // Guard
-      // if (user.reputationPoints - 5 < input.reps) {
-      //   return errorResponse("Not enough reputation points");
-      // }
-      // if (input.reps <= 0) return errorResponse("Reps must be greater than 0");
-      // if (input.ryo <= 0) return errorResponse("Ryo must be greater than 0");
-      // if (input.ryo < input.reps) return errorResponse("Ryo must be greater than reps");
-      // // Deduce reputation points first
-      // const result = await ctx.drizzle
-      //   .update(userData)
-      //   .set({ reputationPoints: sql`${userData.reputationPoints} - ${input.reps}` })
-      //   .where(
-      //     and(
-      //       eq(userData.userId, ctx.userId),
-      //       gt(userData.reputationPoints, input.reps),
-      //     ),
-      //   );
-      // if (result.rowsAffected === 0) {
-      //   return errorResponse("Not enough reputation points");
-      // }
-      // // Add in the offer
-      // await ctx.drizzle.insert(ryoTrade).values({
-      //   id: nanoid(),
-      //   creatorUserId: ctx.userId,
-      //   repsForSale: input.reps,
-      //   requestedRyo: input.ryo,
-      //   ryoPerRep: input.ryo / input.reps,
-      // });
-      // // Response
-      // return { success: true, message: "Offer created" };
+      const [user, offers] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserOffers(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
+      if (user.reputationPoints - 5 < input.reps) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (input.reps < RYO_FOR_REP_MIN_REPS) {
+        return errorResponse(
+          `Reputation points must be at least ${RYO_FOR_REP_MIN_REPS}`,
+        );
+      }
+      if (offers.length >= RYO_FOR_REP_MAX_LISTINGS) {
+        return errorResponse(`You can only have ${RYO_FOR_REP_MAX_LISTINGS} offers`);
+      }
+      if (user.isBanned) return errorResponse("You are banned");
+      if (input.reps <= 0) return errorResponse("Reps must be greater than 0");
+      if (input.ryo <= 0) return errorResponse("Ryo must be greater than 0");
+      if (input.ryo < input.reps) return errorResponse("Ryo must be greater than reps");
+      // Deduce reputation points first
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ reputationPoints: sql`${userData.reputationPoints} - ${input.reps}` })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            gt(userData.reputationPoints, input.reps),
+          ),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Not enough reputation points");
+      }
+      // Add in the offer
+      await ctx.drizzle.insert(ryoTrade).values({
+        id: nanoid(),
+        creatorUserId: ctx.userId,
+        repsForSale: input.reps,
+        requestedRyo: input.ryo,
+        ryoPerRep: input.ryo / input.reps,
+        allowedPurchaserId: input.allowedUser,
+      });
+      // Response
+      return { success: true, message: "Offer created" };
     }),
   delistOffer: protectedProcedure
     .input(z.object({ offerId: z.string() }))
@@ -131,40 +167,42 @@ export const blackMarketRouter = createTRPCRouter({
         fetchOffer(ctx.drizzle, input.offerId),
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
-      return errorResponse("Temporarily Closed");
-      // // Guard
-      // if (!offer) return errorResponse("Offer not found");
-      // if (offer.purchaserUserId) return errorResponse("Offer already taken");
-      // if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
-      // if (user.money < offer.requestedRyo) return errorResponse("Not enough ryo");
-      // // Mutate
-      // const result = await ctx.drizzle
-      //   .update(userData)
-      //   .set({
-      //     money: sql`${userData.money} - ${offer.requestedRyo}`,
-      //     reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-      //   })
-      //   .where(
-      //     and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
-      //   );
-      // if (result.rowsAffected === 0) {
-      //   return errorResponse("Not enough ryo");
-      // }
-      // await Promise.all([
-      //   ctx.drizzle
-      //     .update(userData)
-      //     .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
-      //     .where(eq(userData.userId, offer.creatorUserId)),
-      //   ctx.drizzle
-      //     .update(ryoTrade)
-      //     .set({ purchaserUserId: ctx.userId })
-      //     .where(eq(ryoTrade.id, input.offerId)),
-      // ]);
-      // // Response
-      // return {
-      //   success: true,
-      //   message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
-      // };
+      // Guard
+      if (!offer) return errorResponse("Offer not found");
+      if (offer.purchaserUserId) return errorResponse("Offer already taken");
+      if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
+      if (user.money < offer.requestedRyo) return errorResponse("Not enough ryo");
+      if (offer.allowedPurchaserId && offer.allowedPurchaserId !== ctx.userId) {
+        return errorResponse("You are not allowed to purchase this offer");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: sql`${userData.money} - ${offer.requestedRyo}`,
+          reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+        })
+        .where(
+          and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Not enough ryo");
+      }
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+          .where(eq(userData.userId, offer.creatorUserId)),
+        ctx.drizzle
+          .update(ryoTrade)
+          .set({ purchaserUserId: ctx.userId })
+          .where(eq(ryoTrade.id, input.offerId)),
+      ]);
+      // Response
+      return {
+        success: true,
+        message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
+      };
     }),
   // Update custom title
   updateCustomTitle: protectedProcedure
@@ -337,5 +375,18 @@ export const blackMarketRouter = createTRPCRouter({
 export const fetchOffer = async (client: DrizzleClient, offerId: string) => {
   return await client.query.ryoTrade.findFirst({
     where: eq(ryoTrade.id, offerId),
+  });
+};
+
+/**
+ * Fetches all offers created by a specific user.
+ *
+ * @param {DrizzleClient} client - The database client used to perform the query.
+ * @param {string} userId - The ID of the user whose offers are to be fetched.
+ * @returns {Promise<Array>} A promise that resolves to an array of offers created by the user.
+ */
+export const fetchUserOffers = async (client: DrizzleClient, userId: string) => {
+  return await client.query.ryoTrade.findMany({
+    where: eq(ryoTrade.creatorUserId, userId),
   });
 };

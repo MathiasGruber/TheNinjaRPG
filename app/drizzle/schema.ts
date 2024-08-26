@@ -971,6 +971,7 @@ export const ryoTrade = mysqlTable(
     requestedRyo: bigint("requestedRyo", { mode: "number" }).notNull(),
     ryoPerRep: double("ryoPerRep").notNull(),
     purchaserUserId: varchar("purchaserUserId", { length: 191 }),
+    allowedPurchaserId: varchar("allowedPurchaserId", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

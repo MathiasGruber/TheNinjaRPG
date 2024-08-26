@@ -338,8 +338,10 @@ export const BATTLE_TAG_STACKING = true;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 
 // Black market config
-export const RYO_FOR_REP_DAYS_FROZEN = 7;
+export const RYO_FOR_REP_DAYS_FROZEN = 3;
 export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
+export const RYO_FOR_REP_MAX_LISTINGS = 5;
+export const RYO_FOR_REP_MIN_REPS = 5;
 
 // Reputation purchase config
 export const MAX_REPS_PER_MONTH = 4000;

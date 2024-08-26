@@ -101,7 +101,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
             control={form.control}
             name="username"
             render={({ field }) => (
-              <FormItem className="mx-1 w-full flex flex-col">
+              <FormItem className="w-full flex flex-col">
                 <FormControl>
                   <Input
                     id="username"
@@ -144,7 +144,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
                   priority
                 />
               </div>
-              <div className="ml-2">
+              <div className="ml-2 text-black">
                 <p>{user.username}</p>
                 <p>
                   Lvl. {user.level} {user.rank}

@@ -10,6 +10,9 @@ import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import Confirm from "@/layout/Confirm";
 import AvatarImage from "@/layout/Avatar";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import { Label } from "src/components/ui/label";
+import { getSearchValidator } from "@/validators/register";
 import { ReceiptJapaneseYen, ShoppingCart, X } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Button } from "@/components/ui/button";
@@ -51,7 +54,7 @@ export default function BlackMarket() {
         back_href="/village"
         topRightContent={
           <NavTabs
-            id="hospital-page"
+            id="blackmarket-page"
             current={tab}
             options={["Bloodline", "Item", "Ryo"]}
             setValue={setTab}
@@ -119,6 +122,8 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
 }) => {
   // State
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+  const [tab, setTab] = useState<"Active" | "Ledger">("Active");
+  const showActive = tab === "Active";
 
   // Utility
   const utils = api.useUtils();
@@ -159,10 +164,37 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
 
   const isLoading = isCreating || isDelisting || isAccepting;
 
+  // Creator search
+  const maxUsers = 1;
+  const creatorSearchSchema = getSearchValidator({ max: maxUsers });
+  const creatorSearchMethods = useForm<z.infer<typeof creatorSearchSchema>>({
+    resolver: zodResolver(creatorSearchSchema),
+  });
+  const creatorUser = creatorSearchMethods.watch("users", [])?.[0];
+
+  // Buyer search
+  const buyerSearchSchema = getSearchValidator({ max: maxUsers });
+  const buyerSearchMethods = useForm<z.infer<typeof buyerSearchSchema>>({
+    resolver: zodResolver(buyerSearchSchema),
+  });
+  const buyerUser = buyerSearchMethods.watch("users", [])?.[0];
+
+  // Allowed buyer schema
+  const allowedSearchSchema = getSearchValidator({ max: maxUsers });
+  const allowedSearchMethods = useForm<z.infer<typeof allowedSearchSchema>>({
+    resolver: zodResolver(allowedSearchSchema),
+  });
+  const allowedUser = allowedSearchMethods.watch("users", [])?.[0];
+
   // Query
   const { data, fetchNextPage, hasNextPage } =
     api.blackmarket.getRyoOffers.useInfiniteQuery(
-      { limit: 30 },
+      {
+        activeToggle: tab === "Active",
+        creator: creatorUser?.username,
+        buyer: buyerUser?.username,
+        limit: 30,
+      },
       {
         getNextPageParam: (lastPage) => lastPage.nextCursor,
         placeholderData: (previousData) => previousData,
@@ -181,27 +213,53 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
         secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt);
       return {
         ...offer,
-        info: (
+        creator: (
           <div className="w-20 text-center">
-            <AvatarImage href={offer.avatar} alt={offer.username} size={100} />
-            <p>{offer.username}</p>
+            <AvatarImage
+              href={offer.creatorAvatar}
+              alt={offer.creatorUsername}
+              size={100}
+            />
+            <p>{offer.creatorUsername}</p>
+          </div>
+        ),
+        buyer: (
+          <div className="w-20 text-center">
+            <AvatarImage
+              href={offer.purchaserAvatar}
+              alt={offer.purchaserUsername || "Unknown"}
+              size={100}
+            />
+            <p>{offer.purchaserUsername}</p>
+          </div>
+        ),
+        allowed: (
+          <div className="w-20 text-center">
+            <AvatarImage
+              href={offer.allowedAvatar}
+              alt={offer.allowedUsername || "Unknown"}
+              size={100}
+            />
+            <p>{offer.allowedUsername}</p>
           </div>
         ),
         actions: (
-          <div className="flex flex-row gap-1">
-            {hasRyo && !owner && (
-              <Button onClick={() => accept({ offerId: offer.id })}>
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Buy
-              </Button>
-            )}
-            {(isTerr || (owner && canDelist)) && (
-              <Button onClick={() => delist({ offerId: offer.id })}>
-                <X className="h-6 w-6" />
-              </Button>
-            )}
+          <div className="flex flex-col items-center">
+            <div className="flex flex-row gap-1">
+              {showActive && hasRyo && !owner && (
+                <Button onClick={() => accept({ offerId: offer.id })}>
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  Buy
+                </Button>
+              )}
+              {showActive && (isTerr || (owner && canDelist)) && (
+                <Button onClick={() => delist({ offerId: offer.id })}>
+                  <X className="h-6 w-6" />
+                </Button>
+              )}
+            </div>
             {owner && !canDelist && (
-              <p className="text-center">
+              <p className="text-center text-xs italic">
                 Created at
                 <br /> {offer.createdAt.toLocaleDateString()}
               </p>
@@ -221,12 +279,19 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
 
   // Columns
   const columns: ColumnDefinitionType<Offer, keyof Offer>[] = [
-    { key: "info", header: "User", type: "jsx" },
+    { key: "creator", header: "Creator", type: "jsx" },
+    { key: "allowed", header: "Restricted", type: "jsx" },
     { key: "repsForSale", header: "Reps", type: "string" },
     { key: "requestedRyo", header: "Ryo Cost", type: "string" },
     { key: "ryoPerRep", header: "Ryo per Rep", type: "string" },
-    { key: "actions", header: "Actions", type: "jsx" },
   ];
+
+  // Dynamic columns
+  if (showActive) {
+    columns.push({ key: "actions", header: "Actions", type: "jsx" });
+  } else {
+    columns.push({ key: "buyer", header: "Buyer", type: "jsx" });
+  }
 
   // New offer form
   const FormSchema = z.object({
@@ -240,7 +305,9 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
   });
   const offerReps = form.watch("reps");
   const offerRyo = form.watch("ryo");
-  const onSubmit = form.handleSubmit((data) => create(data));
+  const onSubmit = form.handleSubmit((data) =>
+    create({ ...data, allowedUser: allowedUser?.userId }),
+  );
 
   // Derived
   const tradeableReps = Math.max(userData.reputationPoints - 5, 0);
@@ -251,6 +318,14 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
       subtitle="Trade for reputation points"
       initialBreak={true}
       padding={false}
+      topRightContent={
+        <NavTabs
+          id="hospital-page"
+          current={tab}
+          options={["Active", "Ledger"]}
+          setValue={setTab}
+        />
+      }
     >
       {/* CREATE OFFERS */}
       {tradeableReps > 0 && (
@@ -267,7 +342,31 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
             NB. Bought reputation points are not transfered on reset to beta/final
             release, but are rather restored to the original purchaser.
           </p>
-          {!isLoading && (
+          {!showActive && (
+            <div className="px-3 flex flex-row gap-2">
+              <div className="w-full">
+                <Label>Creator</Label>
+                <UserSearchSelect
+                  useFormMethods={creatorSearchMethods}
+                  selectedUsers={[]}
+                  showYourself={true}
+                  inline={true}
+                  maxUsers={maxUsers}
+                />
+              </div>
+              <div className="w-full">
+                <Label>Buyer</Label>
+                <UserSearchSelect
+                  useFormMethods={buyerSearchMethods}
+                  selectedUsers={[]}
+                  showYourself={true}
+                  inline={true}
+                  maxUsers={maxUsers}
+                />
+              </div>
+            </div>
+          )}
+          {showActive && !isLoading && (
             <Form {...form}>
               <form>
                 <div className="grid grid-cols-2 gap-3 px-3">
@@ -297,42 +396,52 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                       </FormItem>
                     )}
                   />
-                </div>
-                <div className="px-3 py-2">
-                  <Confirm
-                    title="Create Offer"
-                    proceed_label={
-                      offerReps > 0 && offerRyo > 0 ? "Confirm" : "Fill in values"
-                    }
-                    isValid={!isLoading && offerReps > 0}
-                    confirmClassName={
-                      offerReps > 0 && offerRyo > 0
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-red-600 text-white hover:bg-red-700"
-                    }
-                    button={
-                      <Button type="submit" className="w-full">
-                        <ReceiptJapaneseYen className="w-5 h-5 mr-2" />
-                        Create offer
-                      </Button>
-                    }
-                    onAccept={async (e) => {
-                      e.preventDefault();
-                      await onSubmit();
-                    }}
-                  >
-                    {offerReps > 0 && offerRyo > 0 && (
-                      <p>
-                        Confirm that you wish to put {offerReps} reputation points up
-                        for sale for a price of {offerRyo} ryo. This offer will be
-                        listed for at least {RYO_FOR_REP_DAYS_FROZEN} days, after which
-                        you can delist them.
-                      </p>
-                    )}
-                    {(offerReps === 0 || offerRyo === 0) && (
-                      <p>Must enter reputation & reputation values above 0.</p>
-                    )}
-                  </Confirm>
+                  <div className="col-span-2">
+                    <Label>Restrict Purchase [optional]</Label>
+                    <UserSearchSelect
+                      useFormMethods={allowedSearchMethods}
+                      selectedUsers={[]}
+                      showYourself={true}
+                      inline={true}
+                      maxUsers={maxUsers}
+                    />
+                  </div>
+                  <div className="col-span-2 px-1 py-2">
+                    <Confirm
+                      title="Create Offer"
+                      proceed_label={
+                        offerReps > 0 && offerRyo > 0 ? "Confirm" : "Fill in values"
+                      }
+                      isValid={!isLoading && offerReps > 0}
+                      confirmClassName={
+                        offerReps > 0 && offerRyo > 0
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-red-600 text-white hover:bg-red-700"
+                      }
+                      button={
+                        <Button type="submit" className="w-full" decoration="gold">
+                          <ReceiptJapaneseYen className="w-5 h-5 mr-2" />
+                          Create offer
+                        </Button>
+                      }
+                      onAccept={async (e) => {
+                        e.preventDefault();
+                        await onSubmit();
+                      }}
+                    >
+                      {offerReps > 0 && offerRyo > 0 && (
+                        <p>
+                          Confirm that you wish to put {offerReps} reputation points up
+                          for sale for a price of {offerRyo} ryo. This offer will be
+                          listed for at least {RYO_FOR_REP_DAYS_FROZEN} days, after
+                          which you can delist them.
+                        </p>
+                      )}
+                      {(offerReps === 0 || offerRyo === 0) && (
+                        <p>Must enter reputation & reputation values above 0.</p>
+                      )}
+                    </Confirm>
+                  </div>
                 </div>
               </form>
             </Form>
@@ -341,10 +450,14 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
       )}
       {/* TABLE OF CURRENT OFFERS */}
       {!isLoading && allOffers && allOffers.length > 0 && (
-        <Table data={allOffers} columns={columns} setLastElement={setLastElement} />
+        <div className="mt-5 border-t-2 border-dashed">
+          <Table data={allOffers} columns={columns} setLastElement={setLastElement} />
+        </div>
       )}
       {!allOffers?.length && (
-        <p className="p-3 bg-orange-100 mt-3">No offers currently listed.</p>
+        <p className="p-3 bg-popover mt-3 border-t-2 border-dashed">
+          No offers currently listed.
+        </p>
       )}
       {/* LOADERS */}
       {isLoading && <Loader explanation="Loading" />}

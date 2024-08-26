@@ -1,0 +1,1 @@
+ALTER TABLE `RyoTrade` ADD `allowedPurchaserId` varchar(191);
