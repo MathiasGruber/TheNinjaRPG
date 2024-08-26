@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, gt, and, asc, isNull, isNotNull } from "drizzle-orm";
+import { eq, sql, gt, and, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { fetchUser } from "./profile";
@@ -66,7 +66,9 @@ export const blackMarketRouter = createTRPCRouter({
             ...(input.buyer ? [eq(buyer.username, input.buyer)] : []),
           ),
         )
-        .orderBy((table) => [asc(table.ryoPerRep)])
+        .orderBy((table) => [
+          input.activeToggle ? asc(table.ryoPerRep) : desc(table.createdAt),
+        ])
         .limit(limit)
         .offset(skip);
       const nextCursor = results.length < limit ? null : currentCursor + 1;

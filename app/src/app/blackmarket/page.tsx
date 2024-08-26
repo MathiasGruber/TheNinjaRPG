@@ -213,6 +213,13 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
         secondsFromDate(3600 * 24 * RYO_FOR_REP_DAYS_FROZEN, offer.createdAt);
       return {
         ...offer,
+        item: (
+          <div className="flex flex-col whitespace-nowrap">
+            <b>Reps for sale: {offer.repsForSale}</b>
+            <b>Ryo price: {offer.requestedRyo}</b>
+            <b>Ryo/Rep price: {offer.ryoPerRep}</b>
+          </div>
+        ),
         creator: (
           <div className="w-20 text-center">
             <AvatarImage
@@ -244,25 +251,17 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
           </div>
         ),
         actions: (
-          <div className="flex flex-col items-center">
-            <div className="flex flex-row gap-1">
-              {showActive && hasRyo && !owner && (
-                <Button onClick={() => accept({ offerId: offer.id })}>
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Buy
-                </Button>
-              )}
-              {showActive && (isTerr || (owner && canDelist)) && (
-                <Button onClick={() => delist({ offerId: offer.id })}>
-                  <X className="h-6 w-6" />
-                </Button>
-              )}
-            </div>
-            {owner && !canDelist && (
-              <p className="text-center text-xs italic">
-                Created at
-                <br /> {offer.createdAt.toLocaleDateString()}
-              </p>
+          <div className="flex flex-row gap-1">
+            {showActive && hasRyo && !owner && (
+              <Button onClick={() => accept({ offerId: offer.id })}>
+                <ShoppingCart className="h-5 w-5 mr-2" />
+                Buy
+              </Button>
+            )}
+            {showActive && (isTerr || (owner && canDelist)) && (
+              <Button onClick={() => delist({ offerId: offer.id })}>
+                <X className="h-6 w-6" />
+              </Button>
             )}
           </div>
         ),
@@ -281,9 +280,8 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
   const columns: ColumnDefinitionType<Offer, keyof Offer>[] = [
     { key: "creator", header: "Creator", type: "jsx" },
     { key: "allowed", header: "Restricted", type: "jsx" },
-    { key: "repsForSale", header: "Reps", type: "string" },
-    { key: "requestedRyo", header: "Ryo Cost", type: "string" },
-    { key: "ryoPerRep", header: "Ryo per Rep", type: "string" },
+    { key: "item", header: "Item", type: "jsx" },
+    { key: "createdAt", header: "Created", type: "date" },
   ];
 
   // Dynamic columns
