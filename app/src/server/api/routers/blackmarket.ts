@@ -84,7 +84,7 @@ export const blackMarketRouter = createTRPCRouter({
       // Fetch
       const [user, offers] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserOffers(ctx.drizzle, ctx.userId),
+        fetchActiveUserOffers(ctx.drizzle, ctx.userId),
       ]);
       // Guard
       if (user.reputationPoints - 5 < input.reps) {
@@ -385,8 +385,8 @@ export const fetchOffer = async (client: DrizzleClient, offerId: string) => {
  * @param {string} userId - The ID of the user whose offers are to be fetched.
  * @returns {Promise<Array>} A promise that resolves to an array of offers created by the user.
  */
-export const fetchUserOffers = async (client: DrizzleClient, userId: string) => {
+export const fetchActiveUserOffers = async (client: DrizzleClient, userId: string) => {
   return await client.query.ryoTrade.findMany({
-    where: eq(ryoTrade.creatorUserId, userId),
+    where: and(eq(ryoTrade.creatorUserId, userId), isNull(ryoTrade.purchaserUserId)),
   });
 };
