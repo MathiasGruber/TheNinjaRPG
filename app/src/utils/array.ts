@@ -14,3 +14,15 @@ export const getRandomElement = <T>(arr?: T[] | readonly T[]) => {
     return undefined;
   }
 };
+
+/**
+ * Checks if the given item is in the given array.
+ * @param item
+ * @param array
+ */
+export const isInArray = <T, A extends T>(
+  item: T,
+  array: ReadonlyArray<A>,
+): item is A => {
+  return array.includes(item as A);
+};

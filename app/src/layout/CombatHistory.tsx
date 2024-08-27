@@ -87,18 +87,18 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                         ? "text-blue-500"
                         : "text-green-500";
                   const text = insertComponentsIntoText(effect.txt, {
-                    Highest: <span className="text-yellow-500">Highest</span>,
-                    Taijutsu: <span className="text-green-500">Taijutsu</span>,
-                    Bukijutsu: <span className="text-red-500">Bukijutsu</span>,
-                    Ninjutsu: <span className="text-blue-500">Ninjutsu</span>,
-                    Genjutsu: <span className="text-purple-500">Genjutsu</span>,
-                    Strength: <span className="text-black">Strength</span>,
-                    Intelligence: <span className="text-teal-500">Intelligence</span>,
-                    Willpower: <span className="text-orange-500">Willpower</span>,
-                    Speed: <span className="text-cyan-500">Speed</span>,
+                    Highest: <span className="text-stone-500">Highest</span>,
+                    Taijutsu: <span className="text-green-600">Taijutsu</span>,
+                    Bukijutsu: <span className="text-red-600">Bukijutsu</span>,
+                    Ninjutsu: <span className="text-blue-600">Ninjutsu</span>,
+                    Genjutsu: <span className="text-purple-600">Genjutsu</span>,
+                    Strength: <span className="text-blue-800">Strength</span>,
+                    Intelligence: <span className="text-teal-600">Intelligence</span>,
+                    Willpower: <span className="text-orange-600">Willpower</span>,
+                    Speed: <span className="text-cyan-600">Speed</span>,
                   });
                   return (
-                    <p key={i} className={color}>
+                    <p key={`combathistory-${i}`} className={color}>
                       - {text}
                     </p>
                   );

@@ -5,6 +5,7 @@ import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import Countdown from "@/layout/Countdown";
 import LevelUpBtn from "@/layout/LevelUpBtn";
+import ElementImage from "@/layout/ElementImage";
 import {
   Tooltip,
   TooltipContent,
@@ -13,7 +14,8 @@ import {
 } from "@/components/ui/tooltip";
 import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
-import { ShieldCheck, Swords, Moon, Sun, Heart, Dumbbell, Star } from "lucide-react";
+import { groupBy } from "@/utils/grouping";
+import { ShieldCheck, Swords, Moon, Sun, Dumbbell, Star } from "lucide-react";
 import { LayoutList } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
@@ -24,6 +26,8 @@ import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { cn } from "src/libs/shadui";
+import type { GeneralType, StatType, ElementName } from "@/drizzle/constants";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
 
@@ -85,62 +89,7 @@ const MenuBoxProfile: React.FC = () => {
   // Get location of user
   const { location } = useGameMenu(userData);
 
-  /** Convenience methods for showing effects */
-  const showStat = (
-    effect: UserEffect,
-    qualifier: string,
-    key: number,
-    className: string,
-    arrow: string,
-  ) => {
-    if ("statTypes" in effect) {
-      return (
-        <div key={key}>
-          {effect.statTypes?.map((e) => {
-            return (
-              <li key={`${e}-${key}`} className={className}>
-                {arrow} {e} {qualifier}
-              </li>
-            );
-          })}
-          {effect.generalTypes?.map((e) => {
-            return (
-              <li key={`${e}-${key}`} className={className}>
-                {arrow} {e} {qualifier}
-              </li>
-            );
-          })}
-          {effect.elements?.map((e) => {
-            return (
-              <li key={`${e}-${key}`} className={className}>
-                {arrow} {e} {qualifier}
-              </li>
-            );
-          })}
-        </div>
-      );
-    }
-    return <div key={key}></div>;
-  };
-
-  const show = (
-    i: number,
-    txt: string,
-    color: string,
-    qualifier: string | React.ReactNode,
-  ) => {
-    return (
-      <li key={i} className={`${color}`}>
-        <div className="flex flex-row">
-          {qualifier} {txt}
-        </div>
-      </li>
-    );
-  };
-
   // Derived data
-  const active = battle?.usersEffects.filter(isEffectActive);
-  const sealEffects = battle && active?.filter((e) => e.type === "seal" && !e.isNew);
   const immunitySecsLeft =
     (userData && (userData.immunityUntil.getTime() - Date.now()) / 1000) || 0;
 
@@ -347,83 +296,14 @@ const MenuBoxProfile: React.FC = () => {
           )}
         </div>
         {/* ACTIVE EFFECTS */}
-        {active && (
+        {battle?.usersEffects && userData && (
           <>
             <hr className="my-2" />
             <ul className="italic">
-              {active
-                .filter((e) => e.targetId === userData?.userId)
-                .filter((e) => e.rounds === undefined || e.rounds > 0)
-                .map((effect, i) => {
-                  let cooldown = "";
-                  if (effect.rounds && battle) {
-                    cooldown = `[${effect.rounds} rounds]`;
-                  }
-                  const isSealed = sealEffects && sealCheck(effect, sealEffects);
-                  const positive = effect.power && effect.power > 0;
-                  const arrow = positive ? "↑" : "↓";
-                  let className = isSealed ? "line-through" : "";
-                  if (["poolcostadjust", "damage"].includes(effect.type)) {
-                    className = positive ? "text-red-500" : "text-green-500";
-                  } else {
-                    className = positive ? "text-green-500" : "text-red-500";
-                  }
-                  if (effect.type === "increasestat") {
-                    return showStat(effect, "increased", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasestat") {
-                    return showStat(effect, "decreased", i, "text-red-500", "↓");
-                  } else if (effect.type === "increasedamagegiven") {
-                    return showStat(effect, "damage", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreasedamagegiven") {
-                    return showStat(effect, "damage", i, "text-red-500", "↓");
-                  } else if (effect.type === "increasedamagetaken") {
-                    return showStat(effect, "protection", i, "text-red-500", "↓");
-                  } else if (effect.type === "decreasedamagetaken") {
-                    return showStat(effect, "protection", i, "text-green-500", "↑");
-                  } else if (effect.type === "increaseheal") {
-                    return showStat(effect, "healing", i, "text-green-500", "↑");
-                  } else if (effect.type === "decreaseheal") {
-                    return showStat(effect, "healing", i, "text-red-500", "↓");
-                  } else if (effect.type === "absorb") {
-                    return showStat(effect, "absorb", i, className, arrow);
-                  } else if (effect.type === "reflect") {
-                    return showStat(effect, "reflect", i, className, arrow);
-                  } else if (effect.type === "damage") {
-                    const icon = <Heart className="h-6 w-6 mr-2" />;
-                    return show(i, `Dmg ${cooldown}`, className, icon);
-                  } else if (effect.type === "heal") {
-                    const icon = <Heart className="h-6 w-6 mr-2" />;
-                    return show(i, `Heal ${cooldown}`, className, icon);
-                  } else if (effect.type === "increasepoolcost") {
-                    return show(i, `Action cost ${cooldown}`, "text-red-500", "↑");
-                  } else if (effect.type === "decreasepoolcost") {
-                    return show(i, `Action cost ${cooldown}`, "text-green-500", "↓");
-                  } else if (effect.type === "fleeprevent") {
-                    return show(i, `Cannot flee ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "robprevent") {
-                    return show(i, `Rob Immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "recoil") {
-                    return show(i, `Dmg recoiled ${cooldown}`, "text-red-500", "-");
-                  } else if (effect.type === "lifesteal") {
-                    return show(i, `Steal life ${cooldown}`, "text-green-500", "-");
-                  } else if (effect.type === "stunprevent") {
-                    return show(i, `Stun Resistance ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "stun" && effect.rounds) {
-                    return show(i, `Stunned ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "onehitkillprevent" && effect.rounds) {
-                    return show(i, `OHKO immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "sealprevent" && effect.rounds) {
-                    return show(i, `Seal immunity ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "seal" && effect.rounds) {
-                    return show(i, `BL Sealed ${cooldown}`, "text-blue-500", "-");
-                  } else if (effect.type === "clear") {
-                    return show(i, `Clearing positive effects`, "text-blue-500", "-");
-                  } else if (effect.type === "cleanse") {
-                    return show(i, `Clearing negative effects`, "text-blue-500", "-");
-                  } else {
-                    return <div key={i}>Unparsed: {effect.type}</div>;
-                  }
-                })}
+              <VisualizeEffects
+                effects={battle.usersEffects}
+                userId={userData.userId}
+              />
             </ul>
           </>
         )}
@@ -506,4 +386,199 @@ const Cooldown: React.FC<CooldownProps> = (props) => {
   }, [totalSeconds, createdAt, initialSecondsLeft, setState]);
 
   return counter ? <>[{counter}]</> : <></>;
+};
+
+type CollapsedEffect = {
+  type: string;
+  value: number;
+  calculation: "static" | "percentage" | "formula";
+  category: GeneralType | StatType | ElementName | "All";
+  upDownEffect: boolean;
+  rounds: number[];
+  sealed: boolean;
+};
+
+interface VisualizeEffectsProps {
+  effects: UserEffect[];
+  userId: string;
+}
+
+const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) => {
+  // Get sealing effects
+  const sealEffects = effects.filter((e) => e.type === "seal" && !e.isNew);
+  // Collapse consequences based on their type & calculation type
+  const collapsedEffects =
+    effects
+      .filter(isEffectActive)
+      .filter((e) => e.targetId === userId)
+      .filter((e) => e.rounds === undefined || e.rounds > 0)
+      .reduce((acc, val) => {
+        // Convenience
+        const value = val.power + val.level * val.powerPerLevel;
+        const stats = [
+          ...(("statTypes" in val && val?.statTypes) || []),
+          ...(("generalTypes" in val && val?.generalTypes) || []),
+          ...(("elements" in val && val?.elements) || []),
+        ];
+        const isSealed = sealEffects && sealCheck(val, sealEffects);
+        const cats = stats.length === 0 ? ["All" as const] : stats;
+        const dual = val.type.includes("increase") || val.type.includes("decrease");
+        const baseType = dual
+          ? val.type.replace("increase", "").replace("decrease", "")
+          : val.type;
+        // Already exists?
+        cats.forEach((cat) => {
+          const found = acc.find(
+            (e) =>
+              e.type === baseType &&
+              e.calculation === val.calculation &&
+              e.category === cat &&
+              e.sealed === isSealed,
+          );
+          // Update
+          if (found) {
+            found.value += value;
+            if (val.rounds) found.rounds.push(val.rounds);
+          } else {
+            acc.push({
+              type: baseType,
+              value: isSealed ? 0 : value,
+              category: cat,
+              calculation: val.calculation,
+              upDownEffect: dual,
+              rounds: val.rounds ? [val.rounds] : [],
+              sealed: isSealed,
+            });
+          }
+        });
+        return acc;
+      }, [] as CollapsedEffect[]) || [];
+
+  // Group the effects by type
+  const groupedEffects = groupBy(collapsedEffects, "type");
+
+  // Convenience for showing
+  const visuals: React.ReactNode[] = [];
+  const insert = (
+    image: React.ReactNode,
+    className: string,
+    txtName: string,
+    showValue: boolean,
+    effect: CollapsedEffect,
+  ) => {
+    const e = effect;
+    const valTxt = `[${e.value > 0 ? "+" : ""}${e.value}${e.calculation === "percentage" ? "%" : ""}]`;
+    const roundsTxt = e.rounds.length > 0 ? `[${e.rounds.join(", ")} rounds]` : "";
+    visuals.push(
+      <div
+        key={`${e.type}-${e.category}`}
+        className={cn("flex flex-row gap-2 items-center", className)}
+      >
+        {image}{" "}
+        <div className="leading-none">
+          <div className={cn(e.sealed ? "line-through" : "")}>
+            {txtName} {showValue ? valTxt : ""}
+          </div>
+          <div className="text-xs">{roundsTxt}</div>
+        </div>
+      </div>,
+    );
+  };
+
+  // Go through the effects, and for each type create the visual
+  groupedEffects.forEach((value: CollapsedEffect[], key: string) => {
+    // Icons with tooltips for each stat
+    value.forEach((e) => {
+      // Image to show
+      const image = (
+        <ElementImage
+          key={`${key}-${e.category}`}
+          element={e.category}
+          className="w-8 h-8"
+        />
+      );
+      // Show different effects
+      switch (key) {
+        case "damagegiven":
+          if (e.value > 0) {
+            insert(image, "text-green-500", `↑ Damage`, true, e);
+          } else {
+            insert(image, "text-red-500", `↓ Damage`, true, e);
+          }
+          break;
+        case "damagetaken":
+          if (e.value > 0) {
+            insert(image, "text-red-500", `↓ Protection`, true, e);
+          } else {
+            insert(image, "text-green-500", `↑ Protection`, true, e);
+          }
+          break;
+        case "stat":
+          if (e.value > 0) {
+            insert(image, "text-green-500", `↑ Stats`, true, e);
+          } else {
+            insert(image, "text-red-500", `↓ Stats`, true, e);
+          }
+          break;
+        case "heal":
+          if (e.value > 0) {
+            insert(image, "text-green-500", `↑ Healing`, true, e);
+          } else {
+            insert(image, "text-red-500", `↓ Healing`, true, e);
+          }
+          break;
+        case "poolcost":
+          if (e.value > 0) {
+            insert(image, "text-red-500", `↓ Action cost`, true, e);
+          } else {
+            insert(image, "text-green-500", `↑ Action cost`, true, e);
+          }
+          break;
+        case "damage":
+          insert(image, "text-red-500", `↓ Taking Dmg`, true, e);
+          break;
+        case "absorb":
+          insert(image, "text-green-500", `↑ Absorb`, true, e);
+          break;
+        case "reflect":
+          insert(image, "text-green-500", `↑ Reflect`, true, e);
+          break;
+        case "recoil":
+          insert(image, "text-red-500", `↓ Dmg recoil`, true, e);
+          break;
+        case "lifesteal":
+          insert(image, "text-green-500", `↑ Steal life`, true, e);
+          break;
+        case "fleeprevent":
+          insert(image, "text-blue-500", `- Cannot Flee`, false, e);
+          break;
+        case "robprevent":
+          insert(image, "text-blue-500", `- Rob Immunity`, false, e);
+          break;
+        case "stunprevent":
+          insert(image, "text-blue-500", `- Stun Resistance`, false, e);
+          break;
+        case "sealprevent":
+          insert(image, "text-blue-500", `- Seal immunity`, false, e);
+          break;
+        case "onehitkillprevent":
+          insert(image, "text-blue-500", `- OHKO immunity`, false, e);
+          break;
+        case "seal":
+          insert(image, "text-blue-500", `- BL Sealed`, false, e);
+          break;
+        case "stun":
+          insert(image, "text-blue-500", `- Stunned`, false, e);
+          break;
+        case "clear":
+          insert(image, "text-red-500", `↓ Clearing positive effects`, false, e);
+          break;
+        case "cleanse":
+          insert(image, "text-green-500", `↑ Clearing negative effects`, false, e);
+          break;
+      }
+    });
+    // Show the effect with its stats
+  });
+  return <div className="flex flex-col gap-3">{visuals}</div>;
 };
