@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { round } from "@/utils/math";
 import ContentBox from "@/layout/ContentBox";
 import Shop from "@/layout/Shop";
 import Loader from "@/layout/Loader";
@@ -430,9 +431,10 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                       {offerReps > 0 && offerRyo > 0 && (
                         <p>
                           Confirm that you wish to put {offerReps} reputation points up
-                          for sale for a price of {offerRyo} ryo. This offer will be
-                          listed for at least {RYO_FOR_REP_DAYS_FROZEN} days, after
-                          which you can delist them.
+                          for sale for a total price of {offerRyo} ryo, i.e. at a{" "}
+                          <b>ryo/rep price of {round(offerRyo / offerReps)}</b>. This
+                          offer will be listed for at least {RYO_FOR_REP_DAYS_FROZEN}{" "}
+                          days, after which you can delist them.
                         </p>
                       )}
                       {(offerReps === 0 || offerRyo === 0) && (
