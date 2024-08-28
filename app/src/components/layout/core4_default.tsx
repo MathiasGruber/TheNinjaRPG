@@ -168,7 +168,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   return (
     <div className="w-full">
-      <div className="absolute right-5 bottom-5 z-50 bg-slate-500 rounded-full">
+      <div className="fixed right-5 bottom-5 z-50 bg-slate-500 rounded-full">
         <SendTicketBtn>
           <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
         </SendTicketBtn>
