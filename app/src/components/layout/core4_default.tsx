@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import MenuBoxProfile from "@/layout/MenuBoxProfile";
+import MenuBoxCombat from "@/layout/MenuBoxCombat";
 import Footer from "@/layout/Footer";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
@@ -19,6 +20,9 @@ import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
 import { api } from "@/utils/api";
 import { showUserRank } from "@/libs/profile";
 import { useAuth } from "@clerk/nextjs";
+import { useAtomValue } from "jotai";
+import { userBattleAtom } from "@/utils/UserContext";
+import { calcActiveUser } from "@/libs/combat/actions";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -28,7 +32,7 @@ export interface LayoutProps {
 
 const LayoutCore4: React.FC<LayoutProps> = (props) => {
   // Get data
-  const { data: userData, notifications } = useUserData();
+  const { data: userData, timeDiff, notifications } = useUserData();
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
@@ -100,6 +104,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           systems={systems}
           userData={userData}
           location={location}
+          timeDiff={timeDiff}
         />
       </SignedIn>
       <SignedOut>
@@ -471,9 +476,10 @@ const StrongestUsersBanner: React.FC = () => {
  * @param children - The content to be displayed as the title.
  * @returns The rendered side banner title component.
  */
-const SideBannerTitle: React.FC<{ children: React.ReactNode; break?: boolean }> = (
-  props,
-) => {
+export const SideBannerTitle: React.FC<{
+  children: React.ReactNode;
+  break?: boolean;
+}> = (props) => {
   return (
     <>
       {props.break && <br />}
@@ -500,6 +506,7 @@ const SideBannerTitle: React.FC<{ children: React.ReactNode; break?: boolean }> 
 const RightSideBar: React.FC<{
   systems: NavBarDropdownLink[];
   userData: UserWithRelations;
+  timeDiff: number;
   notifications?: NavBarDropdownLink[];
   location?: NavBarDropdownLink;
 }> = (props) => {
@@ -509,9 +516,19 @@ const RightSideBar: React.FC<{
   // Derived data
   const inBattle = userData?.status === "BATTLE";
 
+  // Get the battle information
+  const battle = useAtomValue(userBattleAtom);
+
+  // Next user who is not current user
+  const actor =
+    battle && userData && calcActiveUser(battle, userData.userId, props.timeDiff);
+  console.log(actor);
+
   // Render
   return (
     <>
+      {/* COMBAT */}
+      <MenuBoxCombat />
       {/* NOTIFICATIONS */}
       {userData && notifications && notifications.length > 0 && (
         <>
