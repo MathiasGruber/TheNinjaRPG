@@ -571,7 +571,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
  * Computes change in ELO rating based on original ELO ratings
  */
 const calcEloChange = (user: number, opponent: number, kFactor = 32, won: boolean) => {
-  const expectedScore = 1 / (1 + 10 ** ((opponent - user) / 400));
+  const expectedScore = 1 / (1 + 2 ** ((opponent - user) / (0.03 * (opponent + user))));
   const ratingChange = kFactor * ((won ? 1 : 0) - expectedScore);
   return Math.floor(ratingChange * 100) / 100;
 };
