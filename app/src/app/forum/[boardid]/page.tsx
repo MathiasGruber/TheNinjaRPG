@@ -22,12 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
-import { forumBoardSchema } from "@/validators/forum";
+import { forumBoardSchema, type ForumBoardSchema } from "@/validators/forum";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
 import { useInfinitePagination } from "@/libs/pagination";
 import { canModerate } from "@/validators/forum";
-import type { ForumBoardSchema } from "@/validators/forum";
 
 export default function Board({ params }: { params: { boardid: string } }) {
   const { data: userData } = useUserData();

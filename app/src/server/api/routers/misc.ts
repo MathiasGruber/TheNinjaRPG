@@ -9,6 +9,9 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { changeSettingSchema } from "@/validators/misc";
 import { secondsFromNow } from "@/utils/time";
+import { callDiscordTicket } from "@/libs/discord";
+import { TicketTypes } from "@/validators/misc";
+import { createTicketSchema } from "@/validators/misc";
 import PushNotifications from "@pusher/push-notifications-server";
 
 export const miscRouter = createTRPCRouter({
@@ -113,5 +116,18 @@ export const miscRouter = createTRPCRouter({
         secondsFromNow(input.days * 24 * 3600),
       );
       return { success: true, message: `Setting set to: ${input.multiplier}X` };
+    }),
+  sendTicket: protectedProcedure
+    .input(createTicketSchema.extend({ type: z.enum(TicketTypes) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guards
+      if (!user) return errorResponse("User not found");
+      // Update
+      await callDiscordTicket(input.title, input.content, input.type, user);
+      // Return message
+      return { success: true, message: `Ticket sent` };
     }),
 });

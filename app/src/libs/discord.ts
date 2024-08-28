@@ -1,4 +1,6 @@
 import { NodeHtmlMarkdown } from "node-html-markdown";
+import type { TicketType } from "@/validators/misc";
+import type { UserData } from "@/drizzle/schema";
 
 export const callDiscordContent = async (
   username: string,
@@ -29,6 +31,27 @@ export const callDiscordNews = async (
     body: JSON.stringify({
       avatar_url: image_url && image_url.includes("https") ? image_url : "",
       content: nhm.translate(`**${title}**\n* ${content} @everyone`),
+    }),
+  });
+};
+
+export const callDiscordTicket = async (
+  thread_name: string,
+  reason: string,
+  type: TicketType,
+  user: UserData,
+) => {
+  const nhm = new NodeHtmlMarkdown({}, undefined, undefined);
+  const image_url = user.avatar;
+  const content = `*Report from TNR interface*\n\n**Username:** ${user.username}\n**Reason:** ${nhm.translate(reason)}\n${type === "content" ? "<@&1131406837762244760>" : "<@&1086822053254017105>"}`;
+  return fetch(process.env.DISCORD_TICKETS, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      avatar_url: image_url && image_url.includes("https") ? image_url : "",
+      content: content,
+      username: user.username,
+      thread_name,
     }),
   });
 };

@@ -13,6 +13,7 @@ export const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]),
   DISCORD_CONTENT_UPDATES: z.string().url(),
   DISCORD_NEWS_UPDATES: z.string().url(),
+  DISCORD_TICKETS: z.string().url(),
   REPLICATE_API_TOKEN: z.string(),
 });
 
@@ -29,6 +30,7 @@ export const serverEnv = {
   NODE_ENV: process.env.NODE_ENV,
   DISCORD_CONTENT_UPDATES: process.env.DISCORD_CONTENT_UPDATES,
   DISCORD_NEWS_UPDATES: process.env.DISCORD_NEWS_UPDATES,
+  DISCORD_TICKETS: process.env.DISCORD_TICKETS,
   REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
 };
 

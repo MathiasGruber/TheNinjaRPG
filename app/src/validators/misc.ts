@@ -7,3 +7,16 @@ export const changeSettingSchema = z.object({
   days: z.number().min(0).max(31),
 });
 export type ChangeSettingSchema = z.infer<typeof changeSettingSchema>;
+
+export const createTicketSchema = z
+  .object({
+    content: z.string().min(2).max(10000),
+    title: z.string().min(2).max(255),
+  })
+  .strict()
+  .required();
+
+export type CreateTicketSchema = z.infer<typeof createTicketSchema>;
+
+export const TicketTypes = ["content", "moderator"] as const;
+export type TicketType = (typeof TicketTypes)[number];

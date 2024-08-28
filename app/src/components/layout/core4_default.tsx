@@ -9,9 +9,10 @@ import Footer from "@/layout/Footer";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
+import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
-import { Earth, House } from "lucide-react";
+import { Earth, House, MessageCircleWarning } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
@@ -167,6 +168,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   return (
     <div className="w-full">
+      <div className="absolute right-5 bottom-5 z-50 bg-slate-500 rounded-full">
+        <SendTicketBtn>
+          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+        </SendTicketBtn>
+      </div>
       {/* WALLPAPER BACKGROUND */}
       <Image
         className="absolute left-[50%] translate-x-[-50%] select-none"
