@@ -15,7 +15,8 @@ export const getGameTime = () => {
 export const secondsPassed = (date: Date, timeDiff?: number) => {
   let now = new Date().getTime();
   if (timeDiff) now = now - timeDiff;
-  return Math.floor((now - date.getTime()) / 1000);
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  return Math.floor((now - parsedDate.getTime()) / 1000);
 };
 
 /**

@@ -10,15 +10,15 @@ import { availableUserActions } from "@/libs/combat/actions";
 import { ActionSelector } from "@/layout/CombatActions";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { useSetAtom } from "jotai";
-import { userBattleAtom } from "@/utils/UserContext";
+import { useSetAtom, useAtom } from "jotai";
+import { userBattleAtom, combatActionIdAtom } from "@/utils/UserContext";
 import type { BattleState } from "@/libs/combat/types";
 
 const Combat = dynamic(() => import("@/layout/Combat"));
 
 export default function CombatPage() {
   // State
-  const [actionId, setActionId] = useState<string | undefined>(undefined);
+  const [actionId, setActionId] = useAtom(combatActionIdAtom);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
 
   // Data from the DB
@@ -79,6 +79,7 @@ export default function CombatPage() {
     return () => {
       document.removeEventListener("keydown", onDocumentKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionId]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;

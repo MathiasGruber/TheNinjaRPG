@@ -20,9 +20,6 @@ import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
 import { api } from "@/utils/api";
 import { showUserRank } from "@/libs/profile";
 import { useAuth } from "@clerk/nextjs";
-import { useAtomValue } from "jotai";
-import { userBattleAtom } from "@/utils/UserContext";
-import { calcActiveUser } from "@/libs/combat/actions";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -483,10 +480,10 @@ export const SideBannerTitle: React.FC<{
   return (
     <>
       {props.break && <br />}
-      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2">
+      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2 leading-0">
         {props.children}
       </p>
-      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2">
+      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2 leading-0">
         {props.children}
       </p>
     </>
@@ -515,14 +512,6 @@ const RightSideBar: React.FC<{
 
   // Derived data
   const inBattle = userData?.status === "BATTLE";
-
-  // Get the battle information
-  const battle = useAtomValue(userBattleAtom);
-
-  // Next user who is not current user
-  const actor =
-    battle && userData && calcActiveUser(battle, userData.userId, props.timeDiff);
-  console.log(actor);
 
   // Render
   return (

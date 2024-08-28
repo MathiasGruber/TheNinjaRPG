@@ -20,6 +20,11 @@ import type { ReturnedBattle } from "@/libs/combat/types";
 import type { StructureRoute } from "@/drizzle/seeds/village";
 
 /**
+ * Atom for storing combat action¨
+ */
+export const combatActionIdAtom = atom<string | undefined>(undefined);
+
+/**
  * Atom for managing any potential battle data
  */
 export const userBattleAtom = atom<ReturnedBattle | undefined>(undefined);
