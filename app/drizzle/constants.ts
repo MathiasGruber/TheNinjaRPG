@@ -275,6 +275,9 @@ export const RYO_CAP = 1000000000;
 export const MAX_STATS_CAP = 450000;
 export const MAX_GENS_CAP = 200000;
 
+// Bank config
+export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
+
 // Caps lookup table
 export const USER_CAPS: {
   [key in UserRank]: { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number };

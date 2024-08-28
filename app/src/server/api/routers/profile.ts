@@ -134,6 +134,7 @@ export const profileRouter = createTRPCRouter({
           senderId: ctx.userId,
           receiverId: user.recruiterId,
           amount: amount,
+          type: "recruiter",
         }),
       ]);
     }

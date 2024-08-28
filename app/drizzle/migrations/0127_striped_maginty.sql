@@ -1,0 +1,1 @@
+ALTER TABLE `BankTransfers` ADD `type` enum('bank','sensei','recruiter') DEFAULT 'bank' NOT NULL;

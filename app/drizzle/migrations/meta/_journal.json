@@ -890,6 +890,13 @@
       "when": 1724653041279,
       "tag": "0126_funny_tyrannus",
       "breakpoints": false
+    },
+    {
+      "idx": 127,
+      "version": "5",
+      "when": 1724866012536,
+      "tag": "0127_striped_maginty",
+      "breakpoints": false
     }
   ]
 }

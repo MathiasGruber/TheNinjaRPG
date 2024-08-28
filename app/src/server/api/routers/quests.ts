@@ -543,6 +543,7 @@ export const questsRouter = createTRPCRouter({
                 senderId: ctx.userId,
                 receiverId: senseiId,
                 amount: 1000,
+                type: "sensei",
               }),
             ]
           : []),

@@ -156,6 +156,7 @@ export default function Bank() {
   const columns: ColumnDefinitionType<Transfer, keyof Transfer>[] = [
     { key: "sender", header: "Sender", type: "string" },
     { key: "receiver", header: "Receiver", type: "string" },
+    { key: "type", header: "Type", type: "string" },
     { key: "amount", header: "Amount", type: "string" },
     { key: "createdAt", header: "Date", type: "date" },
   ];
