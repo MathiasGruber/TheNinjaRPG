@@ -19,6 +19,7 @@ export const DMG_BASE = 30;
 export const publicState = [
   "actionPoints",
   "avatar",
+  "bloodline",
   "clan",
   "controllerId",
   "curChakra",

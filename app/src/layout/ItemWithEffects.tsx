@@ -12,6 +12,7 @@ import { getTagSchema } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
 import { ObjectiveReward } from "@/validators/objectives";
+import { cn } from "src/libs/shadui";
 import type { ItemRarity } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -34,6 +35,7 @@ export type GenericObject = {
 
 export interface ItemWithEffectsProps {
   item: Bloodline | Item | Jutsu | Quest | GenericObject;
+  hideDetails?: boolean;
   imageBorder?: boolean;
   imageExtra?: React.ReactNode;
   showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
@@ -43,7 +45,7 @@ export interface ItemWithEffectsProps {
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, showStatistic, hideTitle, onDelete } = props;
+  const { item, showEdit, showStatistic, hideTitle, hideDetails, onDelete } = props;
   const { data: userData } = useUserData();
 
   // Extract effects if they exist
@@ -106,8 +108,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow ">
-      <div className="mx-3 hidden basis-1/3  md:block">{image}</div>
-      <div className="basis-full text-sm md:basis-2/3">
+      {!hideDetails && <div className="mx-3 hidden basis-1/3 md:block">{image}</div>}
+
+      <div className={cn("basis-full text-sm", hideDetails || "md:basis-2/3")}>
         <div className="flex flex-row">
           <div className="relative block md:hidden md:basis-1/3">{image}</div>
           <div className="relative flex basis-full flex-col pl-5 md:pl-0">
@@ -118,20 +121,26 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             ) : (
               <br />
             )}
-            <div className="flex flex-row gap-2">
-              {item.createdAt && (
-                <div>
-                  <b>Created: </b>
-                  {item.createdAt.toLocaleDateString()}
-                </div>
-              )}
-              {item.updatedAt && (
-                <div>
-                  <b>Updated: </b>
-                  {item.updatedAt.toLocaleDateString()}
-                </div>
-              )}
-            </div>
+            {!hideDetails && (
+              <div className="flex flex-row gap-2">
+                {item.createdAt && (
+                  <div>
+                    <b>Created: </b>
+                    {item.createdAt instanceof Date
+                      ? item.createdAt.toLocaleDateString()
+                      : item.createdAt}
+                  </div>
+                )}
+                {item.updatedAt && (
+                  <div>
+                    <b>Updated: </b>
+                    {item.updatedAt instanceof Date
+                      ? item.updatedAt.toLocaleDateString()
+                      : item.updatedAt}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="absolute right-1 flex flex-row">
               {showStatistic && (
                 <Link
@@ -165,7 +174,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
 
             <hr className="py-1" />
-            {item.description && <div>{ReactHtmlParser(item.description)}</div>}
+            {!hideDetails && item.description && (
+              <div>{ReactHtmlParser(item.description)}</div>
+            )}
           </div>
         </div>
         <div>

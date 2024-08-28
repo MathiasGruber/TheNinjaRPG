@@ -2,6 +2,9 @@ import React from "react";
 import Link from "next/link";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dna } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
@@ -75,6 +78,25 @@ const MenuBoxCombat: React.FC = () => {
           />
         </div>
       </div>
+      {battleUser?.bloodline && (
+        <Popover>
+          <PopoverTrigger>
+            <div className="flex flex-row items-center hover:text-orange-500 hover:cursor-pointer">
+              <Dna className="h-6 w-6 mr-2" /> {battleUser.bloodline.name ?? "??"}
+            </div>
+          </PopoverTrigger>
+          <PopoverContent>
+            <div className="max-w-[320px]">
+              <ItemWithEffects
+                item={battleUser.bloodline}
+                key={battleUser.bloodline.id}
+                hideDetails
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+
       <hr className="my-2" />
     </>
   );
