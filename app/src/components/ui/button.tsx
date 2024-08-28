@@ -51,13 +51,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const Comp = asChild ? Slot : "button";
     const animation = props.animation ? "animate-pulse hover:animate-none" : "";
+    const element = (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }), animation)}
+        ref={ref}
+        {...props}
+      />
+    );
+    if (decoration === "none") return element;
     return (
       <div className={cn("relative")}>
-        <Comp
-          className={cn(buttonVariants({ variant, size, className }), animation)}
-          ref={ref}
-          {...props}
-        />
+        {element}
         {decoration === "gold" && (
           <>
             <Image
