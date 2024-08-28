@@ -73,6 +73,7 @@ export const socials = [
 ];
 
 const MenuBoxProfile: React.FC = () => {
+  // State
   const { data: userData, timeDiff } = useUserData();
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
@@ -92,6 +93,9 @@ const MenuBoxProfile: React.FC = () => {
   // Derived data
   const immunitySecsLeft =
     (userData && (userData.immunityUntil.getTime() - Date.now()) / 1000) || 0;
+
+  // Battle user state
+  const battleUser = battle?.usersState.find((u) => u.userId === userData?.userId);
 
   // Status link
   const statusLink = (status: (typeof UserStatuses)[number] | "UNKNOWN") => {
@@ -154,10 +158,10 @@ const MenuBoxProfile: React.FC = () => {
             color="bg-red-500"
             showText={true}
             lastRegenAt={userData?.regenAt}
-            regen={userData?.regeneration}
-            status={userData?.status}
-            current={userData?.curHealth}
-            total={userData?.maxHealth}
+            regen={battleUser ? 0 : userData?.regeneration}
+            status={battleUser ? "AWAKE" : userData?.status}
+            current={battleUser?.curHealth || userData?.curHealth}
+            total={battleUser?.maxHealth || userData?.maxHealth}
             timeDiff={timeDiff}
           />
           <StatusBar
@@ -166,10 +170,10 @@ const MenuBoxProfile: React.FC = () => {
             color="bg-blue-500"
             showText={true}
             lastRegenAt={userData?.regenAt}
-            regen={userData?.regeneration}
-            status={userData?.status}
-            current={userData?.curChakra}
-            total={userData?.maxChakra}
+            regen={battleUser ? 0 : userData?.regeneration}
+            status={battleUser ? "AWAKE" : userData?.status}
+            current={battleUser?.curChakra || userData?.curChakra}
+            total={battleUser?.maxChakra || userData?.maxChakra}
             timeDiff={timeDiff}
           />
           <StatusBar
@@ -178,10 +182,10 @@ const MenuBoxProfile: React.FC = () => {
             color="bg-green-500"
             showText={true}
             lastRegenAt={userData?.regenAt}
-            regen={userData?.regeneration}
-            status={userData?.status}
-            current={userData?.curStamina}
-            total={userData?.maxStamina}
+            regen={battleUser ? 0 : userData?.regeneration}
+            status={battleUser ? "AWAKE" : userData?.status}
+            current={battleUser?.curStamina || userData?.curStamina}
+            total={battleUser?.maxStamina || userData?.maxStamina}
             timeDiff={timeDiff}
           />
           {expRequired && expCurrent && expCurrent >= expRequired ? (
@@ -226,7 +230,6 @@ const MenuBoxProfile: React.FC = () => {
               <TooltipContent>Money on hand</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
           {userData && userData.immunityUntil > new Date() && (
             <TooltipProvider delayDuration={50}>
               <Tooltip>
@@ -580,5 +583,9 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
     });
     // Show the effect with its stats
   });
-  return <div className="flex flex-col gap-3">{visuals}</div>;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-1 gap-3 md:gap-1 lg:gap-3 text-base md:text-xs lg:text-base">
+      {visuals}
+    </div>
+  );
 };
