@@ -56,7 +56,7 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   return (
     <Popover>
       <PopoverTrigger>{props.children}</PopoverTrigger>
-      <PopoverContent className="m-2 min-w-96">
+      <PopoverContent className="m-2 min-w-96 max-w-96">
         {isSuccess && (
           <div>
             Ticket created. Go to Discord to see response in &quot;bug reports&quot;
@@ -77,36 +77,66 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
             className="flex flex-col items-center justify-center"
             onValueChange={(value) => setShowActive(value as TicketType)}
           >
-            <TabsContent value="moderator">Create Content Report</TabsContent>
-            <TabsContent value="content">Create Bug Report</TabsContent>
-            <Form {...createForm}>
-              <div className="w-full">
-                <FormField
-                  control={createForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Title the report" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <br />
-                <FormLabel>Description</FormLabel>
-                <RichInput
-                  id="content"
-                  height="200"
-                  control={createForm.control}
-                  onSubmit={onSubmit}
-                  error={createForm.formState.errors.content?.message}
-                />
-              </div>
-            </Form>
-            <TabsList className="text-center">
-              <TabsTrigger value="moderator">Moderator</TabsTrigger>
+            <TabsContent value="moderator" className="flex flex-col gap-2">
+              <p className="font-bold text-lg">Create Support Ticket</p>
+              <p className="italic">
+                1. Questions related to game mechanics, please ask your fellow ninja in
+                the{" "}
+                <Link href="/tavern" className="font-bold hover:text-orange-500">
+                  tavern
+                </Link>
+                .
+              </p>
+              <p className="italic">
+                2. Questions related to moderation decisions, please comment on the{" "}
+                <Link href="/reports" className="font-bold hover:text-orange-500">
+                  report
+                </Link>{" "}
+                in question.
+              </p>
+              <p>
+                3. Alternatively, you may sign on to our{" "}
+                <Link
+                  href="https://discord.gg/grPmTr4z9C"
+                  className="font-bold hover:text-orange-500"
+                >
+                  Discord
+                </Link>{" "}
+                channel and create a &quot;ticket&quot;.
+              </p>
+            </TabsContent>
+            <TabsContent value="content">
+              <p className="font-bold text-lg">Create Bug Report</p>
+              <Form {...createForm}>
+                <div className="w-full">
+                  <FormField
+                    control={createForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Title the report" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <br />
+                  <FormLabel>Description</FormLabel>
+                  <RichInput
+                    id="content"
+                    height="200"
+                    control={createForm.control}
+                    onSubmit={onSubmit}
+                    error={createForm.formState.errors.content?.message}
+                  />
+                </div>
+              </Form>
+            </TabsContent>
+
+            <TabsList className="text-center mt-2">
+              <TabsTrigger value="moderator">Support</TabsTrigger>
               <TabsTrigger value="content">Bug Report</TabsTrigger>
             </TabsList>
           </Tabs>

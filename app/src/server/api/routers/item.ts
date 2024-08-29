@@ -353,6 +353,7 @@ export const itemRouter = createTRPCRouter({
               .filter((b) => b.rank === effect.rank)
               .filter((b) => !b.villageId || b.villageId === user.villageId),
           );
+          if (!randomBloodline) throw serverError("NOT_FOUND", "No bloodline found");
           if (Math.random() * 100 < effect.power && randomBloodline) {
             updates.bloodlineId = randomBloodline.id;
             messages.push(`You rolled a new bloodline: ${randomBloodline.name}. `);
