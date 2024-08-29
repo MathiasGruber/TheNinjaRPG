@@ -333,6 +333,9 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
         ? current.absorb_cp + val.absorb_cp
         : val.absorb_cp;
     }
+    if (val.types) {
+      current.types = current.types ? current.types.concat(val.types) : val.types;
+    }
   } else {
     acc.push(val);
   }

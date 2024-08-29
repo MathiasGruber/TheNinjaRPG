@@ -343,6 +343,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           actionEffects.push({
             txt: `${target.username} takes ${c.damage.toFixed(2)} damage`,
             color: "red",
+            types: c.types,
           });
         }
         if (c.heal_hp && c.heal_hp > 0) {

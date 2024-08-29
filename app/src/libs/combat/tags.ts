@@ -672,10 +672,17 @@ export const damageUser = (
 ) => {
   const damage =
     damageCalc(effect, origin, target) * applyTimes * (1 - effect.barrierAbsorb);
+  const types = [
+    ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
+    ...("generalTypes" in effect && effect.generalTypes ? effect.generalTypes : []),
+    ...("elements" in effect && effect.elements ? effect.elements : []),
+    ...("poolsAffected" in effect && effect.poolsAffected ? effect.poolsAffected : []),
+  ];
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
     damage: damage,
+    types: types,
   });
   return getInfo(target, effect, "will take damage");
 };
@@ -1246,10 +1253,10 @@ export const getLowercaseGenerals = (
   ];
 };
 
-const getInfo = (target: BattleUserState, effect: UserEffect, msg: string) => {
-  if (effect.isNew && effect.rounds) {
+const getInfo = (target: BattleUserState, e: UserEffect, msg: string) => {
+  if (e.isNew && e.rounds) {
     const info: ActionEffect = {
-      txt: `${target.username} ${msg} for the next ${effect.rounds} rounds`,
+      txt: `${target.username} ${msg} for the next ${e.rounds} rounds`,
       color: "blue",
     };
     return info;

@@ -4,8 +4,9 @@ import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
 import { combatAssetsNames } from "@/libs//travel/constants";
-import { StatTypes, GeneralTypes, PoolType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes, PoolTypes } from "@/drizzle/constants";
 import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
+import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance, Clan } from "@/drizzle/schema";
@@ -169,6 +170,7 @@ export type Consequence = {
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
+  types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
 /**
@@ -259,7 +261,7 @@ const PowerAttributes = {
 };
 
 const PoolAttributes = {
-  poolsAffected: z.array(z.enum(PoolType)).default(["Health"]).optional(),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health"]).optional(),
 };
 
 const IncludeStats = {
@@ -283,7 +285,7 @@ export const AbsorbTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
   direction: type("defence"),
   description: msg("Absorb damage taken & convert to health, chakra or stamina"),
-  poolsAffected: z.array(z.enum(PoolType)).default(["Health"]),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health"]),
   target: z.enum(BaseTagTargets).optional().default("SELF"),
 });
 
@@ -775,6 +777,7 @@ export type UserEffect = BattleEffect & {
 export type ActionEffect = {
   txt: string;
   color: "red" | "green" | "blue";
+  types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
 /**

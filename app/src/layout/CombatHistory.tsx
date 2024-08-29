@@ -1,8 +1,10 @@
 import React from "react";
 import Loader from "./Loader";
+import ElementImage from "@/layout/ElementImage";
 import { api } from "@/utils/api";
 import { groupBy } from "@/utils/grouping";
 import { insertComponentsIntoText } from "@/utils/string";
+import { cn } from "src/libs/shadui";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 
@@ -87,20 +89,64 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                         ? "text-blue-500"
                         : "text-green-500";
                   const text = insertComponentsIntoText(effect.txt, {
-                    Highest: <span className="text-stone-500">Highest</span>,
-                    Taijutsu: <span className="text-green-600">Taijutsu</span>,
-                    Bukijutsu: <span className="text-red-600">Bukijutsu</span>,
-                    Ninjutsu: <span className="text-blue-600">Ninjutsu</span>,
-                    Genjutsu: <span className="text-purple-600">Genjutsu</span>,
-                    Strength: <span className="text-blue-800">Strength</span>,
-                    Intelligence: <span className="text-teal-600">Intelligence</span>,
-                    Willpower: <span className="text-orange-600">Willpower</span>,
-                    Speed: <span className="text-cyan-600">Speed</span>,
+                    Highest: (
+                      <span key={`${i}-H`} className="text-stone-500">
+                        Highest
+                      </span>
+                    ),
+                    Taijutsu: (
+                      <span key={`${i}-T`} className="text-green-600">
+                        Taijutsu
+                      </span>
+                    ),
+                    Bukijutsu: (
+                      <span key={`${i}-B`} className="text-red-600">
+                        Bukijutsu
+                      </span>
+                    ),
+                    Ninjutsu: (
+                      <span key={`${i}-N`} className="text-blue-600">
+                        Ninjutsu
+                      </span>
+                    ),
+                    Genjutsu: (
+                      <span key={`${i}-G`} className="text-purple-600">
+                        Genjutsu
+                      </span>
+                    ),
+                    Strength: (
+                      <span key={`${i}-S`} className="text-blue-800">
+                        Strength
+                      </span>
+                    ),
+                    Intelligence: (
+                      <span key={`${i}-I`} className="text-teal-600">
+                        Intelligence
+                      </span>
+                    ),
+                    Willpower: (
+                      <span key={`${i}-W`} className="text-orange-600">
+                        Willpower
+                      </span>
+                    ),
+                    Speed: (
+                      <span key={`${i}-S`} className="text-cyan-600">
+                        Speed
+                      </span>
+                    ),
                   });
                   return (
-                    <p key={`combathistory-${i}`} className={color}>
-                      - {text}
-                    </p>
+                    <div
+                      key={`combathistory-${i}`}
+                      className={cn(color, "flex flex-col")}
+                    >
+                      - {text}{" "}
+                      <div className="pl-2 flex flex-row items-center gap-1">
+                        {effect.types?.map((t, ti) => (
+                          <ElementImage key={ti} element={t} className="w-5 h-5" />
+                        ))}
+                      </div>
+                    </div>
                   );
                 })}
               </div>

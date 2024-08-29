@@ -19,7 +19,8 @@ export const GeneralTypes = [
 ] as const;
 export type GeneralType = (typeof GeneralTypes)[number];
 
-export const PoolType = ["Health", "Chakra", "Stamina"] as const;
+export const PoolTypes = ["Health", "Chakra", "Stamina"] as const;
+export type PoolType = (typeof PoolTypes)[number];
 
 export const ItemRarities = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 

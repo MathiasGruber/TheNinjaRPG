@@ -11,13 +11,16 @@ import { BicepsFlexed } from "lucide-react";
 import { Brain } from "lucide-react";
 import { Flame } from "lucide-react";
 import { Footprints } from "lucide-react";
+import { Heart } from "lucide-react";
+import { BatteryMedium } from "lucide-react";
+import { Atom } from "lucide-react";
 import { cn } from "src/libs/shadui";
 
-import { GeneralTypes, StatTypes, ElementNames } from "@/drizzle/constants";
-import type { GeneralType, StatType, ElementName } from "@/drizzle/constants";
+import { GeneralTypes, StatTypes, PoolTypes, ElementNames } from "@/drizzle/constants";
+import type { GeneralType, StatType, PoolType, ElementName } from "@/drizzle/constants";
 
 interface ElementImageProps {
-  element: GeneralType | StatType | ElementName | "All";
+  element: GeneralType | StatType | ElementName | PoolType | "All";
   hoverText?: string;
   className?: string;
 }
@@ -38,7 +41,7 @@ const ElementImage: React.FC<ElementImageProps> = (props) => {
         className={props.className}
       />
     );
-  } else if (isInArray(element, [...StatTypes, ...GeneralTypes, "All"])) {
+  } else if (isInArray(element, [...StatTypes, ...GeneralTypes, ...PoolTypes, "All"])) {
     const base = "rounded-full p-1 text-white";
     switch (element) {
       case "Highest":
@@ -98,6 +101,24 @@ const ElementImage: React.FC<ElementImageProps> = (props) => {
           <Flame
             strokeWidth={3}
             className={cn(base, props.className, "bg-orange-600")}
+          />
+        );
+        break;
+      case "Health":
+        image = (
+          <Heart strokeWidth={3} className={cn(base, props.className, "bg-red-600")} />
+        );
+        break;
+      case "Chakra":
+        image = (
+          <Atom strokeWidth={3} className={cn(base, props.className, "bg-blue-600")} />
+        );
+        break;
+      case "Stamina":
+        image = (
+          <BatteryMedium
+            strokeWidth={3}
+            className={cn(base, props.className, "bg-green-600")}
           />
         );
         break;
