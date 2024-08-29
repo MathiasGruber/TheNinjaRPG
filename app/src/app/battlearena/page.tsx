@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import UserSearchSelect from "@/layout/UserSearchSelect";
@@ -33,7 +34,7 @@ import type { GenericObject } from "@/layout/ItemWithEffects";
 export default function Arena() {
   // Tab selection
   const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
-  const [aiId, setAiId] = useState<string | undefined>(undefined);
+  const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
 
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
