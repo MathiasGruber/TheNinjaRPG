@@ -136,10 +136,7 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                     ),
                   });
                   return (
-                    <div
-                      key={`combathistory-${i}`}
-                      className={cn(color, "flex flex-col")}
-                    >
+                    <div key={`combathistory-${i}`} className={cn(color)}>
                       - {text}{" "}
                       <div className="pl-2 flex flex-row items-center gap-1">
                         {effect.types?.map((t, ti) => (
