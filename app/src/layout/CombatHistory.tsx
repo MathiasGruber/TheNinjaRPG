@@ -90,47 +90,47 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                         : "text-green-500";
                   const text = insertComponentsIntoText(effect.txt, {
                     Highest: (
-                      <span key={`${i}-H`} className="text-stone-500">
+                      <span key={`${round}-${i}-H`} className="text-stone-500">
                         Highest
                       </span>
                     ),
                     Taijutsu: (
-                      <span key={`${i}-T`} className="text-green-600">
+                      <span key={`${round}-${i}-T`} className="text-green-600">
                         Taijutsu
                       </span>
                     ),
                     Bukijutsu: (
-                      <span key={`${i}-B`} className="text-red-600">
+                      <span key={`${round}-${i}-B`} className="text-red-600">
                         Bukijutsu
                       </span>
                     ),
                     Ninjutsu: (
-                      <span key={`${i}-N`} className="text-blue-600">
+                      <span key={`${round}-${i}-N`} className="text-blue-600">
                         Ninjutsu
                       </span>
                     ),
                     Genjutsu: (
-                      <span key={`${i}-G`} className="text-purple-600">
+                      <span key={`${round}-${i}-G`} className="text-purple-600">
                         Genjutsu
                       </span>
                     ),
                     Strength: (
-                      <span key={`${i}-S`} className="text-blue-800">
+                      <span key={`${round}-${i}-Str`} className="text-blue-800">
                         Strength
                       </span>
                     ),
                     Intelligence: (
-                      <span key={`${i}-I`} className="text-teal-600">
+                      <span key={`${round}-${i}-I`} className="text-teal-600">
                         Intelligence
                       </span>
                     ),
                     Willpower: (
-                      <span key={`${i}-W`} className="text-orange-600">
+                      <span key={`${round}-${i}-W`} className="text-orange-600">
                         Willpower
                       </span>
                     ),
                     Speed: (
-                      <span key={`${i}-S`} className="text-cyan-600">
+                      <span key={`${round}-${i}-Spd`} className="text-cyan-600">
                         Speed
                       </span>
                     ),
