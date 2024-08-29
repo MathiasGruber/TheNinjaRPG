@@ -43,7 +43,7 @@ export const callDiscordTicket = async (
 ) => {
   const nhm = new NodeHtmlMarkdown({}, undefined, undefined);
   const image_url = user.avatar;
-  const content = `*Report from TNR interface*\n\n**Username:** ${user.username}\n**Reason:** ${nhm.translate(reason)}\n${type === "content" ? "<@&1131406837762244760>" : "<@&1086822053254017105>"}`;
+  const content = `*Report from TNR interface*\n\n**Username:** ${user.username}\n**Reason:** ${nhm.translate(reason)}\n${type === "content" ? "<@&1131406837762244760>" : "<@&1086822053254017105>"}\n`;
   return fetch(process.env.DISCORD_TICKETS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -52,6 +52,26 @@ export const callDiscordTicket = async (
       content: content,
       username: user.username,
       thread_name,
+      embeds: [
+        {
+          title: "User Information",
+          description: `
+            **Username:** ${user.username}
+            **User ID:** ${user.userId}
+            **Role:** ${user.role}
+            **Last IP:** ${user.lastIp}
+            **Banned**: ${user.isBanned ? "true" : "false"}
+            **Silenced**: ${user.isSilenced ? "true" : "false"}
+            **Federal Status:** ${user.federalStatus}
+
+            **Level:** ${user.level}
+            **Rank:** ${user.rank}
+            **Status:** ${user.status}
+
+            **Last update:** ${user.regenAt.toISOString()}`,
+          color: 15844367,
+        },
+      ],
     }),
   });
 };
