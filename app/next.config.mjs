@@ -1,6 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import bundleAnalyzer from "@next/bundle-analyzer";
-import { withAxiom } from "next-axiom";
 
 // @ts-check
 /**
@@ -62,7 +61,7 @@ const config = {
   },
 };
 
-export default withSentryConfig(withAxiom(withBundleAnalyzer(config)), {
+export default withSentryConfig(withBundleAnalyzer(config), {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 

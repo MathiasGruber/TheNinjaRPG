@@ -38,7 +38,6 @@ import { combatAssetsNames } from "@/libs/travel/constants";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { applyEffects } from "@/libs/combat/process";
-import { Logger } from "next-axiom";
 import { scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
@@ -189,9 +188,6 @@ export const combatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       if (debug) console.log("============ Performing action ============");
 
-      // Logger for battle metrics
-      const log = new Logger();
-
       // Short-form
       const suid = ctx.userId;
       const db = ctx.drizzle;
@@ -277,7 +273,6 @@ export const combatRouter = createTRPCRouter({
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
-              log.error("BattleError-UserAction", { input: input, notification });
               return { updateClient: false, notification };
             }
           } else if (isAITurn) {
@@ -288,12 +283,10 @@ export const combatRouter = createTRPCRouter({
               actionPerformed = true;
               actionEffects.push(...aiState.nextActionEffects);
               battleDescriptions.push(...aiState.aiDescriptions);
-              log.info("AIv1-Search", { actions: aiState.searchSize });
               // console.log("STATE SPACE: ", aiState.searchSize);
             } catch (error) {
               let notification = "Unknown Error";
               if (error instanceof Error) notification = error.message;
-              log.error("BattleError-AiAction", { input: input });
               return { updateClient: false, notification };
             }
           }
@@ -301,7 +294,6 @@ export const combatRouter = createTRPCRouter({
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
           if (!description && actionPerformed && history.length === 0) {
-            log.error("BattleError-NoDescription", { input: input });
             return { updateClient: false, notification: "No battle description" };
           }
 
@@ -350,16 +342,6 @@ export const combatRouter = createTRPCRouter({
             newBattle.round === originalRound &&
             newBattle.activeUserId === originalActiveUserId
           ) {
-            log.error("BattleError-StateUnchanged", {
-              input: input,
-              attempts,
-              progressRound,
-              isAITurn,
-              isUserTurn,
-              isStunned,
-              actor: actor.username,
-              newActor: newActor.username,
-            });
             return { notification: `Battle state was not changed` };
           }
 

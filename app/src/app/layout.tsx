@@ -1,4 +1,3 @@
-import { AxiomWebVitals } from "next-axiom";
 import { ClerkProvider } from "@clerk/nextjs";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { UserContextProvider } from "@/utils/UserContext";
@@ -34,7 +33,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <UserContextProvider>
               <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
               <Toaster />
-              <AxiomWebVitals />
               <LayoutCore4>{children}</LayoutCore4>
             </UserContextProvider>
           </TrpcClientProvider>
