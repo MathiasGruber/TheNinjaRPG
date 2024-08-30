@@ -299,47 +299,64 @@ export const commentsRouter = createTRPCRouter({
         ),
     )
     .query(async ({ ctx, input }) => {
-      const convo = await fetchConversation({
-        client: ctx.drizzle,
-        id: input.convo_id,
-        title: input.convo_title,
-        userId: ctx.userId,
-      });
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.drizzle
-        .select({
-          id: conversationComment.id,
-          createdAt: conversationComment.createdAt,
-          conversationId: conversationComment.conversationId,
-          content: conversationComment.content,
-          isPinned: conversationComment.isPinned,
-          villageName: village.name,
-          villageHexColor: village.hexColor,
-          villageKageId: village.kageId,
-          userId: userData.userId,
-          username: userData.username,
-          avatar: userData.avatar,
-          rank: userData.rank,
-          isOutlaw: userData.isOutlaw,
-          level: userData.level,
-          role: userData.role,
-          customTitle: userData.customTitle,
-          federalStatus: userData.federalStatus,
-          nRecruited: userData.nRecruited,
-        })
-        .from(conversationComment)
-        .innerJoin(userData, eq(conversationComment.userId, userData.userId))
-        .leftJoin(village, eq(village.id, userData.villageId))
-        .where(eq(conversationComment.conversationId, convo.id))
-        .orderBy(desc(conversationComment.createdAt))
-        .limit(input.limit)
-        .offset(skip);
+      // Guard
+      if (!input.convo_id && !input.convo_title) {
+        throw serverError(
+          "BAD_REQUEST",
+          "Invalid request; must specify either ID or title",
+        );
+      }
+      // Fetch data
+      const [convo, comments] = await Promise.all([
+        fetchConversation({
+          client: ctx.drizzle,
+          id: input.convo_id,
+          title: input.convo_title,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle
+          .select({
+            id: conversationComment.id,
+            createdAt: conversationComment.createdAt,
+            conversationId: conversation.id,
+            content: conversationComment.content,
+            isPinned: conversationComment.isPinned,
+            villageName: village.name,
+            villageHexColor: village.hexColor,
+            villageKageId: village.kageId,
+            userId: userData.userId,
+            username: userData.username,
+            avatar: userData.avatar,
+            rank: userData.rank,
+            isOutlaw: userData.isOutlaw,
+            level: userData.level,
+            role: userData.role,
+            customTitle: userData.customTitle,
+            federalStatus: userData.federalStatus,
+            nRecruited: userData.nRecruited,
+          })
+          .from(conversationComment)
+          .innerJoin(userData, eq(conversationComment.userId, userData.userId))
+          .innerJoin(
+            conversation,
+            input.convo_id
+              ? eq(conversation.id, input.convo_id)
+              : eq(conversation.title, input.convo_title || "placeholder"),
+          )
+          .leftJoin(village, eq(village.id, userData.villageId))
+          .where(eq(conversationComment.conversationId, conversation.id))
+          .orderBy(desc(conversationComment.createdAt))
+          .limit(input.limit)
+          .offset(skip),
+        ctx.drizzle
+          .update(userData)
+          .set({ inboxNews: 0 })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      // Fetch
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
-      await ctx.drizzle
-        .update(userData)
-        .set({ inboxNews: 0 })
-        .where(eq(userData.userId, ctx.userId));
       return {
         convo: convo,
         data: comments,
