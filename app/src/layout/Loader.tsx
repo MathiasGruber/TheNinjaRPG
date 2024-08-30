@@ -12,7 +12,8 @@ const Loader: React.FC<LoaderProps> = (props) => {
     <div className={`flex flex-col  items-center ${props.noPadding ? "" : "py-2"}`}>
       <Image
         alt="Loader Icon"
-        src="/images/star_loader.gif"
+        src="/images/shuriken_loader.svg"
+        className="animate-spin"
         width={props.size ?? 30}
         height={props.size ?? 30}
         unoptimized
