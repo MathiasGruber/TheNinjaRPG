@@ -18,6 +18,7 @@ const config = {
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
