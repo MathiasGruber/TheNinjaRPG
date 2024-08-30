@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Vector2, OrthographicCamera, Group, Clock } from "three";
 import Countdown from "./Countdown";
+import WebGlError from "@/layout/WebGLError";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Clock as ClockIcon, CheckCircle } from "lucide-react";
 import { drawCombatBackground, drawCombatEffects } from "@/libs/combat/drawing";
@@ -43,6 +44,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const [isInLobby, setIsInLobby] = useState<boolean>(true);
 
   // References which shouldn't update
+  const [webglError, setWebglError] = useState<boolean>(false);
   const battle = useRef<ReturnedBattle | null | undefined>(battleState.battle);
   const action = useRef<CombatAction | undefined>(props.action);
   const userId = useRef<string>(props.userId);
@@ -294,6 +296,14 @@ const Combat: React.FC<CombatProps> = (props) => {
         colorAlpha: 1,
         width2height: backgroundLengthToWidth,
       });
+
+      // If no renderer, then we have an error with the browser, let the user know
+      if (!renderer) {
+        setWebglError(true);
+        return;
+      }
+
+      // Create scene
       sceneRef.appendChild(renderer.domElement);
 
       // Setup camara
@@ -444,7 +454,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
         // Render the scene
         animationId = requestAnimationFrame(render);
-        renderer.render(scene, camera);
+        renderer?.render(scene, camera);
       }
       render();
 
@@ -475,6 +485,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {webglError && <WebGlError />}
       {/* BATTLE LOBBY SCREEN */}
       {isInLobby &&
         battle.current &&

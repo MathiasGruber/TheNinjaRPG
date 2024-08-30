@@ -8,6 +8,7 @@ import alea from "alea";
 import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
 import SliderField from "@/layout/SliderField";
+import WebGlError from "@/layout/WebGLError";
 import { z } from "zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useForm } from "react-hook-form";
@@ -27,6 +28,7 @@ import { isLocationObjective } from "@/libs/quest";
 import { getAllyStatus } from "@/utils/alliance";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
+
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -54,6 +56,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { setTarget, setPosition, setHoverPosition } = props;
 
   // State pertaining to the sector
+  const [webglError, setWebglError] = useState<boolean>(false);
   const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
@@ -349,6 +352,14 @@ const Sector: React.FC<SectorProps> = (props) => {
         colorAlpha: 1,
         width2height: hexagonLengthToWidth,
       });
+
+      // If no renderer, then we have an error with the browser, let the user know
+      if (!renderer) {
+        setWebglError(true);
+        return;
+      }
+
+      // Create scene
       sceneRef.appendChild(renderer.domElement);
 
       // Setup camara
@@ -517,7 +528,7 @@ const Sector: React.FC<SectorProps> = (props) => {
 
         // Render the scene
         animationId = requestAnimationFrame(render);
-        renderer.render(scene, camera);
+        renderer?.render(scene, camera);
       }
       render();
 
@@ -541,6 +552,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {webglError && <WebGlError />}
       {props.showSorrounding && sorrounding && userData && origin.current && (
         <SorroundingUsers
           setIsOpen={props.setShowSorrounding}

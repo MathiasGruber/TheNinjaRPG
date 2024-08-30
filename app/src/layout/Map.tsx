@@ -17,6 +17,7 @@ import {
   Vector2,
   Vector3,
 } from "three";
+import WebGlError from "@/layout/WebGLError";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
 import { createTexture } from "@/libs/threejs/util";
@@ -42,6 +43,7 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = (props) => {
   const { data: userData } = useUserData();
+  const [webglError, setWebglError] = useState<boolean>(false);
   const [hoverSector, setHoverSector] = useState<number | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const mouse = new Vector2();
@@ -87,6 +89,14 @@ const Map: React.FC<MapProps> = (props) => {
         colorAlpha: 0,
         width2height: 1,
       });
+
+      // If no renderer, then we have an error with the browser, let the user know
+      if (!renderer) {
+        setWebglError(true);
+        return;
+      }
+
+      // Create scene
       sceneRef.appendChild(renderer.domElement);
 
       // Setup camera
@@ -401,7 +411,7 @@ const Map: React.FC<MapProps> = (props) => {
 
         // Render the scene
         animationId = requestAnimationFrame(render);
-        renderer.render(scene, camera);
+        renderer?.render(scene, camera);
 
         // Performance monitor
         // stats.update();
@@ -426,6 +436,7 @@ const Map: React.FC<MapProps> = (props) => {
   return (
     <>
       <div ref={mountRef}></div>
+      {webglError && <WebGlError />}
       <div className="absolute left-0 top-0 m-5">
         <ul>
           {hoverSector && (

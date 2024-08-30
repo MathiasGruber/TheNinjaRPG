@@ -29,25 +29,34 @@ export const setupScene = (info: {
 }) => {
   const scene = new Scene();
   const raycaster = new Raycaster();
-  let renderer: WebGL1Renderer | WebGLRenderer;
+  let renderer: WebGL1Renderer | WebGLRenderer | undefined;
   try {
     renderer = new WebGLRenderer();
-  } catch {
-    renderer = new WebGL1Renderer();
+  } catch (error) {
+    console.error("Error creating WebGLRenderer, falling back to WebGL1Renderer");
+    console.error(error);
+    try {
+      renderer = new WebGL1Renderer();
+    } catch (error) {
+      console.error("Error creating WebGL1Renderer, falling back to CanvasRenderer");
+      console.error(error);
+    }
   }
 
-  renderer.setSize(info.width, info.height);
-  renderer.setClearColor(info.color, info.colorAlpha);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.shadowMap.enabled = false;
-  renderer.sortObjects = info.sortObjects;
+  if (renderer) {
+    renderer.setSize(info.width, info.height);
+    renderer.setClearColor(info.color, info.colorAlpha);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = false;
+    renderer.sortObjects = info.sortObjects;
+  }
 
   // Window size listener
   function handleResize() {
     if (info.mountRef.current) {
       const width = info.mountRef.current.getBoundingClientRect().width;
       const height = width * info.width2height;
-      renderer.setSize(width, height);
+      renderer?.setSize(width, height);
     }
   }
   window.addEventListener("resize", handleResize);
