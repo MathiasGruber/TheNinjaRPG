@@ -16,6 +16,7 @@ Sentry.init({
     "ClerkJS: Token refresh failed",
     "Converting circular structure to JSON",
     "Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'",
+    "CanvasRenderingContext2D.setTransform",
   ],
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
