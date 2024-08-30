@@ -178,9 +178,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
                   <li>
                     <b>Intelligence:</b> mental strength
                   </li>
-                  <li>
-                    <b>Speed:</b> movement speed
-                  </li>
+                  <li>movement speed</li>
                   <li>
                     <b>Willpower:</b> mental resistance
                   </li>
@@ -236,31 +234,67 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
       )}
       {!showGraphs && userData && (
         <>
-          <div className="grid grid-cols-2  gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <b>Offences</b>
-              <p>Ninjutsu offence: {userData.ninjutsuOffence.toFixed(2)}</p>
-              <p>Genjutsu offence: {userData.genjutsuOffence.toFixed(2)}</p>
-              <p>Taijutsu offence: {userData.taijutsuOffence.toFixed(2)}</p>
-              <p>Bukijutsu offence: {userData.bukijutsuOffence.toFixed(2)}</p>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Ninjutsu" className="w-6 h-6 mr-1 mb-1" />
+                Ninjutsu offence: {userData.ninjutsuOffence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Genjutsu" className="w-6 h-6 mr-1 mb-1" />
+                Genjutsu offence: {userData.genjutsuOffence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Taijutsu" className="w-6 h-6 mr-1 mb-1" />
+                Taijutsu offence: {userData.taijutsuOffence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Bukijutsu" className="w-6 h-6 mr-1 mb-1" />
+                Bukijutsu offence: {userData.bukijutsuOffence.toFixed(2)}
+              </div>
             </div>
 
             <div>
               <b>Defences</b>
-              <p>Ninjutsu defence: {userData.ninjutsuDefence.toFixed(2)}</p>
-              <p>Genjutsu defence: {userData.genjutsuDefence.toFixed(2)}</p>
-              <p>Taijutsu defence: {userData.taijutsuDefence.toFixed(2)}</p>
-              <p>Bukijutsu defence: {userData.bukijutsuDefence.toFixed(2)}</p>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Ninjutsu" className="w-6 h-6 mr-1 mb-1" />
+                Ninjutsu defence: {userData.ninjutsuDefence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Genjutsu" className="w-6 h-6 mr-1 mb-1" />
+                Genjutsu defence: {userData.genjutsuDefence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Taijutsu" className="w-6 h-6 mr-1 mb-1" />
+                Taijutsu defence: {userData.taijutsuDefence.toFixed(2)}
+              </div>
+              <div className="flex flex-row items-center">
+                <ElementImage element="Bukijutsu" className="w-6 h-6 mr-1 mb-1" />
+                Bukijutsu defence: {userData.bukijutsuDefence.toFixed(2)}
+              </div>
             </div>
           </div>
           <div className="pt-2">
             <div className="grid grid-cols-2">
               <div>
                 <b>Generals</b>
-                <p>Strength: {userData.strength.toFixed(2)}</p>
-                <p>Intelligence: {userData.intelligence.toFixed(2)}</p>
-                <p>Willpower: {userData.willpower.toFixed(2)}</p>
-                <p>Speed: {userData.speed.toFixed(2)}</p>
+                <div className="flex flex-row items-center">
+                  <ElementImage element="Strength" className="w-6 h-6 mr-1 mb-1" />
+                  Strength:{userData.strength.toFixed(2)}
+                </div>
+                <div className="flex flex-row items-center">
+                  <ElementImage element="Intelligence" className="w-6 h-6 mr-1 mb-1" />
+                  Intelligence: {userData.intelligence.toFixed(2)}
+                </div>
+                <div className="flex flex-row items-center">
+                  <ElementImage element="Willpower" className="w-6 h-6 mr-1 mb-1" />
+                  Willpower: {userData.willpower.toFixed(2)}
+                </div>
+                <div className="flex flex-row items-center">
+                  <ElementImage element="Speed" className="w-6 h-6 mr-1 mb-1" />
+                  Speed: {userData.speed.toFixed(2)}
+                </div>
               </div>
               <div>
                 <b>Elemental Proficiency</b>
