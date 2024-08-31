@@ -699,76 +699,87 @@ export const profileRouter = createTRPCRouter({
       });
     }),
   // Get public information on a user
-  getPublicUser: publicProcedure
+  getPublicUser: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: and(eq(userData.userId, input.userId)),
-        columns: {
-          avatar: true,
-          bloodlineId: true,
-          curChakra: true,
-          curHealth: true,
-          curStamina: true,
-          customTitle: true,
-          experience: true,
-          federalStatus: true,
-          gender: true,
-          isAi: true,
-          isOutlaw: true,
-          level: true,
-          maxChakra: true,
-          maxHealth: true,
-          maxStamina: true,
-          movedTooFastCount: true,
-          rank: true,
-          reputationPoints: true,
-          role: true,
-          senseiId: true,
-          status: true,
-          userId: true,
-          username: true,
-        },
-        with: {
-          village: true,
-          bloodline: true,
-          nindo: true,
-          clan: true,
-          jutsus: { columns: { jutsuId: true } },
-          items: { columns: { itemId: true } },
-          badges: { with: { badge: true } },
-          recruitedUsers: {
-            columns: {
-              userId: true,
-              username: true,
-              level: true,
-              rank: true,
-              isOutlaw: true,
-              avatar: true,
+      // Query
+      const [requester, user] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: and(eq(userData.userId, input.userId)),
+          columns: {
+            avatar: true,
+            bloodlineId: true,
+            curChakra: true,
+            curHealth: true,
+            curStamina: true,
+            customTitle: true,
+            experience: true,
+            earnedExperience: true,
+            federalStatus: true,
+            gender: true,
+            isAi: true,
+            isOutlaw: true,
+            level: true,
+            maxChakra: true,
+            maxHealth: true,
+            maxStamina: true,
+            movedTooFastCount: true,
+            rank: true,
+            reputationPoints: true,
+            role: true,
+            senseiId: true,
+            status: true,
+            userId: true,
+            username: true,
+          },
+          with: {
+            village: true,
+            bloodline: true,
+            nindo: true,
+            clan: true,
+            jutsus: { columns: { jutsuId: true } },
+            items: { columns: { itemId: true } },
+            badges: { with: { badge: true } },
+            recruitedUsers: {
+              columns: {
+                userId: true,
+                username: true,
+                level: true,
+                rank: true,
+                isOutlaw: true,
+                avatar: true,
+              },
+            },
+            students: {
+              columns: {
+                userId: true,
+                username: true,
+                level: true,
+                rank: true,
+                isOutlaw: true,
+                avatar: true,
+              },
+            },
+            sensei: {
+              columns: {
+                userId: true,
+                username: true,
+              },
+            },
+            anbuSquad: {
+              columns: { name: true },
             },
           },
-          students: {
-            columns: {
-              userId: true,
-              username: true,
-              level: true,
-              rank: true,
-              isOutlaw: true,
-              avatar: true,
-            },
-          },
-          sensei: {
-            columns: {
-              userId: true,
-              username: true,
-            },
-          },
-          anbuSquad: {
-            columns: { name: true },
-          },
-        },
-      });
+        }),
+      ]);
+      // Guard
       if (!user) return null;
+      // Hide secrets
+      if (!canSeeSecretData(requester.role)) {
+        user.earnedExperience = 8008;
+      }
+      // Return
       return {
         ...user,
         jutsus: user?.jutsus.map((j) => j.jutsuId),

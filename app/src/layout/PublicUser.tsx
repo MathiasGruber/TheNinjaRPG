@@ -62,9 +62,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   // Get state
   const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
-  const enableReports = showReports && userData && canSeeSecretData(userData.role);
-  const enablePaypal = showTransactions && userData && canSeeSecretData(userData.role);
-  const enableLogs = showActionLogs && userData && canSeeSecretData(userData.role);
+  const canSeeSecrets = userData && canSeeSecretData(userData.role);
+  const enableReports = showReports && canSeeSecrets;
+  const enablePaypal = showTransactions && canSeeSecrets;
+  const enableLogs = showActionLogs && canSeeSecrets;
 
   // Queries
   const { data: profile, isPending: isPendingProfile } =
@@ -190,6 +191,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <br />
             <b>Experience</b>
             <p>Experience: {profile.experience}</p>
+            {canSeeSecrets && <p>Unclaimed Exp: {profile.earnedExperience}</p>}
             <p>Experience for lvl: ---</p>
             <br />
             <b>Special</b>
