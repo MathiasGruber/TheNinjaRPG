@@ -96,7 +96,8 @@ export default function GameRules() {
           form of relevant evidence. Blank reports that include no information
           whatsoever are essentially unsubstantiated claims, and cannot justify
           moderating actions. If you are not sure how to report a particular situation,
-          message a moderator for instructions.
+          message a moderator for instructions. Encouraging others to file reports is
+          not allowed, e.g. encouraging mass reports of a given user.
         </p>
         <p className="my-2 text-2xl">
           <b>ACCOUNTS</b>
