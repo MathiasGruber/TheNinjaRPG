@@ -1202,6 +1202,9 @@ export const userData = mysqlTable(
   (table) => {
     return {
       userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
+      isAiIdx: index("UserData_isAi_idx").on(table.isAi),
+      rankIdx: index("UserData_rank_idx").on(table.rank),
+      levelIdx: index("UserData_level_idx").on(table.level),
       usernameKey: uniqueIndex("UserData_username_key").on(table.username),
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("UserData_villageId_idx").on(table.villageId),

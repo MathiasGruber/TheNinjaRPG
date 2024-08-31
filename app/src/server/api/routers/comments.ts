@@ -309,18 +309,17 @@ export const commentsRouter = createTRPCRouter({
         );
       }
       // Fetch data
-      const [convo, comments] = await Promise.all([
-        fetchConversation({
-          client: ctx.drizzle,
-          id: input.convo_id,
-          title: input.convo_title,
-          userId: ctx.userId,
-        }),
+      const convo = await fetchConversation({
+        client: ctx.drizzle,
+        id: input.convo_id,
+        title: input.convo_title,
+        userId: ctx.userId,
+      });
+      const [comments] = await Promise.all([
         ctx.drizzle
           .select({
             id: conversationComment.id,
             createdAt: conversationComment.createdAt,
-            conversationId: conversation.id,
             content: conversationComment.content,
             isPinned: conversationComment.isPinned,
             villageName: village.name,
@@ -339,14 +338,8 @@ export const commentsRouter = createTRPCRouter({
           })
           .from(conversationComment)
           .innerJoin(userData, eq(conversationComment.userId, userData.userId))
-          .innerJoin(
-            conversation,
-            input.convo_id
-              ? eq(conversation.id, input.convo_id)
-              : eq(conversation.title, input.convo_title || "placeholder"),
-          )
           .leftJoin(village, eq(village.id, userData.villageId))
-          .where(eq(conversationComment.conversationId, conversation.id))
+          .where(eq(conversationComment.conversationId, convo.id))
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),
