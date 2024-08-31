@@ -1204,6 +1204,9 @@ export const userData = mysqlTable(
       userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
       isAiIdx: index("UserData_isAi_idx").on(table.isAi),
       rankIdx: index("UserData_rank_idx").on(table.rank),
+      clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
+      anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+      jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
       levelIdx: index("UserData_level_idx").on(table.level),
       usernameKey: uniqueIndex("UserData_username_key").on(table.username),
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
@@ -1723,6 +1726,8 @@ export const questHistory = mysqlTable(
   (table) => {
     return {
       userIdIdx: index("QuestHistory_userId_idx").on(table.userId),
+      questTypeIdx: index("QuestHistory_questType_idx").on(table.questType),
+      endAtIdx: index("QuestHistory_endedAt_idx").on(table.endAt),
       questIdIdx: index("QuestHistory_questId_idx").on(table.questId),
       completedIdx: index("QuestHistory_completed_idx").on(table.completed),
     };

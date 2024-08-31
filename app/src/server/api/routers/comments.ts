@@ -321,6 +321,7 @@ export const commentsRouter = createTRPCRouter({
             id: conversationComment.id,
             createdAt: conversationComment.createdAt,
             content: conversationComment.content,
+            conversationId: conversationComment.conversationId,
             isPinned: conversationComment.isPinned,
             villageName: village.name,
             villageHexColor: village.hexColor,
