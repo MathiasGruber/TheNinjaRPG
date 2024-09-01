@@ -14,6 +14,15 @@ import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getSearchValidator } from "@/validators/register";
 import { useForm } from "react-hook-form";
@@ -24,6 +33,7 @@ import { trainingSpeedSeconds } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
+import { MAX_TRAINING_NO_CAPTCHA } from "@/drizzle/constants";
 import { canTrainJutsu } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
@@ -35,12 +45,15 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
+import { CheckCheck } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { Handshake, UserRoundCheck } from "lucide-react";
 import { SENSEI_RANKS } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
+import { captchaVerifySchema } from "@/validators/misc";
+import type { CaptchaVerifySchema } from "@/validators/misc";
 import type { z } from "zod";
 import type { TrainingSpeed } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
@@ -281,9 +294,16 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
   const efficiency = trainEfficiency(userData);
+  const showCaptcha = userData && userData.dailyTrainings > MAX_TRAINING_NO_CAPTCHA;
 
   // tRPC useUtils
   const utils = api.useUtils();
+
+  // Query
+  const { data: captcha } = api.misc.getCaptcha.useQuery(undefined, {
+    staleTime: 5000,
+    enabled: showCaptcha,
+  });
 
   // Mutations
   const { mutate: startTraining, isPending: isStarting } =
@@ -300,6 +320,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
     api.train.stopTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
+        await utils.misc.getCaptcha.invalidate();
         if (data.success) {
           await utils.profile.getUser.invalidate();
         }
@@ -315,6 +336,17 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
         }
       },
     });
+
+  // Captcha form
+  const captchaForm = useForm<CaptchaVerifySchema>({
+    resolver: zodResolver(captchaVerifySchema),
+    defaultValues: { guess: "" },
+  });
+
+  // Form handlers
+  const onSubmit = captchaForm.handleSubmit((data) => {
+    stopTraining(data);
+  });
 
   const isPending = isStarting || isStopping || isChaning;
 
@@ -409,10 +441,47 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                   />
                 </p>
               )}
-              <XCircle
-                className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500"
-                onClick={() => stopTraining()}
-              />
+              {!showCaptcha && (
+                <XCircle
+                  className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500"
+                  onClick={() => stopTraining({})}
+                />
+              )}
+              {showCaptcha && !captcha && <Loader explanation="Loading captcha" />}
+              {showCaptcha && captcha && (
+                <Popover>
+                  <PopoverTrigger>
+                    <XCircle className="w-10 h-10 m-auto mt-5 fill-red-500 cursor-pointer hover:text-orange-500" />
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="font-bold text-lg">Verify Humanity</p>
+                    <img
+                      alt="captcha"
+                      className="mb-2"
+                      src={`data:image/svg+xml;utf8,${encodeURIComponent(captcha.svg)}`}
+                    />
+                    <Form {...captchaForm}>
+                      <form className="relative" onSubmit={onSubmit}>
+                        <FormField
+                          control={captchaForm.control}
+                          name="guess"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input placeholder="Enter captcha" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button className="absolute top-0 right-0" type="submit">
+                          <CheckCheck className="h-5 w-5" />
+                        </Button>
+                      </form>
+                    </Form>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ declare global {
       DISCORD_NEWS_UPDATES: string;
       AWS_SECRET_ACCESS_KEY: string;
       REPLICATE_API_TOKEN: string;
+      CAPTCHA_SALT: string;
       PUSHER_APP_ID: string;
       PUSHER_APP_SECRET: string;
       NEXT_PUBLIC_PUSHER_APP_KEY: string;

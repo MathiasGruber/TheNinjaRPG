@@ -15,6 +15,7 @@ export const serverSchema = z.object({
   DISCORD_NEWS_UPDATES: z.string().url(),
   DISCORD_TICKETS: z.string().url(),
   REPLICATE_API_TOKEN: z.string(),
+  CAPTCHA_SALT: z.string(),
 });
 
 /**
@@ -32,6 +33,7 @@ export const serverEnv = {
   DISCORD_NEWS_UPDATES: process.env.DISCORD_NEWS_UPDATES,
   DISCORD_TICKETS: process.env.DISCORD_TICKETS,
   REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
+  CAPTCHA_SALT: process.env.CAPTCHA_SALT,
 };
 
 /**

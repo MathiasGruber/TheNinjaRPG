@@ -12,8 +12,10 @@ import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { getGameSettingBoost } from "@/libs/gamesettings";
 import { structureBoost } from "@/utils/village";
+import { validateCaptcha } from "@/libs/captcha";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
+import { MAX_TRAINING_NO_CAPTCHA } from "@/drizzle/constants";
 
 export const trainRouter = createTRPCRouter({
   // Start training of a specific attribute
@@ -67,8 +69,9 @@ export const trainRouter = createTRPCRouter({
     }),
   // Stop training
   stopTraining: protectedProcedure
+    .input(z.object({ guess: z.string().optional() }))
     .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
+    .mutation(async ({ ctx, input }) => {
       // Query
       const { user, settings } = await fetchUpdatedUser({
         client: ctx.drizzle,
@@ -80,6 +83,13 @@ export const trainRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("Must be awake");
       if (!user.trainingStartedAt) return errorResponse("Not currently training");
       if (!user.currentlyTraining) return errorResponse("Not currently training");
+      // Captcha check
+      if (user.dailyTrainings > MAX_TRAINING_NO_CAPTCHA) {
+        if (!input.guess) return errorResponse("Captcha required");
+        if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess))) {
+          return errorResponse("Invalid captcha");
+        }
+      }
       // Derived training gain
       const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
       const gameFactor = trainSetting?.value || 1;

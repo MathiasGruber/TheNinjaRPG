@@ -20,3 +20,9 @@ export type CreateTicketSchema = z.infer<typeof createTicketSchema>;
 
 export const TicketTypes = ["content", "moderator"] as const;
 export type TicketType = (typeof TicketTypes)[number];
+
+export const captchaVerifySchema = z.object({
+  guess: z.string(),
+});
+
+export type CaptchaVerifySchema = z.infer<typeof captchaVerifySchema>;

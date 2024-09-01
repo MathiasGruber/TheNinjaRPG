@@ -92,6 +92,9 @@ dependencies:
   '@tweenjs/tween.js':
     specifier: 23.1.1
     version: 23.1.1
+  '@types/text-to-svg':
+    specifier: ^3.1.4
+    version: 3.1.4
   '@uploadthing/react':
     specifier: 6.2.2
     version: 6.2.2(next@14.2.7)(react@18.2.0)(uploadthing@6.3.1)
@@ -218,6 +221,9 @@ dependencies:
   tailwindcss-animate:
     specifier: ^1.0.7
     version: 1.0.7(tailwindcss@3.4.4)
+  text-to-svg:
+    specifier: ^3.1.5
+    version: 3.1.5
   three:
     specifier: 0.160.1
     version: 0.160.1
@@ -3411,6 +3417,10 @@ packages:
     dependencies:
       undici-types: 5.26.5
 
+  /@types/opentype.js@1.3.8:
+    resolution: {integrity: sha512-H6qeTp03jrknklSn4bpT1/9+1xCAEIU2CnjcWPkicJy8A1SKuthanbvoHYMiv79/2W3Xn1XE4gfSJFzt2U3JSw==}
+    dev: false
+
   /@types/pg-pool@2.0.4:
     resolution: {integrity: sha512-qZAvkv1K3QbmHHFYSNRYPkRjOWRLBYrL4B9c+wG0GSVGBw0NtJwPcgx/DSddeDJvRGMHCEQ4VMEVfuJ/0gZ3XQ==}
     dependencies:
@@ -3475,6 +3485,12 @@ packages:
   /@types/stats.js@0.17.2:
     resolution: {integrity: sha512-j1oI+BOPiAAAKFysNNutE9aAIjvHqqILubCs2EeHKc19pi4uybaGAgBfLXsCgJYcyKWkiilEvl8CkFF/SL+baA==}
     dev: true
+
+  /@types/text-to-svg@3.1.4:
+    resolution: {integrity: sha512-nupWR3fOC2CaakVDvnEuiNpcg+XZD8ez7yJf7HCcpR1JKqPKxnUqeFH8er9txouyCbsdwXjhKKpMPtnpQZYCsQ==}
+    dependencies:
+      '@types/opentype.js': 1.3.8
+    dev: false
 
   /@types/three@0.160.0:
     resolution: {integrity: sha512-jWlbUBovicUKaOYxzgkLlhkiEQJkhCVvg4W2IYD2trqD2om3VK4DGLpHH5zQHNr7RweZK/5re/4IVhbhvxbV9w==}
@@ -6984,6 +7000,14 @@ packages:
     dev: false
     optional: true
 
+  /opentype.js@0.11.0:
+    resolution: {integrity: sha512-Z9NkAyQi/iEKQYzCSa7/VJSqVIs33wknw8Z8po+DzuRUAqivJ+hJZ94mveg3xIeKwLreJdWTMyEO7x1K13l41Q==}
+    hasBin: true
+    dependencies:
+      string.prototype.codepointat: 0.2.1
+      tiny-inflate: 1.0.3
+    dev: false
+
   /optionator@0.9.3:
     resolution: {integrity: sha512-JjCoypp+jKn1ttEFExxhetCKeJt9zhAgAve5FXHixTvFDW/5aEktX9bufBKLRRMdU7bNtpLfcGu94B3cdEJgjg==}
     engines: {node: '>= 0.8.0'}
@@ -8225,6 +8249,14 @@ packages:
   /text-table@0.2.0:
     resolution: {integrity: sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==}
     dev: true
+
+  /text-to-svg@3.1.5:
+    resolution: {integrity: sha512-mbeGhMz9MAFaGaZGE8n4Mh/iQV/UkVnYJXhXFrv0eWkcNTgflhpHR2a8nr2ci3NU4FekIHJYKh0N0qdc6yUpfA==}
+    hasBin: true
+    dependencies:
+      commander: 2.20.3
+      opentype.js: 0.11.0
+    dev: false
 
   /thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}

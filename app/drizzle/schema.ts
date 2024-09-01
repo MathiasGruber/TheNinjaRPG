@@ -247,6 +247,26 @@ export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
   }),
 }));
 
+export const captcha = mysqlTable(
+  "Captcha",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    value: varchar("captcha", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY )`)
+      .notNull(),
+    success: boolean("success").default(false).notNull(),
+    used: boolean("used").default(false).notNull(),
+  },
+  (table) => {
+    return {
+      userId: index("Captcha_userId_key").on(table.userId),
+      usedIdx: index("Captcha_used_idx").on(table.used),
+    };
+  },
+);
+
 export const clan = mysqlTable(
   "Clan",
   {
