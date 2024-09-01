@@ -19,7 +19,7 @@ const config = {
   productionBrowserSourceMaps: true,
   experimental: {
     outputFileTracingIncludes: {
-      "./src/app/api/trpc/[trpc]/route.ts": ["./public/fonts/OpenSans.ttf"],
+      "src/app/api/trpc/[trpc]/route.ts": ["public/fonts/OpenSans.ttf"],
     },
   },
   images: {
