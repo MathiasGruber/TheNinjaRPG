@@ -1,3 +1,4 @@
+import path from "path";
 import { randomString } from "@/libs/random";
 import { eq, and } from "drizzle-orm";
 import { captcha } from "@/drizzle/schema";
@@ -16,7 +17,8 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
   // Value to guess
   const value = current?.value || randomString(6);
   // Create the SVG
-  const textToSVG = TextToSVG.loadSync(`${process.cwd()}/fonts/OpenSans.ttf`);
+  const fontPath = path.resolve("./fonts/OpenSans.ttf");
+  const textToSVG = TextToSVG.loadSync(fontPath);
   const svg = textToSVG.getSVG(value, {
     x: 0,
     y: 0,
