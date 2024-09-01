@@ -16,9 +16,7 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
   // Value to guess
   const value = current?.value || randomString(6);
   // Create the SVG
-  const textToSVG = TextToSVG.loadSync(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/fonts/ipag.ttf`,
-  );
+  const textToSVG = TextToSVG.loadSync(`${process.cwd()}/public/fonts/ipag.ttf`);
   const svg = textToSVG.getSVG(value, {
     x: 0,
     y: 0,

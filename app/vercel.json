@@ -31,5 +31,10 @@
       "maxDuration": 10
     }
   },
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "experimental": {
+    "outputFileTracingIncludes": {
+      "/api/trpc": ["./public/fonts/ipag.ttf"]
+    }
+  }
 }
