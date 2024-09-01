@@ -17,6 +17,11 @@ const config = {
   generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
+  experimental: {
+    outputFileTracingIncludes: {
+      "./src/app/api/trpc/[trpc]/route.ts": ["./public/fonts/OpenSans.ttf"],
+    },
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
