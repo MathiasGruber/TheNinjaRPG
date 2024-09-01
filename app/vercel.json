@@ -29,12 +29,10 @@
     "src/pages/api/trpc/[trpc].ts": {
       "memory": 3008,
       "maxDuration": 10
+    },
+    "src/app/api/trpc/[trpc]/route.ts": {
+      "includeFiles": "src/app/public/fonts/ipagp.ttf"
     }
   },
-  "regions": ["iad1"],
-  "experimental": {
-    "outputFileTracingIncludes": {
-      "/api/trpc": ["./public/fonts/ipag.ttf"]
-    }
-  }
+  "regions": ["iad1"]
 }
