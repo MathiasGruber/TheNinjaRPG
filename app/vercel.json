@@ -31,7 +31,7 @@
       "maxDuration": 10
     },
     "src/app/api/trpc/[trpc]/route.ts": {
-      "includeFiles": "src/app/public/fonts/OpenSans.ttf"
+      "includeFiles": "./fonts/OpenSans.ttf"
     }
   },
   "regions": ["iad1"]
