@@ -5,7 +5,7 @@ import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/s
 import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
 import { userItem, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
-import { trainingLog, village } from "@/drizzle/schema";
+import { trainingLog, village, captcha } from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -180,6 +180,11 @@ export async function GET() {
     // Step 26: Update the population of each village
     await drizzleDB.execute(
       sql`UPDATE ${village} a SET a.populationCount = (SELECT COUNT(*) FROM ${userData} b WHERE b.villageId = a.id)`,
+    );
+
+    // Step 27: Clear old captcha checks
+    await drizzleDB.execute(
+      sql`DELETE FROM ${captcha} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
     );
 
     return Response.json(`OK`);
