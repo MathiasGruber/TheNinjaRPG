@@ -11,6 +11,7 @@ import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
+import { canPlayHiddenQuests } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
@@ -257,8 +258,8 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
-      if (questData.hidden && !canChangeContent(user.role)) {
-        return errorResponse("Quest is hidden");
+      if (questData.hidden && !canPlayHiddenQuests(user.role)) {
+        return errorResponse("Quest is hidden / not released");
       }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
@@ -472,7 +473,9 @@ export const questsRouter = createTRPCRouter({
       if (resolved && userQuest) {
         // Achievements are only inserted once completed
         if (userQuest.quest.questType === "achievement") {
-          await upsertQuestEntry(ctx.drizzle, user, userQuest.quest);
+          if (!userQuest.quest.hidden || canPlayHiddenQuests(user.role)) {
+            await upsertQuestEntry(ctx.drizzle, user, userQuest.quest);
+          }
         } else {
           user.userQuests = user.userQuests.filter((q) => q.questId !== input.questId);
           const { trackers } = getNewTrackers(user, [{ task: "any" }]);
@@ -909,8 +912,10 @@ export const insertNextQuest = async (
   const history = await fetchUncompletedQuests(client, user, type);
   const nextQuest = history?.[0];
   if (nextQuest) {
-    const logEntry = await upsertQuestEntry(client, user, nextQuest);
-    return { ...logEntry, quest: nextQuest };
+    if (!nextQuest.hidden || canPlayHiddenQuests(user.role)) {
+      const logEntry = await upsertQuestEntry(client, user, nextQuest);
+      return { ...logEntry, quest: nextQuest };
+    }
   }
   return undefined;
 };

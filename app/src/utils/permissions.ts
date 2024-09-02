@@ -5,6 +5,10 @@ export const canChangeContent = (role: UserRole) => {
   return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
+export const canPlayHiddenQuests = (role: UserRole) => {
+  return ["CONTENT", "EVENT", "CONTENT-ADMIN"].includes(role);
+};
+
 export const canSubmitNotification = (role: UserRole) => {
   return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
 };
