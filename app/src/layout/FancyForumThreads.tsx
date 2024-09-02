@@ -5,7 +5,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Link from "next/link";
 import Image from "next/image";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { Button } from "@/components/ui/button";
 import { SquarePen, MessagesSquare } from "lucide-react";
 import { api } from "@/utils/api";
@@ -92,7 +92,7 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
                   By {thread.user.username} on {thread.createdAt.toLocaleDateString()}
                 </p>
               </div>
-              {post && ReactHtmlParser(post.content)}
+              {post && parseHtml(post.content)}
               {board && (
                 <p className="pt-3 hover:text-orange-500 hover:cursor-pointer">
                   <Link

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 
 import Modal from "./Modal";
 import RichInput from "./RichInput";
@@ -92,14 +92,14 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
               <Post title={props.content.title} user={props.user} hover_effect={false}>
                 {props.content.symmary && (
                   <div>
-                    {ReactHtmlParser(props.content.symmary)}
+                    {parseHtml(props.content.symmary)}
                     <hr />
                   </div>
                 )}
                 <hr />
                 {props.content.content && (
                   <div>
-                    {ReactHtmlParser(props.content.content)}
+                    {parseHtml(props.content.content)}
                     <hr />
                   </div>
                 )}

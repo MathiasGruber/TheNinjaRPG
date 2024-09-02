@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
 import Confirm from "@/layout/Confirm";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import ElementImage from "@/layout/ElementImage";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
@@ -175,7 +175,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
             <hr className="py-1" />
             {!hideDetails && item.description && (
-              <div>{ReactHtmlParser(item.description)}</div>
+              <div>{parseHtml(item.description)}</div>
             )}
           </div>
         </div>

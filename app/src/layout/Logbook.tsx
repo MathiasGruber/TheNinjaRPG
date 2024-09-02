@@ -15,7 +15,7 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
@@ -258,7 +258,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                   <div key={`objective-success-${i}`}>
                     <b>Objective {i + 1}:</b>
                     <br />
-                    <i>{ReactHtmlParser(description)}</i>
+                    <i>{parseHtml(description)}</i>
                   </div>
                 ))}
               </div>
@@ -267,7 +267,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               <div>
                 <b>Quest Completed:</b>
                 <br />
-                <i>{ReactHtmlParser(quest.successDescription)}</i>
+                <i>{parseHtml(quest.successDescription)}</i>
               </div>
             )}
             <div className="flex flex-row items-center">
@@ -405,7 +405,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           <EventTimer quest={quest} tracker={tracker} />
         </div>
         {!["tier", "daily"].includes(quest.questType) && quest.description && (
-          <div>{ReactHtmlParser(quest.description)}</div>
+          <div>{parseHtml(quest.description)}</div>
         )}
         <div
           className={`grid grid-cols-1 sm:grid-cols-${

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import Loader from "@/layout/Loader";
 import Pagination from "@/layout/Pagination";
 import ContentBox from "@/layout/ContentBox";
@@ -88,7 +88,7 @@ export default function Thread({ params }: { params: { threadid: string } }) {
                   comment={comment}
                   refetchComments={async () => await refetch()}
                 >
-                  {ReactHtmlParser(comment.content)}
+                  {parseHtml(comment.content)}
                 </CommentOnForum>
               </div>
             );

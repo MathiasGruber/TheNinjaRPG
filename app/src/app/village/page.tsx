@@ -1,6 +1,6 @@
 "use client";
 
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -224,7 +224,7 @@ export default function VillageOverview() {
             )
           }
         >
-          {ReactHtmlParser(notice)}
+          {parseHtml(notice)}
           {(isFetchingVillage || isUpdating) && (
             <Loader explanation="Loading Village Information" />
           )}

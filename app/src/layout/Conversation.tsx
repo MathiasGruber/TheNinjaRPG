@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { CommentOnConversation } from "@/layout/Comment";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
@@ -206,7 +206,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                       comment={comment}
                       refetchComments={async () => await refetch()}
                     >
-                      {ReactHtmlParser(comment.content)}
+                      {parseHtml(comment.content)}
                     </CommentOnConversation>
                   </div>
                 );

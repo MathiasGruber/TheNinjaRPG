@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
 import AvatarImage from "@/layout/Avatar";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import SliderField from "@/layout/SliderField";
 import { Button } from "@/components/ui/button";
@@ -360,7 +360,7 @@ const NotificationSystem: React.FC = () => {
                         />
                       </div>
                       <div className="ml-2">
-                        {ReactHtmlParser(entry.content)}
+                        {parseHtml(entry.content)}
                         <div className="mt-2 italic">
                           By {entry.user.username} on{" "}
                           {entry.createdAt.toLocaleDateString()}

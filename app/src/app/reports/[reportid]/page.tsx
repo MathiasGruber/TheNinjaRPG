@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
 
@@ -337,7 +337,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 color={reportCommentColor(comment.decision)}
                 refetchComments={async () => await refetchComments()}
               >
-                {ReactHtmlParser(comment.content)}
+                {parseHtml(comment.content)}
               </CommentOnReport>
             </div>
           ))}

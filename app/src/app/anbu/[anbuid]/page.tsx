@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import BanInfo from "@/layout/BanInfo";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ContentBox from "@/layout/ContentBox";
@@ -394,7 +394,7 @@ const AnbuOrders: React.FC<AnbuOrdersProps> = (props) => {
         </div>
       }
     >
-      {ReactHtmlParser(content)}
+      {parseHtml(content)}
     </ContentBox>
   );
 };

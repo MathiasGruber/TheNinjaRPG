@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
@@ -367,7 +367,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           }
         >
           <div className="relative overflow-x-scroll">
-            {ReactHtmlParser(profile.nindo.content)}
+            {parseHtml(profile.nindo.content)}
           </div>
         </ContentBox>
       )}
@@ -404,7 +404,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                     </div>
                   }
                 >
-                  {ReactHtmlParser(report.reason)}
+                  {parseHtml(report.reason)}
                   <b>Status:</b> {report.status.toLowerCase()}
                 </Post>
               </Link>

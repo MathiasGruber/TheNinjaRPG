@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useState } from "react";
 import Pusher from "pusher-js";
-import ReactHtmlParser from "react-html-parser";
+import { parseHtml } from "@/utils/parse";
 import { useContext } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
@@ -145,7 +145,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       .map((n) => {
         showMutationToast({
           success: true,
-          message: <div>{ReactHtmlParser(n.name)}</div>,
+          message: <div>{parseHtml(n.name)}</div>,
           title: "Notification!",
         });
       });
