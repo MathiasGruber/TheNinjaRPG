@@ -24,10 +24,10 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
-import { KAGE_PRESTIGE_REQUIREMENT } from "@/utils/kage";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { canAlly, canWar } from "@/utils/alliance";
-import { RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/utils/kage";
-import { KAGE_PRESTIGE_COST } from "@/utils/kage";
+import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -337,7 +337,7 @@ const KageHall: React.FC<{
             <span className="font-bold">Requirements: </span>
             <span>
               {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
-              {capitalizeFirstLetter(RANK_REQUIREMENT)} rank
+              {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank
             </span>
           </p>
         )}

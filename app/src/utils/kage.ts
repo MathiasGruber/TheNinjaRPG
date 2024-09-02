@@ -1,13 +1,7 @@
 import { hasRequiredRank } from "@/libs/train";
+import { KAGE_PRESTIGE_REQUIREMENT, KAGE_RANK_REQUIREMENT } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-
-export const KAGE_PRESTIGE_REQUIREMENT = 4000;
-export const RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 1000;
-export const FRIENDLY_PRESTIGE_COST = 10000;
-export const WAR_FUNDS_COST = 100;
-export const KAGE_MAX_DAILIES = 3;
 
 /**
  * Checks if a user can challenge the Kage.
@@ -17,7 +11,7 @@ export const KAGE_MAX_DAILIES = 3;
 export const canChallengeKage = (user: UserData) => {
   if (
     user.villagePrestige >= KAGE_PRESTIGE_REQUIREMENT &&
-    hasRequiredRank(user.rank, RANK_REQUIREMENT)
+    hasRequiredRank(user.rank, KAGE_RANK_REQUIREMENT)
   ) {
     return true;
   }

@@ -18,7 +18,7 @@ import { canAlly, canWar, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
-import { WAR_FUNDS_COST } from "@/utils/kage";
+import { WAR_FUNDS_COST } from "@/drizzle/constants";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
 import { canSwapVillage } from "@/utils/permissions";

@@ -10,7 +10,7 @@ import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
-import { KAGE_MAX_DAILIES } from "@/utils/kage";
+import { KAGE_MAX_DAILIES, KAGE_MAX_ELDERS } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const kageRouter = createTRPCRouter({
@@ -161,7 +161,9 @@ export const kageRouter = createTRPCRouter({
       if (village.kageId !== kage.userId) return errorResponse("Not kage");
       if (village.type !== "VILLAGE") return errorResponse("Only for village");
       if (prospect.villageId !== village.id) return errorResponse("Not in village");
-      if (elders.length > 3) return errorResponse("Already have 3 elders");
+      if (elders.length > KAGE_MAX_ELDERS) {
+        return errorResponse(`Already have ${KAGE_MAX_ELDERS} elders`);
+      }
       // Mutate
       const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";
       await ctx.drizzle

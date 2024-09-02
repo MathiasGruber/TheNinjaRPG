@@ -1,5 +1,5 @@
 import type { UserRequest, Village, VillageAlliance } from "@/drizzle/schema";
-import { WAR_FUNDS_COST } from "@/utils/kage";
+import { WAR_FUNDS_COST } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 
 /**

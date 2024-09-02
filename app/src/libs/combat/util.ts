@@ -6,7 +6,7 @@ import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
 import { realizeTag } from "./process";
-import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/utils/kage";
+import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
 import { deduceActiveUserRegen } from "@/libs/profile";
