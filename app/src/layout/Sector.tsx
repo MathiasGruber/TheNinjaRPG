@@ -9,6 +9,8 @@ import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
 import SliderField from "@/layout/SliderField";
 import WebGlError from "@/layout/WebGLError";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "src/components/ui/label";
 import { z } from "zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useForm } from "react-hook-form";
@@ -28,7 +30,7 @@ import { isLocationObjective } from "@/libs/quest";
 import { getAllyStatus } from "@/utils/alliance";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
-
+import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -60,6 +62,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
+  const [allyAttack, setAllyAttack] = useLocalStorage<boolean>("friendlyAttack", false);
   const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
 
   // References which shouldn't update
@@ -70,6 +73,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const users = useRef<SectorUser[]>([]);
   const showUsers = useRef<boolean>(showActive);
   const minLevelDraw = useRef<number>(storedLvl);
+  const showAllyAttack = useRef<boolean>(allyAttack);
   const userRef = useRef<UserWithRelations>(undefined);
   const mouse = new Vector2();
 
@@ -246,6 +250,10 @@ const Sector: React.FC<SectorProps> = (props) => {
   useEffect(() => {
     minLevelDraw.current = storedLvl;
   }, [storedLvl]);
+
+  useEffect(() => {
+    showAllyAttack.current = allyAttack;
+  }, [allyAttack]);
 
   useEffect(() => {
     if (pusher) {
@@ -501,6 +509,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           currentTooltips = intersectUsers({
             group_users,
             raycaster,
+            allyAttack: showAllyAttack.current,
             users: users.current,
             userData: userRef.current,
             currentTooltips,
@@ -555,10 +564,13 @@ const Sector: React.FC<SectorProps> = (props) => {
       {webglError && <WebGlError />}
       {props.showSorrounding && sorrounding && userData && origin.current && (
         <SorroundingUsers
+          userData={userData}
           setIsOpen={props.setShowSorrounding}
           users={sorrounding}
           userId={userData.userId}
           hex={origin.current}
+          allyAttack={allyAttack}
+          setAllyAttack={setAllyAttack}
           storedLvl={storedLvl}
           setStoredLvl={setStoredLvl}
           attackUser={(userId) => {
@@ -601,10 +613,13 @@ const Sector: React.FC<SectorProps> = (props) => {
 export default Sector;
 
 interface SorroundingUsersProps {
+  userData: NonNullable<UserWithRelations>;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   userId: string;
   hex: TerrainHex;
   users: SectorUser[];
+  allyAttack: boolean;
+  setAllyAttack: React.Dispatch<React.SetStateAction<boolean>>;
   storedLvl: number;
   setStoredLvl: React.Dispatch<React.SetStateAction<number>>;
   attackUser: (userId: string) => void;
@@ -613,7 +628,7 @@ interface SorroundingUsersProps {
 
 const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Min level to show
-  const { storedLvl, setStoredLvl } = props;
+  const { userData, storedLvl, setStoredLvl } = props;
 
   // Query
   const { data } = api.village.getAll.useQuery(undefined, {
@@ -663,15 +678,25 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
       )}
       <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 pb-3">
         {users.map((user, i) => {
+          // Derived
           const sameHex =
             user.latitude === props.hex.row && user.longitude === props.hex.col;
           const village = data?.find((v) => v.id === user.villageId);
           const villageName = village ? village.name : "Unknown";
           const villageColor = village ? village.hexColor : "gray";
+          const relationship =
+            userData.village &&
+            findVillageUserRelationship(userData.village, user.villageId);
+          const isAlly =
+            user.villageId === userData.villageId || relationship?.status === "ALLY";
+          const showAttack =
+            !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) &&
+            (props.allyAttack || !isAlly);
+          // Show user
           return (
             <div key={i} className="relative">
               <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80 hover:cursor-pointer">
-                {!RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && sameHex && (
+                {showAttack && sameHex && (
                   <Image
                     src={"/map/attack.png"}
                     onClick={() => props.attackUser(user.userId)}
@@ -734,6 +759,14 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           watchedValue={watchedLevel}
           error={errors.value?.message}
         />
+        <div className="flex flex-row items-center">
+          <Checkbox
+            className="m-1 mr-3"
+            checked={props.allyAttack}
+            onCheckedChange={() => props.setAllyAttack((prev) => !prev)}
+          />
+          <Label>Attack button on allies</Label>
+        </div>
       </div>
     </Modal>
   );

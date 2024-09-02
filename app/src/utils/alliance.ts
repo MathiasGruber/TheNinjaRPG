@@ -32,12 +32,15 @@ export const findRelationship = (
 export const findVillageUserRelationship = (
   villageData: {
     id: string | null;
-    relationshipA: VillageAlliance[];
-    relationshipB: VillageAlliance[];
+    relationshipA?: VillageAlliance[];
+    relationshipB?: VillageAlliance[];
   },
-  userVillageId: string,
+  userVillageId?: string | null,
 ) => {
-  const relationships = [...villageData.relationshipA, ...villageData.relationshipB];
+  const relationships = [
+    ...(villageData.relationshipA || []),
+    ...(villageData.relationshipB || []),
+  ];
   const relationship = findRelationship(
     relationships,
     userVillageId ?? "syndicate",

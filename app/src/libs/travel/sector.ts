@@ -23,10 +23,10 @@ import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
+import { findVillageUserRelationship } from "@/utils/alliance";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { UserData } from "@/drizzle/schema";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, SectorPoint, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
@@ -610,11 +610,12 @@ export const drawUsers = (info: {
 export const intersectUsers = (info: {
   group_users: Group;
   raycaster: Raycaster;
+  allyAttack: boolean;
   users: SectorUser[];
-  userData: UserData;
+  userData: NonNullable<UserWithRelations>;
   currentTooltips: Set<string>;
 }) => {
-  const { group_users, raycaster, users, userData, currentTooltips } = info;
+  const { group_users, allyAttack, raycaster, users, userData, currentTooltips } = info;
   const intersects = raycaster.intersectObjects(group_users.children);
   const newUserTooltips = new Set<string>();
   const userMesh = intersects.find(
@@ -638,14 +639,26 @@ export const intersectUsers = (info: {
     }
     if (locationUsers.length === 1 && userMesh) {
       const userId = userMesh.userData.userId as string;
-      const attack = userMesh?.children[2] as Sprite;
-      const info = userMesh?.children[3] as Sprite;
-      if (attack && userData.userId !== userId) attack.visible = true;
-      if (info) info.visible = true;
-      if (document.body.style.cursor !== "wait") {
-        document.body.style.cursor = "pointer";
+      const user = users.find((u) => u.userId === userId);
+      if (user) {
+        const attack = userMesh?.children[3] as Sprite;
+        const details = userMesh?.children[4] as Sprite;
+        const relationship =
+          userData.village &&
+          findVillageUserRelationship(userData.village, user.villageId);
+        const isAlly =
+          user.villageId === userData.villageId || relationship?.status === "ALLY";
+        const showAttack =
+          !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
+        if (attack && userData.userId !== userId && showAttack) {
+          attack.visible = true;
+        }
+        if (details) details.visible = true;
+        if (document.body.style.cursor !== "wait") {
+          document.body.style.cursor = "pointer";
+        }
+        newUserTooltips.add(userMesh.name);
       }
-      newUserTooltips.add(userMesh.name);
     }
   }
 
