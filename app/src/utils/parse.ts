@@ -19,7 +19,6 @@ export const parseHtml = (html: string) => {
       ) {
         return null;
       }
-      console.log(node);
     },
   });
 };

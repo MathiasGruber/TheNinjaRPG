@@ -337,7 +337,7 @@ export const updateUser = async (
     // Any jutsus to be updated
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
-    const jExp = battleJutsuExp(curBattle.battleType, result.experience);
+    const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff);
     // Update user & user items
     await Promise.all([
       // Delete items

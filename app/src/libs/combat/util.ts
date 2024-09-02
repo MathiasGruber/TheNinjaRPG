@@ -411,18 +411,18 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         expBoost += user.clan.trainingBoost / 100;
       }
 
-      // Calculate ELO change if user had won. User gets 1/4th if they lost
-      const eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
-      let experience = didWin ? eloDiff * expBoost : 0;
-
-      // If Combat, then double the experience gain
-      if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
-        experience *= 1.5;
-      }
+      // Calculate ELO change if user had won.
+      let eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
 
       // If killing ally, then no experience
       if (battleType === "COMBAT" && villageIds.length === 1) {
-        experience = 0;
+        eloDiff = 0;
+      }
+
+      // Calculate Eperience gain
+      let experience = didWin ? eloDiff * expBoost : 0;
+      if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
+        experience *= 1.5;
       }
 
       // Find users who did not leave battle yet
@@ -496,6 +496,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const result: CombatResult = {
         outcome: outcome,
         didWin: didWin ? 1 : 0,
+        eloDiff: eloDiff,
         experience: 0.01,
         pvpStreak:
           battleType === "COMBAT" ? (didWin ? user.pvpStreak + 1 : 0) : user.pvpStreak,
