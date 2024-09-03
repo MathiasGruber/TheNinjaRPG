@@ -67,7 +67,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
   const selectedVisual = watchUsers.map((user) => (
     <span
       key={user.userId}
-      className="mr-2 inline-flex items-center rounded-lg border  border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
+      className="inline-flex items-center rounded-lg border border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
     >
       <div className="m-1 w-8">
         <AvatarImage
@@ -95,7 +95,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
 
   return (
     <div className="flex flex-col w-full items-center">
-      <div className="flex flex-row w-full items-center">
+      <div className="flex flex-row gap-1 w-full items-center">
         <Form {...form}>
           <FormField
             control={form.control}

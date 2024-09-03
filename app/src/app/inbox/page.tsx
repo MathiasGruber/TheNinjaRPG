@@ -11,6 +11,10 @@ import Loader from "@/layout/Loader";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import UserBlacklistControl from "@/layout/UserBlacklistControl";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { UserRoundX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Form,
@@ -20,7 +24,6 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import { SquarePen, Users, X, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -33,6 +36,24 @@ export default function Inbox() {
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
   if (!userData) return <Loader explanation="Loading userdata" />;
 
+  const topRightContent = (
+    <div className="flex flex-row gap-1">
+      <NewConversationPrompt setSelectedConvo={setSelectedConvo} />
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button id="filter-bloodline">
+            <UserRoundX className="h-6 w-6 hover:text-orange-500" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent>
+          <div className="max-w-[320px] min-w-[320px]">
+            <UserBlacklistControl />
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
   if (selectedConvo) {
     return (
       <Conversation
@@ -42,7 +63,7 @@ export default function Inbox() {
         onBack={() => setSelectedConvo(null)}
         title="Inbox"
         subtitle="Private messages"
-        topRightContent={<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
+        topRightContent={topRightContent}
       />
     );
   } else if (!selectedConvo) {
@@ -51,7 +72,7 @@ export default function Inbox() {
         title="Inbox"
         subtitle="Private Conversations"
         padding={false}
-        topRightContent={<NewConversationPrompt setSelectedConvo={setSelectedConvo} />}
+        topRightContent={topRightContent}
       >
         <ShowConversations
           selectedConvo={selectedConvo}

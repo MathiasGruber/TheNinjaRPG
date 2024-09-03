@@ -1,8 +1,10 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import {
   village,
+  userBlackList,
   conversation,
   userReportComment,
   forumPost,
@@ -23,6 +25,7 @@ import { deleteCommentSchema } from "@/validators/comments";
 import { canPostReportComment } from "@/validators/reports";
 import { canSeeReport } from "@/validators/reports";
 import { canDeleteComment } from "@/validators/reports";
+import { canSeeSecretData } from "@/utils/permissions";
 import { createConversationSchema } from "@/validators/comments";
 import { getServerPusher } from "../../../libs/pusher";
 import { fetchUserReport } from "./reports";
@@ -45,7 +48,7 @@ export const commentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const report = await fetchUserReport(ctx.drizzle, input.id);
+      const report = await fetchUserReport(ctx.drizzle, input.id, ctx.userId);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const comments = await ctx.drizzle.query.userReportComment.findMany({
@@ -82,7 +85,7 @@ export const commentsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       if (!canPostReportComment(report)) return errorResponse("Already resolved");
@@ -211,20 +214,24 @@ export const commentsRouter = createTRPCRouter({
   getUserConversations: protectedProcedure
     .input(z.object({ selectedConvo: z.string().nullish().optional() }))
     .query(async ({ ctx }) => {
-      const userConvos = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        with: {
-          conversations: {
-            with: {
-              conversation: {
-                with: {
-                  users: {
-                    with: {
-                      userData: {
-                        columns: {
-                          userId: true,
-                          username: true,
-                          avatar: true,
+      // Query
+      const [data] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+          with: {
+            creatorBlacklist: true,
+            conversations: {
+              with: {
+                conversation: {
+                  with: {
+                    users: {
+                      with: {
+                        userData: {
+                          columns: {
+                            userId: true,
+                            username: true,
+                            avatar: true,
+                          },
                         },
                       },
                     },
@@ -233,13 +240,22 @@ export const commentsRouter = createTRPCRouter({
               },
             },
           },
-        },
-      });
-      await ctx.drizzle
-        .update(userData)
-        .set({ inboxNews: 0 })
-        .where(eq(userData.userId, ctx.userId));
-      return userConvos?.conversations
+        }),
+        ctx.drizzle
+          .update(userData)
+          .set({ inboxNews: 0 })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      // Filter off blacklisted conversations
+      return data?.conversations
+        .filter(
+          (c) =>
+            !c.conversation.users
+              .filter((u) => u.userId !== ctx.userId)
+              .every((u) =>
+                data.creatorBlacklist.some((b) => b.targetUserId === u.userId),
+              ),
+        )
         .map((c) => c.conversation)
         .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1));
     }),
@@ -309,12 +325,17 @@ export const commentsRouter = createTRPCRouter({
         );
       }
       // Fetch data
-      const convo = await fetchConversation({
-        client: ctx.drizzle,
-        id: input.convo_id,
-        title: input.convo_title,
-        userId: ctx.userId,
-      });
+      const [user, convo] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchConversation({
+          client: ctx.drizzle,
+          id: input.convo_id,
+          title: input.convo_title,
+          userId: ctx.userId,
+        }),
+      ]);
+      const posterBlacklist = alias(userBlackList, "posterBlacklist");
+      const readerBlacklist = alias(userBlackList, "readerBlacklist");
       const [comments] = await Promise.all([
         ctx.drizzle
           .select({
@@ -339,8 +360,31 @@ export const commentsRouter = createTRPCRouter({
           })
           .from(conversationComment)
           .innerJoin(userData, eq(conversationComment.userId, userData.userId))
+          .leftJoin(
+            posterBlacklist,
+            and(
+              eq(
+                posterBlacklist.creatorUserId,
+                canSeeSecretData(user.role) ? "neverfound" : conversationComment.userId,
+              ),
+              eq(posterBlacklist.targetUserId, ctx.userId),
+            ),
+          )
+          .leftJoin(
+            readerBlacklist,
+            and(
+              eq(readerBlacklist.creatorUserId, ctx.userId),
+              eq(readerBlacklist.targetUserId, conversationComment.userId),
+            ),
+          )
           .leftJoin(village, eq(village.id, userData.villageId))
-          .where(eq(conversationComment.conversationId, convo.id))
+          .where(
+            and(
+              eq(conversationComment.conversationId, convo.id),
+              isNull(readerBlacklist.id),
+              isNull(posterBlacklist.id),
+            ),
+          )
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),

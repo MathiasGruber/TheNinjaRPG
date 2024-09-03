@@ -12,6 +12,7 @@ import Accordion from "@/layout/Accordion";
 import RichInput from "@/layout/RichInput";
 import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
+import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
@@ -101,6 +102,14 @@ export default function EditProfile() {
           onClick={setActiveElement}
         >
           <AvatarChange />
+        </Accordion>
+        <Accordion
+          title="User Blacklist"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Filter away toxic profiles from your feeds"
+          onClick={setActiveElement}
+        >
+          <UserBlacklistControl />
         </Accordion>
         <Accordion
           title="Nindo"
@@ -223,7 +232,8 @@ const NewAiAvatar: React.FC = () => {
 
   // Create new avatar mutation
   const createAvatar = api.avatar.createAvatar.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await utils.profile.getUser.invalidate();
       await utils.avatar.getHistoricalAvatars.invalidate();
     },

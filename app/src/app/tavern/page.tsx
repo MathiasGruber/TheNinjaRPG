@@ -5,6 +5,10 @@ import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import Conversation from "@/layout/Conversation";
 import BanInfo from "@/layout/BanInfo";
+import UserBlacklistControl from "@/layout/UserBlacklistControl";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { UserRoundX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -90,7 +94,23 @@ export default function Tavern() {
       title={conversation + " Tavern"}
       initialBreak={false}
       subtitle={conversation === "Global" ? "Global chat" : "Village chat"}
-      topRightContent={tavernSelector}
+      topRightContent={
+        <div className="flex flex-row gap-1">
+          {tavernSelector}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button id="filter-bloodline">
+                <UserRoundX className="h-6 w-6 hover:text-orange-500" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent>
+              <div className="max-w-[320px] min-w-[320px]">
+                <UserBlacklistControl />
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      }
     />
   );
 }

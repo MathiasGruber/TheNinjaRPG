@@ -20,6 +20,7 @@ import {
   quest,
   questHistory,
   reportLog,
+  userBlackList,
   user2conversation,
   userAttribute,
   userData,
@@ -80,6 +81,50 @@ import type { ExecutedQuery } from "@planetscale/database";
 const pusher = getServerPusher();
 
 export const profileRouter = createTRPCRouter({
+  // Get user blacklist
+  getBlacklist: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.userBlackList.findMany({
+      where: eq(userBlackList.creatorUserId, ctx.userId),
+      with: {
+        target: { columns: { username: true, userId: true, avatar: true } },
+      },
+    });
+  }),
+  toggleBlacklistEntry: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [entry, target] = await Promise.all([
+        ctx.drizzle.query.userBlackList.findFirst({
+          where: and(
+            eq(userBlackList.creatorUserId, ctx.userId),
+            eq(userBlackList.targetUserId, input.userId),
+          ),
+        }),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!target) return errorResponse("User not found");
+      if (ctx.userId === input.userId) return errorResponse("Not yourself");
+      // Derived
+      const targetName = target.username;
+      // Mutate
+      if (!entry) {
+        const result = await ctx.drizzle.insert(userBlackList).values({
+          creatorUserId: ctx.userId,
+          targetUserId: input.userId,
+        });
+        if (result.rowsAffected === 0) {
+          return { success: false, message: `Failed to add ${targetName}` };
+        } else {
+          return { success: true, message: `Added ${targetName} to blacklist` };
+        }
+      } else {
+        await ctx.drizzle.delete(userBlackList).where(eq(userBlackList.id, entry.id));
+        return { success: true, message: `Removed ${targetName} from blacklist` };
+      }
+    }),
   // Get all AI names
   getAllAiNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userData.findMany({
