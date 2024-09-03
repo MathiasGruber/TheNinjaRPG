@@ -178,6 +178,36 @@ export const battleHistoryRelations = relations(battleHistory, ({ one, many }) =
   }),
 }));
 
+export const userBlackList = mysqlTable(
+  "UserBlackList",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    creatorUserId: varchar("creatorUserId", { length: 191 }).notNull(),
+    targetUserId: varchar("targetUserId", { length: 191 }).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      creatorUserIdIdx: index("BlackList_creatorUserId_idx").on(table.creatorUserId),
+      targetUserIdIdx: index("BlackList_targetUserId_idx").on(table.targetUserId),
+    };
+  },
+);
+
+export const userBlackListRelations = relations(userBlackList, ({ one }) => ({
+  creator: one(userData, {
+    fields: [userBlackList.creatorUserId],
+    references: [userData.userId],
+    relationName: "creatorBlacklist",
+  }),
+  target: one(userData, {
+    fields: [userBlackList.targetUserId],
+    references: [userData.userId],
+  }),
+}));
+
 export const bloodline = mysqlTable(
   "Bloodline",
   {
@@ -1322,6 +1352,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.jutsuLoadout],
     references: [jutsuLoadout.id],
   }),
+  creatorBlacklist: many(userBlackList, { relationName: "creatorBlacklist" }),
   mpvpBattles: many(mpvpBattleUser),
 }));
 
