@@ -144,7 +144,6 @@ export default function Reports() {
                         </div>
                       )}
                       <ParsedReportJson report={report} />
-                      <b>Report by</b> {reportedUser.username}
                     </Post>
                   </Link>
                 </div>

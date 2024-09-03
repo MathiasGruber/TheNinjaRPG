@@ -2,7 +2,9 @@ import React from "react";
 import type { UserReport } from "../../drizzle/schema";
 import { parseHtml } from "@/utils/parse";
 
-const ParsedReportJson: React.FC<{ report: UserReport }> = (props) => {
+const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }> = (
+  props,
+) => {
   return (
     <div>
       <b>Report Reason:</b> {parseHtml(props.report.reason)}

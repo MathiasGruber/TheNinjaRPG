@@ -176,8 +176,12 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 </div>
               )}
               <ParsedReportJson report={report} />
-              <b>Report by</b> {report.reporterUser?.username}
-              <br />
+              {report.reporterUser?.username && (
+                <div>
+                  <b>Report by</b> {report.reporterUser?.username}
+                  <br />
+                </div>
+              )}
               <b>Current status:</b> {report.status}
             </Post>
           </>

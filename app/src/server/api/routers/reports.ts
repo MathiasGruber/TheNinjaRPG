@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
+import { getTableColumns } from "drizzle-orm";
 import { eq, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
@@ -72,8 +73,13 @@ export const reportsRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const reportedUser = alias(userData, "reportedUser");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { reporterUserId, ...rest } = getTableColumns(userReport);
       const reports = await ctx.drizzle
-        .select()
+        .select({
+          UserReport: { ...rest },
+          reportedUser: { ...getTableColumns(reportedUser) },
+        })
         .from(userReport)
         .where(
           and(
@@ -150,7 +156,7 @@ export const reportsRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.id);
+      const report = await fetchUserReport(ctx.drizzle, input.id, ctx.userId);
       if (canSeeReport(user, report)) {
         return report;
       } else {
@@ -213,7 +219,7 @@ export const reportsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       const hasModRights = canModerateReports(user, report);
@@ -261,7 +267,7 @@ export const reportsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       const hasModRights = canModerateReports(user, report);
@@ -309,7 +315,7 @@ export const reportsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       const hasModRights = canModerateReports(user, report);
@@ -351,7 +357,7 @@ export const reportsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       if (canEscalateBan(user, report)) return errorResponse("You cannot escalate");
@@ -378,7 +384,7 @@ export const reportsRouter = createTRPCRouter({
       // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserReport(ctx.drizzle, input.object_id),
+        fetchUserReport(ctx.drizzle, input.object_id, ctx.userId),
       ]);
       // Guard
       if (!canClearReport(user, report)) return errorResponse("No permission");
@@ -487,7 +493,11 @@ export const reportsRouter = createTRPCRouter({
     }),
 });
 
-export const fetchUserReport = async (client: DrizzleClient, userReportId: string) => {
+export const fetchUserReport = async (
+  client: DrizzleClient,
+  userReportId: string,
+  fetcherUserId: string,
+) => {
   const entry = await client.query.userReport.findFirst({
     where: eq(userReport.id, userReportId),
     with: {
@@ -519,6 +529,10 @@ export const fetchUserReport = async (client: DrizzleClient, userReportId: strin
   });
   if (!entry) {
     throw new Error("Report not found");
+  }
+  if (fetcherUserId === entry.reportedUserId) {
+    entry.reporterUser = null;
+    entry.reporterUserId = null;
   }
   return entry;
 };
