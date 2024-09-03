@@ -1,5 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { createUploadthing } from "uploadthing/next";
+import { UploadThingError } from "uploadthing/server";
 import { eq, sql, gt, and, isNotNull } from "drizzle-orm";
 import { historicalAvatar, userData } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
@@ -66,8 +67,15 @@ export type OurFileRouter = typeof ourFileRouter;
  * @returns
  */
 const avatarMiddleware = async (fedRequirement?: (typeof FederalStatuses)[number]) => {
+  // Fetch & Guard
   const sessionUser = await currentUser();
-  if (!sessionUser) throw new Error("Unauthorized");
+  if (!sessionUser) throw new UploadThingError("Unauthorized");
+  const user = await drizzleDB.query.userData.findFirst({
+    where: eq(userData.userId, sessionUser.id),
+  });
+  if (!user) throw new UploadThingError("User not found");
+  if (user.isBanned) throw new UploadThingError("You are banned");
+  // Limit
   const avatars = await drizzleDB
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(historicalAvatar)
@@ -82,13 +90,11 @@ const avatarMiddleware = async (fedRequirement?: (typeof FederalStatuses)[number
   if (nRecentAvatars > 50) throw new Error("Can only upload 50 files per day");
   // Federal check
   if (fedRequirement) {
-    const user = await drizzleDB.query.userData.findFirst({
-      where: eq(userData.userId, sessionUser.id),
-    });
-    if (!user) throw new Error("User not found");
     const userstatus = getUserFederalStatus(user);
     if (userstatus !== fedRequirement) {
-      throw new Error("You must be " + fedRequirement + " to upload this avatar");
+      throw new UploadThingError(
+        "You must be " + fedRequirement + " to upload this avatar",
+      );
     }
   }
   return { userId: sessionUser.id };

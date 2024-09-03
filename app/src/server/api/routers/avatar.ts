@@ -8,22 +8,31 @@ import { userData, historicalAvatar } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 export const avatarRouter = createTRPCRouter({
-  createAvatar: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
-    if (currentUser.reputationPoints < 1) {
-      throw serverError("PRECONDITION_FAILED", "Not enough reputation points");
-    }
-    const result = await ctx.drizzle
-      .update(userData)
-      .set({
-        avatar: null,
-        reputationPoints: sql`${userData.reputationPoints} - 1`,
-      })
-      .where(and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)));
-    if (result.rowsAffected === 1) {
-      await updateAvatar(ctx.drizzle, currentUser);
-    }
-  }),
+  createAvatar: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < 1) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (user.isBanned) return errorResponse("You are banned");
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          avatar: null,
+          reputationPoints: sql`${userData.reputationPoints} - 1`,
+        })
+        .where(and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)));
+      if (result.rowsAffected === 1) {
+        await updateAvatar(ctx.drizzle, user);
+        return { success: true, message: "Avatar created" };
+      } else {
+        return errorResponse("Failed to upload avatar");
+      }
+    }),
   checkAvatar: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -65,13 +74,16 @@ export const avatarRouter = createTRPCRouter({
     .input(z.object({ avatar: z.number() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const avatar = await fetchAvatar(ctx.drizzle, input.avatar);
-      if (!avatar) {
-        return errorResponse("Avatar not found");
-      }
-      if (avatar.userId !== ctx.userId) {
-        return errorResponse("Not your avatar");
-      }
+      // Query
+      const [user, avatar] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchAvatar(ctx.drizzle, input.avatar),
+      ]);
+      // Guard
+      if (!avatar) return errorResponse("Avatar not found");
+      if (avatar.userId !== ctx.userId) return errorResponse("Not yours");
+      if (user.isBanned) return errorResponse("You are banned");
+      // Mutation
       await ctx.drizzle
         .update(userData)
         .set({ avatar: avatar.avatar })
