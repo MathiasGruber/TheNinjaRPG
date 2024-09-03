@@ -535,38 +535,37 @@ const RightSideBar: React.FC<{
   // Derived data
   const inBattle = userData?.status === "BATTLE";
 
+  // Shown notifications
+  const shownNotifications = notifications?.filter((n) => n.color !== "toast");
+
   // Render
   return (
     <>
       {/* COMBAT */}
       <MenuBoxCombat />
       {/* NOTIFICATIONS */}
-      {userData && notifications && notifications.length > 0 && (
+      {userData && shownNotifications && shownNotifications.length > 0 && (
         <>
           <SideBannerTitle>Notifications</SideBannerTitle>
           <ul className="grid grid-cols-1 gap-[1px]">
-            {notifications
-              .filter((n) => n.color !== "toast")
-              .map((notification, i) => (
-                <Link key={i} href={notification.href}>
-                  <div
-                    className={`flex flex-row text-xs lg:text-base items-center rounded-lg border-2 border-slate-800 py-[1px] pl-3 hover:opacity-70 ${
-                      notification.color
-                        ? `bg-${notification.color}-600`
-                        : "bg-slate-500"
-                    }`}
-                  >
-                    {notification.color === "red" && (
-                      <ShieldAlert className="mr-1 h-5 w-5" />
-                    )}
-                    {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
-                    {notification.color === "green" && (
-                      <ShieldCheck className="mr-1 h-5 w-5" />
-                    )}
-                    {notification.name}
-                  </div>
-                </Link>
-              ))}
+            {shownNotifications.map((notification, i) => (
+              <Link key={i} href={notification.href}>
+                <div
+                  className={`flex flex-row text-xs lg:text-base items-center rounded-lg border-2 border-slate-800 py-[1px] pl-3 hover:opacity-70 ${
+                    notification.color ? `bg-${notification.color}-600` : "bg-slate-500"
+                  }`}
+                >
+                  {notification.color === "red" && (
+                    <ShieldAlert className="mr-1 h-5 w-5" />
+                  )}
+                  {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
+                  {notification.color === "green" && (
+                    <ShieldCheck className="mr-1 h-5 w-5" />
+                  )}
+                  {notification.name}
+                </div>
+              </Link>
+            ))}
           </ul>
         </>
       )}
