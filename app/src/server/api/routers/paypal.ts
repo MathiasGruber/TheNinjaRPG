@@ -12,7 +12,7 @@ import { fetchUser } from "./profile";
 import { FederalStatuses } from "@/drizzle/constants";
 import { canSeeSecretData } from "@/utils/permissions";
 import { searchPaypalTransactionSchema } from "@/validators/points";
-import { addDays } from "@/utils/time";
+import { addDays, secondsFromNow } from "@/utils/time";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -47,6 +47,12 @@ type PaypalSubscription = {
   custom_id: string;
   plan_id: string;
   status: string;
+  billing_info: {
+    last_payment: {
+      amount: PaypalAmount;
+      time: string;
+    };
+  };
 };
 
 type PaypalTransaction = {
@@ -546,25 +552,13 @@ export const syncTransactions = async (
         // Handle different cases
         if (info.paypal_reference_id_type === "SUB") {
           // Fetch from internal & paypal
-          const [externalSubscription, internalSubscription] = await Promise.all([
-            getPaypalSubscription(info.paypal_reference_id, token),
-            client.query.paypalSubscription.findFirst({
-              where: and(
-                eq(paypalSubscription.status, "ACTIVE"),
-                eq(paypalSubscription.subscriptionId, info.paypal_reference_id),
-                gte(
-                  paypalSubscription.updatedAt,
-                  new Date(Date.now() - 1000 * 60 * 60 * 24 * 31),
-                ),
-              ),
-            }),
-          ]);
+          const externalSubscription = await getPaypalSubscription(
+            info.paypal_reference_id,
+            token,
+          );
           // Update if we found external and it's time to update internal
-          if (externalSubscription && !internalSubscription) {
-            const newStatus =
-              externalSubscription.status === "ACTIVE"
-                ? plan2FedStatus(externalSubscription.plan_id)
-                : "NONE";
+          if (externalSubscription) {
+            const newStatus = getPaypalSubscriptionStatus(externalSubscription);
             await updateSubscription({
               client: client,
               createdById: createdByUserId,
@@ -573,9 +567,7 @@ export const syncTransactions = async (
               status: externalSubscription.status,
               subscriptionId: externalSubscription.id,
             });
-            return `Subscription ID ${info.paypal_reference_id} synced`;
-          } else if (externalSubscription && internalSubscription) {
-            return `Subscription ID ${info.paypal_reference_id} already synced`;
+            return `Subscription ID ${info.paypal_reference_id} synced to ${newStatus}`;
           } else {
             return `Subscription ID ${info.paypal_reference_id} not found`;
           }
@@ -606,6 +598,17 @@ export const syncTransactions = async (
       }),
   );
   return notifications;
+};
+
+/**
+ * Get updated paypal subscription status, accounting for last payment time
+ */
+export const getPaypalSubscriptionStatus = (subscription: PaypalSubscription) => {
+  const lastPayment = new Date(subscription.billing_info.last_payment.time);
+  const fedStatus = plan2FedStatus(subscription.plan_id);
+  const stillActive = lastPayment > secondsFromNow(-3600 * 24 * 31);
+  const newStatus = stillActive ? fedStatus : "NONE";
+  return newStatus;
 };
 
 /**
