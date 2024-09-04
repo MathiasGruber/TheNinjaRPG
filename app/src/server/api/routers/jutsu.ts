@@ -16,7 +16,7 @@ import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import type { JutsuFilteringSchema } from "@/validators/jutsu";
@@ -186,7 +186,7 @@ export const jutsuRouter = createTRPCRouter({
         requiredRank: "STUDENT",
         target: "OTHER_USER",
         jutsuType: "AI",
-        image: DEFAULT_IMAGE,
+        image: IMG_AVATAR_DEFAULT,
       });
       return { success: true, message: id };
     } else {

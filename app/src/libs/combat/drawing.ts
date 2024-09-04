@@ -22,6 +22,11 @@ import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { getBattleGrid } from "@/libs/combat/util";
+import {
+  IMG_SECTOR_USER_MARKER,
+  IMG_SECTOR_USER_SPRITE_MASK,
+  IMG_SECTOR_SHADOW,
+} from "@/drizzle/constants";
 import type { Grid } from "honeycomb-grid";
 import type { Scene, Object3D, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
@@ -352,7 +357,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   const { height: h, width: w } = hex;
 
   // Shadow
-  const texture = loadTexture("/map/shadow.png");
+  const texture = loadTexture(IMG_SECTOR_SHADOW);
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   const shadow_material = new SpriteMaterial({ map: texture });
@@ -379,7 +384,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(sprite);
   } else {
     // Highlight background in village color
-    const highlightTexture = loadTexture("/map/userMarker.webp");
+    const highlightTexture = loadTexture(IMG_SECTOR_USER_MARKER);
     const highlightMaterial = new SpriteMaterial({
       map: highlightTexture,
       alphaMap: highlightTexture,
@@ -399,7 +404,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(highlightSprite);
 
     // Marker background in white
-    const marker = loadTexture("/map/userMarker.webp");
+    const marker = loadTexture(IMG_SECTOR_USER_MARKER);
     const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.userData.type = "marker";
@@ -408,7 +413,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     group.add(markerSprite);
 
     // Avatar Sprite
-    const alphaMap = loadTexture("/map/userSpriteMask.webp");
+    const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
     const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
     map.generateMipmaps = false;
     map.minFilter = LinearFilter;

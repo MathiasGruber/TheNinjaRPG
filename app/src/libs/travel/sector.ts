@@ -25,6 +25,13 @@ import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import {
+  IMG_SECTOR_INFO,
+  IMG_SECTOR_ATTACK,
+  IMG_SECTOR_USER_MARKER,
+  IMG_SECTOR_USER_SPRITE_MASK,
+  IMG_SECTOR_SHADOW,
+} from "@/drizzle/constants";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
@@ -54,7 +61,7 @@ export const drawQuest = (info: {
         mesh = new Group();
         mesh.name = objective.id;
         // Marker
-        const marker = loadTexture("/map/userMarker.webp");
+        const marker = loadTexture(IMG_SECTOR_USER_MARKER);
         const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
         const markerSprite = new Sprite(markerMat);
         markerSprite.userData.type = "marker";
@@ -69,7 +76,7 @@ export const drawQuest = (info: {
         Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
         mesh.add(markerSprite);
         // White background for items
-        const alphaMap = loadTexture("/map/userSpriteMask.webp");
+        const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
         const alphaMaterial = new SpriteMaterial({ map: alphaMap, alphaMap: alphaMap });
         const alphaSprite = new Sprite(alphaMaterial);
         alphaSprite.material.color.setHex(0xd3d9ea);
@@ -200,7 +207,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   const { height: h, width: w } = hex;
 
   // Highlight sprite
-  const highlightTexture = loadTexture("/map/userMarker.webp");
+  const highlightTexture = loadTexture(IMG_SECTOR_USER_MARKER);
   const highlightMaterial = new SpriteMaterial({
     map: highlightTexture,
     alphaMap: highlightTexture,
@@ -221,7 +228,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(highlightSprite);
 
   // Marker
-  const marker = loadTexture("/map/userMarker.webp");
+  const marker = loadTexture(IMG_SECTOR_USER_MARKER);
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
@@ -230,7 +237,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   group.add(markerSprite);
 
   // Avatar Sprite
-  const alphaMap = loadTexture("/map/userSpriteMask.webp");
+  const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
   const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
@@ -242,7 +249,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 
   // Attack button
   if (!RANKS_RESTRICTED_FROM_PVP.includes(userData.rank)) {
-    const attack = loadTexture("/map/attack.png");
+    const attack = loadTexture(IMG_SECTOR_ATTACK);
     const attackMat = new SpriteMaterial({ map: attack, depthTest: false });
     const attackSprite = new Sprite(attackMat);
     attackSprite.visible = false;
@@ -255,7 +262,7 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
   }
 
   // Info button
-  const info = loadTexture("/map/info.png");
+  const info = loadTexture(IMG_SECTOR_INFO);
   const infoMat = new SpriteMaterial({ map: info, depthTest: false });
   const infoSprite = new Sprite(infoMat);
   infoSprite.visible = false;
@@ -289,7 +296,7 @@ export const createCombatSprite = (
   const { height: h, width: w } = hex;
 
   // Highlight sprite
-  const highlightTexture = loadTexture("/map/userMarker.webp");
+  const highlightTexture = loadTexture(IMG_SECTOR_USER_MARKER);
   const highlightMaterial = new SpriteMaterial({
     map: highlightTexture,
     alphaMap: highlightTexture,
@@ -305,7 +312,7 @@ export const createCombatSprite = (
   group.add(highlightSprite);
 
   // Marker
-  const marker = loadTexture("/map/userMarker.webp");
+  const marker = loadTexture(IMG_SECTOR_USER_MARKER);
   const markerMat = new SpriteMaterial({ map: marker, alphaMap: marker });
   const markerSprite = new Sprite(markerMat);
   markerSprite.userData.type = "marker";
@@ -466,7 +473,7 @@ export const drawVillage = (
       if (pos) {
         const { height: h, x, y } = pos;
         //  Structure shadow
-        const shadow_texture = loadTexture("/map/shadow.png");
+        const shadow_texture = loadTexture(IMG_SECTOR_SHADOW);
         const shadow_material = new SpriteMaterial({ map: shadow_texture });
         const shadow_sprite = new Sprite(shadow_material);
         shadow_sprite.scale.set(h * 1.6, h * 0.9, 1);

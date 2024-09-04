@@ -22,6 +22,14 @@ import { api } from "@/utils/api";
 import { showUserRank } from "@/libs/profile";
 import { useAuth } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
+import {
+  IMG_WALLPAPER_WINTER,
+  IMG_WALLPAPER_SPRING,
+  IMG_WALLPAPER_SUMMER,
+  IMG_WALLPAPER_FALL,
+  IMG_LOGO_FULL,
+  IMG_LOGO_SHORT,
+} from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -171,13 +179,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const getWallpaperUrl = () => {
     switch (getCurrentSeason()) {
       case "winter":
-        return "https://utfs.io/f/f2d97eb9-a4e1-4ccc-8256-5a5f6cb7a6a1-o5u8s0.webp";
+        return IMG_WALLPAPER_WINTER;
       case "spring":
-        return "https://utfs.io/f/20131551-db19-44c8-ab76-31e1ed3069c8-mdknco.webp";
+        return IMG_WALLPAPER_SPRING;
       case "summer":
-        return "https://utfs.io/f/5f637e42-b2e3-4fdd-9b96-578d0f729fb0-mg8i56.webp";
+        return IMG_WALLPAPER_SUMMER;
       case "fall":
-        return "https://utfs.io/f/e6f437e0-1cfa-4986-b9e5-bb4957ff3813-ul0asa.webp";
+        return IMG_WALLPAPER_FALL;
     }
   };
 
@@ -203,7 +211,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         <Link href="/">
           <Image
             className="hidden md:block z-[2] relative top-3 left-[50%] translate-x-[-50%] select-none"
-            src="https://utfs.io/f/5a8a34a2-b126-4674-b95d-db37a14b028e-1zbfv.webp"
+            src={IMG_LOGO_FULL}
             width={384}
             height={138}
             alt="logo"
@@ -211,7 +219,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           />
           <Image
             className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
-            src="https://utfs.io/f/c7486cf8-83ac-4fee-a451-a0faffc4cc58-io417c.webp"
+            src={IMG_LOGO_SHORT}
             width={250}
             height={122}
             alt="logo"

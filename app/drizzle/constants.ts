@@ -169,6 +169,7 @@ export const UserStatNames = [
   "intelligence",
   "willpower",
 ] as const;
+export type UserStatName = (typeof UserStatNames)[number];
 
 export const BattleTypes = [
   "ARENA",
@@ -386,10 +387,6 @@ export const RYO_BOOST_COST = 100;
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 
-// Images
-export const DEFAULT_IMAGE =
-  "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
-
 // Training gains
 export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
 
@@ -404,3 +401,58 @@ export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
 export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 5;
+
+// Images
+export const IMG_AVATAR_DEFAULT =
+  "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
+export const IMG_WALLPAPER_WINTER =
+  "https://utfs.io/f/f2d97eb9-a4e1-4ccc-8256-5a5f6cb7a6a1-o5u8s0.webp";
+export const IMG_WALLPAPER_SPRING =
+  "https://utfs.io/f/20131551-db19-44c8-ab76-31e1ed3069c8-mdknco.webp";
+export const IMG_WALLPAPER_SUMMER =
+  "https://utfs.io/f/5f637e42-b2e3-4fdd-9b96-578d0f729fb0-mg8i56.webp";
+export const IMG_WALLPAPER_FALL =
+  "https://utfs.io/f/e6f437e0-1cfa-4986-b9e5-bb4957ff3813-ul0asa.webp";
+export const IMG_LOGO_FULL =
+  "https://utfs.io/f/5a8a34a2-b126-4674-b95d-db37a14b028e-1zbfv.webp";
+export const IMG_LOGO_SHORT =
+  "https://utfs.io/f/c7486cf8-83ac-4fee-a451-a0faffc4cc58-io417c.webp";
+export const IMG_LOADER =
+  "https://utfs.io/f/4a3100e5-97c6-4e5a-96e2-1c3520838179-gwm3dh.svg";
+export const IMG_SECTOR_INFO =
+  "https://utfs.io/f/ddab9f31-0491-4445-8e6e-98370533a93d-1xdpq.png";
+export const IMG_SECTOR_ATTACK =
+  "https://utfs.io/f/d6587d1a-c11b-49e3-8e86-74bfb02a80a1-n9ug1k.png";
+export const IMG_SECTOR_USER_MARKER =
+  "https://utfs.io/f/cc347416-8bf6-40cf-9184-b4af64e6feae-n771t1.webp";
+export const IMG_SECTOR_USER_SPRITE_MASK =
+  "https://utfs.io/f/40061bc5-d73c-4265-8eff-4798fd840ae2-x83hc4.webp";
+export const IMG_SECTOR_SHADOW =
+  "https://utfs.io/f/bd8d8c75-96a0-4c71-94b6-f02e1ee382b5-exyuao.png";
+export const IMG_MAP_HEXASPHERE =
+  "https://utfs.io/f/04823e77-204f-40af-b3bf-0cc4ed0f5be9-ixejn7.json";
+
+export const IMG_TRAIN_INTELLIGENCE =
+  "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
+export const IMG_TRAIN_WILLPOWER =
+  "https://utfs.io/f/a303f719-e216-4142-b1c2-50b2ac1d98c3-t57iq5.png";
+export const IMG_TRAIN_STRENGTH =
+  "https://utfs.io/f/70e251a8-17d2-4d5d-a121-55fb43bf5b37-tmi4ap.png";
+export const IMG_TRAIN_SPEED =
+  "https://utfs.io/f/893e0cc5-9b53-442c-af5d-9aacd95e6d8b-1ta05j.png";
+export const IMG_TRAIN_GEN_OFF =
+  "https://utfs.io/f/598a40f5-4cfa-4ad7-8378-eb63f0b28282-f9eh41.png";
+export const IMG_TRAIN_GEN_DEF =
+  "https://utfs.io/f/38463f2d-8c5b-4e4f-b74e-52667469a478-z4l40b.png";
+export const IMG_TRAIN_TAI_DEF =
+  "https://utfs.io/f/c6091de0-8c6f-4a17-8d75-067338f9fdf0-8ghs8v.png";
+export const IMG_TRAIN_TAI_OFF =
+  "https://utfs.io/f/6dcf3cfd-0084-49ec-8b5f-36dff3212d35-beounf.png";
+export const IMG_TRAIN_BUKI_OFF =
+  "https://utfs.io/f/b6daa0ab-698a-4e13-8e5f-c7560cfdc499-mcc2dc.png";
+export const IMG_TRAIN_BUKI_DEF =
+  "https://utfs.io/f/5faa1363-2ecc-4533-9077-b3c14afd58c6-stlcpi.png";
+export const IMG_TRAIN_NIN_OFF =
+  "https://utfs.io/f/4727d488-1eb0-475e-adfe-ca26837c45a1-g8pm8u.png";
+export const IMG_TRAIN_NIN_DEF =
+  "https://utfs.io/f/308d9bee-5105-4534-b11c-59592db90181-yx7su0.png";

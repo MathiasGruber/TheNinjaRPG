@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { cn } from "@/libs/shadui";
 import { format } from "date-fns";
 import type { ColumnDefinitionType } from "@/layout/Table";
@@ -731,7 +731,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
     .map((transaction) => {
       return {
         ...transaction,
-        receiver: transaction.affectedUser?.avatar || DEFAULT_IMAGE,
+        receiver: transaction.affectedUser?.avatar || IMG_AVATAR_DEFAULT,
         value: `${transaction.amount} ${transaction.currency}`,
       };
     });

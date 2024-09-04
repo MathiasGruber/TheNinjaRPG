@@ -1,5 +1,6 @@
 import React from "react";
 import Image from "next/image";
+import { IMG_LOADER } from "@/drizzle/constants";
 
 interface LoaderProps {
   explanation?: string;
@@ -12,7 +13,7 @@ const Loader: React.FC<LoaderProps> = (props) => {
     <div className={`flex flex-col  items-center ${props.noPadding ? "" : "py-2"}`}>
       <Image
         alt="Loader Icon"
-        src="/images/shuriken_loader.svg"
+        src={IMG_LOADER}
         className="animate-spin"
         width={props.size ?? 30}
         height={props.size ?? 30}

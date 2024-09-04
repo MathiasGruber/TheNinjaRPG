@@ -13,7 +13,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
 import { calculateContentDiff } from "@/utils/diff";
 import { bloodlineFilteringSchema } from "@/validators/bloodline";
@@ -106,7 +106,7 @@ export const bloodlineRouter = createTRPCRouter({
       await ctx.drizzle.insert(bloodline).values({
         id: id,
         name: "New Bloodline",
-        image: DEFAULT_IMAGE,
+        image: IMG_AVATAR_DEFAULT,
         description: "New bloodline description",
         effects: [],
         rank: "D",

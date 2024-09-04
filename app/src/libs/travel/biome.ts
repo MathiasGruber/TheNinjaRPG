@@ -82,7 +82,7 @@ export const getMapSprites = (
     }
     assets.every((asset) => {
       if (rand < asset.chance) {
-        sprite = loadAsset(asset.filepath + asset.filename);
+        sprite = loadAsset(asset.filepath);
         return false;
       }
       return true;

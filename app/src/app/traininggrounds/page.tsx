@@ -50,9 +50,24 @@ import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { Handshake, UserRoundCheck } from "lucide-react";
 import { SENSEI_RANKS } from "@/drizzle/constants";
+import {
+  IMG_TRAIN_INTELLIGENCE,
+  IMG_TRAIN_WILLPOWER,
+  IMG_TRAIN_STRENGTH,
+  IMG_TRAIN_SPEED,
+  IMG_TRAIN_GEN_OFF,
+  IMG_TRAIN_GEN_DEF,
+  IMG_TRAIN_TAI_DEF,
+  IMG_TRAIN_TAI_OFF,
+  IMG_TRAIN_BUKI_OFF,
+  IMG_TRAIN_BUKI_DEF,
+  IMG_TRAIN_NIN_OFF,
+  IMG_TRAIN_NIN_DEF,
+} from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 import { captchaVerifySchema } from "@/validators/misc";
+import type { UserStatName } from "@/drizzle/constants";
 import type { CaptchaVerifySchema } from "@/validators/misc";
 import type { z } from "zod";
 import type { TrainingSpeed } from "@/drizzle/constants";
@@ -386,6 +401,35 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
           ) : (
             <Fingerprint className={iconClassName} />
           );
+          const getImage = (stat: UserStatName) => {
+            switch (stat) {
+              case "intelligence":
+                return IMG_TRAIN_INTELLIGENCE;
+              case "willpower":
+                return IMG_TRAIN_WILLPOWER;
+              case "strength":
+                return IMG_TRAIN_STRENGTH;
+              case "speed":
+                return IMG_TRAIN_SPEED;
+              case "genjutsuOffence":
+                return IMG_TRAIN_GEN_OFF;
+              case "genjutsuDefence":
+                return IMG_TRAIN_GEN_DEF;
+              case "taijutsuDefence":
+                return IMG_TRAIN_TAI_DEF;
+              case "taijutsuOffence":
+                return IMG_TRAIN_TAI_OFF;
+              case "bukijutsuOffence":
+                return IMG_TRAIN_BUKI_OFF;
+              case "bukijutsuDefence":
+                return IMG_TRAIN_BUKI_DEF;
+              case "ninjutsuOffence":
+                return IMG_TRAIN_NIN_OFF;
+              case "ninjutsuDefence":
+                return IMG_TRAIN_NIN_DEF;
+            }
+          };
+
           return (
             <div
               key={i}
@@ -402,12 +446,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                   overCap ? "grayscale opacity-50" : "",
                 )}
               >
-                <Image
-                  src={`/training/${stat}.png`}
-                  alt={label}
-                  width={256}
-                  height={256}
-                />
+                <Image src={getImage(stat)} alt={label} width={256} height={256} />
                 {icon}
                 {label}
               </div>

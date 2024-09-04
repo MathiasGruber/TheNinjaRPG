@@ -68,7 +68,7 @@ import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { getPublicUsersSchema } from "@/validators/user";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserData, Bloodline } from "@/drizzle/schema";
@@ -358,7 +358,7 @@ export const profileRouter = createTRPCRouter({
         userId: id,
         username: `New AI - ${id}`,
         gender: "Unknown",
-        avatar: DEFAULT_IMAGE,
+        avatar: IMG_AVATAR_DEFAULT,
         villageId: null,
         approvedTos: 1,
         sector: 0,

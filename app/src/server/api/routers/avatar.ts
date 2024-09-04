@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
-import { baseServerResponse, errorResponse } from "../trpc";
-import { updateAvatar, checkAvatar } from "../../../libs/replicate";
-import { fetchUser } from "./profile";
+import { createTRPCRouter, protectedProcedure } from "@/api/trpc";
+import { baseServerResponse, errorResponse } from "@/api/trpc";
+import { updateAvatar, checkAvatar } from "@/libs/replicate";
+import { fetchUser } from "@/routers/profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 

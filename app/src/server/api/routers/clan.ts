@@ -24,7 +24,7 @@ import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData } from "@/drizzle/schema";
@@ -208,7 +208,7 @@ export const clanRouter = createTRPCRouter({
       // Mutate
       await ctx.drizzle.insert(clan).values({
         id: clanId,
-        image: DEFAULT_IMAGE,
+        image: IMG_AVATAR_DEFAULT,
         villageId: village.id,
         name: input.name,
         founderId: user.userId,

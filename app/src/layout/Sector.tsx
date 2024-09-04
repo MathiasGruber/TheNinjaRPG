@@ -33,6 +33,7 @@ import { round } from "@/utils/math";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import { IMG_SECTOR_INFO, IMG_SECTOR_ATTACK } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -698,7 +699,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
               <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80 hover:cursor-pointer">
                 {showAttack && sameHex && (
                   <Image
-                    src={"/map/attack.png"}
+                    src={IMG_SECTOR_ATTACK}
                     onClick={() => props.attackUser(user.userId)}
                     width={40}
                     height={40}
@@ -718,7 +719,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
               <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
                 <Link href={`/users/${user.userId}`}>
                   <Image
-                    src={"/map/info.png"}
+                    src={IMG_SECTOR_INFO}
                     width={40}
                     height={40}
                     alt={`Info-${user.userId}`}

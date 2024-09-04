@@ -17,7 +17,7 @@ import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
 import { calcMaxItems } from "@/libs/item";
-import { DEFAULT_IMAGE } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { HealTag } from "@/libs/combat/types";
 import type { ItemSlot } from "@/drizzle/constants";
@@ -50,7 +50,7 @@ export const itemRouter = createTRPCRouter({
         await ctx.drizzle.insert(item).values({
           id: id,
           name: `New Item - ${id}`,
-          image: DEFAULT_IMAGE,
+          image: IMG_AVATAR_DEFAULT,
           description: "New item description",
           itemType: input.type,
           rarity: "COMMON",
