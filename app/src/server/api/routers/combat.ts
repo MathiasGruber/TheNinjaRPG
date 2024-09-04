@@ -845,6 +845,7 @@ export const initiateBattle = async (
       userIds.flatMap((i) =>
         targetIds.map((t) => ({
           battleId,
+          battleType: battleType,
           attackedId: i,
           defenderId: t,
           createdAt: new Date(),

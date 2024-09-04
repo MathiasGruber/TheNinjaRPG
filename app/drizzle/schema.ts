@@ -150,6 +150,7 @@ export const battleHistory = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     battleId: varchar("battleId", { length: 191 }).notNull(),
+    battleType: mysqlEnum("battleType", consts.BattleTypes),
     attackedId: varchar("attackedId", { length: 191 }).notNull(),
     defenderId: varchar("defenderId", { length: 191 }).notNull(),
   },
