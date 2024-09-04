@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, lte, sql, eq, lt, isNull } from "drizzle-orm";
+import { and, lte, sql, eq, lt, isNull, or, ne } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/schema";
 import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
@@ -50,7 +50,21 @@ export async function GET() {
     // Step 5: Delete battle history older than 1 day
     await drizzleDB
       .delete(battleHistory)
-      .where(lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 1)));
+      .where(
+        or(
+          and(
+            lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 1)),
+            or(
+              ne(battleHistory.battleType, "COMBAT"),
+              isNull(battleHistory.battleType),
+            ),
+          ),
+          and(
+            lte(battleHistory.createdAt, new Date(Date.now() - oneDay * 60)),
+            eq(battleHistory.battleType, "COMBAT"),
+          ),
+        ),
+      );
 
     // Step 6: Delete conversations older than 14 days
     await drizzleDB
