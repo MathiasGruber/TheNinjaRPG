@@ -11,11 +11,11 @@ import { calcIsInVillage } from "@/libs/travel/controls";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { getGameSettingBoost } from "@/libs/gamesettings";
+import { showTrainingCapcha } from "@/libs/captcha";
 import { structureBoost } from "@/utils/village";
-import { validateCaptcha } from "@/libs/captcha";
+import { validateCaptcha } from "@/routers/misc";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
-import { MAX_TRAINING_NO_CAPTCHA } from "@/drizzle/constants";
 
 export const trainRouter = createTRPCRouter({
   // Start training of a specific attribute
@@ -84,7 +84,7 @@ export const trainRouter = createTRPCRouter({
       if (!user.trainingStartedAt) return errorResponse("Not currently training");
       if (!user.currentlyTraining) return errorResponse("Not currently training");
       // Captcha check
-      if (user.dailyTrainings > MAX_TRAINING_NO_CAPTCHA) {
+      if (showTrainingCapcha(user)) {
         if (!input.guess) return errorResponse("Captcha required");
         if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess))) {
           return errorResponse("Invalid captcha");

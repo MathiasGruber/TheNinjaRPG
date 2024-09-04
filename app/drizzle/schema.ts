@@ -1812,6 +1812,20 @@ export const gameSetting = mysqlTable(
 );
 export type GameSetting = InferSelectModel<typeof gameSetting>;
 
+export const gameRule = mysqlTable(
+  "GameRule",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: varchar("description", { length: 500 }).notNull(),
+    value: tinyint("value").default(0).notNull(),
+  },
+  (table) => {
+    return { name: index("name").on(table.name) };
+  },
+);
+export type GameRule = InferSelectModel<typeof gameRule>;
+
 export const userLikes = mysqlTable(
   "UserLikes",
   {

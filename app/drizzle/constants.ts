@@ -336,7 +336,6 @@ export const JUTSU_XP_TO_LEVEL = 1000;
 export const JUTSU_LEVEL_CAP = 20;
 export const JUTSU_TRAIN_LEVEL_CAP = 25;
 export const MAX_DAILY_TRAININGS = 64;
-export const MAX_TRAINING_NO_CAPTCHA = 10;
 
 // Combat config
 export const BATTLE_ARENA_DAILY_LIMIT = 100;

@@ -33,7 +33,7 @@ import { trainingSpeedSeconds } from "@/libs/train";
 import { trainEfficiency } from "@/libs/train";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
-import { MAX_TRAINING_NO_CAPTCHA } from "@/drizzle/constants";
+import { showTrainingCapcha } from "@/libs/captcha";
 import { canTrainJutsu } from "@/libs/train";
 import { ActionSelector } from "@/layout/CombatActions";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
@@ -309,7 +309,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
   const efficiency = trainEfficiency(userData);
-  const showCaptcha = userData && userData.dailyTrainings > MAX_TRAINING_NO_CAPTCHA;
+  const showCaptcha = userData && showTrainingCapcha(userData);
 
   // tRPC useUtils
   const utils = api.useUtils();
