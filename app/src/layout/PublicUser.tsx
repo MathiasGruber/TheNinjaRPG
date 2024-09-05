@@ -13,6 +13,7 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
+import CombatLog from "@/layout/CombatLog";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -43,6 +44,7 @@ interface PublicUserComponentProps {
   showTransactions?: boolean;
   showActionLogs?: boolean;
   showTrainingLogs?: boolean;
+  showCombatLogs?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -58,6 +60,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showTransactions,
   showActionLogs,
   showTrainingLogs,
+  showCombatLogs,
 }) => {
   // Get state
   const { isSignedIn } = useAuth();
@@ -369,6 +372,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="relative overflow-x-scroll">
             {parseHtml(profile.nindo.content)}
           </div>
+        </ContentBox>
+      )}
+      {/* USER COMBAT GRAPH */}
+      {showCombatLogs && (
+        <ContentBox title="Combat Graph" subtitle={`PvP Activity`} initialBreak={true}>
+          <CombatLog userId={profile.userId} />
         </ContentBox>
       )}
       {/* USER TRANSACTIONS */}

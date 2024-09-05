@@ -117,8 +117,17 @@ dependencies:
     specifier: 1.0.1
     version: 1.0.1
   chart.js:
-    specifier: ^4.3.2
-    version: 4.3.2
+    specifier: ^4.4.4
+    version: 4.4.4
+  chartjs-chart-graph:
+    specifier: ^4.3.1
+    version: 4.3.1(chart.js@4.4.4)
+  chartjs-plugin-dragdata:
+    specifier: ^2.3.1
+    version: 2.3.1(chart.js@4.4.4)
+  chartjs-plugin-zoom:
+    specifier: ^2.0.1
+    version: 2.0.1(chart.js@4.4.4)
   class-variance-authority:
     specifier: ^0.7.0
     version: 0.7.0
@@ -181,7 +190,7 @@ dependencies:
     version: 18.2.0
   react-chartjs-2:
     specifier: ^5.2.0
-    version: 5.2.0(chart.js@4.3.2)(react@18.2.0)
+    version: 5.2.0(chart.js@4.4.4)(react@18.2.0)
   react-country-flag:
     specifier: ^3.1.0
     version: 3.1.0(react@18.2.0)
@@ -3353,6 +3362,14 @@ packages:
     resolution: {integrity: sha512-SjceOhvNEqweSfWNMT6wu4DsH09X0phnlzCCj5s+VAwLXuTsb8YS+vAmngg+DTuWu75vcF3qFsqxZQ85KZ3/Lw==}
     dev: true
 
+  /@types/d3-force@3.0.10:
+    resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
+    dev: false
+
+  /@types/d3-hierarchy@3.1.7:
+    resolution: {integrity: sha512-tJFtNoYBtRtkNysX1Xq4sxtjK8YgoWUNpIiUee0/jHGRwqvzYxkq0hGVbbOGSz+JgFxxRu4K8nb3YpG3CMARtg==}
+    dev: false
+
   /@types/domutils@1.7.4:
     resolution: {integrity: sha512-w542nRQ0vpXQjLYP52LKqrugQtUq580dEDiDIyZ6IBmV8a3LXjGVNxfj/jUQxS0kDsbZAWsSxQOcTfVX3HRdwg==}
     dependencies:
@@ -4332,11 +4349,45 @@ packages:
     resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
     dev: false
 
-  /chart.js@4.3.2:
-    resolution: {integrity: sha512-pvQNyFOY1QmbmIr8oDORL16/FFivfxj8V26VFpFilMo4cNvkV5WXLJetDio365pd9gKUHGdirUTbqJfw8tr+Dg==}
-    engines: {pnpm: '>=7'}
+  /chart.js@4.4.4:
+    resolution: {integrity: sha512-emICKGBABnxhMjUjlYRR12PmOXhJ2eJjEHL2/dZlWjxRAZT1D8xplLFq5M0tMQK8ja+wBS/tuVEJB5C6r7VxJA==}
+    engines: {pnpm: '>=8'}
     dependencies:
       '@kurkle/color': 0.3.2
+    dev: false
+
+  /chartjs-chart-graph@4.3.1(chart.js@4.4.4):
+    resolution: {integrity: sha512-dZQcR+rYxg0zDG229Um59e/4MHoOqO2CYcY2VE5juTB+HYxycObxs1Kdgk5FvaWmiMSE7oNG9VkOLxh9n0oTvw==}
+    peerDependencies:
+      chart.js: ^4.1.0
+    dependencies:
+      '@types/d3-force': 3.0.10
+      '@types/d3-hierarchy': 3.1.7
+      chart.js: 4.4.4
+      d3-dispatch: 3.0.1
+      d3-force: 3.0.0
+      d3-hierarchy: 3.1.2
+      d3-quadtree: 3.0.1
+      d3-timer: 3.0.1
+    dev: false
+
+  /chartjs-plugin-dragdata@2.3.1(chart.js@4.4.4):
+    resolution: {integrity: sha512-CFD1e2d+gyH9EXb92qWu4Zb2zVoY4OtrbJYLMoGWOInE7ftoOD//4B0/k9IvKzQbdVU3JsPqUQI9KHcMpqQVfg==}
+    peerDependencies:
+      chart.js: ^3.9.1 || ^4.0.1
+    dependencies:
+      chart.js: 4.4.4
+      d3-drag: 3.0.0
+      d3-selection: 3.0.0
+    dev: false
+
+  /chartjs-plugin-zoom@2.0.1(chart.js@4.4.4):
+    resolution: {integrity: sha512-ogOmLu6e+Q7E1XWOCOz9YwybMslz9qNfGV2a+qjfmqJYpsw5ZMoRHZBUyW+NGhkpQ5PwwPA/+rikHpBZb7PZuA==}
+    peerDependencies:
+      chart.js: '>=3.2.0'
+    dependencies:
+      chart.js: 4.4.4
+      hammerjs: 2.0.8
     dev: false
 
   /chokidar@3.5.3:
@@ -4563,6 +4614,48 @@ packages:
 
   /csstype@3.1.2:
     resolution: {integrity: sha512-I7K1Uu0MBPzaFKg4nI5Q7Vs2t+3gWWW648spaF+Rg7pI9ds18Ugn+lvg4SHczUdKlHI5LWBXyqfS8+DufyBsgQ==}
+
+  /d3-dispatch@3.0.1:
+    resolution: {integrity: sha512-rzUyPU/S7rwUflMyLc1ETDeBj0NRuHKKAcvukozwhshr6g6c5d8zh4c2gQjY2bZ0dXeGLWc1PF174P2tVvKhfg==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /d3-drag@3.0.0:
+    resolution: {integrity: sha512-pWbUJLdETVA8lQNJecMxoXfH6x+mO2UQo8rSmZ+QqxcbyA3hfeprFgIT//HW2nlHChWeIIMwS2Fq+gEARkhTkg==}
+    engines: {node: '>=12'}
+    dependencies:
+      d3-dispatch: 3.0.1
+      d3-selection: 3.0.0
+    dev: false
+
+  /d3-force@3.0.0:
+    resolution: {integrity: sha512-zxV/SsA+U4yte8051P4ECydjD/S+qeYtnaIyAs9tgHCqfguma/aAQDjo85A9Z6EKhBirHRJHXIgJUlffT4wdLg==}
+    engines: {node: '>=12'}
+    dependencies:
+      d3-dispatch: 3.0.1
+      d3-quadtree: 3.0.1
+      d3-timer: 3.0.1
+    dev: false
+
+  /d3-hierarchy@3.1.2:
+    resolution: {integrity: sha512-FX/9frcub54beBdugHjDCdikxThEqjnR93Qt7PvQTOHxyiNCAlvMrHhclk3cD5VeAaq9fxmfRp+CnWw9rEMBuA==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /d3-quadtree@3.0.1:
+    resolution: {integrity: sha512-04xDrxQTDTCFwP5H6hRhsRcb9xxv2RzkcsygFzmkSIOJy3PeRJP7sNk3VRIbKXcog561P9oU0/rVH6vDROAgUw==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /d3-selection@3.0.0:
+    resolution: {integrity: sha512-fmTRWbNMmsmWq6xJV8D19U/gw/bwrHfNXxrIN+HfZgnzqTHp9jOmKMhsTUjXOJnZOdZY9Q28y4yebKzqDKlxlQ==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /d3-timer@3.0.1:
+    resolution: {integrity: sha512-ndfJ/JxxMd3nw31uyKoY2naivF+r29V+Lc0svZxe1JvvIRmi8hUsrMvdOwgS1o6uBHmiz91geQ0ylPP0aj1VUA==}
+    engines: {node: '>=12'}
+    dev: false
 
   /damerau-levenshtein@1.0.8:
     resolution: {integrity: sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA==}
@@ -5848,6 +5941,11 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       duplexer: 0.1.2
+    dev: false
+
+  /hammerjs@2.0.8:
+    resolution: {integrity: sha512-tSQXBXS/MWQOn/RKckawJ61vvsDpCom87JgxiYdGwHdOa0ht0vzUWDlfioofFCRU0L+6NGDt6XzbgoJvZkMeRQ==}
+    engines: {node: '>=0.8.0'}
     dev: false
 
   /has-bigints@1.0.2:
@@ -7433,13 +7531,13 @@ packages:
       strip-json-comments: 2.0.1
     dev: false
 
-  /react-chartjs-2@5.2.0(chart.js@4.3.2)(react@18.2.0):
+  /react-chartjs-2@5.2.0(chart.js@4.4.4)(react@18.2.0):
     resolution: {integrity: sha512-98iN5aguJyVSxp5U3CblRLH67J8gkfyGNbiK3c+l1QI/G4irHMPQw44aEPmjVag+YKTyQ260NcF82GTQ3bdscA==}
     peerDependencies:
       chart.js: ^4.1.1
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
-      chart.js: 4.3.2
+      chart.js: 4.4.4
       react: 18.2.0
     dev: false
 

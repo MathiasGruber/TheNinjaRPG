@@ -45,6 +45,7 @@ import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
 import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+import { BattleTypes } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -52,6 +53,7 @@ import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
+import { SEARCH_RESULTS_NO_RESULTS_FOUND } from "emoji-picker-react/dist/config/config";
 
 // Debug flag when testing battle
 const debug = false;
@@ -165,23 +167,57 @@ export const combatRouter = createTRPCRouter({
       });
       return entries;
     }),
-  getBattleHistory: protectedProcedure.query(async ({ ctx }) => {
-    const results = await ctx.drizzle.query.battleHistory.findMany({
-      where: and(
-        or(
-          eq(battleHistory.attackedId, ctx.userId),
-          eq(battleHistory.defenderId, ctx.userId),
+  getBattleHistory: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string().optional(),
+        secondsBack: z.number().optional(),
+        combatTypes: z.array(z.enum(BattleTypes)).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId || ctx.userId;
+      const results = await ctx.drizzle.query.battleHistory.findMany({
+        where: and(
+          or(
+            eq(battleHistory.attackedId, userId),
+            eq(battleHistory.defenderId, userId),
+          ),
+          ...(input.secondsBack
+            ? [gt(battleHistory.createdAt, secondsFromNow(-3600 * 3))]
+            : []),
+          ...(input.combatTypes
+            ? [inArray(battleHistory.battleType, input.combatTypes)]
+            : []),
         ),
-        gt(battleHistory.createdAt, secondsFromNow(-3600 * 3)),
-      ),
-      with: {
-        attacker: { columns: { username: true, userId: true, avatar: true } },
-        defender: { columns: { username: true, userId: true, avatar: true } },
-      },
-      orderBy: [desc(battleHistory.createdAt)],
-    });
-    return results;
-  }),
+        with: {
+          attacker: { columns: { username: true, userId: true, avatar: true } },
+          defender: { columns: { username: true, userId: true, avatar: true } },
+        },
+        orderBy: [desc(battleHistory.createdAt)],
+      });
+      // For combat types, fetch second level of battles as well
+      if (results && input.combatTypes?.includes("COMBAT")) {
+        const userIds = results
+          .flatMap((x) => [x.attackedId, x.defenderId])
+          .filter((x) => x !== userId);
+        const secondary = await ctx.drizzle.query.battleHistory.findMany({
+          where: and(
+            or(
+              inArray(battleHistory.attackedId, userIds),
+              inArray(battleHistory.defenderId, userIds),
+            ),
+            eq(battleHistory.battleType, "COMBAT"),
+          ),
+          with: {
+            attacker: { columns: { username: true, userId: true, avatar: true } },
+            defender: { columns: { username: true, userId: true, avatar: true } },
+          },
+        });
+        results.push(...secondary);
+      }
+      return results;
+    }),
   performAction: protectedProcedure
     .use(ratelimitMiddleware)
     .input(performActionSchema)

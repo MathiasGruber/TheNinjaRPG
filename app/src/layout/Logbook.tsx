@@ -106,9 +106,10 @@ const LogbookActive: React.FC = () => {
  * ```
  */
 const LogbookBattles: React.FC = () => {
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(
+    { secondsBack: 3600 * 3 },
+    { staleTime: Infinity },
+  );
   const allHistory = history?.map((e) => ({
     attackerUsername: e.attacker.username,
     attackerUserId: e.attacker.userId,
