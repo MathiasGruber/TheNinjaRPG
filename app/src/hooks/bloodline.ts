@@ -72,7 +72,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
     { id: "name", type: "text" },
     { id: "image", type: "avatar", href: imageUrl },
     { id: "regenIncrease", type: "number" },
-    { id: "hidden", type: "number", label: "Hidden" },
+    { id: "hidden", type: "boolean" },
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
     { id: "rank", type: "str_array", values: LetterRanks },
     { id: "statClassification", type: "str_array", values: StatTypes },
