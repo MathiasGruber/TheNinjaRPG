@@ -301,6 +301,7 @@ export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
 export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_REROLL_ELEMENT = 20;
+export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
 
 // Village config
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";

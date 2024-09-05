@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and } from "drizzle-orm";
-import { item, userItem, userData, actionLog } from "@/drizzle/schema";
+import { item, userItem, userData, actionLog, bloodlineRolls } from "@/drizzle/schema";
 import { bloodline } from "@/drizzle/schema";
 import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
+import { fetchItemBloodlineRolls } from "@/routers/bloodline";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { ItemValidator } from "@/libs/combat/types";
@@ -23,6 +24,7 @@ import { HealTag } from "@/libs/combat/types";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
+import { ExecutedQuery } from "@planetscale/database";
 
 export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
@@ -256,7 +258,6 @@ export const itemRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      console.log(1);
       const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
       const userItemToEquip = useritems.find((i) => i.id === input.userItemId);
       if (!userItemToEquip) {
@@ -280,13 +281,11 @@ export const itemRouter = createTRPCRouter({
         }
       }
 
-      console.log(2, newEquipSlot);
       // Mutate
       if (!userItemToEquip.equipped || userItemToEquip.equipped !== input.slot) {
         const userItemAlreadyEquipped = useritems.find(
           (i) => i.equipped === newEquipSlot && i.id !== userItemToEquip.id,
         );
-        console.log(3, userItemAlreadyEquipped);
         return await Promise.all([
           ctx.drizzle
             .update(userItem)
@@ -314,7 +313,7 @@ export const itemRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [updatedUser, useritem, bloodlines] = await Promise.all([
+      const [updatedUser, useritem, bloodlines, previousRolls] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
@@ -325,6 +324,7 @@ export const itemRouter = createTRPCRouter({
           columns: { id: true, name: true, rank: true, villageId: true },
           where: eq(bloodline.hidden, false),
         }),
+        fetchItemBloodlineRolls(ctx.drizzle, ctx.userId),
       ]);
       const { user } = updatedUser;
 
@@ -346,15 +346,52 @@ export const itemRouter = createTRPCRouter({
       };
 
       // Calculations
+      const promises: Promise<ExecutedQuery<any[] | Record<string, any>>>[] = [];
       useritem.item.effects.forEach((effect) => {
         if (effect.type === "rollbloodline") {
-          const randomBloodline = getRandomElement(
-            bloodlines
-              .filter((b) => b.rank === effect.rank)
-              .filter((b) => !b.villageId || b.villageId === user.villageId),
-          );
+          const bloodlinePool = bloodlines
+            .filter((b) => b.rank === effect.rank)
+            .filter((b) => !b.villageId || b.villageId === user.villageId)
+            .map((b) => ({
+              ...b,
+              prevRolls: previousRolls.find((r) => r.bloodlineId === b.id)?.used || 0,
+            }))
+            .sort((a, b) => a.prevRolls - b.prevRolls)
+            .filter((b, _, all) => {
+              const minRolls = all?.[0]?.prevRolls || 0;
+              return b.prevRolls <= minRolls;
+            });
+          const randomBloodline = getRandomElement(bloodlinePool);
           if (!randomBloodline) throw serverError("NOT_FOUND", "No bloodline found");
-          if (Math.random() * 100 < effect.power && randomBloodline) {
+          // Success?
+          const success = Math.random() * 100 < effect.power;
+          // Log action
+          const previousRoll = previousRolls.find((r) =>
+            success
+              ? r.bloodlineId === randomBloodline.id
+              : r.goal === effect.rank && !r.bloodlineId,
+          );
+          if (previousRoll) {
+            promises.push(
+              ctx.drizzle
+                .update(bloodlineRolls)
+                .set({ used: sql`${bloodlineRolls.used} + 1` })
+                .where(eq(bloodlineRolls.id, previousRoll.id)),
+            );
+          } else {
+            promises.push(
+              ctx.drizzle.insert(bloodlineRolls).values({
+                id: nanoid(),
+                userId: ctx.userId,
+                type: "ITEM",
+                bloodlineId: success ? randomBloodline.id : null,
+                goal: effect.rank,
+                used: 1,
+              }),
+            );
+          }
+          // Message
+          if (success) {
             updates.bloodlineId = randomBloodline.id;
             messages.push(`You rolled a new bloodline: ${randomBloodline.name}. `);
           } else {
@@ -421,6 +458,7 @@ export const itemRouter = createTRPCRouter({
               .set({ quantity: sql`${userItem.quantity} - 1` })
               .where(eq(userItem.id, input.userItemId))
           : ctx.drizzle.delete(userItem).where(eq(userItem.id, input.userItemId)),
+        ...promises,
       ]);
       // Return
       return {

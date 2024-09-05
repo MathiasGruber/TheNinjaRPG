@@ -184,13 +184,13 @@ export const bloodlineRouter = createTRPCRouter({
   getRolls: protectedProcedure
     .input(z.object({ currentBloodlineId: z.string().optional().nullable() }))
     .query(async ({ ctx }) => {
-      return (await fetchBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
+      return (await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
     }),
   // Roll a bloodline
   roll: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     const [user, prevRoll] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
-      fetchBloodlineRoll(ctx.drizzle, ctx.userId),
+      fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
     ]);
     if (prevRoll) {
       throw serverError("PRECONDITION_FAILED", "You have already rolled a bloodline");
@@ -251,7 +251,7 @@ export const bloodlineRouter = createTRPCRouter({
   // Remove a bloodline from session user
   removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
-    const roll = await fetchBloodlineRoll(ctx.drizzle, ctx.userId);
+    const roll = await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId);
     if (!user.bloodlineId) {
       throw serverError("PRECONDITION_FAILED", "You do not have a bloodline");
     }
@@ -394,9 +394,22 @@ export const updateBloodline = async (
 /**
  * COMMON QUERIES WHICH ARE REUSED
  */
-export const fetchBloodlineRoll = async (client: DrizzleClient, userId: string) => {
+export const fetchNaturalBloodlineRoll = async (
+  client: DrizzleClient,
+  userId: string,
+) => {
   return await client.query.bloodlineRolls.findFirst({
-    where: eq(bloodlineRolls.userId, userId),
+    where: and(eq(bloodlineRolls.userId, userId), eq(bloodlineRolls.type, "NATURAL")),
+    with: { bloodline: true },
+  });
+};
+
+export const fetchItemBloodlineRolls = async (
+  client: DrizzleClient,
+  userId: string,
+) => {
+  return await client.query.bloodlineRolls.findMany({
+    where: and(eq(bloodlineRolls.userId, userId), eq(bloodlineRolls.type, "ITEM")),
     with: { bloodline: true },
   });
 };

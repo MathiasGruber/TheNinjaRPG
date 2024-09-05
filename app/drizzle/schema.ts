@@ -262,10 +262,12 @@ export const bloodlineRolls = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     used: tinyint("used").default(0).notNull(),
+    type: mysqlEnum("type", consts.BLOODLINE_ROLL_TYPES).default("NATURAL").notNull(),
+    goal: mysqlEnum("rank", consts.LetterRanks),
   },
   (table) => {
     return {
-      userIdKey: uniqueIndex("BloodlineRolls_userId_key").on(table.userId),
+      userIdKey: index("BloodlineRolls_userId_idx").on(table.userId),
       bloodlineIdIdx: index("BloodlineRolls_bloodlineId_idx").on(table.bloodlineId),
     };
   },
