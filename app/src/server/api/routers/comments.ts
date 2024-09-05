@@ -231,6 +231,7 @@ export const commentsRouter = createTRPCRouter({
                             userId: true,
                             username: true,
                             avatar: true,
+                            role: true,
                           },
                         },
                       },
@@ -251,9 +252,13 @@ export const commentsRouter = createTRPCRouter({
         .filter(
           (c) =>
             !c.conversation.users
+              .filter((u) => u.userData)
               .filter((u) => u.userId !== ctx.userId)
               .every((u) =>
-                data.creatorBlacklist.some((b) => b.targetUserId === u.userId),
+                data.creatorBlacklist.some(
+                  (b) =>
+                    b.targetUserId === u.userId && !canSeeSecretData(u.userData.role),
+                ),
               ),
         )
         .map((c) => c.conversation)
