@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq, and, sql, desc, asc, inArray, isNull } from "drizzle-orm";
+import { eq, or, and, sql, desc, asc, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import {
   village,
@@ -381,7 +381,10 @@ export const commentsRouter = createTRPCRouter({
           .where(
             and(
               eq(conversationComment.conversationId, convo.id),
-              isNull(readerBlacklist.id),
+              or(
+                isNull(readerBlacklist.id),
+                inArray(userData.role, ["MODERATOR", "ADMIN"]),
+              ),
               isNull(posterBlacklist.id),
             ),
           )
