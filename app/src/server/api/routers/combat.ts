@@ -53,7 +53,6 @@ import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
-import { SEARCH_RESULTS_NO_RESULTS_FOUND } from "emoji-picker-react/dist/config/config";
 
 // Debug flag when testing battle
 const debug = false;

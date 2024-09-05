@@ -1,18 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { api } from "@/utils/api";
-import {
-  Chart as ChartJS,
-  LinearScale,
-  PointElement,
-  ScriptableContext,
-} from "chart.js/auto";
-import { groupBy } from "@/utils/grouping";
+import { Chart as ChartJS, LinearScale, PointElement } from "chart.js/auto";
 import { getUnique } from "@/utils/grouping";
 import ExportGraph from "@/layout/ExportGraph";
 import zoomPlugin from "chartjs-plugin-zoom";
 import ChartJSDragDataPlugin from "chartjs-plugin-dragdata";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { ForceDirectedGraphController, EdgeLine } from "chartjs-chart-graph";
+import type { ScriptableContext } from "chart.js/auto";
 
 // register controller in chart.js and ensure the defaults are set
 ChartJS.register(
@@ -33,7 +28,7 @@ const CombatLog: React.FC<CombatLogProps> = (props) => {
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   // Queries
-  const { data, isPending } = api.combat.getBattleHistory.useQuery(
+  const { data } = api.combat.getBattleHistory.useQuery(
     { combatTypes: ["COMBAT"], userId: props.userId },
     { staleTime: Infinity },
   );
@@ -169,6 +164,7 @@ const CombatLog: React.FC<CombatLogProps> = (props) => {
         myChart.destroy();
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plotData]);
 
   // Render

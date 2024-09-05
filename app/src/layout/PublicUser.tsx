@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { parseHtml } from "@/utils/parse";
 import Link from "next/link";
@@ -13,7 +14,6 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
-import CombatLog from "@/layout/CombatLog";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainingSpeeds } from "@/drizzle/constants";
@@ -48,6 +48,8 @@ interface PublicUserComponentProps {
   showTrainingLogs?: boolean;
   showCombatLogs?: boolean;
 }
+
+const CombatLog = dynamic(() => import("@/layout/CombatLog"), { ssr: false });
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   userId,

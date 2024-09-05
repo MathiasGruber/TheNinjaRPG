@@ -24,7 +24,7 @@ import { HealTag } from "@/libs/combat/types";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
-import { ExecutedQuery } from "@planetscale/database";
+import type { ExecutedQuery } from "@planetscale/database";
 
 export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
