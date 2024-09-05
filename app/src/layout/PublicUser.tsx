@@ -14,6 +14,8 @@ import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
 import CombatLog from "@/layout/CombatLog";
+import { useLocalStorage } from "@/hooks/localstorage";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -63,6 +65,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showCombatLogs,
 }) => {
   // Get state
+  const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
   const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
   const canSeeSecrets = userData && canSeeSecretData(userData.role);
@@ -346,85 +349,123 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           </div>
         </ContentBox>
       )}
-      {/* USER NINDO */}
-      {showNindo && profile.nindo && (
-        <ContentBox
-          title="Nindo"
-          subtitle={`${profile.username}'s Ninja Way`}
-          initialBreak={true}
-          topRightContent={
-            <div className="flex flex-row gap-1">
-              {canChange && (
-                <Confirm
-                  title="Clear User Nindo"
-                  proceed_label="Done"
-                  button={
-                    <Trash2 className="h-6 w-6 cursor-pointer hover:text-orange-500" />
-                  }
-                  onAccept={() => clearNindo.mutate({ userId: profile.userId })}
-                >
-                  Confirm that you wish to clear this nindo. The action will be logged.
-                </Confirm>
-              )}
-            </div>
-          }
-        >
-          <div className="relative overflow-x-scroll">
-            {parseHtml(profile.nindo.content)}
-          </div>
-        </ContentBox>
-      )}
-      {/* USER COMBAT GRAPH */}
-      {showCombatLogs && (
-        <ContentBox title="Combat Graph" subtitle={`PvP Activity`} initialBreak={true}>
-          <CombatLog userId={profile.userId} />
-        </ContentBox>
-      )}
-      {/* USER TRANSACTIONS */}
-      {showTransactions && enablePaypal && (
-        <TransactionHistory userId={profile.userId} />
-      )}
-      {/* USER REPORTS */}
-      {showReports && enableReports && (
-        <ContentBox
-          title="Reports"
-          subtitle={`Reports against ${profile.username}`}
-          initialBreak={true}
-        >
-          {isPendingReports && <Loader explanation="Fetching User Reports" />}
-          {reports?.length === 0 && <p>No reports found</p>}
-          {reports?.map((report) => {
-            return (
-              <Link key={report.id} href={"/reports/" + report.id}>
-                <Post
-                  title={`${report.reporterUser?.username} on ${report.system}`}
-                  hover_effect={true}
-                  align_middle={true}
-                  image={
-                    <div className="m-3 w-16 ">
-                      {report.reporterUser?.avatar && (
-                        <Image
-                          src={report.reporterUser.avatar}
-                          width={100}
-                          height={100}
-                          alt="Forum Icon"
-                        ></Image>
-                      )}
-                    </div>
-                  }
-                >
-                  {parseHtml(report.reason)}
-                  <b>Status:</b> {report.status.toLowerCase()}
-                </Post>
-              </Link>
-            );
-          })}
-        </ContentBox>
-      )}
-      {/* USER TRAINING LOG */}
-      {showTrainingLogs && <UserTrainingLog userId={profile.userId} />}
-      {/* USER ACTION LOG */}
-      {enableLogs && <ActionLogs table="user" relatedId={userId} initialBreak={true} />}
+
+      <Tabs
+        defaultValue={showActive}
+        className="flex flex-col items-center justify-center mt-3"
+        onValueChange={(value) => setShowActive(value)}
+      >
+        <TabsList className="text-center">
+          {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
+          {showCombatLogs && <TabsTrigger value="graph">Combat Graph</TabsTrigger>}
+          {showTransactions && (
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          )}
+          {showReports && <TabsTrigger value="reports">Reports</TabsTrigger>}
+          {showTrainingLogs && <TabsTrigger value="training">Training Log</TabsTrigger>}
+          {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
+        </TabsList>
+        {/* USER NINDO */}
+        {showNindo && profile.nindo && (
+          <TabsContent value="nindo">
+            <ContentBox
+              title="Nindo"
+              subtitle={`${profile.username}'s Ninja Way`}
+              initialBreak={true}
+              topRightContent={
+                <div className="flex flex-row gap-1">
+                  {canChange && (
+                    <Confirm
+                      title="Clear User Nindo"
+                      proceed_label="Done"
+                      button={
+                        <Trash2 className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                      }
+                      onAccept={() => clearNindo.mutate({ userId: profile.userId })}
+                    >
+                      Confirm that you wish to clear this nindo. The action will be
+                      logged.
+                    </Confirm>
+                  )}
+                </div>
+              }
+            >
+              <div className="relative overflow-x-scroll">
+                {parseHtml(profile.nindo.content)}
+              </div>
+            </ContentBox>
+          </TabsContent>
+        )}
+        {/* USER COMBAT GRAPH */}
+        {showCombatLogs && (
+          <TabsContent value="graph">
+            <ContentBox
+              title="Combat Graph"
+              subtitle={`PvP Activity`}
+              initialBreak={true}
+            >
+              <CombatLog userId={profile.userId} />
+            </ContentBox>
+          </TabsContent>
+        )}
+        {/* USER TRANSACTIONS */}
+        {showTransactions && enablePaypal && (
+          <TabsContent value="graph">
+            <TransactionHistory userId={profile.userId} />
+          </TabsContent>
+        )}
+        {/* USER REPORTS */}
+        {showReports && enableReports && (
+          <TabsContent value="reports">
+            <ContentBox
+              title="Reports"
+              subtitle={`Reports against ${profile.username}`}
+              initialBreak={true}
+            >
+              {isPendingReports && <Loader explanation="Fetching User Reports" />}
+              {reports?.length === 0 && <p>No reports found</p>}
+              {reports?.map((report) => {
+                return (
+                  <Link key={report.id} href={"/reports/" + report.id}>
+                    <Post
+                      title={`${report.reporterUser?.username} on ${report.system}`}
+                      hover_effect={true}
+                      align_middle={true}
+                      image={
+                        <div className="m-3 w-16 ">
+                          {report.reporterUser?.avatar && (
+                            <Image
+                              src={report.reporterUser.avatar}
+                              width={100}
+                              height={100}
+                              alt="Forum Icon"
+                            ></Image>
+                          )}
+                        </div>
+                      }
+                    >
+                      {parseHtml(report.reason)}
+                      <b>Status:</b> {report.status.toLowerCase()}
+                    </Post>
+                  </Link>
+                );
+              })}
+            </ContentBox>
+          </TabsContent>
+        )}
+        {/* USER TRAINING LOG */}
+        {showTrainingLogs && (
+          <TabsContent value="training">
+            <UserTrainingLog userId={profile.userId} />
+          </TabsContent>
+        )}
+        {/* USER ACTION LOG */}
+        {enableLogs && (
+          <TabsContent value="content">
+            <ActionLogs table="user" relatedId={userId} initialBreak={true} />
+          </TabsContent>
+        )}
+      </Tabs>
     </>
   );
 };
