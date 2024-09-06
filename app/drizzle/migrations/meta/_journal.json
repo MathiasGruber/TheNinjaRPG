@@ -932,6 +932,13 @@
       "when": 1725558141667,
       "tag": "0132_abandoned_maria_hill",
       "breakpoints": false
+    },
+    {
+      "idx": 133,
+      "version": "5",
+      "when": 1725604665813,
+      "tag": "0133_wakeful_paladin",
+      "breakpoints": false
     }
   ]
 }

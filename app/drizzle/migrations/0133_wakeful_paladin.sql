@@ -1,0 +1,1 @@
+CREATE INDEX `UserData_role_idx` ON `UserData` (`role`);

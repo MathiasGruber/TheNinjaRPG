@@ -1257,6 +1257,7 @@ export const userData = mysqlTable(
       userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
       isAiIdx: index("UserData_isAi_idx").on(table.isAi),
       rankIdx: index("UserData_rank_idx").on(table.rank),
+      roleIdx: index("UserData_role_idx").on(table.role),
       clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
       anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
       jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
