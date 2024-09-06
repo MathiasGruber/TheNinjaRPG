@@ -16,7 +16,7 @@ export async function GET() {
   // Check timer
   const frequency = 1;
   const response = await checkGameTimer(drizzleDB, frequency);
-  if (response) return response;
+  // if (response) return response;
 
   try {
     // Update timer
@@ -81,10 +81,18 @@ export async function GET() {
       sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`,
     );
 
-    // Step 8: Delete conversation comments older than 14 days
+    // Step 8a: Delete conversation comments older than 14 days
     await drizzleDB
       .delete(conversationComment)
       .where(lte(conversationComment.createdAt, new Date(Date.now() - oneDay * 14)));
+
+    // Step 8b: Delete public conversation comments older than 1 days
+    await drizzleDB.execute(
+      sql`
+        DELETE a FROM ${conversationComment} a 
+        INNER JOIN ${conversation} b ON a.conversationId = b.id
+        WHERE b.isPublic AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY`,
+    );
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore
     await drizzleDB.execute(
