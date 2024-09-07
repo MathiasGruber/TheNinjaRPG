@@ -1317,8 +1317,8 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
         : e,
     );
     const right = effect.statTypes?.map((e) =>
-      e === "Highest" && effect.highestDefence
-        ? getStatTypeFromStat(effect.highestDefence)
+      e === "Highest" && effect.highestOffence
+        ? getStatTypeFromStat(effect.highestOffence)
         : e,
     );
     left?.forEach((stat) => {
