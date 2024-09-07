@@ -1307,7 +1307,7 @@ export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
 const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
   // Base & elemental ratio
   let baseRatio = false;
-  let elementRatio = false;
+  let elementRatio = true;
 
   // Step 1: Given a set of stats for the dmg effect, see if these are matched by the effect
   if ("statTypes" in dmgEffect && "statTypes" in effect) {
@@ -1348,20 +1348,18 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
 
   // Step 4: Deal with elements logic, see:
   // https://github.com/MathiasGruber/TheNinjaRPG/issues/125#issuecomment-2332367640
-  elementRatio = false;
-  const effectElements =
-    "elements" in effect && effect.elements && effect.elements.length > 0
-      ? effect.elements
-      : ["None" as const];
-  const dmgElements =
-    "elements" in dmgEffect && dmgEffect.elements && dmgEffect.elements.length > 0
-      ? dmgEffect.elements
-      : ["None" as const];
-  dmgElements.forEach((stat) => {
-    if (effectElements.includes(stat)) {
-      elementRatio = true;
-    }
-  });
+  if ("elements" in effect && effect.elements && effect.elements.length > 0) {
+    elementRatio = false;
+    const dmgElements =
+      "elements" in dmgEffect && dmgEffect.elements && dmgEffect.elements.length > 0
+        ? dmgEffect.elements
+        : ["None" as const];
+    dmgElements.forEach((stat) => {
+      if (effect?.elements?.includes(stat)) {
+        elementRatio = true;
+      }
+    });
+  }
 
   // As long as one of the attacks is defended, return 1 (full ratio)
   return baseRatio && elementRatio ? 1 : 0;
