@@ -1305,64 +1305,39 @@ export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
 const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
-  // Base & elemental ratio
+  // We need to get the list of dmgEffect stats/gens/elements and effect stats/gens/elements
+  const getTags = (e: UserEffect) => {
+    const tags: string[] = [];
+    if ("statTypes" in e) {
+      e.statTypes?.forEach((statType) =>
+        tags.push(
+          statType === "Highest" && dmgEffect.highestOffence
+            ? getStatTypeFromStat(dmgEffect.highestOffence)
+            : statType,
+        ),
+      );
+    }
+    if ("generalTypes" in e) {
+      tags.push(...getLowerGenerals(e.generalTypes, e.highestGenerals));
+    }
+    if ("elements" in effect && effect.elements && effect.elements.length > 0) {
+      tags.push(...effect.elements);
+    } else {
+      tags.push("None");
+    }
+    return tags;
+  };
+  const dmgTags = getTags(dmgEffect);
+  const effectTags = getTags(effect);
+
+  // Ratio for whether to apply the effect or not
   let baseRatio = false;
-  let elementRatio = true;
-
-  // Step 1: Given a set of stats for the dmg effect, see if these are matched by the effect
-  if ("statTypes" in dmgEffect && "statTypes" in effect) {
-    const left = dmgEffect.statTypes?.map((e) =>
-      e === "Highest" && dmgEffect.highestOffence
-        ? getStatTypeFromStat(dmgEffect.highestOffence)
-        : e,
-    );
-    const right = effect.statTypes?.map((e) =>
-      e === "Highest" && effect.highestOffence
-        ? getStatTypeFromStat(effect.highestOffence)
-        : e,
-    );
-    left?.forEach((stat) => {
-      if (right?.includes(stat)) baseRatio = true;
-    });
-  }
-
-  // Step 2: Given a set of general types for the dmg effect, see if these are matched by the effect
-  if ("generalTypes" in dmgEffect && "generalTypes" in effect) {
-    const left = getLowerGenerals(dmgEffect.generalTypes, dmgEffect.highestGenerals);
-    const right = getLowerGenerals(effect.generalTypes, effect.highestGenerals);
-    left.forEach((stat) => {
-      if (right.includes(stat)) baseRatio = true;
-    });
-  }
-
-  // Step 3: If no defending general types and the statTypes set to highest, defend
-  if (
-    // No types specified at all on effect, assume it defends against everything
-    !("generalTypes" in effect && "statTypes" in effect) ||
-    // No generals specified and stat to highest or none specified
-    (!effect.generalTypes?.length &&
-      (effect.statTypes?.includes("Highest") || !effect.statTypes?.length))
-  ) {
-    baseRatio = true;
-  }
-
-  // Step 4: Deal with elements logic, see:
-  // https://github.com/MathiasGruber/TheNinjaRPG/issues/125#issuecomment-2332367640
-  if ("elements" in effect && effect.elements && effect.elements.length > 0) {
-    elementRatio = false;
-    const dmgElements =
-      "elements" in dmgEffect && dmgEffect.elements && dmgEffect.elements.length > 0
-        ? dmgEffect.elements
-        : ["None" as const];
-    dmgElements.forEach((stat) => {
-      if (effect?.elements?.includes(stat)) {
-        elementRatio = true;
-      }
-    });
-  }
-
-  // As long as one of the attacks is defended, return 1 (full ratio)
-  return baseRatio && elementRatio ? 1 : 0;
+  dmgTags.forEach((stat) => {
+    if (effectTags.includes(stat)) {
+      baseRatio = true;
+    }
+  });
+  return baseRatio ? 1 : 0;
 };
 
 /**
