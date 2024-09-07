@@ -9,7 +9,7 @@ export const ATK_SCALING = 0.5;
 export const DEF_SCALING = 0.5;
 export const EXP_SCALING = 0.5;
 export const DMG_SCALING = 0.12;
-export const GEN_SCALING = 0.5;
+export const GEN_SCALING = 0.4;
 export const POWER_SCALING = 0.05;
 export const DMG_BASE = 30;
 
