@@ -127,6 +127,7 @@ export const battleAction = mysqlTable(
         table.battleVersion,
         table.battleRound,
       ),
+      createdAtIdx: index("BattleAction_createdAt_idx").on(table.createdAt),
     };
   },
 );
@@ -1713,6 +1714,8 @@ export const dataBattleAction = mysqlTable(
       contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
       typeIdx: index("DataBattleActions_type").on(table.type),
       battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
+      battleTypeIdx: index("DataBattleActions_battleType").on(table.battleType),
+      createdAt: index("DataBattleActions_createdAt").on(table.createdAt),
     };
   },
 );

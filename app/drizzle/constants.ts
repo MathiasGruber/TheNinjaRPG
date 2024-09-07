@@ -265,6 +265,7 @@ export const ElementNames = [
   "Lava",
   "Explosion",
   "Light",
+  "None",
 ] as const;
 export type ElementName = (typeof ElementNames)[number];
 

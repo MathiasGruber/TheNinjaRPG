@@ -939,6 +939,13 @@
       "when": 1725604665813,
       "tag": "0133_wakeful_paladin",
       "breakpoints": false
+    },
+    {
+      "idx": 134,
+      "version": "5",
+      "when": 1725689785483,
+      "tag": "0134_friendly_skrulls",
+      "breakpoints": false
     }
   ]
 }

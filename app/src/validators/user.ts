@@ -48,6 +48,7 @@ export const getUserElements = (user: UserWithRelations) => {
   if (bloodlineElements.length === 1 && userElements.length === 2) {
     finalElements.push(userElements[1] as ElementName);
   }
+  finalElements.push("None");
   return Array.from(new Set(finalElements));
 };
 

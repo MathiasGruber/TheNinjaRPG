@@ -120,14 +120,11 @@ export const checkJutsuElements = (jutsu: Jutsu, userElements: Set<ElementName>)
   const jutsuElements: ElementName[] = [];
   jutsu.effects.map((effect) => {
     if ("elements" in effect && effect.elements) {
-      jutsuElements.push(...effect.elements.filter((e) => (e as string) !== "None"));
+      jutsuElements.push(...effect.elements);
     }
   });
-  if (jutsuElements.length === 0) {
-    return true;
-  } else {
-    return jutsuElements.find((e) => userElements.has(e));
-  }
+  if (jutsuElements.length === 0) jutsuElements.push("None");
+  return jutsuElements.find((e) => userElements.has(e));
 };
 
 export const checkJutsuItems = (
