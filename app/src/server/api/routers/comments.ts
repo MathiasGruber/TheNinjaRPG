@@ -309,7 +309,7 @@ export const commentsRouter = createTRPCRouter({
       z
         .object({
           convo_id: z.string().optional(),
-          convo_title: z.string().min(1).max(10).optional(),
+          convo_title: z.string().min(1).max(30).optional(),
           cursor: z.number().nullish(),
           limit: z.number().min(1).max(100),
           refreshKey: z.number(),
