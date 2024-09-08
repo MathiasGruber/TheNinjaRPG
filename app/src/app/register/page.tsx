@@ -184,6 +184,7 @@ const Register: React.FC = () => {
                         <SelectContent>
                           {villages
                             ?.filter((v) => v.type === "VILLAGE")
+                            .filter((v) => v.allianceSystem)
                             .map((option) => (
                               <SelectItem key={option.name} value={option.id}>
                                 {option.name}

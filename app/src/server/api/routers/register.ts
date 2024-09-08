@@ -18,6 +18,7 @@ export const registerRouter = createTRPCRouter({
 
       // Guard
       if (!village) return errorResponse("Village not found");
+      if (!village.allianceSystem) return errorResponse("Missing alliance system");
       if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
 
       // Mutate
