@@ -412,7 +412,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         )}
         {/* USER TRANSACTIONS */}
         {showTransactions && enablePaypal && (
-          <TabsContent value="graph">
+          <TabsContent value="transactions">
             <TransactionHistory userId={profile.userId} />
           </TabsContent>
         )}
