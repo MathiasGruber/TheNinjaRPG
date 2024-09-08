@@ -210,6 +210,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 <br />
                 <b>Information</b>
                 <p>Too fast infractions: {profile.movedTooFastCount}</p>
+                <Link
+                  href={`/users/ipsearch/${profile.lastIp}`}
+                  className="hover:text-orange-500 hover:cursor-pointer"
+                >
+                  Last IP: {profile.lastIp}
+                </Link>
               </div>
             )}
           </div>

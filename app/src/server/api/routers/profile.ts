@@ -773,6 +773,7 @@ export const profileRouter = createTRPCRouter({
             rank: true,
             reputationPoints: true,
             role: true,
+            lastIp: true,
             senseiId: true,
             status: true,
             userId: true,
@@ -823,6 +824,7 @@ export const profileRouter = createTRPCRouter({
       // Hide secrets
       if (!canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
+        user.lastIp = "hidden";
       }
       // Return
       return {
