@@ -1311,8 +1311,8 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
     if ("statTypes" in e) {
       e.statTypes?.forEach((statType) =>
         tags.push(
-          statType === "Highest" && dmgEffect.highestOffence
-            ? getStatTypeFromStat(dmgEffect.highestOffence)
+          statType === "Highest" && e.highestOffence
+            ? getStatTypeFromStat(e.highestOffence)
             : statType,
         ),
       );
@@ -1320,8 +1320,8 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
     if ("generalTypes" in e) {
       tags.push(...getLowerGenerals(e.generalTypes, e.highestGenerals));
     }
-    if ("elements" in effect && effect.elements && effect.elements.length > 0) {
-      tags.push(...effect.elements);
+    if ("elements" in e && e.elements && e.elements.length > 0) {
+      tags.push(...e.elements);
     } else {
       tags.push("None");
     }
