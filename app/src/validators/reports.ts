@@ -19,7 +19,7 @@ export const userReportSchema = z.object({
 export type UserReportSchema = z.infer<typeof userReportSchema>;
 
 export const reportCommentSchema = z.object({
-  comment: z.string().min(10).max(1000),
+  comment: z.string().min(10).max(5000),
   object_id: z.string(),
   banTime: z.number().min(0).max(365),
 });
