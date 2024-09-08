@@ -1,5 +1,5 @@
 import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
-import { DMG_BASE, DMG_SCALING, POWER_SCALING } from "./constants";
+import { DMG_BASE, DMG_SCALING, POWER_SCALING, STATS_SCALING } from "./constants";
 import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
 import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
@@ -636,7 +636,7 @@ export const damageCalc = (
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
         const avg_exp = (origin.experience + target.experience) / 2;
-        calcs.push(powerEffect(left, right, avg_exp));
+        calcs.push(STATS_SCALING * powerEffect(left, right, avg_exp));
       }
     });
     // Apply an element of all these generals
