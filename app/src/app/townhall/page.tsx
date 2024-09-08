@@ -676,7 +676,7 @@ const VillageBlock: React.FC<{ village: Village; user: UserWithRelations }> = ({
   return (
     <div className={`aspect-square ${highlight}`}>
       <Image
-        src={`/villages/${village.name}.png`}
+        src={village.villageLogo}
         alt={village.name}
         className="p-1"
         width={100}

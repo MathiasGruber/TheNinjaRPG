@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     # Create new hexasphere json, including information on whether its land, water or dessert
     new_tiles = []
-    for tile, long, lat in zip(tiles, longs, lats):
+    for i, (tile, long, lat) in enumerate(zip(tiles, longs, lats)):
         color = map_image.getpixel((long, lat))
         # 0=water, 1=land, 2=dessert, 3=ice
         if (color[0] == color[1]) and (color[1] == color[2]):
@@ -58,6 +58,9 @@ if __name__ == '__main__':
             color=1
         else:
             color=0
+
+        if(i == 51):
+            color = 1
 
         new_tiles.append({
             'c': tile['centerPoint'], 

@@ -1,0 +1,1 @@
+ALTER TABLE `Village` ADD `allianceSystem` boolean DEFAULT true NOT NULL;

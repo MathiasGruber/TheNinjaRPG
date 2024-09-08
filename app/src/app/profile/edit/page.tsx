@@ -416,7 +416,7 @@ const SwapVillage: React.FC = () => {
     ?.filter((village) => ["VILLAGE", "OUTLAW"].includes(village.type))
     .map((village) => ({
       ...village,
-      image: `/villages/${village.name}.png`,
+      image: village.villageLogo,
     }));
 
   // Mutations

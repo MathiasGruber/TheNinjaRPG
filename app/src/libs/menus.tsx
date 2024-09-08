@@ -141,7 +141,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
         icon: (
           <div>
             <Image
-              src={`/map/${sector.name}.webp`}
+              src={sector.villageGraphic}
               alt={sector.name}
               width={200}
               height={200}

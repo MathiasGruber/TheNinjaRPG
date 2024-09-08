@@ -31,6 +31,10 @@ import {
   IMG_SECTOR_USER_MARKER,
   IMG_SECTOR_USER_SPRITE_MASK,
   IMG_SECTOR_SHADOW,
+  IMG_SECTOR_USERSPRITE_LEFT,
+  IMG_SECTOR_USERSPRITE_RIGHT,
+  IMG_SECTOR_VS_ICON,
+  IMG_SECTOR_WALL_STONE_TOWER,
 } from "@/drizzle/constants";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -321,7 +325,7 @@ export const createCombatSprite = (
   group.add(markerSprite);
 
   // User 1: Avatar Sprite
-  const alphaMap1 = loadTexture("/map/userSpriteMaskLeft.webp");
+  const alphaMap1 = loadTexture(IMG_SECTOR_USERSPRITE_LEFT);
   const map1 = loadTexture(firstUser.avatar ? `${firstUser.avatar}?1=1` : "");
   map1.generateMipmaps = false;
   map1.minFilter = LinearFilter;
@@ -332,7 +336,7 @@ export const createCombatSprite = (
   group.add(sprite1);
 
   // User 2: Avatar Sprite
-  const alphaMap2 = loadTexture("/map/userSpriteMaskRight.webp");
+  const alphaMap2 = loadTexture(IMG_SECTOR_USERSPRITE_RIGHT);
   const map2 = loadTexture(secondUser.avatar ? `${secondUser.avatar}?1=1` : "");
   map2.generateMipmaps = false;
   map2.minFilter = LinearFilter;
@@ -342,7 +346,7 @@ export const createCombatSprite = (
   Object.assign(sprite2.position, new Vector3(w / 2, h * 1.0, -6));
   group.add(sprite2);
 
-  const map = loadTexture("/map/vsIcon.webp");
+  const map = loadTexture(IMG_SECTOR_VS_ICON);
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map });
@@ -429,7 +433,7 @@ export const drawVillage = (
   const group = new Group();
   // Village wall
   if (village.type === "VILLAGE") {
-    const wall_tower_texture = loadTexture("/map/wall_stone_tower.webp");
+    const wall_tower_texture = loadTexture(IMG_SECTOR_WALL_STONE_TOWER);
     const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
     let prevPos: TerrainHex | null = null;
     wallPlacements.map((wall) => {

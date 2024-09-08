@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { alias } from "drizzle-orm/mysql-core";
+import { getTableColumns } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
@@ -154,6 +156,7 @@ export const villageRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       if (!village) return errorResponse("Village does not exist");
       if (!user.isOutlaw) return errorResponse("You are not an outlaw");
+      if (!village.joinable) return errorResponse("Village is not joinable");
       if (user.villageId === village.id) return errorResponse("Already in village");
       if (user.clanId) return errorResponse("Leave faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
@@ -275,6 +278,8 @@ export const villageRouter = createTRPCRouter({
       if (!isKage(user)) return errorResponse("You are not kage");
       if (target.type !== "VILLAGE") return errorResponse("Only for villages");
       if (user.village?.type !== "VILLAGE") return errorResponse("Only for villages");
+      if (!user.village.allianceSystem) return errorResponse("User Alliance disabled");
+      if (!target.allianceSystem) return errorResponse("Target Alliance disabled");
 
       // Guards
       const request = requests
@@ -435,6 +440,8 @@ export const villageRouter = createTRPCRouter({
       if (!isKage(user)) return errorResponse("You are not kage");
       if (target.type !== "VILLAGE") return errorResponse("Only for villages");
       if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
+      if (!userVillage.allianceSystem) return errorResponse("User Alliance disabled");
+      if (!target.allianceSystem) return errorResponse("Target Alliance disabled");
 
       // Check if war is possible
       const check = canWar(relationships, villages, villageId, targetId);
@@ -527,7 +534,11 @@ export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
     fetchAlliances(client),
     fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
   ]);
-  return { villages, relationships, requests };
+  return {
+    villages: villages.filter((v) => v.allianceSystem),
+    relationships,
+    requests,
+  };
 };
 
 /**
@@ -537,7 +548,14 @@ export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
  * @returns A promise that resolves to an array of alliance objects.
  */
 export const fetchAlliances = async (client: DrizzleClient) => {
-  return await client.query.villageAlliance.findMany();
+  const villageA = alias(village, "villageA");
+  const villageB = alias(village, "villageB");
+  return await client
+    .select(getTableColumns(villageAlliance))
+    .from(villageAlliance)
+    .innerJoin(villageA, eq(villageA.id, villageAlliance.villageIdA))
+    .innerJoin(villageB, eq(villageB.id, villageAlliance.villageIdB))
+    .where(and(eq(villageA.allianceSystem, true), eq(villageB.allianceSystem, true)));
 };
 
 /**

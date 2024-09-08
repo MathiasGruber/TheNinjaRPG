@@ -430,8 +430,16 @@ export const IMG_SECTOR_USER_SPRITE_MASK =
   "https://utfs.io/f/40061bc5-d73c-4265-8eff-4798fd840ae2-x83hc4.webp";
 export const IMG_SECTOR_SHADOW =
   "https://utfs.io/f/bd8d8c75-96a0-4c71-94b6-f02e1ee382b5-exyuao.png";
+export const IMG_SECTOR_USERSPRITE_LEFT =
+  "https://utfs.io/f/5c812303-70aa-4fc4-982c-6e72eee3c4b6-u7oujn.webp";
+export const IMG_SECTOR_USERSPRITE_RIGHT =
+  "https://utfs.io/f/b6c5b6ba-99e0-49e5-b4a2-bf6ba9ca1ebc-dbaxa8.webp";
+export const IMG_SECTOR_VS_ICON =
+  "https://utfs.io/f/be789e50-095f-4e50-bffc-fe0fedd8777b-dd7l0q.webp";
+export const IMG_SECTOR_WALL_STONE_TOWER =
+  "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
-  "https://utfs.io/f/04823e77-204f-40af-b3bf-0cc4ed0f5be9-ixejn7.json";
+  "https://utfs.io/f/2724000e-79d5-4b29-8894-5af2b648ccb4-ixejn7.json";
 
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";

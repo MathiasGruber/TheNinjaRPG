@@ -6,16 +6,17 @@ import type { DrizzleClient } from "@/server/db";
 
 // Default villages
 const villages = [
+  { name: "Current", sector: 271, hexColor: "#003366" },
+  { name: "Wake Island", sector: 222, hexColor: "#f59fe4" },
+  { name: "Glacier", sector: 203, hexColor: "#AFEEEE" },
   { name: "Tsukimori", sector: 305, hexColor: "#B22222" },
   { name: "Shroud", sector: 254, hexColor: "#8FBC8F" },
-  // { name: "Silence", sector: 293, hexColor: "#0a0a0a" },
-  { name: "Current", sector: 271, hexColor: "#003366" },
-  // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
-  // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
-  { name: "Glacier", sector: 203, hexColor: "#AFEEEE" },
-  { name: "Shine", sector: 83, hexColor: "#FFFF00" },
+  { name: "Shine", sector: 83, hexColor: "#F6C324" },
   { name: "Syndicate", sector: 484, hexColor: "#000000" },
-  { name: "Wake Island", sector: 222, hexColor: "#DB03FC" },
+  { name: "Freedom State", sector: 51, hexColor: "#000000" },
+  // { name: "Silence", sector: 293, hexColor: "#0a0a0a" },
+  // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
+  // { name: "Horizon", sector: 66, hexColor: "#9e4819" },
 ];
 // Elders
 const elders = [

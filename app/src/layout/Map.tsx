@@ -210,16 +210,6 @@ const Map: React.FC<MapProps> = (props) => {
             labelSprite.scale.set(canvas.width / 40, canvas.height / 40, 1);
             labelSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
             group_highlights.add(labelSprite);
-            // Label
-            // const map = loadTexture(`/villages/${highlight.name}Marker.png`);
-            // const material = new SpriteMaterial({ map: map });
-            // const labelSprite = new Sprite(material);
-            // Object.assign(
-            //   labelSprite.position,
-            //   new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5),
-            // );
-            // Object.assign(labelSprite.scale, new Vector3(3, 1, 1));
-            // group_highlights.add(labelSprite);
           }
         });
       }
