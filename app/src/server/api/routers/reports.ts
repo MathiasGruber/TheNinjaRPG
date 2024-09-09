@@ -188,12 +188,6 @@ export const reportsRouter = createTRPCRouter({
       };
       await getInfraction(input.system).then((report) => {
         if (report) {
-          void pusher.trigger(input.reported_userId, "event", {
-            type: "userMessage",
-            message: `You have been reported`,
-            route: "/reports",
-            routeText: "To Report",
-          });
           return ctx.drizzle.insert(userReport).values({
             id: nanoid(),
             reporterUserId: ctx.userId,

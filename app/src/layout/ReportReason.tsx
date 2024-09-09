@@ -49,6 +49,8 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
       <b>System:</b> {props.report.system}
       <br />
       <b>Report time</b> {props.report.createdAt.toLocaleDateString()}
+      <br />
+      <b>Report ID</b> {props.report.id}
     </div>
   );
 };
