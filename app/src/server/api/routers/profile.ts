@@ -195,6 +195,7 @@ export const profileRouter = createTRPCRouter({
       const { user, settings, rewards } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
+        userIp: ctx.userIp,
         // forceRegen: true, // This should be disabled in prod to save on DB calls
       });
       // Figure out notifications
@@ -450,7 +451,6 @@ export const profileRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: insertUserDataSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      console.log(input.data);
       // Set empty strings to null
       setEmptyStringsToNulls(input.data);
       input.data.customTitle = input.data.customTitle || "";
@@ -1326,16 +1326,17 @@ export const fetchPublicUsers = async (
   const [users, user] = await Promise.all([
     client.query.userData.findMany({
       where: and(
+        eq(userData.isAi, input.isAi),
         ...(input.username !== undefined
           ? [like(userData.username, `%${input.username}%`)]
           : []),
-        ...(input.ip ? [like(userData.lastIp, `%${input.ip}%`)] : []),
-        ...(input.villageId !== undefined
-          ? [eq(userData.villageId, input.villageId)]
+        ...(input.bloodline !== undefined
+          ? [eq(userData.bloodlineId, input.bloodline)]
           : []),
+        ...(input.ip ? [like(userData.lastIp, `%${input.ip}%`)] : []),
+        ...(input.village !== undefined ? [eq(userData.villageId, input.village)] : []),
         ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
         ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-        eq(userData.isAi, input.isAi),
         ...(input.isAi === false
           ? [eq(userData.isSummon, false)]
           : [eq(userData.isAi, true)]),
@@ -1384,6 +1385,8 @@ export const fetchPublicUsers = async (
   if (input.ip && (!user || !canSeeSecretData(user.role))) {
     throw serverError("FORBIDDEN", "You are not allowed to search IPs");
   }
+  // Hide stuff
+  users.filter((u) => !u.lastIp).forEach((u) => (u.lastIp = "Proxied"));
   if (!user || !canSeeSecretData(user.role)) {
     users.forEach((u) => (u.lastIp = "hidden"));
   }

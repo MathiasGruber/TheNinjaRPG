@@ -28,7 +28,7 @@ export default function VillageUsers({ params }: { params: { villageid: string }
       limit: 30,
       orderBy: activeTab,
       username: searchTerm,
-      villageId: villageId,
+      village: villageId,
       isAi: false,
     },
     {

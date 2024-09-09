@@ -7,6 +7,7 @@ import {
 } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
@@ -166,6 +167,72 @@ export const combatRouter = createTRPCRouter({
       });
       return entries;
     }),
+  getGraph: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const attacker = alias(userData, "attacker");
+      const defender = alias(userData, "defender");
+      const results = await ctx.drizzle
+        .select({
+          attackerId: battleHistory.attackedId,
+          defenderId: battleHistory.defenderId,
+          attackerUsername: attacker.username,
+          defenderUsername: defender.username,
+          attackerAvatar: attacker.avatar,
+          defenderAvatar: defender.avatar,
+          total: sql<number>`COUNT(*)`,
+        })
+        .from(battleHistory)
+        .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
+        .innerJoin(defender, eq(battleHistory.defenderId, defender.userId))
+        .where(
+          and(
+            eq(battleHistory.battleType, "COMBAT"),
+            or(
+              eq(battleHistory.attackedId, input.userId),
+              eq(battleHistory.defenderId, input.userId),
+            ),
+          ),
+        )
+        .groupBy(battleHistory.attackedId, battleHistory.defenderId);
+      const userIds = results
+        .flatMap((x) => [x.attackerId, x.defenderId])
+        .filter((x) => x !== input.userId);
+      if (userIds.length > 0) {
+        const level2 = await ctx.drizzle
+          .select({
+            attackerId: battleHistory.attackedId,
+            defenderId: battleHistory.defenderId,
+            attackerUsername: attacker.username,
+            defenderUsername: defender.username,
+            attackerAvatar: attacker.avatar,
+            defenderAvatar: defender.avatar,
+            total: sql<number>`COUNT(*)`,
+          })
+          .from(battleHistory)
+          .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
+          .innerJoin(defender, eq(battleHistory.defenderId, defender.userId))
+          .where(
+            and(
+              eq(battleHistory.battleType, "COMBAT"),
+              or(
+                and(
+                  inArray(battleHistory.attackedId, userIds),
+                  ne(battleHistory.defenderId, input.userId),
+                ),
+                and(
+                  inArray(battleHistory.defenderId, userIds),
+                  ne(battleHistory.attackedId, input.userId),
+                ),
+              ),
+            ),
+          )
+          .groupBy(battleHistory.attackedId, battleHistory.defenderId);
+        if (level2) results.push(...level2);
+      }
+
+      return results;
+    }),
   getBattleHistory: protectedProcedure
     .input(
       z.object({
@@ -195,26 +262,6 @@ export const combatRouter = createTRPCRouter({
         },
         orderBy: [desc(battleHistory.createdAt)],
       });
-      // For combat types, fetch second level of battles as well
-      if (results && input.combatTypes?.includes("COMBAT")) {
-        const userIds = results
-          .flatMap((x) => [x.attackedId, x.defenderId])
-          .filter((x) => x !== userId);
-        const secondary = await ctx.drizzle.query.battleHistory.findMany({
-          where: and(
-            or(
-              inArray(battleHistory.attackedId, userIds),
-              inArray(battleHistory.defenderId, userIds),
-            ),
-            eq(battleHistory.battleType, "COMBAT"),
-          ),
-          with: {
-            attacker: { columns: { username: true, userId: true, avatar: true } },
-            defender: { columns: { username: true, userId: true, avatar: true } },
-          },
-        });
-        results.push(...secondary);
-      }
       return results;
     }),
   performAction: protectedProcedure

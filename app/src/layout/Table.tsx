@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { secondsPassed } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import React from "react";
 
 export type ColumnDefinitionType<T, K extends keyof T> = {
   key: K;
@@ -20,7 +21,7 @@ type TableProps<T, K extends keyof T> = {
   linkColumn?: K;
   linkPrefix?: string;
   buttons?: {
-    label: string;
+    label: string | React.ReactNode;
     onClick: (row: T) => void;
   }[];
   setLastElement?: (element: HTMLDivElement | null) => void;
@@ -36,12 +37,12 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
         <thead className="bg-primary text-xs uppercase text-white">
           <tr>
             {columns.map((column, i) => (
-              <th key={i} scope="col" className="px-6 py-3">
+              <th key={i} scope="col" className="px-3 py-3">
                 {column.header}
               </th>
             ))}
             {props.buttons && (
-              <th scope="col" className="px-6 py-3">
+              <th scope="col" className="px-3 py-3">
                 Actions
               </th>
             )}
@@ -99,7 +100,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                     capitalizeFirstLetter(row[column.key] as string)}
                   {column.type === "date" && (row[column.key] as Date).toLocaleString()}
                   {column.type === "time_passed" && (
-                    <p className="text-center">
+                    <p>
                       {Math.floor(secondsPassed(row[column.key] as Date) / 60)}
                       <br />
                       minutes ago

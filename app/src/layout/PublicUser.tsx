@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { parseHtml } from "@/utils/parse";
 import Link from "next/link";
@@ -14,6 +13,7 @@ import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
+import GraphCombatLog from "@/layout/GraphCombatLog";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainingSpeeds } from "@/drizzle/constants";
@@ -32,6 +32,16 @@ import { useUserEditForm } from "@/hooks/profile";
 import { Chart as ChartJS } from "chart.js/auto";
 import type { UpdateUserSchema } from "@/validators/user";
 import { groupBy } from "@/utils/grouping";
+import { Waypoints } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -48,8 +58,6 @@ interface PublicUserComponentProps {
   showTrainingLogs?: boolean;
   showCombatLogs?: boolean;
 }
-
-const CombatLog = dynamic(() => import("@/layout/CombatLog"), { ssr: false });
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   userId,
@@ -357,7 +365,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           </div>
         </ContentBox>
       )}
-
       <Tabs
         defaultValue={showActive}
         className="flex flex-col items-center justify-center mt-3"
@@ -412,7 +419,25 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
               subtitle={`PvP Activity`}
               initialBreak={true}
             >
-              <CombatLog userId={profile.userId} />
+              <p className="italic pb-3">
+                The battle graph gives an overview of all users fought the last 60 days,
+                as well as which users these opponents have faced.
+              </p>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button type="submit" className="w-full">
+                    <Waypoints className="h-5 w-5 mr-2" /> Show Battle Graph
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="min-w-[99%] min-h-[99%]">
+                  <DialogHeader>
+                    <DialogTitle>PvP Overview</DialogTitle>
+                    <DialogDescription asChild>
+                      <GraphCombatLog userId={profile.userId} />
+                    </DialogDescription>
+                  </DialogHeader>
+                </DialogContent>
+              </Dialog>
             </ContentBox>
           </TabsContent>
         )}
@@ -550,10 +575,11 @@ const UserTrainingLog: React.FC<TrainingStatsComponentProps> = ({ userId }) => {
       return {
         label: speed,
         data: x.map((i) => {
+          const entries = hourlyEvents.get(i) || [];
           return {
             x: i,
-            y: hourlyEvents.get(i)?.length || 0,
-            tooltip: "test",
+            y: entries.length || 0,
+            entries: entries,
           };
         }),
       };
@@ -601,6 +627,16 @@ const UserTrainingLog: React.FC<TrainingStatsComponentProps> = ({ userId }) => {
               callbacks: {
                 title: function (tooltipItems) {
                   return `Training at hour ${tooltipItems?.[0]?.label || "unknown"}`;
+                },
+                label: function (tooltipItems) {
+                  const raw = tooltipItems?.raw as {
+                    entries: { trainingFinishedAt: string }[];
+                  };
+                  return (
+                    raw.entries?.map((e) =>
+                      new Date(e.trainingFinishedAt).toLocaleString(),
+                    ) || []
+                  );
                 },
               },
             },

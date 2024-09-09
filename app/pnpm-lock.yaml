@@ -137,6 +137,12 @@ dependencies:
   cmdk:
     specifier: ^0.2.1
     version: 0.2.1(@types/react@18.2.48)(react-dom@18.2.0)(react@18.2.0)
+  cytoscape:
+    specifier: ^3.30.2
+    version: 3.30.2
+  cytoscape-edgehandles:
+    specifier: ^4.0.1
+    version: 4.0.1(cytoscape@3.30.2)
   date-fns:
     specifier: ^3.6.0
     version: 3.6.0
@@ -194,6 +200,9 @@ dependencies:
   react-country-flag:
     specifier: ^3.1.0
     version: 3.1.0(react@18.2.0)
+  react-cytoscapejs:
+    specifier: ^2.0.0
+    version: 2.0.0(cytoscape@3.30.2)(react@18.2.0)
   react-day-picker:
     specifier: 8.10.1
     version: 8.10.1(date-fns@3.6.0)(react@18.2.0)
@@ -244,12 +253,24 @@ dependencies:
     version: 3.22.4
 
 devDependencies:
+  '@types/cytoscape':
+    specifier: ^3.21.7
+    version: 3.21.7
+  '@types/cytoscape-edgehandles':
+    specifier: ^4.0.4
+    version: 4.0.4
+  '@types/cytoscape-popper':
+    specifier: ^2.0.4
+    version: 2.0.4
   '@types/node':
     specifier: 20.11.6
     version: 20.11.6
   '@types/react':
     specifier: 18.2.48
     version: 18.2.48
+  '@types/react-cytoscapejs':
+    specifier: ^1.2.5
+    version: 1.2.5
   '@types/react-dom':
     specifier: 18.2.18
     version: 18.2.18
@@ -1699,6 +1720,10 @@ packages:
   /@polka/url@1.0.0-next.25:
     resolution: {integrity: sha512-j7P6Rgr3mmtdkeDGTe0E/aYyWEWVtc5yFXtHCRHs28/jptDEWfaVOc5T7cblqy1XKPPfCxJc/8DwQ5YgLOZOVQ==}
     dev: false
+
+  /@popperjs/core@2.11.8:
+    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+    dev: true
 
   /@prisma/instrumentation@5.17.0:
     resolution: {integrity: sha512-c1Sle4ji8aasMcYfBBHFM56We4ljfenVtRmS8aY06BllS7SoU6SmJBwG7vil+GHiR0Yrh+t9iBwt4AY0Jr4KNQ==}
@@ -3362,6 +3387,23 @@ packages:
     resolution: {integrity: sha512-SjceOhvNEqweSfWNMT6wu4DsH09X0phnlzCCj5s+VAwLXuTsb8YS+vAmngg+DTuWu75vcF3qFsqxZQ85KZ3/Lw==}
     dev: true
 
+  /@types/cytoscape-edgehandles@4.0.4:
+    resolution: {integrity: sha512-e88HA5fpRxISQ/x8MbRDIDcTc0fLfFZSF0NmHHsTdtCWscWbv+Ty9oYizVXGDqpkKCx2FUdEK60WTf6eauSkMg==}
+    dependencies:
+      '@types/cytoscape': 3.21.7
+    dev: true
+
+  /@types/cytoscape-popper@2.0.4:
+    resolution: {integrity: sha512-vGRiAMXeEIoY5ziPO0NrS8xmJyVkT8j8ARzvyD/x6CXciAO1+80Q2/Triyd9/+5I4PeatGo1Pch5YBwDMB1D6A==}
+    dependencies:
+      '@popperjs/core': 2.11.8
+      '@types/cytoscape': 3.21.7
+    dev: true
+
+  /@types/cytoscape@3.21.7:
+    resolution: {integrity: sha512-dP4UByJtfu5GjMJuv58yCIRxjCp4cP0Wp+Qd46L3Gom0hcV4OPmSOLqt83vArNcYRZLFCAyAk+lcC8oqQtcsqw==}
+    dev: true
+
   /@types/d3-force@3.0.10:
     resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
     dev: false
@@ -3471,6 +3513,13 @@ packages:
   /@types/range-parser@1.2.4:
     resolution: {integrity: sha512-EEhsLsD6UsDM1yFhAvy0Cjr6VwmpMWqFBCb9w07wVugF7w9nfajxLuVmngTIpgS6svCnm6Vaw+MZhoDCKnOfsw==}
     dev: false
+
+  /@types/react-cytoscapejs@1.2.5:
+    resolution: {integrity: sha512-G9VcGQOlER3njklOu5D0FDGHYfkQJ3yEL95kGbgI/MR08N5dQ7IbLSZI8WqaB4fG0zOURIg0BUtOCrbE5HRZEQ==}
+    dependencies:
+      '@types/cytoscape': 3.21.7
+      '@types/react': 18.2.48
+    dev: true
 
   /@types/react-dom@18.2.18:
     resolution: {integrity: sha512-TJxDm6OfAX2KJWJdMEVTwWke5Sc/E/RlnPGvGfS0W7+6ocy2xhDVQVh/KvC2Uf7kACs+gDytdusDSdWfWkaNzw==}
@@ -4614,6 +4663,21 @@ packages:
 
   /csstype@3.1.2:
     resolution: {integrity: sha512-I7K1Uu0MBPzaFKg4nI5Q7Vs2t+3gWWW648spaF+Rg7pI9ds18Ugn+lvg4SHczUdKlHI5LWBXyqfS8+DufyBsgQ==}
+
+  /cytoscape-edgehandles@4.0.1(cytoscape@3.30.2):
+    resolution: {integrity: sha512-uSYshkqRZ4luCxK295bEVTg46q4ZW+fwJhcIzMrtfNR7zeAnJ38Z48kUGeu5ibtXkgLbcZAg0YE4ED2dRuaePg==}
+    peerDependencies:
+      cytoscape: ^3.2.0
+    dependencies:
+      cytoscape: 3.30.2
+      lodash.memoize: 4.1.2
+      lodash.throttle: 4.1.1
+    dev: false
+
+  /cytoscape@3.30.2:
+    resolution: {integrity: sha512-oICxQsjW8uSaRmn4UK/jkczKOqTrVqt5/1WL0POiJUT2EKNc9STM4hYFHv917yu55aTBMFNRzymlJhVAiWPCxw==}
+    engines: {node: '>=0.10'}
+    dev: false
 
   /d3-dispatch@3.0.1:
     resolution: {integrity: sha512-rzUyPU/S7rwUflMyLc1ETDeBj0NRuHKKAcvukozwhshr6g6c5d8zh4c2gQjY2bZ0dXeGLWc1PF174P2tVvKhfg==}
@@ -6607,11 +6671,19 @@ packages:
     resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
     dev: false
 
+  /lodash.memoize@4.1.2:
+    resolution: {integrity: sha512-t7j+NzmgnQzTAYXcsHYLgimltOV1MXHtlOWf6GjL9Kj8GK5FInw5JotxvbOs+IvV1/Dzo04/fCGfLVs7aXb4Ag==}
+    dev: false
+
   /lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
   /lodash.once@4.1.1:
     resolution: {integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==}
+    dev: false
+
+  /lodash.throttle@4.1.1:
+    resolution: {integrity: sha512-wIkUCfVKpVsWo3JSZlc+8MB5it+2AN5W8J7YVMST30UrvcQNZ1Okbj+rbVniijTWE6FGYy4XJq/rHkas8qJMLQ==}
     dev: false
 
   /long@5.2.3:
@@ -7547,6 +7619,17 @@ packages:
     peerDependencies:
       react: '>=16'
     dependencies:
+      react: 18.2.0
+    dev: false
+
+  /react-cytoscapejs@2.0.0(cytoscape@3.30.2)(react@18.2.0):
+    resolution: {integrity: sha512-t3SSl1DQy7+JQjN+8QHi1anEJlM3i3aAeydHTsJwmjo/isyKK7Rs7oCvU6kZsB9NwZidzZQR21Vm2PcBLG/Tjg==}
+    peerDependencies:
+      cytoscape: ^3.2.19
+      react: '>=15.0.0'
+    dependencies:
+      cytoscape: 3.30.2
+      prop-types: 15.8.1
       react: 18.2.0
     dev: false
 

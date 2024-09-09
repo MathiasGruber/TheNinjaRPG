@@ -4,8 +4,7 @@ import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
-import NavTabs from "@/layout/NavTabs";
-import { canSeeSecretData } from "@/utils/permissions";
+import { ExternalLink } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showUserRank } from "@/libs/profile";
@@ -40,6 +39,7 @@ export default function PublicProfile({ params }: { params: { ip: string } }) {
       ...user,
       info: (
         <div>
+          <p className="font-bold">{user.username}</p>
           <p>
             Lvl. {user.level} {showUserRank(user)}
           </p>
@@ -57,7 +57,6 @@ export default function PublicProfile({ params }: { params: { ip: string } }) {
 
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar" },
-    { key: "username", header: "Username", type: "string" },
     { key: "info", header: "Info", type: "jsx" },
     { key: "updatedAt", header: "Last Active", type: "time_passed" },
     { key: "lastIp", header: "LastIP", type: "string" },
@@ -78,6 +77,14 @@ export default function PublicProfile({ params }: { params: { ip: string } }) {
         linkPrefix="/users/"
         linkColumn={"userId"}
         setLastElement={setLastElement}
+        buttons={[
+          {
+            label: <ExternalLink className="h-5 w-5" />,
+            onClick: (user: User) => {
+              window.open(`/users/${user.userId}`, "_blank");
+            },
+          },
+        ]}
       />
     </ContentBox>
   );

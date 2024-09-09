@@ -19,6 +19,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { structureBoost, calcBankInterest } from "@/utils/village";
+import GraphBankLedger from "@/layout/GraphBankLedger";
+import { Waypoints } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -298,6 +308,23 @@ export default function Bank() {
         subtitle="Search historical transactions"
         initialBreak={true}
         padding={false}
+        topRightContent={
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="submit">
+                <Waypoints className="h-5 w-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="min-w-[99%] min-h-[99%]">
+              <DialogHeader>
+                <DialogTitle>Bank Ledger</DialogTitle>
+                <DialogDescription asChild>
+                  <GraphBankLedger />
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+        }
       >
         <div className="w-full flex flex-col gap-2 px-2 py-2">
           <UserSearchSelect

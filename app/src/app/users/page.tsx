@@ -3,26 +3,15 @@
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
 import { canSeeSecretData } from "@/utils/permissions";
-import { Input } from "@/components/ui/input";
-import { Filter } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
-import { useUserSearch, useFieldSearch } from "@/utils/search";
 import { showUserRank } from "@/libs/profile";
 import { useUserData } from "@/utils/UserContext";
+import UserFiltering, { useFiltering, getFilter } from "@/layout/UserFiltering";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
@@ -31,8 +20,9 @@ export default function Users() {
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const { form: usernameForm, searchTerm: searchedName } = useUserSearch();
-  const { form: ipForm, searchTerm: searcheIp } = useFieldSearch();
+
+  // Two-level filtering
+  const state = useFiltering();
 
   const {
     data: users,
@@ -40,10 +30,9 @@ export default function Users() {
     hasNextPage,
   } = api.profile.getPublicUsers.useInfiniteQuery(
     {
+      ...getFilter(state),
       limit: 30,
       orderBy: activeTab,
-      username: searchedName,
-      ip: searcheIp,
       isAi: false,
     },
     {
@@ -63,6 +52,7 @@ export default function Users() {
       ...user,
       info: (
         <div>
+          <p className="font-bold">{user.username}</p>
           <p>
             Lvl. {user.level} {showUserRank(user)}
           </p>
@@ -80,7 +70,6 @@ export default function Users() {
 
   const columns: ColumnDefinitionType<User, keyof User>[] = [
     { key: "avatar", header: "", type: "avatar" },
-    { key: "username", header: "Username", type: "string" },
     { key: "info", header: "Info", type: "jsx" },
   ];
   if (activeTab === "Strongest") {
@@ -104,7 +93,7 @@ export default function Users() {
       subtitle={`Top ${activeTab}`}
       padding={false}
       topRightContent={
-        <div className="flex flex-row">
+        <div className="flex flex-row items-center gap-2">
           <NavTabs
             id="tab"
             fontSize="text-xs"
@@ -112,57 +101,7 @@ export default function Users() {
             options={tabNames}
             setValue={setActiveTab}
           />
-          <Confirm
-            title="Sorting and Filtering"
-            button={
-              <Button id="create-jutsu">
-                <Filter className="sm:mr-2 h-6 w-6 hover:text-orange-500" />
-                <p className="hidden sm:block">Filter</p>
-              </Button>
-            }
-            onAccept={(e) => {
-              e.preventDefault();
-            }}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Form {...usernameForm}>
-                  <Label htmlFor="rank">Username</Label>
-                  <FormField
-                    control={usernameForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem className="w-full">
-                        <FormControl>
-                          <Input id="username" placeholder="Search" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </Form>
-              </div>
-              {userData && canSeeSecretData(userData.role) && (
-                <div>
-                  <Form {...ipForm}>
-                    <Label htmlFor="rank">IP Search</Label>
-                    <FormField
-                      control={ipForm.control}
-                      name="term"
-                      render={({ field }) => (
-                        <FormItem className="w-full">
-                          <FormControl>
-                            <Input id="term" placeholder="Search" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </Form>
-                </div>
-              )}
-            </div>
-          </Confirm>
+          <UserFiltering state={state} />
         </div>
       }
     >
@@ -187,6 +126,14 @@ export default function Users() {
         linkPrefix="/users/"
         linkColumn={"userId"}
         setLastElement={setLastElement}
+        buttons={[
+          {
+            label: <ExternalLink className="h-5 w-5" />,
+            onClick: (user: User) => {
+              window.open(`/users/${user.userId}`, "_blank");
+            },
+          },
+        ]}
       />
     </ContentBox>
   );

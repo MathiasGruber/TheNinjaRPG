@@ -33,6 +33,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import GraphBlackmarketLedger from "@/layout/GraphBlackmarketLedger";
+import { Waypoints } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -318,17 +328,34 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
       initialBreak={true}
       padding={false}
       topRightContent={
-        <NavTabs
-          id="hospital-page"
-          current={tab}
-          options={["Active", "Ledger"]}
-          setValue={setTab}
-        />
+        <div className="flex flex-row items-center">
+          <NavTabs
+            id="hospital-page"
+            current={tab}
+            options={["Active", "Ledger"]}
+            setValue={setTab}
+          />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="submit">
+                <Waypoints className="h-5 w-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="min-w-[99%] min-h-[99%]">
+              <DialogHeader>
+                <DialogTitle>Black Market Ledger</DialogTitle>
+                <DialogDescription asChild>
+                  <GraphBlackmarketLedger />
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
       {/* CREATE OFFERS */}
       {tradeableReps > 0 && (
-        <>
+        <div className="pb-5">
           <p className="p-3">
             You have <b>{tradeableReps} reputation points</b> and{" "}
             <b>{userData.money} ryo</b> in your pocket. You may list reputation points
@@ -446,11 +473,11 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
               </form>
             </Form>
           )}
-        </>
+        </div>
       )}
       {/* TABLE OF CURRENT OFFERS */}
       {!isLoading && allOffers && allOffers.length > 0 && (
-        <div className="mt-5 border-t-2 border-dashed">
+        <div className="border-t-2 border-dashed">
           <Table data={allOffers} columns={columns} setLastElement={setLastElement} />
         </div>
       )}

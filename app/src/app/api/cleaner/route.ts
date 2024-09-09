@@ -16,7 +16,7 @@ export async function GET() {
   // Check timer
   const frequency = 1;
   const response = await checkGameTimer(drizzleDB, frequency);
-  // if (response) return response;
+  if (response) return response;
 
   try {
     // Update timer

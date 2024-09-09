@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { eq, and } from "drizzle-orm";
-import { actionLog } from "@/drizzle/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { extractValueFromJson } from "@/utils/regex";
+import { actionLog, village, bloodline } from "@/drizzle/schema";
 
 export const logsRouter = createTRPCRouter({
   getContentChanges: protectedProcedure
@@ -49,9 +50,43 @@ export const logsRouter = createTRPCRouter({
         orderBy: (table, { desc }) => desc(table.createdAt),
         limit: input.limit,
       });
+      // Overwrite all villageIds, bloodlineIds, etc. with their names
+      const villageIds: string[] = [];
+      const bloodlineIds: string[] = [];
+      entries.forEach((entry) => {
+        (entry.changes as string[]).forEach((change) => {
+          const bloodlineId = extractValueFromJson(change, "bloodlineId");
+          const villageId = extractValueFromJson(change, "villageId");
+          if (bloodlineId) bloodlineIds.push(bloodlineId);
+          if (villageId) villageIds.push(villageId);
+        });
+      });
+      const [bloodlines, villages] = await Promise.all([
+        ctx.drizzle.query.bloodline.findMany({
+          where: inArray(bloodline.id, bloodlineIds),
+          columns: { id: true, name: true },
+        }),
+        ctx.drizzle.query.village.findMany({
+          where: inArray(village.id, villageIds),
+          columns: { id: true, name: true },
+        }),
+      ]);
+
+      // Return
       const nextCursor = entries.length < input.limit ? null : currentCursor + 1;
       return {
-        data: entries,
+        data: entries.map((entry) => ({
+          ...entry,
+          changes: (entry.changes as string[])?.map((change) => {
+            bloodlines.forEach((b) => {
+              change = change.replace(b.id, b.name);
+            });
+            villages.forEach((v) => {
+              change = change.replace(v.id, v.name);
+            });
+            return change;
+          }),
+        })),
         nextCursor: nextCursor,
       };
     }),

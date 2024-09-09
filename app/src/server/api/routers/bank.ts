@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { errorResponse, baseServerResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
 import { eq, or, and, gte, sql, desc } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { userData, bankTransfers } from "@/drizzle/schema";
 import { RYO_CAP } from "@/drizzle/constants";
 
@@ -100,6 +101,25 @@ export const bankRouter = createTRPCRouter({
         message: `Successfully transferred ${value} ryo to ${target.username}`,
       };
     }),
+  getGraph: protectedProcedure.query(async ({ ctx }) => {
+    const sender = alias(userData, "sender");
+    const receiver = alias(userData, "receiver");
+    const transfers = await ctx.drizzle
+      .select({
+        senderId: bankTransfers.senderId,
+        receiverId: bankTransfers.receiverId,
+        senderUsername: sender.username,
+        receiverUsername: receiver.username,
+        senderAvatar: sender.avatar,
+        receiverAvatar: receiver.avatar,
+        total: sql<number>`SUM(${bankTransfers.amount})`,
+      })
+      .from(bankTransfers)
+      .innerJoin(sender, eq(bankTransfers.senderId, sender.userId))
+      .innerJoin(receiver, eq(bankTransfers.receiverId, receiver.userId))
+      .groupBy(bankTransfers.senderId, bankTransfers.receiverId);
+    return transfers;
+  }),
   getTransfers: protectedProcedure
     .input(
       z.object({

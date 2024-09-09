@@ -74,6 +74,27 @@ export const blackMarketRouter = createTRPCRouter({
       const nextCursor = results.length < limit ? null : currentCursor + 1;
       return { data: results, nextCursor };
     }),
+  getGraph: protectedProcedure.query(async ({ ctx }) => {
+    const sender = alias(userData, "sender");
+    const receiver = alias(userData, "receiver");
+    const transfers = await ctx.drizzle
+      .select({
+        senderId: sender.userId,
+        receiverId: receiver.userId,
+        senderUsername: sender.username,
+        receiverUsername: receiver.username,
+        senderAvatar: sender.avatar,
+        receiverAvatar: receiver.avatar,
+        totalReps: sql<number>`SUM(${ryoTrade.repsForSale})`,
+        totalRyo: sql<number>`SUM(${ryoTrade.requestedRyo})`,
+      })
+      .from(ryoTrade)
+      .innerJoin(sender, eq(ryoTrade.creatorUserId, sender.userId))
+      .innerJoin(receiver, eq(ryoTrade.purchaserUserId, receiver.userId))
+      .where(isNotNull(ryoTrade.purchaserUserId))
+      .groupBy(ryoTrade.creatorUserId, ryoTrade.purchaserUserId);
+    return transfers;
+  }),
   createOffer: protectedProcedure
     .input(
       z.object({
