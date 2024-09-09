@@ -42,7 +42,7 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
         changes: (
           <div>
             <h3>{entry.relatedMsg}</h3>
-            {(entry.changes as string[]).map((change, i) => {
+            {entry.changes.map((change, i) => {
               return <li key={i}>{change}</li>;
             })}
             <p className="italic font-bold mt-2">
