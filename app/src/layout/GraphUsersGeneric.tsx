@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,28 +31,35 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
   });
-  const highlightIds = userSearchMethods.watch("users", []).map((u) => u.userId);
+  const highlights = userSearchMethods.watch("users", []).map((u) => u.userId);
+
+  // If we are highlighting users, find out which users to show
+  const showIds =
+    highlights.length > 0
+      ? props.edges
+          .filter((e) => highlights.includes(e.source) || highlights.includes(e.target))
+          .flatMap((edge) => [edge.source, edge.target])
+      : null;
 
   // Data
   const maxWeight = Math.max(...props.edges.map((x) => x.weight));
   const elements = [
-    ...props.nodes.map((user) => ({ data: user })),
-    ...props.edges.map((edge) => ({
-      data: { ...edge, weight: (5 * maxWeight) / edge.weight, classes: "autorotate" },
-    })),
+    ...props.nodes
+      .filter((n) => !showIds || showIds.includes(n.id))
+      .map((user) => ({ data: user })),
+    ...props.edges
+      .filter(
+        (e) =>
+          !showIds || highlights.includes(e.source) || highlights.includes(e.target),
+      )
+      .map((e) => ({
+        data: { ...e, weight: (5 * maxWeight) / e.weight, classes: "autorotate" },
+      })),
   ];
 
-  // Render
-  return (
-    <div className="w-full h-full relative">
-      <div className="absolute top-0 w-full z-50">
-        <UserSearchSelect
-          useFormMethods={userSearchMethods}
-          label="Users to highlight"
-          showYourself={true}
-          maxUsers={10}
-        />
-      </div>
+  // Memo
+  const graph = useMemo(() => {
+    return (
       <div className="w-full h-full">
         <CytoscapeComponent
           elements={elements}
@@ -118,7 +125,7 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
               } as any,
             },
             ...props.nodes.map((node) => {
-              const highlighted = highlightIds.includes(node.id);
+              const highlighted = highlights.includes(node.id);
               return {
                 selector: `#${node.id}`,
                 style: {
@@ -136,6 +143,22 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
           ]}
         />
       </div>
+    );
+    // eslint-disable-next-line
+  }, [highlights.sort((a, b) => (a < b ? -1 : 1)).join(",")]);
+
+  // Render
+  return (
+    <div className="w-full h-full relative">
+      <div className="absolute top-0 w-full z-50">
+        <UserSearchSelect
+          useFormMethods={userSearchMethods}
+          label="Users to highlight"
+          showYourself={true}
+          maxUsers={10}
+        />
+      </div>
+      {graph}
     </div>
   );
 };
