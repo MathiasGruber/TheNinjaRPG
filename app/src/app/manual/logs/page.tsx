@@ -1,33 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import NavTabs from "@/layout/NavTabs";
 import ActionLogs from "@/layout/ActionLog";
+import ActionLogFiltering, {
+  useFiltering,
+  getFilter,
+} from "@/layout/ActionLogFiltering";
 
 export default function ActionLog() {
-  const tabNames = [
-    "ai",
-    "user",
-    "jutsu",
-    "bloodline",
-    "item",
-    "badge",
-    "clan",
-  ] as const;
-  const [activeTab, setActiveTab] = useState<(typeof tabNames)[number]>("ai");
+  // Two-level filtering
+  const state = useFiltering();
 
   return (
     <ActionLogs
-      table={activeTab}
+      state={getFilter(state)}
       back_href="/manual"
-      topRightContent={
-        <NavTabs
-          fontSize="text-xs"
-          current={activeTab}
-          options={Object.values(tabNames)}
-          setValue={setActiveTab}
-        />
-      }
+      topRightContent={<ActionLogFiltering state={state} />}
     />
   );
 }

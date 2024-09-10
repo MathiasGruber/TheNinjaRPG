@@ -38,7 +38,7 @@ const GraphBlackmarketLedger: React.FC<GraphBlackmarketLedgerProps> = () => {
     },
   ]);
 
-  return <GraphUsersGeneric nodes={nodes} edges={edges} />;
+  return <GraphUsersGeneric nodes={nodes} edges={edges} hideDefault />;
 };
 
 export default GraphBlackmarketLedger;

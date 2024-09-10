@@ -1,26 +1,17 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, like, inArray } from "drizzle-orm";
 import { extractValueFromJson } from "@/utils/regex";
 import { actionLog, village, bloodline } from "@/drizzle/schema";
+import { actionLogSchema } from "@/validators/logs";
 
 export const logsRouter = createTRPCRouter({
   getContentChanges: protectedProcedure
     .input(
-      z.object({
+      actionLogSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
         relatedId: z.string().optional(),
-        table: z.enum([
-          "ai",
-          "user",
-          "item",
-          "bloodline",
-          "jutsu",
-          "bloodline",
-          "badge",
-          "clan",
-        ]),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -28,8 +19,9 @@ export const logsRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const entries = await ctx.drizzle.query.actionLog.findMany({
         where: and(
-          eq(actionLog.tableName, input.table),
+          eq(actionLog.tableName, input.logtype),
           ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
+          ...(input.search ? [like(actionLog.changes, `%${input.search}%`)] : []),
         ),
         columns: {
           userId: true,
@@ -79,10 +71,10 @@ export const logsRouter = createTRPCRouter({
           ...entry,
           changes: (entry.changes as string[])?.map((change) => {
             bloodlines.forEach((b) => {
-              change = change.replace(b.id, b.name);
+              change = change.replace(b.id, `${b.id} - ${b.name}`);
             });
             villages.forEach((v) => {
-              change = change.replace(v.id, v.name);
+              change = change.replace(v.id, `${v.id} - ${v.name}`);
             });
             return change;
           }),

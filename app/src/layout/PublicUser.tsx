@@ -34,6 +34,10 @@ import type { UpdateUserSchema } from "@/validators/user";
 import { groupBy } from "@/utils/grouping";
 import { Waypoints } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ActionLogFiltering, {
+  useFiltering,
+  getFilter,
+} from "@/layout/ActionLogFiltering";
 import {
   Dialog,
   DialogContent,
@@ -82,6 +86,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const enableReports = showReports && canSeeSecrets;
   const enablePaypal = showTransactions && canSeeSecrets;
   const enableLogs = showActionLogs && canSeeSecrets;
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Queries
   const { data: profile, isPending: isPendingProfile } =
@@ -495,7 +502,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         {/* USER ACTION LOG */}
         {enableLogs && (
           <TabsContent value="content">
-            <ActionLogs table="user" relatedId={userId} initialBreak={true} />
+            <ActionLogs
+              state={getFilter(state)}
+              relatedId={userId}
+              initialBreak={true}
+              topRightContent={<ActionLogFiltering state={state} />}
+            />
           </TabsContent>
         )}
       </Tabs>

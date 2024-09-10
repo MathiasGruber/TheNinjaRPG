@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useCallback } from "react";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +13,7 @@ import type { z } from "zod";
 Cytoscape.use(edgehandles);
 
 interface GraphUsersGenericProps {
+  hideDefault?: boolean;
   nodes: { id: string; label: string; img: string | null }[];
   edges: {
     source: string;
@@ -24,14 +25,20 @@ interface GraphUsersGenericProps {
 const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
   // State
   const localTheme = localStorage.getItem("theme");
+  const cy = useRef<Cytoscape.Core | null>(null);
   const color = localTheme === "dark" ? "white" : "black";
+
+  // Set Cytoscape
+  const setCytoscape = useCallback((ref: cytoscape.Core) => (cy.current = ref), [cy]);
 
   // User Searching
   const userSearchSchema = getSearchValidator({ max: 10 });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: { users: [] },
   });
   const highlights = userSearchMethods.watch("users", []).map((u) => u.userId);
+  const joinedHighlights = highlights.sort((a, b) => (a < b ? -1 : 1)).join(",");
 
   // If we are highlighting users, find out which users to show
   const showIds =
@@ -39,7 +46,23 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
       ? props.edges
           .filter((e) => highlights.includes(e.source) || highlights.includes(e.target))
           .flatMap((edge) => [edge.source, edge.target])
-      : null;
+      : props.hideDefault
+        ? []
+        : null;
+
+  // Second layer
+  showIds?.push(
+    ...props.edges
+      .filter((e) => showIds.includes(e.source) || showIds.includes(e.target))
+      .flatMap((edge) => [edge.source, edge.target]),
+  );
+
+  // Third layer
+  showIds?.push(
+    ...props.edges
+      .filter((e) => showIds.includes(e.source) || showIds.includes(e.target))
+      .flatMap((edge) => [edge.source, edge.target]),
+  );
 
   // Data
   const maxWeight = Math.max(...props.edges.map((x) => x.weight));
@@ -49,8 +72,7 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
       .map((user) => ({ data: user })),
     ...props.edges
       .filter(
-        (e) =>
-          !showIds || highlights.includes(e.source) || highlights.includes(e.target),
+        (e) => !showIds || (showIds.includes(e.source) && showIds.includes(e.target)),
       )
       .map((e) => ({
         data: { ...e, weight: (5 * maxWeight) / e.weight, classes: "autorotate" },
@@ -63,6 +85,7 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
       <div className="w-full h-full">
         <CytoscapeComponent
           elements={elements}
+          cy={setCytoscape}
           layout={{
             name: "cose",
             idealEdgeLength: (edge) => {
@@ -145,7 +168,7 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
       </div>
     );
     // eslint-disable-next-line
-  }, [highlights.sort((a, b) => (a < b ? -1 : 1)).join(",")]);
+  }, [joinedHighlights]);
 
   // Render
   return (

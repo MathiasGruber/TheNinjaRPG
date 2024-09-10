@@ -1,6 +1,17 @@
 export const LetterRanks = ["D", "C", "B", "A", "S", "H"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
+export const LOG_TYPES = [
+  "ai",
+  "user",
+  "jutsu",
+  "bloodline",
+  "item",
+  "badge",
+  "clan",
+] as const;
+export type LogType = (typeof LOG_TYPES)[number];
+
 export const StatTypes = [
   "Highest",
   "Ninjutsu",
@@ -297,8 +308,8 @@ export const USER_CAPS: {
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;
-export const COST_SWAP_BLOODLINE = 0; // TODO: Should be determined by rank
-export const COST_SWAP_VILLAGE = 0; // TODO: Should be 5
+export const COST_SWAP_BLOODLINE = 0;
+export const COST_SWAP_VILLAGE = 0;
 export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_REROLL_ELEMENT = 20;

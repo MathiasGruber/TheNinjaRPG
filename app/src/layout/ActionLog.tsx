@@ -7,9 +7,10 @@ import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { ArrayElement } from "@/utils/typeutils";
+import type { ActionLogSchema } from "@/validators/logs";
 
 interface ActionLogsProps {
-  table: "ai" | "user" | "jutsu" | "bloodline" | "item" | "badge" | "clan";
+  state: ActionLogSchema;
   back_href?: string;
   relatedId?: string;
   initialBreak?: boolean;
@@ -27,7 +28,7 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
     hasNextPage,
     isFetching,
   } = api.logs.getContentChanges.useInfiniteQuery(
-    { limit: 50, table: props.table, relatedId: props.relatedId },
+    { limit: 50, relatedId: props.relatedId, ...props.state },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 5, // every 5min
@@ -70,7 +71,7 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
   return (
     <ContentBox
       title="Content Log"
-      subtitle={`Changes for: ${props.table}`}
+      subtitle={`Changes for: ${props.state.logtype}`}
       padding={false}
       back_href={props.back_href}
       initialBreak={props.initialBreak}

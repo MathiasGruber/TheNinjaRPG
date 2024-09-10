@@ -124,10 +124,6 @@ export default function Simulator({
 
   const isPending = isSaving || isUpdating || isDeleting;
 
-  // Total mutation loading state
-  // TODO: USE THIS FOR UX
-  // const isMutating = isSaving || isUpdating || isDeleting;
-
   // Calculate experience from stats
   const calcExperience = (values: StatSchema) => {
     return (

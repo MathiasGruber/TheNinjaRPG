@@ -221,7 +221,10 @@ const MenuBoxProfile: React.FC = () => {
           <TooltipProvider delayDuration={50}>
             <Tooltip>
               <TooltipTrigger className="w-full">
-                <Link href="/profile" className="hover:text-orange-500">
+                <Link
+                  href={location ? "/bank" : "/profile"}
+                  className="hover:text-orange-500"
+                >
                   <div className="flex flex-row items-center">
                     <p className="text-xl mr-3">両</p> {userData?.money ?? "??"}
                   </div>
@@ -324,8 +327,6 @@ const MenuBoxProfile: React.FC = () => {
     </>
   );
 };
-
-// TODO: Add ground effects explanations
 
 export default MenuBoxProfile;
 

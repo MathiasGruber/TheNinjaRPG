@@ -239,6 +239,19 @@ export const itemRouter = createTRPCRouter({
           .update(userData)
           .set({ money: sql`${userData.money} + ${cost}` })
           .where(eq(userData.userId, ctx.userId)),
+        ...(useritem.item.cost >= 500000
+          ? [
+              ctx.drizzle.insert(actionLog).values({
+                id: nanoid(),
+                userId: ctx.userId,
+                tableName: "user",
+                changes: [`Sold item: ${useritem.item.name} for ${cost} ryo`],
+                relatedId: ctx.userId,
+                relatedMsg: `Sold item: ${useritem.item.name}`,
+                relatedImage: useritem.item.image,
+              }),
+            ]
+          : []),
       ]);
       return {
         success: true,

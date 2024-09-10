@@ -205,7 +205,6 @@ export const calcForgetReturn = (jutsu: Jutsu, level: number) => {
 
 export const calcJutsuEquipLimit = (userdata: UserData) => {
   const rankContrib = (rank: UserRank) => {
-    // TODO: Decrease this once we have more ranking going on
     switch (rank) {
       case "GENIN":
         return 5 + 2;

@@ -29,7 +29,7 @@ const GraphBankLedger: React.FC<GraphBankLedgerProps> = () => {
     weight: x.total > 1 ? Math.log(x.total) : 1,
   }));
 
-  return <GraphUsersGeneric nodes={nodes} edges={edges} />;
+  return <GraphUsersGeneric nodes={nodes} edges={edges} hideDefault />;
 };
 
 export default GraphBankLedger;

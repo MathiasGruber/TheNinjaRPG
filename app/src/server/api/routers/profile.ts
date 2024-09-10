@@ -572,7 +572,7 @@ export const profileRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           changes: [`Username changed from ${user.username} to ${input.username}`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.username} -> ${input.username}`,

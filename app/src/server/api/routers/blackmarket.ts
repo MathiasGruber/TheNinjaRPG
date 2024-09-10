@@ -253,7 +253,7 @@ export const blackMarketRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           changes: [`Custom title changed from ${user.customTitle} to ${input.title}`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.customTitle} -> ${input.title}`,
@@ -285,7 +285,7 @@ export const blackMarketRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           changes: ["Item slot purchased"],
           relatedId: ctx.userId,
           relatedMsg: "Update: Item slot purchased",
@@ -330,7 +330,7 @@ export const blackMarketRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           changes: ["Element rerolled"],
           relatedId: ctx.userId,
           relatedMsg: "Update: Element rerolled",
@@ -378,7 +378,7 @@ export const blackMarketRouter = createTRPCRouter({
         await ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           changes: [`User stats distribution changed`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.username} stats redistribution`,
