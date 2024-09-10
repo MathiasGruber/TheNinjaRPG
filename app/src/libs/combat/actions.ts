@@ -613,7 +613,6 @@ export const actionPointsAfterAction = (
 
 /**
  * Figure out if user is still live and well in battle (not fled, not dead, etc.)
- // TODO: Use this across the site
  */
 export const stillInBattle = (user: ReturnedUserState) => {
   return user.curHealth > 0 && !user.fledBattle;
@@ -630,7 +629,8 @@ export const calcActiveUser = (
   const syncedTime = Date.now() - timeDiff;
   const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();
   const secondsLeft = COMBAT_SECONDS - mseconds / 1000;
-  const userIds = battle.usersState.filter(stillInBattle).map((u) => u.userId);
+  const usersInBattle = battle.usersState.filter(stillInBattle);
+  const inBattleuserIds = usersInBattle.map((u) => u.userId);
   let activeUserId = battle.activeUserId ? battle.activeUserId : userId;
   let progressRound = false;
   // Check 1: We have an active user, but the round is up
@@ -638,16 +638,18 @@ export const calcActiveUser = (
   // Check 2: We have an active user, but he/she does not have any more action points
   const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
   // Check 3: Current active userID is not in active user array
-  const check3 = activeUserId && !userIds.includes(activeUserId);
+  const check3 = activeUserId && !inBattleuserIds.includes(activeUserId);
   // Progress to next user in case of any checks went through
-  if (userIds.length > 0 && (check1 || check2 || check3)) {
-    const curIdx = userIds.indexOf(activeUserId ?? "");
-    const newIdx = (curIdx + 1) % userIds.length;
-    activeUserId = userIds[newIdx] || userId;
-    progressRound = true;
+  if (inBattleuserIds.length > 0 && (check1 || check2 || check3)) {
+    const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
+    const newIdx = (curIdx + 1) % inBattleuserIds.length;
+    const curUser = usersInBattle.find((u) => u.userId === activeUserId);
+    if (curUser) curUser.round += 1;
+    if (usersInBattle.every((u) => u.round > battle.round)) progressRound = true;
+    activeUserId = inBattleuserIds[newIdx] || userId;
   }
   // Find the user in question, and return him
-  const actor = battle.usersState.find((u) => u.userId === activeUserId);
+  const actor = usersInBattle.find((u) => u.userId === activeUserId);
   if (!actor) throw new Error("No active user");
   return { actor, progressRound, mseconds, secondsLeft };
 };

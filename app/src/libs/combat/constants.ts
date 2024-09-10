@@ -44,6 +44,7 @@ export const publicState = [
   "maxStamina",
   "medicalExperience",
   "rank",
+  "round",
   "regeneration",
   "sector",
   "updatedAt",

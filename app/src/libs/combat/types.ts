@@ -25,7 +25,7 @@ export type BattleUserState = UserWithRelations & {
   items: (UserItem & {
     item: Item;
   })[];
-  clan?: Clan | null;
+  round: number;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
   highestOffence: (typeof StatNames)[number];
@@ -42,13 +42,14 @@ export type BattleUserState = UserWithRelations & {
   initiative: number;
   originalLongitude: number;
   originalLatitude: number;
-  hex?: TerrainHex;
   originalMoney: number;
   direction: "left" | "right";
   allyVillage: boolean;
   usedGenerals: (typeof GenNames)[number][];
   usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
+  hex?: TerrainHex;
+  clan?: Clan | null;
 };
 
 // Create type for battle, which contains information on user current state

@@ -447,7 +447,9 @@ export const combatRouter = createTRPCRouter({
            */
           try {
             newBattle.version = newBattle.version + nActions;
+            console.log("getBattle3");
             await updateBattle(db, result, suid, newBattle, battle.version);
+            console.log("1");
             const [logEntries] = await Promise.all([
               createAction(db, newBattle, history),
               saveUsage(db, newBattle, result, suid),
@@ -457,7 +459,11 @@ export const combatRouter = createTRPCRouter({
               updateVillageAnbuClan(db, newBattle, result, suid),
               updateTournament(db, newBattle, result, suid),
             ]);
+            console.log("2");
+            console.log(newBattle);
+            console.log(suid);
             const newMaskedBattle = maskBattle(newBattle, suid);
+            console.log("3");
 
             // Return the new battle + result state if applicable
             return {
@@ -467,6 +473,7 @@ export const combatRouter = createTRPCRouter({
               logEntries: logEntries,
             };
           } catch (e) {
+            console.log(e);
             // If any of the above fails, retry the whole procedure
             if (attempts > 1) throw e;
           }

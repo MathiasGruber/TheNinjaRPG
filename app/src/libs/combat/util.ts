@@ -412,7 +412,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       }
 
       // Calculate ELO change if user had won.
-      let eloDiff = Math.max(calcEloChange(uExp, oExp, maxGain, true), 0.02);
+      let eloDiff = Math.max(calcEloChange(uExp, oExp || 1000, maxGain, true), 0.02);
 
       // If killing ally, then no experience
       if (battleType === "COMBAT" && villageIds.length === 1) {
@@ -631,6 +631,10 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   const { actor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
+  // Update round timer if new actor
+  if (actor.userId !== battle.activeUserId) {
+    battle.roundStartAt = now;
+  }
   // If we progress the battle round;
   // 1. refill action points
   // 2. update round info on battle
@@ -639,7 +643,6 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   if (progressRound) {
     const timeLeftInPrevRound = COMBAT_SECONDS - secondsPassed(battle.roundStartAt);
     refillActionPoints(battle);
-    battle.roundStartAt = now;
     battle.round = actionRound;
     // console.log("Action round: ", actionRound);
     battle.usersEffects.filter(filterForRoundDecrement).forEach((e) => {
@@ -783,6 +786,9 @@ export const processUsersForBattle = (info: {
     user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
       offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
     ) as offenceKey;
+
+    // Starting round
+    user.round = 1;
 
     // Add highest defence name to user
     const defences = {
