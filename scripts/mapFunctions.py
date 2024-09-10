@@ -59,7 +59,7 @@ if __name__ == '__main__':
         else:
             color=0
 
-        if(i == 51):
+        if(i == 51 or i == 272):
             color = 1
 
         new_tiles.append({

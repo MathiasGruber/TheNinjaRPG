@@ -450,7 +450,7 @@ export const IMG_SECTOR_VS_ICON =
 export const IMG_SECTOR_WALL_STONE_TOWER =
   "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
-  "https://utfs.io/f/2724000e-79d5-4b29-8894-5af2b648ccb4-ixejn7.json";
+  "https://utfs.io/f/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
 
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
