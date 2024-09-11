@@ -637,7 +637,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     // console.log("Action round: ", actionRound);
     battle.usersEffects.forEach((e) => {
       if (e.rounds !== undefined) {
-        if (!e.isNew) {
+        if (!e.castThisRound) {
           // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }
@@ -647,7 +647,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     });
     battle.groundEffects.forEach((e) => {
       if (e.rounds !== undefined) {
-        if (!e.isNew) {
+        if (!e.castThisRound) {
           // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }

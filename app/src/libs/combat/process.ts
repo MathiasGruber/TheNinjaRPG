@@ -322,7 +322,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
 
     // Process round reduction & tag removal
     if ((isEffectActive(e) && !e.fromGround) || e.type === "visual") {
-      e.isNew = e.createdRound === battle.round;
+      e.isNew = false;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
       newGroundEffects.push(
