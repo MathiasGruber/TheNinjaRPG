@@ -678,12 +678,17 @@ export const damageUser = (
     ...("elements" in effect && effect.elements ? effect.elements : []),
     ...("poolsAffected" in effect && effect.poolsAffected ? effect.poolsAffected : []),
   ];
-  consequences.set(effect.id, {
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    damage: damage,
-    types: types,
-  });
+  if (
+    (effect.isNew && effect.rounds === 0) ||
+    (!effect.isNew && (effect.rounds === undefined || effect.rounds > 0))
+  ) {
+    consequences.set(effect.id, {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      damage: damage,
+      types: types,
+    });
+  }
   return getInfo(target, effect, "will take damage");
 };
 
@@ -783,7 +788,10 @@ export const heal = (
       : power * applyTimes
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
-  if ((effect.rounds === 0 && effect.isNew) || !effect.isNew) {
+  if (
+    (effect.isNew && effect.rounds === 0) ||
+    (!effect.isNew && (effect.rounds === undefined || effect.rounds > 0))
+  ) {
     consequences.set(effect.id, {
       userId: effect.creatorId,
       targetId: effect.targetId,
@@ -1129,9 +1137,10 @@ export const stun = (
   const secondaryCheck = preventCheck(usersEffects, "stunprevent", target);
 
   let info: ActionEffect | undefined = undefined;
-  if (effect.isNew) {
+  if (effect.isNew && effect.rounds) {
     if (primaryCheck && secondaryCheck) {
       info = getInfo(target, effect, "is stunned");
+      effect.rounds -= 1;
     } else if (primaryCheck) {
       effect.rounds = 0;
       info = { txt: `${target.username} resisted being stunned`, color: "blue" };

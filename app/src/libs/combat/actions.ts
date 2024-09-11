@@ -160,6 +160,7 @@ export const availableUserActions = (
             range: userjutsu.jutsu.range,
             updatedAt: new Date(userjutsu.updatedAt).getTime(),
             cooldown: userjutsu.jutsu.cooldown,
+            lastUsedRound: userjutsu.lastUsedRound,
             healthCost: Math.max(
               0,
               userjutsu.jutsu.healthCost -
@@ -197,6 +198,7 @@ export const availableUserActions = (
               range: useritem.item.range,
               updatedAt: new Date(useritem.updatedAt).getTime(),
               cooldown: useritem.item.cooldown,
+              lastUsedRound: useritem.lastUsedRound,
               level: user?.level,
               healthCost: Math.max(
                 0,
@@ -228,9 +230,9 @@ export const availableUserActions = (
   // If we hide cooldowns, hide then
   if (hideCooldowned) {
     availableActions = availableActions.filter((a) => {
-      if (a.cooldown && a.cooldown > 0) {
-        const timePassed = (Date.now() - a.updatedAt) / 1000;
-        return timePassed >= a.cooldown * COMBAT_SECONDS;
+      if (a.cooldown && a.cooldown > 0 && a.lastUsedRound) {
+        const roundsPassed = (battle?.round || 0) - a.lastUsedRound;
+        return roundsPassed >= a.cooldown;
       }
       return true;
     });
@@ -270,7 +272,7 @@ export const insertAction = (info: {
 
   // Check for stun effects
   const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === actorId);
-  if (stunned && isEffectActive(stunned)) {
+  if (stunned && !stunned.isNew && isEffectActive(stunned)) {
     throw new Error("User is stunned");
   }
 
@@ -567,12 +569,12 @@ export const performBattleAction = (props: {
     const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
     if (!check) throw new Error(`Action no longer possible for ${user.username}`);
 
-    // Update the action updatedAt state, so as keep state for technique cooldowns
+    // Update the action state, so as keep state for technique cooldowns
     if (action.cooldown && action.cooldown > 0) {
       const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-      if (jutsu) jutsu.updatedAt = battle.roundStartAt;
+      if (jutsu) jutsu.lastUsedRound = battle.round;
       const item = user.items.find((i) => i.item.id === action.id);
-      if (item) item.updatedAt = battle.roundStartAt;
+      if (item) item.lastUsedRound = battle.round;
     }
   }
 
@@ -644,12 +646,16 @@ export const calcActiveUser = (
     const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
     const newIdx = (curIdx + 1) % inBattleuserIds.length;
     const curUser = usersInBattle.find((u) => u.userId === activeUserId);
-    if (curUser) curUser.round += 1;
-    if (usersInBattle.every((u) => u.round > battle.round)) progressRound = true;
+    if (curUser) curUser.round = battle.round;
+    if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
     activeUserId = inBattleuserIds[newIdx] || userId;
   }
+
   // Find the user in question, and return him
   const actor = usersInBattle.find((u) => u.userId === activeUserId);
   if (!actor) throw new Error("No active user");
-  return { actor, progressRound, mseconds, secondsLeft };
+  // Check if we have a new active user
+  const changedActor = actor.userId !== battle.activeUserId;
+  // Return info
+  return { actor, changedActor, progressRound, mseconds, secondsLeft };
 };

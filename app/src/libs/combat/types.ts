@@ -21,9 +21,11 @@ import type { UserWithRelations } from "@/routers/profile";
 export type BattleUserState = UserWithRelations & {
   jutsus: (UserJutsu & {
     jutsu: Jutsu;
+    lastUsedRound: number;
   })[];
   items: (UserItem & {
     item: Item;
+    lastUsedRound: number;
   })[];
   round: number;
   loadout?: { jutsuIds: string[] } | null;
@@ -131,6 +133,7 @@ export type CombatAction = {
   updatedAt: number;
   cooldown: number;
   effects: ZodAllTags[];
+  lastUsedRound?: number;
   data?: Jutsu | Item;
   level?: number;
   quantity?: number;

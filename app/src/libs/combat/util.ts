@@ -4,7 +4,7 @@ import { randomInt } from "@/utils/math";
 import { availableUserActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
-import { secondsPassed, secondsFromNow, secondsFromDate } from "@/utils/time";
+import { secondsPassed } from "@/utils/time";
 import { realizeTag } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -18,7 +18,7 @@ import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
-import { COMBAT_HEIGHT, COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
+import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -614,25 +614,16 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
   });
 };
 
-/**
- * Filters the given BattleEffect for round decrement.
- * @param effect - The BattleEffect to filter.
- * @returns True if the BattleEffect has rounds defined and is not new or cast this round, false otherwise.
- */
-const filterForRoundDecrement = (effect: BattleEffect) => {
-  return effect.rounds !== undefined && !effect.isNew && !effect.castThisRound;
-};
-
 /** Align battle based on timestamp to update:
  * - The proper round & activeUserId
  * - The action points of all users, in case of next round */
 export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   const now = new Date();
-  const { actor, progressRound } = calcActiveUser(battle, userId);
+  const { actor, changedActor, progressRound } = calcActiveUser(battle, userId);
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
   // Update round timer if new actor
-  if (actor.userId !== battle.activeUserId) {
+  if (changedActor) {
     battle.roundStartAt = now;
   }
   // If we progress the battle round;
@@ -641,33 +632,28 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   // 3. update all user effect rounds
   // 4. update all updatedAt fields on items & jutsus
   if (progressRound) {
-    const timeLeftInPrevRound = COMBAT_SECONDS - secondsPassed(battle.roundStartAt);
     refillActionPoints(battle);
     battle.round = actionRound;
     // console.log("Action round: ", actionRound);
-    battle.usersEffects.filter(filterForRoundDecrement).forEach((e) => {
-      if (e.rounds !== undefined && e.targetId === battle.activeUserId) {
-        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-        e.rounds = e.rounds - 1;
+    battle.usersEffects.forEach((e) => {
+      if (e.rounds !== undefined) {
+        if (!e.isNew) {
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          e.rounds = e.rounds - 1;
+        }
+        e.isNew = false;
+        e.castThisRound = false;
       }
     });
-    battle.groundEffects.filter(filterForRoundDecrement).forEach((e) => {
-      if (e.rounds !== undefined && e.creatorId === battle.activeUserId) {
-        // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
-        e.rounds = e.rounds - 1;
+    battle.groundEffects.forEach((e) => {
+      if (e.rounds !== undefined) {
+        if (!e.isNew) {
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          e.rounds = e.rounds - 1;
+        }
+        e.isNew = false;
+        e.castThisRound = false;
       }
-    });
-    battle.usersState.forEach((u) => {
-      u.items.forEach((i) => {
-        if (i.updatedAt) {
-          i.updatedAt = secondsFromDate(-timeLeftInPrevRound, new Date(i.updatedAt));
-        }
-      });
-      u.jutsus.forEach((j) => {
-        if (j.updatedAt) {
-          j.updatedAt = secondsFromDate(-timeLeftInPrevRound, new Date(j.updatedAt));
-        }
-      });
     });
   }
   // Update the active user on the battle
@@ -677,14 +663,14 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug
   // console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
-  return { actor, progressRound, actionRound, isStunned };
+  return { actor, progressRound, changedActor, actionRound, isStunned };
 };
 
 export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
   const stunned = battle.usersEffects.find(
     (e) => e.type === "stun" && e.targetId === userId,
   );
-  return stunned ? true : false;
+  return stunned && !stunned.isNew ? true : false;
 };
 
 export const rollInitiative = (
@@ -935,9 +921,7 @@ export const processUsersForBattle = (info: {
         );
       })
       .map((userjutsu) => {
-        userjutsu.updatedAt = secondsFromNow(
-          -userjutsu.jutsu.cooldown * COMBAT_SECONDS,
-        );
+        userjutsu.lastUsedRound = -userjutsu.jutsu.cooldown;
         return userjutsu;
       });
 
@@ -954,7 +938,7 @@ export const processUsersForBattle = (info: {
     }
 
     // Add item effects
-    const items: (UserItem & { item: Item })[] = [];
+    const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
     user.items.forEach((useritem) => {
       const itemType = useritem.item.itemType;
       const effects = useritem.item.effects as UserEffect[];
@@ -978,7 +962,7 @@ export const processUsersForBattle = (info: {
           });
         }
       } else {
-        useritem.updatedAt = secondsFromNow(-useritem.item.cooldown * COMBAT_SECONDS);
+        useritem.lastUsedRound = -useritem.item.cooldown;
         items.push(useritem);
       }
     });

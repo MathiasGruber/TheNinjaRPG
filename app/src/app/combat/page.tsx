@@ -113,6 +113,7 @@ export default function CombatPage() {
       {battle && userData?.status === "BATTLE" && (
         <ActionSelector
           items={actions}
+          currentRound={battle.round}
           showBgColor={true}
           showLabels={true}
           selectedId={actionId}

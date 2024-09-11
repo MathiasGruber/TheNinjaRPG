@@ -174,7 +174,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       }
       // Let ground effect continue, or is it done?
       if (isEffectActive(e) || e.type === "visual") {
-        e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
         newGroundEffects.push(
@@ -231,41 +230,43 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       // Get the user && effect details
       const curTarget = usersState.find((u) => u.userId === e.targetId);
       const newTarget = newUsersState.find((u) => u.userId === e.targetId);
-      const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
       const isSealed = sealCheck(e, sealEffects);
       const isTargetOrNew = e.targetId === actorId || e.isNew;
-      if (curUser && newUser && curTarget && newTarget && applyTimes > 0 && !isSealed) {
+      if (curUser && newUser && curTarget && newTarget && !isSealed) {
         appliedEffects.add(idx);
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
         // Tags only applied when target is user or new
         if (isTargetOrNew) {
-          if (e.type === "damage" && isTargetOrNew) {
-            info = damageUser(e, curUser, curTarget, consequences, applyTimes);
-          } else if (e.type === "heal" && isTargetOrNew) {
-            info = heal(e, curTarget, consequences, applyTimes);
-          } else if (e.type === "flee" && isTargetOrNew) {
-            info = flee(e, newUsersEffects, newTarget);
-          } else if (e.type === "increasepoolcost" && isTargetOrNew) {
-            info = increasepoolcost(e, curTarget);
-          } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
-            info = decreasepoolcost(e, curTarget);
-          } else if (e.type === "clear" && isTargetOrNew) {
-            info = clear(e, usersEffects, curTarget);
-          } else if (e.type === "cleanse" && isTargetOrNew) {
-            info = cleanse(e, usersEffects, curTarget);
-          } else if (e.type === "increasedamagegiven") {
-            info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "decreasedamagegiven") {
-            info = decreaseDamageGiven(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "onehitkill") {
-            info = onehitkill(e, newUsersEffects, newTarget);
-          } else if (e.type === "rob") {
-            info = rob(e, newUsersEffects, newUser, newTarget);
-          } else if (e.type === "seal") {
-            info = seal(e, newUsersEffects, curTarget);
-          } else if (e.type === "stun") {
-            info = stun(e, newUsersEffects, curTarget);
+          const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
+          if (applyTimes > 0) {
+            if (e.type === "damage" && isTargetOrNew) {
+              info = damageUser(e, curUser, curTarget, consequences, applyTimes);
+            } else if (e.type === "heal" && isTargetOrNew) {
+              info = heal(e, curTarget, consequences, applyTimes);
+            } else if (e.type === "flee" && isTargetOrNew) {
+              info = flee(e, newUsersEffects, newTarget);
+            } else if (e.type === "increasepoolcost" && isTargetOrNew) {
+              info = increasepoolcost(e, curTarget);
+            } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
+              info = decreasepoolcost(e, curTarget);
+            } else if (e.type === "clear" && isTargetOrNew) {
+              info = clear(e, usersEffects, curTarget);
+            } else if (e.type === "cleanse" && isTargetOrNew) {
+              info = cleanse(e, usersEffects, curTarget);
+            } else if (e.type === "increasedamagegiven") {
+              info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
+            } else if (e.type === "decreasedamagegiven") {
+              info = decreaseDamageGiven(e, usersEffects, consequences, curTarget);
+            } else if (e.type === "onehitkill") {
+              info = onehitkill(e, newUsersEffects, newTarget);
+            } else if (e.type === "rob") {
+              info = rob(e, newUsersEffects, newUser, newTarget);
+            } else if (e.type === "seal") {
+              info = seal(e, newUsersEffects, curTarget);
+            } else if (e.type === "stun") {
+              info = stun(e, newUsersEffects, curTarget);
+            }
           }
         }
 
@@ -321,7 +322,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
 
     // Process round reduction & tag removal
     if ((isEffectActive(e) && !e.fromGround) || e.type === "visual") {
-      e.isNew = false;
+      e.isNew = e.createdRound === battle.round;
       newUsersEffects.push(e);
     } else if (e.disappearAnimation && longitude && latitude) {
       newGroundEffects.push(

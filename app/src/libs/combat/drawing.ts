@@ -16,7 +16,7 @@ import {
 import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { getPossibleActionTiles, findHex } from "../hexgrid";
 import { Animations } from "./types";
-import { COMBAT_WIDTH, COMBAT_SECONDS } from "./constants";
+import { COMBAT_WIDTH } from "./constants";
 import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
 import { calcActiveUser } from "./actions";
@@ -657,10 +657,10 @@ export const highlightTiles = (info: {
   }
 
   // Check if cooldown for action has expired
-  const syncedTime = Date.now() - timeDiff;
   const isAvailable =
     !action?.cooldown ||
-    action.updatedAt < syncedTime - action.cooldown * 1000 * COMBAT_SECONDS;
+    !action?.lastUsedRound ||
+    battle.round - action.lastUsedRound >= action.cooldown;
 
   // Is this a move action (if so, we color the selected green tile blue instead)
   const hasMove = action?.effects?.find((e) => e.type === "move");

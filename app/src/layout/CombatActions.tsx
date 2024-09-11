@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import ContentImage from "./ContentImage";
 import { useUserData } from "@/utils/UserContext";
-import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { Info } from "lucide-react";
 import ElementImage from "@/layout/ElementImage";
 import { canChangeContent } from "@/utils/permissions";
@@ -12,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "src/libs/shadui";
-import type { ItemRarity } from "@/drizzle/schema";
+import { type ItemRarity } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 
 interface ActionSelectorProps {
@@ -27,13 +26,14 @@ interface ActionSelectorProps {
     effects?: ZodAllTags[];
     highlight?: boolean;
     hidden?: boolean | number;
-    updatedAt?: number | Date;
     cooldown?: number;
+    lastUsedRound?: number;
   }[];
   counts?: {
     id: string;
     quantity: number;
   }[];
+  currentRound?: number;
   roundFull?: boolean;
   hideBorder?: boolean;
   showBgColor: boolean;
@@ -102,13 +102,14 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
                 src={item.image}
                 isGreyed={isGreyed}
-                alt="sp"
+                alt={item.name}
                 warning={item?.warning}
                 roundFull={props.roundFull}
                 hideBorder={props.hideBorder}
                 rarity={item.rarity}
-                updatedAt={item.updatedAt}
                 cooldown={item.cooldown}
+                lastUsedRound={item.lastUsedRound}
+                currentRound={props.currentRound}
                 txt={props.showLabels ? item.name : ""}
                 count={props.counts?.find((c) => c.id === item.id)?.quantity}
                 labelSingles={props.labelSingles}
@@ -150,35 +151,20 @@ interface ActionOptionProps {
   roundFull?: boolean;
   hideBorder?: boolean;
   labelSingles?: boolean;
-  updatedAt?: number | Date;
   cooldown?: number;
+  currentRound?: number;
+  lastUsedRound?: number;
   onClick?: () => void;
 }
 
 export const ActionOption: React.FC<ActionOptionProps> = (props) => {
-  const { timeDiff } = useUserData();
-  const { cooldown, updatedAt } = props;
-  const [cooldownPerc, setCooldownPerc] = useState<number>(0);
-
-  // If cooldown, how much of the component is filled with cone
-  useEffect(() => {
-    if (cooldown && updatedAt) {
-      const interval = setInterval(() => {
-        // Calculate how much time left for cooldown
-        const syncedTime = new Date().getTime() - timeDiff;
-        const t = updatedAt instanceof Date ? updatedAt.getTime() : updatedAt;
-        const cooldownSeconds = COMBAT_SECONDS * cooldown;
-        const secondsLeft = (cooldownSeconds * 1000 + t - syncedTime) / 1000;
-        // Calculate percentage of cooldown
-        setCooldownPerc(Math.max((secondsLeft / cooldownSeconds) * 100, 0));
-        // Clear interval if cooldown is over
-        if (secondsLeft < 0) {
-          clearInterval(interval);
-        }
-      }, 500);
-      return () => clearInterval(interval);
-    }
-  }, [updatedAt, cooldown, timeDiff]);
+  const { cooldown, currentRound, lastUsedRound } = props;
+  const cooldownPerc = Math.max(
+    cooldown && currentRound && lastUsedRound
+      ? 100 - (100 * (currentRound - lastUsedRound)) / cooldown
+      : 0,
+    0,
+  );
 
   return (
     <div

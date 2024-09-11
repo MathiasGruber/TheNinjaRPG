@@ -201,7 +201,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       if (suid && battle.current && userId.current && !isPending && !result) {
-        const { actor } = calcActiveUser(battle.current, suid, timeDiff);
+        const { actor, changedActor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
         if (actor.isAi && !isPending) {
           performAction({
@@ -211,13 +211,13 @@ const Combat: React.FC<CombatProps> = (props) => {
         } else {
           // Scenario 2: more than 10 seconds passed, or actor is no longer the same as active user - refetch
           const updatePassed =
-            Date.now() - timeDiff - battle.current.updatedAt.getTime();
+            Date.now() - timeDiff - battle.current.roundStartAt.getTime();
           const createPassed =
             Date.now() - timeDiff - battle.current.createdAt.getTime();
           const check1 = updatePassed > COMBAT_SECONDS * 1000;
           const check2 = createPassed > (COMBAT_LOBBY_SECONDS + COMBAT_SECONDS) * 1000;
-          const newActor = actor.userId !== battle.current.activeUserId;
-          if ((check1 && check2) || newActor) {
+          if ((check1 && check2) || changedActor) {
+            battle.current.roundStartAt = new Date();
             void utils.combat.getBattle.invalidate();
           }
         }
