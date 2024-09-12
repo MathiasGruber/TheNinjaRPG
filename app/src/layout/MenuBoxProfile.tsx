@@ -430,8 +430,8 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         const baseType = dual
           ? val.type.replace("increase", "").replace("decrease", "")
           : val.type;
-        let value = val.power + val.level * val.powerPerLevel;
-        value = val.type.includes("decrease") ? -value : value;
+        const sign = val.type.includes("decrease") ? -1 : 1;
+        const value = Math.abs(val.power + val.level * val.powerPerLevel) * sign;
         // Already exists?
         cats.forEach((cat) => {
           const found = acc.find(
