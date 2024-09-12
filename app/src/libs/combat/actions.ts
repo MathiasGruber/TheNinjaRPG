@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag, AbsorbTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -79,13 +79,12 @@ export const availableUserActions = (
     level: user?.level,
     effects: [
       HealTag.parse({
-        power: calcCombatHealPercentage(user) * 10,
+        power: calcCombatHealPercentage(user),
         powerPerLevel: 0.0,
         calculation: "percentage",
         rounds: 0,
         appearAnimation: "heal",
       }),
-      AbsorbTag.parse({ power: 50, rounds: 2, poolsAffected: ["Health"] }),
     ],
   };
   const basicMove: CombatAction = {
