@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
-import { getTableColumns } from "drizzle-orm";
+import { getTableColumns, sql } from "drizzle-orm";
 import { eq, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
@@ -26,6 +26,47 @@ import sanitize from "@/utils/sanitize";
 const pusher = getServerPusher();
 
 export const reportsRouter = createTRPCRouter({
+  getReportStatistics: protectedProcedure.query(async ({ ctx }) => {
+    const [user, staff, timesReported, timesReporting, decisions] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      await ctx.drizzle
+        .select({
+          userId: userData.userId,
+          username: userData.username,
+          avatar: userData.avatar,
+        })
+        .from(userData)
+        .where(ne(userData.role, "USER")),
+      await ctx.drizzle
+        .select({
+          userId: userData.userId,
+          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+        })
+        .from(userReport)
+        .innerJoin(userData, eq(userData.userId, userReport.reportedUserId))
+        .groupBy(sql`${userReport.reportedUserId}`),
+      await ctx.drizzle
+        .select({
+          userId: userData.userId,
+          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+        })
+        .from(userReport)
+        .innerJoin(userData, eq(userData.userId, userReport.reporterUserId))
+        .groupBy(sql`${userReport.reporterUserId}`),
+      await ctx.drizzle
+        .select({
+          userId: userReportComment.userId,
+          count: sql<number>`COUNT(${userReportComment.id})`.mapWith(Number),
+          decision: userReportComment.decision,
+        })
+        .from(userReportComment)
+        .groupBy(sql`${userReportComment.userId}, ${userReportComment.decision}`),
+    ]);
+    if (user.role === "USER") {
+      throw serverError("UNAUTHORIZED", "You cannot view this page");
+    }
+    return { staff, timesReported, timesReporting, decisions };
+  }),
   getUserReports: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {

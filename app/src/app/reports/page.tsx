@@ -9,6 +9,8 @@ import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ParsedReportJson from "@/layout/ReportReason";
+import { Presentation } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -69,13 +71,13 @@ export default function Reports() {
         <div>
           <div className="flex flex-col items-start">
             {userData?.role !== "USER" && (
-              <div className="w-full">
+              <div className="w-full flex flex-row items-center gap-1">
                 <Form {...form}>
                   <FormField
                     control={form.control}
                     name="username"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="w-full">
                         <FormControl>
                           <Input placeholder="Search user" {...field} />
                         </FormControl>
@@ -84,6 +86,11 @@ export default function Reports() {
                     )}
                   />
                 </Form>
+                <Link href="/reports/statistics">
+                  <Button id="report-statistics">
+                    <Presentation className="h-6 w-6" />
+                  </Button>
+                </Link>
               </div>
             )}
             <div className="pb-2"></div>
