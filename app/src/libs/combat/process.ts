@@ -217,7 +217,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     // Determine whether the tags should stack
     const cacheCheck = BATTLE_TAG_STACKING
       ? true
-      : !appliedEffects.has(idx) || e.fromType === "bloodline";
+      : !appliedEffects.has(idx) ||
+        e.fromType === "bloodline" ||
+        e.fromType === "armor";
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier" && curUser) {
       const result = damageBarrier(newGroundEffects, curUser, e);
@@ -236,10 +238,11 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         appliedEffects.add(idx);
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
-        // Tags only applied when target is user or new
-        if (isTargetOrNew) {
-          const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId);
-          if (applyTimes > 0) {
+        // Figure if tag should be applied
+        const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId, isTargetOrNew);
+        if (applyTimes > 0) {
+          // Tags only applied when target is user or new
+          if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
               info = damageUser(e, curUser, curTarget, consequences, applyTimes);
             } else if (e.type === "heal" && isTargetOrNew) {
@@ -268,43 +271,43 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = stun(e, newUsersEffects, curTarget);
             }
           }
-        }
 
-        // Tags to apply always
-        if (e.type === "absorb") {
-          info = absorb(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "increasestat") {
-          info = increaseStats(e, curTarget);
-        } else if (e.type === "decreasestat") {
-          info = decreaseStats(e, curTarget);
-        } else if (e.type === "increasedamagetaken") {
-          info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "decreasedamagetaken") {
-          info = decreaseDamageTaken(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "increaseheal") {
-          info = increaseHealGiven(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "decreaseheal") {
-          info = decreaseHealGiven(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "reflect") {
-          info = reflect(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "recoil") {
-          info = recoil(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "lifesteal") {
-          info = lifesteal(e, usersEffects, consequences, curTarget);
-        } else if (e.type === "fleeprevent") {
-          info = fleePrevent(e, curTarget);
-        } else if (e.type === "onehitkillprevent") {
-          info = onehitkillPrevent(e, curTarget);
-        } else if (e.type === "robprevent") {
-          info = robPrevent(e, curTarget);
-        } else if (e.type === "sealprevent") {
-          info = sealPrevent(e, curTarget);
-        } else if (e.type === "stunprevent") {
-          info = stunPrevent(e, curTarget);
-        } else if (e.type === "summonprevent") {
-          info = summonPrevent(e, curTarget);
+          // Always apply
+          if (e.type === "absorb") {
+            info = absorb(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "increasestat") {
+            info = increaseStats(e, curTarget);
+          } else if (e.type === "decreasestat") {
+            info = decreaseStats(e, curTarget);
+          } else if (e.type === "increasedamagetaken") {
+            info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "decreasedamagetaken") {
+            info = decreaseDamageTaken(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "increaseheal") {
+            info = increaseHealGiven(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "decreaseheal") {
+            info = decreaseHealGiven(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "reflect") {
+            info = reflect(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "recoil") {
+            info = recoil(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "lifesteal") {
+            info = lifesteal(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "fleeprevent") {
+            info = fleePrevent(e, curTarget);
+          } else if (e.type === "onehitkillprevent") {
+            info = onehitkillPrevent(e, curTarget);
+          } else if (e.type === "robprevent") {
+            info = robPrevent(e, curTarget);
+          } else if (e.type === "sealprevent") {
+            info = sealPrevent(e, curTarget);
+          } else if (e.type === "stunprevent") {
+            info = stunPrevent(e, curTarget);
+          } else if (e.type === "summonprevent") {
+            info = summonPrevent(e, curTarget);
+          }
+          updateStatUsage(newTarget, e, true);
         }
-        updateStatUsage(newTarget, e, true);
       }
     }
 
@@ -343,6 +346,15 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           target.curHealth = Math.max(0, target.curHealth);
           actionEffects.push({
             txt: `${target.username} takes ${c.damage.toFixed(2)} damage`,
+            color: "red",
+            types: c.types,
+          });
+        }
+        if (c.residual && c.residual > 0) {
+          target.curHealth -= c.residual;
+          target.curHealth = Math.max(0, target.curHealth);
+          actionEffects.push({
+            txt: `${target.username} takes ${c.residual.toFixed(2)} residual damage`,
             color: "red",
             types: c.types,
           });

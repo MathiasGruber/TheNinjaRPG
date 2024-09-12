@@ -115,6 +115,7 @@ export const shouldApplyEffectTimes = (
   effect: UserEffect | GroundEffect,
   battle: ReturnedBattle,
   targetId: string,
+  trackResults: boolean,
 ) => {
   // Certain buff/debuffs are applied always (e.g. resolving against each attack)
   const alwaysApply: ZodAllTags["type"][] = [
@@ -148,7 +149,7 @@ export const shouldApplyEffectTimes = (
   }
   // Get latest application of effect to the given target
   let applyTimes = 1;
-  if (effect.rounds !== undefined && effect.timeTracker) {
+  if (trackResults && effect.rounds !== undefined && effect.timeTracker) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
       if (battle.round !== prevApply) {
@@ -638,7 +639,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     battle.usersEffects.forEach((e) => {
       if (e.rounds !== undefined) {
         if (!e.castThisRound) {
-          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }
         e.isNew = false;
@@ -648,7 +649,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     battle.groundEffects.forEach((e) => {
       if (e.rounds !== undefined) {
         if (!e.castThisRound) {
-          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }
         e.isNew = false;
@@ -670,7 +671,7 @@ export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
   const stunned = battle.usersEffects.find(
     (e) => e.type === "stun" && e.targetId === userId,
   );
-  return stunned && !stunned.isNew ? true : false;
+  return stunned && !stunned.castThisRound && isEffectActive(stunned) ? true : false;
 };
 
 export const rollInitiative = (
@@ -774,7 +775,7 @@ export const processUsersForBattle = (info: {
     ) as offenceKey;
 
     // Starting round
-    user.round = 1;
+    user.round = 0;
 
     // Add highest defence name to user
     const defences = {
@@ -939,33 +940,35 @@ export const processUsersForBattle = (info: {
 
     // Add item effects
     const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
-    user.items.forEach((useritem) => {
-      const itemType = useritem.item.itemType;
-      const effects = useritem.item.effects as UserEffect[];
-      effects
-        .filter((e) => e.type === "summon")
-        .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-      if (itemType === "ARMOR" || itemType === "ACCESSORY") {
-        if (useritem.item.effects && useritem.equipped !== "NONE") {
-          effects.forEach((effect) => {
-            const realized = realizeTag({
-              tag: effect,
-              user,
-              target: user,
-              level: user.level,
+    user.items
+      .filter((useritem) => !useritem.item.preventBattleUsage)
+      .forEach((useritem) => {
+        const itemType = useritem.item.itemType;
+        const effects = useritem.item.effects as UserEffect[];
+        effects
+          .filter((e) => e.type === "summon")
+          .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
+        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
+          if (useritem.item.effects && useritem.equipped !== "NONE") {
+            effects.forEach((effect) => {
+              const realized = realizeTag({
+                tag: effect,
+                user,
+                target: user,
+                level: user.level,
+              });
+              realized.isNew = false;
+              realized.fromType = "armor";
+              realized.castThisRound = false;
+              realized.targetId = user.userId;
+              userEffects.push(realized);
             });
-            realized.isNew = false;
-            realized.fromType = "armor";
-            realized.castThisRound = false;
-            realized.targetId = user.userId;
-            userEffects.push(realized);
-          });
+          }
+        } else {
+          useritem.lastUsedRound = -useritem.item.cooldown;
+          items.push(useritem);
         }
-      } else {
-        useritem.lastUsedRound = -useritem.item.cooldown;
-        items.push(useritem);
-      }
-    });
+      });
     user.items = items;
 
     // Base values

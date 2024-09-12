@@ -678,15 +678,16 @@ export const damageUser = (
     ...("elements" in effect && effect.elements ? effect.elements : []),
     ...("poolsAffected" in effect && effect.poolsAffected ? effect.poolsAffected : []),
   ];
-  if (
-    (effect.isNew && effect.rounds === 0) ||
-    (!effect.isNew && (effect.rounds === undefined || effect.rounds > 0))
-  ) {
+  const thisRound = effect.castThisRound;
+  const instant = thisRound && effect.rounds === 0;
+  const residual = !thisRound && (effect.rounds === undefined || effect.rounds > 0);
+  if (instant || residual) {
     consequences.set(effect.id, {
       userId: effect.creatorId,
       targetId: effect.targetId,
-      damage: damage,
       types: types,
+      ...(instant ? { damage: damage } : {}),
+      ...(residual ? { residual: damage } : {}),
     });
   }
   return getInfo(target, effect, "will take damage");
@@ -789,8 +790,8 @@ export const heal = (
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if (
-    (effect.isNew && effect.rounds === 0) ||
-    (!effect.isNew && (effect.rounds === undefined || effect.rounds > 0))
+    (effect.castThisRound && effect.rounds === 0) ||
+    (!effect.castThisRound && (effect.rounds === undefined || effect.rounds > 0))
   ) {
     consequences.set(effect.id, {
       userId: effect.creatorId,
@@ -850,7 +851,7 @@ export const reflect = (
                   ? consequence.damage
                   : power,
             ) * ratio;
-          consequence.damage -= convert;
+          // consequence.damage -= convert;
           consequence.reflect = convert;
         }
       }
@@ -1140,7 +1141,6 @@ export const stun = (
   if (effect.isNew && effect.rounds) {
     if (primaryCheck && secondaryCheck) {
       info = getInfo(target, effect, "is stunned");
-      effect.rounds -= 1;
     } else if (primaryCheck) {
       effect.rounds = 0;
       info = { txt: `${target.username} resisted being stunned`, color: "blue" };
@@ -1171,10 +1171,12 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
   if (!("aiId" in effect)) {
     throw new Error("Summon effect must have aiId");
   }
-  if (effect.isNew) {
+  if (effect.isNew && effect.castThisRound) {
+    effect.isNew = false;
     if (user && "aiHp" in effect) {
       const ai = usersState.find((u) => u.userId === effect.aiId);
-      if (ai) {
+      const obj = usersState.find((u) => u.username === ai?.username && u.curHealth);
+      if (ai && !obj) {
         const newAi = structuredClone(ai);
         // Place on battlefield
         newAi.userId = nanoid();

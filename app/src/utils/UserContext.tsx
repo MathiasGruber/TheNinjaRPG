@@ -1,19 +1,18 @@
 "use client";
 
 import React, { createContext, useEffect, useState } from "react";
-import Pusher from "pusher-js";
 import { parseHtml } from "@/utils/parse";
 import { useContext } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/app/_trpc/client";
 import { secondsFromDate } from "@/utils/time";
-import Link from "next/link";
 import { showMutationToast } from "@/libs/toast";
-import { ToastAction } from "@/components/ui/toast";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { canAccessStructure } from "@/utils/village";
 import { atom } from "jotai";
+import { usePusherHandler } from "@/layout/PusherHandler";
+import type Pusher from "pusher-js";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/api/routers/profile";
 import type { ReturnedBattle } from "@/libs/combat/types";
@@ -55,16 +54,14 @@ export const UserContext = createContext<{
  * @returns The UserContextProvider component.
  */
 export function UserContextProvider(props: { children: React.ReactNode }) {
-  // tRPC utility
-  const utils = api.useUtils();
   // Clerk token
   const [token, setToken] = useState<string | null>(null);
-  // Pusher connection
-  const [pusher, setPusher] = useState<Pusher | undefined>(undefined);
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
   // Get logged in user
   const { userId, sessionId, isSignedIn, isLoaded, getToken } = useAuth();
+  // Listen on user channel for live updates on things
+  const pusher = usePusherHandler(userId);
   // Set the token from clerk
   useEffect(() => {
     if (isSignedIn && isLoaded) {
@@ -102,42 +99,6 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       setTimeDiff(discrepancy);
     }
   }, [data?.userData, data?.serverTime]);
-  // Listen on user channel for live updates on things
-  useEffect(() => {
-    if (userId) {
-      // Pusher Channel
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-      });
-      setPusher(pusher);
-      const channel = pusher.subscribe(userId);
-      channel.bind("event", async (data: UserEvent) => {
-        if (data.type === "battle") {
-          console.log("Received battle event");
-        } else if (data.type === "newInbox") {
-          console.log("Received inbox");
-        } else if (data.type === "userMessage") {
-          showMutationToast({
-            success: true,
-            message: data.message ?? "You have a new message",
-            title: "Notification!",
-            action: (
-              <ToastAction altText="To Arena">
-                <Link href={data.route ?? "/battlearena"}>
-                  {data.routeText ?? "To Profile"}
-                </Link>
-              </ToastAction>
-            ),
-          });
-        }
-        await utils.invalidate();
-      });
-      return () => {
-        pusher.unsubscribe(userId);
-        pusher.disconnect();
-      };
-    }
-  }, [userId, utils]);
   // Show user notifications in toast
   useEffect(() => {
     data?.notifications
@@ -165,14 +126,6 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
     </UserContext.Provider>
   );
 }
-
-// Events sent to the user from websockets
-export type UserEvent = {
-  type: string;
-  message?: string;
-  route?: string;
-  routeText?: string;
-};
 
 // Easy hook for getting the current user data
 export const useUserData = () => {

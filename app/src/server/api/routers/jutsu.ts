@@ -248,16 +248,26 @@ export const jutsuRouter = createTRPCRouter({
           ...input.data,
         });
         // Update database
-        await ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id));
-        await ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "jutsu",
-          changes: diff,
-          relatedId: entry.id,
-          relatedMsg: `Update: ${entry.name}`,
-          relatedImage: entry.image,
-        });
+        await Promise.all([
+          ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id)),
+          ctx.drizzle.insert(actionLog).values({
+            id: nanoid(),
+            userId: ctx.userId,
+            tableName: "jutsu",
+            changes: diff,
+            relatedId: entry.id,
+            relatedMsg: `Update: ${entry.name}`,
+            relatedImage: entry.image,
+          }),
+          ...(input.data.hidden
+            ? [
+                ctx.drizzle
+                  .update(userJutsu)
+                  .set({ equipped: 0 })
+                  .where(eq(userJutsu.jutsuId, entry.id)),
+              ]
+            : []),
+        ]);
         if (process.env.NODE_ENV !== "development") {
           await callDiscordContent(user.username, entry.name, diff, entry.image);
         }

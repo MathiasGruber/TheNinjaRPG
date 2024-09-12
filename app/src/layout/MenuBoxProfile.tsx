@@ -409,6 +409,7 @@ interface VisualizeEffectsProps {
 
 const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) => {
   // Get sealing effects
+  console.log(effects);
   const sealEffects = effects.filter((e) => e.type === "seal" && !e.isNew);
   // Collapse consequences based on their type & calculation type
   const collapsedEffects =
@@ -418,7 +419,6 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
       .filter((e) => e.rounds === undefined || e.rounds > 0)
       .reduce((acc, val) => {
         // Convenience
-        const value = val.power + val.level * val.powerPerLevel;
         const stats = [
           ...(("statTypes" in val && val?.statTypes) || []),
           ...(("generalTypes" in val && val?.generalTypes) || []),
@@ -430,6 +430,8 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         const baseType = dual
           ? val.type.replace("increase", "").replace("decrease", "")
           : val.type;
+        let value = val.power + val.level * val.powerPerLevel;
+        value = val.type.includes("decrease") ? -value : value;
         // Already exists?
         cats.forEach((cat) => {
           const found = acc.find(

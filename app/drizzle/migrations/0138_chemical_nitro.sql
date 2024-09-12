@@ -1,0 +1,1 @@
+ALTER TABLE `Item` ADD `preventBattleUsage` boolean DEFAULT false NOT NULL;

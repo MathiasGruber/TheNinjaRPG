@@ -169,6 +169,7 @@ export type Consequence = {
   heal_sp?: number;
   heal_cp?: number;
   damage?: number;
+  residual?: number;
   reflect?: number;
   recoil?: number;
   lifesteal_hp?: number;
@@ -981,6 +982,7 @@ export const ItemValidator = z
     canStack: z.coerce.boolean(),
     inShop: z.coerce.boolean(),
     isEventItem: z.coerce.boolean(),
+    preventBattleUsage: z.coerce.boolean(),
     hidden: z.coerce.boolean(),
     cooldown: z.coerce.number().int().min(0).max(300),
     cost: z.coerce.number().int().min(0),

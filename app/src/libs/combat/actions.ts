@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag, AbsorbTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -7,7 +7,7 @@ import { applyEffects } from "@/libs/combat/process";
 import { calcPoolCost } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcIsStunned } from "@/libs/combat/util";
-import { isEffectActive, getBarriersBetween } from "@/libs/combat/util";
+import { getBarriersBetween } from "@/libs/combat/util";
 import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
@@ -79,12 +79,13 @@ export const availableUserActions = (
     level: user?.level,
     effects: [
       HealTag.parse({
-        power: calcCombatHealPercentage(user),
+        power: calcCombatHealPercentage(user) * 10,
         powerPerLevel: 0.0,
         calculation: "percentage",
         rounds: 0,
         appearAnimation: "heal",
       }),
+      AbsorbTag.parse({ power: 50, rounds: 2, poolsAffected: ["Health"] }),
     ],
   };
   const basicMove: CombatAction = {
@@ -271,10 +272,7 @@ export const insertAction = (info: {
   }
 
   // Check for stun effects
-  const stunned = usersEffects.find((e) => e.type === "stun" && e.targetId === actorId);
-  if (stunned && !stunned.isNew && isEffectActive(stunned)) {
-    throw new Error("User is stunned");
-  }
+  if (calcIsStunned(battle, actorId)) throw new Error("User is stunned");
 
   // Check if the user can perform the action
   const userHex = user.hex;

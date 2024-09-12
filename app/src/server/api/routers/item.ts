@@ -97,16 +97,26 @@ export const itemRouter = createTRPCRouter({
           ...input.data,
         });
         // Update database
-        await ctx.drizzle.update(item).set(input.data).where(eq(item.id, input.id));
-        await ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "item",
-          changes: diff,
-          relatedId: entry.id,
-          relatedMsg: `Update: ${entry.name}`,
-          relatedImage: entry.image,
-        });
+        await Promise.all([
+          ctx.drizzle.update(item).set(input.data).where(eq(item.id, input.id)),
+          ctx.drizzle.insert(actionLog).values({
+            id: nanoid(),
+            userId: ctx.userId,
+            tableName: "item",
+            changes: diff,
+            relatedId: entry.id,
+            relatedMsg: `Update: ${entry.name}`,
+            relatedImage: entry.image,
+          }),
+          ...(input.data.hidden
+            ? [
+                ctx.drizzle
+                  .update(userItem)
+                  .set({ equipped: "NONE" })
+                  .where(eq(userItem.itemId, entry.id)),
+              ]
+            : []),
+        ]);
         if (process.env.NODE_ENV !== "development") {
           await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
