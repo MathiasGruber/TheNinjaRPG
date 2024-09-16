@@ -1553,6 +1553,7 @@ export const village = mysqlTable(
     populationCount: int("populationCount").default(0).notNull(),
     allianceSystem: boolean("allianceSystem").default(true).notNull(),
     joinable: boolean("joinable").default(true).notNull(),
+    pvpEnabled: boolean("pvpEnabled").default(true).notNull(),
     villageLogo: varchar("villageLogo", { length: 191 }).default("").notNull(),
     villageGraphic: varchar("villageGraphic", { length: 191 }).default("").notNull(),
   },

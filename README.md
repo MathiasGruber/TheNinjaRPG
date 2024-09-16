@@ -21,6 +21,7 @@ To get started, copy `app/.env.example` to `app/.env` and fill in all variables 
 - Run `make dbpush` to setup database.
 - Run `make seed` to seed database.
 - Go to `http://localhost:3000` to view.
+- Go to `http://localhost:3001` to manage database.
 
 # :bookmark: Local Development Guide
 

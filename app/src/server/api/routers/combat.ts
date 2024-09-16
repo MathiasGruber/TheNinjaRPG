@@ -714,10 +714,10 @@ export const initiateBattle = async (
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
 
-  // Check if the villageData is a safezone
+  // Check if the villageData is in a pvp enabled zone
   const sectorData = villages.find((v) => v.sector === sector);
-  if (sectorData?.type === "SAFEZONE") {
-    return { success: false, message: "Cannot attack in a safezone" };
+  if (!sectorData?.pvpEnabled) {
+    return { success: false, message: "Cannot attack in this zone" };
   }
 
   // Loop through each user
