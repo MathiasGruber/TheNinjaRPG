@@ -55,14 +55,14 @@ export async function GET() {
         eq(paypalSubscription.status, "ACTIVE"),
         isNull(paypalSubscription.orderId),
         lte(
-          paypalSubscription.createdAt,
+          paypalSubscription.updatedAt,
           new Date(Date.now() - 1000 * 60 * 60 * 24 * 31),
         ),
       ),
     });
     void repSubscriptions.map(async (subscription) => {
       const isDone =
-        new Date(subscription.createdAt) <
+        new Date(subscription.updatedAt) <
         new Date(Date.now() - 1000 * 60 * 60 * 24 * 31);
       await drizzleDB
         .update(paypalSubscription)

@@ -428,13 +428,16 @@ export const updateSubscription = async (input: {
   status: string;
 }) => {
   return await input.client.transaction(async (tx) => {
+    const current = await tx.query.paypalSubscription.findFirst({
+      where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
+    });
+    if (current && current.updatedAt > secondsFromNow(-3600 * 24 * 31)) {
+      return { rowsAffected: 0 };
+    }
     await tx
       .update(userData)
       .set({ federalStatus: input.federalStatus })
       .where(eq(userData.userId, input.affectedUserId));
-    const current = await tx.query.paypalSubscription.findFirst({
-      where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
-    });
     if (current) {
       return await tx
         .update(paypalSubscription)
