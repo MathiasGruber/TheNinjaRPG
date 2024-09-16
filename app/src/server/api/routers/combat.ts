@@ -716,8 +716,8 @@ export const initiateBattle = async (
 
   // Check if the villageData is in a pvp enabled zone
   const sectorData = villages.find((v) => v.sector === sector);
-  if (sectorData?.pvpDisabled) {
-    return { success: false, message: "Cannot attack in this zone" };
+  if (sectorData?.pvpDisabled && battleType === "COMBAT") {
+    return { success: false, message: "Cannot PvP in this zone" };
   }
 
   // Loop through each user
