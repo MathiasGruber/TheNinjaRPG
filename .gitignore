@@ -3,3 +3,4 @@
 .pnpm-store
 scripts/clerk_migration.ipynb
 scripts/discord_analysis.ipynb
+*.pem
