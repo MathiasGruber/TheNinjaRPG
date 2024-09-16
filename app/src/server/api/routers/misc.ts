@@ -3,7 +3,6 @@ import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
 import { sql, and, desc, eq } from "drizzle-orm";
-import { NodeHtmlMarkdown } from "node-html-markdown";
 import { notification, userData, gameSetting, captcha } from "@/drizzle/schema";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
@@ -16,7 +15,6 @@ import { secondsFromNow } from "@/utils/time";
 import { callDiscordTicket } from "@/libs/discord";
 import { TicketTypes } from "@/validators/misc";
 import { createTicketSchema } from "@/validators/misc";
-import PushNotifications from "@pusher/push-notifications-server";
 import type { DrizzleClient } from "@/server/db";
 
 export const miscRouter = createTRPCRouter({
@@ -37,29 +35,6 @@ export const miscRouter = createTRPCRouter({
       if (!user || !sender) return errorResponse("User not found");
       if (user.userId !== sender.userId && !sender.isAi) {
         return errorResponse("You or an AI must be marked as sender");
-      }
-      // Push notifications
-      const instanceId = process.env.NEXT_PUBLIC_PUSHER_BEAM_ID;
-      const secretKey = process.env.PUSHER_BEAM_SECRET;
-      if (instanceId && secretKey) {
-        const nhm = new NodeHtmlMarkdown({}, undefined, undefined);
-        const client = new PushNotifications({ instanceId, secretKey });
-        client
-          .publishToInterests(["global"], {
-            web: {
-              notification: {
-                title: "TheNinja-RPG",
-                body: nhm.translate(input.content),
-                deep_link: "https://www.theninja-rpg.com",
-              },
-            },
-          })
-          .then((publishResponse) => {
-            console.log("Just published:", publishResponse.publishId);
-          })
-          .catch((error) => {
-            console.log("Error:", error);
-          });
       }
       // Update database
       const [result] = await Promise.all([

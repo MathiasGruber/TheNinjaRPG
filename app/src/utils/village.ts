@@ -1,7 +1,7 @@
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/routers/profile";
 import type { Village, VillageStructure, VillageAlliance } from "@/drizzle/schema";
-import type { StructureRoute } from "@/drizzle/seeds/village";
+import type { StructureRoute } from "@/drizzle/constants";
 
 /**
  * Checks if a user can access a specific structure in a village.

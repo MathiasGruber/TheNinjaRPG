@@ -6,14 +6,14 @@ import { z } from "zod";
  * This way you can ensure the app isn't built with invalid env vars.
  */
 export const serverSchema = z.object({
-  OPENAI_API_KEY: z.string(),
+  OPENAI_API_KEY: z.string().optional(),
   PUSHER_APP_ID: z.string(),
   PUSHER_APP_SECRET: z.string(),
   DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
-  DISCORD_CONTENT_UPDATES: z.string().url(),
-  DISCORD_NEWS_UPDATES: z.string().url(),
-  DISCORD_TICKETS: z.string().url(),
+  DISCORD_CONTENT_UPDATES: z.string().url().optional(),
+  DISCORD_NEWS_UPDATES: z.string().url().optional(),
+  DISCORD_TICKETS: z.string().url().optional(),
   REPLICATE_API_TOKEN: z.string(),
   CAPTCHA_SALT: z.string(),
 });
@@ -45,7 +45,8 @@ export const clientSchema = z.object({
   NEXT_PUBLIC_PUSHER_APP_KEY: z.string(),
   NEXT_PUBLIC_PUSHER_APP_CLUSTER: z.string(),
   NEXT_PUBLIC_BASE_URL: z.string().url(),
-  NEXT_PUBLIC_MEASUREMENT_ID: z.string(),
+  NEXT_PUBLIC_MEASUREMENT_ID: z.string().optional(),
+  NEXT_PUBLIC_NODE_ENV: z.enum(["development", "test", "production"]),
 });
 
 /**
@@ -59,4 +60,5 @@ export const clientEnv = {
   NEXT_PUBLIC_PUSHER_APP_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
   NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   NEXT_PUBLIC_MEASUREMENT_ID: process.env.NEXT_PUBLIC_MEASUREMENT_ID,
+  NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
 };

@@ -1157,7 +1157,7 @@ export const userData = mysqlTable(
     earnedExperience: int("earnedExperience").default(0).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
-    level: tinyint("level").default(1).notNull(),
+    level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),

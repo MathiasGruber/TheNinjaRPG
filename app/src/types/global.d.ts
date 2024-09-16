@@ -1,14 +1,10 @@
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
-      AWS_S3_BUCKET_NAME: string;
-      AWS_ACCESS_KEY_ID: string;
-      AWS_REGION: string;
       DATABASE_URL: string;
       DISCORD_TICKETS: string;
       DISCORD_CONTENT_UPDATES: string;
       DISCORD_NEWS_UPDATES: string;
-      AWS_SECRET_ACCESS_KEY: string;
       REPLICATE_API_TOKEN: string;
       CAPTCHA_SALT: string;
       PUSHER_APP_ID: string;

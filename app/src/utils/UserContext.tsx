@@ -16,7 +16,7 @@ import type Pusher from "pusher-js";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/api/routers/profile";
 import type { ReturnedBattle } from "@/libs/combat/types";
-import type { StructureRoute } from "@/drizzle/seeds/village";
+import type { StructureRoute } from "@/drizzle/constants";
 
 /**
  * Atom for storing combat action¨

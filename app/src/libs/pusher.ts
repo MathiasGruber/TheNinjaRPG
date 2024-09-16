@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { env } from "@/env/server.mjs";
 import type { UserStatus } from "@/drizzle/constants";
 
 // declare Pusher class with async send method
@@ -35,14 +36,15 @@ export class Pusher {
 
     // Send event to pusher using fetch, use try/catch to handle errors
     try {
-      await fetch(
-        `https://api-${this.cluster}.pusher.com/apps/${this.app_id}/events?auth_key=${this.key}&auth_timestamp=${timestamp}&auth_version=1.0&body_md5=${md5}&auth_signature=${signature}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: body,
-        },
-      );
+      const endpoint =
+        env.NODE_ENV === "development"
+          ? `http://socketi:6001/apps/${this.app_id}/events?auth_key=${this.key}&auth_timestamp=${timestamp}&auth_version=1.0&body_md5=${md5}&auth_signature=${signature}`
+          : `https://api-${this.cluster}.pusher.com/apps/${this.app_id}/events?auth_key=${this.key}&auth_timestamp=${timestamp}&auth_version=1.0&body_md5=${md5}&auth_signature=${signature}`;
+      await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body,
+      });
     } catch (error) {
       console.log("Error", error);
     }

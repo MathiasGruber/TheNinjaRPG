@@ -15,7 +15,7 @@ import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import type { LetterRank, QuestType } from "@/drizzle/constants";
 
 const client = new OpenAI({
-  apiKey: serverEnv.OPENAI_API_KEY,
+  apiKey: serverEnv.OPENAI_API_KEY || "",
   maxRetries: 0,
 });
 

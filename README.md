@@ -4,21 +4,19 @@ This is the official source code for the game [www.TheNinja-RPG.com](www.TheNinj
 
 # :computer: Setting up locally
 
-The codebase relies on a variety of external services for e.g. auth, websockets, database, etc - all of these have free tiers more than capable of sustaining local development. To get up and running, it is therefore required to sign up for free accounts on the following services:
+The codebase relies on a variety of external services for e.g. auth, websockets, database, etc. Some of these are next to impossible to replicate locally, but provide free (or very cheap) tiers. To get up and running, it is therefore required to sign up for free accounts on the following services:
 
-- https://clerk.com/ - for auth
-- https://planetscale.com/ - for database
-- https://pusher.com/ - for websockets
-- https://upstash.com/ - for redis
+- https://clerk.com/ - for auth (required)
+- https://uploadthing.com/ - for file uploads (optional)
+- https://replicate.com/ - for AI inference (optional)
 
 The following videos on youtube are recommended to get up to speed with different components of the stack:
 
 - The official TheNinja-RPG youtube, [TNR DevLog](https://www.youtube.com/watch?v=m29HidoaGqM&list=PLKGedXg3BVNJAW2nNioLEv1tcQjiwrOgA)
 - Next.js, Clerk, tRPC, Planetscale, tailwind: [T3 Stack Tutorial ](https://www.youtube.com/watch?v=YkOSUVzOAA4)
 - Drizzle ORM: [DrizzleORM Pitch](https://www.youtube.com/watch?v=_SLxGYzv6jo)
-- Upstash: [Rate-Limit with UpStash](https://www.youtube.com/watch?v=yfGCmSjGIxk)
 
-Using information from these services, copy `app/.env.example` to `app/.env` and fill in all variables related to these services (`*CLERK*`, `DATABASE_URL`, `UPSTASH*`, and `*PUSHER*`). The project is bootstrapped using [VScode devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) and docker, making it as easy as possible to get up and running. The recommended way of spinning up locally, therefore, is to open the project in VSCode, and then open the VScode devcontainer in the lower left corner. This should set up the entire development environment.
+To get started, copy `app/.env.example` to `app/.env` and fill in all variables related to services (`*CLERK*`, `REPLICATE*`, `UPLOADTHING*`). The project is bootstrapped using [VScode devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) and docker, making it as easy as possible to get up and running. The recommended way of spinning up locally, therefore, is to open the project in VSCode, and then open the VScode devcontainer in the lower left corner. This should set up the entire development environment.
 
 - Run `make dbpush` to setup database.
 - Run `make seed` to seed database.

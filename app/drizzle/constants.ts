@@ -45,6 +45,26 @@ export const ItemSlotTypes = [
   "NONE",
 ] as const;
 
+export const StructureRoutes = [
+  "",
+  "/adminbuilding",
+  "/anbu",
+  "/bank",
+  "/battlearena",
+  "/blackmarket",
+  "/clanhall",
+  "/home",
+  "/hospital",
+  "/itemshop",
+  "/missionhall",
+  "/ramenshop",
+  "/science",
+  "/souvenirs",
+  "/townhall",
+  "/traininggrounds",
+] as const;
+export type StructureRoute = (typeof StructureRoutes)[number];
+
 export const ItemSlots = [
   "HEAD",
   "CHEST",

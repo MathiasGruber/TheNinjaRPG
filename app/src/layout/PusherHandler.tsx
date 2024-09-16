@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { showMutationToast } from "@/libs/toast";
 import { ToastAction } from "@/components/ui/toast";
+import { env } from "@/env/client.mjs";
 
 // Events sent to the user from websockets
 export type UserEvent = {
@@ -30,9 +31,22 @@ export const usePusherHandler = (userId?: string | null) => {
   useEffect(() => {
     if (userId) {
       // Pusher Channel
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
-      });
+      const pusher = new Pusher(
+        process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
+        env.NEXT_PUBLIC_NODE_ENV === "development"
+          ? {
+              wsHost: "localhost",
+              wsPort: 6001,
+              wssPort: 6001,
+              forceTLS: false,
+              disableStats: true,
+              enabledTransports: ["ws", "wss"],
+              cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+            }
+          : {
+              cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
+            },
+      );
       setPusher(pusher);
       const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {

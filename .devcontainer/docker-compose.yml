@@ -1,6 +1,9 @@
 version: "3.9"
 
 services:
+  ####################################
+  ##  VSCode Development Container  ##
+  ####################################
   devcontainer:
     container_name: tnr_devcontainer
     # SHARING GIT CREDENTIALS:
@@ -24,6 +27,9 @@ services:
     entrypoint: /usr/local/share/docker-init.sh
     command: sh -c "cd /workspace && ls && sleep infinity"
 
+  ####################################
+  ##          Web Application       ##
+  ####################################
   app:
     container_name: tnr_app
     restart: unless-stopped
@@ -43,6 +49,78 @@ services:
       - shared-pnpm-store:/workspace/app/.pnpm-store
     command: bash -c "pnpm dev"
 
+  ####################################
+  ## Services for local development ##
+  ####################################
+
+  # MySQL database - Local placeholder for PlanetScale service
+  db:
+    container_name: tnr_mysql
+    image: mysql:latest
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # PHPMyAdmin - local database management
+  phpmyadmin:
+    container_name: tnr_phpmyadmin
+    image: phpmyadmin:latest
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      - db
+    ports:
+      - "3001:80"
+
+  # Planetscale - local proxy replacement
+  # Options:
+  # - https://github.com/samlaycock/planetscale-local (not working)
+  # - https://github.com/mattrobenolt/ps-http-sim
+  planetscale:
+    container_name: tnr_planetscale
+    image: ghcr.io/mattrobenolt/ps-http-sim:latest
+    command: ["-listen-port=8080", "-mysql-dbname=tnr", "-mysql-addr=db"]
+    depends_on:
+      - db
+    ports:
+      - 3002:8080
+    environment:
+      - MYSQL_URL=mysql://tnr:placeholder@db:3306/tnr
+      - PORT=8080
+
+  # Redis server - Local placeholder for Upstash service
+  redis:
+    container_name: tnr_redis
+    image: redis
+    restart: always
+    ports:
+      - "6379:6379"
+  serverless-redis-http:
+    container_name: tnr_redis_http
+    image: hiett/serverless-redis-http:latest
+    restart: always
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: placeholder
+      SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
+
+  # SocketI server for websockets - Local Placeholder for Pusher.io service
+  socketi:
+    container_name: tnr_socketi
+    image: quay.io/soketi/soketi:1.4-16-debian
+    restart: always
+    ports:
+      - "6001:6001"
+      - "9601:9601"
+
 volumes:
   shared-node_modules:
   shared-pnpm-store:
+  mysql_data:
