@@ -6,13 +6,17 @@ import { CommentOnConversation } from "@/layout/Comment";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
+import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
-import { mutateCommentSchema } from "../validators/comments";
+import { Check } from "lucide-react";
+import { mutateCommentSchema } from "@/validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
-import type { MutateCommentSchema } from "../validators/comments";
+import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
+import type { MutateCommentSchema } from "@/validators/comments";
 
 interface ConversationProps {
   convo_title?: string;
@@ -30,6 +34,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const { data: userData, pusher } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
+  const [quietTime, setQuietTime] = useState<Date>(
+    secondsFromNow(CONVERSATION_QUIET_MINS * 60),
+  );
+  const silence = new Date() > quietTime;
 
   const queryKey = {
     convo_id: props.convo_id,
@@ -38,11 +46,11 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     refreshKey: props.refreshKey,
   };
 
+  // Fetch comments
   const {
     data: comments,
     fetchNextPage,
     hasNextPage,
-    refetch,
     isPending,
   } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
@@ -53,8 +61,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
 
+  // tRPC utils
   const utils = api.useUtils();
 
+  // infinite pagination
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   const {
@@ -77,6 +87,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const { mutate: createComment, isPending: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onMutate: async (newMessage) => {
+        // We are active
+        setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
         // Get previous data
         const old = utils.comments.getConversationComments.getInfiniteData();
         if (!userData || !conversation) return { old };
@@ -137,14 +149,16 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
       channel.bind("event", async () => {
-        await refetch();
+        if (!silence) {
+          await utils.comments.getConversationComments.invalidate();
+        }
       });
       return () => {
         pusher.unsubscribe(conversation.id);
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation]);
+  }, [silence, conversation]);
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
@@ -182,7 +196,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               </div>
               <RefreshCw
                 className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
-                onClick={() => refetch()}
+                onClick={() => utils.comments.getConversationComments.invalidate()}
               />
             </div>
           )}
@@ -204,13 +218,32 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                       user={comment}
                       hover_effect={false}
                       comment={comment}
-                      refetchComments={async () => await refetch()}
+                      refetchComments={async () =>
+                        await utils.comments.getConversationComments.invalidate()
+                      }
                     >
                       {parseHtml(comment.content)}
                     </CommentOnConversation>
                   </div>
                 );
               })}
+          {silence && (
+            <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-start bg-black bg-opacity-80">
+              <div className="text-center text-white pt-10">
+                <p className="p-5 text-5xl">Are you still there?</p>
+                <Button
+                  size="xl"
+                  onClick={async () => {
+                    setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
+                    await utils.comments.getConversationComments.invalidate();
+                  }}
+                >
+                  <Check className="w-8 h-8 mr-3" />
+                  Yep
+                </Button>
+              </div>
+            </div>
+          )}
         </ContentBox>
       )}
     </div>

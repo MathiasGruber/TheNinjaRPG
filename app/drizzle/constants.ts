@@ -496,3 +496,5 @@ export const IMG_TRAIN_NIN_OFF =
   "https://utfs.io/f/4727d488-1eb0-475e-adfe-ca26837c45a1-g8pm8u.png";
 export const IMG_TRAIN_NIN_DEF =
   "https://utfs.io/f/308d9bee-5105-4534-b11c-59592db90181-yx7su0.png";
+
+export const CONVERSATION_QUIET_MINS = 0.1;
