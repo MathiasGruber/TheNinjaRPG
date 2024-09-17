@@ -44,6 +44,10 @@ export const usePusherHandler = (userId?: string | null) => {
               cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
             }
           : {
+              wsHost: "soketi.theninja-rpg.ai",
+              forceTLS: true,
+              disableStats: true,
+              enabledTransports: ["ws", "wss"],
               cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER,
             },
       );

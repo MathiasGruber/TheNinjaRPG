@@ -1,0 +1,11 @@
+{
+  "debug": true,
+  "port": 6001,
+  "appManager.array.apps": [
+    {
+      "id": "tnr_soketi",
+      "key": "tnr_soketi_key",
+      "secret": "placeholder"
+    }
+  ]
+}
