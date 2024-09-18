@@ -549,7 +549,7 @@ export const syncTransactions = async (
         const value = info.transaction_amount.value;
         const currency = info.transaction_amount.currency_code;
         // If data could not be parsed
-        if (!value || !currency || !createdByUserId || !affectedUserId || value < 0) {
+        if (!value || !currency || !createdByUserId || !affectedUserId) {
           return `Transaction ID ${info.transaction_id} invalid`;
         }
         // Handle different cases
@@ -578,7 +578,10 @@ export const syncTransactions = async (
           const stored = await client.query.paypalTransaction.findFirst({
             where: eq(paypalTransaction.transactionId, info.transaction_id),
           });
-          if (stored) {
+          const parsedValue = parseFloat(value);
+          if (parsedValue < 0) {
+            return `Transaction ID ${info.transaction_id} invalid value`;
+          } else if (stored) {
             return `Transaction ID ${info.transaction_id} already processed`;
           } else {
             await updateReps({
@@ -589,10 +592,10 @@ export const syncTransactions = async (
               orderId: nanoid(),
               affectedUserId: affectedUserId,
               invoiceId: info.invoice_id,
-              value: parseFloat(value),
+              value: parsedValue,
               currency: currency,
               status: "COMPLETED",
-              reps: dollars2reps(parseFloat(value)),
+              reps: dollars2reps(parsedValue),
               raw: t,
             });
             return `Transaction ID ${info.transaction_id} synced!`;

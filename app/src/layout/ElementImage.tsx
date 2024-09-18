@@ -15,6 +15,26 @@ import { Heart } from "lucide-react";
 import { BatteryMedium } from "lucide-react";
 import { Atom } from "lucide-react";
 import { cn } from "src/libs/shadui";
+import {
+  IMG_ELEMENT_YINYANG,
+  IMG_ELEMENT_SHADOW,
+  IMG_ELEMENT_NONE,
+  IMG_ELEMENT_EXPLOSION,
+  IMG_ELEMENT_WIND,
+  IMG_ELEMENT_WATER,
+  IMG_ELEMENT_LAVA,
+  IMG_ELEMENT_ICE,
+  IMG_ELEMENT_WOOD,
+  IMG_ELEMENT_STORM,
+  IMG_ELEMENT_CRYSTAL,
+  IMG_ELEMENT_MAGNET,
+  IMG_ELEMENT_FIRE,
+  IMG_ELEMENT_LIGHT,
+  IMG_ELEMENT_EARTH,
+  IMG_ELEMENT_SCORCH,
+  IMG_ELEMENT_DUST,
+  IMG_ELEMENT_LIGHTNING,
+} from "@/drizzle/constants";
 
 import { GeneralTypes, StatTypes, PoolTypes, ElementNames } from "@/drizzle/constants";
 import type { GeneralType, StatType, PoolType, ElementName } from "@/drizzle/constants";
@@ -25,6 +45,47 @@ interface ElementImageProps {
   className?: string;
 }
 
+export const getElementImg = (element: ElementName): string => {
+  switch (element) {
+    case "Yin-Yang":
+      return IMG_ELEMENT_YINYANG;
+    case "Shadow":
+      return IMG_ELEMENT_SHADOW;
+    case "None":
+      return IMG_ELEMENT_NONE;
+    case "Explosion":
+      return IMG_ELEMENT_EXPLOSION;
+    case "Wind":
+      return IMG_ELEMENT_WIND;
+    case "Water":
+      return IMG_ELEMENT_WATER;
+    case "Lava":
+      return IMG_ELEMENT_LAVA;
+    case "Ice":
+      return IMG_ELEMENT_ICE;
+    case "Wood":
+      return IMG_ELEMENT_WOOD;
+    case "Storm":
+      return IMG_ELEMENT_STORM;
+    case "Crystal":
+      return IMG_ELEMENT_CRYSTAL;
+    case "Magnet":
+      return IMG_ELEMENT_MAGNET;
+    case "Fire":
+      return IMG_ELEMENT_FIRE;
+    case "Light":
+      return IMG_ELEMENT_LIGHT;
+    case "Earth":
+      return IMG_ELEMENT_EARTH;
+    case "Scorch":
+      return IMG_ELEMENT_SCORCH;
+    case "Dust":
+      return IMG_ELEMENT_DUST;
+    case "Lightning":
+      return IMG_ELEMENT_LIGHTNING;
+  }
+};
+
 const ElementImage: React.FC<ElementImageProps> = (props) => {
   // Destructure
   const { element, hoverText } = props;
@@ -34,7 +95,7 @@ const ElementImage: React.FC<ElementImageProps> = (props) => {
   if (isInArray(element, ElementNames)) {
     image = (
       <Image
-        src={`/elements/${element.toLocaleLowerCase()}.webp`}
+        src={getElementImg(element)}
         width={32}
         height={32}
         alt={element}

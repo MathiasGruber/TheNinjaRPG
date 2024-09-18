@@ -425,6 +425,9 @@ export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
 // Map settings
 export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;
 
+// Conversation config
+export const CONVERSATION_QUIET_MINS = 5;
+
 // Kage config
 export const KAGE_PRESTIGE_REQUIREMENT = 4000;
 export const KAGE_RANK_REQUIREMENT = "JONIN";
@@ -497,4 +500,39 @@ export const IMG_TRAIN_NIN_OFF =
 export const IMG_TRAIN_NIN_DEF =
   "https://utfs.io/f/308d9bee-5105-4534-b11c-59592db90181-yx7su0.png";
 
-export const CONVERSATION_QUIET_MINS = 5;
+export const IMG_ELEMENT_YINYANG =
+  "https://utfs.io/f/Hzww9EQvYURJIlW2BrxfOewksxBoS1HQCihpL7c42Ky9uUFv";
+export const IMG_ELEMENT_SHADOW =
+  "https://utfs.io/f/Hzww9EQvYURJvSWrdXEmSnXwslYEpV1yOeNL8gMtqhjPdf36";
+export const IMG_ELEMENT_NONE =
+  "https://utfs.io/f/Hzww9EQvYURJeC2dFWVyV3OvUJQExAi0bGoIZDF74LqSnHRd";
+export const IMG_ELEMENT_EXPLOSION =
+  "https://utfs.io/f/Hzww9EQvYURJCH1oeV26OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_ELEMENT_WIND =
+  "https://utfs.io/f/Hzww9EQvYURJCH1oeV26OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_ELEMENT_WATER =
+  "https://utfs.io/f/Hzww9EQvYURJoYFqRUhZ9MPZpHJ7VliuEWDfATdxhv62SXnm";
+export const IMG_ELEMENT_LAVA =
+  "https://utfs.io/f/Hzww9EQvYURJaK2IZBYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_ELEMENT_ICE =
+  "https://utfs.io/f/Hzww9EQvYURJaK2IZBYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_ELEMENT_WOOD =
+  "https://utfs.io/f/Hzww9EQvYURJbZYZaSPAtYUndMi56GkX19q0A4PzyeIloBrE";
+export const IMG_ELEMENT_STORM =
+  "https://utfs.io/f/Hzww9EQvYURJzu4spmSemvaQu94EYJs8HpxVzofny6iPtbgC";
+export const IMG_ELEMENT_CRYSTAL =
+  "https://utfs.io/f/Hzww9EQvYURJaKoVVmYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_ELEMENT_MAGNET =
+  "https://utfs.io/f/Hzww9EQvYURJaKoVVmYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_ELEMENT_FIRE =
+  "https://utfs.io/f/Hzww9EQvYURJAX1vCjoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+export const IMG_ELEMENT_LIGHT =
+  "https://utfs.io/f/Hzww9EQvYURJeVtMZpyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_ELEMENT_EARTH =
+  "https://utfs.io/f/Hzww9EQvYURJgi7liFcU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const IMG_ELEMENT_SCORCH =
+  "https://utfs.io/f/Hzww9EQvYURJCmW9wm326OYrIJuNP1pvSyz29edFtKbngjRc";
+export const IMG_ELEMENT_DUST =
+  "https://utfs.io/f/Hzww9EQvYURJchNmlmSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
+export const IMG_ELEMENT_LIGHTNING =
+  "https://utfs.io/f/Hzww9EQvYURJ4DIVIclYIif5CL8BKvMsOh2ZnmS7yHt0jTD3";
