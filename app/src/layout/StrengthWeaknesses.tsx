@@ -281,7 +281,7 @@ const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
                 <b>Generals</b>
                 <div className="flex flex-row items-center">
                   <ElementImage element="Strength" className="w-6 h-6 mr-1 mb-1" />
-                  Strength:{userData.strength.toFixed(2)}
+                  Strength: {userData.strength.toFixed(2)}
                 </div>
                 <div className="flex flex-row items-center">
                   <ElementImage element="Intelligence" className="w-6 h-6 mr-1 mb-1" />
