@@ -45,7 +45,7 @@
     "@trpc/server": "11.0.0-rc.403",
     "@tweenjs/tween.js": "23.1.1",
     "@types/text-to-svg": "^3.1.4",
-    "@uploadthing/react": "6.7.2",
+    "@uploadthing/react": "7.0.2",
     "@upstash/ratelimit": "0.4.2",
     "@upstash/redis": "1.20.6",
     "@vercel/og": "^0.6.2",
@@ -95,7 +95,7 @@
     "tailwindcss-animate": "^1.0.7",
     "text-to-svg": "^3.1.5",
     "three": "0.160.1",
-    "uploadthing": "6.13.2",
+    "uploadthing": "7.0.2",
     "zod": "3.22.4"
   },
   "devDependencies": {
