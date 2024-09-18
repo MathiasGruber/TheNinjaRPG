@@ -18,6 +18,7 @@ import { calcActiveUser } from "@/libs/combat/actions";
 import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
@@ -45,6 +46,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // References which shouldn't update
   const [webglError, setWebglError] = useState<boolean>(false);
+  const lastActions = useRef<Date[]>([]);
   const battle = useRef<ReturnedBattle | null | undefined>(battleState.battle);
   const action = useRef<CombatAction | undefined>(props.action);
   const userId = useRef<string>(props.userId);
@@ -58,6 +60,24 @@ const Combat: React.FC<CombatProps> = (props) => {
   const setBattleAtom = useSetAtom(userBattleAtom);
   const { data: userData, pusher, timeDiff } = useRequiredUserData();
   const suid = userData?.userId;
+
+  // Convenience method for helping people to not move too fast
+  const canPerformAction = () => {
+    const minuteAgo = secondsFromNow(-60);
+    const newActions = lastActions.current.filter((a) => a > minuteAgo);
+    newActions.push(new Date());
+    if (newActions.length < 55) {
+      lastActions.current = newActions;
+      return true;
+    } else {
+      document.body.style.cursor = "default";
+      showMutationToast({
+        success: false,
+        message: "You are acting very fast. Much faster and you will be penalized.",
+      });
+      return false;
+    }
+  };
 
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
@@ -161,14 +181,16 @@ const Combat: React.FC<CombatProps> = (props) => {
         case "w":
           if (actor.userId === suid) {
             document.body.style.cursor = "wait";
-            performAction({
-              battleId: battle.current.id,
-              userId: userId.current,
-              actionId: "wait",
-              longitude: actor.longitude,
-              latitude: actor.latitude,
-              version: battle.current.version,
-            });
+            if (canPerformAction()) {
+              performAction({
+                battleId: battle.current.id,
+                userId: userId.current,
+                actionId: "wait",
+                longitude: actor.longitude,
+                latitude: actor.latitude,
+                version: battle.current.version,
+              });
+            }
           }
           break;
       }
@@ -360,14 +382,16 @@ const Combat: React.FC<CombatProps> = (props) => {
               ) {
                 const target = i.object.userData.tile as TerrainHex;
                 document.body.style.cursor = "wait";
-                performAction({
-                  battleId: battle.current.id,
-                  userId: userId.current,
-                  actionId: action.current.id,
-                  longitude: target.col,
-                  latitude: target.row,
-                  version: battle.current.version,
-                });
+                if (canPerformAction()) {
+                  performAction({
+                    battleId: battle.current.id,
+                    userId: userId.current,
+                    actionId: action.current.id,
+                    longitude: target.col,
+                    latitude: target.row,
+                    version: battle.current.version,
+                  });
+                }
                 return false;
               }
             }

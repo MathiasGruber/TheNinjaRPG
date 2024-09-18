@@ -409,7 +409,6 @@ interface VisualizeEffectsProps {
 
 const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) => {
   // Get sealing effects
-  console.log(effects);
   const sealEffects = effects.filter((e) => e.type === "seal" && !e.isNew);
   // Collapse consequences based on their type & calculation type
   const collapsedEffects =
