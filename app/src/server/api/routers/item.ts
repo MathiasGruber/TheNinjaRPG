@@ -1,9 +1,16 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, gte, and } from "drizzle-orm";
+import { eq, sql, gte, and, like } from "drizzle-orm";
 import { item, userItem, userData, actionLog, bloodlineRolls } from "@/drizzle/schema";
 import { bloodline } from "@/drizzle/schema";
-import { ItemTypes, ItemSlots, ItemRarities } from "@/drizzle/constants";
+import {
+  ItemTypes,
+  ItemSlots,
+  ItemRarities,
+  ItemSlotTypes,
+  AttackTargets,
+  AttackMethods,
+} from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { fetchItemBloodlineRolls } from "@/routers/bloodline";
@@ -129,6 +136,7 @@ export const itemRouter = createTRPCRouter({
     .input(
       z.object({
         cursor: z.number().nullish(),
+        name: z.string().optional(),
         limit: z.number().min(1).max(500),
         itemType: z.enum(ItemTypes).optional(),
         itemRarity: z.enum(ItemRarities).optional(),
@@ -138,6 +146,9 @@ export const itemRouter = createTRPCRouter({
         minRepsCost: z.number().default(0),
         onlyInShop: z.boolean().optional(),
         eventItems: z.boolean().optional(),
+        slot: z.enum(ItemSlotTypes).optional(),
+        target: z.enum(AttackTargets).optional(),
+        method: z.enum(AttackMethods).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -150,8 +161,12 @@ export const itemRouter = createTRPCRouter({
         offset: skip,
         limit: input.limit,
         where: and(
+          ...(input.name ? [like(item.name, `%${input.name}%`)] : []),
           ...(input.itemRarity ? [eq(item.rarity, input.itemRarity)] : []),
           ...(input.itemType ? [eq(item.itemType, input.itemType)] : []),
+          ...(input.slot ? [eq(item.slot, input.slot)] : []),
+          ...(input.method ? [eq(item.method, input.method)] : []),
+          ...(input.target ? [eq(item.target, input.target)] : []),
           ...(input.effect
             ? [sql`JSON_SEARCH(${item.effects},'one',${input.effect}) IS NOT NULL`]
             : []),

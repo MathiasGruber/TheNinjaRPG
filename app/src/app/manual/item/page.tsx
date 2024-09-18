@@ -6,18 +6,10 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
-import Toggle from "@/components/control/Toggle";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
-import { ItemRarities, ItemTypes } from "@/drizzle/constants";
+import ItemFiltering, { useFiltering, getFilter } from "@/layout/ItemFiltering";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
@@ -26,13 +18,13 @@ import { useUserData } from "@/utils/UserContext";
 export default function ManualItems() {
   // Settings
   const { data: userData } = useUserData();
-  const [rarity, setRarity] = useState<(typeof ItemRarities)[number]>("COMMON");
-  const [itemType, setItemType] = useState<(typeof ItemTypes)[number]>("WEAPON");
-  const [eventOnly, setEventOnly] = useState<boolean | undefined>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
   const router = useRouter();
+
+  //Two-Way Filtering
+  const state = useFiltering();
 
   // Data
   const {
@@ -42,7 +34,10 @@ export default function ManualItems() {
     fetchNextPage,
     hasNextPage,
   } = api.item.getAll.useInfiniteQuery(
-    { itemType: itemType, itemRarity: rarity, limit: 20, eventItems: eventOnly },
+    {
+      limit: 20,
+      ...getFilter(state),
+    },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -73,56 +68,7 @@ export default function ManualItems() {
 
   return (
     <>
-      <ContentBox
-        title="Items"
-        subtitle="Content"
-        back_href="/manual"
-        topRightContent={
-          <div className="lg:flex lg:flex-row gap-2">
-            <div className="grow"></div>
-
-            <Select
-              onValueChange={(e) => setItemType(e as (typeof ItemTypes)[number])}
-              defaultValue={itemType}
-              value={itemType}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`None`} />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(ItemTypes).map((target) => (
-                  <SelectItem key={target} value={target}>
-                    {target}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              onValueChange={(e) => setRarity(e as (typeof ItemRarities)[number])}
-              defaultValue={rarity}
-              value={rarity}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`None`} />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(ItemRarities).map((target) => (
-                  <SelectItem key={target} value={target}>
-                    {target}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Toggle
-              id="toggle-event-only"
-              value={eventOnly}
-              setShowActive={setEventOnly}
-              labelActive="Event"
-              labelInactive="Non-Event"
-            />
-          </div>
-        }
-      >
+      <ContentBox title="Items" subtitle="Content" back_href="/manual">
         <p>
           In the treacherous world of ninja warfare, the mastery of jutsu alone is not
           enough to ensure victory. To become a truly formidable force, ninjas must
@@ -135,16 +81,20 @@ export default function ManualItems() {
       <br />
       <ContentBox
         title="Database"
-        subtitle={`Category: ${itemType.toLowerCase()}`}
         initialBreak={true}
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (
               <div className="flex flex-row gap-2">
                 <Button
-                  id={`create-${itemType}`}
+                  id={`create-${state.itemType}`}
+                  disabled={state.itemType == "ANY"}
                   className="w-full"
-                  onClick={() => create({ type: itemType })}
+                  onClick={() =>
+                    create({
+                      type: state.itemType !== "ANY" ? state.itemType : "WEAPON",
+                    })
+                  }
                 >
                   <FilePlus className="mr-2 h-6 w-6" />
                   New
@@ -161,6 +111,9 @@ export default function ManualItems() {
                 />
               </div>
             )}
+            <div className="ml-2">
+              <ItemFiltering state={state} />
+            </div>
           </div>
         }
       >
