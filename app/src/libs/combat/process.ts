@@ -1,7 +1,8 @@
+import { dmgConfig } from "./constants";
 import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
-import { shouldApplyEffectTimes } from "./util";
+import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser } from "./tags";
@@ -222,7 +223,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         e.fromType === "armor";
     // Special cases
     if (e.type === "damage" && e.targetType === "barrier" && curUser) {
-      const result = damageBarrier(newGroundEffects, curUser, e);
+      const result = damageBarrier(newGroundEffects, curUser, e, dmgConfig);
       if (result) {
         longitude = result.barrier.longitude;
         latitude = result.barrier.latitude;
@@ -239,14 +240,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         longitude = curTarget?.longitude;
         latitude = curTarget?.latitude;
         // Figure if tag should be applied
-        const applyTimes = shouldApplyEffectTimes(e, battle, e.targetId, isTargetOrNew);
-        if (applyTimes > 0) {
+        const ratio = calcApplyRatio(e, battle, e.targetId, isTargetOrNew);
+        if (ratio > 0) {
           // Tags only applied when target is user or new
           if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
-              info = damageUser(e, curUser, curTarget, consequences, applyTimes);
+              info = damageUser(e, curUser, curTarget, consequences, ratio, dmgConfig);
             } else if (e.type === "heal" && isTargetOrNew) {
-              info = heal(e, curTarget, consequences, applyTimes);
+              info = heal(e, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {
               info = flee(e, newUsersEffects, newTarget);
             } else if (e.type === "increasepoolcost" && isTargetOrNew) {

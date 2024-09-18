@@ -1,12 +1,10 @@
-import { ATK_SCALING, DEF_SCALING, EXP_SCALING, GEN_SCALING } from "./constants";
-import { DMG_BASE, DMG_SCALING, POWER_SCALING, STATS_SCALING } from "./constants";
 import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
 import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
 import { HealTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
-import type { StatNames, GenNames } from "./constants";
+import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { GeneralType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
@@ -600,9 +598,15 @@ export const updateStatUsage = (
 };
 
 /** Function used for scaling two attributes against each other, used e.g. in damage calculation */
-const powerEffect = (attack: number, defence: number, avg_exp: number) => {
-  const statRatio = Math.pow(attack, ATK_SCALING) / Math.pow(defence, DEF_SCALING);
-  return DMG_BASE + statRatio * Math.pow(avg_exp, EXP_SCALING);
+const powerEffect = (
+  attack: number,
+  defence: number,
+  avg_exp: number,
+  config: DmgConfig,
+) => {
+  const statRatio =
+    Math.pow(attack, config.atk_scaling) / Math.pow(defence, config.def_scaling);
+  return config.dmg_base + statRatio * Math.pow(avg_exp, config.exp_scaling);
 };
 
 /** Base damage calculation formula */
@@ -610,6 +614,7 @@ export const damageCalc = (
   effect: UserEffect,
   origin: BattleUserState | undefined,
   target: BattleUserState,
+  config: DmgConfig,
 ) => {
   const { power } = getPower(effect);
   const calcs: number[] = [];
@@ -636,7 +641,7 @@ export const damageCalc = (
         const left = origin[a as keyof typeof origin] as number;
         const right = target[b as keyof typeof target] as number;
         const avg_exp = (origin.experience + target.experience) / 2;
-        calcs.push(STATS_SCALING * powerEffect(left, right, avg_exp));
+        calcs.push(config.stats_scaling * powerEffect(left, right, avg_exp, config));
       }
     });
     // Apply an element of all these generals
@@ -646,15 +651,16 @@ export const damageCalc = (
         const left = origin[gen as keyof typeof origin] as number;
         const right = target[gen as keyof typeof target] as number;
         const avg_exp = (origin.experience + target.experience) / 2;
-        calcs.push(GEN_SCALING * powerEffect(left, right, avg_exp));
+        calcs.push(config.gen_scaling * powerEffect(left, right, avg_exp, config));
       }
     });
   }
   // Calculate final damage
   const calcSum = calcs.reduce((a, b) => a + b, 0);
   const calcMean = calcSum / calcs.length;
-  const base = 1 + power * POWER_SCALING;
-  let dmg = calcSum > 0 ? base * calcMean * DMG_SCALING + DMG_BASE : power;
+  const base = 1 + power * config.power_scaling;
+  let dmg =
+    calcSum > 0 ? base * calcMean * config.dmg_scaling + config.dmg_base : power;
   // If residual
   if (!effect.castThisRound && "residualModifier" in effect) {
     if (effect.residualModifier) dmg *= effect.residualModifier;
@@ -669,9 +675,12 @@ export const damageUser = (
   target: BattleUserState,
   consequences: Map<string, Consequence>,
   applyTimes: number,
+  config: DmgConfig,
 ) => {
   const damage =
-    damageCalc(effect, origin, target) * applyTimes * (1 - effect.barrierAbsorb);
+    damageCalc(effect, origin, target, config) *
+    applyTimes *
+    (1 - effect.barrierAbsorb);
   const types = [
     ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
     ...("generalTypes" in effect && effect.generalTypes ? effect.generalTypes : []),
@@ -698,6 +707,7 @@ export const damageBarrier = (
   groundEffects: GroundEffect[],
   origin: BattleUserState,
   effect: UserEffect,
+  config: DmgConfig,
 ) => {
   // Get the barrier
   const idx = groundEffects.findIndex((g) => g.id === effect.targetId);
@@ -709,7 +719,7 @@ export const damageBarrier = (
   target.level = power;
   scaleUserStats(target);
   // Calculate damage
-  const damage = damageCalc(effect, origin, target) * effect.barrierAbsorb;
+  const damage = damageCalc(effect, origin, target, config) * effect.barrierAbsorb;
   barrier.curHealth -= damage;
   // Information
   if (barrier.curHealth <= 0) {

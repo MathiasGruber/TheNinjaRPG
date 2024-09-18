@@ -111,7 +111,7 @@ export const getBarriersBetween = (
  * 1. The effect is not already applied to the user
  * 2. A round has passed
  */
-export const shouldApplyEffectTimes = (
+export const calcApplyRatio = (
   effect: UserEffect | GroundEffect,
   battle: ReturnedBattle,
   targetId: string,
@@ -148,21 +148,21 @@ export const shouldApplyEffectTimes = (
     return 1;
   }
   // Get latest application of effect to the given target
-  let applyTimes = 1;
+  let ratio = 1;
   if (trackResults && effect.rounds !== undefined && effect.timeTracker) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
       if (battle.round !== prevApply) {
         effect.timeTracker[targetId] = battle.round;
       } else {
-        applyTimes = 0;
+        ratio = 0;
       }
     } else {
       effect.timeTracker[targetId] = battle.round;
     }
   }
   // If no rounds, or no previous applies, then apply 1 time
-  return applyTimes;
+  return ratio;
 };
 
 /**

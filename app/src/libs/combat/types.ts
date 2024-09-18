@@ -1099,3 +1099,14 @@ export const actSchema = z.object({
   statTypes: z.array(z.enum(StatTypes)).default(["Ninjutsu"]),
   generalTypes: z.array(z.enum(GeneralTypes)).default(["Strength"]),
 });
+
+export const confSchema = z.object({
+  atk_scaling: z.coerce.number(),
+  def_scaling: z.coerce.number(),
+  exp_scaling: z.coerce.number(),
+  dmg_scaling: z.coerce.number(),
+  gen_scaling: z.coerce.number(),
+  stats_scaling: z.coerce.number(),
+  power_scaling: z.coerce.number(),
+  dmg_base: z.coerce.number(),
+});
