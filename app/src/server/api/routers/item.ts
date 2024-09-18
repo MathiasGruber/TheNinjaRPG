@@ -537,8 +537,8 @@ export const itemRouter = createTRPCRouter({
       if (userItemsCount >= calcMaxItems(user)) {
         return errorResponse("Inventory is full");
       }
-      const ryoCost = info.cost * input.stack * factor;
-      const repsCost = info.repsCost * input.stack;
+      const ryoCost = Math.ceil(info.cost * input.stack * factor);
+      const repsCost = Math.ceil(info.repsCost * input.stack);
       // Figure out if we equip this
       let equipped: ItemSlot = "NONE";
       if (!info.effects.find((e) => e.type.includes("bloodline"))) {
