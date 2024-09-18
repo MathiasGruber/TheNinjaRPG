@@ -44,6 +44,11 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   // Active updating of this component
   useEffect(() => {
     const interval = setInterval(() => {
+      // If not in focus, nothing
+      if (!document.hasFocus()) {
+        setState({ label: `Not in Focus`, canAct: false, waiting: false });
+        return;
+      }
       // Set label
       const {
         actor,

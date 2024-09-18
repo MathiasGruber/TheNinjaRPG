@@ -22,6 +22,7 @@ import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
+import { Check } from "lucide-react";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -46,6 +47,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // References which shouldn't update
   const [webglError, setWebglError] = useState<boolean>(false);
+  const [hasFocus, setHasFocus] = useState<boolean>(true);
   const lastActions = useRef<Date[]>([]);
   const battle = useRef<ReturnedBattle | null | undefined>(battleState.battle);
   const action = useRef<CombatAction | undefined>(props.action);
@@ -222,14 +224,19 @@ const Combat: React.FC<CombatProps> = (props) => {
   // If user has no actions left / round is over, propagate battle & potentially - perform AI actions
   useEffect(() => {
     const interval = setInterval(() => {
+      const focusCheck = document.hasFocus();
+      if (!focusCheck) setHasFocus(false);
+      if (!hasFocus || !focusCheck) return;
       if (suid && battle.current && userId.current && !isPending && !result) {
         const { actor, changedActor } = calcActiveUser(battle.current, suid, timeDiff);
         // Scenario 1: it is now AIs turn, perform action
         if (actor.isAi && !isPending) {
-          performAction({
-            battleId: battle.current.id,
-            version: battle.current.version,
-          });
+          if (canPerformAction()) {
+            performAction({
+              battleId: battle.current.id,
+              version: battle.current.version,
+            });
+          }
         } else {
           // Scenario 2: more than 10 seconds passed, or actor is no longer the same as active user - refetch
           const updatePassed =
@@ -634,6 +641,21 @@ const Combat: React.FC<CombatProps> = (props) => {
                 </Link>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* FINAL DONE SCREEN */}
+      {!hasFocus && (
+        <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex justify-center items-center bg-black">
+          <div className="text-center text-white relative m-auto flex flex-col items-center">
+            <p className="p-5  pb-2 text-3xl">Not in Focus</p>
+            <p className="italic pb-2">
+              Battle data can only be streamed to one browser tab at once
+            </p>
+            <Button size="xl" onClick={() => location.reload()}>
+              <Check className="w-8 h-8 mr-3" />
+              Activate this Tab
+            </Button>
           </div>
         </div>
       )}
