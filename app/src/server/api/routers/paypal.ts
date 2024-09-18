@@ -549,7 +549,7 @@ export const syncTransactions = async (
         const value = info.transaction_amount.value;
         const currency = info.transaction_amount.currency_code;
         // If data could not be parsed
-        if (!value || !currency || !createdByUserId || !affectedUserId) {
+        if (!value || !currency || !createdByUserId || !affectedUserId || value < 0) {
           return `Transaction ID ${info.transaction_id} invalid`;
         }
         // Handle different cases
