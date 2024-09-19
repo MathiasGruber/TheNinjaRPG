@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
 import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
-import { eq, or, and, getTableColumns } from "drizzle-orm";
+import { like, eq, or, and, getTableColumns } from "drizzle-orm";
 import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
@@ -30,6 +30,7 @@ import { fetchUserItems } from "@/routers/item";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
+import { questFilteringSchema } from "@/validators/quest";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
@@ -40,11 +41,9 @@ import type { DrizzleClient } from "@/server/db";
 export const questsRouter = createTRPCRouter({
   getAll: protectedProcedure
     .input(
-      z.object({
+      questFilteringSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
-        questType: z.enum(QuestTypes).optional(),
-        objectiveTask: z.enum(allObjectiveTasks).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -53,14 +52,24 @@ export const questsRouter = createTRPCRouter({
       const results = await ctx.drizzle.query.quest.findMany({
         with: { village: true },
         where: and(
-          ...[
-            input.questType
-              ? eq(quest.questType, input.questType)
-              : isNotNull(quest.questType),
-          ],
-          ...(input.objectiveTask
+          ...(input?.name ? [like(quest.name, `%${input.name}%`)] : []),
+          ...(input?.objectives && input.objectives.length > 0
             ? [
-                sql`JSON_SEARCH(${quest.content},'one',${input.objectiveTask}) IS NOT NULL`,
+                or(
+                  ...input.objectives.map(
+                    (e) => sql`JSON_SEARCH(${quest.content},'one',${e}) IS NOT NULL`,
+                  ),
+                ),
+              ]
+            : []),
+          ...(input?.questType ? [eq(quest.questType, input.questType)] : []),
+          ...(input?.rank ? [eq(quest.questRank, input.rank)] : []),
+          ...(input?.timeframe ? [eq(quest.timeFrame, input.timeframe)] : []),
+          ...(input?.village ? [eq(quest.requiredVillage, input.village)] : []),
+          ...(input?.userLevel
+            ? [
+                gte(quest.maxLevel, input.userLevel),
+                lte(quest.requiredLevel, input.userLevel),
               ]
             : []),
         ),

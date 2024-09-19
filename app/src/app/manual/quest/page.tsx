@@ -20,6 +20,7 @@ import { QuestTypes, type QuestType } from "@/drizzle/constants";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import QuestFiltering, { useFiltering, getFilter } from "@/layout/QuestFiltering";
 import { useInfinitePagination } from "@/libs/pagination";
 
 export default function ManualQuests() {
@@ -29,6 +30,9 @@ export default function ManualQuests() {
 
   // Router for forwarding
   const router = useRouter();
+
+  // Filtering
+  const state = useFiltering();
 
   // State
   const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
@@ -41,7 +45,7 @@ export default function ManualQuests() {
     fetchNextPage,
     hasNextPage,
   } = api.quests.getAll.useInfiniteQuery(
-    { limit: 20, questType: questType },
+    { limit: 20, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -123,25 +127,9 @@ export default function ManualQuests() {
         subtitle={`${questType} quests`}
         initialBreak={true}
         topRightContent={
-          <div className="flex flex-col gap-1">
-            <Select
-              onValueChange={(e) => setQuestType(e as QuestType)}
-              defaultValue={questType}
-              value={questType}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`None`} />
-              </SelectTrigger>
-              <SelectContent>
-                {QuestTypes.map((questType) => (
-                  <SelectItem key={questType} value={questType}>
-                    {questType}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-row gap-2">
             {userData && canChangeContent(userData.role) && (
-              <div className="flex flex-row gap-1">
+              <div className="flex flex-row gap-2">
                 <Button id="create-quest" onClick={() => create()}>
                   <FilePlus className="mr-1 h-6 w-6" />
                   New
@@ -158,6 +146,7 @@ export default function ManualQuests() {
                 />
               </div>
             )}
+            <QuestFiltering state={state} />
           </div>
         }
       >

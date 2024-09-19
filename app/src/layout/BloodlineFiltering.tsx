@@ -128,7 +128,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
-          {/* Bloodline */}
+          {/* Village */}
           <div>
             <Select onValueChange={(e) => setVillage(e)}>
               <Label htmlFor="village">Village</Label>

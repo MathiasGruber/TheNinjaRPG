@@ -234,6 +234,7 @@ export const BattleDataEntryType = [
 ] as const;
 
 export const TimeFrames = ["daily", "weekly", "monthly", "all_time"] as const;
+export type TimeFrame = (typeof TimeFrames)[number];
 
 export const QuestTypes = [
   "mission",
