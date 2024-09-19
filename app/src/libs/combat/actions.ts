@@ -45,17 +45,17 @@ export const availableUserActions = (
     healthCost: 0,
     chakraCost: 0,
     staminaCost: 10,
-    actionCostPerc: 60,
+    actionCostPerc: 40,
     range: 1,
     updatedAt: Date.now(),
     cooldown: 0,
     level: user?.level,
     effects: [
       DamageTag.parse({
-        power: 15,
+        power: 18,
         powerPerLevel: 0.1,
-        statTypes: [],
-        generalTypes: ["Highest"],
+        statTypes: ["Taijutsu"],
+        generalTypes: ["Strength", "Speed"],
         rounds: 0,
         appearAnimation: "hit",
       }),
@@ -75,7 +75,7 @@ export const availableUserActions = (
     actionCostPerc: 60,
     range: 1,
     updatedAt: Date.now(),
-    cooldown: 0,
+    cooldown: 4,
     level: user?.level,
     effects: [
       HealTag.parse({
