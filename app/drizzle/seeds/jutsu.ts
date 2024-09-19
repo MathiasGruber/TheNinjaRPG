@@ -1,4 +1,4 @@
-import { jutsu } from "../schema";
+import { jutsu } from "@/drizzle/schema";
 import { sql } from "drizzle-orm";
 import { promises as fs } from "fs";
 import type { DrizzleClient } from "@/server/db";

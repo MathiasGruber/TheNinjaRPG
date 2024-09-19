@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { forumBoard } from "../schema";
+import { forumBoard } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
 
