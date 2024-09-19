@@ -13,7 +13,7 @@ export const userReportSchema = z.object({
   system: z.enum(systems),
   system_id: z.string(),
   reported_userId: z.string(),
-  reason: z.string().min(1).max(1000),
+  reason: z.string().min(1).max(10000),
 });
 
 export type UserReportSchema = z.infer<typeof userReportSchema>;
