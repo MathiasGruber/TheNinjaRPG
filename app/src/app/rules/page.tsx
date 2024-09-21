@@ -109,6 +109,13 @@ export default function GameRules() {
           compensation.
         </p>{" "}
         <p className="my-2">
+          <b>Account Limit: </b>Users are permitted to maintain a maximum of two
+          accounts at any given time. Exceeding this limit may result in the banning of
+          all associated accounts. Users with more than two accounts should promptly
+          designate the excess accounts for deletion to avoid penalties. The reason for
+          this rule is to avoid ryo farming, spamming bloodline rolls, etc.
+        </p>{" "}
+        <p className="my-2">
           <b>Account deletions: </b>Accounts that are inactive for over 90 days are
           automatically flagged for deletion and deleted in the next sweep. Users who
           anticipate extended periods of inactivity but wish to protect their accounts
