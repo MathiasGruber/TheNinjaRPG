@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag, StunTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
