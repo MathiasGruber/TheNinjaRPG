@@ -12,6 +12,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { useBadgeEditForm } from "@/libs/badge";
 import { BadgeValidator } from "@/validators/badge";
 import { showMutationToast } from "@/libs/toast";
+import type { ZodBadgeType } from "@/validators/badge";
 import type { Badge } from "@/drizzle/schema";
 
 export default function BadgeEdit({ params }: { params: { badgeid: string } }) {
@@ -53,17 +54,6 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
     props.refetch,
   );
 
-  // Mutations
-  const { mutate: chatIdea, isPending } = api.openai.createBadge.useMutation({
-    onSuccess: (data) => {
-      showMutationToast({ success: true, message: "AI Updated Badge" });
-      let key: keyof typeof data;
-      for (key in data) {
-        form.setValue(key, data[key]);
-      }
-    },
-  });
-
   // Show panel controls
   return (
     <ContentBox
@@ -77,10 +67,20 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
             inputProps={{
               id: "chatInput",
               placeholder: "Instruct ChatGPT to edit",
-              disabled: isPending,
             }}
-            onChat={(text) => {
-              chatIdea({ badgeId: badge.id, prompt: text });
+            aiProps={{
+              apiEndpoint: "/api/chat/badge",
+              systemMessage: `
+                Current badge data: ${JSON.stringify(form.getValues())}. 
+              `,
+            }}
+            onToolCall={(toolCall) => {
+              const data = toolCall.args as ZodBadgeType;
+              let key: keyof typeof data;
+              for (key in data) {
+                if (key !== "image") form.setValue(key, data[key]);
+              }
+              form.trigger();
             }}
           />
         ) : undefined

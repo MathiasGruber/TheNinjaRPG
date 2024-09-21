@@ -16,6 +16,7 @@ interface RichInputProps {
   disabled?: boolean;
   control: Control<any>;
   onSubmit?: (e: any) => void;
+  isDirty?: boolean;
 }
 
 const RichInput: React.FC<RichInputProps> = (props) => {
@@ -29,9 +30,18 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     switch (event.key) {
       case "Enter":
-        if (!event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        if (
+          !event.shiftKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !event.metaKey &&
+          !props.disabled &&
+          document.activeElement?.id === props.id
+        ) {
           event.preventDefault();
-          props.onSubmit && props.onSubmit(event);
+          const value = (props.control._formValues[props.id] || "") as string;
+          props.onSubmit && props.onSubmit(value);
+          event.preventDefault();
         }
         break;
     }
@@ -39,10 +49,12 @@ const RichInput: React.FC<RichInputProps> = (props) => {
 
   // Add button handler
   useEffect(() => {
-    document.addEventListener("keydown", onDocumentKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onDocumentKeyDown);
-    };
+    if (props.onSubmit) {
+      document.addEventListener("keydown", onDocumentKeyDown);
+      return () => {
+        document.removeEventListener("keydown", onDocumentKeyDown);
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -82,7 +94,9 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             return (
               <Textarea
                 {...field}
+                id={props.id}
                 autoFocus
+                isDirty={props.isDirty}
                 placeholder={props.placeholder}
                 className="w-full"
               />
@@ -105,14 +119,18 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           />
         </div>
 
-        <PartyPopper
-          className="absolute top-[50%] translate-y-[-50%] right-14 h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-          onClick={() => setEmojiOpen(!emojiOpen)}
-        />
-        <SendHorizontal
-          className="absolute top-[50%] translate-y-[-50%] right-5 h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-          onClick={(e) => props.onSubmit && props.onSubmit(e)}
-        />
+        <div className="flex flex-row items-center absolute top-[50%] translate-y-[-50%] right-5">
+          <PartyPopper
+            className="h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+            onClick={() => setEmojiOpen(!emojiOpen)}
+          />
+          {props.onSubmit && (
+            <SendHorizontal
+              className="h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+              onClick={(e) => props.onSubmit && props.onSubmit(e)}
+            />
+          )}
+        </div>
       </div>
 
       {props.error && <div className="text-xs italic text-red-500"> {props.error}</div>}

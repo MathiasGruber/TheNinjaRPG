@@ -23,6 +23,7 @@ interface MultiSelectProps {
   selected: string[];
   onChange: React.Dispatch<React.SetStateAction<string[]>>;
   className?: string;
+  isDirty?: boolean;
 }
 
 function MultiSelect({
@@ -30,6 +31,7 @@ function MultiSelect({
   selected,
   onChange,
   className,
+  isDirty,
   ...props
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
@@ -45,7 +47,10 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={`w-full justify-between h-max`}
+          className={cn(
+            "w-full justify-between h-max",
+            isDirty ? "border-orange-300" : "border-input",
+          )}
           onClick={() => setOpen(!open)}
         >
           <div className="flex gap-1 flex-wrap">

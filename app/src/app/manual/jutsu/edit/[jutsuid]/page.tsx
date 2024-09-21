@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import ChatInputField from "@/layout/ChatInputField";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { FilePlus, FileMinus } from "lucide-react";
@@ -15,6 +16,9 @@ import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
 import { useJutsuEditForm } from "@/libs/jutsu";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
+import { getTagSchema } from "@/libs/combat/types";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
 
 export default function JutsuEdit({ params }: { params: { jutsuid: string } }) {
@@ -83,6 +87,48 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
         title="Content Panel"
         subtitle="Jutsu Management"
         back_href="/manual/jutsu"
+        topRightContent={
+          formData.find((e) => e.id === "description") ? (
+            <ChatInputField
+              inputProps={{
+                id: "chatInput",
+                placeholder: "Instruct ChatGPT to edit",
+              }}
+              aiProps={{
+                apiEndpoint: "/api/chat/jutsu",
+                systemMessage: `
+                  Current jutsu data: ${JSON.stringify(form.getValues())}. 
+                  Current effects: ${JSON.stringify(effects)}
+                `,
+              }}
+              onToolCall={(toolCall) => {
+                const data = toolCall.args as ZodJutsuType;
+                let key: keyof typeof data;
+                for (key in data) {
+                  if (["villageId", "image"].includes(key)) {
+                    continue;
+                  } else if (key === "effects") {
+                    const newEffects = data.effects
+                      .map((effect) => {
+                        const schema = getTagSchema(effect.type);
+                        const parsed = schema.safeParse(effect);
+                        if (parsed.success) {
+                          return parsed.data;
+                        } else {
+                          return undefined;
+                        }
+                      })
+                      .filter((e) => e !== undefined) as ZodAllTags[];
+                    setEffects(newEffects);
+                  } else {
+                    form.setValue(key, data[key]);
+                  }
+                }
+                form.trigger();
+              }}
+            />
+          ) : undefined
+        }
       >
         {!jutsu && <p>Could not find this jutsu</p>}
         {!loading && jutsu && (
@@ -111,7 +157,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
       {effects.map((tag, i) => {
         return (
           <ContentBox
-            key={i}
+            key={`${tag.type}-${i}`}
             title={`Jutsu Tag #${i + 1}`}
             subtitle="Control battle effects"
             initialBreak={true}

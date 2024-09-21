@@ -16,8 +16,8 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/hooks/bloodline";
-import { showMutationToast } from "@/libs/toast";
 import { getTagSchema } from "@/libs/combat/types";
+import type { ZodBloodlineType } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
 
@@ -84,31 +84,6 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
     />
   );
 
-  const { mutate: chatIdea, isPending } = api.openai.createBloodline.useMutation({
-    onSuccess: (data) => {
-      showMutationToast({ success: true, message: "AI Updated Bloodline" });
-      let key: keyof typeof data;
-      for (key in data) {
-        if (key === "effects") {
-          const effects = data.effects
-            .map((effect) => {
-              const schema = getTagSchema(effect);
-              const parsed = schema.safeParse({ type: effect });
-              if (parsed.success) {
-                return parsed.data;
-              } else {
-                return undefined;
-              }
-            })
-            .filter((e) => e !== undefined) as ZodAllTags[];
-          setEffects(effects);
-        } else {
-          form.setValue(key, data[key]);
-        }
-      }
-    },
-  });
-
   // Show panel controls
   return (
     <>
@@ -123,10 +98,38 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               inputProps={{
                 id: "chatInput",
                 placeholder: "Instruct ChatGPT to edit",
-                disabled: isPending,
               }}
-              onChat={(text) => {
-                chatIdea({ bloodlineId: bloodline.id, prompt: text });
+              aiProps={{
+                apiEndpoint: "/api/chat/bloodline",
+                systemMessage: `
+                  Current bloodline data: ${JSON.stringify(form.getValues())}. 
+                  Current effects: ${JSON.stringify(effects)}
+                `,
+              }}
+              onToolCall={(toolCall) => {
+                const data = toolCall.args as ZodBloodlineType;
+                let key: keyof typeof data;
+                for (key in data) {
+                  if (["villageId", "image"].includes(key)) {
+                    continue;
+                  } else if (key === "effects") {
+                    const newEffects = data.effects
+                      .map((effect) => {
+                        const schema = getTagSchema(effect.type);
+                        const parsed = schema.safeParse(effect);
+                        if (parsed.success) {
+                          return parsed.data;
+                        } else {
+                          return undefined;
+                        }
+                      })
+                      .filter((e) => e !== undefined) as ZodAllTags[];
+                    setEffects(newEffects);
+                  } else {
+                    form.setValue(key, data[key]);
+                  }
+                }
+                form.trigger();
               }}
             />
           ) : undefined
@@ -159,7 +162,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
       {effects.map((tag, i) => {
         return (
           <ContentBox
-            key={i}
+            key={`${tag.type}-${i}`}
             title={`Bloodline Tag #${i + 1}`}
             subtitle="Control battle effects"
             initialBreak={true}

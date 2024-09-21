@@ -2,6 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import ChatInputField from "@/layout/ChatInputField";
 import { api } from "@/utils/api";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,9 @@ import { ItemValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
 import { useItemEditForm } from "@/hooks/item";
+import { getTagSchema } from "@/libs/combat/types";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { ZodItemType } from "@/libs/combat/types";
 import type { Item } from "@/drizzle/schema";
 
 export default function ItemEdit({ params }: { params: { itemid: string } }) {
@@ -81,6 +85,48 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
         title="Content Panel"
         subtitle="Item Management"
         back_href="/manual/item"
+        topRightContent={
+          formData.find((e) => e.id === "description") ? (
+            <ChatInputField
+              inputProps={{
+                id: "chatInput",
+                placeholder: "Instruct ChatGPT to edit",
+              }}
+              aiProps={{
+                apiEndpoint: "/api/chat/item",
+                systemMessage: `
+                  Current item data: ${JSON.stringify(form.getValues())}. 
+                  Current effects: ${JSON.stringify(effects)}
+                `,
+              }}
+              onToolCall={(toolCall) => {
+                const data = toolCall.args as ZodItemType;
+                let key: keyof typeof data;
+                for (key in data) {
+                  if (["villageId", "image"].includes(key)) {
+                    continue;
+                  } else if (key === "effects") {
+                    const newEffects = data.effects
+                      .map((effect) => {
+                        const schema = getTagSchema(effect.type);
+                        const parsed = schema.safeParse(effect);
+                        if (parsed.success) {
+                          return parsed.data;
+                        } else {
+                          return undefined;
+                        }
+                      })
+                      .filter((e) => e !== undefined) as ZodAllTags[];
+                    setEffects(newEffects);
+                  } else {
+                    form.setValue(key, data[key]);
+                  }
+                }
+                form.trigger();
+              }}
+            />
+          ) : undefined
+        }
       >
         {!item && <p>Could not find this item</p>}
         {item && (
@@ -109,7 +155,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
       {effects.map((tag, i) => {
         return (
           <ContentBox
-            key={i}
+            key={`${tag.type}-${i}`}
             title={`Item Tag #${i + 1}`}
             subtitle="Control battle effects"
             initialBreak={true}

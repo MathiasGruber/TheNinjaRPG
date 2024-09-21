@@ -16,8 +16,8 @@ import { allObjectiveTasks } from "@/validators/objectives";
 import { useQuestEditForm } from "@/hooks/quest";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { SimpleObjective } from "@/validators/objectives";
-import { showMutationToast } from "@/libs/toast";
 import { getObjectiveSchema } from "@/validators/objectives";
+import type { ZodQuestType } from "@/validators/objectives";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 
@@ -63,31 +63,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
   const { quest, objectives, form, formData, setObjectives, handleQuestSubmit } =
     useQuestEditForm(props.quest, props.refetch);
 
-  const { mutate: chatIdea, isPending } = api.openai.createQuest.useMutation({
-    onSuccess: (data) => {
-      showMutationToast({ success: true, message: "AI Updated Quest" });
-      let key: keyof typeof data;
-      for (key in data) {
-        if (key === "objectives") {
-          const objectives = data.objectives
-            .map((task) => {
-              const schema = getObjectiveSchema(task);
-              const parsed = schema.safeParse({ id: nanoid(), task: task });
-              if (parsed.success) {
-                return parsed.data;
-              } else {
-                return undefined;
-              }
-            })
-            .filter((e) => e !== undefined) as AllObjectivesType[];
-          setObjectives(objectives);
-        } else {
-          form.setValue(key, data[key]);
-        }
-      }
-    },
-  });
-
   // Icon for adding tag
   const AddObjectiveIcon = (
     <FilePlus
@@ -120,10 +95,56 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               inputProps={{
                 id: "chatInput",
                 placeholder: "Instruct ChatGPT to edit",
-                disabled: isPending,
               }}
-              onChat={(text) => {
-                chatIdea({ questId: quest.id, prompt: text });
+              aiProps={{
+                apiEndpoint: "/api/chat/quest",
+                systemMessage: `
+                  Current quest data: ${JSON.stringify(form.getValues())}. 
+                  Current objectives: ${JSON.stringify(objectives)}
+                `,
+              }}
+              onToolCall={(toolCall) => {
+                const data = toolCall.args as ZodQuestType;
+                let key: keyof typeof data;
+                for (key in data) {
+                  if (
+                    [
+                      "requiredVillage",
+                      "reward_items",
+                      "reward_jutsus",
+                      "reward_badges",
+                      "reward_rank",
+                      "attackers",
+                      "image",
+                    ].includes(key)
+                  ) {
+                    continue;
+                  } else if (key === "content") {
+                    const newObjectives = data.content?.objectives
+                      ?.map((objective) => {
+                        const schema = getObjectiveSchema(objective.task);
+                        const {
+                          reward_items,
+                          reward_jutsus,
+                          reward_badges,
+                          reward_rank,
+                          attackers,
+                          ...rest
+                        } = objective;
+                        const parsed = schema.safeParse({ ...rest, id: nanoid() });
+                        if (parsed.success) {
+                          return parsed.data;
+                        } else {
+                          return undefined;
+                        }
+                      })
+                      .filter((e) => e !== undefined) as AllObjectivesType[];
+                    setObjectives(newObjectives);
+                  } else {
+                    form.setValue(key, data[key], { shouldDirty: true });
+                  }
+                }
+                form.trigger();
               }}
             />
           ) : undefined
@@ -156,7 +177,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
       {objectives?.map((objective, i) => {
         return (
           <ContentBox
-            key={i}
+            key={objective.id}
             title={`Quest Objective #${i + 1}`}
             subtitle="Control battle effects"
             initialBreak={true}

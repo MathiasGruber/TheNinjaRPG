@@ -206,44 +206,68 @@ export const EditContent = <
                 <FormField
                   control={form.control}
                   name={id}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                      <FormControl>
-                        <Input id={id} type={type} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field, fieldState }) => {
+                    return (
+                      <FormItem>
+                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                        <FormControl>
+                          <Input
+                            id={id}
+                            type={type}
+                            isDirty={fieldState.isDirty}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
               {"boolean" === type && (
                 <FormField
                   control={form.control}
                   name={id}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                      <br />
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field, fieldState }) => {
+                    return (
+                      <FormItem>
+                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                        <br />
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            isDirty={fieldState.isDirty}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
               {type === "richinput" && currentValues && (
-                <RichInput
-                  id={id}
-                  height="200"
-                  placeholder={currentValues[id] as string}
-                  label={formEntry.label ? formEntry.label : id}
+                <FormField
                   control={form.control}
-                  error={form.formState.errors[id]?.message as string}
+                  name={id}
+                  render={({ fieldState }) => {
+                    return (
+                      <FormItem>
+                        <FormControl>
+                          <RichInput
+                            id={id}
+                            height="200"
+                            placeholder={currentValues[id] as string}
+                            label={formEntry.label ? formEntry.label : id}
+                            control={form.control}
+                            isDirty={fieldState.isDirty}
+                            error={form.formState.errors[id]?.message as string}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
               {(type === "str_array" ||
@@ -255,7 +279,7 @@ export const EditContent = <
                     <FormField
                       control={form.control}
                       name={id}
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
                           <FormLabel>
                             {formEntry.label ? formEntry.label : id}
@@ -264,6 +288,7 @@ export const EditContent = <
                           {"multiple" in formEntry && formEntry.multiple ? (
                             <MultiSelect
                               selected={field.value ? field.value : []}
+                              isDirty={fieldState.isDirty}
                               options={options}
                               onChange={field.onChange}
                             />
@@ -274,7 +299,7 @@ export const EditContent = <
                               value={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger isDirty={fieldState.isDirty}>
                                   <SelectValue placeholder={`None`} />
                                 </SelectTrigger>
                               </FormControl>
@@ -476,7 +501,6 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   const watchStatic = form.watch("staticAnimation");
   const watchDisappear = form.watch("disappearAnimation");
   const watchAll = form.watch();
-  // console.log("shownTag", shownTag, watchAll, form.getValues());
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -707,6 +731,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Form for handling the specific tag
   const form = useForm<AllObjectivesType>({
+    defaultValues: shownTag,
     values: shownTag,
     resolver: zodResolver(objectiveSchema),
     mode: "all",
