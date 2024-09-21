@@ -58,11 +58,6 @@ export const availableUserActions = (
         rounds: 0,
         appearAnimation: "hit",
       }),
-      StunTag.parse({
-        power: 100,
-        rounds: 10,
-        apReduction: 30,
-      }),
     ],
   };
   const basicHeal: CombatAction = {
@@ -583,7 +578,7 @@ export const actionPointsAfterAction = (
   battle?: ReturnedBattle | null,
   action?: CombatAction,
 ) => {
-  if (!user || !battle) return { apAfter: 0, canAct: true, availableActionPoints: 0 };
+  if (!user || !battle) return { apAfter: 0, canAct: false, availableActionPoints: 0 };
   const stunReduction = calcApReduction(battle, user.userId);
   const availableActionPoints = user.actionPoints - stunReduction;
   return {
