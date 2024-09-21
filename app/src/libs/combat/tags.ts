@@ -1149,8 +1149,12 @@ export const stun = (
 
   let info: ActionEffect | undefined = undefined;
   if (effect.isNew && effect.rounds) {
-    if (primaryCheck && secondaryCheck) {
-      info = getInfo(target, effect, "is stunned");
+    console.log(effect);
+    if (!("apReduction" in effect)) {
+      effect.rounds = 0;
+      info = { txt: `${target.username} hit with inactive stun effect`, color: "blue" };
+    } else if (primaryCheck && secondaryCheck) {
+      info = getInfo(target, effect, `is stunned [-${effect.apReduction} AP]`);
     } else if (primaryCheck) {
       effect.rounds = 0;
       info = { txt: `${target.username} resisted being stunned`, color: "blue" };

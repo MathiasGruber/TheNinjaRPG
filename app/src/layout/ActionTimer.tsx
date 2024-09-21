@@ -3,6 +3,7 @@ import Image from "next/image";
 import Loader from "./Loader";
 import { useUserData } from "@/utils/UserContext";
 import { calcActiveUser } from "@/libs/combat/actions";
+import { calcApReduction } from "@/libs/combat/util";
 import type { CombatAction } from "@/libs/combat/types";
 import type { ReturnedBattle } from "@/libs/combat/types";
 
@@ -32,9 +33,11 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   });
 
   // Derived values
+  const stunReduction = calcApReduction(battle, user.userId);
   const cost = action?.actionCostPerc ?? 0;
-  const actionNow = user.actionPoints;
+  const actionNow = user.actionPoints - stunReduction;
   const actionAfter = actionNow - cost;
+  console.log(actionAfter, actionNow, cost, stunReduction);
 
   // Calculate label and color
   const yellow = "/combat/actionTimer/yellow.webp";

@@ -15,7 +15,6 @@ import { COMBAT_LOBBY_SECONDS } from "@/libs/combat/constants";
 import { RANKS_RESTRICTED_FROM_PVP, AutoBattleTypes } from "@/drizzle/constants";
 import { secondsFromDate, secondsFromNow } from "@/utils/time";
 import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
-import { calcIsStunned } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
@@ -311,7 +310,7 @@ export const combatRouter = createTRPCRouter({
         // INNER LOOP: Keep updating battle state until all actions have been performed
         while (true) {
           // Update the battle to the correct activeUserId & round. Default to current user
-          const { actor, actionRound, isStunned } = alignBattle(newBattle, suid);
+          const { actor, actionRound } = alignBattle(newBattle, suid);
           if (debug) {
             console.log(`============ 1. Actor: ${actor.username} ============`);
           }
@@ -319,7 +318,7 @@ export const combatRouter = createTRPCRouter({
           // Only allow action if it is the users turn
           const isUserTurn = !actor.isAi && actor.controllerId === suid;
           const isAITurn = actor.isAi;
-          if (!isStunned && !isUserTurn && !isAITurn) {
+          if (!isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
 
@@ -328,7 +327,7 @@ export const combatRouter = createTRPCRouter({
           const actionEffects: ActionEffect[] = [];
           if (
             !isAITurn &&
-            (isUserTurn || isStunned) &&
+            isUserTurn &&
             input.longitude !== undefined &&
             input.latitude !== undefined &&
             input.actionId
@@ -398,14 +397,6 @@ export const combatRouter = createTRPCRouter({
               battleVersion: newBattle.version + nActions,
             });
             nActions += 1;
-          }
-
-          // If newActor is stunned, go through another round
-          if (calcIsStunned(newBattle, newActor.userId)) {
-            input.actionId = "move";
-            input.longitude = 1;
-            input.latitude = 1;
-            continue;
           }
 
           // Calculate if the battle is over for this user, and if so update user DB

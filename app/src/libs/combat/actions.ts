@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag, StunTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -6,7 +6,7 @@ import { realizeTag, checkFriendlyFire } from "@/libs/combat/process";
 import { applyEffects } from "@/libs/combat/process";
 import { calcPoolCost } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
-import { calcIsStunned } from "@/libs/combat/util";
+import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
@@ -31,8 +31,7 @@ export const availableUserActions = (
 ): CombatAction[] => {
   const usersState = battle?.usersState;
   const user = usersState?.find((u) => u.userId === userId);
-  const actionPoints =
-    battle && user && (isInNewRound(user, battle) ? 100 : user.actionPoints);
+  const { availableActionPoints } = actionPointsAfterAction(user, battle);
   // Basic attack & heal
   const basicAttack: CombatAction = {
     id: "sp",
@@ -58,6 +57,11 @@ export const availableUserActions = (
         generalTypes: ["Strength", "Speed"],
         rounds: 0,
         appearAnimation: "hit",
+      }),
+      StunTag.parse({
+        power: 100,
+        rounds: 10,
+        apReduction: 30,
       }),
     ],
   };
@@ -126,7 +130,7 @@ export const availableUserActions = (
     ...(basicMoves ? [basicAttack, basicHeal] : []),
     basicMove,
     ...(basicMoves ? [basicFlee] : []),
-    ...(actionPoints && actionPoints > 0
+    ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
             id: "wait",
@@ -139,7 +143,7 @@ export const availableUserActions = (
             healthCost: 0,
             chakraCost: 0,
             staminaCost: 0,
-            actionCostPerc: actionPoints,
+            actionCostPerc: availableActionPoints,
             range: 0,
             updatedAt: Date.now(),
             cooldown: 0,
@@ -270,9 +274,6 @@ export const insertAction = (info: {
     throw new Error("Battle has not started yet");
   }
 
-  // Check for stun effects
-  if (calcIsStunned(battle, actorId)) throw new Error("User is stunned");
-
   // Check if the user can perform the action
   const userHex = user.hex;
   if (userHex && targetTile) {
@@ -282,8 +283,8 @@ export const insertAction = (info: {
     if (user.curChakra < cpCost) throw new Error("Not enough chakra");
     if (user.curStamina < spCost) throw new Error("Not enough stamina");
     // How much time passed since last action
-    const newPoints = actionPointsAfterAction(user, battle, action);
-    if (newPoints < 0) return false;
+    const { apAfter } = actionPointsAfterAction(user, battle, action);
+    if (apAfter < 0) return false;
     // Get the possible action squares
     const highlights = getPossibleActionTiles(action, userHex, grid);
     // Given this action, get the affected tiles
@@ -438,7 +439,7 @@ export const insertAction = (info: {
       user.curHealth -= hpCost;
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
-      user.actionPoints = newPoints;
+      user.actionPoints = apAfter;
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
@@ -555,24 +556,17 @@ export const performBattleAction = (props: {
   const user = battle.usersState.find((u) => u.userId === actorId);
   if (!user) throw new Error("This is not your user");
 
-  // Check if actor is stunned
-  const isStunned = calcIsStunned(battle, actorId);
-  if (isStunned) {
-    user.actionPoints = 0;
-    action.battleDescription = `${user.username} is stunned and cannot move.`;
-  } else {
-    // Perform action, get latest status effects
-    // Note: this mutates usersEffects, groundEffects in place
-    const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
-    if (!check) throw new Error(`Action no longer possible for ${user.username}`);
+  // Perform action, get latest status effects
+  // Note: this mutates usersEffects, groundEffects in place
+  const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
+  if (!check) throw new Error(`Action no longer possible for ${user.username}`);
 
-    // Update the action state, so as keep state for technique cooldowns
-    if (action.cooldown && action.cooldown > 0) {
-      const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-      if (jutsu) jutsu.lastUsedRound = battle.round;
-      const item = user.items.find((i) => i.item.id === action.id);
-      if (item) item.lastUsedRound = battle.round;
-    }
+  // Update the action state, so as keep state for technique cooldowns
+  if (action.cooldown && action.cooldown > 0) {
+    const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
+    if (jutsu) jutsu.lastUsedRound = battle.round;
+    const item = user.items.find((i) => i.item.id === action.id);
+    if (item) item.lastUsedRound = battle.round;
   }
 
   // Apply relevant effects, and get back new state + active effects
@@ -581,33 +575,22 @@ export const performBattleAction = (props: {
   return { newBattle, actionEffects };
 };
 
-export const isInNewRound = (
-  user: { updatedAt: string | Date; actionPoints: number },
-  battle: ReturnedBattle,
-  timeDiff = 0,
-) => {
-  // Did we pass to next round?
-  const syncedTime = Date.now() - timeDiff;
-  const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();
-  const secondsLeft = Math.floor(COMBAT_SECONDS - mseconds / 1000);
-  // Return true if user is in new round
-  return secondsLeft < 0;
-};
-
 /**
  * Calculate how many action points the user has left after performing an action
  */
 export const actionPointsAfterAction = (
-  user: { updatedAt: string | Date; actionPoints: number },
-  battle: ReturnedBattle,
-  action: CombatAction,
-  timeDiff = 0,
+  user?: { userId: string; updatedAt: string | Date; actionPoints: number },
+  battle?: ReturnedBattle | null,
+  action?: CombatAction,
 ) => {
-  if (isInNewRound(user, battle, timeDiff)) {
-    return 100 - action.actionCostPerc;
-  } else {
-    return user.actionPoints - action.actionCostPerc;
-  }
+  if (!user || !battle) return { apAfter: 0, canAct: true, availableActionPoints: 0 };
+  const stunReduction = calcApReduction(battle, user.userId);
+  const availableActionPoints = user.actionPoints - stunReduction;
+  return {
+    apAfter: user.actionPoints - (action?.actionCostPerc || 0),
+    canAct: availableActionPoints - (action?.actionCostPerc || 0) >= 0,
+    availableActionPoints: availableActionPoints,
+  };
 };
 
 /**

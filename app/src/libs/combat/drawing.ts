@@ -631,17 +631,14 @@ export const highlightTiles = (info: {
   const { actor } = calcActiveUser(battle, user.userId, timeDiff);
 
   // Check if we have enough action points to perform action
-  const canAct =
-    user &&
-    action &&
-    actor.userId === user.userId &&
-    actionPointsAfterAction(user, battle, action, timeDiff) >= 0;
+  const { canAct } = actionPointsAfterAction(user, battle, action);
+  const canUseTile = actor.userId === user.userId && canAct;
 
   // Highlight fields on the map where action can be applied
   const newHighlights = new Set<string>();
   const highlights = getPossibleActionTiles(action, origin, grid);
 
-  if (highlights && canAct) {
+  if (highlights && canUseTile) {
     highlights.forEach((tile) => {
       if (tile) {
         const mesh = group_tiles.getObjectByName(
@@ -668,7 +665,7 @@ export const highlightTiles = (info: {
   // Highlight intersected tile
   /* ************************** */
   const newSelection = new Set<string>();
-  if (action && origin && highlights && hit && canAct && isAvailable) {
+  if (action && origin && highlights && hit && canUseTile && isAvailable) {
     const intersected = hit.object as HexagonalFaceMesh;
     const targetTile = intersected.userData.tile;
     // Based on the intersected tile, highlight the tiles which are affected.

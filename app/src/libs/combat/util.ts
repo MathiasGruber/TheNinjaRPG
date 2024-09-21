@@ -18,6 +18,7 @@ import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
+import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
@@ -594,9 +595,9 @@ export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) =
         const action = actions[j];
         if (action) {
           const notWait = action.id !== "wait";
-          const hasPoints = action.actionCostPerc <= actor.actionPoints;
+          const { canAct } = actionPointsAfterAction(actor, battle, action);
           const aiMove = actor.isAi && action.id === "move";
-          if (hasPoints && notWait && !aiMove) {
+          if (canAct && notWait && !aiMove) {
             return false;
           }
         }
@@ -639,7 +640,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     battle.usersEffects.forEach((e) => {
       if (e.rounds !== undefined) {
         if (!e.castThisRound) {
-          console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }
         e.isNew = false;
@@ -649,7 +650,7 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
     battle.groundEffects.forEach((e) => {
       if (e.rounds !== undefined) {
         if (!e.castThisRound) {
-          console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
+          // console.log(`Updating effect ${e.type} round ${e.rounds} -> ${e.rounds - 1}`);
           e.rounds = e.rounds - 1;
         }
         e.isNew = false;
@@ -660,18 +661,27 @@ export const alignBattle = (battle: CompleteBattle, userId?: string) => {
   // Update the active user on the battle
   battle.activeUserId = actor.userId;
   battle.updatedAt = now;
-  // Is the new actor stunned?
-  const isStunned = calcIsStunned(battle, actor.userId);
   // TOOD: Debug
   // console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
-  return { actor, progressRound, changedActor, actionRound, isStunned };
+  return { actor, progressRound, changedActor, actionRound };
 };
 
-export const calcIsStunned = (battle: ReturnedBattle, userId: string) => {
-  const stunned = battle.usersEffects.find(
-    (e) => e.type === "stun" && e.targetId === userId,
+export const calcApReduction = (
+  battle?: ReturnedBattle | null,
+  userId?: string | null,
+) => {
+  const stunEffects = battle?.usersEffects.filter(
+    (e) =>
+      e.type === "stun" &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      isEffectActive(e),
   );
-  return stunned && !stunned.castThisRound && isEffectActive(stunned) ? true : false;
+  const apReduction = stunEffects?.reduce((acc, e) => {
+    if ("apReduction" in e) acc += e.apReduction;
+    return acc;
+  }, 0);
+  return apReduction || 0;
 };
 
 export const rollInitiative = (

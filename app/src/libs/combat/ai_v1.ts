@@ -92,7 +92,8 @@ export const performAIaction = (
       bestAction.latitude !== undefined
     ) {
       const originalAction = actions.find((a) => a.id === bestAction.action?.id);
-      if (originalAction && user.actionPoints >= originalAction.actionCostPerc) {
+      const { canAct } = actionPointsAfterAction(user, nextBattle, originalAction);
+      if (originalAction && canAct) {
         // If user decides to end turn and only has two actions (move and end turn, end)
         if (bestAction?.action?.id === "wait" && actions.length === 2) {
           originalAction.battleDescription = `${user.username} is exhausted and has to give up`;
@@ -251,8 +252,9 @@ const getActionTree = (
   // Clone actions to not mutate original
   const availableActions = structuredClone(actions);
   // Go through all possible actions for this AI
+  console.log("getActionTree");
   availableActions.forEach((action) => {
-    const canAct = actionPointsAfterAction(user, battle, action) >= 0;
+    const { canAct } = actionPointsAfterAction(user, battle, action);
     if (canAct) {
       // Go through all the possible tiles where action can be performed
       const possibleTiles = getAiTiles(action, battle, userId, origin, grid, astar);

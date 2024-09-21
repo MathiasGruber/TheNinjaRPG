@@ -570,6 +570,7 @@ export const StunTag = z.object({
   ...PowerAttributes,
   type: z.literal("stun").default("stun"),
   description: msg("Stuns the target"),
+  apReduction: z.coerce.number().int().min(0).max(100).default(10),
 });
 
 export const SummonPreventTag = z.object({
