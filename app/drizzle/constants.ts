@@ -510,13 +510,13 @@ export const IMG_ELEMENT_NONE =
 export const IMG_ELEMENT_EXPLOSION =
   "https://utfs.io/f/Hzww9EQvYURJCH1oeV26OYrIJuNP1pvSyz29edFtKbngjRcA";
 export const IMG_ELEMENT_WIND =
-  "https://utfs.io/f/Hzww9EQvYURJCH1oeV26OYrIJuNP1pvSyz29edFtKbngjRcA";
+  "https://utfs.io/f/Hzww9EQvYURJ2HrMNjAnMXlcRpYmJ5do0zKw4Qx6PVEtBa9b";
 export const IMG_ELEMENT_WATER =
   "https://utfs.io/f/Hzww9EQvYURJoYFqRUhZ9MPZpHJ7VliuEWDfATdxhv62SXnm";
 export const IMG_ELEMENT_LAVA =
   "https://utfs.io/f/Hzww9EQvYURJaK2IZBYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
 export const IMG_ELEMENT_ICE =
-  "https://utfs.io/f/Hzww9EQvYURJaK2IZBYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+  "https://utfs.io/f/Hzww9EQvYURJCqHOvc26OYrIJuNP1pvSyz29edFtKbngjRcA";
 export const IMG_ELEMENT_WOOD =
   "https://utfs.io/f/Hzww9EQvYURJbZYZaSPAtYUndMi56GkX19q0A4PzyeIloBrE";
 export const IMG_ELEMENT_STORM =
@@ -524,7 +524,7 @@ export const IMG_ELEMENT_STORM =
 export const IMG_ELEMENT_CRYSTAL =
   "https://utfs.io/f/Hzww9EQvYURJaKoVVmYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
 export const IMG_ELEMENT_MAGNET =
-  "https://utfs.io/f/Hzww9EQvYURJaKoVVmYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+  "https://utfs.io/f/Hzww9EQvYURJuNr6tnCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 export const IMG_ELEMENT_FIRE =
   "https://utfs.io/f/Hzww9EQvYURJAX1vCjoZUC4muiGcQNzjfEndY5y1w20B8hTW";
 export const IMG_ELEMENT_LIGHT =
