@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import { ChevronsRight, ChevronsLeft, SwitchCamera, Trash2 } from "lucide-react";
-import { attributes } from "@/validators/register";
+import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { mutateContentSchema } from "@/validators/comments";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -58,6 +58,7 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
+import UserSearchSelect from "@/layout/UserSearchSelect";
 
 export default function EditProfile() {
   // State
@@ -118,6 +119,14 @@ export default function EditProfile() {
           onClick={setActiveElement}
         >
           <NindoChange />
+        </Accordion>
+        <Accordion
+          title="Marriage"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Manage Marriage"
+          onClick={setActiveElement}
+        >
+          <Marriage />
         </Accordion>
         <Accordion
           title="Name Change"
@@ -220,6 +229,41 @@ export default function EditProfile() {
   );
 }
 
+/**
+ * Marriage
+ */
+const Marriage: React.FC = () => {
+  // Queries & mutations
+  const { data: userData } = useRequiredUserData();
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  const maxUsers = 1;
+  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+    defaultValues: { username: "", users: [] },
+  });
+  const targetUser = userSearchMethods.watch("users", [])?.[0];
+
+  // Render
+  return (
+    <div className="p-3">
+      <div className="flex flex-col gap-1">
+        <UserSearchSelect
+          useFormMethods={userSearchMethods}
+          label="Search user to marry"
+          selectedUsers={[]}
+          showYourself={false}
+          inline={true}
+          maxUsers={maxUsers}
+          showAi={false}
+        />
+      </div>
+    </div>
+  );
+};
 /**
  * AI Avatar Change
  */

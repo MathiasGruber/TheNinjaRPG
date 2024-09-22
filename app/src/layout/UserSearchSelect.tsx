@@ -42,6 +42,7 @@ interface UserSearchSelectProps {
   label?: string;
   inline?: boolean;
   maxUsers?: number;
+  showAi?: boolean;
 }
 
 const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
@@ -53,7 +54,11 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
   const watchUsers = form.watch("users", []);
 
   const { data: searchResults } = api.profile.searchUsers.useQuery(
-    { username: searchTerm, showYourself: props.showYourself },
+    {
+      username: searchTerm,
+      showYourself: props.showYourself,
+      showAi: props.showAi == undefined ? true : props.showAi,
+    },
     { enabled: searchTerm !== "" },
   );
 
