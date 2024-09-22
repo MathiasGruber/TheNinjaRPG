@@ -200,16 +200,11 @@ export const blackMarketRouter = createTRPCRouter({
       }
       // Mutate
       const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          money: sql`${userData.money} - ${offer.requestedRyo}`,
-          reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-        })
-        .where(
-          and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
-        );
+        .update(ryoTrade)
+        .set({ purchaserUserId: ctx.userId })
+        .where(eq(ryoTrade.id, input.offerId));
       if (result.rowsAffected === 0) {
-        return errorResponse("Not enough ryo");
+        return errorResponse("Could not update offer");
       }
       await Promise.all([
         ctx.drizzle
@@ -217,9 +212,17 @@ export const blackMarketRouter = createTRPCRouter({
           .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
           .where(eq(userData.userId, offer.creatorUserId)),
         ctx.drizzle
-          .update(ryoTrade)
-          .set({ purchaserUserId: ctx.userId })
-          .where(eq(ryoTrade.id, input.offerId)),
+          .update(userData)
+          .set({
+            money: sql`${userData.money} - ${offer.requestedRyo}`,
+            reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gt(userData.money, offer.requestedRyo),
+            ),
+          ),
       ]);
       // Response
       return {
