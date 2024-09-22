@@ -1,0 +1,10 @@
+ALTER TABLE `Item` DROP INDEX `Item_image_key`;
+CREATE INDEX `Item_rarity_idx` ON `Item` (`rarity`);
+CREATE INDEX `Item_itemType_idx` ON `Item` (`itemType`);
+CREATE INDEX `Item_slot_idx` ON `Item` (`slot`);
+CREATE INDEX `Item_method_idx` ON `Item` (`method`);
+CREATE INDEX `Item_target_idx` ON `Item` (`target`);
+CREATE INDEX `Item_isEventItem_idx` ON `Item` (`isEventItem`);
+CREATE INDEX `Item_onlyInShop_idx` ON `Item` (`inShop`);
+CREATE INDEX `Item_cost_idx` ON `Item` (`cost`);
+CREATE INDEX `Item_repsCost_idx` ON `Item` (`reputationCost`);

@@ -808,7 +808,15 @@ export const item = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Item_name_key").on(table.name),
-      imageKey: uniqueIndex("Item_image_key").on(table.image),
+      itemRarityIdx: index("Item_rarity_idx").on(table.rarity),
+      itemTypeIdx: index("Item_itemType_idx").on(table.itemType),
+      slotIdx: index("Item_slot_idx").on(table.slot),
+      methodIdx: index("Item_method_idx").on(table.method),
+      target: index("Item_target_idx").on(table.target),
+      isEventItemIdx: index("Item_isEventItem_idx").on(table.isEventItem),
+      onlyInShopIdx: index("Item_onlyInShop_idx").on(table.inShop),
+      costIdx: index("Item_cost_idx").on(table.cost),
+      repsCostIdx: index("Item_repsCost_idx").on(table.repsCost),
     };
   },
 );

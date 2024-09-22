@@ -1002,6 +1002,13 @@
       "when": 1726996666456,
       "tag": "0142_parched_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "5",
+      "when": 1727017563856,
+      "tag": "0143_broad_nomad",
+      "breakpoints": true
     }
   ]
 }

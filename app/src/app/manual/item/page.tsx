@@ -88,7 +88,6 @@ export default function ManualItems() {
               <div className="flex flex-row gap-2">
                 <Button
                   id={`create-${state.itemType}`}
-                  disabled={state.itemType == "ANY"}
                   className="w-full"
                   onClick={() =>
                     create({
