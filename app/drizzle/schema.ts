@@ -1517,7 +1517,7 @@ export const userReportComment = mysqlTable(
   "UserReportComment",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    content: varchar("content", { length: 191 }).notNull(),
+    content: text("content").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
