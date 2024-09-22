@@ -460,6 +460,14 @@ export const clear = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "clearprevent", target);
+  if (!check) {
+    effect.rounds = 0;
+    return {
+      txt: `${target.username} resists being cleared`,
+      color: "blue",
+    } as ActionEffect;
+  }
   return removeEffects(effect, usersEffects, target, "positive");
 };
 
@@ -468,6 +476,14 @@ export const cleanse = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "cleanseprevent", target);
+  if (!check) {
+    effect.rounds = 0;
+    return {
+      txt: `${target.username} resists being cleansed`,
+      color: "blue",
+    } as ActionEffect;
+  }
   return removeEffects(effect, usersEffects, target, "negative");
 };
 
@@ -1091,6 +1107,33 @@ export const robPrevent = (effect: UserEffect, target: BattleUserState) => {
   }
 };
 
+/** Prevent cleansing */
+export const cleansePrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot be cleansed");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
+/** Prevent clearing */
+export const clearPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  console.log("================");
+  console.log(effect);
+  const mainCheck = Math.random() < power / 100;
+  console.log(mainCheck);
+  if (mainCheck) {
+    const info = getInfo(target, effect, "cannot be cleared");
+    console.log(info);
+    return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /** Seal the bloodline effects of the target with static chance */
 export const seal = (
   effect: UserEffect,
@@ -1149,7 +1192,6 @@ export const stun = (
 
   let info: ActionEffect | undefined = undefined;
   if (effect.isNew && effect.rounds) {
-    console.log(effect);
     if (!("apReduction" in effect)) {
       effect.rounds = 0;
       info = { txt: `${target.username} hit with inactive stun effect`, color: "blue" };

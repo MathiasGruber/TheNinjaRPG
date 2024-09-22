@@ -560,6 +560,12 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         case "robprevent":
           insert(image, "text-blue-500", `- Rob Immunity`, false, e);
           break;
+        case "clearprevent":
+          insert(image, "text-blue-500", `- Clear Immunity`, false, e);
+          break;
+        case "cleanseprevent":
+          insert(image, "text-blue-500", `- Cleanse Immunity`, false, e);
+          break;
         case "stunprevent":
           insert(image, "text-blue-500", `- Stun Resistance`, false, e);
           break;

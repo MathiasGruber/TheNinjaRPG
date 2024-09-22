@@ -16,6 +16,7 @@ import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent } from "./tags";
 import { clear, cleanse, summon, summonPrevent } from "./tags";
+import { cleansePrevent, clearPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { BATTLE_TAG_STACKING } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
@@ -300,6 +301,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = onehitkillPrevent(e, curTarget);
           } else if (e.type === "robprevent") {
             info = robPrevent(e, curTarget);
+          } else if (e.type === "cleanseprevent") {
+            info = cleansePrevent(e, curTarget);
+          } else if (e.type === "clearprevent") {
+            info = clearPrevent(e, curTarget);
           } else if (e.type === "sealprevent") {
             info = sealPrevent(e, curTarget);
           } else if (e.type === "stunprevent") {
