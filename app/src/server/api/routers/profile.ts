@@ -720,6 +720,7 @@ export const profileRouter = createTRPCRouter({
       z.object({
         username: z.string().trim(),
         showYourself: z.boolean(),
+        showAi: z.boolean(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -733,10 +734,12 @@ export const profileRouter = createTRPCRouter({
           level: true,
           role: true,
           federalStatus: true,
+          isAi: true,
         },
         where: and(
           like(userData.username, `%${input.username}%`),
           eq(userData.approvedTos, 1),
+          eq(userData.isAi, input.showAi),
           ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`]),
         ),
         orderBy: [sql`LENGTH(${userData.username}) asc`],

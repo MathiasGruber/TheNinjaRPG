@@ -269,6 +269,7 @@ export const UserRequestTypes = [
   "SENSEI",
   "ANBU",
   "CLAN",
+  "MARRIAGE",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
