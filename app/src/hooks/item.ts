@@ -88,6 +88,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "healthCostReducePerLvl", type: "number" },
     { id: "actionCostPerc", type: "number" },
     { id: "healthCost", type: "number" },
+    { id: "maxEquips", type: "number" },
     { id: "canStack", type: "boolean" },
     { id: "hidden", type: "boolean" },
     { id: "isEventItem", type: "boolean" },

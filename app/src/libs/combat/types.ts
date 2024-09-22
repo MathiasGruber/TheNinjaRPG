@@ -989,6 +989,7 @@ export const ItemValidator = z
     cost: z.coerce.number().int().min(0),
     repsCost: z.coerce.number().int().min(0),
     range: z.coerce.number().int().min(0).max(10),
+    maxEquips: z.coerce.number().int().min(0).max(10),
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     itemType: z.enum(ItemTypes),

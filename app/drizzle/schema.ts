@@ -802,6 +802,7 @@ export const item = mysqlTable(
     inShop: boolean("inShop").default(true).notNull(),
     isEventItem: boolean("isEventItem").default(false).notNull(),
     hidden: boolean("hidden").default(false).notNull(),
+    maxEquips: int("maxEquips").default(1).notNull(),
     preventBattleUsage: boolean("preventBattleUsage").default(false).notNull(),
   },
   (table) => {

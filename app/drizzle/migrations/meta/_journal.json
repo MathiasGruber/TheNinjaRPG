@@ -995,6 +995,13 @@
       "when": 1726500237552,
       "tag": "0141_keen_russian",
       "breakpoints": false
+    },
+    {
+      "idx": 142,
+      "version": "5",
+      "when": 1726996666456,
+      "tag": "0142_parched_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

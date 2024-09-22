@@ -1,0 +1,1 @@
+ALTER TABLE `Item` ADD `maxEquips` int DEFAULT 1 NOT NULL;

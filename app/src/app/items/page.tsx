@@ -165,8 +165,11 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   });
 
   const { mutate: equip, isPending: isEquipping } = api.item.toggleEquip.useMutation({
-    onSuccess: async () => {
-      await utils.item.getUserItems.invalidate();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.item.getUserItems.invalidate();
+      }
     },
     onSettled,
   });
