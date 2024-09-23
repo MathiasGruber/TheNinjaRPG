@@ -43,6 +43,13 @@ export default function Profile() {
       },
     });
 
+  const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
+    {},
+    {
+      staleTime: 5000,
+    },
+  );
+
   const canDelete =
     userData &&
     !userData.isBanned &&
@@ -169,6 +176,20 @@ export default function Profile() {
             <p>ANBU: {userData.anbuSquad?.name || "None"}</p>
             <p>Clan: {userData.clan?.name || "None"}</p>
             <p>Medical: {capitalizeFirstLetter(calcMedninRank(userData))}</p>
+            <p>
+              Married:{" "}
+              {marriages !== undefined && marriages.length > 0
+                ? marriages.map((x) => (
+                    <Link
+                      key={x.username}
+                      href={`/users/${x.userId}`}
+                      className="font-bold"
+                    >
+                      {x.username}
+                    </Link>
+                  ))
+                : "None"}
+            </p>
           </div>
         </div>
         <LevelUpBtn />

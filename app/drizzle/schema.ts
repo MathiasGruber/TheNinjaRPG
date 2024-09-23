@@ -1141,6 +1141,45 @@ export const userAttribute = mysqlTable(
   },
 );
 
+export const userAssociation = mysqlTable(
+  "UserAssociation",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userOne: varchar("userOne", { length: 191 }).notNull(),
+    userTwo: varchar("userTwo", { length: 191 }).notNull(),
+    associationType: mysqlEnum("associationType", consts.UserAssociations)
+      .default("MARRIAGE")
+      .notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      UserOneUserTwoTypeIdKey: uniqueIndex("UserOne_UserTwo_UserAssociation_key").on(
+        table.userOne,
+        table.userTwo,
+        table.associationType,
+      ),
+      userOneIdx: index("UserAttribute_userOne_idx").on(table.userOne),
+      userTwoIdx: index("UserAttribute_userTwo_idx").on(table.userTwo),
+    };
+  },
+);
+
+export type Association = InferSelectModel<typeof userAssociation>;
+
+export const userAssociationRelations = relations(userAssociation, ({ one }) => ({
+  userOne: one(userData, {
+    fields: [userAssociation.userOne],
+    references: [userData.userId],
+  }),
+  userTwo: one(userData, {
+    fields: [userAssociation.userTwo],
+    references: [userData.userId],
+  }),
+}));
+
 export const userData = mysqlTable(
   "UserData",
   {
@@ -1265,6 +1304,7 @@ export const userData = mysqlTable(
       .default(0)
       .notNull(),
     customTitle: varchar("customTitle", { length: 191 }).default("").notNull(),
+    marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
   },
   (table) => {
     return {
@@ -1372,6 +1412,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   }),
   creatorBlacklist: many(userBlackList, { relationName: "creatorBlacklist" }),
   mpvpBattles: many(mpvpBattleUser),
+  associations: many(userAssociation),
 }));
 
 export const userNindo = mysqlTable(

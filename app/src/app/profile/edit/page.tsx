@@ -34,7 +34,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
-import { ChevronsRight, ChevronsLeft, SwitchCamera, Trash2 } from "lucide-react";
+import {
+  ChevronsRight,
+  ChevronsLeft,
+  SwitchCamera,
+  Trash2,
+  SendHorizontal,
+  Ban,
+} from "lucide-react";
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { mutateContentSchema } from "@/validators/comments";
@@ -59,6 +66,8 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { Bloodline, Village } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import type { BaseServerResponse } from "@/server/api/trpc";
+import UserRequestSystem from "@/layout/UserRequestSystem";
 
 export default function EditProfile() {
   // State
@@ -233,9 +242,6 @@ export default function EditProfile() {
  * Marriage
  */
 const Marriage: React.FC = () => {
-  // Queries & mutations
-  const { data: userData } = useRequiredUserData();
-
   // tRPC utility
   const utils = api.useUtils();
 
@@ -247,21 +253,106 @@ const Marriage: React.FC = () => {
   });
   const targetUser = userSearchMethods.watch("users", [])?.[0];
 
+  const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
+    {},
+    {
+      staleTime: 5000,
+    },
+  );
+
+  const { data: requests } = api.marriage.getRequests.useQuery(undefined, {
+    staleTime: 5000,
+  });
+
+  // How to deal with success responses
+  const onSuccess = async (data: BaseServerResponse) => {
+    showMutationToast(data);
+    if (data.success) {
+      await utils.marriage.getRequests.invalidate();
+    }
+  };
+
+  // Queries & mutations
+  const { data: userData } = useRequiredUserData();
+  const { mutate: create } = api.marriage.createRequest.useMutation({ onSuccess });
+  const { mutate: accept } = api.marriage.acceptRequest.useMutation({ onSuccess });
+  const { mutate: reject } = api.marriage.rejectRequest.useMutation({ onSuccess });
+  const { mutate: cancel } = api.marriage.cancelRequest.useMutation({ onSuccess });
+  const { mutate: divorce } = api.marriage.updateAssociation.useMutation({ onSuccess });
+
+  if (!requests) return <Loader explanation="Loading requests" />;
+
+  //Derived
+  const shownRequests = requests.filter((r) => r.status === "PENDING");
+
   // Render
   return (
-    <div className="p-3">
-      <div className="flex flex-col gap-1">
-        <UserSearchSelect
-          useFormMethods={userSearchMethods}
-          label="Search user to marry"
-          selectedUsers={[]}
-          showYourself={false}
-          inline={true}
-          maxUsers={maxUsers}
-          showAi={false}
-        />
+    <>
+      <Label className="pt-2">Users who are married to you</Label>
+      <div className="grid grid-cols-6">
+        {marriages?.map((user, i) => {
+          return (
+            <div
+              key={`marriage-${i}`}
+              className="flex flex-col items-center relative text-xs"
+            >
+              <AvatarImage
+                href={user.avatar}
+                alt={user.username}
+                userId={user.userId}
+                hover_effect={false}
+                size={100}
+              />
+              {user.username}
+              <Ban
+                className="h-8 w-8 absolute top-0 right-0 bg-red-500 rounded-full p-1 hover:text-orange-500 hover:cursor-pointer"
+                onClick={() => divorce({ userId: user.userId })}
+              />
+            </div>
+          );
+        })}
       </div>
-    </div>
+
+      <ContentBox title="Proposals" subtitle="" initialBreak={true} padding={false}>
+        <div className="p-3">
+          <div className="flex flex-col gap-1">
+            <UserSearchSelect
+              useFormMethods={userSearchMethods}
+              label="Search user you'd like to propose to"
+              selectedUsers={[]}
+              showYourself={false}
+              inline={true}
+              maxUsers={maxUsers}
+              showAi={false}
+            />
+          </div>
+        </div>
+        <div className="p-2">
+          <p>Send a proposal to this user</p>
+          <Button
+            id="send"
+            disabled={targetUser === undefined}
+            className="mt-2 w-full"
+            onClick={() => create({ userId: targetUser?.userId || "" })}
+          >
+            <SendHorizontal className="h-5 w-5 mr-2" />
+            Send Proposal
+          </Button>
+        </div>
+        {shownRequests.length === 0 && (
+          <p className="p-2 italic">No current proposals</p>
+        )}
+        {shownRequests.length > 0 && (
+          <UserRequestSystem
+            requests={shownRequests}
+            userId={userData!.userId}
+            onAccept={accept}
+            onReject={reject}
+            onCancel={cancel}
+          />
+        )}
+      </ContentBox>
+    </>
   );
 };
 /**
