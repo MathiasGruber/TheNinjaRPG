@@ -12,6 +12,8 @@ import { COST_RESET_STATS } from "@/drizzle/constants";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
+import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { RYO_FOR_REP_MAX_LISTINGS } from "@/drizzle/constants";
 import { RYO_FOR_REP_MIN_REPS } from "@/drizzle/constants";
@@ -295,6 +297,41 @@ export const blackMarketRouter = createTRPCRouter({
           relatedImage: user.avatar,
         });
         return { success: true, message: "Item slot purchased" };
+      }
+    }),
+  buyJutsuSlot: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_EXTRA_JUTSU_SLOT) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (user.extraJutsuSlots >= MAX_EXTRA_JUTSU_SLOTS) {
+        return errorResponse("Already maximum amount of extra jutsu slots");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          extraJutsuSlots: sql`extraJutsuSlots + 1`,
+          reputationPoints: sql`reputationPoints - ${COST_EXTRA_JUTSU_SLOT}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: ["Jutsu slot purchased"],
+          relatedId: ctx.userId,
+          relatedMsg: "Update: Jutsu slot purchased",
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Jutsu slot purchased" };
       }
     }),
   rerollElement: protectedProcedure

@@ -16,7 +16,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { calcMaxItems } from "@/libs/item";
-import { CircleArrowUp, Shirt } from "lucide-react";
+import { CircleArrowUp, CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
@@ -64,34 +64,34 @@ export default function MyItems() {
   return (
     <ContentBox
       title="Item Management"
-      subtitle={
-        <div className="flex flex-row items-center">
-          Inventory {nonEquipped?.length}/{calcMaxItems(userData)}
-          <Confirm
-            title="Extra Item Slot"
-            proceed_label={
-              canAfford
-                ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
-                : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
-            }
-            isValid={!isPending}
-            button={
-              <CircleArrowUp className="h-5 w-5 ml-2 hover:text-orange-500 hover:cursor-pointer" />
-            }
-            onAccept={(e) => {
-              e.preventDefault();
-              if (canAfford) buyItemSlot();
-            }}
-          >
-            <p>
-              You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
-              reputation points. You currently have {userData.reputationPoints} points.
-              Are you sure?
-            </p>
-          </Confirm>
-        </div>
-      }
+      subtitle={`Inventory ${nonEquipped?.length}/${calcMaxItems(userData)}`}
       padding={false}
+      topRightContent={
+        <Confirm
+          title="Extra Item Slot"
+          proceed_label={
+            canAfford
+              ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
+              : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
+          }
+          isValid={!isPending}
+          button={
+            <Button animation="pulse">
+              <CircleFadingArrowUp className="h-6 w-6" />
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            if (canAfford) buyItemSlot();
+          }}
+        >
+          <p>
+            You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
+            reputation points. You currently have {userData.reputationPoints} points.
+            Are you sure?
+          </p>
+        </Confirm>
+      }
     >
       <div className="flex flex-col sm:flex-row">
         <div className="w-full basis-1/2 p-3">
