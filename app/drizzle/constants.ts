@@ -253,6 +253,10 @@ export const SmileyEmotions = ["like", "love", "laugh"] as const;
 export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
 export type TrainingSpeed = (typeof TrainingSpeeds)[number];
 
+export const UserAssociations = ["MARRIAGE", "DIVORCED"] as const;
+
+export type UserAssociation = (typeof UserAssociations)[number];
+
 export const UserRequestStates = [
   "PENDING",
   "ACCEPTED",

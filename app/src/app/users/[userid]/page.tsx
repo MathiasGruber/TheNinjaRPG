@@ -15,6 +15,7 @@ export default function PublicProfile({ params }: { params: { userid: string } }
       showActionLogs
       showTrainingLogs
       showCombatLogs
+      showMarriages
     />
   );
 }

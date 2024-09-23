@@ -61,6 +61,7 @@ interface PublicUserComponentProps {
   showActionLogs?: boolean;
   showTrainingLogs?: boolean;
   showCombatLogs?: boolean;
+  showMarriages?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
@@ -77,6 +78,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   showActionLogs,
   showTrainingLogs,
   showCombatLogs,
+  showMarriages,
 }) => {
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
@@ -102,6 +104,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
       { userId: userId },
       { enabled: !!enableReports, staleTime: Infinity },
     );
+
+  const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
+    { id: userId },
+    {
+      staleTime: 5000,
+    },
+  );
 
   // tRPC utility
   const utils = api.useUtils();
@@ -294,6 +303,32 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           </div>
         </div>
       </ContentBox>
+      {/* MARRIED USERS */}
+      {showMarriages && marriages !== undefined && marriages.length > 0 && (
+        <ContentBox
+          title="Married Users"
+          subtitle={`${profile.username} is married to these users`}
+          initialBreak={true}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
+            {marriages.map((user, i) => (
+              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+                <AvatarImage
+                  href={user.avatar}
+                  alt={user.username}
+                  userId={user.userId}
+                  hover_effect={true}
+                  priority={true}
+                  size={100}
+                />
+                <div>
+                  <div className="font-bold">{user.username}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </ContentBox>
+      )}
       {/* RECRUITED USERS */}
       {showRecruited && profile.recruitedUsers.length > 0 && (
         <ContentBox
