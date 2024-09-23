@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, CircleFadingArrowUp } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -25,6 +25,8 @@ import { api } from "@/utils/api";
 import { getUserElements } from "@/validators/user";
 import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
+import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
+import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 
@@ -101,7 +103,17 @@ export default function MyJutsu() {
     },
   });
 
-  const isPending = isEquipping || isForgetting;
+  const { mutate: buyJutsuSlot, isPending: isUpgrading } =
+    api.blackmarket.buyJutsuSlot.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
+      },
+    });
+
+  const isPending = isEquipping || isForgetting || isUpgrading;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -165,6 +177,9 @@ export default function MyJutsu() {
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
 
+  // Can afford removing
+  const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
+
   return (
     <ContentBox
       title="Jutsu Management"
@@ -174,6 +189,32 @@ export default function MyJutsu() {
           <div className="flex flex-row items-center gap-2">
             <LoadoutSelector />
             <JutsuFiltering state={state} />
+            {userData.extraJutsuSlots < MAX_EXTRA_JUTSU_SLOTS && (
+              <Confirm
+                title="Extra Jutsu Slot"
+                proceed_label={
+                  canUpgrade
+                    ? `Purchase for ${COST_EXTRA_JUTSU_SLOT} reps`
+                    : `Need ${userData.reputationPoints - COST_EXTRA_JUTSU_SLOT} more reps`
+                }
+                isValid={!isPending}
+                button={
+                  <Button animation="pulse">
+                    <CircleFadingArrowUp className="h-6 w-6" />
+                  </Button>
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  if (canUpgrade) buyJutsuSlot();
+                }}
+              >
+                <p>
+                  You are about to purchase an extra jutsu slot for{" "}
+                  {COST_EXTRA_JUTSU_SLOT} reputation points. You currently have{" "}
+                  {userData.reputationPoints} points. Are you sure?
+                </p>
+              </Confirm>
+            )}
           </div>
         )
       }

@@ -11,7 +11,13 @@ import { getUserElements } from "@/validators/user";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
-import type { Item, Jutsu, UserItem, JutsuRank } from "@/drizzle/schema";
+import {
+  type Item,
+  type Jutsu,
+  type UserItem,
+  type JutsuRank,
+  userData,
+} from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import type { ElementName } from "@/drizzle/constants";
 
@@ -231,7 +237,9 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     }
     return 0;
   };
-  return 1 + rankContrib(userdata.rank) + fedContrib(userdata);
+  return (
+    1 + rankContrib(userdata.rank) + fedContrib(userdata) + userdata.extraJutsuSlots
+  );
 };
 
 // For categorizing jutsu

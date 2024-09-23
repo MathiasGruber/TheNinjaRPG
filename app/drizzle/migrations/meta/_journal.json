@@ -1009,6 +1009,20 @@
       "when": 1727017563856,
       "tag": "0143_broad_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "5",
+      "when": 1727029455056,
+      "tag": "0144_outgoing_firelord",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "5",
+      "when": 1727071243618,
+      "tag": "0145_big_mojo",
+      "breakpoints": true
     }
   ]
 }

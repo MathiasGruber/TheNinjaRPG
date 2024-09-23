@@ -12,6 +12,8 @@ import { COST_RESET_STATS } from "@/drizzle/constants";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
+import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { RYO_FOR_REP_MAX_LISTINGS } from "@/drizzle/constants";
 import { RYO_FOR_REP_MIN_REPS } from "@/drizzle/constants";
@@ -19,6 +21,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { baseServerResponse, errorResponse } from "../trpc";
 import type { DrizzleClient } from "@/server/db";
+import { canChangeContent } from "@/utils/permissions";
 
 export const blackMarketRouter = createTRPCRouter({
   getRyoOffers: protectedProcedure
@@ -200,16 +203,11 @@ export const blackMarketRouter = createTRPCRouter({
       }
       // Mutate
       const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          money: sql`${userData.money} - ${offer.requestedRyo}`,
-          reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-        })
-        .where(
-          and(eq(userData.userId, ctx.userId), gt(userData.money, offer.requestedRyo)),
-        );
+        .update(ryoTrade)
+        .set({ purchaserUserId: ctx.userId })
+        .where(eq(ryoTrade.id, input.offerId));
       if (result.rowsAffected === 0) {
-        return errorResponse("Not enough ryo");
+        return errorResponse("Could not update offer");
       }
       await Promise.all([
         ctx.drizzle
@@ -217,9 +215,17 @@ export const blackMarketRouter = createTRPCRouter({
           .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
           .where(eq(userData.userId, offer.creatorUserId)),
         ctx.drizzle
-          .update(ryoTrade)
-          .set({ purchaserUserId: ctx.userId })
-          .where(eq(ryoTrade.id, input.offerId)),
+          .update(userData)
+          .set({
+            money: sql`${userData.money} - ${offer.requestedRyo}`,
+            reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gt(userData.money, offer.requestedRyo),
+            ),
+          ),
       ]);
       // Response
       return {
@@ -294,6 +300,41 @@ export const blackMarketRouter = createTRPCRouter({
         return { success: true, message: "Item slot purchased" };
       }
     }),
+  buyJutsuSlot: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_EXTRA_JUTSU_SLOT) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (user.extraJutsuSlots >= MAX_EXTRA_JUTSU_SLOTS) {
+        return errorResponse("Already maximum amount of extra jutsu slots");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          extraJutsuSlots: sql`extraJutsuSlots + 1`,
+          reputationPoints: sql`reputationPoints - ${COST_EXTRA_JUTSU_SLOT}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: ["Jutsu slot purchased"],
+          relatedId: ctx.userId,
+          relatedMsg: "Update: Jutsu slot purchased",
+          relatedImage: user.avatar,
+        });
+        return { success: true, message: "Jutsu slot purchased" };
+      }
+    }),
   rerollElement: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
@@ -345,7 +386,8 @@ export const blackMarketRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.reputationPoints < COST_RESET_STATS) {
+      const cost = canChangeContent(user.role) ? 0 : COST_RESET_STATS;
+      if (user.reputationPoints < cost) {
         return { success: false, message: "Not enough reputation points" };
       }
       const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
@@ -369,7 +411,7 @@ export const blackMarketRouter = createTRPCRouter({
           speed: input.speed,
           intelligence: input.intelligence,
           willpower: input.willpower,
-          reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
+          reputationPoints: sql`reputationPoints - ${cost}`,
         })
         .where(eq(userData.userId, ctx.userId));
       if (result.rowsAffected === 0) {
@@ -384,7 +426,10 @@ export const blackMarketRouter = createTRPCRouter({
           relatedMsg: `Update: ${user.username} stats redistribution`,
           relatedImage: user.avatar,
         });
-        return { success: true, message: "User stats updated" };
+        return {
+          success: true,
+          message: `User stats updated for ${cost} reputation points`,
+        };
       }
     }),
 });

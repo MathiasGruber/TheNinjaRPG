@@ -400,6 +400,13 @@ export const BarrierTag = z.object({
 
 export type BarrierTagType = z.infer<typeof BarrierTag>;
 
+export const BuffPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("buffprevent").default("buffprevent"),
+  description: msg("Prevents buffing"),
+});
+
 export const ClearTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -407,11 +414,25 @@ export const ClearTag = z.object({
   description: msg("Clears all positive effects from the target"),
 });
 
+export const ClearPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("clearprevent").default("clearprevent"),
+  description: msg("Prevents clearing"),
+});
+
 export const CleanseTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
   type: z.literal("cleanse").default("cleanse"),
   description: msg("Clears all negative effects from the target"),
+});
+
+export const CleansePreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("cleanseprevent").default("cleanseprevent"),
+  description: msg("Prevents cleansing"),
 });
 
 export const CloneTag = z.object({
@@ -437,6 +458,13 @@ export const DamageTag = z.object({
 
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+export const DebuffPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("debuffprevent").default("debuffprevent"),
+  description: msg("Prevents debuffing"),
+});
+
 export const FleeTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -459,6 +487,13 @@ export const HealTag = z.object({
   rounds: z.coerce.number().int().min(0).max(100).default(0),
   description: msg("Heals the target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
+});
+
+export const HealPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("healprevent").default("healprevent"),
+  description: msg("Prevents healing"),
 });
 
 export const LifeStealTag = z.object({
@@ -610,31 +645,36 @@ export const UnknownTag = z.object({
 /******************** */
 const AllTags = z.union([
   AbsorbTag.default({}),
-  IncreaseDamageGivenTag.default({}),
-  DecreaseDamageGivenTag.default({}),
-  IncreaseDamageTakenTag.default({}),
-  DecreaseDamageTakenTag.default({}),
-  IncreaseHealGivenTag.default({}),
-  DecreaseHealGivenTag.default({}),
-  IncreasePoolCostTag.default({}),
-  DecreasePoolCostTag.default({}),
-  IncreaseStatTag.default({}),
-  DecreaseStatTag.default({}),
   BarrierTag.default({}),
-  ClearTag.default({}),
+  BuffPreventTag.default({}),
+  CleansePreventTag.default({}),
   CleanseTag.default({}),
+  ClearPreventTag.default({}),
+  ClearTag.default({}),
   CloneTag.default({}),
   DamageTag.default({}),
-  FleeTag.default({}),
+  DebuffPreventTag.default({}),
+  DecreaseDamageGivenTag.default({}),
+  DecreaseDamageTakenTag.default({}),
+  DecreaseHealGivenTag.default({}),
+  DecreasePoolCostTag.default({}),
+  DecreaseStatTag.default({}),
   FleePreventTag.default({}),
+  FleeTag.default({}),
   HealTag.default({}),
+  HealPreventTag.default({}),
+  IncreaseDamageGivenTag.default({}),
+  IncreaseDamageTakenTag.default({}),
+  IncreaseHealGivenTag.default({}),
+  IncreasePoolCostTag.default({}),
+  IncreaseStatTag.default({}),
   LifeStealTag.default({}),
   MoveTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
+  RecoilTag.default({}),
   ReflectTag.default({}),
   RemoveBloodline.default({}),
-  RecoilTag.default({}),
   RobPreventTag.default({}),
   RobTag.default({}),
   RollRandomBloodline.default({}),
@@ -644,8 +684,8 @@ const AllTags = z.union([
   StunTag.default({}),
   SummonPreventTag.default({}),
   SummonTag.default({}),
-  VisualTag.default({}),
   UnknownTag.default({}),
+  VisualTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options
@@ -661,12 +701,17 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
   if (
     [
       "absorb",
-      "increasedamagegiven",
+      "buffprevent",
+      "cleanseprevent",
+      "clearprevent",
+      "debuffprevent",
       "decreasedamagetaken",
-      "increaseheal",
       "decreasepoolcost",
-      "increasestat",
       "heal",
+      "healprevent",
+      "increasedamagegiven",
+      "increaseheal",
+      "increasestat",
       "lifesteal",
       "move",
       "onehitkillprevent",
@@ -715,21 +760,23 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
 
 const BloodlineTags = z.union([
   AbsorbTag.default({}),
-  IncreaseDamageGivenTag.default({}),
-  DecreaseDamageGivenTag.default({}),
-  IncreaseDamageTakenTag.default({}),
-  DecreaseDamageTakenTag.default({}),
-  IncreaseHealGivenTag.default({}),
-  DecreaseHealGivenTag.default({}),
-  IncreasePoolCostTag.default({}),
-  DecreasePoolCostTag.default({}),
-  IncreaseStatTag.default({}),
-  DecreaseStatTag.default({}),
+  CleansePreventTag.default({}),
+  ClearPreventTag.default({}),
   DamageTag.default({}),
+  DecreaseDamageGivenTag.default({}),
+  DecreaseDamageTakenTag.default({}),
+  DecreaseHealGivenTag.default({}),
+  DecreasePoolCostTag.default({}),
+  DecreaseStatTag.default({}),
   HealTag.default({}),
+  IncreaseDamageGivenTag.default({}),
+  IncreaseDamageTakenTag.default({}),
+  IncreaseHealGivenTag.default({}),
+  IncreasePoolCostTag.default({}),
+  IncreaseStatTag.default({}),
   LifeStealTag.default({}),
-  ReflectTag.default({}),
   RecoilTag.default({}),
+  ReflectTag.default({}),
   RobPreventTag.default({}),
   SealPreventTag.default({}),
   StunPreventTag.default({}),

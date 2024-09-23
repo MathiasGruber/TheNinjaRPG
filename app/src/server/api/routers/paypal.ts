@@ -426,6 +426,7 @@ export const updateSubscription = async (input: {
   subscriptionId: string;
   federalStatus: FederalStatus;
   status: string;
+  lastPayment?: Date;
 }) => {
   return await input.client.transaction(async (tx) => {
     const current = await tx.query.paypalSubscription.findFirst({
@@ -444,7 +445,7 @@ export const updateSubscription = async (input: {
         .set({
           status: input.status,
           federalStatus: input.federalStatus,
-          updatedAt: new Date(),
+          updatedAt: input.lastPayment || new Date(),
         })
         .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
     } else {
@@ -456,6 +457,7 @@ export const updateSubscription = async (input: {
         orderId: input.orderId,
         status: input.status,
         federalStatus: input.federalStatus,
+        updatedAt: input.lastPayment || new Date(),
       });
     }
   });
@@ -509,7 +511,6 @@ export const getPaypalTransactions = async (
   token: string,
   transactionId?: string,
 ) => {
-  console.log("transactionDate", transactionDate.getTime(), typeof transactionDate);
   // Current date in 2014-07-12T00:00:00-0700 format
   const startDate = addDays(transactionDate, -14);
   const endDate = addDays(transactionDate, 14);
@@ -524,7 +525,9 @@ export const getPaypalTransactions = async (
       "Content-Type": "application/json",
     },
   })
-    .then((response) => response.json())
+    .then((response) => {
+      return response.json();
+    })
     .then((data: { transaction_details: PaypalTransaction[] }) => {
       return data.transaction_details;
     });
@@ -561,16 +564,17 @@ export const syncTransactions = async (
           );
           // Update if we found external and it's time to update internal
           if (externalSubscription) {
-            const newStatus = getPaypalSubscriptionStatus(externalSubscription);
+            const status = getPaypalSubscriptionStatus(externalSubscription);
             await updateSubscription({
               client: client,
               createdById: createdByUserId,
               affectedUserId: affectedUserId,
-              federalStatus: newStatus,
+              federalStatus: status.newStatus,
               status: externalSubscription.status,
               subscriptionId: externalSubscription.id,
+              lastPayment: status.lastPayment,
             });
-            return `Subscription ID ${info.paypal_reference_id} synced to ${newStatus}`;
+            return `Subscription ID ${info.paypal_reference_id} synced to ${status.newStatus}`;
           } else {
             return `Subscription ID ${info.paypal_reference_id} not found`;
           }
@@ -614,7 +618,7 @@ export const getPaypalSubscriptionStatus = (subscription: PaypalSubscription) =>
   const fedStatus = plan2FedStatus(subscription.plan_id);
   const stillActive = lastPayment > secondsFromNow(-3600 * 24 * 31);
   const newStatus = stillActive ? fedStatus : "NONE";
-  return newStatus;
+  return { newStatus: newStatus as FederalStatus, lastPayment };
 };
 
 /**
