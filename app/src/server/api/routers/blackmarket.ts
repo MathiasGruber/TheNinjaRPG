@@ -21,6 +21,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { baseServerResponse, errorResponse } from "../trpc";
 import type { DrizzleClient } from "@/server/db";
+import { canChangeContent } from "@/utils/permissions";
 
 export const blackMarketRouter = createTRPCRouter({
   getRyoOffers: protectedProcedure
@@ -385,7 +386,8 @@ export const blackMarketRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.reputationPoints < COST_RESET_STATS) {
+      const cost = canChangeContent(user.role) ? 0 : COST_RESET_STATS;
+      if (user.reputationPoints < cost) {
         return { success: false, message: "Not enough reputation points" };
       }
       const inputSum = round(Object.values(input).reduce((a, b) => a + b, 0));
@@ -409,7 +411,7 @@ export const blackMarketRouter = createTRPCRouter({
           speed: input.speed,
           intelligence: input.intelligence,
           willpower: input.willpower,
-          reputationPoints: sql`reputationPoints - ${COST_RESET_STATS}`,
+          reputationPoints: sql`reputationPoints - ${cost}`,
         })
         .where(eq(userData.userId, ctx.userId));
       if (result.rowsAffected === 0) {
@@ -424,7 +426,10 @@ export const blackMarketRouter = createTRPCRouter({
           relatedMsg: `Update: ${user.username} stats redistribution`,
           relatedImage: user.avatar,
         });
-        return { success: true, message: "User stats updated" };
+        return {
+          success: true,
+          message: `User stats updated for ${cost} reputation points`,
+        };
       }
     }),
 });
