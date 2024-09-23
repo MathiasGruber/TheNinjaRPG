@@ -15,8 +15,8 @@ import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent } from "./tags";
-import { clear, cleanse, summon, summonPrevent } from "./tags";
-import { cleansePrevent, clearPrevent } from "./tags";
+import { clear, cleanse, summon, summonPrevent, buffPrevent } from "./tags";
+import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { BATTLE_TAG_STACKING } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
@@ -248,7 +248,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             if (e.type === "damage" && isTargetOrNew) {
               info = damageUser(e, curUser, curTarget, consequences, ratio, dmgConfig);
             } else if (e.type === "heal" && isTargetOrNew) {
-              info = heal(e, curTarget, consequences, ratio);
+              info = heal(e, newUsersEffects, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {
               info = flee(e, newUsersEffects, newTarget);
             } else if (e.type === "increasepoolcost" && isTargetOrNew) {
@@ -278,9 +278,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           if (e.type === "absorb") {
             info = absorb(e, usersEffects, consequences, curTarget);
           } else if (e.type === "increasestat") {
-            info = increaseStats(e, curTarget);
+            info = increaseStats(e, newUsersEffects, curTarget);
           } else if (e.type === "decreasestat") {
-            info = decreaseStats(e, curTarget);
+            info = decreaseStats(e, newUsersEffects, curTarget);
           } else if (e.type === "increasedamagetaken") {
             info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
           } else if (e.type === "decreasedamagetaken") {
@@ -297,6 +297,12 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = lifesteal(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
             info = fleePrevent(e, curTarget);
+          } else if (e.type === "healprevent") {
+            info = healPrevent(e, curTarget);
+          } else if (e.type === "buffprevent") {
+            info = buffPrevent(e, curTarget);
+          } else if (e.type === "debuffprevent") {
+            info = debuffPrevent(e, curTarget);
           } else if (e.type === "onehitkillprevent") {
             info = onehitkillPrevent(e, curTarget);
           } else if (e.type === "robprevent") {

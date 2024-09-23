@@ -252,7 +252,6 @@ const getActionTree = (
   // Clone actions to not mutate original
   const availableActions = structuredClone(actions);
   // Go through all possible actions for this AI
-  console.log("getActionTree");
   availableActions.forEach((action) => {
     const { canAct } = actionPointsAfterAction(user, battle, action);
     if (canAct) {

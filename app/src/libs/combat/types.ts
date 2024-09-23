@@ -400,6 +400,13 @@ export const BarrierTag = z.object({
 
 export type BarrierTagType = z.infer<typeof BarrierTag>;
 
+export const BuffPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("buffprevent").default("buffprevent"),
+  description: msg("Prevents buffing"),
+});
+
 export const ClearTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -451,6 +458,13 @@ export const DamageTag = z.object({
 
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+export const DebuffPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("debuffprevent").default("debuffprevent"),
+  description: msg("Prevents debuffing"),
+});
+
 export const FleeTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -473,6 +487,13 @@ export const HealTag = z.object({
   rounds: z.coerce.number().int().min(0).max(100).default(0),
   description: msg("Heals the target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
+});
+
+export const HealPreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("healprevent").default("healprevent"),
+  description: msg("Prevents healing"),
 });
 
 export const LifeStealTag = z.object({
@@ -625,12 +646,14 @@ export const UnknownTag = z.object({
 const AllTags = z.union([
   AbsorbTag.default({}),
   BarrierTag.default({}),
+  BuffPreventTag.default({}),
   CleansePreventTag.default({}),
   CleanseTag.default({}),
   ClearPreventTag.default({}),
   ClearTag.default({}),
   CloneTag.default({}),
   DamageTag.default({}),
+  DebuffPreventTag.default({}),
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),
   DecreaseHealGivenTag.default({}),
@@ -639,6 +662,7 @@ const AllTags = z.union([
   FleePreventTag.default({}),
   FleeTag.default({}),
   HealTag.default({}),
+  HealPreventTag.default({}),
   IncreaseDamageGivenTag.default({}),
   IncreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
@@ -677,11 +701,14 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
   if (
     [
       "absorb",
+      "buffprevent",
       "cleanseprevent",
       "clearprevent",
+      "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
       "heal",
+      "healprevent",
       "increasedamagegiven",
       "increaseheal",
       "increasestat",

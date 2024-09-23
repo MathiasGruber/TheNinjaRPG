@@ -15,6 +15,10 @@ export const absorb = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  // Prevent?
+  const check = preventCheck(usersEffects, "healprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot absorb health");
+  // Calculate absorption
   const { power, qualifier } = getPower(effect);
   // Pools that are going to be restored
   const pools =
@@ -65,6 +69,30 @@ export const absorb = (
     effect,
     `will absorb up to ${qualifier} damage and convert it to ${pools.join(", ")}`,
   );
+};
+
+/** Prevent buffing */
+export const buffPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    const info = getInfo(target, effect, "cannot be buffed");
+    return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
+/** Prevent debuffing */
+export const debuffPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    const info = getInfo(target, effect, "cannot be debuffed");
+    return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
 };
 
 export const getAffected = (effect: UserEffect, type?: "offence" | "defence") => {
@@ -248,11 +276,23 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   return getInfo(target, effect, `${affected} is ${adverb} by ${qualifier}`);
 };
 
-export const increaseStats = (effect: UserEffect, target: BattleUserState) => {
+export const increaseStats = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  const check = preventCheck(usersEffects, "buffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be buffed");
   return adjustStats(effect, target);
 };
 
-export const decreaseStats = (effect: UserEffect, target: BattleUserState) => {
+export const decreaseStats = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  const check = preventCheck(usersEffects, "debuffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be debuffed");
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustStats(effect, target);
@@ -295,6 +335,8 @@ export const increaseDamageGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "buffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be buffed");
   return adjustDamageGiven(effect, usersEffects, consequences, target);
 };
 
@@ -304,6 +346,8 @@ export const decreaseDamageGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "debuffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be debuffed");
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageGiven(effect, usersEffects, consequences, target);
@@ -346,6 +390,8 @@ export const increaseDamageTaken = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "debuffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be debuffed");
   return adjustDamageTaken(effect, usersEffects, consequences, target);
 };
 
@@ -355,6 +401,8 @@ export const decreaseDamageTaken = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const check = preventCheck(usersEffects, "buffprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be buffed");
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageTaken(effect, usersEffects, consequences, target);
@@ -461,13 +509,7 @@ export const clear = (
   target: BattleUserState,
 ) => {
   const check = preventCheck(usersEffects, "clearprevent", target);
-  if (!check) {
-    effect.rounds = 0;
-    return {
-      txt: `${target.username} resists being cleared`,
-      color: "blue",
-    } as ActionEffect;
-  }
+  if (!check) return preventResponse(effect, target, "resists being cleared");
   return removeEffects(effect, usersEffects, target, "positive");
 };
 
@@ -477,13 +519,7 @@ export const cleanse = (
   target: BattleUserState,
 ) => {
   const check = preventCheck(usersEffects, "cleanseprevent", target);
-  if (!check) {
-    effect.rounds = 0;
-    return {
-      txt: `${target.username} resists being cleansed`,
-      color: "blue",
-    } as ActionEffect;
-  }
+  if (!check) return preventResponse(effect, target, "resists being cleansed");
   return removeEffects(effect, usersEffects, target, "negative");
 };
 
@@ -792,10 +828,15 @@ export const fleePrevent = (effect: UserEffect, target: BattleUserState) => {
 /** Calculate healing effect on target */
 export const heal = (
   effect: UserEffect,
+  usersEffects: UserEffect[],
   target: BattleUserState,
   consequences: Map<string, Consequence>,
   applyTimes: number,
 ) => {
+  // Prevent?
+  const check = preventCheck(usersEffects, "healprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot be healed");
+  // Calculate healing
   const { power } = getPower(effect);
   const parsedEffect = HealTag.parse(effect);
   const poolsAffects = parsedEffect.poolsAffected || ["Health"];
@@ -828,6 +869,18 @@ export const heal = (
     });
   }
   return getInfo(target, effect, "will heal");
+};
+
+/** Prevent healing */
+export const healPrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    const info = getInfo(target, effect, "cannot be healed");
+    return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
 };
 
 export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
@@ -923,6 +976,10 @@ export const lifesteal = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  // Prevent?
+  const check = preventCheck(usersEffects, "healprevent", target);
+  if (!check) return preventResponse(effect, target, "cannot steal health");
+  // Calculate life steal
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
@@ -1037,10 +1094,7 @@ export const rob = (
   // When just created, check if target can resist
   if (effect.isNew) {
     const check = preventCheck(usersEffects, "robprevent", target);
-    if (!check) {
-      info = { txt: `${target.username} resists being robbed`, color: "blue" };
-      effect.rounds = 0;
-    }
+    if (!check) return preventResponse(effect, target, "resists being robbed");
     return info;
   }
   // Attempt robbing
@@ -1121,8 +1175,6 @@ export const cleansePrevent = (effect: UserEffect, target: BattleUserState) => {
 /** Prevent clearing */
 export const clearPrevent = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
-  console.log("================");
-  console.log(effect);
   const mainCheck = Math.random() < power / 100;
   console.log(mainCheck);
   if (mainCheck) {
@@ -1303,6 +1355,21 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
  */
 
 /**
+ * Prevention response from the target user
+ */
+export const preventResponse = (
+  effect: UserEffect,
+  target: BattleUserState,
+  msg: string,
+) => {
+  effect.rounds = 0;
+  return {
+    txt: `${target.username} ${msg}`,
+    color: "blue",
+  } as ActionEffect;
+};
+
+/**
  * Returns an array of lowercase generals based on the input array of generals and the user's highest generals.
  * If the input array contains the value "Highest", the function will include the user's highest generals in the result.
  *
@@ -1418,6 +1485,8 @@ const preventCheck = (
   const prevent = usersEffects.find(
     (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
+  console.log(prevent);
+  console.log(usersEffects);
   if (prevent) {
     const power = prevent.power + prevent.level * prevent.powerPerLevel;
     return Math.random() > power / 100;
