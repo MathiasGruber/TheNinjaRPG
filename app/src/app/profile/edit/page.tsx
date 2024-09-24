@@ -256,12 +256,12 @@ const Marriage: React.FC = () => {
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
     {
-      staleTime: 5000,
+      staleTime: 300000,
     },
   );
 
   const { data: requests } = api.marriage.getRequests.useQuery(undefined, {
-    staleTime: 5000,
+    staleTime: 300000,
   });
 
   // How to deal with success responses
