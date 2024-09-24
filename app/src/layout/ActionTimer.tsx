@@ -37,7 +37,6 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   const cost = action?.actionCostPerc ?? 0;
   const actionNow = user.actionPoints - stunReduction;
   const actionAfter = actionNow - cost;
-  console.log(actionAfter, actionNow, cost, stunReduction);
 
   // Calculate label and color
   const yellow = "/combat/actionTimer/yellow.webp";

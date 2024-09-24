@@ -16,8 +16,8 @@ export const absorb = (
   target: BattleUserState,
 ) => {
   // Prevent?
-  const check = preventCheck(usersEffects, "healprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot absorb health");
+  const { pass } = preventCheck(usersEffects, "healprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot absorb health");
   // Calculate absorption
   const { power, qualifier } = getPower(effect);
   // Pools that are going to be restored
@@ -77,6 +77,7 @@ export const buffPrevent = (effect: UserEffect, target: BattleUserState) => {
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be buffed");
+    effect.power = 100;
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -89,6 +90,7 @@ export const debuffPrevent = (effect: UserEffect, target: BattleUserState) => {
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be debuffed");
+    effect.power = 100;
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -281,8 +283,10 @@ export const increaseStats = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "buffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be buffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   return adjustStats(effect, target);
 };
 
@@ -291,8 +295,10 @@ export const decreaseStats = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "debuffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be debuffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustStats(effect, target);
@@ -335,8 +341,10 @@ export const increaseDamageGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "buffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be buffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   return adjustDamageGiven(effect, usersEffects, consequences, target);
 };
 
@@ -346,8 +354,10 @@ export const decreaseDamageGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "debuffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be debuffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageGiven(effect, usersEffects, consequences, target);
@@ -390,8 +400,10 @@ export const increaseDamageTaken = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "debuffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be debuffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
   return adjustDamageTaken(effect, usersEffects, consequences, target);
 };
 
@@ -401,8 +413,10 @@ export const decreaseDamageTaken = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "buffprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be buffed");
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustDamageTaken(effect, usersEffects, consequences, target);
@@ -508,8 +522,8 @@ export const clear = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "clearprevent", target);
-  if (!check) return preventResponse(effect, target, "resists being cleared");
+  const { pass } = preventCheck(usersEffects, "clearprevent", target);
+  if (!pass) return preventResponse(effect, target, "resists being cleared");
   return removeEffects(effect, usersEffects, target, "positive");
 };
 
@@ -518,8 +532,8 @@ export const cleanse = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  const check = preventCheck(usersEffects, "cleanseprevent", target);
-  if (!check) return preventResponse(effect, target, "resists being cleansed");
+  const { pass } = preventCheck(usersEffects, "cleanseprevent", target);
+  if (!pass) return preventResponse(effect, target, "resists being cleansed");
   return removeEffects(effect, usersEffects, target, "negative");
 };
 
@@ -794,19 +808,18 @@ export const flee = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  const { pass } = preventCheck(usersEffects, "fleeprevent", target);
+  if (!pass) return preventResponse(effect, target, "is prevented from fleeing");
+  // Apply flee
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
-  const secondaryCheck = preventCheck(usersEffects, "fleeprevent", target);
-
   let text =
     effect.isNew && effect.rounds && effect.rounds > 0
       ? `${target.username} will attempt fleeing for the next ${effect.rounds} rounds. `
       : "";
-  if (primaryCheck && secondaryCheck) {
+  if (primaryCheck) {
     target.fledBattle = true;
     text = `${target.username} manages to flee the battle!`;
-  } else if (primaryCheck) {
-    text += `${target.username} is prevented from fleeing`;
   } else {
     text += `${target.username} fails to flee the battle!`;
   }
@@ -834,8 +847,8 @@ export const heal = (
   applyTimes: number,
 ) => {
   // Prevent?
-  const check = preventCheck(usersEffects, "healprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot be healed");
+  const { pass } = preventCheck(usersEffects, "healprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be healed");
   // Calculate healing
   const { power } = getPower(effect);
   const parsedEffect = HealTag.parse(effect);
@@ -977,8 +990,8 @@ export const lifesteal = (
   target: BattleUserState,
 ) => {
   // Prevent?
-  const check = preventCheck(usersEffects, "healprevent", target);
-  if (!check) return preventResponse(effect, target, "cannot steal health");
+  const { pass } = preventCheck(usersEffects, "healprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot steal health");
   // Calculate life steal
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
@@ -1045,17 +1058,16 @@ export const onehitkill = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  // Prevent?
+  const { pass } = preventCheck(usersEffects, "onehitkillprevent", target);
+  if (!pass) return preventResponse(effect, target, "resisted being instantly killed");
+  // Apply
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
-  const secondaryCheck = preventCheck(usersEffects, "onehitkillprevent", target);
-
   let info: ActionEffect | undefined = undefined;
-  if (primaryCheck && secondaryCheck) {
+  if (primaryCheck) {
     target.curHealth = 0;
     info = { txt: `${target.username} was killed in one hit`, color: "red" };
-  } else if (primaryCheck) {
-    effect.rounds = 0;
-    info = { txt: `${target.username} resisted being instantly killed`, color: "blue" };
   } else {
     info = {
       txt: `${target.username} was lucky not to be instantly killed!`,
@@ -1093,8 +1105,8 @@ export const rob = (
   }
   // When just created, check if target can resist
   if (effect.isNew) {
-    const check = preventCheck(usersEffects, "robprevent", target);
-    if (!check) return preventResponse(effect, target, "resists being robbed");
+    const { pass } = preventCheck(usersEffects, "robprevent", target);
+    if (!pass) return preventResponse(effect, target, "resists being robbed");
     return info;
   }
   // Attempt robbing
@@ -1192,16 +1204,15 @@ export const seal = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  const { pass } = preventCheck(usersEffects, "sealprevent", target);
+  if (!pass) return preventResponse(effect, target, "resisted bloodline sealing");
+  // Apply
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
-  const secondaryCheck = preventCheck(usersEffects, "sealprevent", target);
   let info: ActionEffect | undefined = undefined;
   if (effect.isNew) {
-    if (primaryCheck && secondaryCheck) {
+    if (primaryCheck) {
       info = getInfo(target, effect, "bloodline is sealed");
-    } else if (primaryCheck) {
-      effect.rounds = 0;
-      info = { txt: `${target.username} resisted bloodline sealing`, color: "blue" };
     } else {
       effect.rounds = 0;
       info = { txt: `${target.username} bloodline was not sealed`, color: "blue" };
@@ -1238,20 +1249,19 @@ export const stun = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  // Prevent?
+  const { pass } = preventCheck(usersEffects, "stunprevent", target);
+  if (!pass) return preventResponse(effect, target, "resisted being stunned");
+  // Apply
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
-  const secondaryCheck = preventCheck(usersEffects, "stunprevent", target);
-
   let info: ActionEffect | undefined = undefined;
   if (effect.isNew && effect.rounds) {
     if (!("apReduction" in effect)) {
       effect.rounds = 0;
       info = { txt: `${target.username} hit with inactive stun effect`, color: "blue" };
-    } else if (primaryCheck && secondaryCheck) {
-      info = getInfo(target, effect, `is stunned [-${effect.apReduction} AP]`);
     } else if (primaryCheck) {
-      effect.rounds = 0;
-      info = { txt: `${target.username} resisted being stunned`, color: "blue" };
+      info = getInfo(target, effect, `is stunned [-${effect.apReduction} AP]`);
     } else {
       effect.rounds = 0;
       info = { txt: `${target.username} manages not to get stunned!`, color: "blue" };
@@ -1476,20 +1486,19 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
 
 /**
  * Checks for a given prevent action, e.g. stunprevent, fleeprevent, etc.
+ * if true, then the action is not prevented, if false then the check failed and the prevent is applied
  */
 const preventCheck = (
   usersEffects: UserEffect[],
   type: string,
   target: BattleUserState,
 ) => {
-  const prevent = usersEffects.find(
+  const preventTag = usersEffects.find(
     (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
-  console.log(prevent);
-  console.log(usersEffects);
-  if (prevent) {
-    const power = prevent.power + prevent.level * prevent.powerPerLevel;
-    return Math.random() > power / 100;
+  if (preventTag) {
+    const power = preventTag.power + preventTag.level * preventTag.powerPerLevel;
+    return { pass: Math.random() > power / 100, preventTag: preventTag };
   }
-  return true;
+  return { pass: true, preventTag: preventTag };
 };
