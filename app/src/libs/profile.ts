@@ -14,7 +14,8 @@ import type { UserRank } from "@/drizzle/constants";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
-  const cost = 500 + prevLvl * 500;
+  const factor = level > 80 ? 950 : 500;
+  const cost = factor + prevLvl * factor;
   const prevCost = prevLvl > 0 ? calcLevelRequirements(prevLvl) : 0;
   return cost + prevCost;
 }
@@ -23,7 +24,8 @@ export const calcLevel = (experience: number) => {
   let level = 1;
   let exp = 0;
   while (exp < experience) {
-    exp += 500 + level * 500;
+    const factor = level > 80 ? 950 : 500;
+    exp += factor + level * factor;
     if (exp < experience) {
       level += 1;
     }
