@@ -280,6 +280,7 @@ export default function Bank() {
             selectedUsers={[]}
             showYourself={false}
             inline={true}
+            showAi={false}
             maxUsers={maxUsers}
           />
           <Form {...toUserForm}>
@@ -333,6 +334,7 @@ export default function Bank() {
             selectedUsers={[]}
             showYourself={true}
             inline={true}
+            showAi={false}
             maxUsers={maxUsers}
           />
           <UserSearchSelect
@@ -341,6 +343,7 @@ export default function Bank() {
             selectedUsers={[]}
             showYourself={true}
             inline={true}
+            showAi={false}
             maxUsers={maxUsers}
           />
         </div>

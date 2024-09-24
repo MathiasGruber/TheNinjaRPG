@@ -377,6 +377,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                   selectedUsers={[]}
                   showYourself={true}
                   inline={true}
+                  showAi={false}
                   maxUsers={maxUsers}
                 />
               </div>
@@ -387,6 +388,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                   selectedUsers={[]}
                   showYourself={true}
                   inline={true}
+                  showAi={false}
                   maxUsers={maxUsers}
                 />
               </div>
@@ -428,6 +430,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                       useFormMethods={allowedSearchMethods}
                       selectedUsers={[]}
                       showYourself={true}
+                      showAi={false}
                       inline={true}
                       maxUsers={maxUsers}
                     />

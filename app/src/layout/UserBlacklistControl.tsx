@@ -56,6 +56,7 @@ const UserBlacklistControl: React.FC<UserBlacklistControlProps> = () => {
           label="Search user to blacklist"
           selectedUsers={[]}
           showYourself={false}
+          showAi={false}
           inline={true}
           maxUsers={maxUsers}
         />

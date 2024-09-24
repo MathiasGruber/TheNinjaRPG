@@ -168,6 +168,7 @@ export default function ANBU() {
                   showYourself={false}
                   inline={true}
                   maxUsers={maxUsers}
+                  showAi={false}
                 />
                 <FormField
                   control={createForm.control}

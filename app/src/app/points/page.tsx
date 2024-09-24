@@ -201,6 +201,7 @@ const ReputationStore = (props: { currency: string }) => {
           useFormMethods={userSearchMethods}
           selectedUsers={[userData]}
           showYourself={true}
+          showAi={false}
           inline={true}
           maxUsers={maxUsers}
         />
@@ -574,6 +575,7 @@ const FederalStore = () => {
           useFormMethods={userSearchMethods}
           selectedUsers={[userData]}
           showYourself={true}
+          showAi={false}
           inline={true}
           maxUsers={maxUsers}
         />

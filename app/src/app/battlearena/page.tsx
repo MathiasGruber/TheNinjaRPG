@@ -294,6 +294,7 @@ const ChallengeUser: React.FC = () => {
           selectedUsers={[]}
           showYourself={false}
           inline={true}
+          showAi={false}
           maxUsers={maxUsers}
         />
         {targetUser && (

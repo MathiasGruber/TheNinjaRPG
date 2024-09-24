@@ -179,6 +179,7 @@ const ElderHall: React.FC<{
             label="Search for receiver"
             selectedUsers={[]}
             showYourself={false}
+            showAi={false}
             inline={true}
             maxUsers={maxUsers}
           />

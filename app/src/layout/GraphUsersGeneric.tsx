@@ -170,6 +170,7 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
         <UserSearchSelect
           useFormMethods={userSearchMethods}
           label="Users to highlight"
+          showAi={false}
           showYourself={true}
           maxUsers={10}
         />

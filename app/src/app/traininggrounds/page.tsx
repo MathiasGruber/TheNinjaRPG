@@ -271,6 +271,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
               useFormMethods={userSearchMethods}
               selectedUsers={[]}
               showYourself={false}
+              showAi={false}
               inline={true}
               maxUsers={maxUsers}
             />

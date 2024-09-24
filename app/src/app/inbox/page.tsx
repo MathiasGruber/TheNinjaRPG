@@ -248,6 +248,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
             <UserSearchSelect
               useFormMethods={userSearchMethods}
               label="Users to send to"
+              showAi={false}
               showYourself={false}
               maxUsers={maxUsers}
             />

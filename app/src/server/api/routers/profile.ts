@@ -739,7 +739,7 @@ export const profileRouter = createTRPCRouter({
         where: and(
           like(userData.username, `%${input.username}%`),
           eq(userData.approvedTos, 1),
-          eq(userData.isAi, input.showAi),
+          ...(input.showAi ? [] : [eq(userData.isAi, false)]),
           ...(input.showYourself ? [] : [sql`${userData.userId} != ${ctx.userId}`]),
         ),
         orderBy: [sql`LENGTH(${userData.username}) asc`],
