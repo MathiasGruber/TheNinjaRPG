@@ -86,7 +86,11 @@ export const calcBankInterest = (boost: number) => {
  * @param structure - The village structure to upgrade.
  * @returns The cost of upgrading the structure in village funds
  */
-export const calcStructureUpgrade = (structure: VillageStructure, village: Village) => {
+export const calcStructureUpgrade = (
+  structure: VillageStructure,
+  village: Village,
+  discountLevel: number,
+) => {
   // Base cost
   const cost = Math.floor(structure.baseCost * (structure.level + 1));
   // Village tax
@@ -94,6 +98,8 @@ export const calcStructureUpgrade = (structure: VillageStructure, village: Villa
   const hundredsOver200 = Math.max(Math.floor((population - 200) / 100), 0);
   const taxPerc = Math.min(hundredsOver200 * 0.05, 0.25);
   const tax = Math.floor(cost * taxPerc);
+  const subTotal = cost + tax;
+  const discount = Math.floor(subTotal * (0 + discountLevel / 100));
   // Return result & infor on calculation
-  return { cost, tax, total: cost + tax };
+  return { cost, tax, discount, total: subTotal - discount };
 };
