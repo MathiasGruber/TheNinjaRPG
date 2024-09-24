@@ -325,8 +325,15 @@ const UpgradeButton = ({
     },
   });
 
+  const discountPerLevel =
+    data?.villageData.structures.find((s) => s.name === "Town Hall")
+      ?.structureDiscountPerLvl ?? 1;
   const currentFunds = data?.villageData.tokens ?? 0;
-  const { cost, tax, total } = calcStructureUpgrade(structure, village);
+  const { cost, tax, discount, total } = calcStructureUpgrade(
+    structure,
+    village,
+    discountPerLevel,
+  );
   const canAfford = total <= currentFunds;
   const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
 
@@ -348,7 +355,8 @@ const UpgradeButton = ({
         >
           <p>
             Upgrading this structure will cost a total of {total} village tokens (base
-            cost of {cost} + {tax} population tax).
+            cost of {cost} + {tax} population tax - {discount} discounted from town hall
+            level).
           </p>
           <p>You currently have {currentFunds} village tokens.</p>
         </Confirm>
