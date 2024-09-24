@@ -28,9 +28,7 @@ export const marriageRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, input.userId),
         fetchAssociations(ctx.drizzle, ctx.userId, "MARRIAGE"),
       ]);
-      console.log(userAssociations);
       // Guards
-      if (!user) return errorResponse("User not found");
       if (
         userAssociations.length > 0 &&
         userAssociations.filter(
@@ -135,18 +133,16 @@ export const marriageRouter = createTRPCRouter({
   getDivorcedAssociations: protectedProcedure.query(async ({ ctx }) => {
     return await fetchAssociations(ctx.drizzle, ctx.userId, "DIVORCED");
   }),
-  updateAssociation: protectedProcedure
+  divorce: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const associations = await fetchAssociations(ctx.drizzle, ctx.userId, "MARRIAGE");
-      console.log(associations);
       const associationToUpdate = associations.find(
         (x) =>
           (x.userOne.userId === input.userId || x.userTwo.userId === input.userId) &&
           x.associationType === "MARRIAGE",
       );
-      console.log(associationToUpdate);
 
       if (associationToUpdate) {
         await Promise.all([

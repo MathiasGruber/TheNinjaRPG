@@ -278,7 +278,7 @@ const Marriage: React.FC = () => {
   const { mutate: accept } = api.marriage.acceptRequest.useMutation({ onSuccess });
   const { mutate: reject } = api.marriage.rejectRequest.useMutation({ onSuccess });
   const { mutate: cancel } = api.marriage.cancelRequest.useMutation({ onSuccess });
-  const { mutate: divorce } = api.marriage.updateAssociation.useMutation({ onSuccess });
+  const { mutate: divorce } = api.marriage.divorce.useMutation({ onSuccess });
 
   if (!requests) return <Loader explanation="Loading requests" />;
 

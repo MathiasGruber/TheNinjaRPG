@@ -108,7 +108,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     { id: userId },
     {
-      staleTime: 5000,
+      staleTime: 300000,
     },
   );
 
