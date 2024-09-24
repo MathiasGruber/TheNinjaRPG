@@ -57,7 +57,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     {
       username: searchTerm,
       showYourself: props.showYourself,
-      showAi: props.showAi == undefined ? true : props.showAi,
+      showAi: props.showAi === undefined ? true : props.showAi,
     },
     { enabled: searchTerm !== "" },
   );
