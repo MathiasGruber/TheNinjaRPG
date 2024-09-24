@@ -179,13 +179,13 @@ export default function Profile() {
             <p>
               Married:{" "}
               {marriages !== undefined && marriages.length > 0
-                ? marriages.map((x) => (
+                ? marriages.map((x, i) => (
                     <Link
                       key={x.username}
                       href={`/users/${x.userId}`}
                       className="font-bold"
                     >
-                      {x.username}
+                      {i >= 1 ? ", " + x.username : x.username}
                     </Link>
                   ))
                 : "None"}
