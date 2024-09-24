@@ -387,6 +387,7 @@ export const itemRouter = createTRPCRouter({
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
+        marriageSlots: user.marriageSlots,
       };
 
       // Calculations
@@ -447,6 +448,18 @@ export const itemRouter = createTRPCRouter({
             messages.push(`Your bloodline was removed. `);
           } else {
             messages.push(`Your bloodline could not be removed successfully.`);
+          }
+        } else if (effect.type === "marriageslotincrease") {
+          if (updates.marriageSlots < 5) {
+            updates.marriageSlots += effect.power;
+            if (updates.marriageSlots > 5) {
+              updates.marriageSlots = 5;
+            }
+            messages.push(`Your marriage slots were increased! `);
+          } else {
+            messages.push(
+              `Your marriage slots are already at max! Current Slots: ${updates.marriageSlots}`,
+            );
           }
         } else if (effect.type === "heal") {
           const parsedEffect = HealTag.parse(effect);

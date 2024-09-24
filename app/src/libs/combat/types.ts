@@ -640,6 +640,14 @@ export const UnknownTag = z.object({
   description: msg("An unknown tag - please report & change!"),
 });
 
+export const IncreaseMarriageSlots = z.object({
+  ...BaseAttributes,
+  rank: z.enum(LetterRanks).default("D"),
+  description: msg("Increases a users marriage slots"),
+  power: z.coerce.number().int().min(0).max(100).default(1),
+  type: z.literal("marriageslotincrease").default("marriageslotincrease"),
+});
+
 /******************** */
 /** UNIONS OF TAGS   **/
 /******************** */
@@ -686,6 +694,7 @@ const AllTags = z.union([
   SummonTag.default({}),
   UnknownTag.default({}),
   VisualTag.default({}),
+  IncreaseMarriageSlots.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options
