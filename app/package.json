@@ -9,6 +9,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
+    "test": "vitest",
     "seed": "pnpm tsx drizzle/seed.ts",
     "dbpush": "drizzle-kit push",
     "makemigrations": "drizzle-kit generate",
@@ -100,6 +101,8 @@
     "zod": "3.22.4"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.0.1",
     "@types/cytoscape": "^3.21.7",
     "@types/cytoscape-edgehandles": "^4.0.4",
     "@types/cytoscape-popper": "^2.0.4",
@@ -113,17 +116,21 @@
     "@types/tweenjs": "^1.0.4",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
+    "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "0.24.2",
     "eslint": "^9.10.0",
     "eslint-config-next": "14.2.13",
     "eslint-config-prettier": "^9.1.0",
+    "jsdom": "^25.0.1",
     "postcss": "8.4.47",
     "prettier": "3.3.3",
     "prettier-plugin-tailwindcss": "0.6.6",
     "tailwindcss": "3.4.12",
     "tsx": "4.7.0",
-    "typescript": "5.6.2"
+    "typescript": "5.6.2",
+    "vite-tsconfig-paths": "^5.0.1",
+    "vitest": "^2.1.1"
   },
   "ct3aMetadata": {
     "initVersion": "7.3.2"

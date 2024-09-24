@@ -74,3 +74,8 @@ dbpush: # Push schema to db without creating migrations
 	@echo "${YELLOW}Pushing database schema to development server ${RESET}"
 	docker exec -it tnr_app pnpm dbpush
 	
+.PHONY: test
+test: # Push schema to db without creating migrations
+	@echo "${YELLOW}Running unit tests ${RESET}"
+	docker exec -it tnr_app pnpm test
+	
