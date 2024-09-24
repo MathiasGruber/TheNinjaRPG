@@ -1300,9 +1300,7 @@ export const userData = mysqlTable(
     dailyTrainings: smallint("dailyTrainings", { unsigned: true }).default(0).notNull(),
     movedTooFastCount: int("movedTooFastCount").default(0).notNull(),
     extraItemSlots: smallint("extraItemSlots", { unsigned: true }).default(0).notNull(),
-    extraJutsuSlots: tinyint("extraJutsuSlots", { unsigned: true })
-      .default(0)
-      .notNull(),
+    extraJutsuSlots: tinyint("extraJutsuSlots").default(0).notNull(),
     customTitle: varchar("customTitle", { length: 191 }).default("").notNull(),
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
   },

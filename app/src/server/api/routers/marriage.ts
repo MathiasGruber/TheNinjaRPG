@@ -125,7 +125,7 @@ export const marriageRouter = createTRPCRouter({
         "MARRIAGE",
       );
       const marriedUsers = associations.map((x) =>
-        x.userOne.userId !== input.id ?? ctx.userId ? x.userOne : x.userTwo,
+        x.userOne.userId !== input.id || ctx.userId ? x.userOne : x.userTwo,
       );
 
       return marriedUsers;
