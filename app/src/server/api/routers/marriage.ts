@@ -33,9 +33,9 @@ export const marriageRouter = createTRPCRouter({
         userAssociations.length > 0 &&
         userAssociations.filter(
           (x) =>
-            x.userOne.userId == targetUser.userId ||
-            x.userTwo.userId == targetUser.userId,
-        )
+            x.userOne.userId === targetUser.userId ||
+            x.userTwo.userId === targetUser.userId,
+        ).length > 0
       )
         return errorResponse("You are already married to this user");
       // Mutate
@@ -59,7 +59,8 @@ export const marriageRouter = createTRPCRouter({
         return errorResponse("You can only reject pending requests");
       }
       void pusher.trigger(request.senderId, "event", { type: "MARRIAGE" });
-      return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "MARRIAGE");
+      await updateRequestState(ctx.drizzle, input.id, "REJECTED", "MARRIAGE");
+      return { success: true, message: "Proposal Rejected" };
     }),
   cancelRequest: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -73,7 +74,8 @@ export const marriageRouter = createTRPCRouter({
         return errorResponse("You can only cancel pending requests");
       }
       void pusher.trigger(request.receiverId, "event", { type: "MARRIAGE" });
-      return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "MARRIAGE");
+      await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "MARRIAGE");
+      return { success: true, message: "Proposal cancelled" };
     }),
   acceptRequest: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -98,8 +100,8 @@ export const marriageRouter = createTRPCRouter({
       if (
         senderAssociations.length > 0 &&
         senderAssociations.filter(
-          (x) => x.userOne.userId == ctx.userId || x.userTwo.userId == ctx.userId,
-        )
+          (x) => x.userOne.userId === ctx.userId || x.userTwo.userId === ctx.userId,
+        ).length > 0
       )
         return errorResponse("You are already married to this user");
       // Mutate
