@@ -88,8 +88,7 @@ export const calcBankInterest = (boost: number) => {
  */
 export const calcStructureUpgrade = (
   structure: VillageStructure,
-  village: Village,
-  discountLevel: number,
+  village: Village & { structures: VillageStructure[] },
 ) => {
   // Base cost
   const cost = Math.floor(structure.baseCost * (structure.level + 1));
@@ -99,6 +98,10 @@ export const calcStructureUpgrade = (
   const taxPerc = Math.min(hundredsOver200 * 0.05, 0.25);
   const tax = Math.floor(cost * taxPerc);
   const subTotal = cost + tax;
+  //discount
+  const discountLevel =
+    village?.structures.find((s) => s.name === "Town Hall")?.structureDiscountPerLvl ??
+    1;
   const discount = Math.floor(subTotal * (0 + discountLevel / 100));
   // Return result & infor on calculation
   return { cost, tax, discount, total: subTotal - discount };
