@@ -31,9 +31,7 @@ export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;
  */
 export const canSeeReport = (user: UserData, report: UserReport) => {
   return (
-    report.reporterUserId === user.userId ||
-    report.reportedUserId === user.userId ||
-    ["MODERATOR", "ADMIN"].includes(user.role)
+    report.reportedUserId !== user.userId && ["MODERATOR", "ADMIN"].includes(user.role)
   );
 };
 
@@ -50,7 +48,6 @@ export const canPostReportComment = (report: UserReport) => {
 export const canModerateReports = (user: UserData, report: UserReport) => {
   return (
     report.reportedUserId !== user.userId &&
-    report.reporterUserId !== user.userId &&
     ((user.role === "ADMIN" && report.status === "UNVIEWED") ||
       (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
       (user.role === "ADMIN" && report.status === "BAN_ACTIVATED") ||
