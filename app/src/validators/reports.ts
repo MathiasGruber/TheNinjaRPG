@@ -31,7 +31,9 @@ export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;
  */
 export const canSeeReport = (user: UserData, report: UserReport) => {
   return (
-    report.reportedUserId !== user.userId && ["MODERATOR", "ADMIN"].includes(user.role)
+    report.reporterUserId === user.userId ||
+    report.reportedUserId === user.userId ||
+    ["MODERATOR", "ADMIN"].includes(user.role)
   );
 };
 
