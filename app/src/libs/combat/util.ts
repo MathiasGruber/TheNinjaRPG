@@ -81,6 +81,22 @@ export const findBarrier = (
   );
 };
 
+/**
+ * Checks if a user is stunned based on their effects.
+ *
+ * @param userId - The ID of the user to check.
+ * @param userEffects - An array of user effects to evaluate.
+ * @returns `true` if the user is stunned, otherwise `false`.
+ */
+export const isUserStealthed = (
+  userId: string | undefined,
+  userEffects: UserEffect[] | undefined,
+) => {
+  return userEffects?.some(
+    (e) => e.type === "stealth" && e.targetId === userId && !e.castThisRound,
+  );
+};
+
 /** Get a copy of the barriers between two tiles on the grid, as well as the total absorbtion along that path */
 export const getBarriersBetween = (
   userId: string,
@@ -144,6 +160,7 @@ export const calcApplyRatio = (
     "robprevent",
     "sealprevent",
     "stunprevent",
+    "stealth",
     "summonprevent",
   ];
   // If always apply, then apply 1 time, but not if rounds set to 0
@@ -205,6 +222,7 @@ export const sortEffects = (
 ) => {
   const ordered: ZodAllTags["type"][] = [
     // Prevents
+    "stealth",
     "buffprevent",
     "cleanseprevent",
     "clearprevent",

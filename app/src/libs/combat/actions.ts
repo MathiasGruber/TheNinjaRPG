@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag, StealthTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -8,10 +8,19 @@ import { calcPoolCost } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
+import { isUserStealthed } from "@/libs/combat/util";
 import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
+import {
+  IMG_BASIC_HEAL,
+  IMG_BASIC_ATTACK,
+  IMG_BASIC_FLEE,
+  IMG_BASIC_STEALTH,
+  IMG_BASIC_WAIT,
+  IMG_BASIC_MOVE,
+} from "@/drizzle/constants";
 import type { AttackTargets } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "@/libs/combat/types";
 import type { CompleteBattle, ReturnedBattle } from "@/libs/combat/types";
@@ -32,11 +41,13 @@ export const availableUserActions = (
   const usersState = battle?.usersState;
   const user = usersState?.find((u) => u.userId === userId);
   const { availableActionPoints } = actionPointsAfterAction(user, battle);
+  const isStealth = isUserStealthed(userId, battle?.usersEffects);
+
   // Basic attack & heal
   const basicAttack: CombatAction = {
     id: "sp",
     name: "Basic Attack",
-    image: "/combat/basicActions/stamina.webp",
+    image: IMG_BASIC_ATTACK,
     battleDescription: "%user perform a basic physical strike against %target",
     type: "basic" as const,
     target: "OTHER_USER" as const,
@@ -63,7 +74,7 @@ export const availableUserActions = (
   const basicHeal: CombatAction = {
     id: "cp",
     name: "Basic Heal",
-    image: "/combat/basicActions/heal.webp",
+    image: IMG_BASIC_HEAL,
     battleDescription: "%user perform basic healing of %target",
     type: "basic" as const,
     target: "CHARACTER" as const,
@@ -86,10 +97,33 @@ export const availableUserActions = (
       }),
     ],
   };
+  const basicStealth: CombatAction = {
+    id: "stealth",
+    name: "Basic Stealth",
+    image: IMG_BASIC_STEALTH,
+    battleDescription: "%user conseals %user_reflexive",
+    type: "basic" as const,
+    target: "SELF" as const,
+    method: "SINGLE" as const,
+    healthCost: 0,
+    chakraCost: 10,
+    staminaCost: 0,
+    actionCostPerc: 40,
+    range: 0,
+    updatedAt: Date.now(),
+    cooldown: 6,
+    level: user?.level,
+    effects: [
+      StealthTag.parse({
+        power: 100,
+        rounds: 1,
+      }),
+    ],
+  };
   const basicMove: CombatAction = {
     id: "move",
     name: "Move",
-    image: "/combat/basicActions/move.webp",
+    image: IMG_BASIC_MOVE,
     battleDescription: "%user moves on the battlefield",
     type: "basic" as const,
     target: "EMPTY_GROUND" as const,
@@ -106,7 +140,7 @@ export const availableUserActions = (
   const basicFlee: CombatAction = {
     id: "flee",
     name: "Flee",
-    image: "/combat/basicActions/flee.webp",
+    image: IMG_BASIC_FLEE,
     battleDescription: "%user attempts to flee the battle",
     type: "basic" as const,
     target: "SELF" as const,
@@ -122,15 +156,16 @@ export const availableUserActions = (
   };
   // Concatenate all actions
   let availableActions = [
-    ...(basicMoves ? [basicAttack, basicHeal] : []),
+    ...(basicMoves && !isStealth ? [basicAttack] : []),
+    ...(basicMoves ? [basicHeal] : []),
     basicMove,
-    ...(basicMoves ? [basicFlee] : []),
+    ...(basicMoves && !isStealth ? [basicStealth, basicFlee] : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
             id: "wait",
             name: "End Turn",
-            image: "/combat/basicActions/wait.webp",
+            image: IMG_BASIC_WAIT,
             battleDescription: "%user stands and does nothing",
             type: "basic" as const,
             target: "SELF" as const,
@@ -146,7 +181,7 @@ export const availableUserActions = (
           },
         ]
       : []),
-    ...(user?.jutsus
+    ...(user?.jutsus && !isStealth
       ? user.jutsus.map((userjutsu) => {
           return {
             id: userjutsu.jutsu.id,
@@ -182,7 +217,7 @@ export const availableUserActions = (
           };
         })
       : []),
-    ...(user?.items
+    ...(user?.items && !isStealth
       ? user.items
           .filter((useritem) => useritem.quantity > 0)
           .map((useritem) => {
@@ -223,7 +258,7 @@ export const availableUserActions = (
       : []),
   ];
   // If we only have move & end turn action, also add basic attack
-  if (availableActions.length === 2) {
+  if (availableActions.length === 2 && !isStealth) {
     availableActions.push(basicAttack);
   }
   // If we hide cooldowns, hide then
@@ -375,8 +410,15 @@ export const insertAction = (info: {
               if (checkFriendlyFire(effect, target, alive)) {
                 targetUsernames.push(target.username);
                 targetGenders.push(target.gender);
-                effect.targetId = target.userId;
-                usersEffects.push(effect);
+                // Check for stealth
+                const isStealthed = isUserStealthed(target.userId, usersEffects);
+                if (isStealthed) {
+                  action.battleDescription +=
+                    ". The target is stealthed and cannot be targeted";
+                } else {
+                  effect.targetId = target.userId;
+                  usersEffects.push(effect);
+                }
               }
             } else if (tag.target === "SELF") {
               const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;

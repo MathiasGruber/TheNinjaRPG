@@ -601,6 +601,15 @@ export const SealTag = z.object({
   description: msg("Seals the target's bloodline effects"),
 });
 
+export const StealthTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("stealth").default("stealth"),
+  description: msg("Stealth the target, only allowing basic move and heal actions"),
+});
+
+export type StealthTagType = z.infer<typeof StealthTag>;
+
 export const StunPreventTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -698,6 +707,7 @@ const AllTags = z.union([
   RollRandomBloodline.default({}),
   SealPreventTag.default({}),
   SealTag.default({}),
+  StealthTag.default({}),
   StunPreventTag.default({}),
   StunTag.default({}),
   SummonPreventTag.default({}),

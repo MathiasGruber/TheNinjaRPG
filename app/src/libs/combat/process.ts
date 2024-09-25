@@ -14,7 +14,7 @@ import { increaseHealGiven, decreaseHealGiven } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
-import { seal, sealPrevent, sealCheck, rob, robPrevent } from "./tags";
+import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
 import { clear, cleanse, summon, summonPrevent, buffPrevent } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
@@ -223,7 +223,11 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         e.fromType === "bloodline" ||
         e.fromType === "armor";
     // Special cases
-    if (e.type === "damage" && e.targetType === "barrier" && curUser) {
+    if (
+      ["damage", "pierce"].includes(e.type) &&
+      e.targetType === "barrier" &&
+      curUser
+    ) {
       const result = damageBarrier(newGroundEffects, curUser, e, dmgConfig);
       if (result) {
         longitude = result.barrier.longitude;
@@ -301,6 +305,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = fleePrevent(e, curTarget);
           } else if (e.type === "healprevent") {
             info = healPrevent(e, curTarget);
+          } else if (e.type === "stealth") {
+            info = stealth(e, curTarget);
           } else if (e.type === "buffprevent") {
             info = buffPrevent(e, curTarget);
           } else if (e.type === "debuffprevent") {

@@ -1243,6 +1243,18 @@ export const sealPrevent = (effect: UserEffect, target: BattleUserState) => {
   }
 };
 
+/** Go into stealth mode */
+export const stealth = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    const info = getInfo(target, effect, "will be stealthed");
+    return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
 /** Stun target based on static chance */
 export const stun = (
   effect: UserEffect,
