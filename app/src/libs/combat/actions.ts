@@ -97,29 +97,6 @@ export const availableUserActions = (
       }),
     ],
   };
-  const basicStealth: CombatAction = {
-    id: "stealth",
-    name: "Basic Stealth",
-    image: IMG_BASIC_STEALTH,
-    battleDescription: "%user conseals %user_reflexive",
-    type: "basic" as const,
-    target: "SELF" as const,
-    method: "SINGLE" as const,
-    healthCost: 0,
-    chakraCost: 10,
-    staminaCost: 0,
-    actionCostPerc: 40,
-    range: 0,
-    updatedAt: Date.now(),
-    cooldown: 6,
-    level: user?.level,
-    effects: [
-      StealthTag.parse({
-        power: 100,
-        rounds: 1,
-      }),
-    ],
-  };
   const basicMove: CombatAction = {
     id: "move",
     name: "Move",
@@ -159,7 +136,7 @@ export const availableUserActions = (
     ...(basicMoves && !isStealth ? [basicAttack] : []),
     ...(basicMoves ? [basicHeal] : []),
     basicMove,
-    ...(basicMoves && !isStealth ? [basicStealth, basicFlee] : []),
+    ...(basicMoves && !isStealth ? [basicFlee] : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
