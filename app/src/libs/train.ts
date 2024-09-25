@@ -345,6 +345,8 @@ export const battleJutsuExp = (battleType: BattleType, experienceGain: number) =
       return experienceGain * 0.5;
     case "QUEST":
       return experienceGain * 0.5;
+    case "VILLAGE_PROTECTOR":
+      return experienceGain * 0.0;
   }
   return 0;
 };

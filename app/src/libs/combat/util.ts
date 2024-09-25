@@ -438,6 +438,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       let experience = didWin ? eloDiff * expBoost : 0;
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
+      } else if (battleType === "VILLAGE_PROTECTOR") {
+        experience = 0;
       }
 
       // Find users who did not leave battle yet

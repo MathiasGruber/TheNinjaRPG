@@ -46,6 +46,7 @@ import { fetchSectorVillage } from "@/routers/village";
 import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
+import { PvpBattleTypes } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
@@ -770,7 +771,7 @@ export const initiateBattle = async (
 
   // Get previous battles between these two users within last 60min
   let rewardScaling = (scaleGains * users.length) / 2;
-  if (!["ARENA", "QUEST"].includes(battleType)) {
+  if (PvpBattleTypes.includes(battleType)) {
     const results = await client
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(battleHistory)
@@ -889,13 +890,12 @@ export const initiateBattle = async (
   }
 
   // Figure out who starts in the battle
-  const attackerFirst = ["ARENA", "QUEST"].includes(battleType);
+  const attackerFirst = !PvpBattleTypes.includes(battleType);
   const activeUser = usersState.sort((a, b) => b.initiative - a.initiative);
   const activeUserId = attackerFirst ? users?.[0]?.userId : activeUser?.[0]?.userId;
 
   // When to start the battle
-  const noLobbyTypes = ["ARENA", "KAGE_CHALLENGE", "CLAN_CHALLENGE", "QUEST"];
-  const startTime = noLobbyTypes.includes(battleType)
+  const startTime = !PvpBattleTypes.includes(battleType)
     ? new Date()
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 

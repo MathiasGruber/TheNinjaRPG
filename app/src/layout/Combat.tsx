@@ -23,6 +23,7 @@ import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { Check } from "lucide-react";
+import { PvpBattleTypes } from "@/drizzle/constants";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -163,9 +164,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     if (
       battle.current &&
       isInLobby &&
-      !["KAGE_CHALLENGE", "CLAN_CHALLENGE", "ARENA", "QUEST"].includes(
-        battle.current.battleType,
-      )
+      PvpBattleTypes.includes(battle.current.battleType)
     ) {
       const user = battle.current.usersState.find((u) => u.userId === suid);
       if (user && !user.iAmHere) {
@@ -520,7 +519,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       {/* BATTLE LOBBY SCREEN */}
       {isInLobby &&
         battle.current &&
-        !["ARENA", "QUEST"].includes(battle.current.battleType) && (
+        PvpBattleTypes.includes(battle.current.battleType) && (
           <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto bg-black opacity-90">
             <div className="flex flex-col items-center justify-center text-white h-full">
               <p className="p-5 text-5xl">Waiting for opponent</p>
