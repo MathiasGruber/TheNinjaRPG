@@ -89,10 +89,11 @@ export default function ManualBloodlines() {
           traits of bloodlines through ninjutsu-assisted surgery.
         </p>
         <p className="pt-4">
-          When you reach the rank of Genin, you can go to the hospital of your village
-          to take blood samples, in order to learn whether your character was born with
-          an innate bloodline. If not, it is also at the hospital where they offer the
-          service of implanting bloodlines into your body.
+          When you reach the rank of Genin, you can go to the Wake Island's Science
+          Building to take blood samples, in order to learn whether your character was
+          born with an innate bloodline. If not, it is also at the Science Building
+          where they offer the service of implanting bloodlines into your body; or
+          perhaps take a darker path in the Black Market of your village.
         </p>
       </ContentBox>
       <ContentBox
