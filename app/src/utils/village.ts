@@ -99,9 +99,9 @@ export const calcStructureUpgrade = (
   const tax = Math.floor(cost * taxPerc);
   const subTotal = cost + tax;
   //discount
+  const townHall = village?.structures.find((s) => s.name === "Town Hall");
   const discountLevel =
-    village?.structures.find((s) => s.name === "Town Hall")?.structureDiscountPerLvl ??
-    1;
+    townHall !== undefined ? townHall?.level * townHall?.structureDiscountPerLvl : 1;
   const discount = Math.floor(subTotal * (0 + discountLevel / 100));
   // Return result & infor on calculation
   return { cost, tax, discount, total: subTotal - discount };
