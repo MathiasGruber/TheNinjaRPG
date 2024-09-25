@@ -187,9 +187,6 @@ export const kageRouter = createTRPCRouter({
 
       // Derived
       const structure = userVillage?.structures.find((s) => s.id === input.structureId);
-      const discountLevel =
-        userVillage?.structures.find((s) => s.name === "Town Hall")
-          ?.structureDiscountPerLvl ?? 1;
 
       // Guards
       if (!user) return errorResponse("User not found");
@@ -199,7 +196,7 @@ export const kageRouter = createTRPCRouter({
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
       if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
-      const { total } = calcStructureUpgrade(structure, userVillage, discountLevel);
+      const { total } = calcStructureUpgrade(structure, userVillage);
       if (userVillage.tokens < total) return errorResponse("Not enough tokens");
 
       // Mutate cost
