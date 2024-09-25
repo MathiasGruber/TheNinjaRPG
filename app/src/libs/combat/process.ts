@@ -247,6 +247,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
               info = damageUser(e, curUser, curTarget, consequences, ratio, dmgConfig);
+            } else if (e.type === "pierce" && isTargetOrNew) {
+              info = damageUser(e, newUser, newTarget, consequences, ratio, dmgConfig);
             } else if (e.type === "heal" && isTargetOrNew) {
               info = heal(e, newUsersEffects, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {

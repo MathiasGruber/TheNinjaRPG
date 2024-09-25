@@ -245,6 +245,8 @@ export const sortEffects = (
     "lifesteal",
     "recoil",
     "reflect",
+    // Piercing damage after post-modifiers
+    "pierce",
     // End-modifiers
     "move",
     "visual",
