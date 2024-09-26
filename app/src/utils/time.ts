@@ -10,6 +10,22 @@ export const getGameTime = () => {
 };
 
 /**
+ * Get time since last reset which is in YYYY-MM-DDTHH:mm:ss.sssZ format
+ */
+export const getTimeOfLastReset = () => {
+  var date = new Date();
+  var now_utc = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    0,
+    0,
+    0,
+  );
+  return new Date(now_utc);
+};
+
+/**
  * Number of seconds passed since the given date
  */
 export const secondsPassed = (date: Date, timeDiff?: number) => {
