@@ -408,8 +408,12 @@ export const jutsuRouter = createTRPCRouter({
       const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
       const userjutsu = filteredJutsus.find((j) => j.id === input.userJutsuId);
       const isEquipped = userjutsu?.equipped || false;
-      const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
+      const equippedJutsus = filteredJutsus.filter((j) => j.equipped);
+      const curEquip = equippedJutsus.length || 0;
       const maxEquip = userData && calcJutsuEquipLimit(user);
+      const pierceEquipped = equippedJutsus.filter((j) =>
+        j.jutsu.effects.some((e) => e.type === "pierce"),
+      ).length;
       const newEquippedState = isEquipped ? 0 : 1;
       const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
       const isLoaded = userjutsu && loadout?.jutsuIds.includes(userjutsu.jutsuId);
@@ -417,6 +421,9 @@ export const jutsuRouter = createTRPCRouter({
       if (!userjutsu) return errorResponse("Jutsu not found");
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
+      }
+      if (!isEquipped && pierceEquipped >= 2) {
+        return errorResponse("You cannot equip more than 2 piercing jutsu");
       }
       // Calculate loadout
       if (loadout && isLoaded && newEquippedState === 0) {
@@ -437,7 +444,6 @@ export const jutsuRouter = createTRPCRouter({
               .where(eq(jutsuLoadout.id, loadout.id))
           : null,
       ]);
-
       return {
         success: true,
         message: `Jutsu ${isEquipped ? "unequipped" : "equipped"}`,

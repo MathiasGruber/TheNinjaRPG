@@ -47,6 +47,7 @@ export type BattleUserState = UserWithRelations & {
   originalMoney: number;
   direction: "left" | "right";
   allyVillage: boolean;
+  moneyStolen: number;
   usedGenerals: (typeof GenNames)[number][];
   usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
@@ -522,6 +523,13 @@ export const MoveTag = z.object({
 
 export type MoveTagType = z.infer<typeof MoveTag>;
 
+export const MovePreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("moveprevent").default("moveprevent"),
+  description: msg("Prevents movement of the target"),
+});
+
 export const OneHitKillTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -575,7 +583,7 @@ export const RobTag = z.object({
   ...PowerAttributes,
   type: z.literal("rob").default("rob"),
   description: msg("Robs money from the target"),
-  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  robPercentage: z.coerce.number().int().min(0).max(100).default(1),
 });
 
 export const RollRandomBloodline = z.object({
@@ -696,6 +704,7 @@ const AllTags = z.union([
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
   MoveTag.default({}),
+  MovePreventTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),
@@ -743,6 +752,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "increasestat",
       "lifesteal",
       "move",
+      "moveprevent",
       "onehitkillprevent",
       "reflect",
       "robprevent",

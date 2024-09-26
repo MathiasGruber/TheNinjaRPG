@@ -6,6 +6,7 @@ import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { GeneralType } from "@/drizzle/constants";
+import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 /** Absorb damage & convert it to healing */
@@ -1017,12 +1018,16 @@ export const lifesteal = (
  */
 export const move = (
   effect: GroundEffect,
+  usersEffects: UserEffect[],
   usersState: BattleUserState[],
   groundEffects: GroundEffect[],
 ) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
   let info: ActionEffect | undefined = undefined;
   if (user) {
+    // Prevent?
+    const { pass } = preventCheck(usersEffects, "moveprevent", user);
+    if (!pass) return preventResponse(effect, user, "resisted being stunned");
     // Update movement information
     info = {
       txt: `${user.username} moves to [${effect.latitude}, ${effect.longitude}]`,
@@ -1050,6 +1055,17 @@ export const move = (
     user.latitude = effect.latitude;
   }
   return info;
+};
+
+/** Prevent target from moving */
+export const movePrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot move");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
 };
 
 /** One-hit-kill target with a given static chance */
@@ -1094,72 +1110,50 @@ export const rob = (
   usersEffects: UserEffect[],
   origin: BattleUserState,
   target: BattleUserState,
-) => {
-  let stolen = 0;
-  let info: ActionEffect | undefined = undefined;
+  battleType: BattleType,
+): ActionEffect | undefined => {
   // No stealing from AIs
   if (target.isAi) {
-    info = { txt: `${target.username} is an AI and cannot be robbed`, color: "blue" };
     effect.rounds = 0;
-    return info;
+    return { txt: `${target.username} is an AI and cannot be robbed`, color: "blue" };
   }
-  // When just created, check if target can resist
-  if (effect.isNew) {
-    const { pass } = preventCheck(usersEffects, "robprevent", target);
-    if (!pass) return preventResponse(effect, target, "resists being robbed");
-    return info;
+  if (battleType !== "COMBAT") {
+    effect.rounds = 0;
+    return { txt: `You can only rob in 1vs1 combat`, color: "blue" };
   }
+  // Prevent?
+  const { pass } = preventCheck(usersEffects, "robprevent", target);
+  if (!pass) return preventResponse(effect, target, "resisted being robbed");
+  // Convenience. if rounds=0, it's an instant rob, otherwise chance every active round
+  const thisRound = effect.castThisRound;
+  const instant = thisRound && effect.rounds === 0;
+  const residual = !thisRound && (effect.rounds === undefined || effect.rounds > 0);
   // Attempt robbing
   const { power } = getPower(effect);
-  if (effect.calculation === "formula") {
-    let ratio = power;
-    effect.statTypes?.forEach((statType) => {
-      const lower = statType.toLowerCase();
-      const a = `${lower}Offence`;
-      const b = `${lower}Defence`;
-      if (effect.fromGround && a in effect && b in target) {
-        const left = effect[a as keyof typeof effect] as number;
-        const right = target[b as keyof typeof target] as number;
-        ratio *= left / right;
-      } else if (origin && a in origin && b in target) {
-        const left = origin[a as keyof typeof origin] as number;
-        const right = target[b as keyof typeof target] as number;
-        ratio *= left / right;
+  if (instant || residual) {
+    const primaryCheck = Math.random() < power / 100;
+    if (primaryCheck && "robPercentage" in effect && effect.robPercentage) {
+      const targetMoney = target.money - target.moneyStolen;
+      let stolen = Math.floor(targetMoney * (effect.robPercentage / 100));
+      stolen = Math.floor(stolen > targetMoney ? targetMoney : stolen);
+      if (stolen > 0) {
+        origin.moneyStolen += stolen;
+        target.moneyStolen -= stolen;
+        return {
+          txt: `${origin.username} stole ${stolen} ryo from ${target.username}`,
+          color: "blue",
+        };
+      } else {
+        return {
+          txt: `${origin.username} failed to steal ryo from ${target.username} but there was nothing more to steal`,
+          color: "blue",
+        };
       }
-    });
-    effect.generalTypes?.forEach((generalType) => {
-      const lower = generalType.toLowerCase();
-      if (effect.fromGround && lower in effect && lower in target) {
-        const left = effect[lower as keyof typeof effect] as number;
-        const right = target[lower as keyof typeof target] as number;
-        ratio *= left / right;
-      } else if (origin && lower in origin && lower in target) {
-        const left = origin[lower as keyof typeof origin] as number;
-        const right = target[lower as keyof typeof target] as number;
-        ratio *= left / right;
-      }
-    });
-    stolen = target.money * (ratio / 100);
-  } else if (effect.calculation === "static") {
-    stolen = power;
-  } else if (effect.calculation === "percentage") {
-    stolen = target.money * (power / 100);
+    } else {
+      return { txt: `${target.username} manages not to get robbed!`, color: "blue" };
+    }
   }
-  stolen = Math.floor(stolen > target.money ? target.money : stolen);
-  if (stolen > 0) {
-    origin.money += stolen;
-    target.money -= stolen;
-    info = {
-      txt: `${origin.username} stole ${stolen} ryo from ${target.username}`,
-      color: "blue",
-    };
-  } else {
-    info = {
-      txt: `${origin.username} failed to steal ryo from ${target.username}`,
-      color: "blue",
-    };
-  }
-  return info;
+  return getInfo(target, effect, "will be robbed");
 };
 
 /** Prevent robbing */
@@ -1380,7 +1374,7 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
  * Prevention response from the target user
  */
 export const preventResponse = (
-  effect: UserEffect,
+  effect: UserEffect | GroundEffect,
   target: BattleUserState,
   msg: string,
 ) => {
@@ -1409,13 +1403,16 @@ export const getLowerGenerals = (
   ];
 };
 
-const getInfo = (target: BattleUserState, e: UserEffect, msg: string) => {
+const getInfo = (
+  target: BattleUserState,
+  e: UserEffect,
+  msg: string,
+): ActionEffect | undefined => {
   if (e.isNew && e.rounds) {
-    const info: ActionEffect = {
+    return {
       txt: `${target.username} ${msg} for the next ${e.rounds} rounds`,
       color: "blue",
     };
-    return info;
   }
   return undefined;
 };
