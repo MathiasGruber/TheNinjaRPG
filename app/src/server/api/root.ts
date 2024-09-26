@@ -32,7 +32,7 @@ import { trainRouter } from "./routers/train";
 import { tournamentRouter } from "./routers/tournament";
 import { villageRouter } from "./routers/village";
 import { marriageRouter } from "./routers/marriage";
-import { panelRouter } from "./routers/panel";
+import { staffRouter } from "./routers/staff";
 
 /**
  * This is the primary router for your server.
@@ -73,7 +73,7 @@ export const appRouter = createTRPCRouter({
   tournament: tournamentRouter,
   village: villageRouter,
   marriage: marriageRouter,
-  panel: panelRouter,
+  staff: staffRouter,
 });
 
 // export type definition of API

@@ -155,7 +155,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     },
   });
 
-  const unstuckUser = api.panel.forceAwake.useMutation({
+  const unstuckUser = api.staff.forceAwake.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
     },
@@ -261,6 +261,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <p>Experience: {profile.experience}</p>
             {canSeeSecrets && <p>Unclaimed Exp: {profile.earnedExperience}</p>}
             <p>Experience for lvl: ---</p>
+            <p>PVE Fights: {`${profile.pveFights} (+${todayPveCount})`}</p>
             <br />
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
@@ -276,7 +277,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 >
                   Last IP: {profile.lastIp}
                 </Link>
-                <p>PVE Fights: {`${profile.pveFights} (+${todayPveCount})`}</p>
               </div>
             )}
           </div>
