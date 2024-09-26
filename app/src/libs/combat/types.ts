@@ -47,6 +47,7 @@ export type BattleUserState = UserWithRelations & {
   originalMoney: number;
   direction: "left" | "right";
   allyVillage: boolean;
+  moneyStolen: number;
   usedGenerals: (typeof GenNames)[number][];
   usedStats: (typeof StatNames)[number][];
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
@@ -575,7 +576,7 @@ export const RobTag = z.object({
   ...PowerAttributes,
   type: z.literal("rob").default("rob"),
   description: msg("Robs money from the target"),
-  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  robPercentage: z.coerce.number().int().min(0).max(100).default(1),
 });
 
 export const RollRandomBloodline = z.object({

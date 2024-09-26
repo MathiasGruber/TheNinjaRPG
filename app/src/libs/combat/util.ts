@@ -485,7 +485,18 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Money/ryo calculation
       const moneyBoost = user?.clan?.ryoBoost ? 1 + user.clan.ryoBoost / 100 : 1;
-      const moneyDelta = didWin ? (randomInt(30, 40) + user.level) * moneyBoost : 0;
+      let moneyDelta = didWin ? (randomInt(30, 40) + user.level) * moneyBoost : 0;
+
+      // Include money stolen during combat
+      if (battleType === "COMBAT" && user.moneyStolen) {
+        if (user.moneyStolen > 0 && outcome === "Lost") {
+          user.moneyStolen = 0;
+        } else if (user.moneyStolen < 0 && outcome === "Won") {
+          user.moneyStolen === 0;
+        }
+      } else {
+        user.moneyStolen = 0;
+      }
 
       // Prestige calculation
       if (battleType === "KAGE_CHALLENGE" && !didWin && user.isAggressor) {
@@ -562,7 +573,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Things to reward for non-spars
       if (battleType !== "SPARRING") {
         // Money stolen/given
-        result["money"] = moneyDelta * battle.rewardScaling;
+        result["money"] = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
         let total = user.usedStats.length + user.usedGenerals.length;
@@ -1019,6 +1030,7 @@ export const processUsersForBattle = (info: {
     // Base values
     user.fledBattle = false;
     user.leftBattle = false;
+    user.moneyStolen = 0;
 
     // Roll initiative
     user.initiative = rollInitiative(user, users);

@@ -272,7 +272,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             } else if (e.type === "onehitkill") {
               info = onehitkill(e, newUsersEffects, newTarget);
             } else if (e.type === "rob") {
-              info = rob(e, newUsersEffects, newUser, newTarget);
+              info = rob(e, newUsersEffects, newUser, newTarget, battle.battleType);
             } else if (e.type === "seal") {
               info = seal(e, newUsersEffects, curTarget);
             } else if (e.type === "stun") {
