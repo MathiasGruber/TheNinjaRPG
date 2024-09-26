@@ -1,8 +1,8 @@
-import { z } from "zod";
+import { util, z } from "zod";
 import { nanoid } from "nanoid";
 import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
-import { secondsPassed, secondsFromNow } from "@/utils/time";
+import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
@@ -31,6 +31,7 @@ import {
   userReport,
   userReportComment,
   village,
+  battleHistory,
 } from "@/drizzle/schema";
 import { canSeeSecretData } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
@@ -77,6 +78,7 @@ import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
+import { constants } from "os";
 
 const pusher = getServerPusher();
 
@@ -746,6 +748,19 @@ export const profileRouter = createTRPCRouter({
         limit: 5,
       });
     }),
+  getUserDailyPveBattleCount: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      //Query
+      const result = ctx.drizzle.query.battleHistory.findMany({
+        where: and(
+          eq(battleHistory.attackedId, input.userId),
+          notInArray(battleHistory.battleType, ["SPARRING", "COMBAT"]),
+          gte(battleHistory.createdAt, getTimeOfLastReset()),
+        ),
+      });
+      return (await result).length;
+    }),
   // Get public information on a user
   getPublicUser: protectedProcedure
     .input(z.object({ userId: z.string() }))
@@ -781,6 +796,7 @@ export const profileRouter = createTRPCRouter({
             status: true,
             userId: true,
             username: true,
+            pveFights: true,
           },
           with: {
             village: true,

@@ -20,7 +20,14 @@ import { TrainingSpeeds } from "@/drizzle/constants";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
-import { Flag, CopyCheck, Settings, RefreshCcwDot, Trash2 } from "lucide-react";
+import {
+  Flag,
+  CopyCheck,
+  Settings,
+  RefreshCcwDot,
+  Trash2,
+  PersonStanding,
+} from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { canSeeSecretData } from "@/utils/permissions";
@@ -112,6 +119,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     },
   );
 
+  const { data: todayPveCount } = api.profile.getUserDailyPveBattleCount.useQuery(
+    { userId: userId },
+    { staleTime: Infinity },
+  );
+
   // tRPC utility
   const utils = api.useUtils();
 
@@ -140,6 +152,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
       if (data.success) {
         await utils.profile.getUser.invalidate();
       }
+    },
+  });
+
+  const unstuckUser = api.panel.forceAwake.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
     },
   });
 
@@ -193,6 +211,24 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
               system="user_profile"
               button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
             />
+            {canSeeSecretData(userData.role) ? (
+              <Confirm
+                title="Confirm force change user state to awake"
+                button={
+                  <PersonStanding className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  unstuckUser.mutate({ userId: profile.userId });
+                }}
+              >
+                Note that abuse of this feature is forbidden, it is solely intended for
+                fixing users stuck in a particular state. I.E Battle. The action will be
+                logged. Are you sure?
+              </Confirm>
+            ) : (
+              ""
+            )}
           </div>
         }
       >
@@ -240,6 +276,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 >
                   Last IP: {profile.lastIp}
                 </Link>
+                <p>PVE Fights: {`${profile.pveFights} (+${todayPveCount})`}</p>
               </div>
             )}
           </div>
