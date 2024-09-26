@@ -1018,12 +1018,16 @@ export const lifesteal = (
  */
 export const move = (
   effect: GroundEffect,
+  usersEffects: UserEffect[],
   usersState: BattleUserState[],
   groundEffects: GroundEffect[],
 ) => {
   const user = usersState.find((u) => u.userId === effect.creatorId);
   let info: ActionEffect | undefined = undefined;
   if (user) {
+    // Prevent?
+    const { pass } = preventCheck(usersEffects, "moveprevent", user);
+    if (!pass) return preventResponse(effect, user, "resisted being stunned");
     // Update movement information
     info = {
       txt: `${user.username} moves to [${effect.latitude}, ${effect.longitude}]`,
@@ -1051,6 +1055,17 @@ export const move = (
     user.latitude = effect.latitude;
   }
   return info;
+};
+
+/** Prevent target from moving */
+export const movePrevent = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "cannot move");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
 };
 
 /** One-hit-kill target with a given static chance */
@@ -1359,7 +1374,7 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
  * Prevention response from the target user
  */
 export const preventResponse = (
-  effect: UserEffect,
+  effect: UserEffect | GroundEffect,
   target: BattleUserState,
   msg: string,
 ) => {

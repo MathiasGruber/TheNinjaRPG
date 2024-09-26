@@ -523,6 +523,13 @@ export const MoveTag = z.object({
 
 export type MoveTagType = z.infer<typeof MoveTag>;
 
+export const MovePreventTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("moveprevent").default("moveprevent"),
+  description: msg("Prevents movement of the target"),
+});
+
 export const OneHitKillTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -697,6 +704,7 @@ const AllTags = z.union([
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
   MoveTag.default({}),
+  MovePreventTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),
@@ -744,6 +752,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "increasestat",
       "lifesteal",
       "move",
+      "moveprevent",
       "onehitkillprevent",
       "reflect",
       "robprevent",

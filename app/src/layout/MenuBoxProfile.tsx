@@ -581,6 +581,9 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         case "stunprevent":
           insert(image, "text-blue-500", `- Stun Resistance`, false, e);
           break;
+        case "moveprevent":
+          insert(image, "text-blue-500", `- Immobilized`, false, e);
+          break;
         case "sealprevent":
           insert(image, "text-blue-500", `- Seal immunity`, false, e);
           break;

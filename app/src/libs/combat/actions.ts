@@ -1,4 +1,4 @@
-import { MoveTag, DamageTag, FleeTag, HealTag, StealthTag } from "@/libs/combat/types";
+import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -8,7 +8,7 @@ import { calcPoolCost } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
-import { isUserStealthed } from "@/libs/combat/util";
+import { isUserStealthed, isUserImmobilized } from "@/libs/combat/util";
 import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
@@ -17,7 +17,6 @@ import {
   IMG_BASIC_HEAL,
   IMG_BASIC_ATTACK,
   IMG_BASIC_FLEE,
-  IMG_BASIC_STEALTH,
   IMG_BASIC_WAIT,
   IMG_BASIC_MOVE,
 } from "@/drizzle/constants";
@@ -42,7 +41,7 @@ export const availableUserActions = (
   const user = usersState?.find((u) => u.userId === userId);
   const { availableActionPoints } = actionPointsAfterAction(user, battle);
   const isStealth = isUserStealthed(userId, battle?.usersEffects);
-
+  const isImmobilized = isUserImmobilized(userId, battle?.usersEffects);
   // Basic attack & heal
   const basicAttack: CombatAction = {
     id: "sp",
@@ -135,7 +134,7 @@ export const availableUserActions = (
   let availableActions = [
     ...(basicMoves && !isStealth ? [basicAttack] : []),
     ...(basicMoves ? [basicHeal] : []),
-    basicMove,
+    ...(!isImmobilized ? [basicMove] : []),
     ...(basicMoves && !isStealth ? [basicFlee] : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [

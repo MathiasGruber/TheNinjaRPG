@@ -82,11 +82,11 @@ export const findBarrier = (
 };
 
 /**
- * Checks if a user is stunned based on their effects.
+ * Checks if a user is stealthed based on their effects.
  *
  * @param userId - The ID of the user to check.
  * @param userEffects - An array of user effects to evaluate.
- * @returns `true` if the user is stunned, otherwise `false`.
+ * @returns `true` if the user is stealthed, otherwise `false`.
  */
 export const isUserStealthed = (
   userId: string | undefined,
@@ -94,6 +94,22 @@ export const isUserStealthed = (
 ) => {
   return userEffects?.some(
     (e) => e.type === "stealth" && e.targetId === userId && !e.castThisRound,
+  );
+};
+
+/**
+ * Checks if a user is immobilized based on their effects.
+ *
+ * @param userId - The ID of the user to check.
+ * @param userEffects - An array of user effects to evaluate.
+ * @returns `true` if the user is immobilized, otherwise `false`.
+ */
+export const isUserImmobilized = (
+  userId: string | undefined,
+  userEffects: UserEffect[] | undefined,
+) => {
+  return userEffects?.some(
+    (e) => e.type === "moveprevent" && e.targetId === userId && !e.castThisRound,
   );
 };
 
@@ -154,6 +170,7 @@ export const calcApplyRatio = (
     "increasepoolcost",
     "increasestat",
     "lifesteal",
+    "moveprevent",
     "onehitkillprevent",
     "recoil",
     "reflect",
@@ -229,6 +246,7 @@ export const sortEffects = (
     "debuffprevent",
     "fleeprevent",
     "healprevent",
+    "moveprevent",
     "onehitkillprevent",
     "robprevent",
     "sealprevent",

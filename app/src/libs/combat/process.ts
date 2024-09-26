@@ -13,7 +13,7 @@ import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
 import { increaseHealGiven, decreaseHealGiven } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
-import { stun, stunPrevent, onehitkill, onehitkillPrevent } from "./tags";
+import { stun, stunPrevent, onehitkill, onehitkillPrevent, movePrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
 import { clear, cleanse, summon, summonPrevent, buffPrevent } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
@@ -139,7 +139,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     // Process special effects
     let info: ActionEffect | undefined = undefined;
     if (e.type === "move") {
-      move(e, newUsersState, newGroundEffects);
+      move(e, usersEffects, newUsersState, newGroundEffects);
     } else {
       // Special handling of clone & summon ground-effects
       if (e.type === "clone") {
@@ -323,6 +323,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = sealPrevent(e, curTarget);
           } else if (e.type === "stunprevent") {
             info = stunPrevent(e, curTarget);
+          } else if (e.type === "moveprevent") {
+            info = movePrevent(e, curTarget);
           } else if (e.type === "summonprevent") {
             info = summonPrevent(e, curTarget);
           }
