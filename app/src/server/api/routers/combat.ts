@@ -6,7 +6,7 @@ import {
   ratelimitMiddleware,
 } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
-import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
@@ -24,7 +24,7 @@ import {
   updateClanLeaders,
   updateTournament,
 } from "@/libs/combat/database";
-import { fetchUpdatedUser } from "./profile";
+import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
@@ -467,6 +467,30 @@ export const combatRouter = createTRPCRouter({
           }
           attempts += 1;
         }
+      }
+    }),
+  battleArenaHeal: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.money < 500) return errorResponse("You don't have enough money");
+      if (user.isBanned) return errorResponse("You are banned");
+      // Mutate with guard
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: user.money - 500,
+          curHealth: user.maxHealth,
+          curStamina: user.maxStamina,
+          curChakra: user.maxChakra,
+        })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, 500)));
+      if (result.rowsAffected === 0) {
+        return errorResponse("Error trying to heal and continue. Try again.");
+      } else {
+        return { success: true, message: "You've healed" };
       }
     }),
   startArenaBattle: protectedProcedure

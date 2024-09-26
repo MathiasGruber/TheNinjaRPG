@@ -83,6 +83,21 @@ const Combat: React.FC<CombatProps> = (props) => {
   };
 
   // Mutation for starting a fight
+  const { mutate: battleArenaHealAndGo } = api.combat.battleArenaHeal.useMutation({
+    onSuccess: async (data) => {
+      if (data.success) {
+        showMutationToast({
+          success: data.success,
+          message: "You enter the arena again",
+        });
+        startArenaBattle({ aiId: arenaOpponentId! });
+      } else {
+        showMutationToast(data);
+      }
+    },
+  });
+
+  // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
     onSuccess: async (data) => {
       if (data.success) {
@@ -503,6 +518,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   }, [battleId]);
 
   // Derived variables
+  const hasArenaHealMoney = userData?.money! >= 500;
   const showNextMatch = result?.outcome === "Won" && battleType === "ARENA";
   const showTravelBtn = battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
@@ -624,13 +640,23 @@ const Combat: React.FC<CombatProps> = (props) => {
                 </Button>
               </Link>
               {showNextMatch && arenaOpponentId && (
-                <Button
-                  id="return"
-                  className="basis-1/2 w-full"
-                  onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
-                >
-                  Go Again
-                </Button>
+                <div>
+                  <Button
+                    id="return"
+                    className="basis-1/2 w-full"
+                    onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
+                  >
+                    Go Again
+                  </Button>
+
+                  <Button
+                    id="heal-return"
+                    className="basis-1/2 w-full mt-1"
+                    onClick={() => battleArenaHealAndGo()}
+                  >
+                    Heal and Go Again (-500 Ryo)
+                  </Button>
+                </div>
               )}
               {showTravelBtn && (
                 <Link href="/travel" className="basis-1/2">
