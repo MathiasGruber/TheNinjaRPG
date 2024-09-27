@@ -292,6 +292,9 @@ export const questsRouter = createTRPCRouter({
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions are allowed`);
         }
+        if (user.dailyMissions >= MISSIONS_PER_DAY) {
+          return errorResponse("Limit reached");
+        }
       }
       // Insert quest entry
       await Promise.all([
