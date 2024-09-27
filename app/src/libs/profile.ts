@@ -11,6 +11,7 @@ import { structureBoost } from "@/utils/village";
 import { getReducedGainsDays } from "@/libs/train";
 import { getGameSettingBoost } from "@/libs/gamesettings";
 import type { UserRank } from "@/drizzle/constants";
+import { StatSchemaType } from "./combat/types";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
@@ -118,6 +119,23 @@ export function scaleUserStats(user: UserData) {
   user["intelligence"] = calcStat("intelligence");
   user["willpower"] = calcStat("willpower");
   user["speed"] = calcStat("speed");
+}
+
+/** Assign stats of user, meant for the training dummy */
+export function manuallyAssignUserStats(user: UserData, stats: StatSchemaType) {
+  // Stats
+  user["ninjutsuOffence"] = stats.ninjutsuOffence;
+  user["ninjutsuDefence"] = stats.ninjutsuDefence;
+  user["genjutsuOffence"] = stats.genjutsuOffence;
+  user["genjutsuDefence"] = stats.genjutsuDefence;
+  user["taijutsuOffence"] = stats.taijutsuOffence;
+  user["taijutsuDefence"] = stats.taijutsuDefence;
+  user["bukijutsuOffence"] = stats.bukijutsuOffence;
+  user["bukijutsuDefence"] = stats.bukijutsuDefence;
+  user["strength"] = stats.strength;
+  user["intelligence"] = stats.intelligence;
+  user["willpower"] = stats.willpower;
+  user["speed"] = stats.speed;
 }
 
 export const activityStreakRewards = (streak: number) => {

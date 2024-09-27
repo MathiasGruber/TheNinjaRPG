@@ -212,6 +212,7 @@ export const BattleTypes = [
   "TOURNAMENT",
   "QUEST",
   "VILLAGE_PROTECTOR",
+  "TRAINING",
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
 
