@@ -478,7 +478,7 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
 
   // Show component
   return (
-    <ContentBox title="Assign Training Dummy stats" subtitle="">
+    <ContentBox title="Assign Dummy stats" subtitle="" initialBreak={true}>
       <Form {...form}>
         <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
           {statNames
@@ -516,14 +516,17 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
               }
             })}
           {!isAttacking ? (
-            <Button
-              id="create"
-              animation="pulse"
-              className="w-full col-span-2 my-1"
-              type="submit"
-            >
-              Enter the Training Arena
-            </Button>
+            <div className="col-span-2 flex flex-row justify-center">
+              <Button
+                size="xl"
+                decoration="gold"
+                animation="pulse"
+                className="font-fontasia text-4xl w-full"
+              >
+                <Swords className="h-10 w-10 mr-4" />
+                Enter The Arena
+              </Button>
+            </div>
           ) : (
             <div className="min-h-64">
               <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">

@@ -10,10 +10,12 @@ import { api } from "@/utils/api";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LetterRank, MISSIONS_PER_DAY, QuestType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import Confirm from "@/layout/Confirm";
 import { useState } from "react";
+import { groupBy } from "@/utils/grouping";
 import { Button } from "@/components/ui/button";
 
 export default function MissionHall() {
@@ -28,22 +30,12 @@ export default function MissionHall() {
     (q) => q.id === currentQuest?.questId,
   );
 
-  var rankAMissionFilter = {
-    questType: "mission" as QuestType,
-    rank: "A" as LetterRank,
-    village: userData?.villageId ?? undefined,
-    limit: 20,
-  };
-
-  const { data: rankAMissions } = api.quests.getAll.useQuery(
-    { ...rankAMissionFilter },
-    { enabled: !!userData, staleTime: Infinity },
-  );
-
   const { data: hallData } = api.quests.missionHall.useQuery(
     { villageId: userData?.villageId ?? "", level: userData?.level ?? 0 },
     { enabled: !!userData, staleTime: Infinity },
   );
+
+  const aRankMissions = hallData?.filter((m) => m.type === "mission" && m.rank === "A");
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
     onSuccess: async (data) => {
@@ -102,9 +94,9 @@ export default function MissionHall() {
           {getMissionHallSettings(userData.isOutlaw).map((setting, i) => {
             // Count how many of this type and rank are available
             const count =
-              hallData?.find(
+              hallData?.filter(
                 (point) => point.type === setting.type && point.rank === setting.rank,
-              )?.count ?? 0;
+              )?.length ?? 0;
             // Check is user rank is high enough for this quest
             const isErrand = setting.type === "errand";
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
@@ -112,9 +104,8 @@ export default function MissionHall() {
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
             if (setting.type === "mission" && setting.rank === "A") {
               return (
-                <Confirm
-                  title="Choose your quest"
-                  button={
+                <Popover>
+                  <PopoverTrigger asChild>
                     <div
                       key={i}
                       className={
@@ -125,27 +116,32 @@ export default function MissionHall() {
                     >
                       <Image alt="small" src={setting.image} width={256} height={256} />
                       <p className="font-bold">{setting.name}</p>
-                      <p>[Random out of {count} available]</p>
+                      <p>[Select out of {count} available]</p>
                     </div>
-                  }
-                  onAccept={(e) => {
-                    e.preventDefault();
-                    startQuest({ questId: missionId ?? "" });
-                  }}
-                >
-                  <div>
-                    <p>Please select your quest from the following:</p>
-                    {rankAMissions?.data.map((mission) => (
-                      <Button
-                        onClick={() => setMissionId(mission.id)}
-                        className="m-2"
-                        variant={missionId === mission.id ? "default" : "secondary"}
-                      >
-                        {mission.name}
-                      </Button>
-                    ))}
-                  </div>
-                </Confirm>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <div className="grid grid-cols-3 gap-2">
+                      {aRankMissions?.map((mission, i) => (
+                        <div
+                          onClick={() => startQuest({ questId: mission.id })}
+                          key={`specific-mission-${i}`}
+                          className="hover:opacity-70 hover:cursor-pointer"
+                        >
+                          <div className="flex flex-col justify-center items-center">
+                            <Image
+                              alt="small"
+                              className="rounded-lg"
+                              src={mission.image || setting.image}
+                              width={128}
+                              height={128}
+                            />
+                            <p className="font-bold">{mission.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               );
             } else {
               return (

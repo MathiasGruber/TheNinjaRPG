@@ -29,6 +29,10 @@ export const canSwapVillage = (role: UserRole) => {
   return role !== "USER";
 };
 
+export const canUnstuckVillage = (role: UserRole) => {
+  return role !== "USER";
+};
+
 export const canSwapBloodline = (role: UserRole) => {
   return ["CONTENT-ADMIN", "CONTENT", "EVENT", "ADMIN"].includes(role);
 };

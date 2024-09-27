@@ -1,15 +1,14 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq } from "drizzle-orm";
-import { actionLog, reportLog, userData } from "@/drizzle/schema";
+import { actionLog, userData } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import type { UserStatus } from "@/drizzle/constants";
 import { z } from "zod";
 import { inferRouterOutputs } from "@trpc/server";
 import { nanoid } from "nanoid";
-import { calculateContentDiff } from "@/utils/diff";
-import { tagTypes } from "@/libs/combat/types";
+import { canUnstuckVillage } from "@/utils/permissions";
 
 export const staffRouter = createTRPCRouter({
   forceAwake: protectedProcedure
@@ -23,9 +22,7 @@ export const staffRouter = createTRPCRouter({
       ]);
       // Guard
       if (!user) return errorResponse("User not found");
-      if (!["MODERATOR", "ADMIN"].includes(user.role))
-        return errorResponse("You aren't authorized to perform this action");
-
+      if (!canUnstuckVillage(user.role)) return errorResponse("Not allowed for you");
       // Mutate
       await Promise.all([
         ctx.drizzle.insert(actionLog).values({

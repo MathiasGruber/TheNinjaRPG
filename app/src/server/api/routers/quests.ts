@@ -150,7 +150,9 @@ export const questsRouter = createTRPCRouter({
           .select({
             type: quest.questType,
             rank: quest.questRank,
-            count: sql<number>`COUNT(*)`.mapWith(Number),
+            name: quest.name,
+            image: quest.image,
+            id: quest.id,
           })
           .from(quest)
           .where(
@@ -164,8 +166,7 @@ export const questsRouter = createTRPCRouter({
                 eq(quest.requiredVillage, input.villageId ?? ""),
               ),
             ),
-          )
-          .groupBy(quest.questType, quest.questRank),
+          ),
       ]);
       // Guards
       if (!user) throw serverError("PRECONDITION_FAILED", "User does not exist");
@@ -286,6 +287,10 @@ export const questsRouter = createTRPCRouter({
           (prevAttempt.previousAttempts > 1 || prevAttempt.completed)
         ) {
           return errorResponse(`You have already attempted this quest`);
+        }
+      } else {
+        if (questData.questRank !== "A") {
+          return errorResponse(`Only A rank missions are allowed`);
         }
       }
       // Insert quest entry
