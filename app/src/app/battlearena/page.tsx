@@ -30,11 +30,24 @@ import { Swords } from "lucide-react";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import type { z } from "zod";
 import type { GenericObject } from "@/layout/ItemWithEffects";
+import { createStatSchema, StatSchemaType } from "@/libs/combat/types";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 export default function Arena() {
   // Tab selection
-  const [tab, setTab] = useState<"Arena" | "Sparring" | null>(null);
+  const [tab, setTab] = useState<"Training Arena" | "Arena" | "Sparring" | null>(null);
   const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
+  const [statDistribution, setStatDistribution] = useLocalStorage<
+    StatSchemaType | undefined
+  >("statDistribution", undefined);
 
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
@@ -45,11 +58,16 @@ export default function Arena() {
   if (userData?.isBanned) return <BanInfo />;
 
   // Derived values
-  const title = tab === "Arena" ? "Arena" : "Sparring";
-  const subtitle =
-    tab === "Arena"
-      ? `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`
-      : "PVP Challenges";
+  const title = tab ?? "";
+  var subtitle = "";
+  switch (tab) {
+    case "Arena":
+      subtitle = `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`;
+    case "Sparring":
+      subtitle = "PVP Challenges";
+    case "Training Arena":
+      subtitle = "Training Dummy";
+  }
 
   return (
     <>
@@ -62,16 +80,31 @@ export default function Arena() {
           <NavTabs
             id="arenaSelection"
             current={tab}
-            options={["Arena", "Sparring"]}
+            options={["Arena", "Sparring", "Training Arena"]}
             setValue={setTab}
           />
         }
       >
         {tab === "Arena" && <ChallengeAI aiId={aiId} />}
         {tab === "Sparring" && <ChallengeUser />}
+        {tab === "Training Arena" && (
+          <div className="flex flex-col items-center">
+            <p className="m-2">
+              The arena is a fairly basic circular and raw battleground, where you can
+              train your skills as a ninja. Opponent is an invicible training dummy who
+              will self destruct. Test and hone your skills for future battles.
+            </p>
+          </div>
+        )}
       </ContentBox>
       {tab === "Arena" && <SelectAI aiId={aiId} setAiId={setAiId} />}
       {tab === "Sparring" && <ActiveChallenges />}
+      {tab === "Training Arena" && (
+        <AssignTrainingDummyStats
+          statDistribution={statDistribution}
+          setStatDistribution={setStatDistribution}
+        />
+      )}
     </>
   );
 }
@@ -386,5 +419,123 @@ const ActiveChallenges: React.FC = () => {
         />
       </ContentBox>
     )
+  );
+};
+
+interface AssignTrainingDummyStatsProps {
+  statDistribution: StatSchemaType | undefined;
+  setStatDistribution: React.Dispatch<React.SetStateAction<StatSchemaType | undefined>>;
+}
+
+const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props) => {
+  // Destructure
+  const { statDistribution, setStatDistribution } = props;
+  // Data from database
+  const { data: userData } = useRequiredUserData();
+  // Seeded Training Dummy Id
+  const aiId = "tra93opw09262024jut5ufa8f";
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Router for forwarding
+  const router = useRouter();
+
+  // Mutation for starting a fight
+  const { mutate: attack, isPending: isAttacking } =
+    api.combat.startArenaBattle.useMutation({
+      onSuccess: async (data) => {
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          router.push("/combat");
+          showMutationToast({ ...data, message: "Entering the Training Arena" });
+        } else {
+          showMutationToast(data);
+        }
+      },
+    });
+
+  // Loaders
+  if (!userData) return <Loader explanation="Loading userdata" />;
+
+  // Stats Schema
+  const statSchema = createStatSchema(10, 10, undefined);
+  const defaultValues = statSchema.parse(statDistribution ?? {});
+  const statNames = Object.keys(defaultValues) as (keyof typeof defaultValues)[];
+
+  // Form setup
+  const form = useForm<StatSchemaType>({
+    defaultValues,
+    mode: "all",
+    resolver: zodResolver(statSchema),
+  });
+
+  // Submit handler
+  const onSubmit = form.handleSubmit((data) => {
+    setStatDistribution(data);
+    attack({ aiId: aiId, stats: data });
+  });
+
+  // Show component
+  return (
+    <ContentBox title="Assign Training Dummy stats" subtitle="">
+      <Form {...form}>
+        <form className="grid grid-cols-2 gap-2" onSubmit={onSubmit}>
+          {statNames
+            .filter((x) => !x.includes("Offence"))
+            .map((stat, i) => {
+              const maxValue =
+                statSchema.shape[stat]._def.innerType._def.schema.maxValue;
+              if (maxValue && maxValue > 0) {
+                return (
+                  <FormField
+                    key={i}
+                    control={form.control}
+                    name={stat}
+                    render={({ field }) => (
+                      <FormItem className="pt-1">
+                        <FormLabel>{stat}</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder={stat} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                );
+              } else {
+                return (
+                  <FormItem className="pt-1" key={i}>
+                    <FormLabel>{stat}</FormLabel>
+                    <FormControl>
+                      <div>- Max</div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }
+            })}
+          {!isAttacking ? (
+            <Button
+              id="create"
+              animation="pulse"
+              className="w-full col-span-2 my-1"
+              type="submit"
+            >
+              Enter the Training Arena
+            </Button>
+          ) : (
+            <div className="min-h-64">
+              <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-95">
+                <div className="m-auto text-white">
+                  <p className="text-5xl">Entering the Training Arena</p>
+                  <Loader />
+                </div>
+              </div>
+            </div>
+          )}
+        </form>
+      </Form>
+    </ContentBox>
   );
 };

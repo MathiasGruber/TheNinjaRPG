@@ -476,6 +476,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         experience *= 1.5;
       } else if (battleType === "VILLAGE_PROTECTOR") {
         experience = 0;
+      } else if (battleType === "TRAINING") {
+        experience = 0;
       }
 
       // Find users who did not leave battle yet
@@ -589,7 +591,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       };
 
       // Things to reward for non-spars
-      if (battleType !== "SPARRING") {
+      if (battleType !== "SPARRING" && battleType !== "TRAINING") {
         // Money stolen/given
         result["money"] = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.

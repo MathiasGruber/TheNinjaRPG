@@ -29,7 +29,7 @@ import { performAIaction } from "@/libs/combat/ai_v1";
 import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
-import { performActionSchema } from "@/libs/combat/types";
+import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -38,7 +38,7 @@ import { combatAssetsNames } from "@/libs/travel/constants";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { applyEffects } from "@/libs/combat/process";
-import { scaleUserStats } from "@/libs/profile";
+import { manuallyAssignUserStats, scaleUserStats } from "@/libs/profile";
 import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { canAccessStructure } from "@/utils/village";
@@ -49,7 +49,7 @@ import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
-import type { BattleUserState } from "@/libs/combat/types";
+import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
@@ -495,7 +495,7 @@ export const combatRouter = createTRPCRouter({
     }),
   startArenaBattle: protectedProcedure
     .use(ratelimitMiddleware)
-    .input(z.object({ aiId: z.string() }))
+    .input(z.object({ aiId: z.string(), stats: statSchema.nullish() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Get information
@@ -540,8 +540,9 @@ export const combatRouter = createTRPCRouter({
             userIds: [user.userId],
             targetIds: [selectedAI.userId],
             client: ctx.drizzle,
+            statDistribution: input.stats ?? undefined,
           },
-          "ARENA",
+          input.stats ? "TRAINING" : "ARENA",
           determineArenaBackground(user.village?.name || "Unknown"),
         );
       } else {
@@ -675,6 +676,7 @@ export const initiateBattle = async (
     userIds: string[];
     targetIds: string[];
     client: DrizzleClient;
+    statDistribution?: StatSchemaType;
     scaleTarget?: boolean;
   },
   battleType: BattleType,
@@ -771,6 +773,11 @@ export const initiateBattle = async (
     if (info?.scaleTarget && targetIds.includes(user.userId) && users[0]) {
       user.level = users[0].level;
       scaleUserStats(user);
+    }
+
+    // Manually Assign Stats
+    if (info?.statDistribution && targetIds.includes(user.userId)) {
+      manuallyAssignUserStats(user, info?.statDistribution);
     }
 
     // Add achievements to users for tracking
