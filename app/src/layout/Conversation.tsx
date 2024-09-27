@@ -145,12 +145,16 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       },
     });
 
+  /**
+   * Websockets event listener
+   */
   useEffect(() => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", async () => {
-        if (!silence) {
-          await utils.comments.getConversationComments.invalidate();
+      channel.bind("event", async (data: { message?: string; fromId?: string }) => {
+        if (!silence && data?.fromId !== userData?.userId) {
+          console.log("Invalidate from pusher");
+          await invalidateComments();
         }
       });
       return () => {

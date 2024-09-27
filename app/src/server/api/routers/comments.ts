@@ -436,7 +436,7 @@ export const commentsRouter = createTRPCRouter({
 
       // Update conversation & update user notifications
       const pusher = getServerPusher();
-      void pusher.trigger(convo.id, "event", { message: "new" });
+      void pusher.trigger(convo.id, "event", { message: "new", fromId: ctx.userId });
       userIds.forEach(
         (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
       );
