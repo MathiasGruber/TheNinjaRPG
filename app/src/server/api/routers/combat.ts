@@ -518,7 +518,7 @@ export const combatRouter = createTRPCRouter({
       if (!user) return errorResponse("Attacking user not found");
       if (!sectorVillage) return errorResponse("Arena village not found");
       if (user.isBanned) return errorResponse("No arena while banned");
-      if (user.dailyArenaFights >= BATTLE_ARENA_DAILY_LIMIT) {
+      if (!input.stats && user.dailyArenaFights >= BATTLE_ARENA_DAILY_LIMIT) {
         return errorResponse("Daily arena limit reached");
       }
       // Check if location is OK

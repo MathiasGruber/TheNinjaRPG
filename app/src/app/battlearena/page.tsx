@@ -63,10 +63,13 @@ export default function Arena() {
   switch (tab) {
     case "Arena":
       subtitle = `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`;
+      break;
     case "Sparring":
       subtitle = "PVP Challenges";
+      break;
     case "Training Arena":
       subtitle = "Training Dummy";
+      break;
   }
 
   return (
