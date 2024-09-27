@@ -277,14 +277,26 @@ export const questsRouter = createTRPCRouter({
       const current = user.userQuests?.filter(
         (q) => q.quest.questType === "event" && !q.endAt,
       );
-      if (current && current.length >= 4) {
-        return errorResponse(`Already 4 active event quests`);
-      }
-      if (prevAttempt && (prevAttempt.previousAttempts > 1 || prevAttempt.completed)) {
-        return errorResponse(`You have already attempted this quest`);
+      if (questData.questType !== "mission") {
+        if (current && current.length >= 4) {
+          return errorResponse(`Already 4 active event quests`);
+        }
+        if (
+          prevAttempt &&
+          (prevAttempt.previousAttempts > 1 || prevAttempt.completed)
+        ) {
+          return errorResponse(`You have already attempted this quest`);
+        }
       }
       // Insert quest entry
-      await upsertQuestEntry(ctx.drizzle, user, questData);
+      await Promise.all([
+        upsertQuestEntry(ctx.drizzle, user, questData),
+        incrementDailyQuestCounter(
+          ctx.drizzle,
+          user,
+          questData.questType === "mission",
+        ),
+      ]);
       return { success: true, message: `Quest started: ${questData.name}` };
     }),
   abandon: protectedProcedure
@@ -869,6 +881,19 @@ export const upsertQuestEntries = async (
           eq(questHistory.questId, quest.id),
         ),
       );
+  }
+};
+
+export const incrementDailyQuestCounter = async (
+  client: DrizzleClient,
+  user: UserData,
+  enabled: Boolean,
+) => {
+  if (enabled) {
+    await client
+      .update(userData)
+      .set({ dailyMissions: sql`${userData.dailyMissions} + 1` })
+      .where(eq(userData.userId, user.userId));
   }
 };
 

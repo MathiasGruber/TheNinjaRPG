@@ -10,12 +10,15 @@ import { api } from "@/utils/api";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { LetterRank, MISSIONS_PER_DAY, QuestType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import Confirm from "@/layout/Confirm";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function MissionHall() {
   const util = api.useUtils();
-
+  const [missionId, setMissionId] = useState<string | undefined>();
   const { userData, access } = useRequireInVillage("/missionhall");
 
   const currentQuest = userData?.userQuests?.find(
@@ -25,12 +28,31 @@ export default function MissionHall() {
     (q) => q.id === currentQuest?.questId,
   );
 
+  var rankAMissionFilter = {
+    questType: "mission" as QuestType,
+    rank: "A" as LetterRank,
+    village: userData?.villageId ?? undefined,
+    limit: 20,
+  };
+
+  const { data: rankAMissions } = api.quests.getAll.useQuery(
+    { ...rankAMissionFilter },
+    { enabled: !!userData, staleTime: Infinity },
+  );
+
   const { data: hallData } = api.quests.missionHall.useQuery(
     { villageId: userData?.villageId ?? "", level: userData?.level ?? 0 },
     { enabled: !!userData, staleTime: Infinity },
   );
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await util.profile.getUser.invalidate();
+    },
+  });
+
+  const { mutate: startQuest } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await util.profile.getUser.invalidate();
@@ -88,24 +110,63 @@ export default function MissionHall() {
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
-            return (
-              <div
-                key={i}
-                className={
-                  count === 0 || capped || !isRankAllowed
-                    ? "filter grayscale"
-                    : "hover:cursor-pointer hover:opacity-30"
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  startRandom({ type: setting.type, rank: setting.rank });
-                }}
-              >
-                <Image alt="small" src={setting.image} width={256} height={256} />
-                <p className="font-bold">{setting.name}</p>
-                <p>[Random out of {count} available]</p>
-              </div>
-            );
+            if (setting.type === "mission" && setting.rank === "A") {
+              return (
+                <Confirm
+                  title="Choose your quest"
+                  button={
+                    <div
+                      key={i}
+                      className={
+                        count === 0 || capped || !isRankAllowed
+                          ? "filter grayscale"
+                          : "hover:cursor-pointer hover:opacity-30"
+                      }
+                    >
+                      <Image alt="small" src={setting.image} width={256} height={256} />
+                      <p className="font-bold">{setting.name}</p>
+                      <p>[Random out of {count} available]</p>
+                    </div>
+                  }
+                  onAccept={(e) => {
+                    e.preventDefault();
+                    startQuest({ questId: missionId ?? "" });
+                  }}
+                >
+                  <div>
+                    <p>Please select your quest from the following:</p>
+                    {rankAMissions?.data.map((mission) => (
+                      <Button
+                        onClick={() => setMissionId(mission.id)}
+                        className="m-2"
+                        variant={missionId === mission.id ? "default" : "secondary"}
+                      >
+                        {mission.name}
+                      </Button>
+                    ))}
+                  </div>
+                </Confirm>
+              );
+            } else {
+              return (
+                <div
+                  key={i}
+                  className={
+                    count === 0 || capped || !isRankAllowed
+                      ? "filter grayscale"
+                      : "hover:cursor-pointer hover:opacity-30"
+                  }
+                  onClick={(e) => {
+                    e.preventDefault();
+                    startRandom({ type: setting.type, rank: setting.rank });
+                  }}
+                >
+                  <Image alt="small" src={setting.image} width={256} height={256} />
+                  <p className="font-bold">{setting.name}</p>
+                  <p>[Random out of {count} available]</p>
+                </div>
+              );
+            }
           })}
         </div>
       )}
