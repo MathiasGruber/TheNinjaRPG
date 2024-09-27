@@ -11,16 +11,12 @@ import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { LetterRank, MISSIONS_PER_DAY, QuestType } from "@/drizzle/constants";
+import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import Confirm from "@/layout/Confirm";
 import { useState } from "react";
-import { groupBy } from "@/utils/grouping";
-import { Button } from "@/components/ui/button";
 
 export default function MissionHall() {
   const util = api.useUtils();
-  const [missionId, setMissionId] = useState<string | undefined>();
   const { userData, access } = useRequireInVillage("/missionhall");
 
   const currentQuest = userData?.userQuests?.find(
