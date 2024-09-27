@@ -519,7 +519,8 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Derived variables
   const hasArenaHealMoney = userData?.money! >= 500;
-  const showNextMatch = result?.outcome === "Won" && battleType === "ARENA";
+  const showNextMatch =
+    result?.outcome === "Won" && (battleType === "ARENA" || battleType === "TRAINING");
   const showTravelBtn = battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
