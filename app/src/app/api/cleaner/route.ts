@@ -91,7 +91,7 @@ export async function GET() {
       sql`
         DELETE a FROM ${conversationComment} a 
         INNER JOIN ${conversation} b ON a.conversationId = b.id
-        WHERE b.isPublic AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY`,
+        WHERE b.isPublic AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 HOUR`,
     );
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore
