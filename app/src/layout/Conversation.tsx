@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
@@ -17,6 +18,7 @@ import { mutateCommentSchema } from "@/validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
 import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
 import type { MutateCommentSchema } from "@/validators/comments";
+import type { ArrayElement } from "@/utils/typeutils";
 
 interface ConversationProps {
   convo_title?: string;
@@ -60,6 +62,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   });
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
+  type ReturnedComment = ArrayElement<typeof allComments>;
 
   // tRPC utils
   const utils = api.useUtils();
@@ -67,6 +70,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   // infinite pagination
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
+  // Handle for submission of comment
   const {
     handleSubmit,
     setValue,
@@ -77,29 +81,36 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     resolver: zodResolver(mutateCommentSchema),
   });
 
+  // Set the object_id to the conversation id
   useEffect(() => {
     if (conversation) {
       setValue("object_id", conversation.id);
     }
-  }, [conversation, setValue]);
+  }, [conversation?.id]);
 
-  // Create comment & optimistically update the interface
-  const { mutate: createComment, isPending: isCommenting } =
-    api.comments.createConversationComment.useMutation({
-      onMutate: async (newMessage) => {
-        // We are active
-        setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
-        // Get previous data
-        const old = utils.comments.getConversationComments.getInfiniteData();
-        if (!userData || !conversation) return { old };
-        // Optimistic update
-        await utils.comments.getConversationComments.cancel();
-        utils.comments.getConversationComments.setInfiniteData(
-          queryKey,
-          (oldQueryData) => {
-            if (!oldQueryData) return undefined;
-            const next = {
-              id: "test",
+  /**
+   * Perform an optimistic update to the conversation comments, i.e. no API calls,
+   * just directly insert message into the comments array.
+   * @param newMessage
+   * @returns
+   */
+  const optimisticConversationUpdate = async (
+    newMessage: MutateCommentSchema | ReturnedComment,
+  ) => {
+    // We are active
+    setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
+    // Get previous data
+    const old = utils.comments.getConversationComments.getInfiniteData();
+    if (!userData || !conversation) return { old };
+    // Optimistic update
+    await utils.comments.getConversationComments.cancel();
+    utils.comments.getConversationComments.setInfiniteData(queryKey, (oldQueryData) => {
+      if (!oldQueryData) return undefined;
+      const next =
+        "id" in newMessage
+          ? newMessage
+          : {
+              id: nanoid(),
               createdAt: new Date(),
               conversationId: conversation.id,
               content: newMessage.comment,
@@ -118,25 +129,31 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               federalStatus: userData.federalStatus,
               nRecruited: userData.nRecruited,
             };
+      return {
+        pageParams: oldQueryData.pageParams,
+        pages: oldQueryData.pages.map((page, i) => {
+          if (i === 0) {
             return {
-              pageParams: oldQueryData.pageParams,
-              pages: oldQueryData.pages.map((page, i) => {
-                if (i === 0) {
-                  return {
-                    convo: page.convo,
-                    data: [next, ...page.data],
-                    nextCursor: page.nextCursor,
-                  };
-                }
-                return page;
-              }),
+              convo: page.convo,
+              data: [next, ...page.data],
+              nextCursor: page.nextCursor,
             };
-          },
-        );
-        return { old };
+          }
+          return page;
+        }),
+      };
+    });
+    return { old };
+  };
+
+  // Create comment & optimistically update the interface
+  const { mutate: createComment, isPending: isCommenting } =
+    api.comments.createConversationComment.useMutation({
+      onMutate: async (newMessage) => {
+        return await optimisticConversationUpdate(newMessage);
       },
       onSuccess: () => {
-        reset();
+        if (conversation) reset({ object_id: conversation.id, comment: "" });
         setEditorKey((prev) => prev + 1);
       },
       onError: (error, _newComment, context) => {
@@ -145,16 +162,24 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       },
     });
 
+  // Create comment & optimistically update the interface
+  const { mutate: fetchComment } = api.comments.fetchConversationComment.useMutation({
+    onSuccess: async (data) => {
+      if (data) await optimisticConversationUpdate(data);
+    },
+  });
+
   /**
    * Websockets event listener
    */
   useEffect(() => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", async (data: { message?: string; fromId?: string }) => {
-        if (!silence && data?.fromId !== userData?.userId) {
+      channel.bind("event", async (data: { fromId?: string; commentId?: string }) => {
+        if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
           console.log("Invalidate from pusher");
-          await invalidateComments();
+          await fetchComment({ commentId: data.commentId });
+          // await invalidateComments();
         }
       });
       return () => {
@@ -164,10 +189,20 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [silence, conversation]);
 
+  /**
+   * Submit comment
+   */
   const handleSubmitComment = handleSubmit(
     (data) => createComment(data),
     (errors) => console.error(errors),
   );
+
+  /**
+   * Invalidate comments & allow refetches again
+   */
+  const invalidateComments = async () => {
+    await utils.comments.getConversationComments.invalidate();
+  };
 
   const unique = new Set();
 
@@ -200,7 +235,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               </div>
               <RefreshCw
                 className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
-                onClick={() => utils.comments.getConversationComments.invalidate()}
+                onClick={invalidateComments}
               />
             </div>
           )}
@@ -222,9 +257,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                       user={comment}
                       hover_effect={false}
                       comment={comment}
-                      refetchComments={async () =>
-                        await utils.comments.getConversationComments.invalidate()
-                      }
+                      refetchComments={invalidateComments}
                     >
                       {parseHtml(comment.content)}
                     </CommentOnConversation>
@@ -239,7 +272,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                   size="xl"
                   onClick={async () => {
                     setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
-                    await utils.comments.getConversationComments.invalidate();
+                    await invalidateComments();
                   }}
                 >
                   <Check className="w-8 h-8 mr-3" />

@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq, or, and, sql, desc, asc, inArray, isNull } from "drizzle-orm";
+import { eq, or, and, sql, desc, asc, inArray, isNull, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import {
   village,
@@ -304,6 +304,65 @@ export const commentsRouter = createTRPCRouter({
           .where(eq(conversationComment.conversationId, convo.id));
       }
     }),
+  fetchConversationComment: protectedProcedure
+    .input(z.object({ commentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const posterUser = alias(userData, "posterUser");
+      const readerUser = alias(userData, "readerUser");
+      const posterBlacklist = alias(userBlackList, "posterBlacklist");
+      const readerBlacklist = alias(userBlackList, "readerBlacklist");
+      const comment = await ctx.drizzle
+        .select({
+          id: conversationComment.id,
+          createdAt: conversationComment.createdAt,
+          content: conversationComment.content,
+          conversationId: conversationComment.conversationId,
+          isPinned: conversationComment.isPinned,
+          villageName: village.name,
+          villageHexColor: village.hexColor,
+          villageKageId: village.kageId,
+          userId: posterUser.userId,
+          username: posterUser.username,
+          avatar: posterUser.avatar,
+          rank: posterUser.rank,
+          isOutlaw: posterUser.isOutlaw,
+          level: posterUser.level,
+          role: posterUser.role,
+          customTitle: posterUser.customTitle,
+          federalStatus: posterUser.federalStatus,
+          nRecruited: posterUser.nRecruited,
+        })
+        .from(conversationComment)
+        .innerJoin(posterUser, eq(posterUser.userId, conversationComment.userId))
+        .innerJoin(readerUser, eq(readerUser.userId, ctx.userId))
+        .leftJoin(
+          posterBlacklist,
+          and(
+            notInArray(readerUser.role, ["MODERATOR", "ADMIN"]),
+            eq(posterBlacklist.creatorUserId, conversationComment.userId),
+            eq(posterBlacklist.targetUserId, ctx.userId),
+          ),
+        )
+        .leftJoin(
+          readerBlacklist,
+          and(
+            eq(readerBlacklist.creatorUserId, ctx.userId),
+            eq(readerBlacklist.targetUserId, conversationComment.userId),
+          ),
+        )
+        .leftJoin(village, eq(village.id, posterUser.villageId))
+        .where(
+          and(
+            eq(conversationComment.id, input.commentId),
+            or(
+              isNull(readerBlacklist.id),
+              inArray(posterUser.role, ["MODERATOR", "ADMIN"]),
+            ),
+            isNull(posterBlacklist.id),
+          ),
+        );
+      return comment?.[0] || null;
+    }),
   getConversationComments: protectedProcedure
     .input(
       z
@@ -435,13 +494,18 @@ export const commentsRouter = createTRPCRouter({
       }
 
       // Update conversation & update user notifications
+      const commentId = nanoid();
       const pusher = getServerPusher();
-      void pusher.trigger(convo.id, "event", { message: "new", fromId: ctx.userId });
+      void pusher.trigger(convo.id, "event", {
+        message: "new",
+        fromId: ctx.userId,
+        commentId: commentId,
+      });
       userIds.forEach(
         (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
       );
       return await ctx.drizzle.insert(conversationComment).values({
-        id: nanoid(),
+        id: commentId,
         content: sanitize(input.comment),
         userId: ctx.userId,
         conversationId: convo.id,
