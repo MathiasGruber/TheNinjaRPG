@@ -732,6 +732,10 @@ export const damageCalc = (
   if (!effect.castThisRound && "residualModifier" in effect) {
     if (effect.residualModifier) dmg *= effect.residualModifier;
   }
+  // Modify damage
+  if ("dmgModifier" in effect) {
+    if (effect.dmgModifier) dmg *= effect.dmgModifier;
+  }
   return dmg;
 };
 

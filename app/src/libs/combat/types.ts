@@ -455,6 +455,7 @@ export const DamageTag = z.object({
   description: msg("Deals damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
@@ -466,6 +467,7 @@ export const PierceTag = z.object({
   description: msg("Deals piercing damage to target"),
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
 });
 
 export const DebuffPreventTag = z.object({
