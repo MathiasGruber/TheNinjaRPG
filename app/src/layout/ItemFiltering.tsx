@@ -28,10 +28,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { effectFilters } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { searchNameSchema } from "@/validators/jutsu";
+import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import Toggle from "@/components/control/Toggle";
-import type { SearchNameSchema } from "@/validators/jutsu";
+import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
 import type { AttackTarget, ItemType, AttackMethod } from "@/drizzle/constants";
 import type { ItemRarity, ItemSlotType } from "@/drizzle/schema";
@@ -51,8 +51,8 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
   const { name, effect } = props.state;
 
   // Name search schema
-  const form = useForm<SearchNameSchema>({
-    resolver: zodResolver(searchNameSchema),
+  const form = useForm<SearchJutsuSchema>({
+    resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name: name },
   });
   const watchName = form.watch("name", "");

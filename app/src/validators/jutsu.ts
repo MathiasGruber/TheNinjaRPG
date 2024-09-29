@@ -7,11 +7,12 @@ import { StatTypes } from "@/drizzle/constants";
 import { AttackMethods } from "@/drizzle/constants";
 import { AttackTargets } from "@/drizzle/constants";
 
-export const searchNameSchema = z.object({
+export const searchJutsuSchema = z.object({
   name: z.string().min(0).max(256),
+  requiredLevel: z.number().min(0).max(150).optional(),
 });
 
-export type SearchNameSchema = z.infer<typeof searchNameSchema>;
+export type SearchJutsuSchema = z.infer<typeof searchJutsuSchema>;
 
 export const jutsuFilteringSchema = z.object({
   appear: z.enum(animationNames).optional(),
@@ -23,6 +24,7 @@ export const jutsuFilteringSchema = z.object({
   method: z.enum(AttackMethods).optional(),
   name: z.string().min(0).max(256).optional(),
   rank: z.enum(UserRanks).optional(),
+  requiredLevel: z.coerce.number().min(0).max(150).optional(),
   rarity: z.enum(LetterRanks).optional(),
   stat: z.array(z.enum(statFilters)).optional(),
   static: z.enum(animationNames).optional(),

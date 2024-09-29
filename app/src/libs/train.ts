@@ -57,6 +57,10 @@ export const availableQuestLetterRanks = (userrank: UserRank): LetterRank[] => {
   return ["D"];
 };
 
+export const hasRequiredLevel = (userLevel: number, requiredLevel: number) => {
+  return userLevel >= requiredLevel;
+};
+
 export const hasRequiredRank = (userRank?: UserRank, requiredRank?: UserRank) => {
   if (!userRank) return false;
   if (!requiredRank) return true;
@@ -155,6 +159,7 @@ export const canTrainJutsu = (
   if (userdata.isAi) return true;
   return (
     hasRequiredRank(userdata.rank, jutsu.requiredRank) &&
+    hasRequiredLevel(userdata.level, jutsu.requiredLevel) &&
     checkJutsuRank(jutsu.jutsuRank, userdata.rank) &&
     checkJutsuVillage(jutsu, userdata) &&
     checkJutsuBloodline(jutsu, userdata) &&

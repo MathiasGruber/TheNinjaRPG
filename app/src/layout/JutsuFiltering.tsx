@@ -25,12 +25,12 @@ import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters, rarities } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { searchNameSchema } from "@/validators/jutsu";
+import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import { StatTypes, AttackMethods, AttackTargets } from "@/drizzle/constants";
 import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
 import type { AttackMethod, AttackTarget } from "@/drizzle/constants";
-import type { SearchNameSchema } from "@/validators/jutsu";
+import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { AnimationName } from "@/libs/combat/types";
 import type { StatGenType, EffectType, RarityType } from "@/libs/train";
 
@@ -44,11 +44,11 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const { setBloodline, setStat, setEffect, setRarity } = props.state;
   const { setAppearAnim, setRemoveAnim, setStaticAnim } = props.state;
   const { setName, setElement, setRank, setClassification } = props.state;
-  const { setMethod, setTarget } = props.state;
+  const { setMethod, setTarget, setRequiredLevel } = props.state;
 
   const { name, bloodline, stat, effect, rarity, element } = props.state;
   const { rank, appearAnim, staticAnim, removeAnim, classification } = props.state;
-  const { method, target } = props.state;
+  const { method, target, requiredLevel } = props.state;
   const { fixedBloodline } = props;
 
   // Get all bloodlines
@@ -63,11 +63,12 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const bloodlineData = bloodlines?.find((b) => b.id === bloodline);
 
   // Name search schema
-  const form = useForm<SearchNameSchema>({
-    resolver: zodResolver(searchNameSchema),
+  const form = useForm<SearchJutsuSchema>({
+    resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name: name },
   });
-  const watchName = form.watch("name", "");
+  const watchName = form.watch("name", undefined);
+  const watchRequiredLevel = form.watch("requiredLevel", undefined);
 
   // Update the state
   useEffect(() => {
@@ -76,6 +77,15 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [watchName, setName]);
+
+  useEffect(() => {
+    if (watchRequiredLevel) {
+      const delayDebounceFn = setTimeout(() => {
+        setRequiredLevel(watchRequiredLevel);
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [watchRequiredLevel, setRequiredLevel]);
 
   return (
     <Popover>
@@ -132,22 +142,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 {rarities.map((rarity) => (
                   <SelectItem key={rarity} value={rarity}>
                     {rarity}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Rank */}
-          <div>
-            <Select onValueChange={(e) => setRank(e as UserRank)}>
-              <Label htmlFor="rank">Required Rank</Label>
-              <SelectTrigger>
-                <SelectValue placeholder={rank} />
-              </SelectTrigger>
-              <SelectContent>
-                {UserRanks.map((rank) => (
-                  <SelectItem key={rank} value={rank}>
-                    {rank}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -316,6 +310,40 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               </Select>
             </div>
           </div>
+          {/* Required Rank */}
+          <div>
+            <Select onValueChange={(e) => setRank(e as UserRank)}>
+              <Label htmlFor="rank">Required Rank</Label>
+              <SelectTrigger>
+                <SelectValue placeholder={rank} />
+              </SelectTrigger>
+              <SelectContent>
+                {UserRanks.map((rank) => (
+                  <SelectItem key={rank} value={rank}>
+                    {rank}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Required level */}
+          <div>
+            <Form {...form}>
+              <Label htmlFor="requiredLevel">Required Level</Label>
+              <FormField
+                control={form.control}
+                name="requiredLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input id="name" placeholder="Required level" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </Form>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -337,6 +365,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     name: state.name ? state.name : undefined,
     rank: state.rank !== "NONE" ? state.rank : undefined,
     rarity: state.rarity !== "ALL" ? state.rarity : undefined,
+    requiredLevel: state.requiredLevel,
     stat: state.stat.length !== 0 ? (state.stat as StatGenType[]) : undefined,
     static: state.staticAnim !== "None" ? state.staticAnim : undefined,
     target: state.target !== "None" ? state.target : undefined,
@@ -355,6 +384,7 @@ export const useFiltering = () => {
   const [method, setMethod] = useState<AttackMethod | None>("None");
   const [name, setName] = useState<string>("");
   const [rank, setRank] = useState<UserRank>("NONE");
+  const [requiredLevel, setRequiredLevel] = useState<number>(1);
   const [rarity, setRarity] = useState<RarityType>("ALL");
   const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
   const [stat, setStat] = useState<string[]>([]);
@@ -372,6 +402,7 @@ export const useFiltering = () => {
     name,
     rank,
     rarity,
+    requiredLevel,
     removeAnim,
     stat,
     staticAnim,
@@ -385,6 +416,7 @@ export const useFiltering = () => {
     setName,
     setRank,
     setRarity,
+    setRequiredLevel,
     setRemoveAnim,
     setStat,
     setStaticAnim,

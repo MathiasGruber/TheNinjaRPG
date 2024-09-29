@@ -184,6 +184,7 @@ export const jutsuRouter = createTRPCRouter({
         effects: [],
         range: 1,
         requiredRank: "STUDENT",
+        requiredLevel: 1,
         target: "OTHER_USER",
         jutsuType: "AI",
         image: IMG_AVATAR_DEFAULT,
@@ -543,6 +544,7 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
   return [
     ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
     ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+    ...(input?.requiredLevel ? [gte(jutsu.requiredLevel, input.requiredLevel)] : []),
     ...[
       input?.rank ? eq(jutsu.requiredRank, input.rank) : isNotNull(jutsu.requiredRank),
     ],

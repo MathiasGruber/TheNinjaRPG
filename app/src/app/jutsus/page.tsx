@@ -19,6 +19,7 @@ import {
   checkJutsuRank,
   checkJutsuItems,
   hasRequiredRank,
+  hasRequiredLevel,
 } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -129,6 +130,9 @@ export default function MyJutsu() {
       }
       if (!hasRequiredRank(userData.rank, userjutsu.jutsu.requiredRank)) {
         warning = "You do not have the required rank to use this jutsu.";
+      }
+      if (!hasRequiredLevel(userData.level, userjutsu.jutsu.requiredLevel)) {
+        warning = "You do not have the required level to use this jutsu.";
       }
       if (!checkJutsuRank(userjutsu.jutsu.jutsuRank, userData.rank)) {
         warning = "You do not have the required rank to use this jutsu.";

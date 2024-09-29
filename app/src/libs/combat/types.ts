@@ -1015,6 +1015,7 @@ export const JutsuValidator = z
     jutsuType: z.enum(JutsuTypes),
     jutsuRank: z.enum(LetterRanks),
     requiredRank: z.enum(UserRanks),
+    requiredLevel: z.coerce.number().min(1).max(100),
     method: z.enum(AttackMethods),
     target: z.enum(AttackTargets),
     range: z.coerce.number().int().min(0).max(5),

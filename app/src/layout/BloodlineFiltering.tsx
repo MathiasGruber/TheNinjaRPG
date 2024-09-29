@@ -24,11 +24,11 @@ import { ElementNames, LetterRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { searchNameSchema } from "@/validators/jutsu";
+import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import { StatTypes } from "@/drizzle/constants";
 import type { ElementName, LetterRank, StatType } from "@/drizzle/constants";
-import type { SearchNameSchema } from "@/validators/jutsu";
+import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { StatGenType, EffectType } from "@/libs/train";
 
 interface BloodFilteringProps {
@@ -54,8 +54,8 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
   const villageData = villages?.find((b) => b.id === village);
 
   // Name search schema
-  const form = useForm<SearchNameSchema>({
-    resolver: zodResolver(searchNameSchema),
+  const form = useForm<SearchJutsuSchema>({
+    resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name: name },
   });
   const watchName = form.watch("name", "");
