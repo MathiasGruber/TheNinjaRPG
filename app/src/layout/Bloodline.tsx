@@ -11,7 +11,7 @@ import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFilte
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { ROLL_CHANCE, BLOODLINE_COST, REMOVAL_COST } from "@/libs/bloodline";
+import { BLOODLINE_COST, REMOVAL_COST, ROLL_CHANCE_PERCENTAGE } from "@/libs/bloodline";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import type { Bloodline } from "@/drizzle/schema";
@@ -268,11 +268,11 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
           Statistically, the chances for the different ranks of bloodlines are:
         </p>
         <ul className="pl-5 pt-3">
-          <li>S-Ranked: {ROLL_CHANCE["S"] * 100}%</li>
-          <li>A-Ranked: {ROLL_CHANCE["A"] * 100}%</li>
-          <li>B-Ranked: {ROLL_CHANCE["B"] * 100}%</li>
-          <li>C-Ranked: {ROLL_CHANCE["C"] * 100}%</li>
-          <li>D-Ranked: {ROLL_CHANCE["D"] * 100}%</li>
+          <li>S-Ranked: {ROLL_CHANCE_PERCENTAGE["S"] * 100}%</li>
+          <li>A-Ranked: {ROLL_CHANCE_PERCENTAGE["A"] * 100}%</li>
+          <li>B-Ranked: {ROLL_CHANCE_PERCENTAGE["B"] * 100}%</li>
+          <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE["C"] * 100}%</li>
+          <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE["D"] * 100}%</li>
         </ul>
       </Confirm>
     </div>

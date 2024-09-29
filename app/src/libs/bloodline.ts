@@ -7,6 +7,15 @@ export const ROLL_CHANCE = {
   ["D"]: 0.615,
 } as const;
 
+export const ROLL_CHANCE_PERCENTAGE = {
+  ["H"]: 0,
+  ["S"]: 0.005,
+  ["A"]: 0.01,
+  ["B"]: 0.05,
+  ["C"]: 0.25,
+  ["D"]: 0.3,
+} as const;
+
 // Bloodline Pricing
 export const BLOODLINE_COST = {
   ["H"]: 999999,
