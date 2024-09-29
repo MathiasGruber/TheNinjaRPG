@@ -25,10 +25,11 @@ import { userBattleAtom } from "@/utils/UserContext";
 import { Check } from "lucide-react";
 import { PvpBattleTypes } from "@/drizzle/constants";
 import type { Grid } from "honeycomb-grid";
-import type { ReturnedBattle } from "@/libs/combat/types";
+import type { ReturnedBattle, StatSchemaType } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
 import type { BattleState } from "@/libs/combat/types";
 import type { TerrainHex } from "@/libs/hexgrid";
+import { useLocalStorage } from "@/hooks/localstorage";
 
 interface CombatProps {
   action?: CombatAction | undefined;
@@ -62,6 +63,10 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
   const { data: userData, pusher, timeDiff } = useRequiredUserData();
+  const [statDistribution] = useLocalStorage<StatSchemaType | undefined>(
+    "statDistribution",
+    undefined,
+  );
   const suid = userData?.userId;
 
   // Convenience method for helping people to not move too fast
@@ -90,7 +95,10 @@ const Combat: React.FC<CombatProps> = (props) => {
           success: data.success,
           message: "You enter the arena again",
         });
-        startArenaBattle({ aiId: arenaOpponentId! });
+        startArenaBattle({
+          aiId: arenaOpponentId!,
+          stats: statDistribution,
+        });
       } else {
         showMutationToast(data);
       }
@@ -646,7 +654,12 @@ const Combat: React.FC<CombatProps> = (props) => {
                   <Button
                     id="return"
                     className="basis-1/2 w-full"
-                    onClick={() => startArenaBattle({ aiId: arenaOpponentId })}
+                    onClick={() =>
+                      startArenaBattle({
+                        aiId: arenaOpponentId,
+                        stats: statDistribution,
+                      })
+                    }
                   >
                     Go Again
                   </Button>
