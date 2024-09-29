@@ -97,7 +97,8 @@ const Combat: React.FC<CombatProps> = (props) => {
         });
         startArenaBattle({
           aiId: arenaOpponentId!,
-          stats: statDistribution,
+          stats:
+            battle.current?.battleType === "TRAINING" ? statDistribution : undefined,
         });
       } else {
         showMutationToast(data);
@@ -657,7 +658,10 @@ const Combat: React.FC<CombatProps> = (props) => {
                     onClick={() =>
                       startArenaBattle({
                         aiId: arenaOpponentId,
-                        stats: statDistribution,
+                        stats:
+                          battle.current?.battleType === "TRAINING"
+                            ? statDistribution
+                            : undefined,
                       })
                     }
                   >
