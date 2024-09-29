@@ -843,6 +843,7 @@ export const jutsu = mysqlTable(
     range: int("range").notNull(),
     cooldown: int("cooldown").default(0).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
+    requiredLevel: int("requiredLevel").default(1).notNull(),
     requiredRank: mysqlEnum("requiredRank", consts.UserRanks).notNull(),
     jutsuType: mysqlEnum("jutsuType", consts.JutsuTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
