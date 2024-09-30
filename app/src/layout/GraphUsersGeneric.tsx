@@ -51,11 +51,11 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
         : null;
 
   // Second layer
-  showIds?.push(
-    ...props.edges
-      .filter((e) => showIds.includes(e.source) || showIds.includes(e.target))
-      .flatMap((edge) => [edge.source, edge.target]),
-  );
+  // showIds?.push(
+  //   ...props.edges
+  //     .filter((e) => showIds.includes(e.source) || showIds.includes(e.target))
+  //     .flatMap((edge) => [edge.source, edge.target]),
+  // );
 
   // Data
   const maxWeight = Math.max(...props.edges.map((x) => x.weight));
