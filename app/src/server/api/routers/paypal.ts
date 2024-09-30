@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, or, gte, and, sql, desc } from "drizzle-orm";
+import { eq, ne, or, gte, and, sql, desc } from "drizzle-orm";
 import { paypalTransaction, paypalSubscription } from "@/drizzle/schema";
 import { userData } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -429,16 +429,29 @@ export const updateSubscription = async (input: {
   lastPayment?: Date;
 }) => {
   return await input.client.transaction(async (tx) => {
+    // Get the subscription in question
     const current = await tx.query.paypalSubscription.findFirst({
       where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
     });
     if (current && current.updatedAt > secondsFromNow(-3600 * 24 * 31)) {
       return { rowsAffected: 0 };
     }
-    await tx
-      .update(userData)
-      .set({ federalStatus: input.federalStatus })
-      .where(eq(userData.userId, input.affectedUserId));
+    // Get any other active subscriptions on this affected user. Update user if not found
+    const otherActive = await tx.query.paypalSubscription.findFirst({
+      where: and(
+        eq(paypalSubscription.affectedUserId, input.affectedUserId),
+        eq(paypalSubscription.status, "ACTIVE"),
+        ne(paypalSubscription.subscriptionId, input.subscriptionId),
+        gte(paypalSubscription.updatedAt, secondsFromNow(-3600 * 24 * 31)),
+      ),
+    });
+    if (!otherActive) {
+      await tx
+        .update(userData)
+        .set({ federalStatus: input.federalStatus })
+        .where(eq(userData.userId, input.affectedUserId));
+    }
+    // Update subscription
     if (current) {
       return await tx
         .update(paypalSubscription)
