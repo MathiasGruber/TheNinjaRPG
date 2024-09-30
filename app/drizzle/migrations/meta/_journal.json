@@ -1051,6 +1051,13 @@
       "when": 1727583858157,
       "tag": "0149_volatile_sentry",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "5",
+      "when": 1727700801063,
+      "tag": "0150_bitter_blacklash",
+      "breakpoints": true
     }
   ]
 }

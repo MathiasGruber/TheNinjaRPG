@@ -170,6 +170,7 @@ export const AttackMethods = [
   "ALL",
   "AOE_CIRCLE_SPAWN",
   "AOE_LINE_SHOOT",
+  "AOE_WALL_SHOOT",
   "AOE_CIRCLE_SHOOT",
   "AOE_SPIRAL_SHOOT",
 ] as const;
