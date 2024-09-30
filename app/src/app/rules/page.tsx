@@ -99,6 +99,11 @@ export default function GameRules() {
           message a moderator for instructions. Encouraging others to file reports is
           not allowed, e.g. encouraging mass reports of a given user.
         </p>
+        <p className="my-2">
+          <b>Punishments: </b> bans and punishments of specific users are to be kept out
+          of public chat. While discussion amongst users in private is fine, it is to be
+          kept out of the public taverns.
+        </p>
         <p className="my-2 text-2xl">
           <b>ACCOUNTS</b>
         </p>{" "}
