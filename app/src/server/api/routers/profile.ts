@@ -1040,6 +1040,12 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
       .delete(reportLog)
       .where(or(eq(reportLog.targetUserId, userId), eq(reportLog.staffUserId, userId)));
   });
+  await Promise.all([
+    client
+      .update(userData)
+      .set({ senseiId: null })
+      .where(eq(userData.senseiId, userId)),
+  ]);
 };
 
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
