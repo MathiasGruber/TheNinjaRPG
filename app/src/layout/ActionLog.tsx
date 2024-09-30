@@ -47,7 +47,7 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
               return <li key={i}>{change}</li>;
             })}
             <p className="italic font-bold mt-2">
-              Changed at: {entry.createdAt.toDateString()} by{" "}
+              Changed at: {entry.createdAt.toLocaleString()} by{" "}
               {entry.user?.username ?? "Unknown"}
             </p>
           </div>
