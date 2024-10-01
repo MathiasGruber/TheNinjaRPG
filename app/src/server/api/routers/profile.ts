@@ -797,6 +797,7 @@ export const profileRouter = createTRPCRouter({
             userId: true,
             username: true,
             pveFights: true,
+            deletionAt: true,
           },
           with: {
             village: true,

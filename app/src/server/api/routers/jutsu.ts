@@ -415,6 +415,9 @@ export const jutsuRouter = createTRPCRouter({
       const pierceEquipped = equippedJutsus.filter((j) =>
         j.jutsu.effects.some((e) => e.type === "pierce"),
       ).length;
+      const curJutsuIsPierce = userjutsu?.jutsu.effects.some(
+        (e) => e.type === "pierce",
+      );
       const newEquippedState = isEquipped ? 0 : 1;
       const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
       const isLoaded = userjutsu && loadout?.jutsuIds.includes(userjutsu.jutsuId);
@@ -423,7 +426,7 @@ export const jutsuRouter = createTRPCRouter({
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
       }
-      if (!isEquipped && pierceEquipped >= 2) {
+      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= 2) {
         return errorResponse("You cannot equip more than 2 piercing jutsu");
       }
       // Calculate loadout
