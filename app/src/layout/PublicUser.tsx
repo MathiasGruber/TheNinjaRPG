@@ -277,6 +277,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 >
                   Last IP: {profile.lastIp}
                 </Link>
+                <div>
+                  {profile.deletionAt ? `To be deleted on: ${profile.deletionAt}` : ""}
+                </div>
               </div>
             )}
           </div>
