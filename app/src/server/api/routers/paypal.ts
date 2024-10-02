@@ -593,7 +593,10 @@ export const syncTransactions = async (
           }
         } else {
           const stored = await client.query.paypalTransaction.findFirst({
-            where: eq(paypalTransaction.transactionId, info.transaction_id),
+            where: or(
+              eq(paypalTransaction.transactionId, info.transaction_id),
+              eq(paypalTransaction.invoiceId, info.invoice_id),
+            ),
           });
           const parsedValue = parseFloat(value);
           if (parsedValue < 0) {
