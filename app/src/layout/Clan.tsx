@@ -1082,7 +1082,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                     }
                     onAccept={() => demote({ clanId, memberId: member.userId })}
                   >
-                    Confirm that you want to demote this member to leader of the clan.
+                    Confirm that you want to demote this member.
                   </Confirm>
                 )}
                 {(isLeader || (isColeader && !memberLeaderLike)) && (
