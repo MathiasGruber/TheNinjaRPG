@@ -80,12 +80,20 @@ export const ActionUseRandomItem = z.object({
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
+export const ActionWithEffectHighestPower = z.object({
+  type: z.literal("use_highest_power_action").default("use_highest_power_action"),
+  description: z.string().default("Use action with given effect with highest power"),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+  effect: z.string().default("damage"),
+});
+
 export const ZodAllAiActions = z.union([
   ActionMoveTowardsOpponent,
   ActionUseSpecificJutsu,
   ActionUseSpecificItem,
   ActionUseRandomJutsu,
   ActionUseRandomItem,
+  ActionWithEffectHighestPower,
 ]);
 
 export const AiActionTypes = ZodAllAiActions._def.options.map(
@@ -110,7 +118,6 @@ export const getActionSchema = (type: ZodAllAiAction["type"]) => {
 export const AiRule = z.object({
   conditions: z.array(ZodAllAiConditions),
   action: ZodAllAiActions,
-  priority: z.number().int().positive(),
 });
 
 export type AiRuleType = z.infer<typeof AiRule>;
