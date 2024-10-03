@@ -6,22 +6,14 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { api } from "@/utils/api";
 import { FilePlus, SquarePen } from "lucide-react";
-import { QuestTypes, type QuestType } from "@/drizzle/constants";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
-import QuestFiltering, { useFiltering, getFilter } from "@/layout/QuestFiltering";
 import { useInfinitePagination } from "@/libs/pagination";
+import QuestFiltering, { useFiltering, getFilter } from "@/layout/QuestFiltering";
 
 export default function ManualQuests() {
   // Settings
@@ -33,9 +25,6 @@ export default function ManualQuests() {
 
   // Filtering
   const state = useFiltering();
-
-  // State
-  const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
 
   // Query data
   const {
@@ -124,7 +113,7 @@ export default function ManualQuests() {
       </ContentBox>
       <ContentBox
         title="Overview"
-        subtitle={`${questType} quests`}
+        subtitle={`${state.questType} quests`}
         initialBreak={true}
         topRightContent={
           <div className="flex flex-row gap-2">

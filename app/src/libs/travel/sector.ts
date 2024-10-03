@@ -135,6 +135,7 @@ export const drawSector = (
     .filter((tile) => {
       try {
         return tile.width !== 0;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return false;
       }

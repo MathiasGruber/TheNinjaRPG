@@ -165,11 +165,9 @@ const Sector: React.FC<SectorProps> = (props) => {
         users.current.push(enrichedData);
       }
       // Remove users who are no longer in the sector
-      (
-        users.current
-          .map((user, idx) => (user.sector !== props.sector ? idx : null))
-          .filter((idx) => idx !== null) as number[]
-      )
+      users.current
+        .map((user, idx) => (user.sector !== props.sector ? idx : null))
+        .filter((idx) => idx !== null)
         .reverse()
         .map((idx) => users.current?.splice(idx, 1));
     }

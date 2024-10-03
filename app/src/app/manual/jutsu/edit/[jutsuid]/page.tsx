@@ -17,7 +17,6 @@ import { tagTypes } from "@/libs/combat/types";
 import { useJutsuEditForm } from "@/libs/jutsu";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
-import type { ZodAllTags } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
 
@@ -118,13 +117,13 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined) as ZodAllTags[];
+                      .filter((e) => e !== undefined);
                     setEffects(newEffects);
                   } else {
                     form.setValue(key, data[key]);
                   }
                 }
-                form.trigger();
+                void form.trigger();
               }}
             />
           ) : undefined

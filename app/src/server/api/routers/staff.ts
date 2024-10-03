@@ -4,11 +4,11 @@ import { eq } from "drizzle-orm";
 import { actionLog, userData } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import type { UserStatus } from "@/drizzle/constants";
 import { z } from "zod";
-import { inferRouterOutputs } from "@trpc/server";
 import { nanoid } from "nanoid";
 import { canUnstuckVillage } from "@/utils/permissions";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { UserStatus } from "@/drizzle/constants";
 
 export const staffRouter = createTRPCRouter({
   forceAwake: protectedProcedure

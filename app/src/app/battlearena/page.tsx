@@ -28,9 +28,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
 import { Swords } from "lucide-react";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
-import type { z } from "zod";
-import type { GenericObject } from "@/layout/ItemWithEffects";
-import { createStatSchema, StatSchemaType } from "@/libs/combat/types";
+import { createStatSchema } from "@/libs/combat/types";
 import {
   Form,
   FormControl,
@@ -40,6 +38,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import type { z } from "zod";
+import type { GenericObject } from "@/layout/ItemWithEffects";
+import type { StatSchemaType } from "@/libs/combat/types";
 
 export default function Arena() {
   // Tab selection
@@ -60,7 +61,7 @@ export default function Arena() {
 
   // Derived values
   const title = tab ?? "";
-  var subtitle = "";
+  let subtitle = "";
   switch (tab) {
     case "Arena":
       subtitle = `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`;
@@ -459,9 +460,6 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
       },
     });
 
-  // Loaders
-  if (!userData) return <Loader explanation="Loading userdata" />;
-
   // Stats Schema
   const statSchema = createStatSchema(10, 10, undefined);
   const defaultValues = statSchema.parse(statDistribution ?? {});
@@ -479,6 +477,9 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
     setStatDistribution(data);
     attack({ aiId: aiId, stats: data });
   });
+
+  // Loaders
+  if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Show component
   return (

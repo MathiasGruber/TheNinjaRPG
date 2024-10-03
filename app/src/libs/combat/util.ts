@@ -44,6 +44,7 @@ export const getBattleGrid = (hexsize: number, origin?: { x: number; y: number }
     .filter((tile) => {
       try {
         return tile.width !== 0;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return false;
       }
@@ -505,14 +506,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Money/ryo calculation
       const moneyBoost = user?.clan?.ryoBoost ? 1 + user.clan.ryoBoost / 100 : 1;
-      let moneyDelta = didWin ? (randomInt(30, 40) + user.level) * moneyBoost : 0;
+      const moneyDelta = didWin ? (randomInt(30, 40) + user.level) * moneyBoost : 0;
 
       // Include money stolen during combat
       if (battleType === "COMBAT" && user.moneyStolen) {
         if (user.moneyStolen > 0 && outcome === "Lost") {
           user.moneyStolen = 0;
         } else if (user.moneyStolen < 0 && outcome === "Won") {
-          user.moneyStolen === 0;
+          user.moneyStolen = 0;
         }
       } else {
         user.moneyStolen = 0;

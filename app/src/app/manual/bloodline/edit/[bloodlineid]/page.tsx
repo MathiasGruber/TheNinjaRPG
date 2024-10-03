@@ -18,7 +18,6 @@ import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/hooks/bloodline";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodBloodlineType } from "@/libs/combat/types";
-import type { ZodAllTags } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
 
 export default function BloodlineEdit({ params }: { params: { bloodlineid: string } }) {
@@ -123,13 +122,13 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined) as ZodAllTags[];
+                      .filter((e) => e !== undefined);
                     setEffects(newEffects);
                   } else {
                     form.setValue(key, data[key]);
                   }
                 }
-                form.trigger();
+                void form.trigger();
               }}
             />
           ) : undefined

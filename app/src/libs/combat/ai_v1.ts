@@ -324,6 +324,7 @@ const getActionTree = (
           // availableActions.forEach((a) => (a.actionCostPerc = 0));
         } catch (e) {
           // No worries, ignore that this action was a dud
+          console.error(e);
         }
       });
     }

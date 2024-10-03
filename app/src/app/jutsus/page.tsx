@@ -11,7 +11,7 @@ import Confirm from "@/layout/Confirm";
 import { SquareChevronRight, SquareChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
-import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
+import { calcJutsuEquipLimit } from "@/libs/train";
 import {
   checkJutsuElements,
   checkJutsuBloodline,
@@ -174,9 +174,7 @@ export default function MyJutsu() {
       : "Jutsus you want to use in combat";
 
   // Ryo from forgetting
-  const forgetRyo = userjutsu
-    ? calcForgetReturn(userjutsu, userjutsu.level).toFixed(0)
-    : 0;
+  const forgetRyo = 0;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;

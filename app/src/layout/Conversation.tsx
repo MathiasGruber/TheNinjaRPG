@@ -86,6 +86,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     if (conversation) {
       setValue("object_id", conversation.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.id]);
 
   /**
@@ -175,11 +176,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   useEffect(() => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", async (data: { fromId?: string; commentId?: string }) => {
+      channel.bind("event", (data: { fromId?: string; commentId?: string }) => {
         if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
-          console.log("Invalidate from pusher");
-          await fetchComment({ commentId: data.commentId });
-          // await invalidateComments();
+          fetchComment({ commentId: data.commentId });
         }
       });
       return () => {

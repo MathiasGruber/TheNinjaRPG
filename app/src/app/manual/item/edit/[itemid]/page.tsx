@@ -17,7 +17,6 @@ import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
 import { useItemEditForm } from "@/hooks/item";
 import { getTagSchema } from "@/libs/combat/types";
-import type { ZodAllTags } from "@/libs/combat/types";
 import type { ZodItemType } from "@/libs/combat/types";
 import type { Item } from "@/drizzle/schema";
 
@@ -116,13 +115,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined) as ZodAllTags[];
+                      .filter((e) => e !== undefined);
                     setEffects(newEffects);
                   } else {
                     form.setValue(key, data[key]);
                   }
                 }
-                form.trigger();
+                void form.trigger();
               }}
             />
           ) : undefined

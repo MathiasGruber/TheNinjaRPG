@@ -655,7 +655,7 @@ export const updateStatUsage = (
     effect.generalTypes?.forEach((general) => {
       if (general === "Highest") {
         user.highestGenerals.forEach((gen) => {
-          user.usedGenerals.push(gen as Lowercase<typeof gen>);
+          user.usedGenerals.push(gen);
         });
       } else {
         user.usedGenerals.push(general.toLowerCase() as Lowercase<typeof general>);

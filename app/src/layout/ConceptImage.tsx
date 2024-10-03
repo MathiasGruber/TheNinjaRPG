@@ -155,7 +155,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              user && emotion({ imageId: image.id, type: "like" });
+              if (user) emotion({ imageId: image.id, type: "like" });
             }}
           >
             ❤️ {image.n_likes}
@@ -167,7 +167,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              user && emotion({ imageId: image.id, type: "love" });
+              if (user) emotion({ imageId: image.id, type: "love" });
             }}
           >
             👍 {image.n_loves}
@@ -179,7 +179,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              user && emotion({ imageId: image.id, type: "laugh" });
+              if (user) emotion({ imageId: image.id, type: "laugh" });
             }}
           >
             🤣 {image.n_laugh}

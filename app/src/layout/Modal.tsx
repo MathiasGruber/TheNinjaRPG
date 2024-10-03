@@ -78,7 +78,7 @@ const Modal: React.FC<ModalProps> = (props) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                props.onAccept && props.onAccept(e);
+                if (props.onAccept) props.onAccept(e);
                 if (props.isValid === undefined || props.isValid) {
                   props.setIsOpen(false);
                 }

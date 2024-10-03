@@ -92,9 +92,7 @@ const avatarMiddleware = async (fedRequirement?: (typeof FederalStatuses)[number
   if (fedRequirement) {
     const userstatus = getUserFederalStatus(user);
     if (userstatus !== fedRequirement) {
-      throw new UploadThingError(
-        "You must be " + fedRequirement + " to upload this avatar",
-      );
+      throw new UploadThingError(`You must be ${fedRequirement} to upload this avatar`);
     }
   }
   return { userId: sessionUser.id };

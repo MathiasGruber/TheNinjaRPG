@@ -71,7 +71,11 @@ export default function CombatPage() {
     const onDocumentKeyDown = (event: KeyboardEvent) => {
       switch (event.key) {
         case "m":
-          actionId === "move" ? setActionId(undefined) : setActionId("move");
+          if (actionId === "move") {
+            setActionId(undefined);
+          } else {
+            setActionId("move");
+          }
           break;
       }
     };

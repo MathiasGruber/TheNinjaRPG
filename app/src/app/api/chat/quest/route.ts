@@ -1,14 +1,15 @@
-import { CoreMessage, streamText } from "ai";
+import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { checkContentAiAuth } from "@/libs/llm";
 import { QuestValidator } from "@/validators/objectives";
+import type { CoreMessage } from "ai";
 
 export async function POST(req: Request) {
   // Auth guard
   await checkContentAiAuth();
 
   // Call LLM
-  const { messages }: { messages: CoreMessage[] } = await req.json();
+  const { messages } = (await req.json()) as { messages: CoreMessage[] };
   const result = await streamText({
     model: openai("gpt-4o"),
     system: `You are a helpful assistant tasked with creating new quests set in the ninja world of Seichi. 

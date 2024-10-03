@@ -89,7 +89,7 @@ export default function ManualBloodlines() {
           traits of bloodlines through ninjutsu-assisted surgery.
         </p>
         <p className="pt-4">
-          When you reach the rank of Genin, you can go to the Wake Island's Science
+          When you reach the rank of Genin, you can go to the Wake Island&apos;s Science
           Building to take blood samples, in order to learn whether your character was
           born with an innate bloodline. If not, it is also at the Science Building
           where they offer the service of implanting bloodlines into your body; or

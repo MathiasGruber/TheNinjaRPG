@@ -13,7 +13,6 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { useState } from "react";
 
 export default function MissionHall() {
   const util = api.useUtils();
@@ -100,7 +99,7 @@ export default function MissionHall() {
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
             if (setting.type === "mission" && setting.rank === "A") {
               return (
-                <Popover>
+                <Popover key={`mission-${i}`}>
                   <PopoverTrigger asChild>
                     <div
                       key={i}

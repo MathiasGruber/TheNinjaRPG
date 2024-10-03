@@ -303,11 +303,11 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         await utils.profile.getUser.invalidate();
-        props.onSuccess && props.onSuccess();
+        if (props.onSuccess) props.onSuccess();
       },
       onError: (error) => {
         onError(error);
-        props.onFailure && props.onFailure();
+        if (props.onFailure) props.onFailure();
       },
     });
 
@@ -318,12 +318,12 @@ const PayPalSubscriptionButton = (props: {
         showMutationToast(data);
         if (data.success) {
           await utils.profile.getUser.invalidate();
-          props.onSuccess && props.onSuccess();
+          if (props.onSuccess) props.onSuccess();
         }
       },
       onError: (error) => {
         onError(error);
-        props.onFailure && props.onFailure();
+        if (props.onFailure) props.onFailure();
       },
     });
 
@@ -334,12 +334,12 @@ const PayPalSubscriptionButton = (props: {
         showMutationToast(data);
         if (data.success) {
           await utils.profile.getUser.invalidate();
-          props.onSuccess && props.onSuccess();
+          if (props.onSuccess) props.onSuccess();
         }
       },
       onError: (error) => {
         onError(error);
-        props.onFailure && props.onFailure();
+        if (props.onFailure) props.onFailure();
       },
     },
   );

@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
-import Post from "@/layout/Post";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import ContentBox from "@/layout/ContentBox";
-import Countdown from "@/layout/Countdown";
-import ParsedReportJson from "@/layout/ReportReason";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Accordion from "@/layout/Accordion";
-import { FilePlus, Trash, Save, CirclePlus } from "lucide-react";
+import { FilePlus, Trash, Save } from "lucide-react";
 import { SquareArrowUp, SquareArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showMutationToast } from "@/libs/toast";
-import { reportCommentExplain } from "@/utils/reports";
-import { reportCommentColor } from "@/utils/reports";
 import { api } from "@/utils/api";
 import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
@@ -30,15 +25,10 @@ import { AvailableTargets } from "@/validators/ai";
 import { tagTypes } from "@/libs/combat/types";
 import type { AiRuleType, ZodAllAiCondition } from "@/validators/ai";
 import type { AiConditionType, AiActionType } from "@/validators/ai";
-import type { UserData } from "@/drizzle/schema";
-import type { UserJutsu, Jutsu } from "@/drizzle/schema";
-import type { UserItem, Item } from "@/drizzle/schema";
+import type { AiWithRelations } from "@/routers/profile";
 
 interface AiProfileEditProps {
-  userData: UserData & {
-    jutsus: (UserJutsu & { jutsu: Jutsu })[];
-    items: (UserItem & { item: Item })[];
-  };
+  userData: AiWithRelations;
 }
 
 const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
@@ -111,8 +101,6 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       }),
     );
   };
-
-  console.log(props.userData);
 
   // Render
   return (
@@ -452,15 +440,16 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         >
           <FilePlus className="h-6 w-6 mr-2" /> Add Rule
         </Button>
-        {rules.length > 0 && (
+        {rules.length > 0 && !isSaving && (
           <Button
-            onClick={async () => {
-              await updateAiProfile({ id: aiProfileId, rules: rules });
+            onClick={() => {
+              updateAiProfile({ id: aiProfileId, rules: rules });
             }}
           >
             <Save className="h-6 w-6 mr-2" /> Save Profile
           </Button>
         )}
+        {isSaving && <Loader />}
       </div>
     </ContentBox>
   );

@@ -163,7 +163,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       }
                       onAccept={(e) => {
                         e.preventDefault();
-                        onDelete && onDelete(item.id);
+                        if (onDelete) onDelete(item.id);
                       }}
                     >
                       You are about to delete this. Are you sure?

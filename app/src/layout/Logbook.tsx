@@ -37,12 +37,7 @@ const Logbook: React.FC<LogbookProps> = () => {
       initialBreak={true}
       padding={false}
       topRightContent={
-        <NavTabs
-          id="logbook-toggle"
-          current={tab}
-          options={["Active", "History", "Battles"]}
-          setValue={setTab}
-        />
+        <NavTabs id="logbook-toggle" current={tab} options={tabs} setValue={setTab} />
       }
     >
       {tab === "Active" && <LogbookActive />}
