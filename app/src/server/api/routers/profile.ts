@@ -1,4 +1,4 @@
-import { util, z } from "zod";
+import { z } from "zod";
 import { nanoid } from "nanoid";
 import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
@@ -78,7 +78,6 @@ import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { ExecutedQuery } from "@planetscale/database";
-import { constants } from "os";
 
 const pusher = getServerPusher();
 
@@ -345,7 +344,7 @@ export const profileRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const user = await ctx.drizzle.query.userData.findFirst({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
-        with: { jutsus: { with: { jutsu: true } } },
+        with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
       if (!user) {
         throw serverError("NOT_FOUND", "AI not found");

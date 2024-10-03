@@ -43,7 +43,8 @@ import { Input } from "@/components/ui/input";
 
 export default function Arena() {
   // Tab selection
-  const [tab, setTab] = useState<"Training Arena" | "Arena" | "Sparring" | null>(null);
+  const availableTabs = ["Arena", "Sparring", "Training Arena"] as const;
+  const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
   const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
   const [statDistribution, setStatDistribution] = useLocalStorage<
     StatSchemaType | undefined
@@ -83,7 +84,7 @@ export default function Arena() {
           <NavTabs
             id="arenaSelection"
             current={tab}
-            options={["Arena", "Sparring", "Training Arena"]}
+            options={availableTabs}
             setValue={setTab}
           />
         }

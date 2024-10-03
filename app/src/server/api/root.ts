@@ -1,6 +1,7 @@
 import { createTRPCRouter } from "./trpc";
 import { anbuRouter } from "./routers/anbu";
 import { avatarRouter } from "./routers/avatar";
+import { aiRouter } from "./routers/ai";
 import { badgeRouter } from "./routers/badge";
 import { bankRouter } from "./routers/bank";
 import { blackMarketRouter } from "./routers/blackmarket";
@@ -40,6 +41,7 @@ import { staffRouter } from "./routers/staff";
  * All routers added in /api/routers should be manually added here
  */
 export const appRouter = createTRPCRouter({
+  ai: aiRouter,
   anbu: anbuRouter,
   avatar: avatarRouter,
   badge: badgeRouter,

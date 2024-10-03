@@ -6,19 +6,21 @@ interface NavTabsProps {
   current: string | null;
   options: string[] | readonly string[];
   fontSize?: "text-xs" | "text-sm" | "text-base";
-  setValue: React.Dispatch<React.SetStateAction<any>>;
+  setValue?: React.Dispatch<React.SetStateAction<any>>;
+  onChange?: (value: string) => void;
 }
 
 const NavTabs: React.FC<NavTabsProps> = (props) => {
   // Destructure
-  const { id, current, options, setValue } = props;
+  const { id, current, options, setValue, onChange } = props;
 
   // If we do not have a current value, get from localStorage or select first one
   useEffect(() => {
     if (!current && id) {
       const select = localStorage.getItem(id) || options[0];
       if (select) {
-        setValue(select);
+        if (setValue) setValue(select);
+        if (onChange) onChange(select);
         localStorage.setItem(id, select);
       }
     }
@@ -44,7 +46,8 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
               }
               onClick={(e) => {
                 e.preventDefault();
-                setValue(option);
+                if (setValue) setValue(option);
+                if (onChange) onChange(option);
                 if (id) localStorage.setItem(id, option);
               }}
             >

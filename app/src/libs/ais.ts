@@ -8,6 +8,7 @@ import { insertUserDataSchema } from "@/drizzle/schema";
 import type { InsertUserDataSchema } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 import type { UserJutsu } from "@/drizzle/schema";
+import type { UserItem } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 
 /**
@@ -15,13 +16,14 @@ import type { FormEntry } from "@/layout/EditContent";
  * @param data
  */
 export const useAiEditForm = (
-  user: UserData & { jutsus: UserJutsu[] },
+  user: UserData & { jutsus: UserJutsu[]; items: UserItem[] },
   refetch: () => void,
 ) => {
   // Process data for form
   const processedUser = {
     ...user,
     jutsus: user?.jutsus?.map((jutsu) => jutsu.jutsuId),
+    items: user?.items?.map((item) => item.itemId),
   };
 
   // Form handling
@@ -70,7 +72,7 @@ export const useAiEditForm = (
   const loading = l1 || l2 || l3 || l4;
 
   // Object for form values
-  const formData: FormEntry<keyof InsertUserDataSchema | "jutsus">[] = [
+  const formData: FormEntry<keyof InsertUserDataSchema | "jutsus" | "items">[] = [
     { id: "username", type: "text" },
     { id: "customTitle", type: "text" },
     { id: "avatar", type: "avatar", href: avatarUrl },

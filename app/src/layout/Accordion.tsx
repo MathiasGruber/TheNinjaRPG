@@ -5,14 +5,16 @@ interface AccordionProps {
   title: string;
   selectedTitle: string;
   titlePrefix?: string;
+  titlePostfix?: string;
   unselectedSubtitle?: string | React.ReactNode;
   selectedSubtitle?: string | React.ReactNode;
   children: string | React.ReactNode;
+  options?: React.ReactNode;
   onClick: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const Accordion: React.FC<AccordionProps> = (props) => {
-  const { title, titlePrefix } = props;
+  const { title, titlePrefix, titlePostfix } = props;
   const { unselectedSubtitle, selectedSubtitle, children, onClick } = props;
 
   const active = title === props.selectedTitle;
@@ -28,6 +30,7 @@ const Accordion: React.FC<AccordionProps> = (props) => {
           <h2 className="font-bold mt-2">
             {titlePrefix}
             {title}
+            {titlePostfix}
           </h2>
           <div className="italic">
             {active && selectedSubtitle}
@@ -35,12 +38,15 @@ const Accordion: React.FC<AccordionProps> = (props) => {
           </div>
         </div>
         <div className="grow"></div>
-        <ChevronsDown
-          className={`h-6 w-6 hover:cursor-pointer ${
-            active ? "transform rotate-90" : ""
-          }`}
-          onClick={() => onClick(active ? "" : title)}
-        />
+        <div className="flex flex-row items-center">
+          {props.options}
+          <ChevronsDown
+            className={`h-6 w-6 hover:cursor-pointer hover:text-orange-500 ${
+              active ? "transform rotate-90" : ""
+            }`}
+            onClick={() => onClick(active ? "" : title)}
+          />
+        </div>
       </div>
       {active && children}
     </div>
