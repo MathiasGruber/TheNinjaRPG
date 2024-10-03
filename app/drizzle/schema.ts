@@ -1356,9 +1356,6 @@ export const insertUserDataSchema = createInsertSchema(userData)
     currentlyTraining: true,
     deletionAt: true,
     travelFinishAt: true,
-    questTier: true,
-    questDaily: true,
-    questMission: true,
     questData: true,
   })
   .merge(
