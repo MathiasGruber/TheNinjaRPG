@@ -19,15 +19,37 @@ import {
   primaryKey,
   unique,
 } from "drizzle-orm/mysql-core";
+import * as consts from "@/drizzle/constants";
 import { createInsertSchema } from "drizzle-zod";
-import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import type { ZodAllTags } from "@/libs/combat/types";
 import type { QuestContentType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
-import * as consts from "@/drizzle/constants";
-import type { ZodAllTags } from "@/libs/combat/types";
+import type { AiRuleType } from "@/validators/ai";
+import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+
+export const aiProfile = mysqlTable(
+  "AiProfile",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    rules: json("rules").$type<AiRuleType[]>().notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: uniqueIndex("AiProfile_userId_idx").on(table.userId),
+    };
+  },
+);
+
+export const aiProfileRelations = relations(aiProfile, ({ one, many }) => ({
+  user: one(userData, {
+    fields: [aiProfile.userId],
+    references: [userData.userId],
+  }),
+}));
 
 export const anbuSquad = mysqlTable(
   "AnbuSquad",
@@ -1304,6 +1326,7 @@ export const userData = mysqlTable(
     extraJutsuSlots: tinyint("extraJutsuSlots").default(0).notNull(),
     customTitle: varchar("customTitle", { length: 191 }).default("").notNull(),
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
+    aiProfileId: varchar("aiProfileId", { length: 191 }),
   },
   (table) => {
     return {
@@ -1412,6 +1435,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   creatorBlacklist: many(userBlackList, { relationName: "creatorBlacklist" }),
   mpvpBattles: many(mpvpBattleUser),
   associations: many(userAssociation),
+  aiProfile: one(aiProfile, {
+    fields: [userData.aiProfileId],
+    references: [aiProfile.id],
+  }),
 }));
 
 export const userNindo = mysqlTable(
