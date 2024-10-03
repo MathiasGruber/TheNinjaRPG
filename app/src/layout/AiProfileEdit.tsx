@@ -27,6 +27,7 @@ import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
 import { ActionMoveTowardsOpponent } from "@/validators/ai";
 import { AvailableTargets } from "@/validators/ai";
+import { tagTypes } from "@/libs/combat/types";
 import type { AiRuleType, ZodAllAiCondition } from "@/validators/ai";
 import type { AiConditionType, AiActionType } from "@/validators/ai";
 import type { UserData } from "@/drizzle/schema";
@@ -65,10 +66,21 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       },
     });
 
+  const { mutate: updateAiProfile, isPending: isSaving } =
+    api.ai.updateAiProfile.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getAi.invalidate();
+        }
+      },
+    });
+
   // Insert rules from database into client state
   useEffect(() => {
     if (profile) {
       setRules(profile.rules);
+      setActiveElement(`Rule ${profile.rules.length}`);
     }
   }, [profile]);
 
@@ -272,9 +284,11 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                   </SelectContent>
                 </Select>
                 <Label htmlFor="available_conditions">Action Settings</Label>
-                <div className="w-full rounded-lg border p-2 flex flex-col text-xs bg-popover">
-                  <b>{currentActionType}</b>
-                  <i>{rule.action.description}</i>
+                <div className="w-full rounded-lg border p-2 flex flex-col text-xs bg-popover gap-2">
+                  <div className="flex flex-col">
+                    <b>{currentActionType}</b>
+                    <i>{rule.action.description}</i>
+                  </div>
                   {"jutsuId" in rule.action && (
                     <Select
                       defaultValue={rule.action.jutsuId}
@@ -380,6 +394,39 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       </SelectContent>
                     </Select>
                   )}
+                  {"effect" in rule.action && rule.action.effect && (
+                    <Select
+                      defaultValue={rule.action.effect}
+                      value={rule.action.effect}
+                      onValueChange={(e) =>
+                        setRules((prevRules) =>
+                          prevRules.map((rule, k) => {
+                            if (k === i) {
+                              return {
+                                ...rule,
+                                action: actionSchema.parse({
+                                  ...rule.action,
+                                  effect: e,
+                                }),
+                              };
+                            }
+                            return rule;
+                          }),
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={`None`} />
+                      </SelectTrigger>
+                      <SelectContent id="available_action">
+                        {tagTypes?.map((effect, j) => (
+                          <SelectItem key={`rule-${i}-effect-${j}`} value={effect}>
+                            {effect}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </div>
@@ -387,7 +434,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         );
       })}
 
-      <div className="p-3 flex flex-row items-center">
+      <div className="p-3 flex flex-row items-center gap-2">
         {rules.length === 0 && <p>No rules added to this AI profile yet</p>}
         <div className="grow"></div>
         <Button
@@ -405,6 +452,15 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         >
           <FilePlus className="h-6 w-6 mr-2" /> Add Rule
         </Button>
+        {rules.length > 0 && (
+          <Button
+            onClick={async () => {
+              await updateAiProfile({ id: aiProfileId, rules: rules });
+            }}
+          >
+            <Save className="h-6 w-6 mr-2" /> Save Profile
+          </Button>
+        )}
       </div>
     </ContentBox>
   );
