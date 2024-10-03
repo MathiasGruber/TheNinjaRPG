@@ -328,7 +328,7 @@ const UpgradeButton = ({
   const currentFunds = data?.villageData.tokens ?? 0;
   const { cost, tax, discount, total } = calcStructureUpgrade(structure, {
     ...village,
-    structures: data?.villageData.structures!,
+    structures: data?.villageData.structures || [],
   });
   const canAfford = total <= currentFunds;
   const canLevel = structure.level < structure.maxLevel && structure.level !== 0;

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError, baseServerResponse, errorResponse } from "../trpc";
+import { eq } from "drizzle-orm";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { baseServerResponse, errorResponse } from "../trpc";
 import { aiProfile, userData } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";

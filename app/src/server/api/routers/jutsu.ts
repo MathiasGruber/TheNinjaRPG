@@ -8,7 +8,7 @@ import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
-import { calcJutsuEquipLimit, calcForgetReturn } from "@/libs/train";
+import { calcJutsuEquipLimit } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
@@ -221,14 +221,7 @@ export const jutsuRouter = createTRPCRouter({
           .delete(userJutsu)
           .where(eq(userJutsu.id, input.id));
         if (res1.rowsAffected === 1) {
-          const cost = calcForgetReturn(userjutsu.jutsu, userjutsu.level);
-          const res2 = await ctx.drizzle
-            .update(userData)
-            .set({ money: sql`${userData.money} + ${cost}` })
-            .where(eq(userData.userId, ctx.userId));
-          if (res2.rowsAffected === 1) {
-            return { success: true, message: `Jutsu forgotten, ${cost} ryo restored` };
-          }
+          return { success: true, message: `Jutsu forgotten, 0 ryo restored` };
         }
       }
       return { success: false, message: `Could not find jutsu to delete` };

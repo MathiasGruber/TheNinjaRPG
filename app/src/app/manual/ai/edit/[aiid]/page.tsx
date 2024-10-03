@@ -12,9 +12,7 @@ import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
-import type { UserData } from "@/drizzle/schema";
-import type { UserJutsu } from "@/drizzle/schema";
-import type { UserItem } from "@/drizzle/schema";
+import type { AiWithRelations } from "@/routers/profile";
 
 export default function ManualAisEdit({ params }: { params: { aiid: string } }) {
   const aiId = params.aiid;
@@ -47,7 +45,7 @@ export default function ManualAisEdit({ params }: { params: { aiid: string } }) 
 }
 
 interface SingleEditUserProps {
-  user: UserData & { jutsus: UserJutsu[]; items: UserItem[] };
+  user: AiWithRelations;
   refetch: () => void;
 }
 

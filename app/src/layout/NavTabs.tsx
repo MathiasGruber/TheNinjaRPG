@@ -24,6 +24,7 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
         localStorage.setItem(id, select);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, current, options, setValue]);
 
   // Derived features

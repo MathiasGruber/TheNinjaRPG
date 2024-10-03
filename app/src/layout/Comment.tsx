@@ -134,7 +134,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
   });
 
   const onSubmit = handleSubmit((data) => {
-    props.editComment && props.editComment(data);
+    if (props.editComment) props.editComment(data);
     reset();
     props.setEditing(false);
   });
@@ -170,8 +170,9 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                   button={<Trash2 className="h-6 w-6 hover:text-orange-500" />}
                   onAccept={(e) => {
                     e.preventDefault();
-                    props.deleteComment &&
+                    if (props.deleteComment) {
                       props.deleteComment({ id: props.comment.id });
+                    }
                   }}
                 >
                   You are about to delete a comment. Are you sure?

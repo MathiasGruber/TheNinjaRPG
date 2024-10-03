@@ -18,7 +18,6 @@ import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { SimpleObjective } from "@/validators/objectives";
 import { getObjectiveSchema } from "@/validators/objectives";
 import type { ZodQuestType } from "@/validators/objectives";
-import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 
 export default function ManualBloodlineEdit({
@@ -124,11 +123,11 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                       ?.map((objective) => {
                         const schema = getObjectiveSchema(objective.task);
                         const {
-                          reward_items,
-                          reward_jutsus,
-                          reward_badges,
-                          reward_rank,
-                          attackers,
+                          reward_items, // eslint-disable-line @typescript-eslint/no-unused-vars
+                          reward_jutsus, // eslint-disable-line @typescript-eslint/no-unused-vars
+                          reward_badges, // eslint-disable-line @typescript-eslint/no-unused-vars
+                          reward_rank, // eslint-disable-line @typescript-eslint/no-unused-vars
+                          attackers, // eslint-disable-line @typescript-eslint/no-unused-vars
                           ...rest
                         } = objective;
                         const parsed = schema.safeParse({ ...rest, id: nanoid() });
@@ -138,13 +137,13 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined) as AllObjectivesType[];
+                      .filter((e) => e !== undefined);
                     setObjectives(newObjectives);
                   } else {
                     form.setValue(key, data[key], { shouldDirty: true });
                   }
                 }
-                form.trigger();
+                void form.trigger();
               }}
             />
           ) : undefined

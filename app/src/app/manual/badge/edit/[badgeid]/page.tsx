@@ -11,7 +11,6 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
 import { useBadgeEditForm } from "@/libs/badge";
 import { BadgeValidator } from "@/validators/badge";
-import { showMutationToast } from "@/libs/toast";
 import type { ZodBadgeType } from "@/validators/badge";
 import type { Badge } from "@/drizzle/schema";
 
@@ -80,7 +79,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
               for (key in data) {
                 if (key !== "image") form.setValue(key, data[key]);
               }
-              form.trigger();
+              void form.trigger();
             }}
           />
         ) : undefined

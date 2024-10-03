@@ -1,80 +1,9 @@
 import { z } from "zod";
-import OpenAI from "openai";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
-import { allObjectiveTasks } from "@/validators/objectives";
 import { canChangeContent } from "@/utils/permissions";
-import { serverEnv } from "src/env/schema.mjs";
-import { fetchQuest } from "@/routers/quests";
-import { fetchBadge } from "@/routers/badge";
 import { fetchUser } from "@/routers/profile";
-import { fetchBloodline } from "@/routers/bloodline";
 import { fetchReplicateResult, txt2img, uploadToUT } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
-import { tagTypes } from "@/libs/combat/types";
-import { LetterRanks, QuestTypes } from "@/drizzle/constants";
-import type { LetterRank, QuestType } from "@/drizzle/constants";
-
-const client = new OpenAI({
-  apiKey: serverEnv.OPENAI_API_KEY || "",
-  maxRetries: 0,
-});
-
-type ReturnQuest = {
-  name: string;
-  description: string;
-  successDescription: string;
-  objectives: string[];
-  questType: QuestType;
-  questRank: LetterRank;
-};
-
-type ReturnBadge = {
-  name: string;
-  description: string;
-};
-
-type ReturnBloodline = {
-  name: string;
-  description: string;
-  regenIncrease: number;
-  rank: LetterRank;
-  effects: (typeof tagTypes)[number][];
-};
-
-async function callOpenAI<ReturnType>(
-  prompt: string,
-  current: string,
-  functionParameters: Record<string, unknown>,
-) {
-  const completion = await client.chat.completions.create(
-    {
-      model: "gpt-4-1106-preview",
-      messages: [
-        {
-          role: "user",
-          content: `Update our TOK object, following these instructions: ${prompt}. \r\r The data for our current TOK object is ${current}`,
-        },
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "createTokObject",
-            description: "Create an updated TOK object",
-            parameters: functionParameters,
-          },
-        },
-      ],
-      tool_choice: {
-        type: "function",
-        function: { name: "createTokObject" },
-      },
-    },
-    { timeout: 10 * 1000 },
-  );
-  const args = completion?.choices?.[0]?.message?.tool_calls?.[0]?.function.arguments;
-  return JSON.parse(args ?? "{}") as ReturnType;
-}
 
 export const openaiRouter = createTRPCRouter({
   createImg: protectedProcedure
@@ -126,43 +55,5 @@ export const openaiRouter = createTRPCRouter({
       } else {
         return { status: "running", url: null };
       }
-    }),
-  createBloodline: protectedProcedure
-    .input(z.object({ bloodlineId: z.string(), prompt: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      // Ensure the quest is there
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const bloodline = await fetchBloodline(ctx.drizzle, input.bloodlineId);
-      if (!bloodline) {
-        throw serverError("NOT_FOUND", "Bloodline not found");
-      }
-      if (!canChangeContent(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
-      }
-      // Get new content from OpenAI
-      return await callOpenAI<ReturnBloodline>(
-        input.prompt,
-        JSON.stringify(bloodline),
-        {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            description: { type: "string" },
-            regenIncrease: { type: "number" },
-            rank: {
-              type: "string",
-              enum: LetterRanks,
-            },
-            effects: {
-              type: "array",
-              items: {
-                type: "string",
-                enum: tagTypes,
-              },
-            },
-          },
-          required: ["name", "description", "effects", "regenIncrease", "rank"],
-        },
-      );
     }),
 });

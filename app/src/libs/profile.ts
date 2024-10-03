@@ -11,7 +11,7 @@ import { structureBoost } from "@/utils/village";
 import { getReducedGainsDays } from "@/libs/train";
 import { getGameSettingBoost } from "@/libs/gamesettings";
 import type { UserRank } from "@/drizzle/constants";
-import { StatSchemaType } from "./combat/types";
+import type { StatSchemaType } from "./combat/types";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;

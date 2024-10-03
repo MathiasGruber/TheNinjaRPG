@@ -72,6 +72,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { getPublicUsersSchema } from "@/validators/user";
 import type { GetPublicUsersSchema } from "@/validators/user";
+import type { UserJutsu, Jutsu, UserItem, Item } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
@@ -1446,3 +1447,8 @@ export type UserWithRelations =
       userQuests: UserQuest[];
     })
   | undefined;
+
+export type AiWithRelations = UserData & {
+  jutsus: (UserJutsu & { jutsu: Jutsu })[];
+  items: (UserItem & { item: Item })[];
+};

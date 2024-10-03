@@ -629,12 +629,14 @@ export const syncTransactions = async (
 /**
  * Get updated paypal subscription status, accounting for last payment time
  */
-export const getPaypalSubscriptionStatus = (subscription: PaypalSubscription) => {
+export const getPaypalSubscriptionStatus = (
+  subscription: PaypalSubscription,
+): { newStatus: FederalStatus; lastPayment: Date } => {
   const lastPayment = new Date(subscription.billing_info.last_payment.time);
   const fedStatus = plan2FedStatus(subscription.plan_id);
   const stillActive = lastPayment > secondsFromNow(-3600 * 24 * 31);
   const newStatus = stillActive ? fedStatus : "NONE";
-  return { newStatus: newStatus as FederalStatus, lastPayment };
+  return { newStatus, lastPayment };
 };
 
 /**

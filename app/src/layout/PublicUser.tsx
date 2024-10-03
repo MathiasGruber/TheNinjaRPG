@@ -158,6 +158,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const unstuckUser = api.staff.forceAwake.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+      }
     },
   });
 
@@ -278,7 +281,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   Last IP: {profile.lastIp}
                 </Link>
                 <div>
-                  {profile.deletionAt ? `To be deleted on: ${profile.deletionAt}` : ""}
+                  {profile.deletionAt
+                    ? `To be deleted on: ${profile.deletionAt.toLocaleString()}`
+                    : ""}
                 </div>
               </div>
             )}

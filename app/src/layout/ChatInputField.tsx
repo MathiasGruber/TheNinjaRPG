@@ -38,14 +38,9 @@ interface ChatInputFieldProps {
   onToolCall: (toolCall: ToolCall<string, unknown>) => void;
 }
 
-const ChatInputField: React.FC<ChatInputFieldProps> = ({
-  inputProps,
-  aiProps,
-  onToolCall,
-}) => {
+const ChatInputField: React.FC<ChatInputFieldProps> = ({ aiProps, onToolCall }) => {
   // State
   const { data: userData } = useUserData();
-  const id = inputProps.id ?? "chat";
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const { messages, append, isLoading } = useChat({
@@ -189,7 +184,7 @@ const ChatInputField: React.FC<ChatInputFieldProps> = ({
                 <FormField
                   control={form.control}
                   name="message"
-                  render={({ field }) => (
+                  render={({}) => (
                     <FormItem>
                       <FormControl>
                         <RichInput
@@ -198,7 +193,7 @@ const ChatInputField: React.FC<ChatInputFieldProps> = ({
                           control={form.control}
                           disabled={isLoading}
                           onSubmit={(value) => {
-                            append({ role: "user", content: value });
+                            void append({ role: "user", content: value as string });
                             form.setValue("message", "");
                           }}
                           error={form.formState.errors.message?.message}

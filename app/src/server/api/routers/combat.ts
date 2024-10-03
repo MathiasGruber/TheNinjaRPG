@@ -148,7 +148,9 @@ export const combatRouter = createTRPCRouter({
           if (e instanceof Error) {
             try {
               e.message += ` (Attempt ${attempts})`;
-            } catch (e) {}
+            } catch (e) {
+              console.error(e);
+            }
           }
           if (attempts > 2) throw e;
         }

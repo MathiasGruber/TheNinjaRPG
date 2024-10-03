@@ -13,8 +13,8 @@ export const getGameTime = () => {
  * Get time since last reset which is in YYYY-MM-DDTHH:mm:ss.sssZ format
  */
 export const getTimeOfLastReset = () => {
-  var date = new Date();
-  var now_utc = Date.UTC(
+  const date = new Date();
+  const now_utc = Date.UTC(
     date.getUTCFullYear(),
     date.getUTCMonth(),
     date.getUTCDate(),

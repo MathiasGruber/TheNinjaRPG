@@ -215,7 +215,6 @@ export function SpriteMixer() {
     actionSprite.currentDisplayTime = 0;
     actionSprite.currentTile = 0;
     actionSprite.paused = true;
-    actionSprite.currentAction;
 
     actionSprite.setFrame = setFrame;
     actionSprite.getRow = getRow;

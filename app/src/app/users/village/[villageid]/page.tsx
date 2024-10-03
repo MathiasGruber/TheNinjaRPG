@@ -83,11 +83,7 @@ export default function VillageUsers({ params }: { params: { villageid: string }
               />
             </Form>
           </div>
-          <NavTabs
-            current={activeTab}
-            options={["Online", "Strongest"]}
-            setValue={setActiveTab}
-          />
+          <NavTabs current={activeTab} options={tabNames} setValue={setActiveTab} />
         </div>
       }
     >

@@ -11,13 +11,7 @@ import { getUserElements } from "@/validators/user";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
-import {
-  type Item,
-  type Jutsu,
-  type UserItem,
-  type JutsuRank,
-  userData,
-} from "@/drizzle/schema";
+import type { Item, Jutsu, UserItem, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import type { ElementName } from "@/drizzle/constants";
 
@@ -200,18 +194,6 @@ export const calcJutsuTrainCost = (jutsu: Jutsu, level: number) => {
   }
   base += jutsu.extraBaseCost || 0;
   return Math.floor(Math.pow(base, 1 + level / 20));
-};
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const calcForgetReturn = (jutsu: Jutsu, level: number) => {
-  return 0;
-  // const discount = 0.9;
-  // let result = 0;
-  // const refundLevel = Math.min(level, JUTSU_LEVEL_CAP);
-  // for (let i = 0; i < refundLevel; i++) {
-  //   result += calcJutsuTrainCost(jutsu, i);
-  // }
-  // return result * discount;
 };
 
 export const calcJutsuEquipLimit = (userdata: UserData) => {

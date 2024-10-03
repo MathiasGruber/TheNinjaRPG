@@ -40,7 +40,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         ) {
           event.preventDefault();
           const value = (props.control._formValues[props.id] || "") as string;
-          props.onSubmit && props.onSubmit(value);
+          if (props.onSubmit) props.onSubmit(value);
           event.preventDefault();
         }
         break;

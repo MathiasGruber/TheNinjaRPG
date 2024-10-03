@@ -68,7 +68,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     defaultValues: { name: name },
   });
   const watchName = form.watch("name", undefined);
-  const watchRequiredLevel = form.watch("requiredLevel", undefined);
+  const watchRequiredLevel = form.watch("requiredLevel", requiredLevel);
 
   // Update the state
   useEffect(() => {

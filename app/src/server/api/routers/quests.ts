@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { secondsFromNow } from "@/utils/time";
-import { inArray, lte, isNotNull, isNull, sql, asc, gte } from "drizzle-orm";
+import { inArray, lte, isNull, sql, asc, gte } from "drizzle-orm";
 import { like, eq, or, and, getTableColumns } from "drizzle-orm";
 import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
@@ -13,10 +13,9 @@ import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { canPlayHiddenQuests } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { LetterRanks, QuestTypes } from "@/drizzle/constants";
+import { LetterRanks } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle, determineCombatBackground } from "@/routers/combat";
-import { allObjectiveTasks } from "@/validators/objectives";
 import { CollectItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
@@ -895,7 +894,7 @@ export const upsertQuestEntries = async (
 export const incrementDailyQuestCounter = async (
   client: DrizzleClient,
   user: UserData,
-  enabled: Boolean,
+  enabled: boolean,
 ) => {
   if (enabled) {
     await client

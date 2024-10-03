@@ -98,7 +98,7 @@ const complexObjectiveFields = {
   ...rewardFields,
   ...attackerFields,
 };
-const baseComplexObjective = z.object(complexObjectiveFields);
+export const baseComplexObjective = z.object(complexObjectiveFields);
 export type ComplexObjectiveFields = z.infer<typeof baseComplexObjective>;
 
 export const MoveToObjective = z.object({

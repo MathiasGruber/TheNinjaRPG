@@ -89,7 +89,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Mutation for starting a fight
   const { mutate: battleArenaHealAndGo } = api.combat.battleArenaHeal.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       if (data.success) {
         showMutationToast({
           success: data.success,
@@ -527,7 +527,6 @@ const Combat: React.FC<CombatProps> = (props) => {
   }, [battleId]);
 
   // Derived variables
-  const hasArenaHealMoney = userData?.money! >= 500;
   const showNextMatch =
     result?.outcome === "Won" && (battleType === "ARENA" || battleType === "TRAINING");
   const showTravelBtn = battleType === "QUEST";
