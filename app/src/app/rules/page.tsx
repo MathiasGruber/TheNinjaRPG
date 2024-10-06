@@ -12,8 +12,9 @@ export default function GameRules() {
           (i.e., not English) is prohibited.{" "}
         </p>
         <p className="my-2">
-          TheNinja-RPG generally adheres to PEGI 12+ guidelines to regulate language and
-          content (please note that no official age classification has been given). A
+          TheNinja-RPG generally adheres to PEGI 12+ guidelines when it comes to in-game
+          content (please note that no official age classification has been given).
+          Online interactions are not rated, but are instead subject to our rules. A
           detailed guide to PEGI ratings can be found{" "}
           <a href="https://pegi.info/what-do-the-labels-mean">here</a> ; this guide may
           be helpful in understanding, but is not dispositive of, site policies on
