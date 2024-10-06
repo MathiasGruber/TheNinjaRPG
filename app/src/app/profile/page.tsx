@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Wrench, Share2 } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
+import { showMutationToast } from "@/libs/toast";
 import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
@@ -37,17 +38,18 @@ export default function Profile() {
 
   const { mutate: confirmDeletion, isPending: isDeleting } =
     api.profile.confirmDeletion.useMutation({
-      onSuccess: async () => {
-        await utils.profile.getUser.invalidate();
-        router.push("/");
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+          router.push("/");
+        }
       },
     });
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
-    {
-      staleTime: 300000,
-    },
+    { staleTime: 300000 },
   );
 
   const canDelete =
@@ -84,7 +86,7 @@ export default function Profile() {
               button={
                 <Trash2
                   className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${
-                    userData.deletionAt ? "fill-red-500" : ""
+                    userData.deletionAt ? "text-red-500 animate-pulse" : ""
                   }`}
                 />
               }
@@ -98,7 +100,7 @@ export default function Profile() {
               onAccept={(e) => {
                 e.preventDefault();
                 if (canDelete) {
-                  confirmDeletion();
+                  confirmDeletion({ userId: userData.userId });
                 } else {
                   toggleDeletionTimer();
                 }

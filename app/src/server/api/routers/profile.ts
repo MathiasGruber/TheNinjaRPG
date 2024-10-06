@@ -797,6 +797,7 @@ export const profileRouter = createTRPCRouter({
             userId: true,
             username: true,
             pveFights: true,
+            isBanned: true,
             deletionAt: true,
           },
           with: {
@@ -845,6 +846,7 @@ export const profileRouter = createTRPCRouter({
       if (!canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
         user.lastIp = "hidden";
+        user.isBanned = false;
       }
       // Return
       return {
@@ -895,16 +897,29 @@ export const profileRouter = createTRPCRouter({
       .where(eq(userData.userId, ctx.userId));
   }),
   // Delete user
-  confirmDeletion: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    if (!user.deletionAt || user.deletionAt > new Date()) {
-      throw serverError("PRECONDITION_FAILED", "Deletion timer not passed yet");
-    }
-    if (user.isBanned || user.isSilenced) {
-      throw serverError("PRECONDITION_FAILED", "You have to serve your ban first");
-    }
-    await deleteUser(ctx.drizzle, ctx.userId);
-  }),
+  confirmDeletion: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!target.deletionAt || target.deletionAt > new Date()) {
+        return errorResponse("Deletion timer not passed yet");
+      }
+      if (target.isBanned || target.isSilenced) {
+        return errorResponse("You have to serve your ban first");
+      }
+      if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
+        return errorResponse("You can't delete other users");
+      }
+      // Mutate
+      await deleteUser(ctx.drizzle, input.userId);
+      return { success: true, message: "User deleted" };
+    }),
   // Copy user setting to Terriator - exclusive to Terriator user for debugging
   cloneUserForDebug: protectedProcedure
     .input(z.object({ userId: z.string() }))
