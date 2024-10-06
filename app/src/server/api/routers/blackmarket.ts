@@ -202,19 +202,16 @@ export const blackMarketRouter = createTRPCRouter({
         return errorResponse("You are not allowed to purchase this offer");
       }
       // Mutate
-      const result = await ctx.drizzle
-        .update(ryoTrade)
-        .set({ purchaserUserId: ctx.userId })
-        .where(eq(ryoTrade.id, input.offerId));
-      if (result.rowsAffected === 0) {
-        return errorResponse("Could not update offer");
-      }
-      await Promise.all([
-        ctx.drizzle
+      await ctx.drizzle.transaction(async (tx) => {
+        await tx
+          .update(ryoTrade)
+          .set({ purchaserUserId: ctx.userId })
+          .where(eq(ryoTrade.id, input.offerId));
+        await tx
           .update(userData)
           .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
-          .where(eq(userData.userId, offer.creatorUserId)),
-        ctx.drizzle
+          .where(eq(userData.userId, offer.creatorUserId));
+        await tx
           .update(userData)
           .set({
             money: sql`${userData.money} - ${offer.requestedRyo}`,
@@ -225,8 +222,8 @@ export const blackMarketRouter = createTRPCRouter({
               eq(userData.userId, ctx.userId),
               gt(userData.money, offer.requestedRyo),
             ),
-          ),
-      ]);
+          );
+      });
       // Response
       return {
         success: true,
