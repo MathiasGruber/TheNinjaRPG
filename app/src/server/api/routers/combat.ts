@@ -25,7 +25,7 @@ import {
   updateTournament,
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
-import { performAIaction } from "@/libs/combat/ai_v1";
+import { performAIaction } from "@/libs/combat/ai_v2";
 import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
@@ -43,6 +43,7 @@ import { capUserStats } from "@/libs/profile";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
+import { fetchAiProfileById } from "@/routers/ai";
 import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
@@ -689,47 +690,53 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
   // Get user & target data, to be inserted into battle
-  const [settings, villages, relations, achievements, users] = await Promise.all([
-    client.select().from(gameSetting),
-    client.select().from(village),
-    client.select().from(villageAlliance),
-    client
-      .select()
-      .from(quest)
-      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
-    client.query.userData.findMany({
-      with: {
-        bloodline: true,
-        village: {
-          with: { structures: true },
-        },
-        loadout: {
-          columns: { jutsuIds: true },
-        },
-        clan: true,
-        items: {
-          with: { item: true },
-          where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
-          orderBy: (table, { desc }) => [desc(table.quantity)],
-        },
-        jutsus: {
-          with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, 1),
-          orderBy: (table, { desc }) => [desc(table.level)],
-        },
-        userQuests: {
-          where: or(
-            and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-            eq(questHistory.questType, "achievement"),
-          ),
-          with: {
-            quest: true,
+  const [defaultProfile, settings, villages, relations, achievements, users] =
+    await Promise.all([
+      fetchAiProfileById(client, "Default"),
+      client.select().from(gameSetting),
+      client.select().from(village),
+      client.select().from(villageAlliance),
+      client
+        .select()
+        .from(quest)
+        .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
+      client.query.userData.findMany({
+        with: {
+          bloodline: true,
+          village: {
+            with: { structures: true },
           },
+          loadout: {
+            columns: { jutsuIds: true },
+          },
+          clan: true,
+          items: {
+            with: { item: true },
+            where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
+            orderBy: (table, { desc }) => [desc(table.quantity)],
+          },
+          jutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+            orderBy: (table, { desc }) => [desc(table.level)],
+          },
+          userQuests: {
+            where: or(
+              and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+              eq(questHistory.questType, "achievement"),
+            ),
+            with: {
+              quest: true,
+            },
+          },
+          aiProfile: true,
         },
-      },
-      where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
-    }),
-  ]);
+        where: or(
+          inArray(userData.userId, userIds),
+          inArray(userData.userId, targetIds),
+        ),
+      }),
+    ]);
 
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
@@ -835,6 +842,7 @@ export const initiateBattle = async (
     settings: settings,
     relations: relations,
     villages: villages,
+    defaultProfile: defaultProfile,
     battleType: battleType,
     hide: false,
     leftSideUserIds: userIds,
@@ -869,6 +877,7 @@ export const initiateBattle = async (
           with: { jutsu: true },
           where: (jutsus) => eq(jutsus.equipped, 1),
         },
+        aiProfile: true,
       },
       where: inArray(userData.userId, uniqueSummons),
     });
@@ -878,6 +887,7 @@ export const initiateBattle = async (
         settings: settings,
         relations: relations,
         villages: villages,
+        defaultProfile: defaultProfile,
         battleType: battleType,
         hide: true,
       });

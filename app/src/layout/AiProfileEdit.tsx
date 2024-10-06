@@ -425,22 +425,24 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       <div className="p-3 flex flex-row items-center gap-2">
         {rules.length === 0 && <p>No rules added to this AI profile yet</p>}
         <div className="grow"></div>
-        <Button
-          onClick={() => {
-            setRules((prevRules) => [
-              ...prevRules,
-              {
-                conditions: [] as ZodAllAiCondition[],
-                action: ActionMoveTowardsOpponent.parse({}),
-                priority: 0,
-              } as AiRuleType,
-            ]);
-            setActiveElement(`Rule ${rules.length + 1}`);
-          }}
-        >
-          <FilePlus className="h-6 w-6 mr-2" /> Add Rule
-        </Button>
-        {rules.length > 0 && !isSaving && (
+        {!isSaving && (
+          <Button
+            onClick={() => {
+              setRules((prevRules) => [
+                ...prevRules,
+                {
+                  conditions: [] as ZodAllAiCondition[],
+                  action: ActionMoveTowardsOpponent.parse({}),
+                  priority: 0,
+                } as AiRuleType,
+              ]);
+              setActiveElement(`Rule ${rules.length + 1}`);
+            }}
+          >
+            <FilePlus className="h-6 w-6 mr-2" /> Add Rule
+          </Button>
+        )}
+        {!isSaving && rules.length > 0 && (
           <Button
             onClick={() => {
               updateAiProfile({ id: aiProfileId, rules: rules });

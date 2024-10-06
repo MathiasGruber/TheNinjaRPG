@@ -29,12 +29,7 @@ export default function Users() {
     fetchNextPage,
     hasNextPage,
   } = api.profile.getPublicUsers.useInfiniteQuery(
-    {
-      ...getFilter(state),
-      limit: 30,
-      orderBy: activeTab,
-      isAi: false,
-    },
+    { ...getFilter(state), limit: 30, orderBy: activeTab, isAi: false },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

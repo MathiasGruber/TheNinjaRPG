@@ -28,7 +28,7 @@ import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
-import type { Item, UserItem } from "@/drizzle/schema";
+import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
@@ -809,6 +809,7 @@ export const processUsersForBattle = (info: {
   settings: GameSetting[];
   relations: VillageAlliance[];
   villages: Village[];
+  defaultProfile: AiProfile;
   battleType: BattleType;
   hide: boolean;
   leftSideUserIds?: string[];
@@ -830,6 +831,9 @@ export const processUsersForBattle = (info: {
 
     // Set all users to not be agressors by default
     user.isAggressor = false;
+
+    // Add default AI profile if not set
+    if (!user.aiProfile) user.aiProfile = info.defaultProfile;
 
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle

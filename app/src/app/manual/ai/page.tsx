@@ -13,12 +13,16 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
+import UserFiltering, { useFiltering, getFilter } from "@/layout/UserFiltering";
 import type { GenericObject } from "@/layout/ItemWithEffects";
 
 export default function ManualAI() {
   // Settings
   const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Router for forwarding
   const router = useRouter();
@@ -31,7 +35,7 @@ export default function ManualAI() {
     hasNextPage,
     isFetching,
   } = api.profile.getPublicUsers.useInfiniteQuery(
-    { limit: 30, orderBy: "Weakest", isAi: true },
+    { ...getFilter(state), limit: 30, orderBy: "Weakest", isAi: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: Infinity,
@@ -106,12 +110,14 @@ export default function ManualAI() {
         subtitle="All NPCs"
         initialBreak={true}
         topRightContent={
-          userData &&
-          canChangeContent(userData.role) && (
-            <Button id="create-ai" onClick={() => create()}>
-              <FilePlus className="mr-2 h-5 w-5" /> New AI
-            </Button>
-          )
+          <div className="flex flex-row items-center gap-2">
+            {userData && canChangeContent(userData.role) && (
+              <Button id="create-ai" onClick={() => create()}>
+                <FilePlus className="mr-2 h-5 w-5" /> New AI
+              </Button>
+            )}
+            <UserFiltering state={state} />
+          </div>
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}

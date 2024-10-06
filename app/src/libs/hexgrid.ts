@@ -145,7 +145,9 @@ export class PathCalculator {
       estimateFromNodeToGoal: (tile) => this.grid.distance(tile, origin),
       neighborsAdjacentToNode: (center) =>
         this.grid.traverse(ring({ radius: 1, center })).toArray(),
-      actualCostToMove: (_, __, tile) => tile.cost,
+      actualCostToMove: (_, from, to) => {
+        return to.cost + from.cost;
+      },
     });
     this.cache.set(key, shortestPath);
     return shortestPath;

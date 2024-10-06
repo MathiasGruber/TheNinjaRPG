@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const AvailableTargets = ["SELF", "RANDOM_OPPONENT"] as const;
+export const AvailableTargets = [
+  "SELF",
+  "RANDOM_OPPONENT",
+  "CLOSEST_OPPONENT",
+] as const;
+
+export type AvailableTarget = (typeof AvailableTargets)[number];
 
 /*********************************/
 /*          Conditions           */
@@ -8,19 +14,21 @@ export const AvailableTargets = ["SELF", "RANDOM_OPPONENT"] as const;
 export const ConditionHealthBelow = z.object({
   type: z.literal("health_below").default("health_below"),
   description: z.string().default("Health below given percentage"),
-  value: z.number().int().positive().default(10),
+  value: z.coerce.number().int().positive().default(10),
 });
 
 export const ConditionDistanceHigherThan = z.object({
   type: z.literal("distance_higher_than").default("distance_higher_than"),
-  description: z.string().default("Distance higher than given value"),
-  value: z.number().int().positive().default(3),
+  description: z.string().default("Distance higher than or equal given value"),
+  value: z.coerce.number().int().positive().default(3),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
 export const ConditionDistanceLowerThan = z.object({
   type: z.literal("distance_lower_than").default("distance_lower_than"),
-  description: z.string().default("Distance lower than given value"),
-  value: z.number().int().positive().default(2),
+  description: z.string().default("Distance lower than or equal given value"),
+  value: z.coerce.number().int().positive().default(2),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
 export const ZodAllAiConditions = z.union([

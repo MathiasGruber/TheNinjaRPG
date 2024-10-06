@@ -10,6 +10,11 @@ import type { CompleteBattle } from "@/libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { Grid } from "honeycomb-grid";
 
+/**
+ * A basic minimax AI for the game
+ * It works by searching through all possible actions and their outcomes
+ */
+
 // Debug flag when testing AI
 const debug = false;
 

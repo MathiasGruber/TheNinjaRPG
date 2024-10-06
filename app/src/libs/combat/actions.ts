@@ -572,7 +572,9 @@ export const performBattleAction = (props: {
   // Perform action, get latest status effects
   // Note: this mutates usersEffects, groundEffects in place
   const check = insertAction({ battle, grid, action, actorId, longitude, latitude });
-  if (!check) throw new Error(`Action no longer possible for ${user.username}`);
+  if (!check) {
+    throw new Error(`Action ${action.name} no longer possible for ${user.username}`);
+  }
 
   // Update the action state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {

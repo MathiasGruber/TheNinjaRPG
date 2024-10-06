@@ -44,7 +44,9 @@ export const aiProfile = mysqlTable(
   },
 );
 
-export const aiProfileRelations = relations(aiProfile, ({ one, many }) => ({
+export type AiProfile = InferSelectModel<typeof aiProfile>;
+
+export const aiProfileRelations = relations(aiProfile, ({ one }) => ({
   user: one(userData, {
     fields: [aiProfile.userId],
     references: [userData.userId],
