@@ -18,15 +18,14 @@ type ActionWithTarget = {
 };
 
 // Debug flag when testing AI
-const debug = false;
+const debug = true;
 
 export const performAIaction = (
   battle: CompleteBattle,
   grid: Grid<TerrainHex>,
   aiUserId: string,
 ) => {
-  if (debug) console.log("\n>> performAIaction");
-  if (debug) console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+  if (debug) console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> AI ACTION");
   // New stats to return
   const nextActionEffects: ActionEffect[] = [];
   const aiDescriptions: string[] = [];
@@ -55,15 +54,23 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Possible actions
-    const actions = availableUserActions(nextBattle, user.userId, false, true).filter(
-      (action) => {
+    const actions = availableUserActions(nextBattle, user.userId, true, true)
+      .filter((action) => {
         const costs = calcPoolCost(action, nextBattle.usersEffects, user);
         if (user.curHealth < costs.hpCost) return false;
         if (user.curChakra < costs.cpCost) return false;
         if (user.curStamina < costs.spCost) return false;
         return true;
-      },
-    );
+      })
+      .filter((action) => {
+        const check = actionPointsAfterAction(user, nextBattle, action);
+        return check.canAct;
+      });
+    if (debug)
+      console.log(
+        "Actions: ",
+        actions.map((a) => a.name),
+      );
 
     // User hex
     const origin = findHex(grid, user);
@@ -99,9 +106,7 @@ export const performAIaction = (
     // Go through rules
     let nextAction: ActionWithTarget | undefined = undefined;
     for (const rule of user.aiProfile.rules) {
-      // Debug on the rule
-      if (debug) console.log(`>>>> Rule:`, rule);
-
+      if (debug) console.log("Rule: ", rule);
       /** ************************ */
       /** CHECK CONDITIONS         */
       /** ************************ */
@@ -124,14 +129,11 @@ export const performAIaction = (
         const target = getTarget(rule.action);
         const targetHex = target?.hex;
         // Go through different actions
-        if (debug) console.log(rule.action.type, !!origin, !!targetHex, !!target);
         if (rule.action.type === "move_towards_opponent") {
           const move = actions.find((a) => a.id === "move");
           if (target && targetHex && origin && move) {
-            if (debug) console.log("origin", origin, "target", targetHex);
             const path = aStarWithObstacles.getShortestPath(origin, targetHex);
             const hex = path?.[1];
-            if (debug) console.log("PATH 1: ", hex?.col, hex?.row);
             if (path && hex && path.length > 2) {
               nextAction = { action: move, long: hex.col, lat: hex.row };
             }
@@ -181,7 +183,7 @@ export const performAIaction = (
       /** CHECK IF ACTION IS VALID */
       /** ************************ */
       if (nextAction) {
-        if (debug) console.log(">>>> AI Action: ", nextAction);
+        if (debug) console.log("Action: ", nextAction.action.name);
         const check = actionPointsAfterAction(user, nextBattle, nextAction?.action);
         const result = performBattleAction({
           battle: structuredClone(nextBattle),
@@ -211,8 +213,6 @@ export const performAIaction = (
     }
   }
 
-  if (debug) console.log(aiDescriptions);
-  if (debug) console.log("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
   // Return the new state
   return { nextBattle, nextActionEffects, aiDescriptions };
 };
