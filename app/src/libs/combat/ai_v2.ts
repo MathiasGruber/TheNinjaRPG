@@ -55,13 +55,13 @@ export const performAIaction = (
   if (user) {
     // Possible actions
     const actions = availableUserActions(nextBattle, user.userId, true, true)
-      .filter((action) => {
-        const costs = calcPoolCost(action, nextBattle.usersEffects, user);
-        if (user.curHealth < costs.hpCost) return false;
-        if (user.curChakra < costs.cpCost) return false;
-        if (user.curStamina < costs.spCost) return false;
-        return true;
-      })
+      // .filter((action) => {
+      //   const costs = calcPoolCost(action, nextBattle.usersEffects, user);
+      //   if (user.curHealth < costs.hpCost) return false;
+      //   if (user.curChakra < costs.cpCost) return false;
+      //   if (user.curStamina < costs.spCost) return false;
+      //   return true;
+      // })
       .filter((action) => {
         const check = actionPointsAfterAction(user, nextBattle, action);
         return check.canAct;
