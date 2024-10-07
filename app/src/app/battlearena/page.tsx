@@ -199,7 +199,6 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
                       image: ai.avatar,
                       description: "",
                       rarity: "COMMON",
-                      effects: [],
                       href: `/users/${ai.userId}`,
                       attacks: ai.jutsus?.map((jutsu) =>
                         "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",

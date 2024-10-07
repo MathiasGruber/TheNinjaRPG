@@ -9,6 +9,7 @@ import type { InsertUserDataSchema } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 import type { UserJutsu } from "@/drizzle/schema";
 import type { UserItem } from "@/drizzle/schema";
+import type { ZodAllTags } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
 
 /**
@@ -67,6 +68,12 @@ export const useAiEditForm = (
 
   // Watch for changes to avatar
   const avatarUrl = form.watch("avatar");
+  const effects = form.watch("effects");
+
+  // Handle updating of effects
+  const setEffects = (newEffects: ZodAllTags[]) => {
+    form.setValue("effects", newEffects, { shouldDirty: true });
+  };
 
   // Are we loading data
   const loading = l1 || l2 || l3 || l4;
@@ -128,5 +135,13 @@ export const useAiEditForm = (
     },
   ];
 
-  return { processedUser, loading, form, formData, handleUserSubmit };
+  return {
+    processedUser,
+    effects,
+    loading,
+    form,
+    formData,
+    setEffects,
+    handleUserSubmit,
+  };
 };

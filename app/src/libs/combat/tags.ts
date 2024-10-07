@@ -5,6 +5,8 @@ import { HealTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
+import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
+import type { WeaknessTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -739,19 +741,46 @@ export const damageCalc = (
   return dmg;
 };
 
+/** Calculate damage modifier, e.g. from weakness tag */
+export const calcDmgModifier = (
+  dmgEffect: UserEffect & (DamageTagType | PierceTagType),
+  target: BattleUserState,
+  usersState: UserEffect[],
+) => {
+  const weaknesses = usersState
+    .filter((e) => e.type === "weakness" && e.targetId === target.userId)
+    .map((e) => e as UserEffect & WeaknessTagType)
+    .filter((e) => {
+      const check1 = e.jutsus.includes(dmgEffect.actionId);
+      const check2 = e.items.includes(dmgEffect.actionId);
+      const check3 = e.elements.some((we) => dmgEffect?.elements?.includes(we));
+      const check4 = e.statTypes.some((we) => dmgEffect?.statTypes?.includes(we));
+      const check5 = e.generalTypes.some((we) => dmgEffect?.generalTypes?.includes(we));
+      return check1 || check2 || check3 || check4 || check5;
+    })
+    .sort((a, v) => v.power - a.power);
+  console.log("Weaknesses", weaknesses);
+  const biggestWeakness = weaknesses[0];
+  return biggestWeakness?.dmgModifier || 1;
+};
+
 /** Calculate damage effect on target */
 export const damageUser = (
   effect: UserEffect,
   origin: BattleUserState | undefined,
   target: BattleUserState,
   consequences: Map<string, Consequence>,
-  applyTimes: number,
+  dmgModifier: number,
   config: DmgConfig,
 ) => {
+  // Calculate the raw damage
   const damage =
     damageCalc(effect, origin, target, config) *
-    applyTimes *
+    dmgModifier *
     (1 - effect.barrierAbsorb);
+  // Find out if target has any weakness tag related to this damage effect
+  // const weaknessTags =
+  // Fetch types to show to the user
   const types = [
     ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
     ...("generalTypes" in effect && effect.generalTypes ? effect.generalTypes : []),
@@ -1363,6 +1392,17 @@ export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     return getInfo(target, effect, "cannot summon companions");
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
+/** Prevent target from being stunned */
+export const weakness = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    return getInfo(target, effect, "weaknesses applied");
   } else if (effect.isNew) {
     effect.rounds = 0;
   }

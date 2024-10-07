@@ -18,7 +18,7 @@ type ActionWithTarget = {
 };
 
 // Debug flag when testing AI
-const debug = true;
+const debug = false;
 
 export const performAIaction = (
   battle: CompleteBattle,

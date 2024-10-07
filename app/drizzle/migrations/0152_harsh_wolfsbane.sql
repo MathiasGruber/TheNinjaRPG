@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `effects` json DEFAULT ('[]') NOT NULL;

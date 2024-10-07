@@ -180,6 +180,7 @@ export const calcApplyRatio = (
     "stunprevent",
     "stealth",
     "summonprevent",
+    "weakness",
   ];
   // If always apply, then apply 1 time, but not if rounds set to 0
   if (alwaysApply.includes(effect.type)) {
@@ -253,6 +254,7 @@ export const sortEffects = (
     "sealprevent",
     "stunprevent",
     "summonprevent",
+    "weakness",
     // Pre-modifiers
     "cleanse",
     "clear",
@@ -948,8 +950,9 @@ export const processUsersForBattle = (info: {
       }) as unknown as UserEffect;
       const realized = realizeTag({
         tag: effect,
+        user: user,
+        actionId: "initial",
         target: user,
-        user,
         level: user.level,
       });
       realized.isNew = false;
@@ -960,11 +963,29 @@ export const processUsersForBattle = (info: {
 
     // Add bloodline efects
     if (user.bloodline?.effects) {
-      const effects = user.bloodline.effects as unknown as UserEffect[];
-      effects.forEach((effect) => {
+      user.bloodline.effects.forEach((effect) => {
         const realized = realizeTag({
-          tag: effect,
-          user,
+          tag: effect as UserEffect,
+          user: user,
+          actionId: user?.bloodline?.id ?? "initial",
+          target: user,
+          level: user.level,
+        });
+        realized.isNew = false;
+        realized.castThisRound = false;
+        realized.targetId = user.userId;
+        realized.fromType = "bloodline";
+        userEffects.push(realized);
+      });
+    }
+
+    // Add users effects to the battle
+    if (user.effects.length > 0) {
+      user.effects.forEach((effect) => {
+        const realized = realizeTag({
+          tag: effect as UserEffect,
+          user: user,
+          actionId: "initial",
           target: user,
           level: user.level,
         });
@@ -1034,7 +1055,8 @@ export const processUsersForBattle = (info: {
             effects.forEach((effect) => {
               const realized = realizeTag({
                 tag: effect,
-                user,
+                user: user,
+                actionId: useritem.itemId,
                 target: user,
                 level: user.level,
               });

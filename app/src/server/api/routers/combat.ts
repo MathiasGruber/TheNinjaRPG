@@ -917,6 +917,7 @@ export const initiateBattle = async (
               }),
               id: `initial-${col}-${row}`,
               creatorId: "ground",
+              actionId: "initial",
               createdRound: 0,
               level: 0,
               longitude: col,

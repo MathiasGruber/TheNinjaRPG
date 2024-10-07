@@ -479,11 +479,22 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   const tagSchema = getTagSchema(tag.type);
   const parsedTag = tagSchema.safeParse(tag);
   const shownTag = parsedTag.success ? parsedTag.data : tag;
+  const fields = Object.keys(shownTag);
 
   // Queries
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
     staleTime: Infinity,
     enabled: Object.keys(shownTag).includes("aiId"),
+  });
+
+  const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+    enabled: fields.includes("jutsus"),
+  });
+
+  const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+    enabled: fields.includes("items"),
   });
 
   // Form for handling the specific tag
@@ -591,6 +602,20 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
               id: ai.userId,
               name: `lvl ${ai.level}: ${ai.username}`,
             })),
+          type: "db_values",
+        };
+      } else if ((value as string) === "items" && itemData) {
+        return {
+          id: value,
+          values: itemData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if ((value as string) === "jutsus" && jutsuData) {
+        return {
+          id: value,
+          values: jutsuData,
+          multiple: true,
           type: "db_values",
         };
       } else if ((value as string) === "description") {

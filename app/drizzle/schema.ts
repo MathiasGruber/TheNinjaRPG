@@ -23,6 +23,7 @@ import * as consts from "@/drizzle/constants";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { AllTags, SuperRefineEffects } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { QuestContentType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
@@ -1329,6 +1330,7 @@ export const userData = mysqlTable(
     customTitle: varchar("customTitle", { length: 191 }).default("").notNull(),
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
+    effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
   },
   (table) => {
     return {
@@ -1381,6 +1383,7 @@ export const insertUserDataSchema = createInsertSchema(userData)
       willpower: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
       speed: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
       isSummon: z.coerce.boolean(),
+      effects: z.array(AllTags).superRefine(SuperRefineEffects),
     }),
   );
 export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;

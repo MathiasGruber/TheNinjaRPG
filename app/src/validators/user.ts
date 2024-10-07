@@ -88,7 +88,7 @@ export const getPublicUsersSchema = z.object({
   orderBy: z.enum(["Online", "Strongest", "Weakest", "PvP", "Staff"]),
   username: z
     .string()
-    .regex(new RegExp("^[a-zA-Z0-9_]*$"), {
+    .regex(new RegExp("^[a-zA-Z0-9\\s]*$"), {
       message: "Must only contain alphanumeric characters and no spaces",
     })
     .optional(),

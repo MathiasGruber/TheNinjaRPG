@@ -6,7 +6,11 @@ import AiProfileEdit from "@/layout/AiProfileEdit";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
+import { EffectFormWrapper } from "@/layout/EditContent";
+import { FilePlus, FileMinus } from "lucide-react";
 import { api } from "@/utils/api";
+import { tagTypes } from "@/libs/combat/types";
+import { WeaknessTag } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
@@ -51,9 +55,31 @@ interface SingleEditUserProps {
 
 const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
   // Form handling
-  const { loading, processedUser, form, formData, handleUserSubmit } = useAiEditForm(
-    props.user,
-    props.refetch,
+  const {
+    loading,
+    effects,
+    processedUser,
+    form,
+    formData,
+    setEffects,
+    handleUserSubmit,
+  } = useAiEditForm(props.user, props.refetch);
+
+  // Icon for adding tag
+  const AddTagIcon = (
+    <FilePlus
+      className="h-6 w-6 cursor-pointer hover:text-orange-500"
+      onClick={() => {
+        setEffects([
+          ...effects,
+          WeaknessTag.parse({
+            rounds: 100,
+            residualModifier: 0,
+            dmgModifier: 1,
+          }),
+        ]);
+      }}
+    />
   );
 
   // Show panel controls
@@ -78,6 +104,48 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
           />
         )}
       </ContentBox>
+
+      {effects.length === 0 && (
+        <ContentBox
+          title="AI Tags"
+          initialBreak={true}
+          topRightContent={<div className="flex flex-row">{AddTagIcon}</div>}
+        >
+          Please add effects to this item
+        </ContentBox>
+      )}
+      {effects.map((tag, i) => {
+        return (
+          <ContentBox
+            key={`${tag.type}-${i}`}
+            title={`AI Tag #${i + 1}`}
+            subtitle="Control battle effects"
+            initialBreak={true}
+            topRightContent={
+              <div className="flex flex-row">
+                {AddTagIcon}
+                <FileMinus
+                  className="h-6 w-6 cursor-pointer hover:text-orange-500"
+                  onClick={() => {
+                    const newEffects = [...effects];
+                    newEffects.splice(i, 1);
+                    setEffects(newEffects);
+                  }}
+                />
+              </div>
+            }
+          >
+            <EffectFormWrapper
+              idx={i}
+              type="item"
+              tag={tag}
+              availableTags={tagTypes}
+              effects={effects}
+              setEffects={setEffects}
+            />
+          </ContentBox>
+        );
+      })}
 
       <AiProfileEdit userData={props.user} />
     </>

@@ -329,9 +329,10 @@ export const insertAction = (info: {
         action.effects.forEach((tag) => {
           if (tag.target === "SELF") {
             const effect = realizeTag({
-              user,
-              target: user,
               tag: tag as UserEffect,
+              user: user,
+              actionId: action.id,
+              target: user,
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
@@ -346,8 +347,9 @@ export const insertAction = (info: {
             }
           } else if (!tag.target || tag.target === "INHERIT") {
             const effect = realizeTag({
-              user,
               tag: tag as GroundEffect,
+              user: user,
+              actionId: action.id,
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
@@ -370,9 +372,10 @@ export const insertAction = (info: {
         const target = getTargetUser(alive, action.target, tile, user.userId);
         action.effects.forEach((tag) => {
           const effect = realizeTag({
-            user,
-            target,
             tag: tag as UserEffect,
+            user: user,
+            actionId: action.id,
+            target: target,
             level: action.level,
             round: battle.round,
             barrierAbsorb: totalAbsorb,

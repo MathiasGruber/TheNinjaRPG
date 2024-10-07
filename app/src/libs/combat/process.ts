@@ -1,11 +1,11 @@
-import { dmgConfig } from "./constants";
+import { dmgConfig as config } from "./constants";
 import { VisualTag } from "./types";
 import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damageUser } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import { absorb, reflect, recoil, lifesteal } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
@@ -15,7 +15,7 @@ import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent, movePrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
-import { clear, cleanse, summon, summonPrevent, buffPrevent } from "./tags";
+import { clear, cleanse, summon, summonPrevent, buffPrevent, weakness } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
 import { BATTLE_TAG_STACKING } from "@/drizzle/constants";
@@ -56,6 +56,7 @@ export const checkFriendlyFire = (
 export const realizeTag = <T extends BattleEffect>(props: {
   tag: T;
   user: BattleUserState;
+  actionId: string;
   target?: BattleUserState | undefined;
   level: number | undefined;
   round?: number;
@@ -80,6 +81,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
   tag.highestDefence = user.highestDefence;
   tag.highestGenerals = user.highestGenerals;
   tag.barrierAbsorb = barrierAbsorb || 0;
+  tag.actionId = props.actionId;
   if (target) {
     tag.targetHighestOffence = target.highestOffence;
     tag.targetHighestDefence = target.highestDefence;
@@ -105,6 +107,7 @@ const getVisual = (
       appearAnimation: animation,
       createdAt: Date.now(),
     }),
+    actionId: "visual",
     id: nanoid(),
     createdRound: round,
     creatorId: nanoid(),
@@ -120,6 +123,7 @@ const getVisual = (
 export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
+
   // Things we wish to return
   const newUsersState = structuredClone(usersState);
   const newGroundEffects: GroundEffect[] = [];
@@ -228,7 +232,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       e.targetType === "barrier" &&
       curUser
     ) {
-      const result = damageBarrier(newGroundEffects, curUser, e, dmgConfig);
+      const result = damageBarrier(newGroundEffects, curUser, e, config);
       if (result) {
         longitude = result.barrier.longitude;
         latitude = result.barrier.latitude;
@@ -250,9 +254,11 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           // Tags only applied when target is user or new
           if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
-              info = damageUser(e, curUser, curTarget, consequences, ratio, dmgConfig);
+              const modifier = calcDmgModifier(e, curTarget, usersEffects);
+              info = damageUser(e, curUser, curTarget, consequences, modifier, config);
             } else if (e.type === "pierce" && isTargetOrNew) {
-              info = damageUser(e, newUser, newTarget, consequences, ratio, dmgConfig);
+              const modifier = calcDmgModifier(e, curTarget, usersEffects);
+              info = damageUser(e, newUser, newTarget, consequences, modifier, config);
             } else if (e.type === "heal" && isTargetOrNew) {
               info = heal(e, newUsersEffects, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {
@@ -327,6 +333,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = movePrevent(e, curTarget);
           } else if (e.type === "summonprevent") {
             info = summonPrevent(e, curTarget);
+          } else if (e.type === "weakness") {
+            info = weakness(e, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }
