@@ -1,8 +1,10 @@
 import React from "react";
 import { ChevronsDown } from "lucide-react";
+import { cn } from "src/libs/shadui";
 
 interface AccordionProps {
   title: string;
+  className?: string;
   selectedTitle: string;
   titlePrefix?: string;
   titlePostfix?: string;
@@ -20,9 +22,11 @@ const Accordion: React.FC<AccordionProps> = (props) => {
   const active = title === props.selectedTitle;
   return (
     <div
-      className={`border-b-2 px-3 py-1 ${
-        active ? "" : "hover:bg-popover hover:cursor-pointer"
-      }`}
+      className={cn(
+        "border-b-2 px-3 py-1",
+        props.className,
+        active ? "" : "hover:bg-popover hover:cursor-pointer",
+      )}
       onClick={() => !active && onClick(active ? "" : title)}
     >
       <div className="flex flex-row items-center">
