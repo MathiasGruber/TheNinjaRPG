@@ -274,6 +274,11 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
           <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE["C"] * 100}%</li>
           <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE["D"] * 100}%</li>
         </ul>
+        <p className="pt-3">
+          <b>NOTE:</b> If you have an existing bloodline it will be replaced in the
+          event a bloodline would be rewarded, if no bloodline would be rewarded your
+          previous bloodline will not be removed.
+        </p>
       </Confirm>
     </div>
   );
