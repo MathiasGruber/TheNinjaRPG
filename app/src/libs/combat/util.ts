@@ -1005,10 +1005,10 @@ export const processUsersForBattle = (info: {
           return false;
         }
         // Not if cannot train jutsu
-        if (!checkJutsuItems(userjutsu.jutsu, user.items)) {
+        if (!checkJutsuItems(userjutsu.jutsu, user.items) && !user.isAi) {
           return false;
         }
-        if (!canTrainJutsu(userjutsu.jutsu, user)) {
+        if (!canTrainJutsu(userjutsu.jutsu, user) && !user.isAi) {
           return false;
         }
         // Add summons to list
