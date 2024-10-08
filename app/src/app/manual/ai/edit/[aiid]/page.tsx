@@ -3,6 +3,7 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import AiProfileEdit from "@/layout/AiProfileEdit";
+import StatusBar from "@/layout/StatusBar";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
@@ -63,7 +64,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
     formData,
     setEffects,
     handleUserSubmit,
-  } = useAiEditForm(props.user, props.refetch);
+  } = useAiEditForm(props.user);
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -92,16 +93,45 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
       >
         {!processedUser && <p>Could not find this AI</p>}
         {!loading && processedUser && (
-          <EditContent
-            schema={insertUserDataSchema}
-            form={form}
-            formData={formData}
-            showSubmit={form.formState.isDirty}
-            buttonTxt="Save to Database"
-            type="ai"
-            allowImageUpload={true}
-            onAccept={handleUserSubmit}
-          />
+          <>
+            <StatusBar
+              title="HP"
+              tooltip="Health"
+              color="bg-red-500"
+              showText={true}
+              status={processedUser.status}
+              current={processedUser.curHealth}
+              total={processedUser.maxHealth}
+            />
+            <StatusBar
+              title="CP"
+              tooltip="Chakra"
+              color="bg-blue-500"
+              showText={true}
+              status={processedUser.status}
+              current={processedUser.curChakra}
+              total={processedUser.maxChakra}
+            />
+            <StatusBar
+              title="SP"
+              tooltip="Stamina"
+              color="bg-green-500"
+              showText={true}
+              status={processedUser.status}
+              current={processedUser.curStamina}
+              total={processedUser.maxStamina}
+            />
+            <EditContent
+              schema={insertUserDataSchema}
+              form={form}
+              formData={formData}
+              showSubmit={form.formState.isDirty}
+              buttonTxt="Save to Database"
+              type="ai"
+              allowImageUpload={true}
+              onAccept={handleUserSubmit}
+            />
+          </>
         )}
       </ContentBox>
 

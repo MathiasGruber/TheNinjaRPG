@@ -80,13 +80,16 @@ export function capUserStats(user: UserData) {
 
 /** Scale stats of user, and return total number of experience / stat points */
 export function scaleUserStats(user: UserData) {
+  // Multipliers
+  const poolMod = user.poolsMultiplier ?? 1;
+  const statMod = user.statsMultiplier ?? 1;
   // Pools
-  user["curHealth"] = calcHP(user.level);
-  user["maxHealth"] = calcHP(user.level);
-  user["curStamina"] = calcSP(user.level);
-  user["maxStamina"] = calcSP(user.level);
-  user["curChakra"] = calcCP(user.level);
-  user["maxChakra"] = calcCP(user.level);
+  user["curHealth"] = calcHP(user.level) * poolMod;
+  user["maxHealth"] = calcHP(user.level) * poolMod;
+  user["curStamina"] = calcSP(user.level) * poolMod;
+  user["maxStamina"] = calcSP(user.level) * poolMod;
+  user["curChakra"] = calcCP(user.level) * poolMod;
+  user["maxChakra"] = calcCP(user.level) * poolMod;
   // Stats
   const exp = calcLevelRequirements(user.level) - 500;
   user["experience"] = exp;
@@ -107,18 +110,18 @@ export function scaleUserStats(user: UserData) {
   const calcStat = (stat: keyof StatDistribution) => {
     return 10 + Math.floor(((user[stat] ?? 0) / sum) * exp * 100) / 100;
   };
-  user["ninjutsuOffence"] = calcStat("ninjutsuOffence");
-  user["ninjutsuDefence"] = calcStat("ninjutsuDefence");
-  user["genjutsuOffence"] = calcStat("genjutsuOffence");
-  user["genjutsuDefence"] = calcStat("genjutsuDefence");
-  user["taijutsuOffence"] = calcStat("taijutsuOffence");
-  user["taijutsuDefence"] = calcStat("taijutsuDefence");
-  user["bukijutsuOffence"] = calcStat("bukijutsuOffence");
-  user["bukijutsuDefence"] = calcStat("bukijutsuDefence");
-  user["strength"] = calcStat("strength");
-  user["intelligence"] = calcStat("intelligence");
-  user["willpower"] = calcStat("willpower");
-  user["speed"] = calcStat("speed");
+  user["ninjutsuOffence"] = calcStat("ninjutsuOffence") * statMod;
+  user["ninjutsuDefence"] = calcStat("ninjutsuDefence") * statMod;
+  user["genjutsuOffence"] = calcStat("genjutsuOffence") * statMod;
+  user["genjutsuDefence"] = calcStat("genjutsuDefence") * statMod;
+  user["taijutsuOffence"] = calcStat("taijutsuOffence") * statMod;
+  user["taijutsuDefence"] = calcStat("taijutsuDefence") * statMod;
+  user["bukijutsuOffence"] = calcStat("bukijutsuOffence") * statMod;
+  user["bukijutsuDefence"] = calcStat("bukijutsuDefence") * statMod;
+  user["strength"] = calcStat("strength") * statMod;
+  user["intelligence"] = calcStat("intelligence") * statMod;
+  user["willpower"] = calcStat("willpower") * statMod;
+  user["speed"] = calcStat("speed") * statMod;
 }
 
 /** Assign stats of user, meant for the training dummy */
