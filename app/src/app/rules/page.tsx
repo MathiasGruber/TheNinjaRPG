@@ -14,8 +14,12 @@ export default function GameRules() {
         <p className="my-2">
           TheNinja-RPG generally adheres to PEGI 12+ guidelines when it comes to in-game
           content (please note that no official age classification has been given).
-          Online interactions are not rated, but are instead subject to our rules. A
-          detailed guide to PEGI ratings can be found{" "}
+          <b>
+            Online interactions are not rated, but are instead subject to our rules.
+          </b>
+        </p>
+        <p>
+          A detailed guide to PEGI ratings can be found{" "}
           <a href="https://pegi.info/what-do-the-labels-mean">here</a> ; this guide may
           be helpful in understanding, but is not dispositive of, site policies on
           language and content. Language and content permitted under PEGI 12+ guidelines
@@ -23,7 +27,7 @@ export default function GameRules() {
           Rules and Terms of Service.
         </p>{" "}
         <p className="my-2">
-          Prohibited language and content include, but are not limited to: strong
+          <b>Prohibited language and content include, but are not limited to:</b> strong
           language, sexual references or content, inappropriate drug use references, and
           spamming.{" "}
         </p>
@@ -73,37 +77,106 @@ export default function GameRules() {
           to, abusing normal game features – to harass or troll others.
         </p>{" "}
         <p className="my-2">
-          <b>Harassment:</b> Harassment may include, but is not limited to: serious or
-          persistent attempts to torment others; incessantly insulting, hurtful or
-          aggravating conduct; targeting others through repeated annoyances, threats, or
-          personal criticisms; and unwelcome sexual advances or interactions.{" "}
+          <b>
+            <u>Harassment:</u>
+          </b>{" "}
+          Harassment may include, but is not limited to: serious or persistent attempts
+          to torment others; incessantly insulting, hurtful or aggravating conduct;
+          targeting others through repeated annoyances, threats, or personal criticisms;
+          and unwelcome sexual advances or interactions.{" "}
         </p>{" "}
-        <p className="my-2">
-          <b>Trolling: </b>Trolling may include, but is not limited to: intentional
-          attempts to incite negative responses from others; intentionally baiting,
-          insulting, or provocative interactions; and intentionally inflammatory or
-          disruptive behavior.{" "}
-        </p>{" "}
-        <p className="my-2">
-          <b>Staff Positions: </b>Users are strongly discouraged from pestering game
-          staff about staff positions. Excessive pestering can constitute harassment or
-          spamming.
-        </p>{" "}
-        <p className="my-2">
-          <b>Reports: </b> Users may be penalized for persistent and intentional abuse
-          of the report system. Reports are not frivolous toys or tools of personal
-          revenge. It is the reporting user’s responsibility to show both rule-breaking
-          and supporting evidence when filing reports. All reports should contain some
-          form of relevant evidence. Blank reports that include no information
-          whatsoever are essentially unsubstantiated claims, and cannot justify
-          moderating actions. If you are not sure how to report a particular situation,
-          message a moderator for instructions. Encouraging others to file reports is
-          not allowed, e.g. encouraging mass reports of a given user.
+        <p className="my-2 italic text-xs">
+          <b>Examples of harassment include, but are not limited to:</b>
+          <ul className="pl-5 list-disc">
+            <li>
+              Discrimination based on race/religion/gender orientation/sexual identity.
+            </li>
+            <li>Discrimination based on state/nationality/occupations.</li>
+            <li>Obscenity and indecency.</li>
+            <li>Using historical expressions that cause distress.</li>
+            <li>
+              Stalking or revealing personal information such as name, address or social
+              media without permission of the user.
+            </li>
+            <li>
+              Any action with the intention of inflicting emotional distress on another
+              player.
+            </li>
+          </ul>
         </p>
         <p className="my-2">
-          <b>Punishments: </b> bans and punishments of specific users are to be kept out
-          of public chat. While discussion amongst users in private is fine, it is to be
-          kept out of the public taverns.
+          <b>
+            <u>Nuisance behaviour: </u>
+          </b>
+          Nuisance behaviour is behaviour that impacts or instructs other player's game
+          play but might not be considered harassment. If multiple people are observed
+          engaging in the behaviour, multiple punishments may be handed out.
+        </p>
+        <p className="my-2 italic text-xs">
+          <b>Examples of nuisance behaviour includes:</b>
+          <ul className="pl-5 list-disc">
+            <li>
+              Using expressions to reject a person's opinions in an attempt to belittle
+              or disrespect them.
+            </li>
+            <li>Using expressions to disrupt the order in a public space.</li>
+            <li>
+              Using or creating avatars with the intent to disrupt, offend, or annoy
+              other players or staff members.
+            </li>
+            <li>Expressions that are purposely offensive towards another player.</li>
+            <li>
+              Purposely disrupting another player's gameplay or excluding them beyond
+              regular gameplay features (Ie. Not everyone must be accepted into a clan
+              or ANBU).
+            </li>
+            <li>Spoiling events for other players.</li>
+            <li>
+              Repeating behaviour that is considered annoying towards another player.
+            </li>
+            <li>
+              Ignoring a moderator's instructions in reference to the rules or ToS
+              behaviour.
+            </li>
+          </ul>
+        </p>
+        <p className="my-2">
+          <b>
+            <u>Trolling: </u>
+          </b>
+          Trolling may include, but is not limited to: intentional attempts to incite
+          negative responses from others; intentionally baiting, insulting, or
+          provocative interactions; and intentionally inflammatory or disruptive
+          behavior.{" "}
+        </p>{" "}
+        <p className="my-2">
+          <b>
+            <u>Staff Positions: </u>
+          </b>
+          Users are strongly discouraged from pestering game staff about staff
+          positions. Excessive pestering can constitute harassment or spamming.
+        </p>{" "}
+        <p className="my-2">
+          <b>
+            <u>Reports: </u>
+          </b>{" "}
+          Users may be penalized for persistent and intentional abuse of the report
+          system. Reports are not frivolous toys or tools of personal revenge. It is the
+          reporting user’s responsibility to show both rule-breaking and supporting
+          evidence when filing reports. All reports should contain some form of relevant
+          evidence. Blank reports that include no information whatsoever are essentially
+          unsubstantiated claims, and cannot justify moderating actions. If you are not
+          sure how to report a particular situation, message a moderator for
+          instructions. Encouraging others to file reports is not allowed, e.g.
+          encouraging mass reports of a given user.
+        </p>
+        <p className="my-2">
+          <b>
+            <u>Punishments: </u>
+          </b>{" "}
+          bans and punishments of specific users are to be kept out of public chat.
+          While discussion amongst users in private is fine, it is to be kept out of the
+          public taverns.
         </p>
         <p className="my-2 text-2xl">
           <b>ACCOUNTS</b>
@@ -199,6 +272,23 @@ export default function GameRules() {
           should be construed as a technical limitation to moderators’ ability to
           accomplish the intended objectives of the Rules.
         </p>{" "}
+        <p className="my-2">
+          Punishments for disregarding or breaking the rules may result in warnings,
+          silences (for chat behaviour) or bans (for gameplay or more serious chat
+          behaviour) and are given at the discretion of a moderator.
+        </p>
+        <p className="my-2">
+          For communication based conflicts, punishments will be given out based on how
+          the receiving party perceives it as different people will perceive different
+          styles of communication as uncomfortable. Therefore specific words and phrases
+          are not prohibited and instead the greater context will be looked at.
+        </p>
+        <p className="my-2">
+          However it is noted that being mindful is still encouraged as there are many
+          people in public spaces who may be made uncomfortable, even if they aren't
+          involved in the conversation. Action can still be taken against the offending
+          user if the offensive communications continue.
+        </p>
         <p className="my-2">
           As a general policy, ambiguities in the Rules or evidence are presumed in
           favor of the user. By default, moderators have the burden of proof and must
