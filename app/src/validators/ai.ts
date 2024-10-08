@@ -62,17 +62,15 @@ export const ActionMoveTowardsOpponent = z.object({
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
+export const ActionEndTurn = z.object({
+  type: z.literal("end_turn").default("end_turn"),
+  description: z.string().default("End turn"),
+});
+
 export const ActionUseSpecificJutsu = z.object({
   type: z.literal("use_specific_jutsu").default("use_specific_jutsu"),
   description: z.string().default("Select specific jutsu"),
   jutsuId: z.string().default(""),
-  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
-});
-
-export const ActionUseSpecificItem = z.object({
-  type: z.literal("use_specific_item").default("use_specific_item"),
-  description: z.string().default("Select specific item"),
-  itemId: z.string().default(""),
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
@@ -82,10 +80,31 @@ export const ActionUseRandomJutsu = z.object({
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
+export const ActionWithHighestPowerJutsuEffect = z.object({
+  type: z.literal("use_highest_power_jutsu").default("use_highest_power_jutsu"),
+  description: z.string().default("Use jutsu with given effect with highest power"),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+  effect: z.string().default("damage"),
+});
+
+export const ActionUseSpecificItem = z.object({
+  type: z.literal("use_specific_item").default("use_specific_item"),
+  description: z.string().default("Select specific item"),
+  itemId: z.string().default(""),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+});
+
 export const ActionUseRandomItem = z.object({
   type: z.literal("use_random_item").default("use_random_item"),
   description: z.string().default("Use random item"),
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+});
+
+export const ActionWithHighestPowerItemEffect = z.object({
+  type: z.literal("use_highest_power_item").default("use_highest_power_item"),
+  description: z.string().default("Use item with given effect with highest power"),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+  effect: z.string().default("damage"),
 });
 
 export const ActionWithEffectHighestPower = z.object({
@@ -97,11 +116,14 @@ export const ActionWithEffectHighestPower = z.object({
 
 export const ZodAllAiActions = z.union([
   ActionMoveTowardsOpponent,
+  ActionEndTurn,
   ActionUseSpecificJutsu,
   ActionUseSpecificItem,
   ActionUseRandomJutsu,
   ActionUseRandomItem,
   ActionWithEffectHighestPower,
+  ActionWithHighestPowerJutsuEffect,
+  ActionWithHighestPowerItemEffect,
 ]);
 
 export const AiActionTypes = ZodAllAiActions._def.options.map(

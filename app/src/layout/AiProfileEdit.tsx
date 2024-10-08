@@ -43,6 +43,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   const [activeElement, setActiveElement] = useState<string>("");
   const aiProfileId = props.userData.aiProfileId || "Default";
   const utils = api.useUtils();
+  const isDefault = aiProfileId === "Default";
 
   // Data
   const { data: profile } = api.ai.getAiProfile.useQuery(
@@ -75,30 +76,32 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   useEffect(() => {
     if (profile) {
       // If the last two rules are not move -> attack, add a default one
-      if (
-        profile.rules.at(-1)?.action?.type !== "use_highest_power_action" ||
-        profile.rules.at(-1)?.conditions.length !== 0 ||
-        profile.rules.at(-2)?.action?.type !== "move_towards_opponent" ||
-        profile.rules.at(-2)?.conditions?.[0]?.type !== "distance_higher_than" ||
-        profile.rules.at(-2)?.conditions?.[0]?.value !== 2
-      ) {
-        profile.rules.push(
-          AiRule.parse({
-            conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
-            action: ActionMoveTowardsOpponent.parse({}),
-          }),
-        );
-        profile.rules.push(
-          AiRule.parse({
-            conditions: [],
-            action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
-          }),
-        );
+      if (isDefault) {
+        if (
+          profile.rules.at(-1)?.action?.type !== "use_highest_power_action" ||
+          profile.rules.at(-1)?.conditions.length !== 0 ||
+          profile.rules.at(-2)?.action?.type !== "move_towards_opponent" ||
+          profile.rules.at(-2)?.conditions?.[0]?.type !== "distance_higher_than" ||
+          profile.rules.at(-2)?.conditions?.[0]?.value !== 2
+        ) {
+          profile.rules.push(
+            AiRule.parse({
+              conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+              action: ActionMoveTowardsOpponent.parse({}),
+            }),
+          );
+          profile.rules.push(
+            AiRule.parse({
+              conditions: [],
+              action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
+            }),
+          );
+        }
       }
       setRules(profile.rules);
       setActiveElement(`Rule ${profile.rules.length}`);
     }
-  }, [profile]);
+  }, [profile, isDefault]);
 
   // Convenience method for updating rules
   const updateCondition = (
@@ -133,7 +136,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
     <ContentBox
       title="AI Profile"
       subtitle={
-        aiProfileId === "Default"
+        isDefault
           ? "Default AI Profile [Used by Many]"
           : "Custom AI Profile [Only this AI]"
       }
@@ -145,7 +148,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         ) : (
           <NavTabs
             id="profileSelection"
-            current={aiProfileId === "Default" ? "Default" : "Custom"}
+            current={isDefault ? "Default" : "Custom"}
             options={availableTabs}
             onChange={() => toggleAiProfile({ aiId: props.userData.userId })}
           />
@@ -167,7 +170,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             onClick={setActiveElement}
             options={
               <>
-                {!isLastTwo && (
+                {isDefault && !isLastTwo && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -183,7 +186,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {!isLastThree && (
+                {isDefault && !isLastThree && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -199,7 +202,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {!isLastTwo && (
+                {isDefault && !isLastTwo && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {

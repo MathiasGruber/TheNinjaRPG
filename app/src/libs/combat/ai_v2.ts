@@ -125,6 +125,19 @@ export const performAIaction = (
       /** PROCESS ACTION           */
       /** ************************ */
       if (checked) {
+        // Convenience method for checking if rule action has a given effect
+        const getHighestPowerAction = (actions: CombatAction[]) => {
+          const hasEffect = (e: ZodAllTags) => {
+            return "effect" in rule.action && e.type === rule.action.effect;
+          };
+          return actions
+            .filter((a) => a.effects.find((e) => hasEffect(e)))
+            .sort((a, b) => {
+              const prev = a.effects.find((e) => hasEffect(e));
+              const current = b.effects.find((e) => hasEffect(e));
+              return prev && current ? current.power - prev.power : 0;
+            })[0];
+        };
         // Get target and target hex
         const target = getTarget(rule.action);
         const targetHex = target?.hex;
@@ -165,17 +178,28 @@ export const performAIaction = (
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_highest_power_action") {
-          const hasEffect = (e: ZodAllTags) =>
-            "effect" in rule.action && e.type === rule.action.effect;
-          const action = actions
-            .filter((a) => a.effects.find((e) => hasEffect(e)))
-            .sort((a, b) => {
-              const prev = a.effects.find((e) => hasEffect(e));
-              const current = b.effects.find((e) => hasEffect(e));
-              return prev && current ? current.power - prev.power : 0;
-            })[0];
+          const action = getHighestPowerAction(actions);
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
+          }
+        } else if (rule.action.type === "use_highest_power_jutsu") {
+          const action = getHighestPowerAction(
+            actions.filter((a) => a.type === "jutsu"),
+          );
+          if (target && action) {
+            nextAction = { action, long: target.longitude, lat: target.latitude };
+          }
+        } else if (rule.action.type === "use_highest_power_item") {
+          const action = getHighestPowerAction(
+            actions.filter((a) => a.type === "item"),
+          );
+          if (target && action) {
+            nextAction = { action, long: target.longitude, lat: target.latitude };
+          }
+        } else if (rule.action.type === "end_turn") {
+          const wait = actions.find((a) => a.id === "wait");
+          if (wait) {
+            nextAction = { action: wait, long: user.longitude, lat: user.latitude };
           }
         }
       }
