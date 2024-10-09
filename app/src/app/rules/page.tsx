@@ -62,10 +62,13 @@ export default function GameRules() {
         <p className="my-2">
           <b>Appropriateness: </b>Inappropriate content includes, but is not limited to:
           explicit sexual content, graphic or gratuitous sexual conduct, sexual nudity,
-          inappropriate references to substance abuse, and inappropriate references to
-          illegal drug use. Moderators may determine, on a case-by-case basis, whether
-          specific behavior or content was both intended and perceived to be
-          inappropriate.
+          inappropriate references to substance abuse, inappropriate references to
+          illegal drug use, gang signs or symbols, hate symbols, extremist imagery,
+          glorification of violence, graphic depictions of gore or mutilation, self-harm
+          content, animal cruelty, non-consensual intimate imagery, and deliberately
+          shocking or disturbing content. Moderators may determine, on a case-by-case
+          basis, whether specific behavior or content was both intended and perceived to
+          be inappropriate.
         </p>{" "}
         <p className="my-2 text-2xl">
           <b>CONDUCT</b>
@@ -108,16 +111,16 @@ export default function GameRules() {
           <b>
             <u>Nuisance behaviour: </u>
           </b>
-          Nuisance behaviour is behaviour that impacts or instructs other player's game
-          play but might not be considered harassment. If multiple people are observed
-          engaging in the behaviour, multiple punishments may be handed out.
+          Nuisance behaviour is behaviour that impacts or instructs other player&apos;s
+          game play but might not be considered harassment. If multiple people are
+          observed engaging in the behaviour, multiple punishments may be handed out.
         </p>
         <p className="my-2 italic text-xs">
           <b>Examples of nuisance behaviour includes:</b>
           <ul className="pl-5 list-disc">
             <li>
-              Using expressions to reject a person's opinions in an attempt to belittle
-              or disrespect them.
+              Using expressions to reject a person&apos;s opinions in an attempt to
+              belittle or disrespect them.
             </li>
             <li>Using expressions to disrupt the order in a public space.</li>
             <li>
@@ -126,16 +129,16 @@ export default function GameRules() {
             </li>
             <li>Expressions that are purposely offensive towards another player.</li>
             <li>
-              Purposely disrupting another player's gameplay or excluding them beyond
-              regular gameplay features (Ie. Not everyone must be accepted into a clan
-              or ANBU).
+              Purposely disrupting another player&apos;s gameplay or excluding them
+              beyond regular gameplay features (Ie. Not everyone must be accepted into a
+              clan or ANBU).
             </li>
             <li>Spoiling events for other players.</li>
             <li>
               Repeating behaviour that is considered annoying towards another player.
             </li>
             <li>
-              Ignoring a moderator's instructions in reference to the rules or ToS
+              Ignoring a moderator&apos;s instructions in reference to the rules or ToS
               behaviour.
             </li>
           </ul>
@@ -285,9 +288,9 @@ export default function GameRules() {
         </p>
         <p className="my-2">
           However it is noted that being mindful is still encouraged as there are many
-          people in public spaces who may be made uncomfortable, even if they aren't
-          involved in the conversation. Action can still be taken against the offending
-          user if the offensive communications continue.
+          people in public spaces who may be made uncomfortable, even if they
+          aren&apos;t involved in the conversation. Action can still be taken against
+          the offending user if the offensive communications continue.
         </p>
         <p className="my-2">
           As a general policy, ambiguities in the Rules or evidence are presumed in
