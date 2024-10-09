@@ -567,3 +567,39 @@ export const IMG_BASIC_WAIT =
   "https://utfs.io/f/Hzww9EQvYURJ8ByNJwOkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
 export const IMG_BASIC_MOVE =
   "https://utfs.io/f/Hzww9EQvYURJnQxuGeXmojJ0EqeDCvBrNmZaXVdY97gSpOWi";
+
+export const IMG_ICON_DISCORD =
+  "https://utfs.io/f/Hzww9EQvYURJCZvaND26OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_ICON_FACEBOOK =
+  "https://utfs.io/f/Hzww9EQvYURJ1zjiDxX6bo95WClq4K0wxZUmJcvThgdVenO3";
+export const IMG_ICON_GITHUB =
+  "https://utfs.io/f/Hzww9EQvYURJydaEQfukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
+export const IMG_ICON_GOOGLE =
+  "https://utfs.io/f/Hzww9EQvYURJCV0Mc426OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_ICON_INSTAGRAM =
+  "https://utfs.io/f/Hzww9EQvYURJWLbTriPvszvj71yaSYC0MDOmbko5q9JAGuLH";
+export const IMG_ICON_REDDIT =
+  "https://utfs.io/f/Hzww9EQvYURJPYJEg8pKeUGyX2kj6u45AOQiSa1zYH0mqZoc";
+export const IMG_ICON_TIKTOK =
+  "https://utfs.io/f/Hzww9EQvYURJoYcyUDSZ9MPZpHJ7VliuEWDfATdxhv62SXnm";
+export const IMG_ICON_TWITTER =
+  "https://utfs.io/f/Hzww9EQvYURJMi2fCxtsO4cexqW2RDgkE3zZbNXSFGitmnar";
+export const IMG_ICON_YOUTUBE =
+  "https://utfs.io/f/Hzww9EQvYURJy7pL6jukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
+export const IMG_ICON_FORUM =
+  "https://utfs.io/f/Hzww9EQvYURJTwT9cY5IU29dZYJPoOKSh5vmlqatMub3EigH";
+export const IMG_ICON_MOVE =
+  "https://utfs.io/f/Hzww9EQvYURJepKSYSyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+
+export const IMG_MISSION_S =
+  "https://utfs.io/f/Hzww9EQvYURJz3Ph17emvaQu94EYJs8HpxVzofny6iPtbgCZ";
+export const IMG_MISSION_A =
+  "https://utfs.io/f/Hzww9EQvYURJ0ORGP9grYldRWJcD6vE10SjNsXHeA9pVMfQi";
+export const IMG_MISSION_B =
+  "https://utfs.io/f/Hzww9EQvYURJoVn7VTZ9MPZpHJ7VliuEWDfATdxhv62SXnm4";
+export const IMG_MISSION_C =
+  "https://utfs.io/f/Hzww9EQvYURJoe3eJHZ9MPZpHJ7VliuEWDfATdxhv62SXnm4";
+export const IMG_MISSION_D =
+  "https://utfs.io/f/Hzww9EQvYURJ7r7fFcXKPBOUWGyFuM4DlL1v5HNTZhkte0z6";
+export const IMG_MISSION_E =
+  "https://utfs.io/f/Hzww9EQvYURJPAguocQpKeUGyX2kj6u45AOQiSa1zYH0mqZo";

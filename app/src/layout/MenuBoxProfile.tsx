@@ -27,6 +27,15 @@ import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
+import {
+  IMG_ICON_DISCORD,
+  IMG_ICON_FACEBOOK,
+  IMG_ICON_INSTAGRAM,
+  IMG_ICON_REDDIT,
+  IMG_ICON_TIKTOK,
+  IMG_ICON_TWITTER,
+  IMG_ICON_YOUTUBE,
+} from "@/drizzle/constants";
 import type { GeneralType, StatType, ElementName } from "@/drizzle/constants";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
@@ -37,37 +46,37 @@ import type { UserEffect } from "@/libs/combat/types";
 export const socials = [
   {
     url: "https://discord.gg/QPgKtJVvwq",
-    image: "/images/discord.png",
+    image: IMG_ICON_DISCORD,
     alt: "Discord",
   },
   {
     url: "https://www.facebook.com/profile.php?id=61554961626034",
-    image: "/images/facebook.png",
+    image: IMG_ICON_FACEBOOK,
     alt: "Facebook",
   },
   {
     url: "https://www.youtube.com/@fullstackscientist",
-    image: "/images/youtube.png",
+    image: IMG_ICON_YOUTUBE,
     alt: "Youtube",
   },
   {
     url: "https://twitter.com/RealTheNinjaRPG",
-    image: "/images/twitter.png",
+    image: IMG_ICON_TWITTER,
     alt: "Twitter",
   },
   {
     url: "https://www.instagram.com/theninjarpg/",
-    image: "/images/instagram.png",
+    image: IMG_ICON_INSTAGRAM,
     alt: "Instagram",
   },
   {
     url: "https://www.tiktok.com/@theninjarpg",
-    image: "/images/tiktok.png",
+    image: IMG_ICON_TIKTOK,
     alt: "Tiktok",
   },
   {
     url: "https://www.reddit.com/r/theninjarpg/",
-    image: "/images/reddit.png",
+    image: IMG_ICON_REDDIT,
     alt: "Reddit",
   },
 ];

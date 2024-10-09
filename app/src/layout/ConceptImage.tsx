@@ -13,6 +13,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import ReportUser from "@/layout/Report";
+import {
+  IMG_ICON_FACEBOOK,
+  IMG_ICON_REDDIT,
+  IMG_ICON_TWITTER,
+} from "@/drizzle/constants";
 import type { ImageWithRelations } from "@/routers/conceptart";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -194,7 +199,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               >
                 <Image
                   className="hover:opacity-70"
-                  src={"/images/facebook.png"}
+                  src={IMG_ICON_FACEBOOK}
                   width={28}
                   height={28}
                   alt={"FacebookShare"}
@@ -207,7 +212,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               >
                 <Image
                   className="hover:opacity-70"
-                  src={"/images/reddit.png"}
+                  src={IMG_ICON_REDDIT}
                   width={28}
                   height={28}
                   alt={"RedditShare"}
@@ -220,7 +225,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
               >
                 <Image
                   className="hover:opacity-70"
-                  src={"/images/twitter.png"}
+                  src={IMG_ICON_TWITTER}
                   width={28}
                   height={28}
                   alt={"TwitterShare"}

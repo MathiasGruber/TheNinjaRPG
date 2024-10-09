@@ -33,7 +33,7 @@ import { round } from "@/utils/math";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
-import { IMG_SECTOR_INFO, IMG_SECTOR_ATTACK } from "@/drizzle/constants";
+import { IMG_SECTOR_INFO, IMG_SECTOR_ATTACK, IMG_ICON_MOVE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -706,7 +706,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                 )}
                 {!sameHex && (
                   <Image
-                    src={"/map/move.png"}
+                    src={IMG_ICON_MOVE}
                     onClick={() => props.move(user.longitude, user.latitude)}
                     width={40}
                     height={40}

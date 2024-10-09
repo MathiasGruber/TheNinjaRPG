@@ -27,6 +27,7 @@ import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
 import { useInfinitePagination } from "@/libs/pagination";
 import { canModerate } from "@/validators/forum";
+import { IMG_ICON_FORUM } from "@/drizzle/constants";
 
 export default function Board({ params }: { params: { boardid: string } }) {
   const { data: userData } = useUserData();
@@ -196,7 +197,7 @@ export default function Board({ params }: { params: { boardid: string } }) {
                   image={
                     <div className="mr-3 basis-1/12">
                       <Image
-                        src={"/images/f_icon.png"}
+                        src={IMG_ICON_FORUM}
                         width={100}
                         height={100}
                         alt="Forum Icon"

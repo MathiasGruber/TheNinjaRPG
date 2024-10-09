@@ -11,6 +11,7 @@ import Loader from "@/layout/Loader";
 import { api } from "@/utils/api";
 import { secondsPassed } from "@/utils/time";
 import { groupBy } from "@/utils/grouping";
+import { IMG_ICON_FORUM } from "@/drizzle/constants";
 
 export default function Forum() {
   const { data: boards } = api.forum.getAll.useQuery();
@@ -36,7 +37,7 @@ export default function Forum() {
                   image={
                     <div className="mr-3 basis-1/12">
                       <Image
-                        src={"/images/f_icon.png"}
+                        src={IMG_ICON_FORUM}
                         width={100}
                         height={100}
                         alt="Forum Icon"

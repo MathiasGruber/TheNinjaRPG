@@ -4,6 +4,14 @@ import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { canChangeContent } from "@/utils/permissions";
+import {
+  IMG_MISSION_S,
+  IMG_MISSION_A,
+  IMG_MISSION_B,
+  IMG_MISSION_C,
+  IMG_MISSION_D,
+  IMG_MISSION_E,
+} from "@/drizzle/constants";
 import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
@@ -299,7 +307,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: "errand",
       rank: "D",
       name: "Errand",
-      image: "/missions/errands.webp",
+      image: IMG_MISSION_E,
       delayMinutes: 1,
       description: `Errands typically involve simple tasks such as fetching an item somewhere in the village, delivering groceries, etc.`,
     },
@@ -307,7 +315,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: type,
       rank: "D",
       name: "D-rank",
-      image: "/missions/D_mission.webp",
+      image: IMG_MISSION_D,
       delayMinutes: 5,
       description: `D-rank ${type}s are the lowest rank of ${type}s. They are usually simple ${type}s that have a low chance of danger, finding & retrieving items, doing manual labor, or fetching a lost cat`,
     },
@@ -315,7 +323,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: type,
       rank: "C",
       name: "C-rank",
-      image: "/missions/C_mission.webp",
+      image: IMG_MISSION_C,
       delayMinutes: 10,
       description: `C-rank ${type}s are the second lowest rank of ${type}s. They are usually ${type}s that have a chance of danger, e.g. escorting a client through friendly territory, etc.`,
     },
@@ -323,7 +331,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: type,
       rank: "B",
       name: "B-rank",
-      image: "/missions/B_mission.webp",
+      image: IMG_MISSION_B,
       delayMinutes: 15,
       description: `B-rank ${type}s are the third highest rank of ${type}s. They are usually ${type}s that have a decent chance of danger, e.g. escorting a client through neutral or enemy territory.`,
     },
@@ -331,7 +339,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: type,
       rank: "A",
       name: "A-rank",
-      image: "/missions/A_mission.webp",
+      image: IMG_MISSION_A,
       delayMinutes: 20,
       description: `A-rank ${type}s are the second highest rank of ${type}s. They usually have a high chance of danger and are considered to be very difficult, e.g. assassinating a target, etc.`,
     },
@@ -339,7 +347,7 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       type: type,
       rank: "S",
       name: "S-rank",
-      image: "/missions/S_mission.webp",
+      image: IMG_MISSION_S,
       delayMinutes: 25,
       description: `S-rank ${type}s are the highest rank of ${type}s. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.`,
     },
