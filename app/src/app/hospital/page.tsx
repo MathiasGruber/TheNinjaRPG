@@ -16,7 +16,7 @@ import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
-import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
+import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -70,7 +70,7 @@ export default function Hospital() {
     >
       <Image
         alt="hospital-image"
-        src="/hospital.webp"
+        src={IMG_BUILDING_HOSPITAL}
         width={512}
         height={195}
         className="w-full"

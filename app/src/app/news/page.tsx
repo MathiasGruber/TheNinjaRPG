@@ -4,6 +4,7 @@ import { getInfiniteThreads, readNews } from "@/routers/forum";
 import { canCreateNews } from "@/validators/forum";
 import { fetchUser } from "@/routers/profile";
 import { drizzleDB } from "@/server/db";
+import { IMG_BUILDING_NEWS } from "@/drizzle/constants";
 
 export default async function News() {
   // Session information
@@ -31,7 +32,7 @@ export default async function News() {
     <FancyForumThreads
       board_name="News"
       canPost={canPost}
-      image="/news.webp"
+      image={IMG_BUILDING_NEWS}
       initialData={initialNews}
     />
   );

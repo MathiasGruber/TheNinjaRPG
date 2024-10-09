@@ -3,6 +3,7 @@
 import Shop from "@/layout/Shop";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
+import { IMG_BUILDING_SOUVENIER } from "@/drizzle/constants";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function ItemShop() {
@@ -20,7 +21,7 @@ export default function ItemShop() {
       title="Souvenirs Shop"
       userData={userData}
       minCost={1}
-      image="/souvenirs.webp"
+      image={IMG_BUILDING_SOUVENIER}
       defaultType="WEAPON"
       back_href={"/village"}
       eventItems={true}

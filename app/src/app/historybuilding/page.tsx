@@ -4,6 +4,7 @@ import { canCreateNews } from "@/validators/forum";
 import { getInfiniteThreads } from "@/routers/forum";
 import { fetchUser } from "@/routers/profile";
 import { drizzleDB } from "@/server/db";
+import { IMG_BUILDING_ARCHIVE } from "@/drizzle/constants";
 
 export default async function HistoryBuilding() {
   // Session information
@@ -27,7 +28,7 @@ export default async function HistoryBuilding() {
       board_name="History"
       canPost={canPost}
       back_href="/village"
-      image="/archive.webp"
+      image={IMG_BUILDING_ARCHIVE}
       initialData={initialNews}
     />
   );

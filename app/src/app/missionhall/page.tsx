@@ -11,7 +11,7 @@ import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { MISSIONS_PER_DAY, IMG_BUILDING_MISSIONHALL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export default function MissionHall() {
@@ -67,7 +67,7 @@ export default function MissionHall() {
     >
       <Image
         alt="welcome"
-        src="/missionhall.webp"
+        src={IMG_BUILDING_MISSIONHALL}
         width={512}
         height={195}
         className="w-full"

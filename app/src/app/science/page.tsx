@@ -5,6 +5,7 @@ import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import { RollBloodline, CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
 import { useRequireInVillage } from "@/utils/UserContext";
+import { IMG_BUILDING_SCIENCEBUILDING } from "@/drizzle/constants";
 import { api } from "@/utils/api";
 
 export default function Science() {
@@ -41,7 +42,7 @@ export default function Science() {
       >
         <Image
           alt="welcome"
-          src="/sciencebuilding.webp"
+          src={IMG_BUILDING_SCIENCEBUILDING}
           width={512}
           height={195}
           className="w-full"

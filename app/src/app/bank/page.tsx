@@ -36,6 +36,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { IMG_BUILDING_BANK } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Bank() {
@@ -198,7 +199,7 @@ export default function Bank() {
       >
         <Image
           alt="welcome"
-          src="/bank.webp"
+          src={IMG_BUILDING_BANK}
           width={512}
           height={195}
           className="w-full"

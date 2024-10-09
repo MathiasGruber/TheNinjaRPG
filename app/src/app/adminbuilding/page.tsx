@@ -14,6 +14,7 @@ import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
+import { IMG_BUILDING_ADMINBUILDING } from "@/drizzle/constants";
 
 export default function AdministrationBuilding() {
   const util = api.useUtils();
@@ -66,7 +67,7 @@ export default function AdministrationBuilding() {
     >
       <Image
         alt="welcome"
-        src="/adminbuilding.webp"
+        src={IMG_BUILDING_ADMINBUILDING}
         width={512}
         height={195}
         className="w-full"

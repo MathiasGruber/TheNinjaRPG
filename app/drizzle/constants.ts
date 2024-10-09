@@ -603,3 +603,22 @@ export const IMG_MISSION_D =
   "https://utfs.io/f/Hzww9EQvYURJ7r7fFcXKPBOUWGyFuM4DlL1v5HNTZhkte0z6";
 export const IMG_MISSION_E =
   "https://utfs.io/f/Hzww9EQvYURJPAguocQpKeUGyX2kj6u45AOQiSa1zYH0mqZo";
+
+export const IMG_BUILDING_MISSIONHALL =
+  "https://utfs.io/f/Hzww9EQvYURJ2TCTWInMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8";
+export const IMG_BUILDING_SCIENCEBUILDING =
+  "https://utfs.io/f/Hzww9EQvYURJwQxr3PT2j854CWbaITZyegfXimvd7s16cO0h";
+export const IMG_BUILDING_NEWS =
+  "https://utfs.io/f/Hzww9EQvYURJYKooj7OMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
+export const IMG_BUILDING_SOUVENIER =
+  "https://utfs.io/f/Hzww9EQvYURJHmrEYkQvYURJhgs76VZtf9wxpMa13Cq0iOnr";
+export const IMG_BUILDING_HOSPITAL =
+  "https://utfs.io/f/Hzww9EQvYURJ3n9SmD8pYHJX5rdkUTfOKtvu2eGIELmSWqBx";
+export const IMG_BUILDING_GLOBALANBU =
+  "https://utfs.io/f/Hzww9EQvYURJIfwMDCxfOewksxBoS1HQCihpL7c42Ky9uUFv";
+export const IMG_BUILDING_BANK =
+  "https://utfs.io/f/Hzww9EQvYURJEHFjuQLfKL5D7TAFe29bymSaPCIQ846MdzGg";
+export const IMG_BUILDING_ARCHIVE =
+  "https://utfs.io/f/Hzww9EQvYURJXk8AUJqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
+export const IMG_BUILDING_ADMINBUILDING =
+  "https://utfs.io/f/Hzww9EQvYURJMyfWBKtsO4cexqW2RDgkE3zZbNXSFGitmnar";

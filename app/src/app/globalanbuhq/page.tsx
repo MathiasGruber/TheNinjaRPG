@@ -4,6 +4,7 @@ import { canCreateNews } from "@/validators/forum";
 import { getInfiniteThreads } from "@/routers/forum";
 import { fetchUser } from "@/routers/profile";
 import { drizzleDB } from "@/server/db";
+import { IMG_BUILDING_GLOBALANBU } from "@/drizzle/constants";
 
 export default async function GlobalAnbuHQ() {
   // Session information
@@ -27,7 +28,7 @@ export default async function GlobalAnbuHQ() {
       board_name="ANBU HQ"
       canPost={canPost}
       back_href="/village"
-      image="/globalanbuhq.webp"
+      image={IMG_BUILDING_GLOBALANBU}
       initialData={initialNews}
     />
   );
