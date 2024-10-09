@@ -4,6 +4,14 @@ import Loader from "./Loader";
 import { useUserData } from "@/utils/UserContext";
 import { calcActiveUser } from "@/libs/combat/actions";
 import { calcApReduction } from "@/libs/combat/util";
+import {
+  IMG_ACTIONTIMER_BG,
+  IMG_ACTIONTIMER_YELLOW,
+  IMG_ACTIONTIMER_RED,
+  IMG_ACTIONTIMER_BLUE,
+  IMG_ACTIONTIMER_GREEN,
+  IMG_ACTIONTIMER_OVERLAY,
+} from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";
 import type { ReturnedBattle } from "@/libs/combat/types";
 
@@ -39,9 +47,9 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   const actionAfter = actionNow - cost;
 
   // Calculate label and color
-  const yellow = "/combat/actionTimer/yellow.webp";
-  const red = "/combat/actionTimer/red.webp";
-  const blue = "/combat/actionTimer/blue.webp";
+  const yellow = IMG_ACTIONTIMER_YELLOW;
+  const red = IMG_ACTIONTIMER_RED;
+  const blue = IMG_ACTIONTIMER_BLUE;
 
   // Active updating of this component
   useEffect(() => {
@@ -78,7 +86,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
       <div className="relative flex flex-row justify-center pt-2">
         <Image
           className="relative"
-          src="/combat/actionTimer/background.webp"
+          src={IMG_ACTIONTIMER_BG}
           alt="Action Timer"
           width={768}
           height={62}
@@ -110,7 +118,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
         )}
         <Image
           className="absolute"
-          src="/combat/actionTimer/overlay.webp"
+          src={IMG_ACTIONTIMER_OVERLAY}
           alt="Action Timer"
           width={768}
           height={62}

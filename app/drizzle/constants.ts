@@ -622,3 +622,16 @@ export const IMG_BUILDING_ARCHIVE =
   "https://utfs.io/f/Hzww9EQvYURJXk8AUJqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
 export const IMG_BUILDING_ADMINBUILDING =
   "https://utfs.io/f/Hzww9EQvYURJMyfWBKtsO4cexqW2RDgkE3zZbNXSFGitmnar";
+
+export const IMG_ACTIONTIMER_BG =
+  "https://utfs.io/f/Hzww9EQvYURJZNkUoDaYQrBIUTu69nkMxWmS4ah0O7LVCp8b";
+export const IMG_ACTIONTIMER_YELLOW =
+  "https://utfs.io/f/Hzww9EQvYURJXnRHYeqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
+export const IMG_ACTIONTIMER_RED =
+  "https://utfs.io/f/Hzww9EQvYURJyrbex4ukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
+export const IMG_ACTIONTIMER_BLUE =
+  "https://utfs.io/f/Hzww9EQvYURJqA6PRRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
+export const IMG_ACTIONTIMER_GREEN =
+  "https://utfs.io/f/Hzww9EQvYURJwSFJxPT2j854CWbaITZyegfXimvd7s16cO0h";
+export const IMG_ACTIONTIMER_OVERLAY =
+  "https://utfs.io/f/Hzww9EQvYURJHVKSE4QvYURJhgs76VZtf9wxpMa13Cq0iOnr";
