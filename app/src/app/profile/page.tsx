@@ -1,19 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
+import DeleteUserButton from "@/layout/DeleteUserButton";
 import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
 import Logbook from "@/layout/Logbook";
 import Loader from "@/layout/Loader";
-import Countdown from "@/layout/Countdown";
 import LevelUpBtn from "@/layout/LevelUpBtn";
-import { Button } from "@/components/ui/button";
-import { Trash2, Wrench, Share2 } from "lucide-react";
+import { Wrench, Share2 } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
-import { showMutationToast } from "@/libs/toast";
 import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
@@ -21,51 +17,22 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export default function Profile() {
   // State
-  const { data: userData, timeDiff } = useRequiredUserData();
+  const { data: userData } = useRequiredUserData();
 
-  // tRPC utility
-  const utils = api.useUtils();
-
-  // Router for forwarding
-  const router = useRouter();
-
-  const { mutate: toggleDeletionTimer, isPending: isTogglingDelete } =
-    api.profile.toggleDeletionTimer.useMutation({
-      onSuccess: async () => {
-        await utils.profile.getUser.invalidate();
-      },
-    });
-
-  const { mutate: confirmDeletion, isPending: isDeleting } =
-    api.profile.confirmDeletion.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
-          router.push("/");
-        }
-      },
-    });
-
+  // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
     { staleTime: 300000 },
   );
 
-  const canDelete =
-    userData &&
-    !userData.isBanned &&
-    userData.deletionAt &&
-    new Date(userData.deletionAt) < new Date();
+  // Derived
   const expRequired =
     userData &&
     Math.max(calcLevelRequirements(userData.level) - userData.experience, 0);
 
+  // Loader
   if (!userData) {
     return <Loader explanation="Loading profile page..." />;
-  }
-  if (isTogglingDelete || isDeleting) {
-    return <Loader explanation="Performing action..." />;
   }
 
   return (
@@ -81,64 +48,7 @@ export default function Profile() {
             <Link href="/profile/edit">
               <Wrench className="h-6 w-6 cursor-pointer hover:text-orange-500" />
             </Link>
-            <Confirm
-              title="Confirm Deletion"
-              button={
-                <Trash2
-                  className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${
-                    userData.deletionAt ? "text-red-500 animate-pulse" : ""
-                  }`}
-                />
-              }
-              proceed_label={
-                canDelete
-                  ? "Complete Deletion"
-                  : userData.deletionAt
-                    ? "Disable Deletion Timer"
-                    : "Enable Deletion Timer"
-              }
-              onAccept={(e) => {
-                e.preventDefault();
-                if (canDelete) {
-                  confirmDeletion({ userId: userData.userId });
-                } else {
-                  toggleDeletionTimer();
-                }
-              }}
-            >
-              <span>
-                This feature is intended for marking the character for deletion.
-                Toggling this feature enables a timer of 2 days, after which you will be
-                able to delete the character - this is to ensure no un-intentional
-                character deletion.
-                {userData.isBanned && (
-                  <p className="font-bold py-3">
-                    NOTE: You are banned, and cannot delete your account until the ban
-                    is over!
-                  </p>
-                )}
-                {userData.deletionAt && (
-                  <Button
-                    id="create"
-                    disabled={userData.deletionAt > new Date() || userData.isBanned}
-                    className="w-full mt-3"
-                    variant="destructive"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (userData.deletionAt) {
-                        toggleDeletionTimer();
-                      }
-                    }}
-                  >
-                    {userData.deletionAt < new Date() ? (
-                      "Disable Deletion Timer"
-                    ) : (
-                      <Countdown targetDate={userData.deletionAt} timeDiff={timeDiff} />
-                    )}
-                  </Button>
-                )}
-              </span>
-            </Confirm>
+            <DeleteUserButton userData={userData} />
           </div>
         }
       >

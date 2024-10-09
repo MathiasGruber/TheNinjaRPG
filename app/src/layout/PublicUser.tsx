@@ -14,6 +14,7 @@ import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
 import ActionLogs from "@/layout/ActionLog";
 import GraphCombatLog from "@/layout/GraphCombatLog";
+import DeleteUserButton from "@/layout/DeleteUserButton";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainingSpeeds } from "@/drizzle/constants";
@@ -164,22 +165,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     },
   });
 
-  const deleteUser = api.profile.confirmDeletion.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.profile.getPublicUser.invalidate();
-      }
-    },
-  });
-
   // Derived
   const canChange = isSignedIn && userData && canChangePublicUser(userData);
   const availableRoles = userData && canChangeUserRole(userData.role);
-  const isBanned = profile?.isBanned;
-  const deleteMarked = profile?.deletionAt;
-  const deleteReady = profile?.deletionAt && new Date(profile.deletionAt) < new Date();
-  const canDelete = !isBanned && deleteMarked && deleteReady;
 
   // Loaders
   if (isPendingProfile) return <Loader explanation="Fetching Public User Data" />;
@@ -243,40 +231,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   for fixing users stuck in a particular state. I.E Battle. The action
                   will be logged. Are you sure?
                 </Confirm>
-                <Confirm
-                  title="Confirm Deletion"
-                  button={
-                    <Trash2
-                      className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${
-                        userData.deletionAt ? "text-red-500 animate-pulse" : ""
-                      }`}
-                    />
-                  }
-                  proceed_label={
-                    deleteMarked
-                      ? canDelete
-                        ? "Complete Deletion"
-                        : "Timer not over yet"
-                      : "Not marked for deletion"
-                  }
-                  onAccept={(e) => {
-                    e.preventDefault();
-                    if (canDelete) {
-                      deleteUser.mutate({ userId: profile.userId });
-                    }
-                  }}
-                >
-                  <span>
-                    If the user is marked for deletion, and the timer for deletion has
-                    finished, you can as staff force finish the deletion here
-                    {profile.isBanned && (
-                      <p className="font-bold py-3">
-                        NOTE: User is banned, and cannot delete your account until the
-                        ban is over!
-                      </p>
-                    )}
-                  </span>
-                </Confirm>
+                <DeleteUserButton userData={profile} />
               </>
             ) : (
               ""

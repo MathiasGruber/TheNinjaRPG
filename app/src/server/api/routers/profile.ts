@@ -885,17 +885,33 @@ export const profileRouter = createTRPCRouter({
       return fetchPublicUsers(ctx.drizzle, input, ctx.userId);
     }),
   // Toggle deletion of user
-  toggleDeletionTimer: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
-    return ctx.drizzle
-      .update(userData)
-      .set({
-        deletionAt: currentUser.deletionAt
-          ? null
-          : new Date(new Date().getTime() + 2 * 86400000),
-      })
-      .where(eq(userData.userId, ctx.userId));
-  }),
+  toggleDeletionTimer: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (target.isBanned || target.isSilenced) {
+        return errorResponse("User has to serve the ban/silence first");
+      }
+      if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
+        return errorResponse("You can't delete other users");
+      }
+      // Muate
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          deletionAt: target.deletionAt
+            ? null
+            : new Date(new Date().getTime() + 2 * 86400000),
+        })
+        .where(eq(userData.userId, input.userId));
+      return { success: true, message: "Deletion timer toggled" };
+    }),
   // Delete user
   confirmDeletion: protectedProcedure
     .input(z.object({ userId: z.string() }))
