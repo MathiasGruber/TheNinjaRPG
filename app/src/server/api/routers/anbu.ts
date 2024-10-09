@@ -65,6 +65,11 @@ export const anbuRouter = createTRPCRouter({
       }
       return null;
     }),
+  getAllNames: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.anbuSquad.findMany({
+      columns: { id: true, name: true, image: true },
+    });
+  }),
   getRequests: protectedProcedure.query(async ({ ctx }) => {
     return await fetchRequests(ctx.drizzle, ["ANBU"], 3600 * 12, ctx.userId);
   }),

@@ -45,6 +45,12 @@ export const useAiEditForm = (
   const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
     staleTime: Infinity,
   });
+  const { data: clans, isPending: l5 } = api.clan.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const { data: anbus, isPending: l6 } = api.anbu.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
 
   // tRPC utility
   const utils = api.useUtils();
@@ -78,7 +84,7 @@ export const useAiEditForm = (
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
   // Object for form values
   const formData: FormEntry<keyof InsertUserDataSchema | "jutsus" | "items">[] = [
@@ -122,6 +128,18 @@ export const useAiEditForm = (
       type: "str_array",
       values: ElementNames,
       resetButton: true,
+    },
+    {
+      id: "anbuId",
+      label: "Anbu Squad",
+      type: "db_values",
+      values: anbus,
+    },
+    {
+      id: "clanId",
+      label: "Clan",
+      type: "db_values",
+      values: clans,
     },
     {
       id: "jutsus",

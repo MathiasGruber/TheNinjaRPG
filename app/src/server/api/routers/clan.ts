@@ -57,6 +57,11 @@ export const clanRouter = createTRPCRouter({
       if (user && user.villageId === input.villageId) return fetchedClans;
       return null;
     }),
+  getAllNames: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.clan.findMany({
+      columns: { id: true, name: true, image: true },
+    });
+  }),
   getRequests: protectedProcedure.query(async ({ ctx }) => {
     return await fetchRequests(ctx.drizzle, ["CLAN"], 3600 * 12, ctx.userId);
   }),
