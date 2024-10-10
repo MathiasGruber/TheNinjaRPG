@@ -5,6 +5,7 @@ import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
+import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
 import { getUserElements } from "@/validators/user";
@@ -224,9 +225,9 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     }
     return 0;
   };
-  return (
-    1 + rankContrib(userdata.rank) + fedContrib(userdata) + userdata.extraJutsuSlots
-  );
+  const extraSlots =
+    userdata.role === "USER" ? userdata.extraJutsuSlots : MAX_EXTRA_JUTSU_SLOTS;
+  return 1 + rankContrib(userdata.rank) + fedContrib(userdata) + extraSlots;
 };
 
 // For categorizing jutsu
