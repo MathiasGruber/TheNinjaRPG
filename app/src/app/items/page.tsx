@@ -274,7 +274,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
  * Character Equip Screen
  */
 interface CharacterProps {
-  useritems: UserItemWithItem[];
+  useritems: UserItemWithItem[] | undefined;
 }
 
 const Character: React.FC<CharacterProps> = (props) => {
