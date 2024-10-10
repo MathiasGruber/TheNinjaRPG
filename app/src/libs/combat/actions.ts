@@ -84,7 +84,7 @@ export const availableUserActions = (
     actionCostPerc: 60,
     range: 0,
     updatedAt: Date.now(),
-    cooldown: 4,
+    cooldown: 10,
     level: user?.level,
     effects: [
       HealTag.parse({
