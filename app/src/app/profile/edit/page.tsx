@@ -9,7 +9,6 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
-import RichInput from "@/layout/RichInput";
 import AvatarImage from "@/layout/Avatar";
 import Modal from "@/layout/Modal";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
@@ -45,7 +44,6 @@ import {
 } from "lucide-react";
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
-import { mutateContentSchema } from "@/validators/comments";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { useUserSearch } from "@/utils/search";
@@ -65,7 +63,6 @@ import { canSwapBloodline } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { Bloodline, Village } from "@/drizzle/schema";
-import type { MutateContentSchema } from "@/validators/comments";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import UserRequestSystem from "@/layout/UserRequestSystem";
@@ -998,7 +995,12 @@ const OwnNindoChange: React.FC = () => {
   if (isUpdating) return <Loader explanation="Updating nindo..." />;
   if (!userData) return <Loader explanation="Loading profile..." />;
 
-  return <NindoChange userId={userData.userId} onChange={(data) => mutate(data)} />;
+  return (
+    <NindoChange
+      userId={userData.userId}
+      onChange={(data) => mutate({ userId: userData.userId, content: data.content })}
+    />
+  );
 };
 
 /**

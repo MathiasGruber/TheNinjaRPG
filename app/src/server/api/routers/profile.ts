@@ -661,10 +661,7 @@ export const profileRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, target] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchUser(ctx.drizzle, input.userId),
-      ]);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Guard
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
@@ -1400,9 +1397,16 @@ export const fetchPublicUsers = async (
         ...(input.village !== undefined ? [eq(userData.villageId, input.village)] : []),
         ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
         ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
-        ...(input.isAi === false
-          ? [eq(userData.isSummon, false)]
-          : [eq(userData.isAi, true)]),
+        ...(input.isAi ? [eq(userData.isAi, true)] : []),
+        ...(input.inArena && input.isAi
+          ? [eq(userData.inArena, true)]
+          : [eq(userData.inArena, false)]),
+        ...(input.isEvent && input.isAi
+          ? [eq(userData.isEvent, true)]
+          : [eq(userData.isEvent, false)]),
+        ...(input.isSummon && input.isAi
+          ? [eq(userData.isSummon, true)]
+          : [eq(userData.isSummon, false)]),
       ),
       columns: {
         userId: true,
@@ -1417,6 +1421,10 @@ export const fetchPublicUsers = async (
         reputationPointsTotal: true,
         lastIp: true,
         pvpStreak: true,
+        isSummon: true,
+        isEvent: true,
+        inArena: true,
+        isAi: true,
       },
       // If AI, also include relations information
       with: {

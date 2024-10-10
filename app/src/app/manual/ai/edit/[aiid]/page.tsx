@@ -197,12 +197,15 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
       <AiProfileEdit userData={props.user} />
 
       <ContentBox title="Nindo" subtitle="Edit the AI Nindo" initialBreak>
-        <NindoChange
-          userId={processedUser.userId}
-          onChange={(data) =>
-            updateNindo({ userId: processedUser.userId, content: data.content })
-          }
-        />
+        {isUpdating && <Loader explanation="Updating..." />}
+        {!isUpdating && (
+          <NindoChange
+            userId={processedUser.userId}
+            onChange={(data) =>
+              updateNindo({ userId: processedUser.userId, content: data.content })
+            }
+          />
+        )}
       </ContentBox>
     </>
   );

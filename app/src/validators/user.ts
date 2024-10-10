@@ -96,5 +96,8 @@ export const getPublicUsersSchema = z.object({
   village: z.string().optional(),
   bloodline: z.string().optional(),
   recruiterId: z.string().optional(),
+  inArena: z.boolean().optional(),
+  isEvent: z.boolean().optional(),
+  isSummon: z.boolean().optional(),
 });
 export type GetPublicUsersSchema = z.infer<typeof getPublicUsersSchema>;

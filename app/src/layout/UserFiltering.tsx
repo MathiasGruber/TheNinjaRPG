@@ -25,10 +25,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { getPublicUsersSchema } from "@/validators/user";
 import { Filter } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
+import Toggle from "@/components/control/Toggle";
 import type { GetPublicUsersSchema } from "@/validators/user";
 
 interface UserFilteringProps {
   state: UserFilteringState;
+  aiToggles?: boolean;
 }
 
 const UserFiltering: React.FC<UserFilteringProps> = (props) => {
@@ -37,7 +39,8 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
 
   // Destructure the state
   const { setUsername, setBloodline, setVillage, setIp } = props.state;
-  const { username, bloodline, village, ip } = props.state;
+  const { username, bloodline, village, ip, inArena, isEvent, isSummon } = props.state;
+  const { setInArena, setIsEvent, setIsSummon } = props.state;
 
   // Query
   const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
@@ -160,6 +163,40 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
+          {props.aiToggles && (
+            <>
+              {/* Event AI */}
+              <div>
+                <Toggle
+                  id="toggle-event-only"
+                  value={isEvent}
+                  setShowActive={setIsEvent}
+                  labelActive="Event"
+                  labelInactive="Non-Event"
+                />
+              </div>
+              {/* Summon AI */}
+              <div>
+                <Toggle
+                  id="toggle-summon-only"
+                  value={isSummon}
+                  setShowActive={setIsSummon}
+                  labelActive="Summon"
+                  labelInactive="Non-Summon"
+                />
+              </div>
+              {/* Arena AI */}
+              <div>
+                <Toggle
+                  id="toggle-arena-only"
+                  value={inArena}
+                  setShowActive={setInArena}
+                  labelActive="Arena"
+                  labelInactive="Non-Arena"
+                />
+              </div>
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -175,6 +212,9 @@ export const getFilter = (state: UserFilteringState) => {
     ip: state.ip ? state.ip : undefined,
     bloodline: state.bloodline !== "None" ? state.bloodline : undefined,
     village: state.village !== "None" ? state.village : undefined,
+    isSummon: state.isSummon ? state.isSummon : undefined,
+    isEvent: state.isEvent ? state.isEvent : undefined,
+    inArena: state.inArena ? state.inArena : undefined,
   };
 };
 
@@ -185,13 +225,22 @@ export const useFiltering = () => {
   const [ip, setIp] = useState<string>("");
   const [bloodline, setBloodline] = useState<string>("None");
   const [village, setVillage] = useState<string>("None");
+  const [isSummon, setIsSummon] = useState<boolean | undefined>(false);
+  const [isEvent, setIsEvent] = useState<boolean | undefined>(false);
+  const [inArena, setInArena] = useState<boolean | undefined>(true);
 
   // Return all
   return {
     bloodline,
+    inArena,
     ip,
+    isEvent,
+    isSummon,
     setBloodline,
+    setInArena,
     setIp,
+    setIsEvent,
+    setIsSummon,
     setUsername,
     setVillage,
     username,

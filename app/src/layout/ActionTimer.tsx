@@ -9,7 +9,6 @@ import {
   IMG_ACTIONTIMER_YELLOW,
   IMG_ACTIONTIMER_RED,
   IMG_ACTIONTIMER_BLUE,
-  IMG_ACTIONTIMER_GREEN,
   IMG_ACTIONTIMER_OVERLAY,
 } from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";

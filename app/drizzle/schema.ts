@@ -1284,6 +1284,7 @@ export const userData = mysqlTable(
     battleId: varchar("battleId", { length: 191 }),
     isAi: boolean("isAi").default(false).notNull(),
     isSummon: boolean("isSummon").default(false).notNull(),
+    isEvent: boolean("isEvent").default(false).notNull(),
     inArena: boolean("inArena").default(false).notNull(),
     inboxNews: int("inboxNews").default(0).notNull(),
     regenAt: datetime("regenAt", { mode: "date", fsp: 3 })

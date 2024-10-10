@@ -116,7 +116,7 @@ export default function ManualAI() {
                 <FilePlus className="mr-2 h-5 w-5" /> New AI
               </Button>
             )}
-            <UserFiltering state={state} />
+            <UserFiltering state={state} aiToggles />
           </div>
         }
       >

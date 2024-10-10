@@ -239,6 +239,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   <b>Village</b>: {item.village.name}
                 </p>
               )}
+            {"inArena" in item && "isSummon" in item && "isEvent" in item && (
+              <p>
+                <b>Classification:</b>
+                {(item.inArena as boolean) && "Arena"}
+                {(item.isSummon as boolean) && "Summon"}
+                {(item.isEvent as boolean) && "Event"}
+              </p>
+            )}
             {"stackSize" in item && item.stackSize > 0 && (
               <p>
                 <b>Stackable</b>: {item.stackSize}
