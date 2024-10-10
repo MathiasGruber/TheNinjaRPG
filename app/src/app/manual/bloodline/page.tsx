@@ -35,7 +35,7 @@ export default function ManualBloodlines() {
     fetchNextPage,
     hasNextPage,
   } = api.bloodline.getAll.useInfiniteQuery(
-    { limit: 20, ...getFilter(state), showHidden: true },
+    { limit: 10, ...getFilter(state), showHidden: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

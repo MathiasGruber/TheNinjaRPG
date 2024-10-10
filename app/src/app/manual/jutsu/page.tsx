@@ -35,7 +35,7 @@ export default function ManualJutsus() {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 500, ...getFilter(state) },
+    { limit: 10, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,

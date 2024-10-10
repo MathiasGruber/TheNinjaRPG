@@ -34,7 +34,7 @@ export default function ManualQuests() {
     fetchNextPage,
     hasNextPage,
   } = api.quests.getAll.useInfiniteQuery(
-    { limit: 20, ...getFilter(state) },
+    { limit: 10, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -140,20 +140,16 @@ export default function ManualQuests() {
         }
       >
         {totalLoading && <Loader explanation="Loading data" />}
-        {!totalLoading &&
-          allQuests?.map((quest, i) => (
-            <div
+        {allQuests?.map((quest, i) => (
+          <div key={quest.id} ref={i === allQuests.length - 1 ? setLastElement : null}>
+            <ItemWithEffects
+              item={quest}
               key={quest.id}
-              ref={i === allQuests.length - 1 ? setLastElement : null}
-            >
-              <ItemWithEffects
-                item={quest}
-                key={quest.id}
-                onDelete={(id: string) => remove({ id })}
-                showEdit="quest"
-              />
-            </div>
-          ))}
+              onDelete={(id: string) => remove({ id })}
+              showEdit="quest"
+            />
+          </div>
+        ))}
       </ContentBox>
     </>
   );

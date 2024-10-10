@@ -35,7 +35,7 @@ export default function ManualItems() {
     hasNextPage,
   } = api.item.getAll.useInfiniteQuery(
     {
-      limit: 20,
+      limit: 10,
       ...getFilter(state),
     },
     {
