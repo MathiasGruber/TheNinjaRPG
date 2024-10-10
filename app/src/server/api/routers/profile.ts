@@ -657,16 +657,22 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update nindo
   updateNindo: protectedProcedure
-    .input(mutateContentSchema)
+    .input(mutateContentSchema.extend({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
       // Guard
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
+      if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
+        return errorResponse("You can't change for other users");
+      }
       // Mutate
-      return updateNindo(ctx.drizzle, ctx.userId, input.content);
+      return updateNindo(ctx.drizzle, input.userId, input.content);
     }),
   // Insert attribute
   insertAttribute: protectedProcedure

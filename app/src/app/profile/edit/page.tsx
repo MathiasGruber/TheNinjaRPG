@@ -15,6 +15,7 @@ import Modal from "@/layout/Modal";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import NindoChange from "@/layout/NindoChange";
 import {
   Form,
   FormControl,
@@ -127,7 +128,7 @@ export default function EditProfile() {
           unselectedSubtitle="Your personal way of the ninja"
           onClick={setActiveElement}
         >
-          <NindoChange />
+          <OwnNindoChange />
         </Accordion>
         <Accordion
           title="Marriage"
@@ -979,58 +980,25 @@ const AttributeChange: React.FC = () => {
 /**
  * Nindo change component
  */
-const NindoChange: React.FC = () => {
+const OwnNindoChange: React.FC = () => {
   // State
   const { data: userData } = useRequiredUserData();
-
-  // Queries
-  const { data, refetch, isPending } = api.profile.getNindo.useQuery(
-    { userId: userData?.userId as string },
-    { enabled: !!userData, staleTime: Infinity },
-  );
+  const utils = api.useUtils();
 
   // Mutations
   const { mutate, isPending: isUpdating } = api.profile.updateNindo.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await refetch();
+        await utils.profile.getNindo.invalidate();
       }
     },
   });
 
-  // Form control
-  const {
-    handleSubmit,
-    reset,
-    control,
-    formState: { errors },
-  } = useForm<MutateContentSchema>({
-    defaultValues: { content: data },
-    resolver: zodResolver(mutateContentSchema),
-  });
-
-  // Handling submit
-  const onSubmit = handleSubmit((data) => {
-    mutate(data);
-    reset();
-  });
-
   if (isUpdating) return <Loader explanation="Updating nindo..." />;
-  if (isPending) return <Loader explanation="Loading nindo..." />;
+  if (!userData) return <Loader explanation="Loading profile..." />;
 
-  return (
-    <form onSubmit={onSubmit}>
-      <RichInput
-        id="content"
-        height="200"
-        placeholder={data}
-        control={control}
-        onSubmit={onSubmit}
-        error={errors.content?.message}
-      />
-    </form>
-  );
+  return <NindoChange userId={userData.userId} onChange={(data) => mutate(data)} />;
 };
 
 /**

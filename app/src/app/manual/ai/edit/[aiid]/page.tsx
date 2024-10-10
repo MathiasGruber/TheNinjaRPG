@@ -4,6 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import AiProfileEdit from "@/layout/AiProfileEdit";
 import StatusBar from "@/layout/StatusBar";
+import NindoChange from "@/layout/NindoChange";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
@@ -17,9 +18,11 @@ import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
 import { insertUserDataSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
+import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
 
 export default function ManualAisEdit({ params }: { params: { aiid: string } }) {
+  // State
   const aiId = params.aiid;
   const router = useRouter();
   const { data: userData } = useRequiredUserData();
@@ -55,6 +58,9 @@ interface SingleEditUserProps {
 }
 
 const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Form handling
   const {
     loading,
@@ -65,6 +71,17 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
     setEffects,
     handleUserSubmit,
   } = useAiEditForm(props.user);
+
+  // Mutations
+  const { mutate: updateNindo, isPending: isUpdating } =
+    api.profile.updateNindo.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getNindo.invalidate();
+        }
+      },
+    });
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -178,6 +195,15 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
       })}
 
       <AiProfileEdit userData={props.user} />
+
+      <ContentBox title="Nindo" subtitle="Edit the AI Nindo" initialBreak>
+        <NindoChange
+          userId={processedUser.userId}
+          onChange={(data) =>
+            updateNindo({ userId: processedUser.userId, content: data.content })
+          }
+        />
+      </ContentBox>
     </>
   );
 };
