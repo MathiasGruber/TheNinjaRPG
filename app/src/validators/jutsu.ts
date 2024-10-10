@@ -29,6 +29,7 @@ export const jutsuFilteringSchema = z.object({
   stat: z.array(z.enum(statFilters)).optional(),
   static: z.enum(animationNames).optional(),
   target: z.enum(AttackTargets).optional(),
+  hidden: z.boolean().optional(),
 });
 
 export type JutsuFilteringSchema = z.infer<typeof jutsuFilteringSchema>;

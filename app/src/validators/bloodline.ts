@@ -11,6 +11,7 @@ export const bloodlineFilteringSchema = z.object({
   effect: z.array(z.string()).optional(),
   rank: z.enum(LetterRanks).optional(),
   element: z.array(z.string()).optional(),
+  hidden: z.boolean().optional(),
 });
 
 export type BloodlineFilteringSchema = z.infer<typeof bloodlineFilteringSchema>;

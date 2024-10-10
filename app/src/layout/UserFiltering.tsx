@@ -166,8 +166,9 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
           {props.aiToggles && (
             <>
               {/* Event AI */}
-              <div>
+              <div className="mt-1">
                 <Toggle
+                  verticalLayout
                   id="toggle-event-only"
                   value={isEvent}
                   setShowActive={setIsEvent}
@@ -176,8 +177,9 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
                 />
               </div>
               {/* Summon AI */}
-              <div>
+              <div className="mt-1">
                 <Toggle
+                  verticalLayout
                   id="toggle-summon-only"
                   value={isSummon}
                   setShowActive={setIsSummon}
@@ -186,8 +188,9 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
                 />
               </div>
               {/* Arena AI */}
-              <div>
+              <div className="mt-1">
                 <Toggle
+                  verticalLayout
                   id="toggle-arena-only"
                   value={inArena}
                   setShowActive={setInArena}

@@ -27,6 +27,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import { StatTypes } from "@/drizzle/constants";
+import Toggle from "@/components/control/Toggle";
+import { useUserData } from "@/utils/UserContext";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { ElementName, LetterRank, StatType } from "@/drizzle/constants";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { StatGenType, EffectType } from "@/libs/train";
@@ -37,13 +40,16 @@ interface BloodFilteringProps {
 }
 
 const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
+  // Global state
+  const { data: userData } = useUserData();
+
   // Destructure the state
-  const { setVillage, setStat, setEffect } = props.state;
+  const { setVillage, setStat, setEffect, setHidden } = props.state;
   const { setName, setElement, setRank, setClassification } = props.state;
   const limitRanks = props.limitRanks ? props.limitRanks : LetterRanks;
 
   const { name, village, stat, effect, element } = props.state;
-  const { rank, classification } = props.state;
+  const { rank, classification, hidden } = props.state;
 
   // Get all villages
   const { data: villages } = api.village.getAll.useQuery(undefined, {
@@ -183,6 +189,19 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
               onChange={setStat}
             />
           </div>
+          {/* Hidden */}
+          {userData && canSeeSecretData(userData.role) && (
+            <div className="mt-1">
+              <Toggle
+                verticalLayout
+                id="toggle-hidden-only"
+                value={hidden}
+                setShowActive={setHidden}
+                labelActive="Hidden"
+                labelInactive="Non-Hidden"
+              />
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -198,6 +217,7 @@ export const getFilter = (state: BloodFilteringState) => {
     village: state.village !== "None" ? state.village : undefined,
     rank: state.rank !== "None" ? state.rank : undefined,
     classification: state.classification !== "None" ? state.classification : undefined,
+    hidden: state.hidden ? state.hidden : undefined,
     // Multiple selects
     element: state.element.length !== 0 ? (state.element as ElementName[]) : undefined,
     stat: state.stat.length !== 0 ? (state.stat as StatGenType[]) : undefined,
@@ -217,23 +237,26 @@ export const useFiltering = (defaultRank: LetterRank | None = "None") => {
   const [element, setElement] = useState<string[]>([]);
   const [stat, setStat] = useState<string[]>([]);
   const [effect, setEffect] = useState<string[]>([]);
+  const [hidden, setHidden] = useState<boolean | undefined>(false);
 
   // Return all
   return {
-    name,
     classification,
-    village,
-    stat,
     effect,
-    rank,
     element,
-    setName,
+    hidden,
+    name,
+    rank,
     setClassification,
-    setVillage,
-    setStat,
     setEffect,
-    setRank,
     setElement,
+    setHidden,
+    setName,
+    setRank,
+    setStat,
+    setVillage,
+    stat,
+    village,
   };
 };
 

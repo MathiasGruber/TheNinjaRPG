@@ -28,6 +28,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import { StatTypes, AttackMethods, AttackTargets } from "@/drizzle/constants";
+import Toggle from "@/components/control/Toggle";
+import { useUserData } from "@/utils/UserContext";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
 import type { AttackMethod, AttackTarget } from "@/drizzle/constants";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
@@ -40,13 +43,16 @@ interface JutsuFilteringProps {
 }
 
 const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
+  // Global state
+  const { data: userData } = useUserData();
+
   // Destructure the state
   const { setBloodline, setStat, setEffect, setRarity } = props.state;
   const { setAppearAnim, setRemoveAnim, setStaticAnim } = props.state;
   const { setName, setElement, setRank, setClassification } = props.state;
-  const { setMethod, setTarget, setRequiredLevel } = props.state;
+  const { setMethod, setTarget, setRequiredLevel, setHidden } = props.state;
 
-  const { name, bloodline, stat, effect, rarity, element } = props.state;
+  const { name, bloodline, stat, effect, rarity, element, hidden } = props.state;
   const { rank, appearAnim, staticAnim, removeAnim, classification } = props.state;
   const { method, target, requiredLevel } = props.state;
   const { fixedBloodline } = props;
@@ -344,6 +350,19 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               />
             </Form>
           </div>
+          {/* Hidden */}
+          {userData && canSeeSecretData(userData.role) && (
+            <div className="mt-1">
+              <Toggle
+                verticalLayout
+                id="toggle-hidden-only"
+                value={hidden}
+                setShowActive={setHidden}
+                labelActive="Hidden"
+                labelInactive="Non-Hidden"
+              />
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -369,6 +388,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     stat: state.stat.length !== 0 ? (state.stat as StatGenType[]) : undefined,
     static: state.staticAnim !== "None" ? state.staticAnim : undefined,
     target: state.target !== "None" ? state.target : undefined,
+    hidden: state.hidden ? state.hidden : undefined,
   };
 };
 
@@ -390,6 +410,7 @@ export const useFiltering = () => {
   const [stat, setStat] = useState<string[]>([]);
   const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
   const [target, setTarget] = useState<AttackTarget | None>("None");
+  const [hidden, setHidden] = useState<boolean | undefined>(false);
 
   // Return all
   return {
@@ -398,29 +419,31 @@ export const useFiltering = () => {
     classification,
     effect,
     element,
+    hidden,
     method,
     name,
     rank,
     rarity,
-    requiredLevel,
     removeAnim,
-    stat,
-    staticAnim,
-    target,
+    requiredLevel,
     setAppearAnim,
     setBloodline,
     setClassification,
     setEffect,
     setElement,
+    setHidden,
     setMethod,
     setName,
     setRank,
     setRarity,
-    setRequiredLevel,
     setRemoveAnim,
+    setRequiredLevel,
     setStat,
     setStaticAnim,
     setTarget,
+    stat,
+    staticAnim,
+    target,
   };
 };
 

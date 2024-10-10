@@ -17,6 +17,7 @@ export const questFilteringSchema = z.object({
   timeframe: z.enum(TimeFrames).optional(),
   userLevel: z.coerce.number().min(0).max(150).optional(),
   village: z.string().optional(),
+  hidden: z.boolean().optional(),
 });
 
 export type QuestFilteringSchema = z.infer<typeof questFilteringSchema>;

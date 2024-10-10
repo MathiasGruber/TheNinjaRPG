@@ -593,5 +593,8 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
         ]
       : []),
     ...[input?.target ? eq(jutsu.target, input.target) : isNotNull(jutsu.target)],
+    ...(input?.hidden !== undefined
+      ? [eq(jutsu.hidden, input.hidden)]
+      : [eq(jutsu.hidden, false)]),
   ];
 };

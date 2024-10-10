@@ -71,6 +71,9 @@ export const questsRouter = createTRPCRouter({
                 lte(quest.requiredLevel, input.userLevel),
               ]
             : []),
+          ...(input?.hidden !== undefined
+            ? [eq(quest.hidden, input.hidden)]
+            : [eq(quest.hidden, false)]),
         ),
         offset: skip,
         limit: input.limit,

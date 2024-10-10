@@ -75,7 +75,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
       limit: 500,
       effect: [tagType],
       ...(stat ? { stat: [stat] } : {}),
-      showHidden: true,
+      hidden: true,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,

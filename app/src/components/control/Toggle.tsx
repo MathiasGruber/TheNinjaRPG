@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { cn } from "src/libs/shadui";
 
 interface ToggleProps {
   id?: string;
@@ -8,6 +9,7 @@ interface ToggleProps {
   labelInactive?: string;
   value?: boolean;
   setShowActive: React.Dispatch<React.SetStateAction<boolean | undefined>>;
+  verticalLayout?: boolean;
 }
 
 const Toggle: React.FC<ToggleProps> = (props) => {
@@ -38,7 +40,12 @@ const Toggle: React.FC<ToggleProps> = (props) => {
 
   // Render
   return (
-    <div className="flex flex-row items-center">
+    <div
+      className={cn(
+        "flex",
+        props.verticalLayout ? "flex-col items-start gap-2" : "flex-row items-center",
+      )}
+    >
       <Label htmlFor="tag_name" className="mr-2">
         {value ? active : inactive}
       </Label>

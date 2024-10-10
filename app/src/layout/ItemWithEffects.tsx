@@ -257,6 +257,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Item type</b>: {item.itemType.toLowerCase()}
               </p>
             )}
+            {"hidden" in item && (
+              <p>
+                <b>Hidden</b>: {item.hidden ? "yes" : "no"}
+              </p>
+            )}
             {"isEventItem" in item && item.isEventItem && (
               <p>
                 <b>Event Item</b>: yes

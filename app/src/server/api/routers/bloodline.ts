@@ -32,10 +32,10 @@ export const bloodlineRouter = createTRPCRouter({
       bloodlineFilteringSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(500),
-        showHidden: z.boolean().optional().nullable(),
       }),
     )
     .query(async ({ ctx, input }) => {
+      console.log(input);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
@@ -77,7 +77,9 @@ export const bloodlineRouter = createTRPCRouter({
                 ),
               ]
             : []),
-          ...(input.showHidden ? [] : [eq(bloodline.hidden, false)]),
+          ...(input?.hidden !== undefined
+            ? [eq(bloodline.hidden, input.hidden)]
+            : [eq(bloodline.hidden, false)]),
         ),
         offset: skip,
         limit: input.limit,

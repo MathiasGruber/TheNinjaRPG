@@ -31,6 +31,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import Toggle from "@/components/control/Toggle";
+import { useUserData } from "@/utils/UserContext";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
 import type { AttackTarget, ItemType, AttackMethod } from "@/drizzle/constants";
@@ -41,14 +43,17 @@ interface ItemFilteringProps {
 }
 
 const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
+  // Global state
+  const { data: userData } = useUserData();
+
   // Destructure the state
   const { setOnlyInShop, setEventItems } = props.state;
-  const { setName, setEffect } = props.state;
+  const { setName, setEffect, setHidden } = props.state;
   const { setItemType, setRarity, setSlot, setMethod, setTarget } = props.state;
 
   const { itemType, itemRarity, slot, method, target } = props.state;
   const { onlyInShop, eventItems } = props.state;
-  const { name, effect } = props.state;
+  const { name, effect, hidden } = props.state;
 
   // Name search schema
   const form = useForm<SearchJutsuSchema>({
@@ -220,8 +225,9 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
             </Select>
           </div>
           {/* Event Item */}
-          <div>
+          <div className="mt-1">
             <Toggle
+              verticalLayout
               id="toggle-event-only"
               value={eventItems}
               setShowActive={setEventItems}
@@ -230,8 +236,9 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
             />
           </div>
           {/* Shop Item */}
-          <div>
+          <div className="mt-1">
             <Toggle
+              verticalLayout
               id="toggle-in-shop"
               value={onlyInShop}
               setShowActive={setOnlyInShop}
@@ -239,6 +246,19 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
               labelInactive="Not in Shop"
             />
           </div>
+          {/* Hidden */}
+          {userData && canSeeSecretData(userData.role) && (
+            <div className="mt-1">
+              <Toggle
+                verticalLayout
+                id="toggle-hidden-only"
+                value={hidden}
+                setShowActive={setHidden}
+                labelActive="Hidden"
+                labelInactive="Non-Hidden"
+              />
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -259,6 +279,7 @@ export const getFilter = (state: ItemFilteringState) => {
     eventItems: state.eventItems ? state.eventItems : false,
     onlyInShop: state.onlyInShop ? state.onlyInShop : false,
     effect: state.effect !== "ANY" ? state.effect : undefined,
+    hidden: state.hidden ? state.hidden : undefined,
   };
 };
 
@@ -276,27 +297,30 @@ export const useFiltering = () => {
   const [method, setMethod] = useState<(typeof AttackMethods)[number] | "ANY">("ANY");
   const [eventItems, setEventItems] = useState<boolean | undefined>(false);
   const [onlyInShop, setOnlyInShop] = useState<boolean | undefined>(true);
+  const [hidden, setHidden] = useState<boolean | undefined>(false);
 
   // Return all
   return {
-    name,
     effect,
-    itemType,
-    itemRarity,
-    slot,
-    target,
-    method,
-    onlyInShop,
     eventItems,
-    setName,
+    hidden,
+    itemRarity,
+    itemType,
+    method,
+    name,
+    onlyInShop,
     setEffect,
+    setEventItems,
+    setHidden,
     setItemType,
+    setMethod,
+    setName,
+    setOnlyInShop,
     setRarity,
     setSlot,
     setTarget,
-    setMethod,
-    setOnlyInShop,
-    setEventItems,
+    slot,
+    target,
   };
 };
 

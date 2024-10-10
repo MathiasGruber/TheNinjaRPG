@@ -26,6 +26,9 @@ import { searchQuestSchema } from "@/validators/quest";
 import { Filter } from "lucide-react";
 import { TimeFrames, LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { allObjectiveTasks } from "@/validators/objectives";
+import Toggle from "@/components/control/Toggle";
+import { useUserData } from "@/utils/UserContext";
+import { canSeeSecretData } from "@/utils/permissions";
 import type { TimeFrame } from "@/drizzle/constants";
 import type { AllObjectiveTask } from "@/validators/objectives";
 import type { LetterRank } from "@/drizzle/constants";
@@ -38,10 +41,13 @@ interface QuestFilteringProps {
 }
 
 const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
+  // Global state
+  const { data: userData } = useUserData();
+
   // Destructure the state
-  const { name, objectives, questType } = props.state;
+  const { name, objectives, questType, hidden } = props.state;
   const { rank, timeframe, userLevel, village } = props.state;
-  const { setName, setObjectives, setQuestType } = props.state;
+  const { setName, setObjectives, setQuestType, setHidden } = props.state;
   const { setRank, setTimeframe, setUserLevel, setVillage } = props.state;
 
   // Get all villages
@@ -218,6 +224,19 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
+          {/* Hidden */}
+          {userData && canSeeSecretData(userData.role) && (
+            <div className="mt-1">
+              <Toggle
+                verticalLayout
+                id="toggle-hidden-only"
+                value={hidden}
+                setShowActive={setHidden}
+                labelActive="Hidden"
+                labelInactive="Non-Hidden"
+              />
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -239,6 +258,7 @@ export const getFilter = (state: QuestFilteringState) => {
     timeframe: state.timeframe !== "None" ? state.timeframe : undefined,
     userLevel: state.userLevel !== undefined ? state.userLevel : undefined,
     village: state.village !== "None" ? state.village : undefined,
+    hidden: state.hidden ? state.hidden : undefined,
   };
 };
 
@@ -253,13 +273,16 @@ export const useFiltering = () => {
   const [timeframe, setTimeframe] = useState<TimeFrame | None>("None");
   const [userLevel, setUserLevel] = useState<number | undefined>(undefined);
   const [village, setVillage] = useState<string>("None");
+  const [hidden, setHidden] = useState<boolean | undefined>(false);
 
   // Return all
   return {
+    hidden,
     name,
     objectives,
     questType,
     rank,
+    setHidden,
     setName,
     setObjectives,
     setQuestType,
