@@ -10,6 +10,7 @@ import {
 
 export const itemFilteringSchema = z.object({
   limit: z.number().min(1).max(500),
+  name: z.string().optional(),
   itemType: z.enum(ItemTypes).optional(),
   itemRarity: z.enum(ItemRarities).optional(),
   effect: z.string().optional(),

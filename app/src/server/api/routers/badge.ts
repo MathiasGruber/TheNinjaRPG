@@ -15,6 +15,11 @@ import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import type { DrizzleClient } from "@/server/db";
 
 export const badgeRouter = createTRPCRouter({
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.badge.findMany({
+      columns: { id: true, name: true, image: true },
+    });
+  }),
   getAll: protectedProcedure
     .input(
       z
