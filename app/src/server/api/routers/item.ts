@@ -14,6 +14,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { effectFilters } from "@/libs/train";
 import { structureBoost } from "@/utils/village";
+import { calcItemSellingPrice } from "@/libs/item";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
@@ -236,12 +237,7 @@ export const itemRouter = createTRPCRouter({
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to sell");
       // Derived
-      const sDiscount = structureBoost("itemDiscountPerLvl", structures);
-      const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
-      const discount = Math.max(sDiscount + aDiscount, 50);
-      const factor = (100 - discount) / 100;
-      const isEventItem = useritem.item.isEventItem;
-      const cost = isEventItem ? 0 : useritem.item.cost * useritem.quantity * factor;
+      const cost = calcItemSellingPrice(user, useritem, structures);
       // Mutate
       await Promise.all([
         ctx.drizzle.delete(userItem).where(eq(userItem.id, input.userItemId)),

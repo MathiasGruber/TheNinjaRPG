@@ -2,7 +2,9 @@ import { getUserFederalStatus } from "@/utils/paypal";
 import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
-import type { Item, UserData } from "@/drizzle/schema";
+import { structureBoost } from "@/utils/village";
+import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
+import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schema";
 
 /**
  * Checks if an item is consumable outside of combat.
@@ -57,4 +59,28 @@ export const calcMaxItems = (user: UserData) => {
     return 0;
   };
   return base + user.extraItemSlots + fedContrib(user);
+};
+
+/**
+ * Calculates the selling price of a user's item based on various discounts and factors.
+ *
+ * @param user - The user data containing information about the user.
+ * @param useritem - The user's item data, including the item details.
+ * @param structures - The list of village structures that may affect the discount.
+ * @returns The calculated selling price of the item.
+ */
+export const calcItemSellingPrice = (
+  user: UserData,
+  useritem: (UserItem & { item: Item }) | undefined,
+  structures: VillageStructure[] | undefined,
+) => {
+  if (!useritem) return 0;
+  const bDiscount = 50;
+  const sDiscount = structureBoost("itemDiscountPerLvl", structures);
+  const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
+  const discount = Math.min(bDiscount + sDiscount + aDiscount, 95);
+  const factor = (100 - discount) / 100;
+  const isEventItem = useritem.item.isEventItem;
+  const cost = isEventItem ? 0 : useritem.item.cost * useritem.quantity * factor;
+  return Math.floor(cost);
 };

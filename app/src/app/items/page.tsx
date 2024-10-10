@@ -11,6 +11,7 @@ import Confirm from "@/layout/Confirm";
 import ContentImage from "@/layout/ContentImage";
 import { nonCombatConsume } from "@/libs/item";
 import { Button } from "@/components/ui/button";
+import { calcItemSellingPrice } from "@/libs/item";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
@@ -20,6 +21,8 @@ import { CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
+
+type UserItemWithItem = UserItem & { item: Item };
 
 export default function MyItems() {
   // State
@@ -45,13 +48,8 @@ export default function MyItems() {
     },
   });
 
-  // Collapse UserItem and Item
-  const allItems = userItems?.map((useritem) => {
-    return { ...useritem.item, ...useritem };
-  });
-
   // Subtitle
-  const nonEquipped = allItems?.filter((item) => item.equipped === "NONE");
+  const nonEquipped = userItems?.filter((ui) => ui.equipped === "NONE");
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -60,6 +58,8 @@ export default function MyItems() {
   // Can afford removing
   const canAfford =
     userData.reputationPoints && userData.reputationPoints >= COST_EXTRA_ITEM_SLOT;
+
+  console.log("userData", userData);
 
   return (
     <ContentBox
@@ -97,12 +97,12 @@ export default function MyItems() {
         <div className="w-full basis-1/2 p-3">
           <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
           <div className="relative">
-            <Character items={allItems} />
+            <Character useritems={userItems} />
           </div>
         </div>
         <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
           <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
-          <Backpack userData={userData} items={nonEquipped} />
+          <Backpack userData={userData} useritems={nonEquipped} />
         </div>
       </div>
     </ContentBox>
@@ -113,13 +113,16 @@ export default function MyItems() {
  * Backpack Screen
  */
 interface BackpackProps {
-  items: (UserItem & Item)[] | undefined;
+  useritems: UserItemWithItem[] | undefined;
   userData: NonNullable<UserWithRelations>;
 }
 
 const Backpack: React.FC<BackpackProps> = (props) => {
+  // Destructure
+  const { useritems, userData } = props;
+
   // State
-  const [item, setItem] = useState<(UserItem & Item) | undefined>(undefined);
+  const [useritem, setUserItem] = useState<UserItemWithItem | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // tRPC utility
@@ -129,7 +132,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   const onSettled = () => {
     document.body.style.cursor = "default";
     setIsOpen(false);
-    setItem(undefined);
+    setUserItem(undefined);
   };
 
   // Mutations
@@ -174,56 +177,73 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSettled,
   });
 
+  // Derived
+  const structures = userData?.village?.structures;
   const isLoading = isMerging || isConsuming || isSelling || isEquipping;
+  const items = useritems?.map((useritem) => ({ ...useritem.item, ...useritem }));
+  const sellPrice = calcItemSellingPrice(userData, useritem, structures);
 
   return (
     <>
       <ActionSelector
         className="grid-cols-6 sm:grid-cols-4 md:grid-cols-4 pt-3"
-        items={props.items}
-        counts={props.items}
-        selectedId={item?.id}
+        items={items}
+        counts={items}
+        selectedId={useritem?.id}
         showBgColor={false}
         showLabels={false}
         onClick={(id) => {
-          if (id == item?.id) {
-            setItem(undefined);
+          if (id == useritem?.id) {
+            setUserItem(undefined);
             setIsOpen(false);
           } else {
-            setItem(props.items?.find((item) => item.id === id));
+            setUserItem(items?.find((item) => item.id === id));
             setIsOpen(true);
           }
         }}
       />
-      {isOpen && item && (
+      {isOpen && useritem && (
         <Modal title="Item Details" setIsOpen={setIsOpen} isValid={false}>
-          <ItemWithEffects item={item} key={item.id} showStatistic="item" />
+          <ItemWithEffects
+            item={useritem.item}
+            key={useritem.id}
+            showStatistic="item"
+          />
           {!isLoading && (
             <div className="flex flex-row gap-1">
-              {item.equipped === "NONE" && (
-                <Button variant="info" onClick={() => equip({ userItemId: item.id })}>
+              {useritem.equipped === "NONE" && (
+                <Button
+                  variant="info"
+                  onClick={() => equip({ userItemId: useritem.id })}
+                >
                   <Shirt className="mr-2 h-5 w-5" />
                   Equip
                 </Button>
               )}
-              {item.canStack && (
-                <Button variant="info" onClick={() => merge({ itemId: item.itemId })}>
+              {useritem.item.canStack && (
+                <Button
+                  variant="info"
+                  onClick={() => merge({ itemId: useritem.itemId })}
+                >
                   <Merge className="mr-2 h-5 w-5" />
                   Merge Stacks
                 </Button>
               )}
-              {nonCombatConsume(item, props.userData) && (
-                <Button variant="info" onClick={() => consume({ userItemId: item.id })}>
+              {nonCombatConsume(useritem.item, userData) && (
+                <Button
+                  variant="info"
+                  onClick={() => consume({ userItemId: useritem.id })}
+                >
                   <Cookie className="mr-2 h-5 w-5" />
                   Consume
                 </Button>
               )}
               <div className="grow"></div>
-              {item.isEventItem ? (
+              {useritem.item.isEventItem ? (
                 <Button
                   id="sell"
                   variant="destructive"
-                  onClick={() => sell({ userItemId: item.id })}
+                  onClick={() => sell({ userItemId: useritem.id })}
                 >
                   <ArrowDownToLine className="mr-2 h-5 w-5" />
                   Drop Item
@@ -232,18 +252,18 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                 <Button
                   id="sell"
                   variant="destructive"
-                  onClick={() => sell({ userItemId: item.id })}
+                  onClick={() => sell({ userItemId: useritem.id })}
                 >
                   <CircleDollarSign className="mr-2 h-5 w-5" />
-                  Sell Item [{Math.floor(item.cost / 2)} ryo]
+                  Sell Item [{Math.floor(sellPrice)} ryo]
                 </Button>
               )}
             </div>
           )}
-          {isMerging && <Loader explanation={`Merging ${item.name} stacks`} />}
-          {isConsuming && <Loader explanation={`Using ${item.name}`} />}
-          {isSelling && <Loader explanation={`Selling ${item.name}`} />}
-          {isEquipping && <Loader explanation={`Equipping ${item.name}`} />}
+          {isMerging && <Loader explanation={`Merging ${useritem.item.name} stacks`} />}
+          {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
+          {isSelling && <Loader explanation={`Selling ${useritem.item.name}`} />}
+          {isEquipping && <Loader explanation={`Equipping ${useritem.item.name}`} />}
         </Modal>
       )}
     </>
@@ -254,17 +274,20 @@ const Backpack: React.FC<BackpackProps> = (props) => {
  * Character Equip Screen
  */
 interface CharacterProps {
-  items: (UserItem & Item)[] | undefined;
+  useritems: UserItemWithItem[];
 }
 
 const Character: React.FC<CharacterProps> = (props) => {
   // Set state
-  const { items } = props;
+  const { useritems } = props;
   const [slot, setSlot] = useState<ItemSlot | undefined>(undefined);
   const [item, setItem] = useState<(UserItem & Item) | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // The item on the current slot
+
+  // Collapse UserItem and Item
+  const items = useritems?.map((useritem) => ({ ...useritem.item, ...useritem }));
   const equipped = items?.find((item) => item.equipped === slot);
 
   // tRPC utility
