@@ -30,7 +30,7 @@ import { Filter } from "lucide-react";
 import { StatTypes, AttackMethods, AttackTargets } from "@/drizzle/constants";
 import Toggle from "@/components/control/Toggle";
 import { useUserData } from "@/utils/UserContext";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
 import type { AttackMethod, AttackTarget } from "@/drizzle/constants";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
@@ -351,7 +351,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             </Form>
           </div>
           {/* Hidden */}
-          {userData && canSeeSecretData(userData.role) && (
+          {userData && canChangeContent(userData.role) && (
             <div className="mt-1">
               <Toggle
                 verticalLayout

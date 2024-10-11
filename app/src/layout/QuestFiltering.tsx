@@ -28,7 +28,7 @@ import { TimeFrames, LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { allObjectiveTasks } from "@/validators/objectives";
 import Toggle from "@/components/control/Toggle";
 import { useUserData } from "@/utils/UserContext";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import type { TimeFrame } from "@/drizzle/constants";
 import type { AllObjectiveTask } from "@/validators/objectives";
 import type { LetterRank } from "@/drizzle/constants";
@@ -225,7 +225,7 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
             </Select>
           </div>
           {/* Hidden */}
-          {userData && canSeeSecretData(userData.role) && (
+          {userData && canChangeContent(userData.role) && (
             <div className="mt-1">
               <Toggle
                 verticalLayout

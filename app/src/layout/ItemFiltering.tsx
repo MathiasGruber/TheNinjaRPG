@@ -32,7 +32,7 @@ import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import Toggle from "@/components/control/Toggle";
 import { useUserData } from "@/utils/UserContext";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
 import type { AttackTarget, ItemType, AttackMethod } from "@/drizzle/constants";
@@ -247,7 +247,7 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
             />
           </div>
           {/* Hidden */}
-          {userData && canSeeSecretData(userData.role) && (
+          {userData && canChangeContent(userData.role) && (
             <div className="mt-1">
               <Toggle
                 verticalLayout

@@ -29,7 +29,7 @@ import { Filter } from "lucide-react";
 import { StatTypes } from "@/drizzle/constants";
 import Toggle from "@/components/control/Toggle";
 import { useUserData } from "@/utils/UserContext";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import type { ElementName, LetterRank, StatType } from "@/drizzle/constants";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { StatGenType, EffectType } from "@/libs/train";
@@ -190,7 +190,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
             />
           </div>
           {/* Hidden */}
-          {userData && canSeeSecretData(userData.role) && (
+          {userData && canChangeContent(userData.role) && (
             <div className="mt-1">
               <Toggle
                 verticalLayout
