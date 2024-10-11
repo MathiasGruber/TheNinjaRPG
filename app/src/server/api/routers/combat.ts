@@ -271,6 +271,7 @@ export const combatRouter = createTRPCRouter({
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
       if (debug) console.log("============ Performing action ============");
+      if (!ctx.userId) return { notification: "User not found" };
 
       // Short-form
       const suid = ctx.userId;
@@ -497,6 +498,9 @@ export const combatRouter = createTRPCRouter({
     .input(z.object({ aiId: z.string(), stats: statSchema.nullish() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Ensure we have user
+      if (!ctx.userId) return errorResponse("User not found");
+
       // Get information
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
