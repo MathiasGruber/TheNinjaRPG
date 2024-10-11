@@ -573,6 +573,7 @@ export const combatRouter = createTRPCRouter({
     )
     .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) return errorResponse("User not found");
       return await initiateBattle(
         {
           longitude: input.longitude,
