@@ -513,7 +513,7 @@ export default function Simulator({
               </p>
             </div>
           )}
-          {!isPending && (
+          {!isPending && userData && (
             <Button id="return" onClick={onSubmit}>
               <Save className="mr-2 h-5 w-5" />
               Save Calculation

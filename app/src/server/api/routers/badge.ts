@@ -20,7 +20,7 @@ export const badgeRouter = createTRPCRouter({
       columns: { id: true, name: true, image: true },
     });
   }),
-  getAll: protectedProcedure
+  getAll: publicProcedure
     .input(
       z
         .object({

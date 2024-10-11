@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { animationNames } from "@/libs/combat/types";
 import { UserRanks } from "@/drizzle/constants";
 import { statFilters } from "@/libs/train";
 import { LetterRanks } from "@/drizzle/constants";
@@ -15,10 +14,10 @@ export const searchJutsuSchema = z.object({
 export type SearchJutsuSchema = z.infer<typeof searchJutsuSchema>;
 
 export const jutsuFilteringSchema = z.object({
-  appear: z.enum(animationNames).optional(),
+  appear: z.string().optional(),
   bloodline: z.string().optional(),
   classification: z.enum(StatTypes).optional(),
-  disappear: z.enum(animationNames).optional(),
+  disappear: z.string().optional(),
   effect: z.array(z.string()).optional(),
   element: z.array(z.string()).optional(),
   method: z.enum(AttackMethods).optional(),
@@ -27,7 +26,7 @@ export const jutsuFilteringSchema = z.object({
   requiredLevel: z.coerce.number().min(0).max(150).optional(),
   rarity: z.enum(LetterRanks).optional(),
   stat: z.array(z.enum(statFilters)).optional(),
-  static: z.enum(animationNames).optional(),
+  static: z.string().optional(),
   target: z.enum(AttackTargets).optional(),
   hidden: z.boolean().optional(),
 });

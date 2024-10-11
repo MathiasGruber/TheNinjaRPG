@@ -86,7 +86,6 @@ export default function Thread({ params }: { params: { threadid: string } }) {
                   user={comment.user}
                   hover_effect={false}
                   comment={comment}
-                  refetchComments={async () => await refetch()}
                 >
                   {parseHtml(comment.content)}
                 </CommentOnForum>

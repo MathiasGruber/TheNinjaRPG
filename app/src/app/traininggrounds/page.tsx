@@ -373,6 +373,35 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
   const iconClassName = "w-5 h-5 absolute top-1 right-1 text-blue-500";
 
+  const getImage = (stat: UserStatName) => {
+    switch (stat) {
+      case "intelligence":
+        return IMG_TRAIN_INTELLIGENCE;
+      case "willpower":
+        return IMG_TRAIN_WILLPOWER;
+      case "strength":
+        return IMG_TRAIN_STRENGTH;
+      case "speed":
+        return IMG_TRAIN_SPEED;
+      case "genjutsuOffence":
+        return IMG_TRAIN_GEN_OFF;
+      case "genjutsuDefence":
+        return IMG_TRAIN_GEN_DEF;
+      case "taijutsuDefence":
+        return IMG_TRAIN_TAI_DEF;
+      case "taijutsuOffence":
+        return IMG_TRAIN_TAI_OFF;
+      case "bukijutsuOffence":
+        return IMG_TRAIN_BUKI_OFF;
+      case "bukijutsuDefence":
+        return IMG_TRAIN_BUKI_DEF;
+      case "ninjutsuOffence":
+        return IMG_TRAIN_NIN_OFF;
+      case "ninjutsuDefence":
+        return IMG_TRAIN_NIN_DEF;
+    }
+  };
+
   return (
     <ContentBox
       title="Training"
@@ -402,34 +431,6 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
           ) : (
             <Fingerprint className={iconClassName} />
           );
-          const getImage = (stat: UserStatName) => {
-            switch (stat) {
-              case "intelligence":
-                return IMG_TRAIN_INTELLIGENCE;
-              case "willpower":
-                return IMG_TRAIN_WILLPOWER;
-              case "strength":
-                return IMG_TRAIN_STRENGTH;
-              case "speed":
-                return IMG_TRAIN_SPEED;
-              case "genjutsuOffence":
-                return IMG_TRAIN_GEN_OFF;
-              case "genjutsuDefence":
-                return IMG_TRAIN_GEN_DEF;
-              case "taijutsuDefence":
-                return IMG_TRAIN_TAI_DEF;
-              case "taijutsuOffence":
-                return IMG_TRAIN_TAI_OFF;
-              case "bukijutsuOffence":
-                return IMG_TRAIN_BUKI_OFF;
-              case "bukijutsuDefence":
-                return IMG_TRAIN_BUKI_DEF;
-              case "ninjutsuOffence":
-                return IMG_TRAIN_NIN_OFF;
-              case "ninjutsuDefence":
-                return IMG_TRAIN_NIN_DEF;
-            }
-          };
 
           return (
             <div
@@ -463,7 +464,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
           <div className="m-auto text-center text-white flex flex-col items-center">
             <p className="p-5  text-2xl">Training {userData.currentlyTraining}</p>
             <Image
-              src={`/training/${userData.currentlyTraining}.png`}
+              src={getImage(userData.currentlyTraining)}
               alt={userData.currentlyTraining}
               width={128}
               height={128}

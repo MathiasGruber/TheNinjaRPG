@@ -18,10 +18,9 @@ import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
 import { clear, cleanse, summon, summonPrevent, buffPrevent, weakness } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
-import { BATTLE_TAG_STACKING } from "@/drizzle/constants";
+import { BATTLE_TAG_STACKING, ID_ANIMATION_SMOKE } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { AnimationName } from "./types";
 import type { CompleteBattle, Consequence } from "./types";
 
 /**
@@ -96,7 +95,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
 const getVisual = (
   longitude: number,
   latitude: number,
-  animation?: AnimationName,
+  animation?: string,
   round: number = 0,
 ): GroundEffect => {
   return {
@@ -470,12 +469,12 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         // Process disappear animation of characters
         if (target.curHealth <= 0 && !target.isOriginal) {
           newGroundEffects.push(
-            getVisual(target.longitude, target.latitude, "smoke", round),
+            getVisual(target.longitude, target.latitude, ID_ANIMATION_SMOKE, round),
           );
         }
         if (user.curHealth <= 0 && !user.isOriginal) {
           newGroundEffects.push(
-            getVisual(user.longitude, user.latitude, "smoke", round),
+            getVisual(user.longitude, user.latitude, ID_ANIMATION_SMOKE, round),
           );
         }
       }

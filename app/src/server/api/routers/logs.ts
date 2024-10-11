@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, publicProcedure } from "../trpc";
 import { eq, and, like, inArray } from "drizzle-orm";
 import { extractValueFromJson } from "@/utils/regex";
 import { actionLog, village, bloodline } from "@/drizzle/schema";
 import { actionLogSchema } from "@/validators/logs";
 
 export const logsRouter = createTRPCRouter({
-  getContentChanges: protectedProcedure
+  getContentChanges: publicProcedure
     .input(
       actionLogSchema.extend({
         cursor: z.number().nullish(),

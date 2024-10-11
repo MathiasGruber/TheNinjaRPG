@@ -1,3 +1,6 @@
+export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
+export type GameAssetType = (typeof GameAssetTypes)[number];
+
 export const LetterRanks = ["D", "C", "B", "A", "S", "H"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
@@ -454,6 +457,11 @@ export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
 export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 5;
+
+// Game assets
+export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
+export const ID_ANIMATION_HIT = "oh4kVNrAwF";
+export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
 export const IMG_AVATAR_DEFAULT =

@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { animationNames } from "@/libs/combat/types";
 import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters, rarities } from "@/libs/train";
 import { useForm } from "react-hook-form";
@@ -34,7 +33,6 @@ import { canChangeContent } from "@/utils/permissions";
 import type { ElementName, UserRank, StatType } from "@/drizzle/constants";
 import type { AttackMethod, AttackTarget } from "@/drizzle/constants";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
-import type { AnimationName } from "@/libs/combat/types";
 import type { StatGenType, EffectType, RarityType } from "@/libs/train";
 
 interface JutsuFilteringProps {
@@ -58,15 +56,19 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const { fixedBloodline } = props;
 
   // Get all bloodlines
-  const { data } = api.bloodline.getAllNames.useQuery(undefined, {
+  const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
+  const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined, {
     staleTime: Infinity,
   });
 
   // Filter shown bloodlines
   const bloodlines = fixedBloodline
-    ? data?.filter((b) => b.id === fixedBloodline)
-    : data;
-  const bloodlineData = bloodlines?.find((b) => b.id === bloodline);
+    ? bloodlineData?.filter((b) => b.id === fixedBloodline)
+    : bloodlineData;
+  const selectedBloodline = bloodlines?.find((b) => b.id === bloodline);
 
   // Name search schema
   const form = useForm<SearchJutsuSchema>({
@@ -158,7 +160,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             <Select onValueChange={(e) => setBloodline(e)}>
               <Label htmlFor="bloodline">Bloodline</Label>
               <SelectTrigger>
-                <SelectValue placeholder={bloodlineData?.name || "None"} />
+                <SelectValue placeholder={selectedBloodline?.name || "None"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem key={"None"} value="None">
@@ -177,8 +179,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
 
           {/* ANIMATION */}
           <div>
-            <Select onValueChange={(e) => setAppearAnim(e as AnimationName)}>
-              <Label htmlFor="animation">Appear Animation</Label>
+            <Select onValueChange={(e) => setAppearAnim(e)}>
+              <Label htmlFor="setAppearAnim">Appear Animation</Label>
               <SelectTrigger>
                 <SelectValue placeholder={appearAnim || "None"} />
               </SelectTrigger>
@@ -186,19 +188,19 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 <SelectItem key={"None"} value="None">
                   None
                 </SelectItem>
-                {animationNames
-                  .filter((a) => a)
-                  .map((animation) => (
-                    <SelectItem key={animation} value={animation}>
-                      {animation}
+                {assetData
+                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                  .map((asset) => (
+                    <SelectItem key={asset.name} value={asset.id}>
+                      {asset.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Select onValueChange={(e) => setRemoveAnim(e as AnimationName)}>
-              <Label htmlFor="animation">Disappear Animation</Label>
+            <Select onValueChange={(e) => setRemoveAnim(e)}>
+              <Label htmlFor="setRemoveAnim">Disappear Animation</Label>
               <SelectTrigger>
                 <SelectValue placeholder={removeAnim || "None"} />
               </SelectTrigger>
@@ -206,37 +208,35 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 <SelectItem key={"None"} value="None">
                   None
                 </SelectItem>
-                {animationNames
-                  .filter((a) => a)
-                  .map((animation) => (
-                    <SelectItem key={animation} value={animation}>
-                      {animation}
+                {assetData
+                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                  .map((asset) => (
+                    <SelectItem key={asset.name} value={asset.id}>
+                      {asset.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label htmlFor="animation">Static Animation</Label>
-            <div className="flex flex-row items-center">
-              <Select onValueChange={(e) => setStaticAnim(e as AnimationName)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={staticAnim || "None"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem key={"None"} value="None">
-                    None
-                  </SelectItem>
-                  {animationNames
-                    .filter((a) => a)
-                    .map((animation) => (
-                      <SelectItem key={animation} value={animation}>
-                        {animation}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select onValueChange={(e) => setStaticAnim(e)}>
+              <Label htmlFor="setRemoveAnim">Static Animation</Label>
+              <SelectTrigger>
+                <SelectValue placeholder={staticAnim || "None"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem key={"None"} value="None">
+                  None
+                </SelectItem>
+                {assetData
+                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                  .map((asset) => (
+                    <SelectItem key={asset.name} value={asset.id}>
+                      {asset.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
           {/* Element */}
           <div>
@@ -396,7 +396,7 @@ export const getFilter = (state: JutsuFilteringState) => {
 export const useFiltering = () => {
   // State variables
   type None = "None";
-  const [appearAnim, setAppearAnim] = useState<AnimationName | None>("None");
+  const [appearAnim, setAppearAnim] = useState<string>("None");
   const [bloodline, setBloodline] = useState<string>("None");
   const [classification, setClassification] = useState<StatType | None>("None");
   const [effect, setEffect] = useState<string[]>([]);
@@ -406,9 +406,9 @@ export const useFiltering = () => {
   const [rank, setRank] = useState<UserRank>("NONE");
   const [requiredLevel, setRequiredLevel] = useState<number>(1);
   const [rarity, setRarity] = useState<RarityType>("ALL");
-  const [removeAnim, setRemoveAnim] = useState<AnimationName | None>("None");
+  const [removeAnim, setRemoveAnim] = useState<string>("None");
   const [stat, setStat] = useState<string[]>([]);
-  const [staticAnim, setStaticAnim] = useState<AnimationName | None>("None");
+  const [staticAnim, setStaticAnim] = useState<string>("None");
   const [target, setTarget] = useState<AttackTarget | None>("None");
   const [hidden, setHidden] = useState<boolean | undefined>(false);
 

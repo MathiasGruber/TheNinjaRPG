@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import {
-  createTRPCRouter,
-  protectedProcedure,
-  ratelimitMiddleware,
-} from "@/server/api/trpc";
-import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, ratelimitMiddleware } from "@/api/trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
@@ -34,7 +30,7 @@ import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { BarrierTag } from "@/libs/combat/types";
-import { combatAssetsNames } from "@/libs/travel/constants";
+import { fetchGameAssets } from "@/routers/misc";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { getRandomElement } from "@/utils/array";
 import { applyEffects } from "@/libs/combat/process";
@@ -285,7 +281,6 @@ export const combatRouter = createTRPCRouter({
 
       // OUTER LOOP: Attempt to perform action untill success || error thrown
       // The primary purpose here is that if the battle version was already updated, we retry the user's action
-      let attempts = 0;
       while (true) {
         // Fetch battle from database
         const battle = await fetchBattle(db, input.battleId);
@@ -340,7 +335,7 @@ export const combatRouter = createTRPCRouter({
             const actions = availableUserActions(newBattle, suid, true, true);
             const action = actions.find((a) => a.id === input.actionId);
             if (!action)
-              throw serverError("CONFLICT", `Invalid action: ${input.actionId}`);
+              return { notification: `Action not valid anymore. Try something else` };
             if (AutoBattleTypes.includes(battle.battleType)) {
               throw serverError("FORBIDDEN", `Cheater`);
             }
@@ -464,11 +459,12 @@ export const combatRouter = createTRPCRouter({
               result: result,
               logEntries: logEntries,
             };
+            // eslint-disable-next-line
           } catch (e) {
-            // If any of the above fails, retry the whole procedure
-            if (attempts > 1) throw e;
+            return {
+              notification: `Seems like the battle was out of sync with server, please try again`,
+            };
           }
-          attempts += 1;
         }
       }
     }),
@@ -690,9 +686,10 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
   // Get user & target data, to be inserted into battle
-  const [defaultProfile, settings, villages, relations, achievements, users] =
+  const [defaultProfile, assets, settings, villages, relations, achievements, users] =
     await Promise.all([
       fetchAiProfileById(client, "Default"),
+      fetchGameAssets(client),
       client.select().from(gameSetting),
       client.select().from(village),
       client.select().from(villageAlliance),
@@ -898,7 +895,7 @@ export const initiateBattle = async (
 
   // Starting ground effects
   const groundEffects: GroundEffect[] = [];
-  const assets = Object.values(combatAssetsNames);
+  const groundAssets = assets.filter((a) => a.onInitialBattleField);
   for (let col = 0; col < COMBAT_WIDTH; col++) {
     for (let row = 0; row < COMBAT_HEIGHT; row++) {
       // Ignore the spots where we placed users
@@ -908,12 +905,12 @@ export const initiateBattle = async (
       if (!foundUser) {
         const rand = Math.random();
         if (rand < 0.1) {
-          const asset = getRandomElement(assets);
+          const asset = getRandomElement(groundAssets);
           if (asset) {
             const tag: GroundEffect = {
               ...BarrierTag.parse({
                 power: 2,
-                staticAssetPath: asset,
+                staticAssetPath: asset.id,
               }),
               id: `initial-${col}-${row}`,
               creatorId: "ground",

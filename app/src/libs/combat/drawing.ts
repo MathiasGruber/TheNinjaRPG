@@ -15,7 +15,6 @@ import {
 } from "three";
 import { loadTexture, createTexture } from "@/libs/threejs/util";
 import { getPossibleActionTiles, findHex } from "../hexgrid";
-import { Animations } from "./types";
 import { COMBAT_WIDTH } from "./constants";
 import { getAffectedTiles } from "./movement";
 import { actionPointsAfterAction } from "./actions";
@@ -27,6 +26,7 @@ import {
   IMG_SECTOR_USER_SPRITE_MASK,
   IMG_SECTOR_SHADOW,
 } from "@/drizzle/constants";
+import type { GameAsset } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { Scene, Object3D, Raycaster } from "three";
 import type { TerrainHex, HexagonalFaceMesh } from "../hexgrid";
@@ -39,31 +39,26 @@ import type { SpriteMixer } from "../threejs/SpriteMixer";
  * Show animation on the hex
  */
 export const showAnimation = (
-  appearAnimation: string,
+  animation: GameAsset,
   hex: TerrainHex,
   spriteMixer: ReturnType<typeof SpriteMixer>,
   playInfinite = false,
 ) => {
-  const info = Animations.get(appearAnimation);
-  if (info) {
-    const { height: h, width: w } = hex;
-    const texture = loadTexture(`/animations/${appearAnimation}.png`);
-    const actionSprite = spriteMixer.ActionSprite(texture, 1, info.frames);
-    const action = spriteMixer.Action(actionSprite, 0, info.frames, info.speed);
-    if (action) {
-      action.hideWhenFinished = true;
-      if (playInfinite) {
-        action.playLoop();
-      } else {
-        action.playOnce();
-      }
+  const { height: h, width: w } = hex;
+  const texture = loadTexture(animation.image);
+  const actionSprite = spriteMixer.ActionSprite(texture, 1, animation.frames);
+  const action = spriteMixer.Action(actionSprite, 0, animation.frames, animation.speed);
+  if (action) {
+    action.hideWhenFinished = true;
+    if (playInfinite) {
+      action.playLoop();
+    } else {
+      action.playOnce();
     }
-    actionSprite.scale.set(50, 50, 1);
-    actionSprite.position.set(w / 2, h / 2, 5);
-    return actionSprite;
-  } else {
-    console.error("No such animation: ", appearAnimation);
   }
+  actionSprite.scale.set(50, 50, 1);
+  actionSprite.position.set(w / 2, h / 2, 5);
+  return actionSprite;
 };
 
 /**
@@ -160,9 +155,10 @@ export const drawCombatEffects = (info: {
   grid: Grid<TerrainHex>;
   animationId: number;
   spriteMixer: ReturnType<typeof SpriteMixer>;
+  gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { battle, groupGround, spriteMixer, animationId } = info;
+  const { battle, groupGround, spriteMixer, animationId, gameAssets } = info;
   const { groundEffects, usersEffects, usersState } = battle;
 
   // Record of drawn IDs
@@ -181,6 +177,7 @@ export const drawCombatEffects = (info: {
       hex,
       spriteMixer,
       drawnIds,
+      gameAssets,
     });
   });
   // Draw all user effects
@@ -198,6 +195,7 @@ export const drawCombatEffects = (info: {
         hex,
         spriteMixer,
         drawnIds,
+        gameAssets,
       });
     }
   });
@@ -217,9 +215,11 @@ export const drawCombatEffect = (info: {
   hex?: TerrainHex;
   spriteMixer: ReturnType<typeof SpriteMixer>;
   drawnIds: Set<string>;
+  gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { effect, groupGround, animationId, hex, spriteMixer, drawnIds } = info;
+  const { effect, groupGround, animationId, hex, drawnIds } = info;
+  const { spriteMixer, gameAssets } = info;
   if (hex) {
     if (effect.staticAssetPath || effect.appearAnimation || effect.disappearAnimation) {
       const { height: h, width: w } = hex;
@@ -231,30 +231,33 @@ export const drawCombatEffect = (info: {
         asset.userData.type = effect.type; // e.g. "barrier"
         // Sprite to show
         if (effect.staticAssetPath) {
-          const texture = loadTexture(
-            `/combat/staticAssets/${effect.staticAssetPath}.png`,
-          );
-          const material = new SpriteMaterial({ map: texture });
-          const sprite = new Sprite(material);
-          sprite.scale.set(w, h, 1);
-          sprite.position.set(w / 2, h / 2, 0);
-          asset.add(sprite);
+          const obj = gameAssets.find((a) => a.id === effect.staticAssetPath);
+          console.log("obj", obj);
+          if (obj) {
+            const texture = loadTexture(obj.image);
+            const material = new SpriteMaterial({ map: texture });
+            const sprite = new Sprite(material);
+            sprite.scale.set(w, h, 1);
+            sprite.position.set(w / 2, h / 2, 0);
+            asset.add(sprite);
+          }
         }
         // If there is an appear animation, show it. Mark it for hiding,
         // which we catch and use to remove it
         if (effect.appearAnimation && animationId !== 0) {
-          const actionSprite = showAnimation(effect.appearAnimation, hex, spriteMixer);
-          if (actionSprite) asset.add(actionSprite);
+          const obj = gameAssets.find((a) => a.id === effect.appearAnimation);
+          if (obj) {
+            const actionSprite = showAnimation(obj, hex, spriteMixer);
+            if (actionSprite) asset.add(actionSprite);
+          }
         }
         // If there is a static animation, show it.
         if (effect.staticAnimation) {
-          const actionSprite = showAnimation(
-            effect.staticAnimation,
-            hex,
-            spriteMixer,
-            true,
-          );
-          if (actionSprite) asset.add(actionSprite);
+          const obj = gameAssets.find((a) => a.id === effect.staticAnimation);
+          if (obj) {
+            const actionSprite = showAnimation(obj, hex, spriteMixer, true);
+            if (actionSprite) asset.add(actionSprite);
+          }
         }
         // Status bar
         if (effect.type === "barrier") {
