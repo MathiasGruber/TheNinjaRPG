@@ -97,27 +97,39 @@ export const sentryMiddleware = t.middleware(
 );
 
 export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
-  if (!ctx.userId) {
+  if (!ctx.userId && !ctx.userIp) {
     throw new TRPCError({
-      message: `No user ID found for rate limit middleware`,
+      message: `No user ID or IP found for rate limit middleware`,
       code: "UNAUTHORIZED",
     });
   }
-  const identifier = `${path}-${ctx.userId}`;
+  const identifier = `${path}-${ctx.userId || ctx.userIp}`;
   const { success } = await ratelimit.limit(identifier);
   if (!success) {
-    await ctx.drizzle
-      .update(userData)
-      .set({
-        movedTooFastCount: sql`${userData.movedTooFastCount} + 1`,
-        money: sql`${userData.money} * 0.99`,
-        bank: sql`${userData.bank} * 0.99`,
-      })
-      .where(eq(userData.userId, ctx.userId));
+    if (ctx.userId) {
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          movedTooFastCount: sql`${userData.movedTooFastCount} + 1`,
+          money: sql`${userData.money} * 0.99`,
+          bank: sql`${userData.bank} * 0.99`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+    }
     throw serverError(
       "TOO_MANY_REQUESTS",
       `You are acting too fast. Incident logged for review on path ${path}. 1% money reduced.`,
     );
+  }
+  return next({ ctx: { userId: ctx.userId } });
+});
+
+export const hasUserMiddleware = t.middleware(async ({ ctx, path, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({
+      message: `No user ID found for path ${path}`,
+      code: "UNAUTHORIZED",
+    });
   }
   return next({ ctx: { userId: ctx.userId } });
 });
@@ -136,7 +148,9 @@ export const createTRPCRouter = t.router;
  * guarantee that a user querying is authorized, but you can still access user session data if they
  * are logged in.
  */
-export const publicProcedure = t.procedure.use(sentryMiddleware);
+export const publicProcedure = t.procedure
+  .use(sentryMiddleware)
+  .use(ratelimitMiddleware);
 
 const enforceUserIsAuthed = t.middleware(async ({ ctx, path, getRawInput, next }) => {
   // Check that the user is authed

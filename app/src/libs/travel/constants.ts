@@ -7,20 +7,6 @@ export const ALLIANCEHALL_LAT = 7;
 export const HOSPITAL_LONG = 12;
 export const HOSPITAL_LAT = 8;
 
-export const combatAssetsNames = [
-  "",
-  "Rock1_1",
-  "Rock1_2",
-  "Rock2_1",
-  "Rock2_2",
-  "Rock5_1",
-  "Rock5_2",
-  "Rock6_1",
-  "Rock6_2",
-] as const;
-
-export type CombatAssetName = (typeof combatAssetsNames)[number];
-
 export const groundAssets = [
   {
     filepath: "https://utfs.io/f/6286b479-982f-473e-8c20-a9d7fbf3504b-aj4o7e.png",

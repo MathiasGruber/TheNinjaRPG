@@ -91,7 +91,7 @@ export default function Users() {
         <div className="flex flex-row items-center gap-2">
           <NavTabs
             id="tab"
-            fontSize="text-xs"
+            className="text-xs"
             current={activeTab}
             options={tabNames}
             setValue={setActiveTab}

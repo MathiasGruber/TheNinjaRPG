@@ -29,6 +29,10 @@ import {
   IMG_WALLPAPER_FALL,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
+  IMG_ICON_DISCORD,
+  IMG_ICON_FACEBOOK,
+  IMG_ICON_GITHUB,
+  IMG_ICON_GOOGLE,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -119,16 +123,34 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         <p className="hidden md:block text-orange-100 italic px-1">Socials Login</p>
         <p className="block md:hidden text-foreground italic px-1">Socials Login</p>
         <div className="grid grid-cols-4">
-          {["discord", "facebook", "google", "github"].map((provider, i) => (
-            <Image
-              className="grayscale my-4 w-full"
-              key={`provider-${i}`}
-              src={`/images/${provider}.png`}
-              alt={provider}
-              width={50}
-              height={50}
-            ></Image>
-          ))}
+          <Image
+            className="grayscale my-4 w-full"
+            src={IMG_ICON_DISCORD}
+            alt="DiscordProvider"
+            width={50}
+            height={50}
+          ></Image>
+          <Image
+            className="grayscale my-4 w-full"
+            src={IMG_ICON_FACEBOOK}
+            alt="FacebookProvider"
+            width={50}
+            height={50}
+          ></Image>
+          <Image
+            className="grayscale my-4 w-full"
+            src={IMG_ICON_GOOGLE}
+            alt="GoogleProvider"
+            width={50}
+            height={50}
+          ></Image>
+          <Image
+            className="grayscale my-4 w-full"
+            src={IMG_ICON_GITHUB}
+            alt="GithubProvider"
+            width={50}
+            height={50}
+          ></Image>
         </div>
         <Link href="/login" className="relative">
           <Button variant="default" size="sm" className="w-full" decoration="gold">
@@ -452,13 +474,14 @@ const StrongestUsersBanner: React.FC = () => {
           alt="usersbanner_top"
           priority
         ></Image>
-        <div className="relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-[url('/layout/usersbanner_middle.webp')] bg-contain bg-repeat-y">
+        <div className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-[url('/layout/usersbanner_middle.webp')] bg-contain bg-repeat-y">
           <div className="relative top-[-40px]">
             <NavTabs
               current={activeTab}
               options={tabNames}
               setValue={setActiveTab}
               fontSize="text-xs"
+              className="text-orange-100 hover:text-orange-300"
             />
             {users?.map((user, i) => (
               <div

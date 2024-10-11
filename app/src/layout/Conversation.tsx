@@ -191,10 +191,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   /**
    * Submit comment
    */
-  const handleSubmitComment = handleSubmit(
-    (data) => createComment(data),
-    (errors) => console.error(errors),
-  );
+  const handleSubmitComment = handleSubmit((data) => createComment(data));
 
   /**
    * Invalidate comments & allow refetches again
@@ -256,7 +253,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                       user={comment}
                       hover_effect={false}
                       comment={comment}
-                      refetchComments={invalidateComments}
                     >
                       {parseHtml(comment.content)}
                     </CommentOnConversation>

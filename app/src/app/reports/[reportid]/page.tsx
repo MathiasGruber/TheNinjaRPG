@@ -48,7 +48,6 @@ export default function Report({ params }: { params: { reportid: string } }) {
     data: comments,
     fetchNextPage,
     hasNextPage,
-    refetch: refetchComments,
   } = api.comments.getReportComments.useInfiniteQuery(
     { id: report_id, limit: 20 },
     {
@@ -339,7 +338,6 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 hover_effect={false}
                 comment={comment}
                 color={reportCommentColor(comment.decision)}
-                refetchComments={async () => await refetchComments()}
               >
                 {parseHtml(comment.content)}
               </CommentOnReport>

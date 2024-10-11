@@ -31,6 +31,25 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
+export const gameAsset = mysqlTable(
+  "GameAsset",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    type: mysqlEnum("type", consts.GameAssetTypes).notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    frames: tinyint("frames").default(1).notNull(),
+    speed: tinyint("speed").default(1).notNull(),
+    onInitialBattleField: boolean("onInitialBattleField").default(false).notNull(),
+  },
+  (table) => {
+    return {
+      type: index("GameAsset_type_idx").on(table.type),
+    };
+  },
+);
+export type GameAsset = InferSelectModel<typeof gameAsset>;
+
 export const aiProfile = mysqlTable(
   "AiProfile",
   {

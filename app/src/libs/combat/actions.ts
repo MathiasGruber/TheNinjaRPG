@@ -19,6 +19,8 @@ import {
   IMG_BASIC_FLEE,
   IMG_BASIC_WAIT,
   IMG_BASIC_MOVE,
+  ID_ANIMATION_HEAL,
+  ID_ANIMATION_HIT,
 } from "@/drizzle/constants";
 import type { AttackTargets } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "@/libs/combat/types";
@@ -66,7 +68,7 @@ export const availableUserActions = (
         statTypes: ["Taijutsu"],
         generalTypes: ["Strength", "Speed"],
         rounds: 0,
-        appearAnimation: "hit",
+        appearAnimation: ID_ANIMATION_HIT,
       }),
     ],
   };
@@ -92,7 +94,7 @@ export const availableUserActions = (
         powerPerLevel: 0.0,
         calculation: "percentage",
         rounds: 0,
-        appearAnimation: "heal",
+        appearAnimation: ID_ANIMATION_HEAL,
       }),
     ],
   };
@@ -651,7 +653,7 @@ export const calcActiveUser = (
 
   // Find the user in question, and return him
   const actor = usersInBattle.find((u) => u.userId === activeUserId);
-  if (!actor) throw new Error("No active user");
+  if (!actor) throw new Error(`No active user: ${activeUserId}`);
   // Check if we have a new active user
   const changedActor = actor.userId !== battle.activeUserId;
   // Return info

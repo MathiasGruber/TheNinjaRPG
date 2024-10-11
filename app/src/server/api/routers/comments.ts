@@ -17,6 +17,7 @@ import {
   protectedProcedure,
   publicProcedure,
   ratelimitMiddleware,
+  hasUserMiddleware,
 } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
@@ -79,6 +80,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createReportComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .output(baseServerResponse)
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
@@ -151,6 +153,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createForumComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -174,38 +177,50 @@ export const commentsRouter = createTRPCRouter({
     }),
   editForumComment: protectedProcedure
     .input(mutateCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned || user.isSilenced) {
-        throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const comment = await ctx.drizzle.query.forumPost.findFirst({
-        where: and(eq(forumPost.id, input.object_id), eq(forumPost.userId, ctx.userId)),
-      });
-      if (comment) {
-        return ctx.drizzle
-          .update(forumPost)
-          .set({ content: sanitize(input.comment) })
-          .where(eq(forumPost.id, input.object_id));
-      } else {
-        throw serverError("UNAUTHORIZED", "You can only edit own comments");
-      }
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.forumPost.findFirst({
+          where: and(
+            eq(forumPost.id, input.object_id),
+            eq(forumPost.userId, ctx.userId),
+          ),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!comment) return errorResponse("Comment not found");
+      // Mutate
+      await ctx.drizzle
+        .update(forumPost)
+        .set({ content: sanitize(input.comment) })
+        .where(eq(forumPost.id, input.object_id));
+      return { success: true, message: "Comment edited" };
     }),
   deleteForumComment: protectedProcedure
     .input(deleteCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const comment = await ctx.drizzle.query.forumPost.findFirst({
-        where: and(eq(forumPost.id, input.id)),
-      });
-      if (!comment) {
-        throw serverError("NOT_FOUND", "Comment not found");
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.forumPost.findFirst({
+          where: and(eq(forumPost.id, input.id)),
+        }),
+      ]);
+      // Guard
+      if (!comment) return errorResponse("Comment not found");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!canDeleteComment(user, comment.userId)) {
+        return errorResponse("You can only delete own comments");
       }
-      if (canDeleteComment(user, comment.userId)) {
-        return ctx.drizzle.delete(forumPost).where(eq(forumPost.id, input.id));
-      } else {
-        throw serverError("UNAUTHORIZED", "You are not allowed to delete this comment");
-      }
+      // Mutate
+      await ctx.drizzle.delete(forumPost).where(eq(forumPost.id, input.id));
+      return { success: true, message: "Comment deleted" };
     }),
   /**
    * Conversation POSTS
@@ -266,6 +281,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createConversation: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -470,6 +486,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createConversationComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Fetch data
@@ -513,43 +530,52 @@ export const commentsRouter = createTRPCRouter({
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.isBanned || user.isSilenced) {
-        throw serverError("UNAUTHORIZED", "You are banned");
-      }
-      const comment = await ctx.drizzle.query.conversationComment.findFirst({
-        where: and(
-          eq(conversationComment.id, input.object_id),
-          eq(conversationComment.userId, ctx.userId),
-        ),
-      });
-      if (comment) {
-        return ctx.drizzle
-          .update(conversationComment)
-          .set({ content: sanitize(input.comment) })
-          .where(eq(conversationComment.id, input.object_id));
-      } else {
-        throw serverError("UNAUTHORIZED", "You can only edit own comments");
-      }
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.conversationComment.findFirst({
+          where: and(
+            eq(conversationComment.id, input.object_id),
+            eq(conversationComment.userId, ctx.userId),
+          ),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!comment) return errorResponse("Comment not found");
+      // Mutate
+      await ctx.drizzle
+        .update(conversationComment)
+        .set({ content: sanitize(input.comment) })
+        .where(eq(conversationComment.id, input.object_id));
+      return { success: true, message: "Comment edited" };
     }),
   deleteConversationComment: protectedProcedure
     .input(deleteCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const comment = await ctx.drizzle.query.conversationComment.findFirst({
-        where: eq(conversationComment.id, input.id),
-      });
-      if (!comment) {
-        throw serverError("NOT_FOUND", "Comment not found");
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.conversationComment.findFirst({
+          where: eq(conversationComment.id, input.id),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!comment) return errorResponse("Comment not found");
+      if (!canDeleteComment(user, comment.userId)) {
+        return errorResponse("You can only delete own comments");
       }
-      if (canDeleteComment(user, comment.userId)) {
-        return ctx.drizzle
-          .delete(conversationComment)
-          .where(eq(conversationComment.id, input.id));
-      } else {
-        throw serverError("UNAUTHORIZED", "You can only delete own comments");
-      }
+      // Mutate
+      await ctx.drizzle
+        .delete(conversationComment)
+        .where(eq(conversationComment.id, input.id));
+      return { success: true, message: "Comment deleted" };
     }),
 });
 

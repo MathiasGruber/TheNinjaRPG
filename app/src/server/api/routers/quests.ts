@@ -38,7 +38,7 @@ import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 export const questsRouter = createTRPCRouter({
-  getAll: protectedProcedure
+  getAll: publicProcedure
     .input(
       questFilteringSchema.extend({
         cursor: z.number().nullish(),

@@ -8,7 +8,7 @@ import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions"
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { ratelimitMiddleware } from "../trpc";
+import { ratelimitMiddleware, hasUserMiddleware } from "../trpc";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { changeSettingSchema } from "@/validators/misc";
 import { secondsFromNow } from "@/utils/time";
@@ -18,9 +18,15 @@ import { createTicketSchema } from "@/validators/misc";
 import type { DrizzleClient } from "@/server/db";
 
 export const miscRouter = createTRPCRouter({
-  getCaptcha: protectedProcedure.use(ratelimitMiddleware).query(async ({ ctx }) => {
-    return await generateCaptcha(ctx.drizzle, ctx.userId);
+  getAllGameAssetNames: publicProcedure.query(async ({ ctx }) => {
+    return await fetchGameAssets(ctx.drizzle);
   }),
+  getCaptcha: protectedProcedure
+    .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
+    .query(async ({ ctx }) => {
+      return await generateCaptcha(ctx.drizzle, ctx.userId);
+    }),
   submitNotification: protectedProcedure
     .input(z.object({ content: z.string().min(2).max(10000), senderId: z.string() }))
     .output(baseServerResponse)
@@ -170,4 +176,14 @@ export const validateCaptcha = async (
     return success;
   }
   return false;
+};
+
+/**
+ * Fetches game assets from the database.
+ *
+ * @param client - The DrizzleClient instance used to query the database.
+ * @returns A promise that resolves to an array of game assets, each containing the id, name, and image.
+ */
+export const fetchGameAssets = async (client: DrizzleClient) => {
+  return await client.query.gameAsset.findMany();
 };

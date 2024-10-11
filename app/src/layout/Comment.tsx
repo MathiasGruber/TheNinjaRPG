@@ -10,6 +10,7 @@ import { canDeleteComment } from "../validators/reports";
 import { mutateCommentSchema } from "../validators/comments";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
+import { showMutationToast } from "@/libs/toast";
 import type { systems } from "../validators/reports";
 import type { ConversationComment } from "../../drizzle/schema";
 import type { ForumPost } from "../../drizzle/schema";
@@ -24,7 +25,6 @@ import type { DeleteCommentSchema } from "../validators/comments";
  */
 interface UserReportCommentProps extends PostProps {
   comment: UserReportComment;
-  refetchComments: () => void;
 }
 export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -37,22 +37,28 @@ export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
  */
 interface ConversationCommentProps extends PostProps {
   comment: ConversationComment;
-  refetchComments: () => void;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
+  const utils = api.useUtils();
 
   const editComment = api.comments.editConversationComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.comments.getConversationComments.invalidate();
+        setEditing(false);
+      }
     },
   });
 
   const deleteComment = api.comments.deleteConversationComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.comments.getConversationComments.invalidate();
+        setEditing(false);
+      }
     },
   });
 
@@ -73,22 +79,29 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
  */
 interface ForumCommentProps extends PostProps {
   comment: ForumPost;
-  refetchComments: () => void;
 }
 export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
+  const utils = api.useUtils();
 
   const editComment = api.comments.editForumComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        console.log("Invalidating");
+        await utils.comments.getForumComments.invalidate();
+        setEditing(false);
+      }
     },
   });
 
   const deleteComment = api.comments.deleteForumComment.useMutation({
-    onSuccess: () => {
-      props.refetchComments();
-      setEditing(false);
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.comments.getForumComments.invalidate();
+        setEditing(false);
+      }
     },
   });
 
@@ -117,25 +130,23 @@ interface BaseCommentProps extends PostProps {
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;
-  refetchComments: () => void;
 }
 const BaseComment: React.FC<BaseCommentProps> = (props) => {
   const { data: userData } = useUserData();
   const {
     handleSubmit,
-    reset,
     control,
     formState: { errors },
   } = useForm<MutateCommentSchema>({
     defaultValues: {
       object_id: props.comment.id,
+      comment: props.comment.content,
     },
     resolver: zodResolver(mutateCommentSchema),
   });
 
   const onSubmit = handleSubmit((data) => {
     if (props.editComment) props.editComment(data);
-    reset();
     props.setEditing(false);
   });
 
@@ -195,11 +206,13 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           />
         </form>
       ) : (
-        <div className="mb-6">{props.children}</div>
+        <>
+          <div className="mb-6">{props.children}</div>
+          <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
+            @{props.comment.createdAt.toLocaleString()}
+          </p>
+        </>
       )}
-      <p className="absolute bottom-0 italic text-xs text-gray-600">
-        @{props.comment.createdAt.toLocaleString()}
-      </p>
     </Post>
   );
 };

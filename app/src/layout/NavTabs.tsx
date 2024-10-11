@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import React from "react";
+import { cn } from "src/libs/shadui";
 
 interface NavTabsProps {
   id?: string;
+  className?: string;
   current: string | null;
   options: string[] | readonly string[];
   fontSize?: "text-xs" | "text-sm" | "text-base";
@@ -40,11 +42,12 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
           <li className="mr-2" key={option}>
             <a
               href="#"
-              className={
+              className={cn(
                 option === current
                   ? "active inline-block rounded-t-lg border-b-2 border-foreground/50 pb-2 pt-2 pl-1 pr-1 text-foreground/50"
-                  : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-1 pr-1 hover:border-gray-300 hover:text-gray-600"
-              }
+                  : "border-gray-700 inline-block rounded-t-lg border-b-2 border-transparent pb-2 pt-2 pl-1 pr-1 hover:border-gray-300 hover:text-gray-600",
+                props.className,
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 if (setValue) setValue(option);
