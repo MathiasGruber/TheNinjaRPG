@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure, ratelimitMiddleware } from "@/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  ratelimitMiddleware,
+  hasUserMiddleware,
+} from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
 import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
@@ -268,10 +273,10 @@ export const combatRouter = createTRPCRouter({
     }),
   performAction: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(performActionSchema)
     .mutation(async ({ ctx, input }) => {
       if (debug) console.log("============ Performing action ============");
-      if (!ctx.userId) return { notification: "User not found" };
 
       // Short-form
       const suid = ctx.userId;
@@ -495,12 +500,10 @@ export const combatRouter = createTRPCRouter({
     }),
   startArenaBattle: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(z.object({ aiId: z.string(), stats: statSchema.nullish() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // Ensure we have user
-      if (!ctx.userId) return errorResponse("User not found");
-
       // Get information
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
@@ -554,6 +557,7 @@ export const combatRouter = createTRPCRouter({
     }),
   attackUser: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(
       z.object({
         longitude: z
@@ -573,7 +577,6 @@ export const combatRouter = createTRPCRouter({
     )
     .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
-      if (!ctx.userId) return errorResponse("User not found");
       return await initiateBattle(
         {
           longitude: input.longitude,

@@ -124,6 +124,16 @@ export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
   return next({ ctx: { userId: ctx.userId } });
 });
 
+export const hasUserMiddleware = t.middleware(async ({ ctx, path, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({
+      message: `No user ID found for path ${path}`,
+      code: "UNAUTHORIZED",
+    });
+  }
+  return next({ ctx: { userId: ctx.userId } });
+});
+
 /**
  * This is how you create new routers and sub-routers in your tRPC API.
  *

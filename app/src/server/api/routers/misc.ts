@@ -8,7 +8,7 @@ import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions"
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { ratelimitMiddleware } from "../trpc";
+import { ratelimitMiddleware, hasUserMiddleware } from "../trpc";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { changeSettingSchema } from "@/validators/misc";
 import { secondsFromNow } from "@/utils/time";
@@ -21,9 +21,12 @@ export const miscRouter = createTRPCRouter({
   getAllGameAssetNames: publicProcedure.query(async ({ ctx }) => {
     return await fetchGameAssets(ctx.drizzle);
   }),
-  getCaptcha: protectedProcedure.use(ratelimitMiddleware).query(async ({ ctx }) => {
-    return await generateCaptcha(ctx.drizzle, ctx.userId);
-  }),
+  getCaptcha: protectedProcedure
+    .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
+    .query(async ({ ctx }) => {
+      return await generateCaptcha(ctx.drizzle, ctx.userId);
+    }),
   submitNotification: protectedProcedure
     .input(z.object({ content: z.string().min(2).max(10000), senderId: z.string() }))
     .output(baseServerResponse)

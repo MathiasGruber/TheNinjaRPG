@@ -17,6 +17,7 @@ import {
   protectedProcedure,
   publicProcedure,
   ratelimitMiddleware,
+  hasUserMiddleware,
 } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
@@ -79,6 +80,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createReportComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .output(baseServerResponse)
     .input(reportCommentSchema)
     .mutation(async ({ ctx, input }) => {
@@ -151,6 +153,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createForumComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -278,6 +281,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createConversation: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(createConversationSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -482,6 +486,7 @@ export const commentsRouter = createTRPCRouter({
     }),
   createConversationComment: protectedProcedure
     .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
     .input(mutateCommentSchema)
     .mutation(async ({ ctx, input }) => {
       // Fetch data
