@@ -11,6 +11,7 @@ export interface ContentBoxProps {
   subtitle?: string | React.ReactNode;
   topRightCorntentBreakpoint?: "sm" | "md" | "lg" | "xl" | "2xl";
   topRightContent?: React.ReactNode;
+  bottomRightContent?: React.ReactNode;
   padding?: boolean;
   noBorder?: boolean;
   initialBreak?: boolean;
@@ -66,6 +67,11 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           {props.children}
         </div>
       </div>
+      {props.bottomRightContent && (
+        <div className="mt-2">
+          <div className="flex flex-row justify-end">{props.bottomRightContent}</div>
+        </div>
+      )}
     </>
   );
 };

@@ -382,6 +382,38 @@ export const jutsuRouter = createTRPCRouter({
         message: `You stopped training: ${userjutsu.jutsu?.name}`,
       };
     }),
+  // Unequip all
+  unequipAll: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch
+      const [data, loadouts] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+      ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
+      // Derived
+      const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ equipped: 0 })
+          .where(eq(userJutsu.userId, ctx.userId)),
+        loadout
+          ? ctx.drizzle
+              .update(jutsuLoadout)
+              .set({ jutsuIds: [] })
+              .where(eq(jutsuLoadout.id, loadout.id))
+          : null,
+      ]);
+      return { success: true, message: "All jutsu unequipped" };
+    }),
+
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
     .input(z.object({ userJutsuId: z.string() }))

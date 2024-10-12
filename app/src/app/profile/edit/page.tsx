@@ -693,11 +693,11 @@ const SwapBloodline: React.FC = () => {
       {isFetching && <Loader explanation="Loading bloodlines" />}
       {isDisabled && (
         <div>
-          You do not have a bloodline currently. Go to{" "}
-          <Link className="font-bold" href="/hospital">
-            the hospital
+          You do not have a bloodline currently. Go{" "}
+          <Link className="font-bold" href="/travel">
+            travel
           </Link>{" "}
-          to get one.
+          to the wake island location, and get one in the science building.
         </div>
       )}
       {isOpen && userData && bloodline && (
