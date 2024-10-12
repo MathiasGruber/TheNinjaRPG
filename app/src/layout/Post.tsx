@@ -77,6 +77,11 @@ const Post: React.FC<PostProps> = (props) => {
         "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent";
       userRole = "bg-green-500";
       break;
+    case "HEAD_MODERATOR":
+      userColor =
+        "bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-700 bg-clip-text text-transparent";
+      userRole = "bg-emerald-700";
+      break;
     case "EVENT":
       userColor =
         "bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent";

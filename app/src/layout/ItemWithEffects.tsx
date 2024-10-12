@@ -287,29 +287,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Chakra Usage</b>: {item.chakraCost}
               </p>
             )}
-            {"chakraCostReducePerLvl" in item && item.chakraCostReducePerLvl > 0 && (
-              <p>
-                <b>Chakra Usage Reduction Per Lvl</b>: {item.chakraCostReducePerLvl}
-              </p>
-            )}
             {"staminaCost" in item && item.staminaCost > 0 && (
               <p>
                 <b>Stamina Usage</b>: {item.staminaCost}
               </p>
             )}
-            {"staminaCostReducePerLvl" in item && item.staminaCostReducePerLvl > 0 && (
-              <p>
-                <b>Stamina Usage Reduction Per Lvl</b>: {item.staminaCostReducePerLvl}
-              </p>
-            )}
             {"healthCost" in item && item.healthCost > 0 && (
               <p>
                 <b>Health Usage</b>: {item.healthCost}
-              </p>
-            )}
-            {"healthCostReducePerLvl" in item && item.healthCostReducePerLvl > 0 && (
-              <p>
-                <b>Health Usage Reduction Per Lvl</b>: {item.healthCostReducePerLvl}
               </p>
             )}
             {"actionCostPerc" in item && item.actionCostPerc > 0 && (
@@ -386,6 +371,21 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               <div className="col-span-2">
                 <b>Shop Price:</b> {item.repsCost} reputation points
               </div>
+            )}
+            {"chakraCostReducePerLvl" in item && item.chakraCostReducePerLvl > 0 && (
+              <p className="col-span-2">
+                <b>Chakra Usage Reduction Per Lvl</b>: {item.chakraCostReducePerLvl}
+              </p>
+            )}
+            {"staminaCostReducePerLvl" in item && item.staminaCostReducePerLvl > 0 && (
+              <p className="col-span-2">
+                <b>Stamina Usage Reduction Per Lvl</b>: {item.staminaCostReducePerLvl}
+              </p>
+            )}
+            {"healthCostReducePerLvl" in item && item.healthCostReducePerLvl > 0 && (
+              <p className="col-span-2">
+                <b>Health Usage Reduction Per Lvl</b>: {item.healthCostReducePerLvl}
+              </p>
             )}
           </div>
           {objectives.length > 0 && (

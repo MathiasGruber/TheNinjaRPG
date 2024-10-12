@@ -38,9 +38,13 @@ export const canSwapBloodline = (role: UserRole) => {
 };
 
 export const canSeeSecretData = (role: UserRole) => {
-  return ["MODERATOR", "ADMIN"].includes(role);
+  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(role);
 };
 
 export const canModifyUserBadges = (role: UserRole) => {
   return ["ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
+};
+
+export const canDeleteUsers = (role: UserRole) => {
+  return ["ADMIN", "HEAD_MODERATOR"].includes(role);
 };

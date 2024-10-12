@@ -379,18 +379,17 @@ export const EditContent = <
                         if (prompt && !load) {
                           // Different qualifiers for different content types
                           if (props.type === "quest") {
-                            prompt +=
-                              ", epic composition, cinematic, vibrant background, by greg rutkowski and thomas kinkade, Trending on artstation, 8k, hyperrealistic, extremely detailed";
+                            prompt = `Epic composition, cinematic ${prompt}, vibrant background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, Trending on artstation, 8k, Japanese inspiration, extremely detailed.`;
                           } else if (props.type === "item") {
-                            prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Ubisoft Inspiration, WoW Style Icon, MOORPG Items, Profesional Videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
+                            prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "badge") {
-                            prompt = `${prompt}, concept art design, Ubisoft Inspiration, Profesional Videogame Design, High Quality, 4k, Photoshop.`;
+                            prompt = `${prompt} badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "jutsu") {
-                            prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
+                            prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
                           } else if (props.type === "bloodline") {
-                            prompt += `, epic composition, cinematic, fantasy, trending on artstation, extremely detailed`;
+                            prompt = `epic composition, symbolic representing the heritage: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
                           } else if (props.type === "ai") {
-                            prompt = `front view, unique tiny ${prompt} figurine, standing character, as supercell character, soft smooth lighting, soft shadows, skottie young, 3d blender render, polycount, modular constructivism, square image​, blue background, centered, pop surrealistic, emotional face`;
+                            prompt = `A full-body anime-style pixel art ${prompt} in a 3D-like, standing in a balanced, central position. The ${prompt} is rendered with clean, sharp pixel details and modern shading techniques, evoking the style of retro 8-bit/16-bit games but with a polished, high-quality finish. The background is a simple, solid color highlighting the character, allowing them to stand out clearly. Dynamic pose, extremely detailed.`;
                           }
                           // Send of the request for content image
                           createImg({

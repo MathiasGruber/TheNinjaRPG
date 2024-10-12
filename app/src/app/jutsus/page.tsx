@@ -10,6 +10,7 @@ import LoadoutSelector from "@/layout/LoadoutSelector";
 import Confirm from "@/layout/Confirm";
 import { SquareChevronRight, SquareChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OctagonX } from "lucide-react";
 import { ActionSelector } from "@/layout/CombatActions";
 import { calcJutsuEquipLimit } from "@/libs/train";
 import {
@@ -66,20 +67,33 @@ export default function MyJutsu() {
     };
   });
 
+  const onSettled = () => {
+    document.body.style.cursor = "default";
+    setIsOpen(false);
+    setUserJutsu(undefined);
+  };
+
   // Mutations
-  const { mutate: equip, isPending: isEquipping } = api.jutsu.toggleEquip.useMutation({
+  const { mutate: equip, isPending: isToggling } = api.jutsu.toggleEquip.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
         await utils.jutsu.getUserJutsus.invalidate();
       }
     },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-      setIsOpen(false);
-      setUserJutsu(undefined);
-    },
+    onSettled,
   });
+
+  const { mutate: unequipAll, isPending: isUnequipping } =
+    api.jutsu.unequipAll.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.jutsu.getUserJutsus.invalidate();
+        }
+      },
+      onSettled,
+    });
 
   const { mutate: forget, isPending: isForgetting } = api.jutsu.forget.useMutation({
     onSuccess: async (data) => {
@@ -88,11 +102,7 @@ export default function MyJutsu() {
         await utils.jutsu.getUserJutsus.invalidate();
       }
     },
-    onSettled: () => {
-      document.body.style.cursor = "default";
-      setIsOpen(false);
-      setUserJutsu(undefined);
-    },
+    onSettled,
   });
 
   const { mutate: updateOrder } = api.jutsu.updateUserJutsuOrder.useMutation({
@@ -114,7 +124,7 @@ export default function MyJutsu() {
       },
     });
 
-  const isPending = isEquipping || isForgetting || isUpgrading;
+  const isPending = isToggling || isForgetting || isUpgrading || isUnequipping;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -186,6 +196,12 @@ export default function MyJutsu() {
     <ContentBox
       title="Jutsu Management"
       subtitle={subtitle}
+      bottomRightContent={
+        <Button onClick={() => unequipAll()}>
+          <OctagonX className="h-6 w-6 mr-2" />
+          Unequip All
+        </Button>
+      }
       topRightContent={
         !isOpen && (
           <div className="flex flex-row items-center gap-2">
@@ -238,7 +254,7 @@ export default function MyJutsu() {
         <Modal
           title="Edit Jutsu"
           proceed_label={
-            !isEquipping
+            !isToggling
               ? userjutsu.equipped
                 ? "Unequip"
                 : canEquip

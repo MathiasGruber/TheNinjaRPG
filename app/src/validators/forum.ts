@@ -16,7 +16,7 @@ export type ForumBoardSchema = z.infer<typeof forumBoardSchema>;
  * Which user roles have access to moderate
  */
 export const canModerate = (user: UserData) => {
-  return user.role === "ADMIN" || user.role === "MODERATOR";
+  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role);
 };
 
 /**
