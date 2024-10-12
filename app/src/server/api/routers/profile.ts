@@ -33,7 +33,7 @@ import {
   village,
   battleHistory,
 } from "@/drizzle/schema";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canSeeSecretData, canDeleteUsers } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -238,7 +238,7 @@ export const profileRouter = createTRPCRouter({
       // User specific
       if (user) {
         // Get number of un-resolved user reports
-        if (user.role === "MODERATOR" || user.role === "ADMIN") {
+        if (["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role)) {
           const reportCounts = await ctx.drizzle
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
             .from(userReport)
@@ -901,7 +901,7 @@ export const profileRouter = createTRPCRouter({
       if (target.isBanned || target.isSilenced) {
         return errorResponse("User has to serve the ban/silence first");
       }
-      if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
+      if (ctx.userId !== input.userId && !canDeleteUsers(user.role)) {
         return errorResponse("You can't delete other users");
       }
       // Muate

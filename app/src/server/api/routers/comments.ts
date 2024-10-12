@@ -354,7 +354,7 @@ export const commentsRouter = createTRPCRouter({
         .leftJoin(
           posterBlacklist,
           and(
-            notInArray(readerUser.role, ["MODERATOR", "ADMIN"]),
+            notInArray(readerUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
             eq(posterBlacklist.creatorUserId, conversationComment.userId),
             eq(posterBlacklist.targetUserId, ctx.userId),
           ),
@@ -372,7 +372,7 @@ export const commentsRouter = createTRPCRouter({
             eq(conversationComment.id, input.commentId),
             or(
               isNull(readerBlacklist.id),
-              inArray(posterUser.role, ["MODERATOR", "ADMIN"]),
+              inArray(posterUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
             ),
             isNull(posterBlacklist.id),
           ),
@@ -463,7 +463,7 @@ export const commentsRouter = createTRPCRouter({
               eq(conversationComment.conversationId, convo.id),
               or(
                 isNull(readerBlacklist.id),
-                inArray(userData.role, ["MODERATOR", "ADMIN"]),
+                inArray(userData.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
               ),
               isNull(posterBlacklist.id),
             ),

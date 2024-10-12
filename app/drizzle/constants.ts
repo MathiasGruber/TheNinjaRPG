@@ -91,6 +91,7 @@ export const UserRoles = [
   "MODERATOR",
   "CONTENT",
   "EVENT",
+  "HEAD_MODERATOR",
   "ADMIN",
   "CONTENT-ADMIN",
 ] as const;
