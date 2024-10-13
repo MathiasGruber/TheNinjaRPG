@@ -1029,9 +1029,9 @@ export const processUsersForBattle = (info: {
       });
 
     // Add basic actions to user for tracking cooldowns
-    user.basicActions = Object.values(getBasicActions(user)).map((x) => ({
-      id: x.id,
-      lastUsedRound: -x.cooldown,
+    user.basicActions = Object.values(getBasicActions(user)).map((action) => ({
+      id: action.id,
+      lastUsedRound: -action.cooldown,
     }));
 
     // Sort if we have a loadout
