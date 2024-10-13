@@ -27,12 +27,17 @@ import {
   IMG_WALLPAPER_SPRING,
   IMG_WALLPAPER_SUMMER,
   IMG_WALLPAPER_FALL,
+  IMG_WALLPAPER_HALLOWEEN,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
   IMG_ICON_DISCORD,
   IMG_ICON_FACEBOOK,
   IMG_ICON_GITHUB,
   IMG_ICON_GOOGLE,
+  IMG_LAYOUT_NAVBAR,
+  IMG_LAYOUT_NAVBAR_HALLOWEEN,
+  IMG_LAYOUT_HANDSIGN,
+  IMG_LAYOUT_HANDSIGN_HALLOWEEN,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -72,6 +77,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       setTheme("light");
     }
   }, [theme]);
+
+  // Images
+  const imageset = getImageSet();
 
   /**
    * SIDEBAR: Left Side
@@ -197,20 +205,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     </div>
   );
 
-  // Get wallpaper based on the season
-  const getWallpaperUrl = () => {
-    switch (getCurrentSeason()) {
-      case "winter":
-        return IMG_WALLPAPER_WINTER;
-      case "spring":
-        return IMG_WALLPAPER_SPRING;
-      case "summer":
-        return IMG_WALLPAPER_SUMMER;
-      case "fall":
-        return IMG_WALLPAPER_FALL;
-    }
-  };
-
   return (
     <div className="w-full">
       <div className="fixed right-5 bottom-5 z-50 bg-slate-500 rounded-full">
@@ -221,7 +215,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       {/* WALLPAPER BACKGROUND */}
       <Image
         className="absolute left-[50%] translate-x-[-50%] select-none"
-        src={getWallpaperUrl()}
+        src={imageset.wallpaper}
         width={1600}
         height={800}
         alt="logo"
@@ -252,7 +246,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         <div className="hidden md:block z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
           <Image
             className="select-none"
-            src="/layout/navbar.webp"
+            src={imageset.navbar}
             width={1280}
             height={133}
             alt="navbar"
@@ -297,7 +291,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         {/* DESKTOP HANDSIGN */}
         <Image
           className="hidden md:block z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
-          src="/layout/handsign.webp"
+          src={imageset.handsign}
           width={127}
           height={112}
           alt="handsign"
@@ -638,4 +632,28 @@ const RightSideBar: React.FC<{
       )}
     </>
   );
+};
+
+// Get wallpaper based on the season
+const getImageSet = () => {
+  const base = {
+    navbar: IMG_LAYOUT_NAVBAR,
+    handsign: IMG_LAYOUT_HANDSIGN,
+    wallpaper: IMG_WALLPAPER_SUMMER,
+  };
+  switch (getCurrentSeason()) {
+    case "winter":
+      base.wallpaper = IMG_WALLPAPER_WINTER;
+    case "spring":
+      base.wallpaper = IMG_WALLPAPER_SPRING;
+    case "summer":
+      base.wallpaper = IMG_WALLPAPER_SUMMER;
+    case "fall":
+      base.wallpaper = IMG_WALLPAPER_FALL;
+    case "halloween":
+      base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
+      base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
+      base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
+  }
+  return base;
 };

@@ -475,6 +475,17 @@ export const IMG_WALLPAPER_SUMMER =
   "https://utfs.io/f/5f637e42-b2e3-4fdd-9b96-578d0f729fb0-mg8i56.webp";
 export const IMG_WALLPAPER_FALL =
   "https://utfs.io/f/e6f437e0-1cfa-4986-b9e5-bb4957ff3813-ul0asa.webp";
+export const IMG_WALLPAPER_HALLOWEEN =
+  "https://utfs.io/f/Hzww9EQvYURJ7dGuA2BXKPBOUWGyFuM4DlL1v5HNTZhkte0z";
+export const IMG_LAYOUT_NAVBAR =
+  "https://utfs.io/f/Hzww9EQvYURJ1znttRb6bo95WClq4K0wxZUmJcvThgdVenO3";
+export const IMG_LAYOUT_NAVBAR_HALLOWEEN =
+  "https://utfs.io/f/Hzww9EQvYURJbYxvuGAtYUndMi56GkX19q0A4PzyeIloBrEa";
+export const IMG_LAYOUT_HANDSIGN =
+  "https://utfs.io/f/Hzww9EQvYURJ0hKI3IgrYldRWJcD6vE10SjNsXHeA9pVMfQi";
+export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
+  "https://utfs.io/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
+
 export const IMG_LOGO_FULL =
   "https://utfs.io/f/5a8a34a2-b126-4674-b95d-db37a14b028e-1zbfv.webp";
 export const IMG_LOGO_SHORT =

@@ -114,8 +114,9 @@ export const getCurrentSeason = () => {
     case 7:
     case 8:
       return "summer";
-    case 9:
     case 10:
+      return "halloween";
+    case 9:
     case 11:
       return "fall";
     default:
