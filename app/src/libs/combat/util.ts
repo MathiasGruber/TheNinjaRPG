@@ -1,7 +1,7 @@
 import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
 import { randomInt } from "@/utils/math";
-import { availableUserActions } from "./actions";
+import { availableUserActions, getBasicActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
@@ -1027,6 +1027,12 @@ export const processUsersForBattle = (info: {
         userjutsu.lastUsedRound = -userjutsu.jutsu.cooldown;
         return userjutsu;
       });
+
+    // Add basic actions to user for tracking cooldowns
+    user.basicActions = Object.values(getBasicActions(user)).map((x) => ({
+      id: x.id,
+      lastUsedRound: -x.cooldown,
+    }));
 
     // Sort if we have a loadout
     if (user?.loadout?.jutsuIds) {

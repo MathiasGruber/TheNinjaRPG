@@ -45,99 +45,13 @@ export const availableUserActions = (
   const isStealth = isUserStealthed(userId, battle?.usersEffects);
   const isImmobilized = isUserImmobilized(userId, battle?.usersEffects);
   // Basic attack & heal
-  const basicAttack: CombatAction = {
-    id: "sp",
-    name: "Basic Attack",
-    image: IMG_BASIC_ATTACK,
-    battleDescription: "%user perform a basic physical strike against %target",
-    type: "basic" as const,
-    target: "OTHER_USER" as const,
-    method: "SINGLE" as const,
-    healthCost: 0,
-    chakraCost: 0,
-    staminaCost: 10,
-    actionCostPerc: 40,
-    range: 1,
-    updatedAt: Date.now(),
-    cooldown: 0,
-    level: user?.level,
-    effects: [
-      DamageTag.parse({
-        power: 18,
-        powerPerLevel: 0.1,
-        statTypes: ["Taijutsu"],
-        generalTypes: ["Strength", "Speed"],
-        rounds: 0,
-        appearAnimation: ID_ANIMATION_HIT,
-      }),
-    ],
-  };
-  const basicHeal: CombatAction = {
-    id: "cp",
-    name: "Basic Heal",
-    image: IMG_BASIC_HEAL,
-    battleDescription: "%user perform basic healing of %target",
-    type: "basic" as const,
-    target: "SELF" as const,
-    method: "SINGLE" as const,
-    healthCost: 0,
-    chakraCost: 10,
-    staminaCost: 0,
-    actionCostPerc: 60,
-    range: 0,
-    updatedAt: Date.now(),
-    cooldown: 10,
-    level: user?.level,
-    effects: [
-      HealTag.parse({
-        power: calcCombatHealPercentage(user),
-        powerPerLevel: 0.0,
-        calculation: "percentage",
-        rounds: 0,
-        appearAnimation: ID_ANIMATION_HEAL,
-      }),
-    ],
-  };
-  const basicMove: CombatAction = {
-    id: "move",
-    name: "Move",
-    image: IMG_BASIC_MOVE,
-    battleDescription: "%user moves on the battlefield",
-    type: "basic" as const,
-    target: "EMPTY_GROUND" as const,
-    method: "SINGLE" as const,
-    range: 1,
-    updatedAt: Date.now(),
-    cooldown: 0,
-    healthCost: 0,
-    chakraCost: 0,
-    staminaCost: 0,
-    actionCostPerc: 30,
-    effects: [MoveTag.parse({ power: 100 })],
-  };
-  const basicFlee: CombatAction = {
-    id: "flee",
-    name: "Flee",
-    image: IMG_BASIC_FLEE,
-    battleDescription: "%user attempts to flee the battle",
-    type: "basic" as const,
-    target: "SELF" as const,
-    method: "SINGLE" as const,
-    range: 0,
-    updatedAt: Date.now(),
-    cooldown: 0,
-    healthCost: 0.1,
-    chakraCost: 0,
-    staminaCost: 0,
-    actionCostPerc: 100,
-    effects: [FleeTag.parse({ power: 20, rounds: 0 })],
-  };
+  const basicActions = getBasicActions(user);
   // Concatenate all actions
   let availableActions = [
-    ...(basicMoves && !isStealth ? [basicAttack] : []),
-    ...(basicMoves ? [basicHeal] : []),
-    ...(!isImmobilized ? [basicMove] : []),
-    ...(basicMoves && !isStealth ? [basicFlee] : []),
+    ...(basicMoves && !isStealth ? [basicActions.basicAttack] : []),
+    ...(basicMoves ? [basicActions.basicHeal] : []),
+    ...(!isImmobilized ? [basicActions.basicMove] : []),
+    ...(basicMoves && !isStealth ? [basicActions.basicFlee] : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
@@ -237,7 +151,7 @@ export const availableUserActions = (
   ];
   // If we only have move & end turn action, also add basic attack
   if (availableActions.length === 2 && !isStealth) {
-    availableActions.push(basicAttack);
+    availableActions.push(basicActions.basicAttack);
   }
   // If we hide cooldowns, hide then
   if (hideCooldowned) {
@@ -252,6 +166,113 @@ export const availableUserActions = (
 
   // Return actions
   return availableActions;
+};
+
+export const getBasicActions = (
+  user: ReturnedUserState | undefined,
+): {
+  basicAttack: CombatAction;
+  basicHeal: CombatAction;
+  basicMove: CombatAction;
+  basicFlee: CombatAction;
+} => {
+  return {
+    basicAttack: {
+      id: "sp",
+      name: "Basic Attack",
+      image: IMG_BASIC_ATTACK,
+      battleDescription: "%user perform a basic physical strike against %target",
+      type: "basic" as const,
+      target: "OTHER_USER" as const,
+      method: "SINGLE" as const,
+      healthCost: 0,
+      chakraCost: 0,
+      staminaCost: 10,
+      actionCostPerc: 40,
+      range: 1,
+      updatedAt: Date.now(),
+      cooldown: 0,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "sp")?.lastUsedRound ?? 0,
+      level: user?.level,
+      effects: [
+        DamageTag.parse({
+          power: 18,
+          powerPerLevel: 0.1,
+          statTypes: ["Taijutsu"],
+          generalTypes: ["Strength", "Speed"],
+          rounds: 0,
+          appearAnimation: ID_ANIMATION_HIT,
+        }),
+      ],
+    },
+    basicHeal: {
+      id: "cp",
+      name: "Basic Heal",
+      image: IMG_BASIC_HEAL,
+      battleDescription: "%user perform basic healing of %target",
+      type: "basic" as const,
+      target: "SELF" as const,
+      method: "SINGLE" as const,
+      healthCost: 0,
+      chakraCost: 10,
+      staminaCost: 0,
+      actionCostPerc: 60,
+      range: 0,
+      updatedAt: Date.now(),
+      cooldown: 10,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "cp")?.lastUsedRound ?? -10,
+      level: user?.level,
+      effects: [
+        HealTag.parse({
+          power: calcCombatHealPercentage(user),
+          powerPerLevel: 0.0,
+          calculation: "percentage",
+          rounds: 0,
+          appearAnimation: ID_ANIMATION_HEAL,
+        }),
+      ],
+    },
+    basicMove: {
+      id: "move",
+      name: "Move",
+      image: IMG_BASIC_MOVE,
+      battleDescription: "%user moves on the battlefield",
+      type: "basic" as const,
+      target: "EMPTY_GROUND" as const,
+      method: "SINGLE" as const,
+      range: 1,
+      updatedAt: Date.now(),
+      cooldown: 0,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "move")?.lastUsedRound ?? 0,
+      healthCost: 0,
+      chakraCost: 0,
+      staminaCost: 0,
+      actionCostPerc: 30,
+      effects: [MoveTag.parse({ power: 100 })],
+    },
+    basicFlee: {
+      id: "flee",
+      name: "Flee",
+      image: IMG_BASIC_FLEE,
+      battleDescription: "%user attempts to flee the battle",
+      type: "basic" as const,
+      target: "SELF" as const,
+      method: "SINGLE" as const,
+      range: 0,
+      updatedAt: Date.now(),
+      cooldown: 0,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "flee")?.lastUsedRound ?? 0,
+      healthCost: 0.1,
+      chakraCost: 0,
+      staminaCost: 0,
+      actionCostPerc: 100,
+      effects: [FleeTag.parse({ power: 20, rounds: 0 })],
+    },
+  };
 };
 
 export const insertAction = (info: {
@@ -583,10 +604,19 @@ export const performBattleAction = (props: {
 
   // Update the action state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {
-    const jutsu = user.jutsus.find((j) => j.jutsu.id === action.id);
-    if (jutsu) jutsu.lastUsedRound = battle.round;
-    const item = user.items.find((i) => i.item.id === action.id);
-    if (item) item.lastUsedRound = battle.round;
+    let actionPerformed;
+    switch (action.type) {
+      case "jutsu":
+        actionPerformed = user.jutsus.find((j) => j.jutsu.id === action.id);
+        break;
+      case "item":
+        actionPerformed = user.items.find((i) => i.item.id === action.id);
+        break;
+      case "basic":
+        actionPerformed = user.basicActions.find((ba) => ba.id === action.id);
+        break;
+    }
+    if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
   }
 
   // Apply relevant effects, and get back new state + active effects

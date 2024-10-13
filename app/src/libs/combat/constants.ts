@@ -35,6 +35,7 @@ export type DmgConfig = typeof dmgConfig;
 export const publicState = [
   "actionPoints",
   "avatar",
+  "basicActions",
   "bloodline",
   "clan",
   "controllerId",

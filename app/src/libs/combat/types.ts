@@ -22,6 +22,10 @@ export type BattleUserState = UserWithRelations & {
     jutsu: Jutsu;
     lastUsedRound: number;
   })[];
+  basicActions: {
+    id: string;
+    lastUsedRound: number;
+  }[];
   items: (UserItem & {
     item: Item;
     lastUsedRound: number;
