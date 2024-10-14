@@ -524,7 +524,9 @@ const Combat: React.FC<CombatProps> = (props) => {
         window.removeEventListener("resize", handleResize);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
         sceneRef.removeEventListener("mouseleave", onDocumentMouseLeave);
-        sceneRef.removeChild(renderer.domElement);
+        if (sceneRef.contains(renderer.domElement)) {
+          sceneRef.removeChild(renderer.domElement);
+        }
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
       };

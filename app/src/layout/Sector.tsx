@@ -548,9 +548,11 @@ const Sector: React.FC<SectorProps> = (props) => {
         window.removeEventListener("resize", handleResize);
         document.removeEventListener("keydown", onDocumentKeyDown, false);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
-        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
+        if (sceneRef.contains(renderer.domElement)) {
+          sceneRef.removeChild(renderer.domElement);
+        }
         void utils.profile.getUser.invalidate();
       };
     }

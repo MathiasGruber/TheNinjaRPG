@@ -415,9 +415,11 @@ const Map: React.FC<MapProps> = (props) => {
           document.removeEventListener("mousemove", onDocumentMouseMove);
         }
         window.removeEventListener("resize", handleResize);
-        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
+        if (sceneRef.contains(renderer.domElement)) {
+          sceneRef.removeChild(renderer.domElement);
+        }
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
