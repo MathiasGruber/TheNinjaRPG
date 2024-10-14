@@ -220,7 +220,7 @@ export const getBasicActions = (
       actionCostPerc: 60,
       range: 0,
       updatedAt: Date.now(),
-      cooldown: 10,
+      cooldown: 5,
       lastUsedRound:
         user?.basicActions?.find((ba) => ba.id == "cp")?.lastUsedRound ?? -10,
       level: user?.level,
