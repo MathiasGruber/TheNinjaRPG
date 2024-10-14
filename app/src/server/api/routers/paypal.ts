@@ -62,6 +62,8 @@ type PaypalTransaction = {
     transaction_updated_date: string;
     paypal_reference_id: string;
     paypal_reference_id_type: "ODR" | "TXN" | "SUB" | "PAP";
+    transaction_event_code: string;
+    transaction_subject: string;
     transaction_amount: PaypalAmount;
     transaction_status: "D" | "P" | "S" | "V";
     custom_field: string;
@@ -569,7 +571,10 @@ export const syncTransactions = async (
           return `Transaction ID ${info.transaction_id} invalid`;
         }
         // Handle different cases
-        if (info.paypal_reference_id_type === "SUB") {
+        if (
+          info.paypal_reference_id_type === "SUB" ||
+          info.transaction_event_code === "T0002"
+        ) {
           // Fetch from internal & paypal
           const externalSubscription = await getPaypalSubscription(
             info.paypal_reference_id,
