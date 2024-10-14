@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.60",
-    "@clerk/nextjs": "5.5.5",
+    "@clerk/nextjs": "5.7.2",
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "2.9.10",
     "@icons-pack/react-simple-icons": "^9.6.0",
