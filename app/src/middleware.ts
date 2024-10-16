@@ -32,7 +32,6 @@ export function uaMiddleware(request: NextRequest) {
       { status: 403 },
     );
   }
-
   return NextResponse.next();
 }
 
@@ -43,7 +42,7 @@ export default clerkMiddleware(
       auth().protect();
     }
     // Ensure valid user agent
-    uaMiddleware(request);
+    return uaMiddleware(request);
   },
   { clockSkewInMs: 1000 * 60 * 30 },
 );
