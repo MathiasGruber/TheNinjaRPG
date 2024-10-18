@@ -30,8 +30,6 @@ export default function MissionHall() {
     { enabled: !!userData, staleTime: Infinity },
   );
 
-  const aRankMissions = hallData?.filter((m) => m.type === "mission" && m.rank === "A");
-
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -55,6 +53,7 @@ export default function MissionHall() {
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
   const errandsLeft = MISSIONS_PER_DAY - userData.dailyErrands;
   const classifier = userData.isOutlaw ? "crime" : "mission";
+  const aRanks = hallData?.filter((m) => m.type === classifier && m.rank === "A");
 
   return (
     <ContentBox
@@ -116,7 +115,7 @@ export default function MissionHall() {
                   </PopoverTrigger>
                   <PopoverContent>
                     <div className="grid grid-cols-3 gap-2">
-                      {aRankMissions?.map((mission, i) => (
+                      {aRanks?.map((mission, i) => (
                         <div
                           onClick={() => startQuest({ questId: mission.id })}
                           key={`specific-mission-${i}`}
