@@ -34,10 +34,9 @@ const Header: React.FC = () => {
         property="og:description"
         content="A free browser based game set in the ninja world of the Seichi. A multiplayer game with 2D travel and combat system"
       ></meta>
-      <meta
-        property="og:image"
-        content={`https://www.theninja-rpg.com/api/og?imageid=`}
-      ></meta>
+      <meta property="og:image" content="<generated>" />
+      <meta property="og:image:alt" content="TheNinja-RPG Logo" />
+      <meta property="og:image:type" content="image/png" />
       <meta
         name="twitter:title"
         content="The Ninja-RPG.com - a free browser based mmorpg"

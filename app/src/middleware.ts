@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import * as UAParser from "ua-parser-js";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+// import * as UAParser from "ua-parser-js";
+// import { NextResponse } from "next/server";
+// import type { NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/(.*)",
@@ -23,17 +23,17 @@ const isPublicRoute = createRouteMatcher([
   "/rules",
 ]);
 
-export function uaMiddleware(request: NextRequest) {
-  const userAgent = request.headers.get("user-agent") || undefined;
-  const userAgentParsed = new UAParser.UAParser(userAgent);
-  if (userAgentParsed.getBrowser().name === undefined) {
-    return NextResponse.json(
-      { message: "Forbidden. Only access through browser" },
-      { status: 403 },
-    );
-  }
-  return NextResponse.next();
-}
+// export function uaMiddleware(request: NextRequest) {
+//   const userAgent = request.headers.get("user-agent") || undefined;
+//   const userAgentParsed = new UAParser.UAParser(userAgent);
+//   if (userAgentParsed.getBrowser().name === undefined) {
+//     return NextResponse.json(
+//       { message: "Forbidden. Only access through browser" },
+//       { status: 403 },
+//     );
+//   }
+//   return NextResponse.next();
+// }
 
 export default clerkMiddleware(
   (auth, request) => {
