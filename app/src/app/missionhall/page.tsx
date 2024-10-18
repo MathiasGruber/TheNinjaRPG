@@ -97,7 +97,7 @@ export default function MissionHall() {
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
             const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
-            if (setting.type === "mission" && setting.rank === "A") {
+            if (setting.rank === "A") {
               return (
                 <Popover key={`mission-${i}`}>
                   <PopoverTrigger asChild>
