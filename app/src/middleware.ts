@@ -42,7 +42,7 @@ export default clerkMiddleware(
       auth().protect();
     }
     // Ensure valid user agent
-    return uaMiddleware(request);
+    // return uaMiddleware(request);
   },
   { clockSkewInMs: 1000 * 60 * 30 },
 );
