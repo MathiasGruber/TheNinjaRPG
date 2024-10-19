@@ -175,6 +175,9 @@ export const updateKage = async (
   if (curBattle.battleType !== "KAGE_CHALLENGE") return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
+  // Lost items for the kage
+  const deleteKageItems = kage.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
+  const updateKageItems = kage.items.filter((ui) => ui.quantity > 0);
   // Apply
   if (result) {
     await Promise.all([
@@ -185,6 +188,17 @@ export const updateKage = async (
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
           ]
+        : []),
+      ...(deleteKageItems.length > 0
+        ? [client.delete(userItem).where(inArray(userItem.id, deleteKageItems))]
+        : []),
+      ...(updateKageItems.length > 0
+        ? updateKageItems.map((ui) =>
+            client
+              .update(userItem)
+              .set({ quantity: ui.quantity })
+              .where(eq(userItem.id, ui.id)),
+          )
         : []),
       client.insert(kageDefendedChallenges).values({
         id: nanoid(),
