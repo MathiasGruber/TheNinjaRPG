@@ -163,14 +163,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         return (
           <Accordion
             key={`rule-${i}`}
-            className={isLastTwo ? "opacity-50" : ""}
+            className={isDefault && isLastTwo ? "opacity-50" : ""}
             title={`Rule ${i + 1}`}
             titlePostfix={`: ${rule.conditions.map((c) => c.type).join(", ")} -> ${rule.action.type}`}
             selectedTitle={activeElement}
             onClick={setActiveElement}
             options={
               <>
-                {isDefault && !isLastTwo && (
+                {(!isDefault || !isLastTwo) && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -186,7 +186,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {isDefault && !isLastThree && (
+                {(!isDefault || !isLastThree) && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
