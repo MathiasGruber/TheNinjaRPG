@@ -114,6 +114,8 @@ export const reportsRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const reportedUser = alias(userData, "reportedUser");
+      // If user, then only show handled reports
+      const isUnhandled = user.role === "USER" ? false : input.isUnhandled;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { reporterUserId, ...rest } = getTableColumns(userReport);
       const reports = await ctx.drizzle
@@ -125,16 +127,25 @@ export const reportsRouter = createTRPCRouter({
         .where(
           and(
             // Handled or not
-            input.isUnhandled === true
+            isUnhandled
               ? inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"])
               : notInArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]),
             // Active or Closed
-            ...(input.isUnhandled === true || input.showAll === true
+            ...(isUnhandled || input.showAll
               ? []
               : [inArray(userReport.status, ["BAN_ACTIVATED", "OFFICIAL_WARNING"])]),
             // Pertaining to user (if user)
             ...(user.role === "USER"
-              ? [eq(userReport.reportedUserId, ctx.userId)]
+              ? [
+                  and(
+                    eq(userReport.reportedUserId, ctx.userId),
+                    inArray(userReport.status, [
+                      "BAN_ACTIVATED",
+                      "OFFICIAL_WARNING",
+                      "SILENCE_ACTIVATED",
+                    ]),
+                  ),
+                ]
               : []),
           ),
         )

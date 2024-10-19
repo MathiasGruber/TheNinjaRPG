@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import AvatarImage from "@/layout/Avatar";
@@ -30,7 +30,7 @@ export default function Reports() {
   const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(undefined);
+  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(false);
   const [showAll, setShowAll] = useState<boolean | undefined>(undefined);
   const { form, searchTerm } = useUserSearch();
 
@@ -60,6 +60,14 @@ export default function Reports() {
     hasNextPage,
     lastElement,
   });
+
+  // If this is a user, do not show unhandled reports
+  const isUser = userData?.role === "USER";
+  useEffect(() => {
+    if (isUser) {
+      setShowUnhandled(false);
+    }
+  }, [isUser]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
 
@@ -95,11 +103,13 @@ export default function Reports() {
             )}
             <div className="pb-2"></div>
             <div className="w-full flex flex-row pb-2 m-1 gap-2">
-              <Toggle
-                id="toggle-report-handled"
-                value={showUnhandled}
-                setShowActive={setShowUnhandled}
-              />
+              {!isUser && (
+                <Toggle
+                  id="toggle-report-handled"
+                  value={showUnhandled}
+                  setShowActive={setShowUnhandled}
+                />
+              )}
               {!showUnhandled && (
                 <Toggle
                   id="toggle-report-all"
