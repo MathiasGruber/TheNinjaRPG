@@ -15,11 +15,16 @@ import SliderField from "@/layout/SliderField";
 import Post from "@/layout/Post";
 import ParsedReportJson from "@/layout/ReportReason";
 import Loader from "@/layout/Loader";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { CommentOnReport } from "@/layout/Comment";
 import { api } from "@/utils/api";
-import { type ReportCommentSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -30,6 +35,9 @@ import { canPostReportComment } from "@/validators/reports";
 import { canModerateReports } from "@/validators/reports";
 import { canEscalateBan } from "@/validators/reports";
 import { canClearReport } from "@/validators/reports";
+import { TimeUnits } from "@/drizzle/constants";
+import type { ReportCommentSchema } from "@/validators/reports";
+import type { TimeUnit } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 
 export default function Report({ params }: { params: { reportid: string } }) {
@@ -76,11 +84,13 @@ export default function Report({ params }: { params: { reportid: string } }) {
   } = useForm<ReportCommentSchema>({
     defaultValues: {
       banTime: 0,
+      banTimeUnit: "days",
     },
     resolver: zodResolver(reportCommentSchema),
   });
 
   const watchedLength = watch("banTime", 0);
+  const watchedUnit = watch("banTimeUnit", "days");
 
   // Get utils
   const utils = api.useUtils();
@@ -191,18 +201,38 @@ export default function Report({ params }: { params: { reportid: string } }) {
         <form>
           <div className="mb-3">
             {canBan && (
-              <SliderField
-                id="banTime"
-                default={0}
-                min={0}
-                max={365}
-                unit="days"
-                label="Select ban duration in days"
-                register={register}
-                setValue={setValue}
-                watchedValue={watchedLength}
-                error={errors.banTime?.message}
-              />
+              <div className="flex flex-row items-end">
+                <div className="grow">
+                  <SliderField
+                    id="banTime"
+                    default={0}
+                    min={0}
+                    max={100}
+                    unit={watchedUnit}
+                    label={`Select duration in ${watchedUnit}`}
+                    register={register}
+                    setValue={setValue}
+                    watchedValue={watchedLength}
+                    error={errors.banTime?.message}
+                  />
+                </div>
+                <Select
+                  onValueChange={(e) => setValue("banTimeUnit", e as TimeUnit)}
+                  defaultValue={watchedUnit}
+                  value={watchedUnit}
+                >
+                  <SelectTrigger className="basis-1/4 m-1">
+                    <SelectValue placeholder={`None`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TimeUnits.map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
             {canWrite && (
               <RichInput

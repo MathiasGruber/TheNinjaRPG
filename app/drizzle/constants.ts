@@ -141,6 +141,9 @@ export const BanStates = [
   "OFFICIAL_WARNING",
 ] as const;
 
+export const TimeUnits = ["minutes", "hours", "days", "weeks", "months"] as const;
+export type TimeUnit = (typeof TimeUnits)[number];
+
 export const WeaponTypes = [
   "STAFF",
   "AXE",

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { UserData, UserReport } from "../../drizzle/schema";
+import { TimeUnits } from "@/drizzle/constants";
+import type { UserData, UserReport } from "@/drizzle/schema";
 
 export const systems = [
   "forum_comment",
@@ -21,7 +22,8 @@ export type UserReportSchema = z.infer<typeof userReportSchema>;
 export const reportCommentSchema = z.object({
   comment: z.string().min(10).max(5000),
   object_id: z.string(),
-  banTime: z.number().min(0).max(365),
+  banTime: z.number().min(0).max(100),
+  banTimeUnit: z.enum(TimeUnits),
 });
 
 export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;

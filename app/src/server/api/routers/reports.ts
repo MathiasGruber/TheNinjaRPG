@@ -20,8 +20,10 @@ import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
 import { getServerPusher } from "@/libs/pusher";
-import type { DrizzleClient } from "../../db";
+import { getMillisecondsFromTimeUnit } from "@/utils/time";
 import sanitize from "@/utils/sanitize";
+import type { ReportCommentSchema } from "@/validators/reports";
+import type { DrizzleClient } from "../../db";
 
 const pusher = getServerPusher();
 
@@ -289,10 +291,7 @@ export const reportsRouter = createTRPCRouter({
             status: "BAN_ACTIVATED",
             adminResolved: user.role === "ADMIN" ? 1 : 0,
             updatedAt: new Date(),
-            banEnd:
-              input.banTime !== undefined
-                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
-                : null,
+            banEnd: getBanEndDate(input),
           })
           .where(eq(userReport.id, input.object_id)),
         ctx.drizzle.insert(userReportComment).values({
@@ -337,10 +336,7 @@ export const reportsRouter = createTRPCRouter({
             status: "SILENCE_ACTIVATED",
             adminResolved: user.role === "ADMIN" ? 1 : 0,
             updatedAt: new Date(),
-            banEnd:
-              input.banTime !== undefined
-                ? new Date(new Date().getTime() + input.banTime * 24 * 60 * 60 * 1000)
-                : null,
+            banEnd: getBanEndDate(input),
           })
           .where(eq(userReport.id, input.object_id)),
         ctx.drizzle.insert(userReportComment).values({
@@ -581,4 +577,13 @@ export const fetchUserReport = async (
     entry.reporterUserId = null;
   }
   return entry;
+};
+
+export const getBanEndDate = (input: ReportCommentSchema) => {
+  return input.banTime !== undefined && input.banTimeUnit !== undefined
+    ? new Date(
+        new Date().getTime() +
+          input.banTime * getMillisecondsFromTimeUnit(input.banTimeUnit),
+      )
+    : null;
 };
