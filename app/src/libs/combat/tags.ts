@@ -75,7 +75,10 @@ export const absorb = (
 };
 
 /** Prevent buffing */
-export const buffPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const buffPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -92,7 +95,10 @@ export const buffPrevent = (effect: UserEffect, target: BattleUserState) => {
 };
 
 /** Prevent debuffing */
-export const debuffPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const debuffPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -870,7 +876,10 @@ export const flee = (
 };
 
 /** Check if flee prevent is successful depending on static chance calculation */
-export const fleePrevent = (effect: UserEffect, target: BattleUserState) => {
+export const fleePrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -931,7 +940,10 @@ export const heal = (
 };
 
 /** Prevent healing */
-export const healPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const healPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1107,7 +1119,10 @@ export const move = (
 };
 
 /** Prevent target from moving */
-export const movePrevent = (effect: UserEffect, target: BattleUserState) => {
+export const movePrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1147,7 +1162,10 @@ export const onehitkill = (
 };
 
 /** Status effect to prevent OHKO */
-export const onehitkillPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const onehitkillPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1214,7 +1232,10 @@ export const rob = (
 };
 
 /** Prevent robbing */
-export const robPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const robPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1229,7 +1250,10 @@ export const robPrevent = (effect: UserEffect, target: BattleUserState) => {
 };
 
 /** Prevent cleansing */
-export const cleansePrevent = (effect: UserEffect, target: BattleUserState) => {
+export const cleansePrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1244,7 +1268,10 @@ export const cleansePrevent = (effect: UserEffect, target: BattleUserState) => {
 };
 
 /** Prevent clearing */
-export const clearPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const clearPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1295,7 +1322,10 @@ export const sealCheck = (effect: UserEffect, sealEffects: UserEffect[]) => {
 };
 
 /** Prevent sealing of bloodline effects with a static chance */
-export const sealPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const sealPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1349,7 +1379,10 @@ export const stun = (
 };
 
 /** Prevent target from being stunned */
-export const stunPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const stunPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
@@ -1430,7 +1463,10 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
 };
 
 /** Prevent target from being stunned */
-export const summonPrevent = (effect: UserEffect, target: BattleUserState) => {
+export const summonPrevent = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
