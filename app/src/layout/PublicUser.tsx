@@ -200,7 +200,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   if (!userData) return <Loader explanation="Fetching Your User Data" />;
   if (!profile) {
     return (
-      <ContentBox title="Users" subtitle="Search Unsuccessful">
+      <ContentBox
+        title="Users"
+        subtitle="Search Unsuccessful"
+        initialBreak={initialBreak}
+      >
         User with id <b>{userId}</b> does not exist.
       </ContentBox>
     );
@@ -347,33 +351,35 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                   </Confirm>
                 )}
               </div>
-              <StatusBar
-                title="HP"
-                tooltip="Health"
-                color="bg-red-500"
-                showText={true}
-                status={profile.status}
-                current={profile.curHealth}
-                total={profile.maxHealth}
-              />
-              <StatusBar
-                title="CP"
-                tooltip="Chakra"
-                color="bg-blue-500"
-                showText={true}
-                status={profile.status}
-                current={profile.curChakra}
-                total={profile.maxChakra}
-              />
-              <StatusBar
-                title="SP"
-                tooltip="Stamina"
-                color="bg-green-500"
-                showText={true}
-                status={profile.status}
-                current={profile.curStamina}
-                total={profile.maxStamina}
-              />
+              <div className="mt-2">
+                <StatusBar
+                  title="HP"
+                  tooltip="Health"
+                  color="bg-red-500"
+                  showText={true}
+                  status={profile.status}
+                  current={profile.curHealth}
+                  total={profile.maxHealth}
+                />
+                <StatusBar
+                  title="CP"
+                  tooltip="Chakra"
+                  color="bg-blue-500"
+                  showText={true}
+                  status={profile.status}
+                  current={profile.curChakra}
+                  total={profile.maxChakra}
+                />
+                <StatusBar
+                  title="SP"
+                  tooltip="Stamina"
+                  color="bg-green-500"
+                  showText={true}
+                  status={profile.status}
+                  current={profile.curStamina}
+                  total={profile.maxStamina}
+                />
+              </div>
             </div>
           </div>
         </div>

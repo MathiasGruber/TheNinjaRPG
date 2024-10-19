@@ -1654,6 +1654,9 @@ export const village = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    leaderUpdatedAt: datetime("leaderUpdatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     hexColor: varchar("hexColor", { length: 191 }).default("#000000").notNull(),
     populationCount: int("populationCount").default(0).notNull(),
     allianceSystem: boolean("allianceSystem").default(true).notNull(),

@@ -182,7 +182,7 @@ export const updateKage = async (
         ? [
             client
               .update(village)
-              .set({ kageId: user.userId })
+              .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
           ]
         : []),

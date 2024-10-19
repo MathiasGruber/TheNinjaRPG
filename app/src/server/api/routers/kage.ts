@@ -11,7 +11,9 @@ import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
 import { KAGE_MAX_DAILIES, KAGE_MAX_ELDERS } from "@/drizzle/constants";
+import { KAGE_DELAY_SECS } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
+import { secondsFromDate } from "@/utils/time";
 
 export const kageRouter = createTRPCRouter({
   fightKage: protectedProcedure
@@ -84,7 +86,7 @@ export const kageRouter = createTRPCRouter({
       // Update
       await ctx.drizzle
         .update(village)
-        .set({ kageId: elder.userId })
+        .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
         .where(eq(village.id, user.villageId));
       return { success: true, message: "You have resigned as kage" };
     }),
@@ -103,7 +105,7 @@ export const kageRouter = createTRPCRouter({
     const [result] = await Promise.all([
       ctx.drizzle
         .update(village)
-        .set({ kageId: user.userId })
+        .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
         .where(eq(village.id, user.villageId ?? "")),
       ctx.drizzle
         .update(userData)
@@ -131,6 +133,9 @@ export const kageRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("User is banned");
       if (user.isSilenced) return errorResponse("User is silenced");
       if (village.kageId !== ctx.userId) return errorResponse("Not kage");
+      if (secondsFromDate(KAGE_DELAY_SECS, village.leaderUpdatedAt) > new Date()) {
+        return errorResponse("Must have been kage for 24 hours");
+      }
       // Update
       return updateNindo(ctx.drizzle, village.id, input.content);
     }),
@@ -163,6 +168,9 @@ export const kageRouter = createTRPCRouter({
       if (prospect.villageId !== village.id) return errorResponse("Not in village");
       if (elders.length > KAGE_MAX_ELDERS) {
         return errorResponse(`Already have ${KAGE_MAX_ELDERS} elders`);
+      }
+      if (secondsFromDate(KAGE_DELAY_SECS, village.leaderUpdatedAt) > new Date()) {
+        return errorResponse("Must have been kage for 24 hours");
       }
       // Mutate
       const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";
@@ -198,7 +206,13 @@ export const kageRouter = createTRPCRouter({
       if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
       const { total } = calcStructureUpgrade(structure, userVillage);
       if (userVillage.tokens < total) return errorResponse("Not enough tokens");
-
+      console.log(
+        secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt),
+        new Date(),
+      );
+      if (secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt) > new Date()) {
+        return errorResponse("Must have been kage for 24 hours");
+      }
       // Mutate cost
       const villageUpdate = await ctx.drizzle
         .update(village)

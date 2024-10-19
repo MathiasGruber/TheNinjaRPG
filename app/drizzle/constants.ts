@@ -459,6 +459,7 @@ export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
 export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 5;
+export const KAGE_DELAY_SECS = 24 * 3600;
 
 // Game assets
 export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
