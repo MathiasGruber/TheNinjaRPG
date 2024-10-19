@@ -306,6 +306,10 @@ export const questsRouter = createTRPCRouter({
           user,
           questData.questType === "mission",
         ),
+        ctx.drizzle
+          .update(userData)
+          .set({ dailyMissions: sql`${userData.dailyMissions} + 1` })
+          .where(eq(userData.userId, user.userId)),
       ]);
       return { success: true, message: `Quest started: ${questData.name}` };
     }),

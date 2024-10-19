@@ -12,12 +12,6 @@ import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schem
  * @param userData - The user data.
  * @returns True if the item is consumable outside of combat, false otherwise.
  */
-/**
- * Checks if an item is consumable outside of combat.
- * @param item - The item to check.
- * @param userData - The user data.
- * @returns True if the item is consumable outside of combat, false otherwise.
- */
 export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
   if (item.itemType !== "CONSUMABLE") {
     return false;
