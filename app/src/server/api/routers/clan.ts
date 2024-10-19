@@ -19,7 +19,7 @@ import {
 } from "@/routers/sparring";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import { CLAN_LOBBY_SECONDS, CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
+import { CLAN_CREATE_RYO_COST, CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
@@ -188,12 +188,14 @@ export const clanRouter = createTRPCRouter({
       if (!village) return errorResponse("Village not found");
       if (!structure) return errorResponse("Clan hall not found");
       if (villageId !== user.villageId) return errorResponse("Wrong user village");
-      if (clans.length > structure.level) return errorResponse("Max clans reached");
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
       if (clans.find((c) => c.leaderId === ctx.userId))
         if (user.clanId) return errorResponse("Already in a clan");
       if (user.isAi) return errorResponse("AI cannot be leader");
       if (user.money < CLAN_CREATE_RYO_COST) return errorResponse("Not enough ryo");
+      if (clans.length > structure.level * CLANS_PER_STRUCTURE_LEVEL) {
+        return errorResponse("Max clans reached");
+      }
       if (user.villagePrestige < CLAN_CREATE_PRESTIGE_REQUIREMENT) {
         return errorResponse("Not enough prestige");
       }

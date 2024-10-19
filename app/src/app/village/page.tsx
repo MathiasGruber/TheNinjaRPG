@@ -28,6 +28,7 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { hasRequiredRank } from "@/libs/train";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
+import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { calcBankInterest } from "@/utils/village";
 import type { Village } from "@/drizzle/schema";
 import type { VillageStructure } from "@/drizzle/schema";
@@ -385,7 +386,7 @@ const StructureRewardEntries = (structure: VillageStructure) => {
       msgs.push(`Market discount: ${structure.blackDiscountPerLvl * level}%`);
     }
     if (structure.clansPerLvl > 0) {
-      msgs.push(`Clans: +${structure.clansPerLvl * level}`);
+      msgs.push(`Clans: +${structure.clansPerLvl * level * CLANS_PER_STRUCTURE_LEVEL}`);
     }
     if (structure.hospitalSpeedupPerLvl > 0) {
       msgs.push(`Hospital Speed: +${structure.hospitalSpeedupPerLvl * level}%`);
