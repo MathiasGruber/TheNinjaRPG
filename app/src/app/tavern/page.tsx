@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import Conversation from "@/layout/Conversation";
@@ -22,7 +23,10 @@ import { useRequiredUserData } from "@/utils/UserContext";
 
 export default function Tavern() {
   // State
-  const [activeTab, setActiveTab] = useState<string>("Global");
+  const [activeTab, setActiveTab] = useLocalStorage<string | undefined>(
+    "selectedTavern",
+    undefined,
+  );
 
   // Data
   const { data: userData } = useRequiredUserData();
@@ -57,6 +61,14 @@ export default function Tavern() {
       .filter((v) => !availTaverns.includes(v))
       .forEach((v) => availTaverns.push(v));
   }
+
+  // If no tavern defined, set the tavern
+  useEffect(() => {
+    if (userData && !activeTab) {
+      setActiveTab(localTavern);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, localTavern]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (userData.isBanned || userData.isSilenced) return <BanInfo />;
