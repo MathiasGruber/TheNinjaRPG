@@ -34,8 +34,8 @@ import {
 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
-import { canSeeSecretData, canDeleteUsers } from "@/utils/permissions";
-import { canModifyUserBadges } from "@/utils/permissions";
+import { canSeeSecretData } from "@/utils/permissions";
+import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/validators/reports";
@@ -241,7 +241,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
               system="user_profile"
               button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
             />
-            {canDeleteUsers(userData.role) ? (
+            {canUnstuckVillage(userData.role) ? (
               <>
                 <Confirm
                   title="Confirm force change user state to awake"
