@@ -94,7 +94,13 @@ export const isUserStealthed = (
   userEffects: UserEffect[] | undefined,
 ) => {
   return userEffects?.some(
-    (e) => e.type === "stealth" && e.targetId === userId && !e.castThisRound,
+    (e) =>
+      e.type === "stealth" &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      "rounds" in e &&
+      e.rounds &&
+      e.rounds > 0,
   );
 };
 
