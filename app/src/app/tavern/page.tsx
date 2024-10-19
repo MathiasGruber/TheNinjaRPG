@@ -92,7 +92,7 @@ export default function Tavern() {
     ) : (
       <NavTabs
         id="tavernSelector"
-        current={activeTab}
+        current={activeTab ?? localTavern}
         options={availTaverns}
         setValue={setActiveTab}
       />
