@@ -13,7 +13,7 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
 import { ObjectiveReward } from "@/validators/objectives";
 import { cn } from "src/libs/shadui";
-import type { ItemRarity } from "@/drizzle/schema";
+import type { ItemRarity, GameAsset } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 
@@ -34,11 +34,11 @@ export type GenericObject = {
 };
 
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu | Quest | GenericObject;
+  item: Bloodline | Item | Jutsu | Quest | GameAsset | GenericObject;
   hideDetails?: boolean;
   imageBorder?: boolean;
   imageExtra?: React.ReactNode;
-  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
+  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge" | "asset";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   hideTitle?: boolean;
   onDelete?: (id: string) => void;
@@ -62,8 +62,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     <div className="relative flex flex-col items-center justify-center">
       <ContentImage
         image={item.image}
-        alt={item.name}
+        frames={"frames" in item ? item.frames : undefined}
+        speed={"speed" in item ? item.speed : undefined}
         rarity={"rarity" in item ? item.rarity : undefined}
+        alt={item.name}
         className=""
       />
       {props.imageExtra}
@@ -174,7 +176,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
 
             <hr className="py-1" />
-            {!hideDetails && item.description && (
+            {!hideDetails && "description" in item && item.description && (
               <div>{parseHtml(item.description)}</div>
             )}
           </div>
@@ -229,6 +231,31 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             {"rank" in item && item.rank && (
               <p>
                 <b>Rank</b>: {item.rank}
+              </p>
+            )}
+            {"frames" in item && item.frames && (
+              <p>
+                <b>Frames</b>: {item.frames}
+              </p>
+            )}
+            {"speed" in item && item.speed && (
+              <p>
+                <b>Speed</b>: {item.speed}
+              </p>
+            )}
+            {"type" in item && item.type && (
+              <p>
+                <b>Type</b>: {item.type.toLowerCase()}
+              </p>
+            )}
+            {"onInitialBattleField" in item && item.onInitialBattleField && (
+              <p>
+                <b>On battlefield</b>: {item.onInitialBattleField ? "yes" : "no"}
+              </p>
+            )}
+            {"licenseDetails" in item && item.licenseDetails && (
+              <p className="col-span-2">
+                <b>License</b>: {item.licenseDetails}
               </p>
             )}
             {"village" in item &&

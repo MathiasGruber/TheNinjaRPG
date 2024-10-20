@@ -20,6 +20,7 @@ export default function ManualMain() {
           "logs",
           "damage_calcs",
           "badge",
+          "asset",
         ].map((page) => (
           <Link
             key={page}

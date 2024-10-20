@@ -150,7 +150,7 @@ export const drawCombatBackground = (
  * Draw/update the users on the map. Should be called on every render
  */
 export const drawCombatEffects = (info: {
-  groupGround: Group;
+  groupEffects: Group;
   battle: ReturnedBattle;
   grid: Grid<TerrainHex>;
   animationId: number;
@@ -158,7 +158,7 @@ export const drawCombatEffects = (info: {
   gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { battle, groupGround, spriteMixer, animationId, gameAssets } = info;
+  const { battle, groupEffects, spriteMixer, animationId, gameAssets } = info;
   const { groundEffects, usersEffects, usersState } = battle;
 
   // Record of drawn IDs
@@ -171,7 +171,7 @@ export const drawCombatEffects = (info: {
       y: effect.latitude,
     });
     drawCombatEffect({
-      groupGround,
+      groupEffects,
       effect,
       animationId,
       hex,
@@ -189,7 +189,7 @@ export const drawCombatEffects = (info: {
         y: user.latitude,
       });
       drawCombatEffect({
-        groupGround,
+        groupEffects,
         effect,
         animationId,
         hex,
@@ -201,7 +201,7 @@ export const drawCombatEffects = (info: {
   });
 
   // Hide all which are not used anymore
-  groupGround.children.forEach((object) => {
+  groupEffects.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
     }
@@ -209,7 +209,7 @@ export const drawCombatEffects = (info: {
 };
 
 export const drawCombatEffect = (info: {
-  groupGround: Group;
+  groupEffects: Group;
   effect: GroundEffect | UserEffect;
   animationId: number;
   hex?: TerrainHex;
@@ -218,12 +218,12 @@ export const drawCombatEffect = (info: {
   gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { effect, groupGround, animationId, hex, drawnIds } = info;
+  const { effect, groupEffects, animationId, hex, drawnIds } = info;
   const { spriteMixer, gameAssets } = info;
   if (hex) {
     if (effect.staticAssetPath || effect.appearAnimation || effect.disappearAnimation) {
       const { height: h, width: w } = hex;
-      let asset = groupGround.getObjectByName(effect.id) as Group;
+      let asset = groupEffects.getObjectByName(effect.id) as Group;
       if (!asset) {
         // Group for the asset
         asset = new Group();
@@ -232,7 +232,6 @@ export const drawCombatEffect = (info: {
         // Sprite to show
         if (effect.staticAssetPath) {
           const obj = gameAssets.find((a) => a.id === effect.staticAssetPath);
-          console.log("obj", obj);
           if (obj) {
             const texture = loadTexture(obj.image);
             const material = new SpriteMaterial({ map: texture });
@@ -271,7 +270,7 @@ export const drawCombatEffect = (info: {
           hp_background.visible = false;
         }
         // Add to group
-        groupGround.add(asset);
+        groupEffects.add(asset);
       }
 
       // Set visibility

@@ -40,6 +40,14 @@ export const gameAsset = mysqlTable(
     image: varchar("image", { length: 191 }).notNull(),
     frames: tinyint("frames").default(1).notNull(),
     speed: tinyint("speed").default(1).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    licenseDetails: text("licenseDetails").default("TNR").notNull(),
+    createdByUserId: varchar("createdByUserId", { length: 191 }),
     onInitialBattleField: boolean("onInitialBattleField").default(false).notNull(),
   },
   (table) => {

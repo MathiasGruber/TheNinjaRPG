@@ -74,7 +74,7 @@ interface EditContentProps<T, K, S extends FieldValues> {
   buttonTxt?: string;
   allowImageUpload?: boolean;
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
-  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge";
+  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge" | "asset";
   bgColor?: "bg-slate-600" | "";
   onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined,

@@ -386,6 +386,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       // js groups for organization
       const group_users = new Group();
       const group_ground = new Group();
+      const group_effects = new Group();
 
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -399,6 +400,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       scene.add(group_edges);
       scene.add(group_ground);
       scene.add(group_users);
+      scene.add(group_effects);
 
       // Capture clicks to update move direction
       const onClick = () => {
@@ -468,7 +470,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
           // Draw all ground effects on the map
           drawCombatEffects({
-            groupGround: group_ground,
+            groupEffects: group_effects,
             battle: battle.current,
             grid: grid.current,
             animationId,
