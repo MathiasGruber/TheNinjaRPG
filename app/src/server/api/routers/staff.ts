@@ -36,7 +36,7 @@ export const staffRouter = createTRPCRouter({
         }),
         ctx.drizzle
           .update(userData)
-          .set({ status: "AWAKE" })
+          .set({ status: "AWAKE", travelFinishAt: null, battleId: null })
           .where(eq(userData.userId, targetUser.userId)),
       ]);
       // Push status update to sector
