@@ -304,16 +304,8 @@ export const questsRouter = createTRPCRouter({
         incrementDailyQuestCounter(
           ctx.drizzle,
           user,
-          questData.questType === "mission",
+          ["mission", "crime"].includes(questData.questType),
         ),
-        ...(["mission", "crime"].includes(questData.questType)
-          ? [
-              ctx.drizzle
-                .update(userData)
-                .set({ dailyMissions: sql`${userData.dailyMissions} + 1` })
-                .where(eq(userData.userId, user.userId)),
-            ]
-          : []),
       ]);
       return { success: true, message: `Quest started: ${questData.name}` };
     }),
