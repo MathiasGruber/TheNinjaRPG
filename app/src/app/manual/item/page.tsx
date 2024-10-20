@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import { Button } from "@/components/ui/button";
-import { FilePlus, SquarePen } from "lucide-react";
+import { FilePlus, SquarePen, ChartCandlestick, ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import ItemFiltering, { useFiltering, getFilter } from "@/layout/ItemFiltering";
 import { api } from "@/utils/api";
@@ -68,7 +69,25 @@ export default function ManualItems() {
 
   return (
     <>
-      <ContentBox title="Items" subtitle="Content" back_href="/manual">
+      <ContentBox
+        title="Items"
+        subtitle="Content"
+        back_href="/manual"
+        topRightContent={
+          <div className="flex flex-row gap-1">
+            <Link href="/manual/item/balance">
+              <Button id="item-statistics" hoverText="Balance Statistics">
+                <ChartCandlestick className="h-6 w-6" />
+              </Button>
+            </Link>
+            <Link href="/manual/item/completeness">
+              <Button id="item-completeness" hoverText="Content Completeness">
+                <ChartPie className="h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
+        }
+      >
         <p>
           In the treacherous world of ninja warfare, the mastery of jutsu alone is not
           enough to ensure victory. To become a truly formidable force, ninjas must
@@ -82,6 +101,7 @@ export default function ManualItems() {
       <ContentBox
         title="Database"
         initialBreak={true}
+        subtitle="All known items"
         topRightContent={
           <div className="sm:flex sm:flex-row items-center">
             {userData && canChangeContent(userData.role) && (

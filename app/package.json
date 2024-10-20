@@ -88,6 +88,7 @@
     "react-dropzone": "^14.2.3",
     "react-hook-form": "7.43.0",
     "react-html-parser": "2.0.2",
+    "react-wordcloud": "^1.2.7",
     "replicate": "^0.25.2",
     "sanitize-html": "2.13.0",
     "sharp": "0.32.6",

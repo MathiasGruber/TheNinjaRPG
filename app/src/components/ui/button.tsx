@@ -1,5 +1,11 @@
 import * as React from "react";
 import Image from "next/image";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "src/libs/shadui";
@@ -39,25 +45,47 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  hoverText?: string;
   decoration?: "gold" | "none";
   animation?: "pulse";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, asChild = false, decoration = "none", ...props },
+    {
+      className,
+      variant,
+      size,
+      hoverText,
+      asChild = false,
+      decoration = "none",
+      ...props
+    },
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
     const animation = props.animation ? "animate-pulse hover:animate-none" : "";
-    const element = (
+    // Button element
+    let element = (
       <Comp
         className={cn(buttonVariants({ variant, size, className }), animation)}
         ref={ref}
         {...props}
       />
     );
+    if (hoverText) {
+      element = (
+        <TooltipProvider delayDuration={50}>
+          <Tooltip>
+            <TooltipTrigger asChild>{element}</TooltipTrigger>
+            <TooltipContent>{hoverText}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    // No decoration, just return button
     if (decoration === "none") return element;
+    // With decoration
     return (
       <div className={cn("relative")}>
         {element}

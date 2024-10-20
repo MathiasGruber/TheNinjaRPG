@@ -9,7 +9,8 @@ import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFiltering";
 import { Button } from "@/components/ui/button";
-import { FilePlus, SquarePen, Presentation } from "lucide-react";
+import { FilePlus, SquarePen, ChartCandlestick } from "lucide-react";
+import { ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -71,12 +72,18 @@ export default function ManualBloodlines() {
         subtitle="What are they?"
         back_href="/manual"
         topRightContent={
-          <Link href="/manual/bloodline/balance">
-            <Button id="bloodline-statistics">
-              <Presentation className="mr-2 h-6 w-6" />
-              Balance Statistics
-            </Button>
-          </Link>
+          <div className="flex flex-row gap-1">
+            <Link href="/manual/bloodline/balance">
+              <Button id="bloodline-statistics" hoverText="Balance Statistics">
+                <ChartCandlestick className="h-6 w-6" />
+              </Button>
+            </Link>
+            <Link href="/manual/bloodline/completeness">
+              <Button id="bloodline-completeness" hoverText="Content Completeness">
+                <ChartPie className="h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
         }
       >
         <p>
