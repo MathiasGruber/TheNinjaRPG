@@ -70,6 +70,7 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, Jutsu, UserItem, Item } from "@/drizzle/schema";
@@ -1167,6 +1168,11 @@ export const fetchUpdatedUser = async (props: {
       (q) => !q.quest.hidden || canChangeContent(user.role),
     );
   }
+
+  // Hide information relating to quests
+  user?.userQuests.forEach((q) => {
+    hideQuestInformation(q.quest, user);
+  });
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration

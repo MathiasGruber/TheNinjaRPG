@@ -30,6 +30,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
+import { hideQuestInformation } from "@/libs/quest";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
@@ -78,6 +79,7 @@ export const questsRouter = createTRPCRouter({
         offset: skip,
         limit: input.limit,
       });
+      results.forEach((r) => hideQuestInformation(r));
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
         data: results,
@@ -91,6 +93,7 @@ export const questsRouter = createTRPCRouter({
       if (!result) {
         throw serverError("NOT_FOUND", "Quest not found");
       }
+      hideQuestInformation(result);
       return result;
     }),
   allianceBuilding: protectedProcedure
@@ -136,6 +139,7 @@ export const questsRouter = createTRPCRouter({
             ),
           ),
       ]);
+      events.forEach((r) => hideQuestInformation(r));
       return events
         .filter((e) => !e.hidden || canChangeContent(user.role))
         .filter(

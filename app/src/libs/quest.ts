@@ -15,7 +15,7 @@ import {
 import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest } from "@/drizzle/schema";
+import type { Quest, UserData } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -373,4 +373,28 @@ export const mockAchievementHistoryEntries = (
       endAt: null,
       startedAt: new Date(),
     }));
+};
+
+/**
+ * Hides the location information of quest objectives if certain conditions are met.
+ *
+ * @param quest - The quest object containing objectives.
+ * @param user - Optional user data to check against objective sectors.
+ *
+ * This function iterates over each objective in the quest's content. If an objective has the
+ * `hideLocation` property set to true and the user's sector does not match the objective's sector,
+ * it will obfuscate the objective's location by setting its latitude, longitude, and sector to 1337.
+ */
+export const hideQuestInformation = (quest: Quest, user?: UserData) => {
+  quest.content.objectives.forEach((objective) => {
+    if (
+      "hideLocation" in objective &&
+      objective.hideLocation &&
+      user?.sector !== objective.sector
+    ) {
+      objective.latitude = 1337;
+      objective.longitude = 1337;
+      objective.sector = 1337;
+    }
+  });
 };
