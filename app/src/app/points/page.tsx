@@ -694,9 +694,17 @@ const SubscriptionsOverview = () => {
             {
               label: "Cancel",
               onClick: (subscription: Subscription) => {
-                cancelSubscription({
-                  subscriptionId: subscription.subscriptionId,
-                });
+                if (subscription.orderId) {
+                  cancelSubscription({
+                    subscriptionId: subscription.subscriptionId,
+                  });
+                } else {
+                  showMutationToast({
+                    success: false,
+                    message:
+                      "Can only cancel paypal subscriptions, not those purchased with reps.",
+                  });
+                }
               },
             },
           ]}

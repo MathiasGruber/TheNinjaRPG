@@ -408,7 +408,7 @@ export const paypalRouter = createTRPCRouter({
           affectedUserId: affectedUserId,
           federalStatus: dbSub.federalStatus,
           status: "CANCELLED",
-          subscriptionId: paypalSub.id,
+          subscriptionId: input.subscriptionId,
         });
         return { success: true, message: "Successfully canceled subscription" };
       } else {
