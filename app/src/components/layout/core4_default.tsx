@@ -563,6 +563,13 @@ const RightSideBar: React.FC<{
   // Shown notifications
   const shownNotifications = notifications?.filter((n) => n.color !== "toast");
 
+  // TODO: Remove this again
+  shownNotifications?.push({
+    name: "Review staff!",
+    color: "blue",
+    href: "/manual/opinions",
+  });
+
   // Render
   return (
     <>

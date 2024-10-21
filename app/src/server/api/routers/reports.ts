@@ -5,7 +5,7 @@ import { getTableColumns, sql } from "drizzle-orm";
 import { eq, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
-import { userReport, userReportComment, userData } from "@/drizzle/schema";
+import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
@@ -20,6 +20,7 @@ import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
 import { getServerPusher } from "@/libs/pusher";
+import { userReviewSchema } from "@/validators/reports";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
 import sanitize from "@/utils/sanitize";
 import type { ReportCommentSchema } from "@/validators/reports";
@@ -532,6 +533,51 @@ export const reportsRouter = createTRPCRouter({
         ctx.drizzle.delete(userNindo).where(eq(userNindo.userId, target.userId)),
       ]);
       return { success: true, message: "Nindo cleared" };
+    }),
+  getUserStaffReviews: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.userReview.findMany({
+      where: eq(userReview.authorUserId, ctx.userId),
+    });
+  }),
+  upsertStaffReview: protectedProcedure
+    .input(userReviewSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, target, review] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.staffUserId),
+        ctx.drizzle.query.userReview.findFirst({
+          where: and(
+            eq(userReview.targetUserId, input.staffUserId),
+            eq(userReview.authorUserId, ctx.userId),
+          ),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned and cannot post reviews");
+      if (target.role === "USER") return errorResponse("You cannot review users");
+      // Mutate
+      if (review) {
+        await ctx.drizzle
+          .update(userReview)
+          .set({
+            positive: input.positive,
+            review: input.review,
+          })
+          .where(eq(userReview.id, review.id));
+        return { success: true, message: "Staff review updated" };
+      } else {
+        await ctx.drizzle.insert(userReview).values({
+          id: nanoid(),
+          targetUserId: input.staffUserId,
+          authorUserId: ctx.userId,
+          authorIp: ctx.userIp || "unknown",
+          positive: input.positive,
+          review: input.review,
+        });
+        return { success: true, message: "Staff review created" };
+      }
     }),
 });
 

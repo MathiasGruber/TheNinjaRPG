@@ -1475,6 +1475,27 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   }),
 }));
 
+export const userReview = mysqlTable(
+  "UserReview",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    authorUserId: varchar("authorUserId", { length: 191 }).notNull(),
+    targetUserId: varchar("targetUserId", { length: 191 }).notNull(),
+    positive: boolean("positive").default(true).notNull(),
+    review: text("review").notNull(),
+    authorIp: varchar("authorIp", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      authorUserIdIdx: index("UserReview_authorUserId_idx").on(table.authorUserId),
+      targetUserIdIdx: index("UserReview_targetUserId_idx").on(table.targetUserId),
+    };
+  },
+);
+
 export const userNindo = mysqlTable(
   "UserNindo",
   {

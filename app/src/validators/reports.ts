@@ -28,6 +28,13 @@ export const reportCommentSchema = z.object({
 
 export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;
 
+export const userReviewSchema = z.object({
+  staffUserId: z.string(),
+  review: z.string(),
+  positive: z.boolean().optional(),
+});
+export type UserReviewSchema = z.infer<typeof userReviewSchema>;
+
 /**
  * Whether a user can see a given report based on his role & userId
  */

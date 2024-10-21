@@ -21,6 +21,7 @@ export default function ManualMain() {
           "damage_calcs",
           "badge",
           "asset",
+          "opinions",
         ].map((page) => (
           <Link
             key={page}
