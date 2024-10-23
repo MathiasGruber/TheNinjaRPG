@@ -21,6 +21,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
   // The image to show
   const imgRef = useRef<HTMLCanvasElement>(null);
   const pixels = 112;
+  const tailwindSize = "";
   let img: null | React.ReactNode = null;
   if (props.image) {
     if (props.speed && props.frames) {
@@ -31,7 +32,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
             id={`img-${props.alt}`}
             width={pixels}
             height={pixels}
-            className="w-24 h-24"
+            className={cn(tailwindSize)}
           ></canvas>
         </div>
       );
@@ -59,7 +60,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
     } else {
       img = (
         <NextImage
-          className={cn(props.className)}
+          className={cn(props.className, "w-full h-full aspect-square")}
           src={props.image}
           alt={props.alt}
           width={125}
@@ -79,7 +80,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
   return (
     <>
       {drawBackground && props.rarity && (
-        <div className="w-28 h-28">
+        <div className={cn(tailwindSize)}>
           <NextImage
             className={cn(
               props.className,
@@ -105,9 +106,10 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
         <div
           className={cn(
             drawBackground ? "absolute left-1/2 -translate-x-1/2 " : "relative left-0",
-            "bottom-0 right-0 top-0 w-28 h-28",
+            "bottom-0 right-0 top-0",
             props.roundFull ? "rounded-full" : "rounded-xl",
             props.hideBorder ? "" : "border-2",
+            "aspect-square w-full",
           )}
         >
           {img}
