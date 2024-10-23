@@ -9,6 +9,8 @@ import { canModerate, canCreateNews } from "@/validators/forum";
 import { callDiscordNews } from "../../../libs/discord";
 import { fetchUser } from "./profile";
 import { nanoid } from "nanoid";
+import { moderateContent } from "@/libs/moderator";
+import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
 export const forumRouter = createTRPCRouter({
@@ -64,8 +66,10 @@ export const forumRouter = createTRPCRouter({
       if (isNews) {
         await callDiscordNews(user.username, input.title, input.content, user.avatar);
       }
+      const sanitized = sanitize(input.content);
       await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
+        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost"),
         ctx.drizzle.insert(forumThread).values({
           id: threadId,
           title: input.title,
@@ -74,7 +78,7 @@ export const forumRouter = createTRPCRouter({
         }),
         ctx.drizzle.insert(forumPost).values({
           id: nanoid(),
-          content: input.content,
+          content: sanitized,
           threadId: threadId,
           userId: ctx.userId,
         }),

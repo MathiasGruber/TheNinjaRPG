@@ -52,8 +52,12 @@ export const updateGameSetting = async (
  * @param hours - The number of hours for the game timer.
  * @returns A JSON response indicating the time left before the game can be run again.
  */
-export const checkGameTimer = async (client: DrizzleClient, hours: number) => {
-  const timer = await getGameSetting(client, `timer-${hours}h`);
+export const checkGameTimer = async (
+  client: DrizzleClient,
+  hours: number,
+  unit = "h",
+) => {
+  const timer = await getGameSetting(client, `timer-${hours}${unit}`);
   const deltaTime = 1000 * 60 * 60 * hours * 0.9999;
   if (timer.time > new Date(Date.now() - deltaTime)) {
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(

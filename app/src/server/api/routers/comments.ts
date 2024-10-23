@@ -28,10 +28,11 @@ import { canSeeReport } from "@/validators/reports";
 import { canDeleteComment } from "@/validators/reports";
 import { canSeeSecretData } from "@/utils/permissions";
 import { createConversationSchema } from "@/validators/comments";
-import { getServerPusher } from "../../../libs/pusher";
-import { fetchUserReport } from "./reports";
-import { fetchThread } from "./forum";
-import { fetchUser } from "./profile";
+import { getServerPusher } from "@/libs/pusher";
+import { fetchUserReport } from "@/routers/reports";
+import { fetchThread } from "@/routers/forum";
+import { fetchUser } from "@/routers/profile";
+import { moderateContent } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
@@ -161,12 +162,14 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
+      const sanitized = sanitize(input.comment);
       await Promise.all([
+        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost"),
         ctx.drizzle.insert(forumPost).values({
           id: nanoid(),
           userId: ctx.userId,
           threadId: thread.id,
-          content: sanitize(input.comment),
+          content: sanitized,
         }),
         ctx.drizzle
           .update(forumThread)
@@ -523,6 +526,9 @@ export const commentsRouter = createTRPCRouter({
       userIds.forEach(
         (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
       );
+      // Auto-moderation
+      void moderateContent(ctx.drizzle, input.comment, ctx.userId, "comment");
+      // Insert
       return await ctx.drizzle.insert(conversationComment).values({
         id: commentId,
         content: sanitize(input.comment),
@@ -648,7 +654,9 @@ export const createConvo = async (
   );
   // Update DB concurrently
   const convoId = nanoid();
+  const sanitized = sanitize(content);
   await Promise.all([
+    moderateContent(client, sanitized, senderUserId, "privateMessage"),
     client.insert(conversation).values({
       id: convoId,
       title: title,
@@ -672,7 +680,7 @@ export const createConvo = async (
       : []),
     client.insert(conversationComment).values({
       id: nanoid(),
-      content: sanitize(content),
+      content: sanitized,
       userId: senderUserId,
       conversationId: convoId,
     }),

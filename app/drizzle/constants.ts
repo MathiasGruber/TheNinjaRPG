@@ -86,6 +86,19 @@ export const ItemSlots = [
 ] as const;
 export type ItemSlot = (typeof ItemSlots)[number];
 
+export const AutomoderationCategories = [
+  "comment",
+  "privateMessage",
+  "forumPost",
+  "userReport",
+  "userNindo",
+  "clanOrder",
+  "anbuOrder",
+  "kageOrder",
+  "userAvatar",
+] as const;
+export type AutomoderationCategory = (typeof AutomoderationCategories)[number];
+
 export const UserRoles = [
   "USER",
   "MODERATOR",

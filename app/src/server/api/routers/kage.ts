@@ -137,7 +137,7 @@ export const kageRouter = createTRPCRouter({
         return errorResponse("Must have been kage for 24 hours");
       }
       // Update
-      return updateNindo(ctx.drizzle, village.id, input.content);
+      return updateNindo(ctx.drizzle, village.id, input.content, "kageOrder");
     }),
   getElders: protectedProcedure
     .input(z.object({ villageId: z.string() }))

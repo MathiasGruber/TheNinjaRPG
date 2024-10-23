@@ -1669,6 +1669,40 @@ export const userReportCommentRelations = relations(userReportComment, ({ one })
   }),
 }));
 
+export const automatedModeration = mysqlTable(
+  "AutomatedModeration",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    content: text("content").notNull(),
+    relationType: mysqlEnum("relationType", consts.AutomoderationCategories).notNull(),
+    // Categories
+    sexual: boolean("sexual").default(false).notNull(),
+    sexual_minors: boolean("sexual_minors").default(false).notNull(),
+    harassment: boolean("harassment").default(false).notNull(),
+    harassment_threatening: boolean("harassment_threatening").default(false).notNull(),
+    hate: boolean("hate").default(false).notNull(),
+    hate_threatening: boolean("hate_threatening").default(false).notNull(),
+    illicit: boolean("illicit").default(false).notNull(),
+    illicit_violent: boolean("illicit_violent").default(false).notNull(),
+    self_harm: boolean("self_harm").default(false).notNull(),
+    self_harm_intent: boolean("self_harm_intent").default(false).notNull(),
+    self_harm_instructions: boolean("self_harm_instructions").default(false).notNull(),
+    violence: boolean("violence").default(false).notNull(),
+    violence_graphic: boolean("violence_graphic").default(false).notNull(),
+    // Timestamps
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("AutoMod_userId_idx").on(table.userId),
+      relationTypeIdx: index("AutoMod_relationType_idx").on(table.relationType),
+    };
+  },
+);
+
 export const village = mysqlTable(
   "Village",
   {

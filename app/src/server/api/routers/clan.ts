@@ -406,7 +406,12 @@ export const clanRouter = createTRPCRouter({
       if (user.isSilenced) return errorResponse("User is silenced");
       if (!leaderLike) return errorResponse("Not in clan leadership");
       // Update
-      return updateNindo(ctx.drizzle, fetchedClan.leaderOrderId, input.content);
+      return updateNindo(
+        ctx.drizzle,
+        fetchedClan.leaderOrderId,
+        input.content,
+        "clanOrder",
+      );
     }),
   fightLeader: protectedProcedure
     .input(z.object({ clanId: z.string(), villageId: z.string() }))

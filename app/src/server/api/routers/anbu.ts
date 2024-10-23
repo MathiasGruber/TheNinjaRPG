@@ -400,7 +400,7 @@ export const anbuRouter = createTRPCRouter({
       }
       const orderId = input.type === "KAGE" ? squad.kageOrderId : squad.leaderOrderId;
       // Update
-      return updateNindo(ctx.drizzle, orderId, input.content);
+      return updateNindo(ctx.drizzle, orderId, input.content, "anbuOrder");
     }),
 });
 
