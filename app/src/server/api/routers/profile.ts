@@ -72,6 +72,8 @@ import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
+import sanitize from "@/utils/sanitize";
+import { moderateContent } from "@/libs/moderator";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, Jutsu, UserItem, Item } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
@@ -79,7 +81,6 @@ import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schem
 import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
-import type { ExecutedQuery } from "@planetscale/database";
 
 const pusher = getServerPusher();
 
@@ -670,7 +671,7 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("You can't change for other users");
       }
       // Mutate
-      return updateNindo(ctx.drizzle, input.userId, input.content);
+      return updateNindo(ctx.drizzle, input.userId, input.content, "userNindo");
     }),
   // Insert attribute
   insertAttribute: protectedProcedure
@@ -946,28 +947,26 @@ export const updateNindo = async (
   client: DrizzleClient,
   userId: string,
   content: string,
+  type: "userNindo" | "clanOrder" | "anbuOrder" | "kageOrder",
 ) => {
   const nindo = await client.query.userNindo.findFirst({
     where: eq(userNindo.userId, userId),
   });
-  let result: ExecutedQuery;
-  if (!nindo) {
-    result = await client.insert(userNindo).values({
-      id: nanoid(),
-      userId: userId,
-      content: content,
-    });
-  } else {
-    result = await client
-      .update(userNindo)
-      .set({ content: content })
-      .where(eq(userNindo.userId, userId));
-  }
-  if (result.rowsAffected === 0) {
-    return { success: false, message: "Could not update content" };
-  } else {
-    return { success: true, message: "Content updated" };
-  }
+  const sanitized = sanitize(content);
+  await Promise.all([
+    moderateContent(client, sanitized, userId, type),
+    nindo
+      ? client
+          .update(userNindo)
+          .set({ content: content })
+          .where(eq(userNindo.userId, userId))
+      : client.insert(userNindo).values({
+          id: nanoid(),
+          userId: userId,
+          content: content,
+        }),
+  ]);
+  return { success: true, message: "Content updated" };
 };
 
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
