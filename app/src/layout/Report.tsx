@@ -48,6 +48,8 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
   const createReport = api.reports.create.useMutation({
     onSuccess: async (data) => {
       await utils.reports.getAll.invalidate();
+      await utils.comments.getConversationComments.invalidate();
+      await utils.comments.getForumComments.invalidate();
       showMutationToast(data);
     },
   });

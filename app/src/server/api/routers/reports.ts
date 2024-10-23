@@ -223,38 +223,51 @@ export const reportsRouter = createTRPCRouter({
     .input(userReportSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const getInfraction = (system: typeof input.system) => {
+      // Fetch
+      const getInfraction = async (system: typeof input.system) => {
         switch (system) {
           case "forum_comment":
-            return ctx.drizzle.query.forumPost.findFirst({
+            const forumPostData = await ctx.drizzle.query.forumPost.findFirst({
               where: eq(forumPost.id, input.system_id),
             });
+            await ctx.drizzle
+              .update(forumPost)
+              .set({ isReported: true })
+              .where(eq(forumPost.id, input.system_id));
+            return forumPostData;
           case "conversation_comment":
-            return ctx.drizzle.query.conversationComment.findFirst({
+            const commentData = await ctx.drizzle.query.conversationComment.findFirst({
               where: eq(conversationComment.id, input.system_id),
             });
+            await ctx.drizzle
+              .update(conversationComment)
+              .set({ isReported: true })
+              .where(eq(conversationComment.id, input.system_id));
+            return commentData;
           case "user_profile":
-            return fetchUser(ctx.drizzle, input.system_id);
+            return await fetchUser(ctx.drizzle, input.system_id);
           case "concept_art":
-            return fetchImage(ctx.drizzle, input.system_id, "");
+            return await fetchImage(ctx.drizzle, input.system_id, "");
           default:
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      await getInfraction(input.system).then((report) => {
-        if (report) {
-          return ctx.drizzle.insert(userReport).values({
-            id: nanoid(),
-            reporterUserId: ctx.userId,
-            reportedUserId: input.reported_userId,
-            system: input.system,
-            infraction: report,
-            reason: sanitize(input.reason),
-          });
-        } else {
-          throw serverError("NOT_FOUND", "Infraction not found.");
-        }
+      const report = await getInfraction(input.system);
+      // Guard
+      if (!report) return errorResponse("Infraction not found");
+      if ("isReported" in report && report.isReported) {
+        return errorResponse("This infraction has already been reported");
+      }
+      // Mutate
+      await ctx.drizzle.insert(userReport).values({
+        id: nanoid(),
+        reporterUserId: ctx.userId,
+        reportedUserId: input.reported_userId,
+        system: input.system,
+        infraction: report,
+        reason: sanitize(input.reason),
       });
+      // Return
       return {
         success: true,
         message: "Your report has been submitted. A moderator will review it asap.",

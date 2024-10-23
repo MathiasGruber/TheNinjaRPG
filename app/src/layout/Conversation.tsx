@@ -116,6 +116,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               conversationId: conversation.id,
               content: newMessage.comment,
               isPinned: 0,
+              isReported: false,
               villageName: userData.village?.name ?? null,
               villageHexColor: userData.village?.hexColor ?? null,
               villageKageId: userData.village?.kageId ?? null,

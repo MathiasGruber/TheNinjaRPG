@@ -6,6 +6,7 @@ import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
 import ReportUser from "@/layout/Report";
+import { cn } from "src/libs/shadui";
 import { canDeleteComment } from "../validators/reports";
 import { mutateCommentSchema } from "../validators/comments";
 import { api } from "@/utils/api";
@@ -28,7 +29,6 @@ interface UserReportCommentProps extends PostProps {
 }
 export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
-
   return <BaseComment {...props} editing={editing} setEditing={setEditing} />;
 };
 
@@ -159,19 +159,23 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           <div className="flex flex-row">
             {isAuthor && props.editComment && (
               <SquarePen
-                className={`h-6 w-6 ${
-                  props.editing ? "fill-orange-500" : "hover:text-orange-500"
-                }`}
+                className={cn(
+                  "h-6 w-6",
+                  props.editing ? "fill-orange-500" : "hover:text-orange-500",
+                )}
                 onClick={() => props.setEditing((prev) => !prev)}
               />
             )}
-            {props.system && (
+            {props.system && !props.comment?.isReported && (
               <ReportUser
                 user={props.user}
                 content={props.comment}
                 system={props.system}
                 button={<Flag className="h-6 w-6 hover:text-orange-500" />}
               />
+            )}
+            {props.system && props.comment?.isReported && (
+              <Flag className="h-6 w-6 fill-orange-500" />
             )}
             {userData &&
               canDeleteComment(userData, props.user.userId) &&

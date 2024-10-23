@@ -652,6 +652,7 @@ export const conversationComment = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     conversationId: varchar("conversationId", { length: 191 }),
     isPinned: tinyint("isPinned").default(0).notNull(),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
@@ -732,6 +733,7 @@ export const forumPost = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     threadId: varchar("threadId", { length: 191 }).notNull(),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
@@ -1649,6 +1651,7 @@ export const userReportComment = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     reportId: varchar("reportId", { length: 191 }).notNull(),
     decision: mysqlEnum("decision", consts.BanStates),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
