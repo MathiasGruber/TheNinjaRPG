@@ -577,6 +577,7 @@ export const reportsRouter = createTRPCRouter({
           .set({
             positive: input.positive,
             review: input.review,
+            createdAt: new Date(),
           })
           .where(eq(userReview.id, review.id));
         return { success: true, message: "Staff review updated" };
