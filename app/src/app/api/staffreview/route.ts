@@ -22,7 +22,7 @@ export async function GET() {
   cookies();
 
   // Check timer
-  const frequency = 24 * 7;
+  const frequency = 24 * 30;
   const response = await checkGameTimer(drizzleDB, frequency);
   if (response) return response;
 
@@ -36,20 +36,21 @@ export async function GET() {
     });
 
     // Query all user review from the last 7 days
-    for (const user of staff) {
-      const results = await drizzleDB.query.userReview.findMany({
-        where: and(
-          gt(userReview.createdAt, secondsFromNow(-frequency * 60 * 60)),
-          ne(userReview.review, ""),
-          eq(userReview.targetUserId, user.userId),
-        ),
-      });
-      const allText = results.map((r) => r.review).join("\n");
+    await Promise.all(
+      staff.map(async (user) => {
+        const results = await drizzleDB.query.userReview.findMany({
+          where: and(
+            gt(userReview.createdAt, secondsFromNow(-frequency * 60 * 60)),
+            ne(userReview.review, ""),
+            eq(userReview.targetUserId, user.userId),
+          ),
+        });
+        const allText = results.map((r) => r.review).join("\n");
 
-      // Review
-      const { text } = await generateText({
-        model: openai("gpt-4o"),
-        prompt: `
+        // Review
+        const { text } = await generateText({
+          model: openai("gpt-4o"),
+          prompt: `
           Write a succint version of the following staff reviews, preferably with actionable feedback for the staff in a listed format.
           Do not give feedback which can not be substantiated from the reviews.
           Do not give feedback relating to the hiring process.
@@ -64,19 +65,20 @@ export async function GET() {
           
           Reviews to give feedback from: ${allText}
         `,
-      });
+        });
 
-      // Create conversation
-      const now = new Date();
-      await createConvo(
-        drizzleDB,
-        TERR_BOT_ID,
-        [user.userId],
-        `Staff Review: ${now.toLocaleString()}`,
-        `Hey ${user.username}, here is a summary of your recent reviews from the last 7 days. This is an auto-generated message, and everything has been written by an AI based on the reviews, in order to keep the original messages annonymized:
+        // Create conversation
+        const now = new Date();
+        await createConvo(
+          drizzleDB,
+          TERR_BOT_ID,
+          [user.userId],
+          `Staff Review: ${now.toLocaleString()}`,
+          `Hey ${user.username}, here is a summary of your recent reviews from the last 7 days. This is an auto-generated message, and everything has been written by an AI based on the reviews, in order to keep the original messages annonymized:
         <br /><br />${text.replace("```html", "").replace("```", "")}`,
-      );
-    }
+        );
+      }),
+    );
 
     return Response.json(`OK`);
   } catch (cause) {
