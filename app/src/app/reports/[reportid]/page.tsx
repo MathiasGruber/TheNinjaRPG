@@ -67,12 +67,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
     },
   );
   const allComments = comments?.pages.map((page) => page.data).flat();
-
-  useInfinitePagination({
-    fetchNextPage,
-    hasNextPage,
-    lastElement,
-  });
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Form handling
   const {

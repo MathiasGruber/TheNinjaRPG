@@ -172,7 +172,7 @@ export default function Reports() {
                         </div>
                       )}
                       <ParsedReportJson report={report} />
-                      {isAi && (
+                      {isAi && showUnhandled && (
                         <div className="flex flex-row p-3">
                           <div className="grow"></div>
                           <Button
