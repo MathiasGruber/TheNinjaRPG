@@ -15,6 +15,7 @@ import SliderField from "@/layout/SliderField";
 import Post from "@/layout/Post";
 import ParsedReportJson from "@/layout/ReportReason";
 import Loader from "@/layout/Loader";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -122,19 +123,21 @@ export default function Report({ params }: { params: { reportid: string } }) {
     silenceUser.isPending ||
     warnUser.isPending;
 
+  const isAi =
+    allComments !== undefined &&
+    allComments.length === 0 &&
+    report &&
+    report.reporterUserId === TERR_BOT_ID;
+
   useEffect(() => {
-    if (report && allComments !== undefined) {
+    if (report) {
       setValue("object_id", report.id);
-      if (
-        allComments.length === 0 &&
-        report.reporterUserId === TERR_BOT_ID &&
-        watchedComment === ""
-      ) {
+      if (isAi && watchedComment === "") {
         setValue("comment", report.reason);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allComments, report, setValue]);
+  }, [isAi, report, setValue]);
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment.mutate(data),
@@ -244,6 +247,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 </Select>
               </div>
             )}
+
             {canWrite && (
               <RichInput
                 id="comment"
@@ -253,6 +257,24 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 error={errors.comment?.message}
                 control={control}
               />
+            )}
+            {canWrite && (
+              <div className="p-2 flex flex-row gap-2">
+                {isAi && (
+                  <Badge
+                    className="bg-slate-500"
+                    onClick={() => setValue("comment", "False positive from AI")}
+                  >
+                    False Positive from AI
+                  </Badge>
+                )}
+                <Badge
+                  className="bg-slate-500"
+                  onClick={() => setValue("comment", "This report is unjustified")}
+                >
+                  Unjustified report
+                </Badge>
+              </div>
             )}
             {isPending && <Loader explanation="Executing action..." />}
             {!isPending && (
