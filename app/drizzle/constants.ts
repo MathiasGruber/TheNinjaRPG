@@ -154,6 +154,8 @@ export const BanStates = [
   "OFFICIAL_WARNING",
 ] as const;
 
+export const TERR_BOT_ID = "iDoQgjrffFd81z8dCYdw7";
+
 export const TimeUnits = ["minutes", "hours", "days", "weeks", "months"] as const;
 export type TimeUnit = (typeof TimeUnits)[number];
 

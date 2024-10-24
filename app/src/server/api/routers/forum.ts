@@ -67,9 +67,10 @@ export const forumRouter = createTRPCRouter({
         await callDiscordNews(user.username, input.title, input.content, user.avatar);
       }
       const sanitized = sanitize(input.content);
+      const postId = nanoid();
       await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost"),
+        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost", postId),
         ctx.drizzle.insert(forumThread).values({
           id: threadId,
           title: input.title,
@@ -77,7 +78,7 @@ export const forumRouter = createTRPCRouter({
           userId: ctx.userId,
         }),
         ctx.drizzle.insert(forumPost).values({
-          id: nanoid(),
+          id: postId,
           content: sanitized,
           threadId: threadId,
           userId: ctx.userId,

@@ -954,7 +954,7 @@ export const updateNindo = async (
   });
   const sanitized = sanitize(content);
   await Promise.all([
-    moderateContent(client, sanitized, userId, type),
+    moderateContent(client, sanitized, userId, type, userId),
     nindo
       ? client
           .update(userNindo)

@@ -30,7 +30,7 @@ export default function Reports() {
   const { data: userData } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(false);
+  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(true);
   const [showAll, setShowAll] = useState<boolean | undefined>(undefined);
   const { form, searchTerm } = useUserSearch();
 

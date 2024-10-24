@@ -10,7 +10,7 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
       <b>Report Reason:</b> {parseHtml(props.report.reason)}
       <br />
       {props.report.infraction?.hasOwnProperty("title") && (
-        <div>
+        <div className="py-5">
           <b>Reported Title:</b>
           <hr />
           {parseHtml((props.report.infraction as { title: string }).title)}
@@ -19,7 +19,7 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("summary") && (
-        <div>
+        <div className="py-5">
           <b>Reported Summary:</b>
           <hr />
           {parseHtml((props.report.infraction as { summary: string }).summary)}
@@ -28,14 +28,14 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("content") && (
-        <div>
+        <div className="py-5">
           <b>Reported Content:</b>
           <hr />
           {parseHtml((props.report.infraction as { content: string }).content)}
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("image") && (
-        <div>
+        <div className="py-5">
           <b>Image:</b>
           <hr />
           <img
@@ -45,7 +45,6 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
           />
         </div>
       )}
-      <br />
       <b>System:</b> {props.report.system}
       <br />
       <b>Report time</b> {props.report.createdAt.toLocaleString()}

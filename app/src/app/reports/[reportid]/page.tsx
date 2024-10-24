@@ -36,6 +36,7 @@ import { canModerateReports } from "@/validators/reports";
 import { canEscalateBan } from "@/validators/reports";
 import { canClearReport } from "@/validators/reports";
 import { TimeUnits } from "@/drizzle/constants";
+import { TERR_BOT_ID } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { TimeUnit } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
@@ -89,6 +90,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
     resolver: zodResolver(reportCommentSchema),
   });
 
+  const watchedComment = watch("comment", "");
   const watchedLength = watch("banTime", 0);
   const watchedUnit = watch("banTimeUnit", "days");
 
@@ -121,10 +123,18 @@ export default function Report({ params }: { params: { reportid: string } }) {
     warnUser.isPending;
 
   useEffect(() => {
-    if (report) {
+    if (report && allComments !== undefined) {
       setValue("object_id", report.id);
+      if (
+        allComments.length === 0 &&
+        report.reporterUserId === TERR_BOT_ID &&
+        watchedComment === ""
+      ) {
+        setValue("comment", report.reason);
+      }
     }
-  }, [report, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allComments, report, setValue]);
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment.mutate(data),
