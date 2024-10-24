@@ -21,7 +21,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
   // The image to show
   const imgRef = useRef<HTMLCanvasElement>(null);
   const pixels = 112;
-  const tailwindSize = "";
+  const tailwindSize = "max-w-40 max-h-40";
   let img: null | React.ReactNode = null;
   if (props.image) {
     if (props.speed && props.frames) {
@@ -110,6 +110,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
             props.roundFull ? "rounded-full" : "rounded-xl",
             props.hideBorder ? "" : "border-2",
             "aspect-square w-full",
+            tailwindSize,
           )}
         >
           {img}
