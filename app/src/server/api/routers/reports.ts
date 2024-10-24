@@ -123,7 +123,7 @@ export const reportsRouter = createTRPCRouter({
       const { reporterUserId, ...rest } = getTableColumns(userReport);
       const reports = await ctx.drizzle
         .select({
-          UserReport: { ...rest },
+          UserReport: user.role === "USER" ? { ...rest } : getTableColumns(userReport),
           reportedUser: { ...getTableColumns(reportedUser) },
         })
         .from(userReport)
