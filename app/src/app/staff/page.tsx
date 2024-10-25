@@ -23,7 +23,7 @@ export default function Staff() {
   return (
     <>
       <ContentBox title="TNR Staff" subtitle="Structure">
-        <div className="grid grid-cols-3 text-center gap-2">
+        <div className="grid grid-cols-3 text-center gap-2 text-black">
           <div className="flex flex-col gap-2">
             <div className="bg-red-500 p-1 rounded-lg font-bold relative">
               Moderator Admin
@@ -46,7 +46,7 @@ export default function Staff() {
                 users={users.filter((user) => user.role === "HEAD_MODERATOR")}
               />
             </div>
-            <div className="bg-green-800 p-1 rounded-lg font-bold">
+            <div className="bg-green-800 p-1 rounded-lg font-bold text-white">
               Moderators
               <UserList users={users.filter((user) => user.role === "MODERATOR")} />
             </div>
