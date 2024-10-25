@@ -56,6 +56,10 @@ export const canSeeSecretData = (role: UserRole) => {
   );
 };
 
+export const canSeeIps = (role: UserRole) => {
+  return ["HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
 export const canModifyUserBadges = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
 };

@@ -33,7 +33,7 @@ import {
   village,
   battleHistory,
 } from "@/drizzle/schema";
-import { canSeeSecretData, canDeleteUsers } from "@/utils/permissions";
+import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
@@ -850,8 +850,10 @@ export const profileRouter = createTRPCRouter({
       // Hide secrets
       if (!canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
-        user.lastIp = "hidden";
         user.isBanned = false;
+      }
+      if (!canSeeIps(requester.role)) {
+        user.lastIp = "hidden";
       }
       // Return
       return {
@@ -1381,7 +1383,7 @@ export const fetchPublicUsers = async (
   }
   // Hide stuff
   users.filter((u) => !u.lastIp).forEach((u) => (u.lastIp = "Proxied"));
-  if (!user || !canSeeSecretData(user.role)) {
+  if (!user || !canSeeIps(user.role)) {
     users.forEach((u) => (u.lastIp = "hidden"));
   }
   // Return

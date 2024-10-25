@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canSeeSecretData, canSeeIps } from "@/utils/permissions";
 import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
@@ -308,12 +308,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 <br />
                 <b>Information</b>
                 <p>Too fast infractions: {profile.movedTooFastCount}</p>
-                <Link
-                  href={`/users/ipsearch/${profile.lastIp}`}
-                  className="hover:text-orange-500 hover:cursor-pointer"
-                >
-                  Last IP: {profile.lastIp}
-                </Link>
+                {canSeeIps(userData.role) && (
+                  <Link
+                    href={`/users/ipsearch/${profile.lastIp}`}
+                    className="hover:text-orange-500 hover:cursor-pointer"
+                  >
+                    Last IP: {profile.lastIp}
+                  </Link>
+                )}
                 <div>
                   {profile.deletionAt
                     ? `To be deleted on: ${profile.deletionAt.toLocaleString()}`

@@ -59,7 +59,6 @@ export const callDiscordTicket = async (
             **Username:** ${user.username}
             **User ID:** ${user.userId}
             **Role:** ${user.role}
-            **Last IP:** ${user.lastIp}
             **Banned**: ${user.isBanned ? "true" : "false"}
             **Silenced**: ${user.isSilenced ? "true" : "false"}
             **Federal Status:** ${user.federalStatus}

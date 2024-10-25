@@ -8,7 +8,7 @@ import { BriefcaseBusiness } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canSeeIps } from "@/utils/permissions";
 import { ExternalLink } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -77,7 +77,7 @@ export default function Users() {
   } else if (activeTab === "PvP") {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
   }
-  if (userData && canSeeSecretData(userData.role)) {
+  if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
   }
 
