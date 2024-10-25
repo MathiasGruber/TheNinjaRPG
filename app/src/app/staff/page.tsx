@@ -3,6 +3,7 @@
 import ContentBox from "@/layout/ContentBox";
 import AvatarImage from "@/layout/Avatar";
 import Loader from "@/layout/Loader";
+import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Info } from "lucide-react";
 import { api } from "@/utils/api";
@@ -147,7 +148,11 @@ const UserList: React.FC<UserListProps> = (props) => {
       )}
     >
       {users.map((user, i) => (
-        <div className="text-center relative basis-1/2" key={`${user.role}-${i}`}>
+        <Link
+          className="text-center relative basis-1/2"
+          key={`${user.role}-${i}`}
+          href={`/users/${user.userId}`}
+        >
           <AvatarImage
             href={user.avatar}
             alt={user.username}
@@ -159,7 +164,7 @@ const UserList: React.FC<UserListProps> = (props) => {
           <div>
             <div className="font-bold text-xs">{user.username}</div>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
