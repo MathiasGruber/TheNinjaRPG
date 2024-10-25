@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { BriefcaseBusiness } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
@@ -16,7 +19,7 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
   const { data: userData } = useUserData();
-  const tabNames = ["Online", "Strongest", "PvP", "Staff"] as const;
+  const tabNames = ["Online", "Strongest", "PvP"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -71,8 +74,6 @@ export default function Users() {
     columns.push({ key: "experience", header: "Experience", type: "string" });
   } else if (activeTab === "Online") {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
-  } else if (activeTab === "Staff") {
-    columns.push({ key: "role", header: "Role", type: "capitalized" });
   } else if (activeTab === "PvP") {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
   }
@@ -88,7 +89,7 @@ export default function Users() {
       subtitle={`Top ${activeTab}`}
       padding={false}
       topRightContent={
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-1">
           <NavTabs
             id="tab"
             className="text-xs"
@@ -96,6 +97,12 @@ export default function Users() {
             options={tabNames}
             setValue={setActiveTab}
           />
+          <Link href="/staff">
+            <Button>
+              <BriefcaseBusiness className="h-6 w-6 mr-2" />
+              Staff
+            </Button>
+          </Link>
           <UserFiltering state={state} />
         </div>
       }

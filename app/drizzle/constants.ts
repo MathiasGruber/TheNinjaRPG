@@ -101,12 +101,13 @@ export type AutomoderationCategory = (typeof AutomoderationCategories)[number];
 
 export const UserRoles = [
   "USER",
+  "CODING-ADMIN",
+  "CONTENT-ADMIN",
+  "MODERATOR-ADMIN",
+  "HEAD_MODERATOR",
   "MODERATOR",
   "CONTENT",
   "EVENT",
-  "HEAD_MODERATOR",
-  "ADMIN",
-  "CONTENT-ADMIN",
 ] as const;
 export type UserRole = (typeof UserRoles)[number];
 

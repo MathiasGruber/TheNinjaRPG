@@ -1,8 +1,15 @@
 import { UserRoles } from "@/drizzle/constants";
+import type { UserData, UserReport } from "@/drizzle/schema";
 import type { UserRole } from "@/drizzle/constants";
 
 export const canChangeContent = (role: UserRole) => {
-  return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
+  return [
+    "CONTENT",
+    "EVENT",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "CONTENT-ADMIN",
+  ].includes(role);
 };
 
 export const canPlayHiddenQuests = (role: UserRole) => {
@@ -10,17 +17,23 @@ export const canPlayHiddenQuests = (role: UserRole) => {
 };
 
 export const canSubmitNotification = (role: UserRole) => {
-  return ["CONTENT", "EVENT", "ADMIN", "CONTENT-ADMIN"].includes(role);
+  return [
+    "CONTENT",
+    "EVENT",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "CONTENT-ADMIN",
+  ].includes(role);
 };
 
 export const canModifyEventGains = (role: UserRole) => {
-  return ["ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
 export const canChangeUserRole = (role: UserRole) => {
-  if (role === "ADMIN") {
+  if (role === "CODING-ADMIN") {
     return UserRoles;
-  } else if (role === "CONTENT-ADMIN") {
+  } else if (role.includes("ADMIN")) {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
   }
 };
@@ -34,17 +47,103 @@ export const canUnstuckVillage = (role: UserRole) => {
 };
 
 export const canSwapBloodline = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CONTENT", "EVENT", "ADMIN"].includes(role);
+  return ["CONTENT-ADMIN", "CONTENT", "EVENT", "CODING-ADMIN"].includes(role);
 };
 
 export const canSeeSecretData = (role: UserRole) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(role);
+  return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
+    role,
+  );
 };
 
 export const canModifyUserBadges = (role: UserRole) => {
-  return ["ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
+  return ["CODING-ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
 };
 
 export const canDeleteUsers = (role: UserRole) => {
-  return ["ADMIN", "HEAD_MODERATOR"].includes(role);
+  return ["MODERATOR-ADMIN", "CODING-ADMIN", "HEAD_MODERATOR"].includes(role);
+};
+
+export const canModerateRoles: UserRole[] = [
+  "MODERATOR",
+  "HEAD_MODERATOR",
+  "MODERATOR-ADMIN",
+] as const;
+export const canModerate = (role: UserRole) => {
+  return canModerateRoles.includes(role);
+};
+
+export const canCreateNews = (role: UserRole) => {
+  return role !== "USER";
+};
+
+export const canSeeReport = (user: UserData, report: UserReport) => {
+  return (
+    report.reporterUserId === user.userId ||
+    report.reportedUserId === user.userId ||
+    ["MODERATOR", "HEAD_MODERATOR", "MODERATOR-ADMIN", "CODING-ADMIN"].includes(
+      user.role,
+    )
+  );
+};
+
+export const canPostReportComment = (report: UserReport) => {
+  return ["UNVIEWED", "BAN_ESCALATED"].includes(report.status);
+};
+
+export const canModerateReports = (user: UserData, report: UserReport) => {
+  return (
+    report.reportedUserId !== user.userId &&
+    ((user.role === "MODERATOR-ADMIN" && report.status === "UNVIEWED") ||
+      (user.role === "CODING-ADMIN" && report.status === "UNVIEWED") ||
+      (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
+      (user.role === "HEAD_MODERATOR" && report.status === "UNVIEWED") ||
+      (user.role === "MODERATOR-ADMIN" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ACTIVATED") ||
+      (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ESCALATED") ||
+      (user.role === "MODERATOR-ADMIN" && report.status === "SILENCE_ACTIVATED") ||
+      (user.role === "MODERATOR-ADMIN" && report.status === "SILENCE_ESCALATED") ||
+      (user.role === "CODING-ADMIN" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "CODING-ADMIN" && report.status === "BAN_ACTIVATED") ||
+      (user.role === "CODING-ADMIN" && report.status === "BAN_ESCALATED") ||
+      (user.role === "CODING-ADMIN" && report.status === "SILENCE_ACTIVATED") ||
+      (user.role === "CODING-ADMIN" && report.status === "SILENCE_ESCALATED") ||
+      (user.role === "HEAD_MODERATOR" && report.status === "BAN_ACTIVATED") ||
+      (user.role === "HEAD_MODERATOR" && report.status === "BAN_ESCALATED") ||
+      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
+      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED"))
+  );
+};
+
+export const canDeleteComment = (user: UserData, commentAuthorId: string) => {
+  return (
+    ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role) ||
+    user.userId === commentAuthorId
+  );
+};
+
+export const canEscalateBan = (user: UserData, report: UserReport) => {
+  return (
+    !report.adminResolved &&
+    !canModerateReports(user, report) &&
+    report.status === "BAN_ACTIVATED" &&
+    report.banEnd &&
+    report.banEnd > new Date()
+  );
+};
+
+export const canClearReport = (user: UserData, report: UserReport) => {
+  return (
+    // Moderators
+    canModerateReports(user, report) ||
+    // Users with finished bans
+    (report.status === "BAN_ACTIVATED" &&
+      report.banEnd &&
+      report.banEnd <= new Date() &&
+      report.reportedUserId === user.userId)
+  );
+};
+
+export const canChangePublicUser = (user: UserData) => {
+  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role);
 };

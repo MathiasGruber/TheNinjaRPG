@@ -10,12 +10,12 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
-import { updateAvatar } from "../../../libs/replicate";
-import { canModerateReports } from "@/validators/reports";
-import { canSeeReport } from "@/validators/reports";
-import { canClearReport } from "@/validators/reports";
-import { canEscalateBan } from "@/validators/reports";
-import { canChangePublicUser } from "@/validators/reports";
+import { updateAvatar } from "@/libs/replicate";
+import { canModerateReports } from "@/utils/permissions";
+import { canSeeReport } from "@/utils/permissions";
+import { canClearReport } from "@/utils/permissions";
+import { canEscalateBan } from "@/utils/permissions";
+import { canChangePublicUser } from "@/utils/permissions";
 import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
@@ -303,7 +303,7 @@ export const reportsRouter = createTRPCRouter({
           .update(userReport)
           .set({
             status: "BAN_ACTIVATED",
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            adminResolved: user.role.includes("ADMIN") ? 1 : 0,
             updatedAt: new Date(),
             banEnd: getBanEndDate(input),
           })
@@ -348,7 +348,7 @@ export const reportsRouter = createTRPCRouter({
           .update(userReport)
           .set({
             status: "SILENCE_ACTIVATED",
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            adminResolved: user.role.includes("ADMIN") ? 1 : 0,
             updatedAt: new Date(),
             banEnd: getBanEndDate(input),
           })
@@ -382,7 +382,7 @@ export const reportsRouter = createTRPCRouter({
           .update(userReport)
           .set({
             status: "OFFICIAL_WARNING",
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            adminResolved: user.role.includes("ADMIN") ? 1 : 0,
             updatedAt: new Date(),
             banEnd: null,
           })
@@ -482,7 +482,7 @@ export const reportsRouter = createTRPCRouter({
         ctx.drizzle
           .update(userReport)
           .set({
-            adminResolved: user.role === "ADMIN" ? 1 : 0,
+            adminResolved: user.role.includes("ADMIN") ? 1 : 0,
             status: "REPORT_CLEARED",
             updatedAt: new Date(),
           })

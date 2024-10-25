@@ -23,9 +23,10 @@ import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
 import { deleteCommentSchema } from "@/validators/comments";
-import { canPostReportComment } from "@/validators/reports";
-import { canSeeReport } from "@/validators/reports";
-import { canDeleteComment } from "@/validators/reports";
+import { canPostReportComment } from "@/utils/permissions";
+import { canSeeReport } from "@/utils/permissions";
+import { canDeleteComment } from "@/utils/permissions";
+import { canModerateRoles } from "@/utils/permissions";
 import { canSeeSecretData } from "@/utils/permissions";
 import { createConversationSchema } from "@/validators/comments";
 import { getServerPusher } from "@/libs/pusher";
@@ -364,7 +365,7 @@ export const commentsRouter = createTRPCRouter({
         .leftJoin(
           posterBlacklist,
           and(
-            notInArray(readerUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
+            notInArray(readerUser.role, canModerateRoles),
             eq(posterBlacklist.creatorUserId, conversationComment.userId),
             eq(posterBlacklist.targetUserId, ctx.userId),
           ),
@@ -380,10 +381,7 @@ export const commentsRouter = createTRPCRouter({
         .where(
           and(
             eq(conversationComment.id, input.commentId),
-            or(
-              isNull(readerBlacklist.id),
-              inArray(posterUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
-            ),
+            or(isNull(readerBlacklist.id), inArray(posterUser.role, canModerateRoles)),
             isNull(posterBlacklist.id),
           ),
         );
@@ -472,10 +470,7 @@ export const commentsRouter = createTRPCRouter({
           .where(
             and(
               eq(conversationComment.conversationId, convo.id),
-              or(
-                isNull(readerBlacklist.id),
-                inArray(userData.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
-              ),
+              or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
               isNull(posterBlacklist.id),
             ),
           )

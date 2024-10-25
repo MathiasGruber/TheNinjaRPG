@@ -26,7 +26,7 @@ import { forumBoardSchema, type ForumBoardSchema } from "@/validators/forum";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
 import { useInfinitePagination } from "@/libs/pagination";
-import { canModerate } from "@/validators/forum";
+import { canModerate } from "@/utils/permissions";
 import { IMG_ICON_FORUM } from "@/drizzle/constants";
 
 export default function Board({ params }: { params: { boardid: string } }) {
@@ -102,7 +102,7 @@ export default function Board({ params }: { params: { boardid: string } }) {
   if (!board) return <Loader explanation="Loading..."></Loader>;
 
   const isPending = load1 || load2 || load3 || load4;
-  const canEdit = userData && canModerate(userData);
+  const canEdit = userData && canModerate(userData.role);
 
   return (
     <ContentBox
@@ -212,7 +212,7 @@ export default function Board({ params }: { params: { boardid: string } }) {
                   options={
                     <div className="ml-3">
                       <div className="mt-2 flex flex-row items-center ">
-                        {userData && canModerate(userData) ? (
+                        {userData && canModerate(userData.role) ? (
                           <>
                             <Confirm
                               title={`Confirm ${pinAction}ning thread`}

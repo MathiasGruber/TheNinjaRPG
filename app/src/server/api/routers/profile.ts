@@ -34,6 +34,7 @@ import {
   battleHistory,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers } from "@/utils/permissions";
+import { canChangeContent, canModerateRoles } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -45,7 +46,6 @@ import { colors, skin_colors } from "@/validators/register";
 import { callDiscordContent } from "@/libs/discord";
 import { scaleUserStats } from "@/libs/profile";
 import { insertUserDataSchema } from "@/drizzle/schema";
-import { canChangeContent } from "@/utils/permissions";
 import { calcLevelRequirements } from "@/libs/profile";
 import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
@@ -240,7 +240,7 @@ export const profileRouter = createTRPCRouter({
       // User specific
       if (user) {
         // Get number of un-resolved user reports
-        if (["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role)) {
+        if (canModerateRoles.includes(user.role)) {
           const reportCounts = await ctx.drizzle
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
             .from(userReport)

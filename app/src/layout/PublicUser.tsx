@@ -38,7 +38,7 @@ import { canSeeSecretData } from "@/utils/permissions";
 import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
-import { canChangePublicUser } from "@/validators/reports";
+import { canChangePublicUser } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { useUserEditForm } from "@/hooks/profile";
 import { Chart as ChartJS } from "chart.js/auto";

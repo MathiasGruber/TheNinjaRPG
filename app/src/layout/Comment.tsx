@@ -7,17 +7,17 @@ import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
 import ReportUser from "@/layout/Report";
 import { cn } from "src/libs/shadui";
-import { canDeleteComment } from "../validators/reports";
-import { mutateCommentSchema } from "../validators/comments";
+import { canDeleteComment } from "@/utils/permissions";
+import { mutateCommentSchema } from "@/validators/comments";
 import { api } from "@/utils/api";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
-import type { systems } from "../validators/reports";
-import type { ConversationComment } from "../../drizzle/schema";
-import type { ForumPost } from "../../drizzle/schema";
-import type { UserReportComment } from "../../drizzle/schema";
-import type { MutateCommentSchema } from "../validators/comments";
-import type { DeleteCommentSchema } from "../validators/comments";
+import type { systems } from "@/validators/reports";
+import type { ConversationComment } from "@/drizzle/schema";
+import type { ForumPost } from "@/drizzle/schema";
+import type { UserReportComment } from "@/drizzle/schema";
+import type { MutateCommentSchema } from "@/validators/comments";
+import type { DeleteCommentSchema } from "@/validators/comments";
 
 /**
  * Component for handling comments on user reports
