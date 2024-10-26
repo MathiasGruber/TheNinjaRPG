@@ -202,7 +202,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {isDefault && !isLastTwo && (
+                {(!isDefault || !isLastTwo) && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
