@@ -530,7 +530,9 @@ export const commentsRouter = createTRPCRouter({
       // Auto-moderation
       const sanitized = sanitize(input.comment);
       await Promise.all([
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "comment", commentId),
+        ...(convo.isPublic
+          ? [moderateContent(ctx.drizzle, sanitized, ctx.userId, "comment", commentId)]
+          : []),
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
           content: sanitized,
@@ -667,7 +669,6 @@ export const createConvo = async (
   const messageId = nanoid();
   const sanitized = sanitize(content);
   await Promise.all([
-    moderateContent(client, sanitized, senderUserId, "privateMessage", messageId),
     client.insert(conversation).values({
       id: convoId,
       title: title,
