@@ -33,8 +33,10 @@ export const canModifyEventGains = (role: UserRole) => {
 export const canChangeUserRole = (role: UserRole) => {
   if (role === "CODING-ADMIN") {
     return UserRoles;
-  } else if (role.includes("ADMIN")) {
+  } else if (role === "CONTENT-ADMIN") {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
+  } else if (role === "MODERATOR-ADMIN") {
+    return ["USER", "HEAD_MODERATOR", "MODERATOR"];
   }
 };
 
