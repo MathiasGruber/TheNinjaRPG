@@ -417,7 +417,11 @@ export const jutsuRouter = createTRPCRouter({
   // Toggle whether an item is equipped
   toggleEquip: protectedProcedure
     .input(z.object({ userJutsuId: z.string() }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ equipped: z.number(), jutsuId: z.string() }).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Fetch
       const [userjutsus, data, loadouts] = await Promise.all([
@@ -476,6 +480,7 @@ export const jutsuRouter = createTRPCRouter({
       return {
         success: true,
         message: `Jutsu ${isEquipped ? "unequipped" : "equipped"}`,
+        data: { equipped: newEquippedState, jutsuId: userjutsu.jutsuId },
       };
     }),
   // Toggle whether an item is equipped

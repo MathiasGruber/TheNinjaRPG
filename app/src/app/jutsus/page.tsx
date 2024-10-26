@@ -80,6 +80,21 @@ export default function MyJutsu() {
       if (data.success) {
         await utils.jutsu.getUserJutsus.invalidate();
       }
+      // Optimistically update loadout
+      if (data?.data && userData) {
+        await utils.profile.getUser.cancel();
+        const currentLoadout = userData?.loadout?.jutsuIds || [];
+        const jutsuId = data.data.jutsuId;
+        const newLoadout = data?.data.equipped
+          ? [...currentLoadout, jutsuId]
+          : [currentLoadout.filter((id) => id !== jutsuId)];
+        utils.profile.getUser.setData({}, (old) => {
+          return {
+            ...old,
+            userData: { ...old?.userData, loadout: { jutsuIds: newLoadout } },
+          } as typeof old;
+        });
+      }
     },
     onSettled,
   });

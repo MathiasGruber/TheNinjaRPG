@@ -73,7 +73,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
   }, [sessionId, isSignedIn, isLoaded, getToken]);
   // Get user data
   const { data: data, status: userStatus } = api.profile.getUser.useQuery(
-    { token: token },
+    {},
     {
       enabled: !!userId && isSignedIn && isLoaded && !!token,
       staleTime: Infinity,
