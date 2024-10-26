@@ -89,11 +89,16 @@ export const questsRouter = createTRPCRouter({
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const result = await fetchQuest(ctx.drizzle, input.id);
+      const [result, user] = await Promise.all([
+        fetchQuest(ctx.drizzle, input.id),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId || ""),
+        }),
+      ]);
       if (!result) {
         throw serverError("NOT_FOUND", "Quest not found");
       }
-      hideQuestInformation(result);
+      hideQuestInformation(result, user);
       return result;
     }),
   allianceBuilding: protectedProcedure

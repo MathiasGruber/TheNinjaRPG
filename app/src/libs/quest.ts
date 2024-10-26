@@ -390,7 +390,8 @@ export const hideQuestInformation = (quest: Quest, user?: UserData) => {
     if (
       "hideLocation" in objective &&
       objective.hideLocation &&
-      user?.sector !== objective.sector
+      user?.sector !== objective.sector &&
+      !canChangeContent(user?.role || "USER")
     ) {
       objective.latitude = 1337;
       objective.longitude = 1337;
