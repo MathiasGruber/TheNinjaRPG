@@ -1628,11 +1628,11 @@ export const userReport = mysqlTable(
       .notNull(),
     system: varchar("system", { length: 191 }).notNull(),
     infraction: json("infraction").notNull(),
-    embedding: vector("embedding", { length: 1536 }),
     reason: text("reason").notNull(),
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),
     status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
+    predictedStatus: mysqlEnum("predictedStatus", consts.BanStates),
   },
   (table) => {
     return {
