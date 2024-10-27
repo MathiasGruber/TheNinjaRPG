@@ -71,55 +71,69 @@ export const reportsRouter = createTRPCRouter({
     }
     return { staff, timesReported, timesReporting, decisions };
   }),
-  getModBotPerformance: protectedProcedure.query(async ({ ctx }) => {
-    const [user, totalUserReports, totalBotReports, botReports] = await Promise.all([
-      fetchUser(ctx.drizzle, ctx.userId),
-      await ctx.drizzle
-        .select({
-          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
-          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
-        })
-        .from(userReport)
-        .where(
-          and(
-            ne(userReport.reporterUserId, TERR_BOT_ID),
-            ne(userReport.status, "UNVIEWED"),
-          ),
-        )
-        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`),
-      await ctx.drizzle
-        .select({
-          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
-          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
-        })
-        .from(userReport)
-        .where(
-          and(
-            eq(userReport.reporterUserId, TERR_BOT_ID),
-            ne(userReport.status, "UNVIEWED"),
-          ),
-        )
-        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`),
-      await ctx.drizzle
-        .select({
-          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
-          status: userReport.status,
-          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
-        })
-        .from(userReport)
-        .where(
-          and(
-            eq(userReport.reporterUserId, TERR_BOT_ID),
-            ne(userReport.status, "UNVIEWED"),
-          ),
-        )
-        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`, userReport.status),
-    ]);
-    if (user.role === "USER") {
-      throw serverError("UNAUTHORIZED", "You cannot view this page");
-    }
-    return { totalUserReports, totalBotReports, botReports };
-  }),
+  getModBotPerformance: protectedProcedure
+    .input(z.object({ timeframe: z.enum(["daily", "weekly"]) }))
+    .query(async ({ ctx, input }) => {
+      // Query selector
+      const selector =
+        input.timeframe === "daily"
+          ? {
+              year: sql<number>`YEAR(CAST(${userReport.createdAt} AS DATE))`,
+              time: sql<number>`DAYOFYEAR(CAST(${userReport.createdAt} AS DATE))`,
+              count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+            }
+          : {
+              year: sql<number>`YEAR(CAST(${userReport.createdAt} AS DATE))`,
+              time: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
+              count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+            };
+      // Where clause
+      const whereClause =
+        input.timeframe === "daily"
+          ? sql`${userReport.createdAt} > CURRENT_TIMESTAMP() -  INTERVAL 30 DAY`
+          : sql`${userReport.createdAt} > CURRENT_TIMESTAMP() -  INTERVAL 4 MONTH`;
+      // Query
+      const [user, totalUserReports, totalBotReports, botReports] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        await ctx.drizzle
+          .select(selector)
+          .from(userReport)
+          .where(
+            and(
+              ne(userReport.reporterUserId, TERR_BOT_ID),
+              ne(userReport.status, "UNVIEWED"),
+              whereClause,
+            ),
+          )
+          .groupBy(selector.year, selector.time),
+        await ctx.drizzle
+          .select(selector)
+          .from(userReport)
+          .where(
+            and(
+              eq(userReport.reporterUserId, TERR_BOT_ID),
+              ne(userReport.status, "UNVIEWED"),
+              whereClause,
+            ),
+          )
+          .groupBy(selector.year, selector.time),
+        await ctx.drizzle
+          .select({ ...selector, status: userReport.status })
+          .from(userReport)
+          .where(
+            and(
+              eq(userReport.reporterUserId, TERR_BOT_ID),
+              ne(userReport.status, "UNVIEWED"),
+              whereClause,
+            ),
+          )
+          .groupBy(selector.year, selector.time, userReport.status),
+      ]);
+      if (user.role === "USER") {
+        throw serverError("UNAUTHORIZED", "You cannot view this page");
+      }
+      return { totalUserReports, totalBotReports, botReports };
+    }),
   getUserReports: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
