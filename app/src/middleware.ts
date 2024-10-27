@@ -36,10 +36,10 @@ const isPublicRoute = createRouteMatcher([
 // }
 
 export default clerkMiddleware(
-  (auth, request) => {
+  async (auth, request) => {
     // Protect all routes except for the public ones
     if (!isPublicRoute(request)) {
-      auth.protect();
+      await auth.protect();
     }
     // Ensure valid user agent
     // return uaMiddleware(request);
