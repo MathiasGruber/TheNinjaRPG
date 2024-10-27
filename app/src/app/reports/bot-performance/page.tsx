@@ -26,8 +26,8 @@ export default function BotPerformance() {
   const totalBotReports = data?.totalBotReports;
   const botReports = data?.botReports;
 
-  const dateSorter = (a: { x: string }, b: { x: string }) => {
-    return new Date(a.x).getTime() - new Date(b.x).getTime();
+  const xSorter = (a: { x: number }, b: { x: number }) => {
+    return a.x - b.x;
   };
   const groupCount = (acc: number, curr: NonNullable<typeof botReports>[number]) => {
     return acc + curr.count;
@@ -39,46 +39,44 @@ export default function BotPerformance() {
     if (classCtx && totalUserReports && totalBotReports && botReports) {
       // Overall number of reports
       const labels = [
-        ...new Set([...totalUserReports, ...totalBotReports].map((r) => r.date)),
-      ];
+        ...new Set([...totalUserReports, ...totalBotReports].map((r) => r.week)),
+      ].sort();
       const usersOverall = totalUserReports
-        .map((report) => ({ x: report.date, y: report.count }))
-        .sort(dateSorter);
+        .map((report) => ({ x: report.week, y: report.count }))
+        .sort(xSorter);
       const botsOverall = totalBotReports
-        .map((report) => ({ x: report.date, y: report.count }))
-        .sort(dateSorter);
+        .map((report) => ({ x: report.week, y: report.count }))
+        .sort(xSorter);
 
       // Bot accuracy rates
-      const groups = groupBy(botReports, "date");
+      const groups = groupBy(botReports, "week");
       const truePositives = labels
-        .map((date) => {
-          const group = groups.get(date);
+        .map((week) => {
+          const group = groups.get(week);
           const count = group?.reduce(groupCount, 0) || 1;
           const pos =
             group?.filter((r) => r.status !== "REPORT_CLEARED").reduce(groupCount, 0) ||
             0;
-          return { x: date, y: pos / count };
+          return { x: week, y: pos / count };
         })
-        .sort(dateSorter);
+        .sort(xSorter);
       const falsePositives = labels
-        .map((date) => {
-          const group = groups.get(date);
+        .map((week) => {
+          const group = groups.get(week);
           const count = group?.reduce((acc, curr) => acc + curr.count, 0) || 1;
           const neg =
             group?.filter((r) => r.status === "REPORT_CLEARED").reduce(groupCount, 0) ||
             0;
-          return { x: date, y: neg / count };
+          return { x: week, y: neg / count };
         })
-        .sort(dateSorter);
+        .sort(xSorter);
       const falseNegatives = labels
-        .map((date) => {
-          const userTotal = usersOverall.find((r) => r.x === date)?.y || 1;
-          const botTotal = botsOverall.find((r) => r.x === date)?.y || 0;
-          return { x: date, y: userTotal / (userTotal + botTotal) };
+        .map((week) => {
+          const userTotal = usersOverall.find((r) => r.x === week)?.y || 1;
+          const botTotal = botsOverall.find((r) => r.x === week)?.y || 0;
+          return { x: week, y: userTotal / (userTotal + botTotal) };
         })
-        .sort(dateSorter);
-
-      console.log(truePositives);
+        .sort(xSorter);
 
       // Chart
       const myClassChart = new ChartJS(classCtx, {
@@ -91,9 +89,16 @@ export default function BotPerformance() {
             y: {
               beginAtZero: true,
             },
+            x: {
+              title: {
+                display: true,
+                text: "Week",
+              },
+            },
           },
         },
         data: {
+          labels,
           datasets: [
             ...(showTotals
               ? [

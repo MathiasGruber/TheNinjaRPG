@@ -76,7 +76,7 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       await ctx.drizzle
         .select({
-          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
           count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
         })
         .from(userReport)
@@ -84,13 +84,12 @@ export const reportsRouter = createTRPCRouter({
           and(
             ne(userReport.reporterUserId, TERR_BOT_ID),
             ne(userReport.status, "UNVIEWED"),
-            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
           ),
         )
-        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`),
+        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`),
       await ctx.drizzle
         .select({
-          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
           count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
         })
         .from(userReport)
@@ -98,13 +97,12 @@ export const reportsRouter = createTRPCRouter({
           and(
             eq(userReport.reporterUserId, TERR_BOT_ID),
             ne(userReport.status, "UNVIEWED"),
-            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
           ),
         )
-        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`),
+        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`),
       await ctx.drizzle
         .select({
-          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          week: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
           status: userReport.status,
           count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
         })
@@ -113,10 +111,9 @@ export const reportsRouter = createTRPCRouter({
           and(
             eq(userReport.reporterUserId, TERR_BOT_ID),
             ne(userReport.status, "UNVIEWED"),
-            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
           ),
         )
-        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`, userReport.status),
+        .groupBy(sql`WEEK(CAST(${userReport.createdAt} AS DATE))`, userReport.status),
     ]);
     if (user.role === "USER") {
       throw serverError("UNAUTHORIZED", "You cannot view this page");

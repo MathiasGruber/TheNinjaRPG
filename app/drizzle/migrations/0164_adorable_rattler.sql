@@ -1,0 +1,1 @@
+ALTER TABLE `UserReport` ADD `embedding` VECTOR(1536);
