@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   mysqlTable,
   boolean,
+  customType,
   uniqueIndex,
   varchar,
   datetime,
@@ -30,6 +31,23 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+
+export const vector = customType<{
+  data: ArrayBuffer;
+  config: { length: number };
+  configRequired: true;
+  driverData: Buffer;
+}>({
+  dataType(config) {
+    return `VECTOR(${config.length})`;
+  },
+  fromDriver(value) {
+    return value.buffer as ArrayBuffer;
+  },
+  toDriver(value) {
+    return Buffer.from(value);
+  },
+});
 
 export const gameAsset = mysqlTable(
   "GameAsset",
@@ -1610,6 +1628,7 @@ export const userReport = mysqlTable(
       .notNull(),
     system: varchar("system", { length: 191 }).notNull(),
     infraction: json("infraction").notNull(),
+    embedding: vector("embedding", { length: 1536 }),
     reason: text("reason").notNull(),
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),

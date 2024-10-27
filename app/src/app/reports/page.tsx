@@ -9,7 +9,7 @@ import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ParsedReportJson from "@/layout/ReportReason";
-import { Presentation, Eraser } from "lucide-react";
+import { Presentation, Eraser, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import {
@@ -104,8 +104,13 @@ export default function Reports() {
                   />
                 </Form>
                 <Link href="/reports/statistics">
-                  <Button id="report-statistics">
+                  <Button id="report-statistics" hoverText="Staff Activity Overview">
                     <Presentation className="h-6 w-6" />
+                  </Button>
+                </Link>
+                <Link href="/reports/bot-performance">
+                  <Button id="bot-performance" hoverText="Mod Bot Performance">
+                    <Bot className="h-6 w-6" />
                   </Button>
                 </Link>
               </div>

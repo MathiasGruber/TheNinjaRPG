@@ -22,6 +22,7 @@ import { canSeeSecretData } from "@/utils/permissions";
 import { getServerPusher } from "@/libs/pusher";
 import { userReviewSchema } from "@/validators/reports";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
+import { TERR_BOT_ID } from "@/drizzle/constants";
 import sanitize from "@/utils/sanitize";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { DrizzleClient } from "../../db";
@@ -69,6 +70,58 @@ export const reportsRouter = createTRPCRouter({
       throw serverError("UNAUTHORIZED", "You cannot view this page");
     }
     return { staff, timesReported, timesReporting, decisions };
+  }),
+  getModBotPerformance: protectedProcedure.query(async ({ ctx }) => {
+    const [user, totalUserReports, totalBotReports, botReports] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      await ctx.drizzle
+        .select({
+          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+        })
+        .from(userReport)
+        .where(
+          and(
+            ne(userReport.reporterUserId, TERR_BOT_ID),
+            ne(userReport.status, "UNVIEWED"),
+            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
+          ),
+        )
+        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`),
+      await ctx.drizzle
+        .select({
+          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+        })
+        .from(userReport)
+        .where(
+          and(
+            eq(userReport.reporterUserId, TERR_BOT_ID),
+            ne(userReport.status, "UNVIEWED"),
+            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
+          ),
+        )
+        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`),
+      await ctx.drizzle
+        .select({
+          date: sql<string>`CAST(${userReport.createdAt} AS DATE)`,
+          status: userReport.status,
+          count: sql<number>`COUNT(${userReport.id})`.mapWith(Number),
+        })
+        .from(userReport)
+        .where(
+          and(
+            eq(userReport.reporterUserId, TERR_BOT_ID),
+            ne(userReport.status, "UNVIEWED"),
+            sql`${userReport.createdAt} > CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
+          ),
+        )
+        .groupBy(sql`CAST(${userReport.createdAt} AS DATE)`, userReport.status),
+    ]);
+    if (user.role === "USER") {
+      throw serverError("UNAUTHORIZED", "You cannot view this page");
+    }
+    return { totalUserReports, totalBotReports, botReports };
   }),
   getUserReports: protectedProcedure
     .input(z.object({ userId: z.string() }))
