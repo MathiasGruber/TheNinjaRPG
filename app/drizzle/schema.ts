@@ -314,7 +314,7 @@ export const bloodlineRolls = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    used: tinyint("used").default(0).notNull(),
+    used: smallint("used").default(0).notNull(),
     type: mysqlEnum("type", consts.BLOODLINE_ROLL_TYPES).default("NATURAL").notNull(),
     goal: mysqlEnum("rank", consts.LetterRanks),
   },
