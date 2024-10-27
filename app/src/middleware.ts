@@ -39,7 +39,7 @@ export default clerkMiddleware(
   (auth, request) => {
     // Protect all routes except for the public ones
     if (!isPublicRoute(request)) {
-      auth().protect();
+      auth.protect();
     }
     // Ensure valid user agent
     // return uaMiddleware(request);

@@ -5,7 +5,7 @@ import { canChangeContent } from "@/utils/permissions";
 
 export const checkContentAiAuth = async () => {
   // Auth guard
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return "Not authenticated";
 
   // User guard

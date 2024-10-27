@@ -31,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <TrpcClientProvider>
             <UserContextProvider>
-              {env.NEXT_PUBLIC_MEASUREMENT_ID && <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />}
+              {env.NEXT_PUBLIC_MEASUREMENT_ID && (
+                <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
+              )}
               <Toaster />
               <LayoutCore4>{children}</LayoutCore4>
             </UserContextProvider>

@@ -37,13 +37,13 @@ import type { TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
  * that goes through your tRPC endpoint. This is for the app router.
  * @see https://trpc.io/docs/context
  */
-export const createAppTRPCContext = (opts: {
+export const createAppTRPCContext = async (opts: {
   req: NextRequest;
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
 }) => {
   const { readHeaders } = opts;
-  const sesh = auth();
+  const sesh = await auth();
   const userId = sesh.userId;
   // Get IP
   const ip = readHeaders.get("x-forwarded-for") || undefined;
