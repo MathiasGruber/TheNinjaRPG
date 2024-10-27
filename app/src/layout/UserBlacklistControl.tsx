@@ -76,27 +76,31 @@ const UserBlacklistControl: React.FC<UserBlacklistControlProps> = () => {
               Hide their messages, do not show your messages to them
             </p>
             <div className="grid grid-cols-6">
-              {data?.map((user, i) => {
-                return (
-                  <div
-                    key={`blacklist-${i}`}
-                    className="flex flex-col items-center relative text-xs"
-                  >
-                    <AvatarImage
-                      href={user.target.avatar}
-                      alt={user.target.username}
-                      userId={user.target.userId}
-                      hover_effect={false}
-                      size={100}
-                    />
-                    {user.target.username}
-                    <Ban
-                      className="h-8 w-8 absolute top-0 right-0 bg-red-500 rounded-full p-1 hover:text-orange-500 hover:cursor-pointer"
-                      onClick={() => toggleEntry({ userId: user.target.userId || "" })}
-                    />
-                  </div>
-                );
-              })}
+              {data
+                ?.filter((u) => u.target)
+                .map((user, i) => {
+                  return (
+                    <div
+                      key={`blacklist-${i}`}
+                      className="flex flex-col items-center relative text-xs"
+                    >
+                      <AvatarImage
+                        href={user.target.avatar}
+                        alt={user.target.username}
+                        userId={user.target.userId}
+                        hover_effect={false}
+                        size={100}
+                      />
+                      {user.target.username}
+                      <Ban
+                        className="h-8 w-8 absolute top-0 right-0 bg-red-500 rounded-full p-1 hover:text-orange-500 hover:cursor-pointer"
+                        onClick={() =>
+                          toggleEntry({ userId: user.target.userId || "" })
+                        }
+                      />
+                    </div>
+                  );
+                })}
             </div>
           </>
         )}
