@@ -123,8 +123,9 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
 
 export const canDeleteComment = (user: UserData, commentAuthorId: string) => {
   return (
-    ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role) ||
-    user.userId === commentAuthorId
+    ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
+      user.role,
+    ) || user.userId === commentAuthorId
   );
 };
 
@@ -151,5 +152,7 @@ export const canClearReport = (user: UserData, report: UserReport) => {
 };
 
 export const canChangePublicUser = (user: UserData) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role);
+  return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
+    user.role,
+  );
 };
