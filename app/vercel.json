@@ -27,6 +27,10 @@
     {
       "path": "/api/staffreview",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/indexer",
+      "schedule": "*/10 * * * *"
     }
   ],
   "functions": {

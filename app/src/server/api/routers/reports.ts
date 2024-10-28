@@ -23,7 +23,9 @@ import { getServerPusher } from "@/libs/pusher";
 import { userReviewSchema } from "@/validators/reports";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
 import { TERR_BOT_ID } from "@/drizzle/constants";
+import { generateModerationDecision } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
+import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { DrizzleClient } from "../../db";
 
@@ -113,21 +115,32 @@ export const reportsRouter = createTRPCRouter({
             and(
               eq(userReport.reporterUserId, TERR_BOT_ID),
               ne(userReport.status, "UNVIEWED"),
+              ne(userReport.predictedStatus, "REPORT_CLEARED"),
               whereClause,
             ),
           )
           .groupBy(selector.year, selector.time),
         await ctx.drizzle
-          .select({ ...selector, status: userReport.status })
+          .select({
+            ...selector,
+            status: userReport.status,
+            predictedStatus: userReport.predictedStatus,
+          })
           .from(userReport)
           .where(
             and(
               eq(userReport.reporterUserId, TERR_BOT_ID),
               ne(userReport.status, "UNVIEWED"),
+              ne(userReport.predictedStatus, "REPORT_CLEARED"),
               whereClause,
             ),
           )
-          .groupBy(selector.year, selector.time, userReport.status),
+          .groupBy(
+            selector.year,
+            selector.time,
+            userReport.status,
+            userReport.predictedStatus,
+          ),
       ]);
       if (user.role === "USER") {
         throw serverError("UNAUTHORIZED", "You cannot view this page");
@@ -316,20 +329,24 @@ export const reportsRouter = createTRPCRouter({
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      const report = await getInfraction(input.system);
+      const [report, { decision, aiInterpretation }] = await Promise.all([
+        getInfraction(input.system),
+        generateModerationDecision(ctx.drizzle, JSON.stringify(input)),
+      ]);
       // Guard
       if (!report) return errorResponse("Infraction not found");
       if ("isReported" in report && report.isReported) {
         return errorResponse("This infraction has already been reported");
       }
       // Mutate
-      await ctx.drizzle.insert(userReport).values({
-        id: nanoid(),
-        reporterUserId: ctx.userId,
+      await insertUserReport(ctx.drizzle, {
+        userId: ctx.userId,
         reportedUserId: input.reported_userId,
         system: input.system,
         infraction: report,
-        reason: sanitize(input.reason),
+        reason: input.reason,
+        aiInterpretation: aiInterpretation,
+        predictedStatus: decision.createReport,
       });
       // Return
       return {
@@ -710,4 +727,28 @@ export const getBanEndDate = (input: ReportCommentSchema) => {
           input.banTime * getMillisecondsFromTimeUnit(input.banTimeUnit),
       )
     : null;
+};
+
+export const insertUserReport = async (
+  client: DrizzleClient,
+  info: {
+    userId: string;
+    reportedUserId: string;
+    system: string;
+    infraction: unknown;
+    reason: string;
+    aiInterpretation: string;
+    predictedStatus: BanState;
+  },
+) => {
+  await client.insert(userReport).values({
+    id: nanoid(),
+    reporterUserId: info.userId,
+    reportedUserId: info.reportedUserId,
+    system: info.system,
+    infraction: info.infraction,
+    aiInterpretation: info.aiInterpretation,
+    reason: sanitize(info.reason),
+    predictedStatus: info.predictedStatus,
+  });
 };

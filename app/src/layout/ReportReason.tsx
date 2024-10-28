@@ -34,6 +34,13 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
           {parseHtml((props.report.infraction as { content: string }).content)}
         </div>
       )}
+      {props.report.aiInterpretation && (
+        <div className="py-5">
+          <b>AI Interpretation:</b>
+          <hr />
+          {props.report.aiInterpretation}
+        </div>
+      )}
       {props.report.infraction?.hasOwnProperty("image") && (
         <div className="py-5">
           <b>Image:</b>

@@ -1632,6 +1632,7 @@ export const userReport = mysqlTable(
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),
     status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
+    aiInterpretation: text("aiInterpretation").notNull(),
     predictedStatus: mysqlEnum("predictedStatus", consts.BanStates),
   },
   (table) => {

@@ -4,22 +4,26 @@ import { automatedModeration } from "@/drizzle/schema";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { openai as openaiSdk } from "@ai-sdk/openai";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   userReport,
   conversationComment,
   forumPost,
   userReportComment,
 } from "@/drizzle/schema";
-import { TERR_BOT_ID } from "@/drizzle/constants";
+import { generateText } from "ai";
+import { insertUserReport } from "@/routers/reports";
+import { TERR_BOT_ID, BanStates } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { AutomoderationCategory } from "@/drizzle/constants";
 
 // OpenAI client
 const openai = new OpenAI();
 
+type PreviousReport = { infraction: unknown; status: string; comment: string };
+
 // Moderator Prompt
-const getSystemPrompt = (content: string) => `
+const getSystemPrompt = (content: string, previous: PreviousReport[]) => `
   You're a moderator for a popular online game. You're responsible for enforcing the game's rules and ensuring a safe and enjoyable experience for all players. Here are the rules you need to enforce:
 
   # Language and Content
@@ -67,7 +71,25 @@ const getSystemPrompt = (content: string) => `
 
   [USER]: ${content}
 
-  In your reasoning, do not include statements like "a report should be created" or "warrents further review".
+  # Guide
+  - In your reasoning, do not include statements like "a report should be created" or "warrents further review".
+  - If you do not believe a report should be created, please mark it as "REPORT_CLEARED"
+
+  # Previous Reports with Actions
+  The following are the previous reports found in the system and their decisions, 
+  which may help you in your decision-making process. For each previous decision a comment
+  on the decision is included. Please be aware that some reports may have been cleared because 
+  they were handled in another capacity.
+
+  ${previous
+    .map((report) => {
+      return `
+      - [REPORT]: ${JSON.stringify(report.infraction)}
+      - [DECISION]: ${report.status}
+      - [COMMENT]: ${report.comment}
+      `;
+    })
+    .join("\n\n")}
 `;
 
 export const moderateContent = async (
@@ -85,14 +107,10 @@ export const moderateContent = async (
   const result = moderation.results?.[0];
   if (result?.flagged) {
     // Step 2: Ask AI if we should make a report
-    const { object } = await generateObject({
-      model: openaiSdk("gpt-4o"),
-      schema: z.object({
-        createReport: z.boolean(),
-        reasoning: z.string(),
-      }),
-      prompt: getSystemPrompt(content),
-    });
+    const { decision, aiInterpretation } = await generateModerationDecision(
+      client,
+      content,
+    );
     // Step 3: Insert moderation & if relevant the report + update reported status
     return Promise.all([
       client.insert(automatedModeration).values({
@@ -114,21 +132,74 @@ export const moderateContent = async (
         violence: result.categories["violence"],
         violence_graphic: result.categories["violence/graphic"],
       }),
-      ...(object.createReport
+      ...(decision.createReport
         ? [
-            client.insert(userReport).values({
-              id: nanoid(),
-              reporterUserId: TERR_BOT_ID,
+            insertUserReport(client, {
+              userId: TERR_BOT_ID,
               reportedUserId: userId,
               system: relationType,
               infraction: { content },
-              reason: object.reasoning,
+              reason: decision.reasoning,
+              aiInterpretation: aiInterpretation,
+              predictedStatus: decision.createReport,
             }),
             updateReportedStatus(client, relationType, relationId),
           ]
         : []),
     ]);
   }
+};
+
+export const generateAiSummary = async (content: unknown) => {
+  const { text } = await generateText({
+    model: openaiSdk("gpt-4o"),
+    prompt: `
+    Write a succint summary of the situation & context in this user post: 
+      ${JSON.stringify(content)}
+
+    - Do not include any IDs in the summary.
+    `,
+  });
+  return text;
+};
+
+export const generateModerationDecision = async (
+  client: DrizzleClient,
+  content: string,
+) => {
+  // Step 1: Generate summary of the content
+  const aiInterpretation = await generateAiSummary({ content });
+  // Step 2: Fetch related userReport using full text search
+  // TODO: Update to vector search when more stable
+  const results = await client.execute(sql`
+    SELECT 
+      UserReport.id,
+      UserReport.infraction, 
+      UserReport.status,
+      UserReportComment.content as comment,
+      MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) as score
+    FROM UserReport
+    INNER JOIN UserReportComment ON UserReport.id = UserReportComment.reportId
+    WHERE 
+      MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) AND
+      UserReport.aiInterpretation != "" AND
+      UserReport.system != "user_profile" AND
+      UserReport.status != 'UNVIEWED'
+    ORDER BY score DESC
+    LIMIT 5`);
+  // Step 3: Create decision with AI based on summary and related reports
+  const { object } = await generateObject({
+    model: openaiSdk("gpt-4o"),
+    schema: z.object({
+      createReport: z.enum(BanStates),
+      reasoning: z.string(),
+    }),
+    prompt: getSystemPrompt(content, results.rows as PreviousReport[]),
+  });
+  console.log("=====================================");
+  console.log(getSystemPrompt(content, results.rows as PreviousReport[]));
+  console.log("DECISION: ", object);
+  return { decision: object, aiInterpretation };
 };
 
 const updateReportedStatus = async (

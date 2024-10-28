@@ -154,6 +154,7 @@ export const BanStates = [
   "SILENCE_ESCALATED",
   "OFFICIAL_WARNING",
 ] as const;
+export type BanState = (typeof BanStates)[number];
 
 export const TERR_BOT_ID = "iDoQgjrffFd81z8dCYdw7";
 

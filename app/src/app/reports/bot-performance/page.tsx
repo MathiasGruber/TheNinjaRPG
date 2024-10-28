@@ -40,7 +40,6 @@ export default function BotPerformance() {
 
   useEffect(() => {
     const classCtx = botChart?.current?.getContext("2d");
-    console.log("classCtx", classCtx);
     if (classCtx && totalUserReports && totalBotReports && botReports) {
       // Overall number of reports
       const labels = [
@@ -59,8 +58,13 @@ export default function BotPerformance() {
           const group = groups.get(time);
           const count = group?.reduce(groupCount, 0) || 1;
           const pos =
-            group?.filter((r) => r.status !== "REPORT_CLEARED").reduce(groupCount, 0) ||
-            0;
+            group
+              ?.filter(
+                (r) =>
+                  r.status !== "REPORT_CLEARED" &&
+                  r.predictedStatus !== "REPORT_CLEARED",
+              )
+              .reduce(groupCount, 0) || 0;
           return { x: time, y: pos / count };
         })
         .sort(xSorter);
@@ -69,8 +73,13 @@ export default function BotPerformance() {
           const group = groups.get(time);
           const count = group?.reduce((acc, curr) => acc + curr.count, 0) || 1;
           const neg =
-            group?.filter((r) => r.status === "REPORT_CLEARED").reduce(groupCount, 0) ||
-            0;
+            group
+              ?.filter(
+                (r) =>
+                  r.status === "REPORT_CLEARED" &&
+                  r.predictedStatus === "REPORT_CLEARED",
+              )
+              .reduce(groupCount, 0) || 0;
           return { x: time, y: neg / count };
         })
         .sort(xSorter);
@@ -140,7 +149,7 @@ export default function BotPerformance() {
         myClassChart.destroy();
       };
     }
-  }, [totalUserReports, showTotals, botReports, isFetching]);
+  }, [totalUserReports, totalBotReports, showTotals, botReports, isFetching]);
 
   // Render
   return (
