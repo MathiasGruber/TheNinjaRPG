@@ -132,7 +132,7 @@ export const moderateContent = async (
         violence: result.categories["violence"],
         violence_graphic: result.categories["violence/graphic"],
       }),
-      ...(decision.createReport
+      ...(decision.createReport !== "REPORT_CLEARED"
         ? [
             insertUserReport(client, {
               userId: TERR_BOT_ID,
