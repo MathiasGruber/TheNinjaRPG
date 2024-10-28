@@ -39,6 +39,8 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
           <b>AI Interpretation:</b>
           <hr />
           {props.report.aiInterpretation}
+          <br />
+          <b>AI Prediction:</b> {props.report.predictedStatus}
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("image") && (
