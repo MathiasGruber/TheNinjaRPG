@@ -158,7 +158,7 @@ export const generateAiSummary = async (content: unknown) => {
 };
 
 // TODO: Update to vector search when more stable
-type PreviousReport = UserReport & { score: number };
+type PreviousReport = UserReport & { score: number; comment: string };
 export const getRelatedReports = async (
   client: DrizzleClient,
   aiInterpretation: string,
