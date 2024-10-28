@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
-
+import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
@@ -49,10 +49,11 @@ export default function Report({ params }: { params: { reportid: string } }) {
 
   const report_id = params.reportid;
 
-  const { data: report } = api.reports.get.useQuery(
+  const { data } = api.reports.get.useQuery(
     { id: report_id },
     { enabled: !!report_id },
   );
+  const { report, prevReports } = data || {};
 
   const {
     data: comments,
@@ -400,6 +401,22 @@ export default function Report({ params }: { params: { reportid: string } }) {
               </CommentOnReport>
             </div>
           ))}
+      </ContentBox>
+      <ContentBox
+        title="Related Reports"
+        subtitle="Note: Search will be improved once Vector Search is available"
+        initialBreak
+      >
+        {prevReports?.map((report, i) => (
+          <Link href={"/reports/" + report.id} key={`report-key-${i}`}>
+            <Post hover_effect={true}>
+              <div className="p-2">
+                <ParsedReportJson report={report} />
+                <b>Current status:</b> {report.status}
+              </div>
+            </Post>
+          </Link>
+        ))}
       </ContentBox>
     </>
   );

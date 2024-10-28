@@ -5,22 +5,16 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { openai as openaiSdk } from "@ai-sdk/openai";
 import { eq, sql } from "drizzle-orm";
-import {
-  userReport,
-  conversationComment,
-  forumPost,
-  userReportComment,
-} from "@/drizzle/schema";
+import { conversationComment, forumPost, userReportComment } from "@/drizzle/schema";
 import { generateText } from "ai";
 import { insertUserReport } from "@/routers/reports";
 import { TERR_BOT_ID, BanStates } from "@/drizzle/constants";
+import type { UserReport } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { AutomoderationCategory } from "@/drizzle/constants";
 
 // OpenAI client
 const openai = new OpenAI();
-
-type PreviousReport = { infraction: unknown; status: string; comment: string };
 
 // Moderator Prompt
 const getSystemPrompt = (content: string, previous: PreviousReport[]) => `
@@ -163,17 +157,18 @@ export const generateAiSummary = async (content: unknown) => {
   return text;
 };
 
-export const generateModerationDecision = async (
+// TODO: Update to vector search when more stable
+type PreviousReport = UserReport & { score: number };
+export const getRelatedReports = async (
   client: DrizzleClient,
-  content: string,
+  aiInterpretation: string,
 ) => {
-  // Step 1: Generate summary of the content
-  const aiInterpretation = await generateAiSummary({ content });
-  // Step 2: Fetch related userReport using full text search
-  // TODO: Update to vector search when more stable
   const results = await client.execute(sql`
     SELECT 
+      UserReport.createdAt,
       UserReport.id,
+      UserReport.aiInterpretation, 
+      UserReport.reason,
       UserReport.infraction, 
       UserReport.status,
       UserReportComment.content as comment,
@@ -187,6 +182,17 @@ export const generateModerationDecision = async (
       UserReport.status != 'UNVIEWED'
     ORDER BY score DESC
     LIMIT 5`);
+  return results.rows as PreviousReport[];
+};
+
+export const generateModerationDecision = async (
+  client: DrizzleClient,
+  content: string,
+) => {
+  // Step 1: Generate summary of the content
+  const aiInterpretation = await generateAiSummary({ content });
+  // Step 2: Fetch related userReport using full text search
+  const prevReports = await getRelatedReports(client, aiInterpretation);
   // Step 3: Create decision with AI based on summary and related reports
   const { object } = await generateObject({
     model: openaiSdk("gpt-4o"),
@@ -194,11 +200,11 @@ export const generateModerationDecision = async (
       createReport: z.enum(BanStates),
       reasoning: z.string(),
     }),
-    prompt: getSystemPrompt(content, results.rows as PreviousReport[]),
+    prompt: getSystemPrompt(content, prevReports),
   });
-  console.log("=====================================");
-  console.log(getSystemPrompt(content, results.rows as PreviousReport[]));
-  console.log("DECISION: ", object);
+  // console.log("=====================================");
+  // console.log(getSystemPrompt(content, prevReports));
+  // console.log("DECISION: ", object);
   return { decision: object, aiInterpretation };
 };
 

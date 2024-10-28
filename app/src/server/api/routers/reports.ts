@@ -21,6 +21,7 @@ import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
 import { getServerPusher } from "@/libs/pusher";
 import { userReviewSchema } from "@/validators/reports";
+import { getRelatedReports } from "@/libs/moderator";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
 import { TERR_BOT_ID } from "@/drizzle/constants";
 import { generateModerationDecision } from "@/libs/moderator";
@@ -287,10 +288,16 @@ export const reportsRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const report = await fetchUserReport(ctx.drizzle, input.id, ctx.userId);
+      const [user, report] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserReport(ctx.drizzle, input.id, ctx.userId),
+      ]);
       if (canSeeReport(user, report)) {
-        return report;
+        const prevReports = await getRelatedReports(
+          ctx.drizzle,
+          report.aiInterpretation,
+        );
+        return { report, prevReports };
       } else {
         throw serverError("UNAUTHORIZED", "You have no access to the report");
       }
