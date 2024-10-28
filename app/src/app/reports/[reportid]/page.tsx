@@ -254,7 +254,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 control={control}
               />
             )}
-            {canWrite && (
+            {canWrite && report.reportedUserId !== userData.userId && (
               <div className="p-2 flex flex-row gap-2">
                 {isAi && (
                   <Badge
@@ -402,22 +402,24 @@ export default function Report({ params }: { params: { reportid: string } }) {
             </div>
           ))}
       </ContentBox>
-      <ContentBox
-        title="Related Reports"
-        subtitle="Note: Search will be improved once Vector Search is available"
-        initialBreak
-      >
-        {prevReports?.map((report, i) => (
-          <Link href={"/reports/" + report.id} key={`report-key-${i}`}>
-            <Post hover_effect={true}>
-              <div className="p-2">
-                <ParsedReportJson report={report} />
-                <b>Current status:</b> {report.status}
-              </div>
-            </Post>
-          </Link>
-        ))}
-      </ContentBox>
+      {prevReports && prevReports.length > 0 && (
+        <ContentBox
+          title="Related Reports"
+          subtitle="Note: Search will be improved once Vector Search is available"
+          initialBreak
+        >
+          {prevReports?.map((report, i) => (
+            <Link href={"/reports/" + report.id} key={`report-key-${i}`}>
+              <Post hover_effect={true}>
+                <div className="p-2">
+                  <ParsedReportJson report={report} />
+                  <b>Current status:</b> {report.status}
+                </div>
+              </Post>
+            </Link>
+          ))}
+        </ContentBox>
+      )}
     </>
   );
 }

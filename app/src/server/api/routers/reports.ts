@@ -293,10 +293,9 @@ export const reportsRouter = createTRPCRouter({
         fetchUserReport(ctx.drizzle, input.id, ctx.userId),
       ]);
       if (canSeeReport(user, report)) {
-        const prevReports = await getRelatedReports(
-          ctx.drizzle,
-          report.aiInterpretation,
-        );
+        const prevReports = canSeeSecretData(user.role)
+          ? await getRelatedReports(ctx.drizzle, report.aiInterpretation)
+          : [];
         return { report, prevReports };
       } else {
         throw serverError("UNAUTHORIZED", "You have no access to the report");
