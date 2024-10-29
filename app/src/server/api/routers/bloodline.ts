@@ -232,6 +232,7 @@ export const bloodlineRouter = createTRPCRouter({
         await ctx.drizzle.insert(bloodlineRolls).values({
           id: nanoid(),
           userId: ctx.userId,
+          used: 0,
           bloodlineId: randomBloodline.id,
         });
         return {
@@ -242,6 +243,7 @@ export const bloodlineRouter = createTRPCRouter({
     } else {
       await ctx.drizzle.insert(bloodlineRolls).values({
         id: nanoid(),
+        used: 0,
         userId: ctx.userId,
       });
     }
