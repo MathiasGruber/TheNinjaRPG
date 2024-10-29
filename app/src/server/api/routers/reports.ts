@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, like, notInArray, inArray, desc } from "drizzle-orm";
+import { eq, and, gte, ne, gt, lt, like, notInArray, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -23,11 +23,13 @@ import { getServerPusher } from "@/libs/pusher";
 import { userReviewSchema } from "@/validators/reports";
 import { getRelatedReports } from "@/libs/moderator";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
-import { TERR_BOT_ID } from "@/drizzle/constants";
+import { TERR_BOT_ID, REPORT_CONTEXT_WINDOW } from "@/drizzle/constants";
 import { generateModerationDecision } from "@/libs/moderator";
+import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
+import type { AdditionalContext } from "@/validators/reports";
 import type { DrizzleClient } from "../../db";
 
 const pusher = getServerPusher();
@@ -313,35 +315,54 @@ export const reportsRouter = createTRPCRouter({
             const forumPostData = await ctx.drizzle.query.forumPost.findFirst({
               where: eq(forumPost.id, input.system_id),
             });
+            const threadContext = await getAdditionalContext(
+              ctx.drizzle,
+              system,
+              forumPostData?.createdAt,
+              forumPostData?.threadId,
+            );
             await ctx.drizzle
               .update(forumPost)
               .set({ isReported: true })
               .where(eq(forumPost.id, input.system_id));
-            return forumPostData;
+            return { infraction: forumPostData, context: threadContext };
           case "conversation_comment":
             const commentData = await ctx.drizzle.query.conversationComment.findFirst({
               where: eq(conversationComment.id, input.system_id),
             });
+            const convoContext = await getAdditionalContext(
+              ctx.drizzle,
+              system,
+              commentData?.createdAt,
+              commentData?.conversationId,
+            );
             await ctx.drizzle
               .update(conversationComment)
               .set({ isReported: true })
               .where(eq(conversationComment.id, input.system_id));
-            return commentData;
+            return { infraction: commentData, context: convoContext };
           case "user_profile":
-            return await fetchUser(ctx.drizzle, input.system_id);
+            return {
+              infraction: await fetchUser(ctx.drizzle, input.system_id),
+              context: [],
+            };
           case "concept_art":
-            return await fetchImage(ctx.drizzle, input.system_id, "");
+            return {
+              infraction: await fetchImage(ctx.drizzle, input.system_id, ""),
+              context: [],
+            };
           default:
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      const [report, { decision, aiInterpretation }] = await Promise.all([
-        getInfraction(input.system),
-        generateModerationDecision(ctx.drizzle, JSON.stringify(input)),
-      ]);
+      const [{ infraction, context }, { decision, aiInterpretation }] =
+        await Promise.all([
+          getInfraction(input.system),
+          generateModerationDecision(ctx.drizzle, JSON.stringify(input)),
+        ]);
       // Guard
-      if (!report) return errorResponse("Infraction not found");
-      if ("isReported" in report && report.isReported) {
+      if (!infraction) return errorResponse("Infraction not found");
+      if ("isReported" in infraction && infraction.isReported) {
         return errorResponse("This infraction has already been reported");
       }
       // Mutate
@@ -349,10 +370,11 @@ export const reportsRouter = createTRPCRouter({
         userId: ctx.userId,
         reportedUserId: input.reported_userId,
         system: input.system,
-        infraction: report,
+        infraction: infraction,
         reason: input.reason,
         aiInterpretation: aiInterpretation,
         predictedStatus: decision.createReport,
+        additionalContext: context,
       });
       // Return
       return {
@@ -742,6 +764,7 @@ export const insertUserReport = async (
     reportedUserId: string;
     system: string;
     infraction: unknown;
+    additionalContext: AdditionalContext[];
     reason: string;
     aiInterpretation: string;
     predictedStatus: BanState;
@@ -756,5 +779,6 @@ export const insertUserReport = async (
     aiInterpretation: info.aiInterpretation,
     reason: sanitize(info.reason),
     predictedStatus: info.predictedStatus,
+    additionalContext: info.additionalContext,
   });
 };

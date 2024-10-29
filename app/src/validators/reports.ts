@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 import { TimeUnits } from "@/drizzle/constants";
 
 export const systems = [
@@ -33,3 +34,16 @@ export const userReviewSchema = z.object({
   positive: z.boolean().optional(),
 });
 export type UserReviewSchema = z.infer<typeof userReviewSchema>;
+
+export type AdditionalContext = {
+  userId: string;
+  username: string;
+  avatar: string | null;
+  level: number;
+  rank: UserRank;
+  federalStatus: FederalStatus;
+  isOutlaw: boolean;
+  role: UserRole;
+  content: string;
+  createdAt: Date;
+};

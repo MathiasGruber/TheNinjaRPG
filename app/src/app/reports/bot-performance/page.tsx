@@ -31,14 +31,13 @@ export default function BotPerformance() {
   const totalBotReports = data?.totalBotReports;
   const botReports = data?.botReports;
 
-  const xSorter = (a: { x: number }, b: { x: number }) => {
-    return a.x - b.x;
-  };
-  const groupCount = (acc: number, curr: NonNullable<typeof botReports>[number]) => {
-    return acc + curr.count;
-  };
-
   useEffect(() => {
+    const xSorter = (a: { x: number }, b: { x: number }) => {
+      return a.x - b.x;
+    };
+    const groupCount = (acc: number, curr: NonNullable<typeof botReports>[number]) => {
+      return acc + curr.count;
+    };
     const classCtx = botChart?.current?.getContext("2d");
     if (classCtx && totalUserReports && totalBotReports && botReports) {
       // Overall number of reports

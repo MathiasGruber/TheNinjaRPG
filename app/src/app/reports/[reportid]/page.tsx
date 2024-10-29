@@ -402,6 +402,22 @@ export default function Report({ params }: { params: { reportid: string } }) {
             </div>
           ))}
       </ContentBox>
+      {report.additionalContext.length > 0 && (
+        <ContentBox
+          title="Conversatino Context"
+          subtitle="Latest 10 messages leading up to report"
+          initialBreak
+        >
+          {report.additionalContext.map((context, i) => (
+            <Post key={`context-${i}`} user={context}>
+              {context.content}
+              <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
+                @{context.createdAt.toLocaleString()}
+              </p>
+            </Post>
+          ))}
+        </ContentBox>
+      )}
       {prevReports && prevReports.length > 0 && (
         <ContentBox
           title="Related Reports"

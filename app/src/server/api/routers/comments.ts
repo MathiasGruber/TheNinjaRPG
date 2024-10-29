@@ -166,7 +166,13 @@ export const commentsRouter = createTRPCRouter({
       const sanitized = sanitize(input.comment);
       const createdId = nanoid();
       await Promise.all([
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost", createdId),
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: createdId,
+          contextId: thread.id,
+        }),
         ctx.drizzle.insert(forumPost).values({
           id: createdId,
           userId: ctx.userId,
@@ -202,7 +208,12 @@ export const commentsRouter = createTRPCRouter({
       const postId = input.object_id;
       const sanitized = sanitize(input.comment);
       await Promise.all([
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost", postId),
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: postId,
+        }),
         ctx.drizzle
           .update(forumPost)
           .set({ content: sanitized })
@@ -531,7 +542,15 @@ export const commentsRouter = createTRPCRouter({
       const sanitized = sanitize(input.comment);
       await Promise.all([
         ...(convo.isPublic
-          ? [moderateContent(ctx.drizzle, sanitized, ctx.userId, "comment", commentId)]
+          ? [
+              moderateContent(ctx.drizzle, {
+                content: sanitized,
+                userId: ctx.userId,
+                relationType: "comment",
+                relationId: commentId,
+                contextId: convo.id,
+              }),
+            ]
           : []),
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
@@ -565,7 +584,12 @@ export const commentsRouter = createTRPCRouter({
       const commentId = input.object_id;
       const sanitized = sanitize(input.comment);
       await Promise.all([
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "comment", commentId),
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "comment",
+          relationId: commentId,
+        }),
         ctx.drizzle
           .update(conversationComment)
           .set({ content: sanitized })

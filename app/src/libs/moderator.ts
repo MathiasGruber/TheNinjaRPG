@@ -4,11 +4,12 @@ import { automatedModeration } from "@/drizzle/schema";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { openai as openaiSdk } from "@ai-sdk/openai";
-import { eq, sql } from "drizzle-orm";
+import { eq, lt, and, sql, desc } from "drizzle-orm";
 import { conversationComment, forumPost, userReportComment } from "@/drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import { generateText } from "ai";
 import { insertUserReport } from "@/routers/reports";
-import { TERR_BOT_ID, BanStates } from "@/drizzle/constants";
+import { TERR_BOT_ID, REPORT_CONTEXT_WINDOW, BanStates } from "@/drizzle/constants";
 import type { UserReport } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { AutomoderationCategory } from "@/drizzle/constants";
@@ -88,11 +89,16 @@ const getSystemPrompt = (content: string, previous: PreviousReport[]) => `
 
 export const moderateContent = async (
   client: DrizzleClient,
-  content: string,
-  userId: string,
-  relationType: AutomoderationCategory,
-  relationId: string,
+  info: {
+    content: string;
+    userId: string;
+    relationType: AutomoderationCategory;
+    relationId: string;
+    contextId?: string;
+  },
 ) => {
+  // Destructure
+  const { content, userId, relationType, relationId, contextId } = info;
   // Step 1: Ask moderation API if anything is suspecious
   const moderation = await openai.moderations.create({
     model: "omni-moderation-latest",
@@ -101,10 +107,10 @@ export const moderateContent = async (
   const result = moderation.results?.[0];
   if (result?.flagged) {
     // Step 2: Ask AI if we should make a report
-    const { decision, aiInterpretation } = await generateModerationDecision(
-      client,
-      content,
-    );
+    const [{ decision, aiInterpretation }, context] = await Promise.all([
+      generateModerationDecision(client, content),
+      getAdditionalContext(client, relationType, new Date(), contextId),
+    ]);
     // Step 3: Insert moderation & if relevant the report + update reported status
     return Promise.all([
       client.insert(automatedModeration).values({
@@ -136,11 +142,76 @@ export const moderateContent = async (
               reason: decision.reasoning,
               aiInterpretation: aiInterpretation,
               predictedStatus: decision.createReport,
+              additionalContext: context,
             }),
             updateReportedStatus(client, relationType, relationId),
           ]
         : []),
     ]);
+  }
+};
+
+export const getAdditionalContext = async (
+  client: DrizzleClient,
+  system: string,
+  timestamp?: Date | null,
+  conversationId?: string | null,
+) => {
+  if (!conversationId) return [];
+  switch (system) {
+    case "comment":
+    case "privateMessage":
+    case "conversation_comment":
+      return await client
+        .select({
+          userId: conversationComment.userId,
+          username: userData.username,
+          avatar: userData.avatar,
+          level: userData.level,
+          rank: userData.rank,
+          federalStatus: userData.federalStatus,
+          isOutlaw: userData.isOutlaw,
+          role: userData.role,
+          content: conversationComment.content,
+          createdAt: conversationComment.createdAt,
+        })
+        .from(conversationComment)
+        .innerJoin(userData, eq(conversationComment.userId, userData.userId))
+        .where(
+          and(
+            eq(conversationComment.conversationId, conversationId),
+            lt(conversationComment.createdAt, timestamp || new Date()),
+          ),
+        )
+        .orderBy(desc(conversationComment.createdAt))
+        .limit(REPORT_CONTEXT_WINDOW);
+    case "forumPost":
+    case "forum_comment":
+      return await client
+        .select({
+          userId: forumPost.userId,
+          username: userData.username,
+          avatar: userData.avatar,
+          level: userData.level,
+          rank: userData.rank,
+          federalStatus: userData.federalStatus,
+          isOutlaw: userData.isOutlaw,
+          role: userData.role,
+          content: forumPost.content,
+          createdAt: forumPost.createdAt,
+        })
+        .from(forumPost)
+        .innerJoin(userData, eq(forumPost.userId, userData.userId))
+        .where(
+          and(
+            eq(forumPost.threadId, conversationId),
+            lt(forumPost.createdAt, timestamp || new Date()),
+          ),
+        )
+        .orderBy(desc(forumPost.createdAt))
+        .limit(REPORT_CONTEXT_WINDOW);
+    default:
+      return [];
   }
 };
 

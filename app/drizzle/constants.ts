@@ -470,6 +470,7 @@ export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;
 
 // Conversation config
 export const CONVERSATION_QUIET_MINS = 5;
+export const REPORT_CONTEXT_WINDOW = 10;
 
 // Kage config
 export const KAGE_PRESTIGE_REQUIREMENT = 4000;

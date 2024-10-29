@@ -70,7 +70,12 @@ export const forumRouter = createTRPCRouter({
       const postId = nanoid();
       await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        moderateContent(ctx.drizzle, sanitized, ctx.userId, "forumPost", postId),
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: postId,
+        }),
         ctx.drizzle.insert(forumThread).values({
           id: threadId,
           title: input.title,

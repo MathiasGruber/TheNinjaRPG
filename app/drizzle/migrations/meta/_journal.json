@@ -1170,6 +1170,13 @@
       "when": 1730100792755,
       "tag": "0166_legal_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "5",
+      "when": 1730195134200,
+      "tag": "0167_slim_wong",
+      "breakpoints": true
     }
   ]
 }

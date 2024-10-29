@@ -31,6 +31,7 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+import type { AdditionalContext } from "@/validators/reports";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -1634,6 +1635,10 @@ export const userReport = mysqlTable(
     status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
     aiInterpretation: text("aiInterpretation").notNull(),
     predictedStatus: mysqlEnum("predictedStatus", consts.BanStates),
+    additionalContext: json("additionalContext")
+      .$type<AdditionalContext[]>()
+      .notNull()
+      .default([]),
   },
   (table) => {
     return {
