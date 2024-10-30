@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import AvatarImage from "@/layout/Avatar";
-import Toggle from "@/components/control/Toggle";
 import Post from "@/layout/Post";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
@@ -12,29 +11,21 @@ import ParsedReportJson from "@/layout/ReportReason";
 import { Presentation, Eraser, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentExplain } from "@/utils/reports";
 import { reportCommentColor } from "@/utils/reports";
-import { useUserSearch } from "@/utils/search";
+import ReportFiltering, { useFiltering, getFilter } from "@/layout/ReportFiltering";
 import { TERR_BOT_ID } from "@/drizzle/constants";
 
 export default function Reports() {
+  // State
   const { data: userData } = useRequiredUserData();
-
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
-  const [showUnhandled, setShowUnhandled] = useState<boolean | undefined>(true);
-  const [showAll, setShowAll] = useState<boolean | undefined>(undefined);
-  const { form, searchTerm } = useUserSearch();
+
+  // Two-level filtering
+  const state = useFiltering();
 
   // Get utils
   const utils = api.useUtils();
@@ -47,9 +38,7 @@ export default function Reports() {
     hasNextPage,
   } = api.reports.getAll.useInfiniteQuery(
     {
-      isUnhandled: showUnhandled,
-      showAll: showAll,
-      ...(searchTerm ? { username: searchTerm } : {}),
+      ...getFilter(state),
       limit: 20,
     },
     {
@@ -70,14 +59,6 @@ export default function Reports() {
     },
   });
 
-  // If this is a user, do not show unhandled reports
-  const isUser = userData?.role === "USER";
-  useEffect(() => {
-    if (isUser) {
-      setShowUnhandled(false);
-    }
-  }, [isUser]);
-
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   return (
@@ -89,20 +70,6 @@ export default function Reports() {
           <div className="flex flex-col items-start">
             {userData?.role !== "USER" && (
               <div className="w-full flex flex-row items-center gap-1">
-                <Form {...form}>
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem className="w-full">
-                        <FormControl>
-                          <Input placeholder="Search user" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </Form>
                 <Link href="/reports/statistics">
                   <Button id="report-statistics" hoverText="Staff Activity Overview">
                     <Presentation className="h-6 w-6" />
@@ -113,27 +80,9 @@ export default function Reports() {
                     <Bot className="h-6 w-6" />
                   </Button>
                 </Link>
+                <ReportFiltering state={state} />
               </div>
             )}
-            <div className="pb-2"></div>
-            <div className="w-full flex flex-row pb-2 m-1 gap-2">
-              {!isUser && (
-                <Toggle
-                  id="toggle-report-handled"
-                  value={showUnhandled}
-                  setShowActive={setShowUnhandled}
-                />
-              )}
-              {!showUnhandled && (
-                <Toggle
-                  id="toggle-report-all"
-                  value={showAll}
-                  setShowActive={setShowAll}
-                  labelActive="All"
-                  labelInactive="Ban/Warning"
-                />
-              )}
-            </div>
           </div>
         </div>
       }
@@ -177,7 +126,7 @@ export default function Reports() {
                         </div>
                       )}
                       <ParsedReportJson report={report} />
-                      {isAi && showUnhandled && (
+                      {isAi && (
                         <div className="flex flex-row p-3">
                           <div className="grow"></div>
                           <Button

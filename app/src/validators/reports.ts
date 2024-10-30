@@ -1,6 +1,7 @@
 import { z } from "zod";
-import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 import { TimeUnits } from "@/drizzle/constants";
+import { BanStates } from "@/drizzle/constants";
+import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 export const systems = [
   "forum_comment",
@@ -47,3 +48,13 @@ export type AdditionalContext = {
   content: string;
   createdAt: Date;
 };
+
+export const reportFilteringSchema = z.object({
+  reportedUser: z.string().optional(),
+  reporterUser: z.string().optional(),
+  status: z.enum(BanStates),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  system: z.string().optional(),
+});
+export type ReportFilteringSchema = z.infer<typeof reportFilteringSchema>;

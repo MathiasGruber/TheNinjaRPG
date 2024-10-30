@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lt, like, notInArray, inArray, desc } from "drizzle-orm";
+import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -23,10 +23,11 @@ import { getServerPusher } from "@/libs/pusher";
 import { userReviewSchema } from "@/validators/reports";
 import { getRelatedReports } from "@/libs/moderator";
 import { getMillisecondsFromTimeUnit } from "@/utils/time";
-import { TERR_BOT_ID, REPORT_CONTEXT_WINDOW } from "@/drizzle/constants";
+import { TERR_BOT_ID } from "@/drizzle/constants";
 import { generateModerationDecision } from "@/libs/moderator";
 import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
+import { reportFilteringSchema } from "@/validators/reports";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { AdditionalContext } from "@/validators/reports";
@@ -35,6 +36,11 @@ import type { DrizzleClient } from "../../db";
 const pusher = getServerPusher();
 
 export const reportsRouter = createTRPCRouter({
+  getReportSystemNames: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle
+      .selectDistinct({ system: userReport.system })
+      .from(userReport);
+  }),
   getReportStatistics: protectedProcedure.query(async ({ ctx }) => {
     const [user, staff, timesReported, timesReporting, decisions] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
@@ -179,17 +185,9 @@ export const reportsRouter = createTRPCRouter({
   // Let moderators and higher see all reports, let users see reports associated with them
   getAll: protectedProcedure
     .input(
-      z.object({
-        isUnhandled: z.boolean().optional(),
-        showAll: z.boolean().optional(),
+      reportFilteringSchema.extend({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
-        username: z
-          .string()
-          .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
-            message: "Must only contain alphanumeric characters and no spaces",
-          })
-          .optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -197,8 +195,7 @@ export const reportsRouter = createTRPCRouter({
       const skip = currentCursor * input.limit;
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const reportedUser = alias(userData, "reportedUser");
-      // If user, then only show handled reports
-      const isUnhandled = user.role === "USER" ? false : input.isUnhandled;
+      const reporterUser = alias(userData, "reporterUser");
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { reporterUserId, ...rest } = getTableColumns(userReport);
       const reports = await ctx.drizzle
@@ -209,15 +206,15 @@ export const reportsRouter = createTRPCRouter({
         .from(userReport)
         .where(
           and(
-            // Handled or not
-            isUnhandled
-              ? inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"])
-              : notInArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]),
-            // Active or Closed
-            ...(isUnhandled || input.showAll
-              ? []
-              : [inArray(userReport.status, ["BAN_ACTIVATED", "OFFICIAL_WARNING"])]),
-            // Pertaining to user (if user)
+            ...(input.system !== undefined
+              ? [eq(userReport.system, input.system)]
+              : []),
+            ...(input.startDate !== undefined
+              ? [gte(userReport.createdAt, new Date(input.startDate))]
+              : []),
+            ...(input.endDate !== undefined
+              ? [lte(userReport.createdAt, new Date(input.endDate))]
+              : []),
             ...(user.role === "USER"
               ? [
                   and(
@@ -229,21 +226,31 @@ export const reportsRouter = createTRPCRouter({
                     ]),
                   ),
                 ]
-              : []),
+              : [eq(userReport.status, input.status)]),
           ),
         )
         .innerJoin(
           reportedUser,
           and(
             eq(reportedUser.userId, userReport.reportedUserId),
-            ...(input.username !== undefined
-              ? [like(reportedUser.username, `%${input.username}%`)]
+            ...(input.reportedUser !== undefined
+              ? [like(reportedUser.username, `%${input.reportedUser}%`)]
+              : []),
+          ),
+        )
+        .leftJoin(
+          reporterUser,
+          and(
+            eq(reporterUser.userId, userReport.reporterUserId),
+            ...(input.reporterUser !== undefined
+              ? [like(reporterUser.username, `%${input.reporterUser}%`)]
               : []),
           ),
         )
         .limit(input.limit)
         .orderBy(desc(userReport.updatedAt))
         .offset(skip);
+
       const nextCursor = reports.length < input.limit ? null : currentCursor + 1;
       return {
         data: reports,
