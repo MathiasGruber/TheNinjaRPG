@@ -402,14 +402,10 @@ export const paypalRouter = createTRPCRouter({
       }
       // If successfull cancel, update database subscription
       if (status === 204) {
-        await updateSubscription({
-          client: ctx.drizzle,
-          createdById: createdByUserId,
-          affectedUserId: affectedUserId,
-          federalStatus: dbSub.federalStatus,
-          status: "CANCELLED",
-          subscriptionId: input.subscriptionId,
-        });
+        await ctx.drizzle
+          .update(paypalSubscription)
+          .set({ status: "CANCELLED" })
+          .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
         return { success: true, message: "Successfully canceled subscription" };
       } else {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not cancel subscription");

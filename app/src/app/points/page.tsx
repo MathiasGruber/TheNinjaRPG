@@ -441,7 +441,7 @@ const PayPalSubscriptionButton = (props: {
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
       </div>
-      {!hasSubscription && (
+      {upgradeCost && (
         <div className="bg-amber-200 text-black border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
           <PayPalButtons
             style={{ layout: "horizontal", label: "subscribe", tagline: false }}
@@ -694,17 +694,9 @@ const SubscriptionsOverview = () => {
             {
               label: "Cancel",
               onClick: (subscription: Subscription) => {
-                if (subscription.orderId) {
-                  cancelSubscription({
-                    subscriptionId: subscription.subscriptionId,
-                  });
-                } else {
-                  showMutationToast({
-                    success: false,
-                    message:
-                      "Can only cancel paypal subscriptions, not those purchased with reps.",
-                  });
-                }
+                cancelSubscription({
+                  subscriptionId: subscription.subscriptionId,
+                });
               },
             },
           ]}
