@@ -335,7 +335,7 @@ export const itemRouter = createTRPCRouter({
   // Consume item
   consume: protectedProcedure
     .input(z.object({ userItemId: z.string() }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ data: z.unknown().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Query
       const [updatedUser, useritem, bloodlines, previousRolls] = await Promise.all([
@@ -370,6 +370,7 @@ export const itemRouter = createTRPCRouter({
         curChakra: user.curChakra,
         marriageSlots: user.marriageSlots,
       };
+      const data: unknown[] = [];
 
       // Calculations
       const promises: Promise<ExecutedQuery<any[] | Record<string, any>>>[] = [];
@@ -387,6 +388,7 @@ export const itemRouter = createTRPCRouter({
               const minRolls = all?.[0]?.prevRolls || 0;
               return b.prevRolls <= minRolls;
             });
+          data.push(bloodlinePool);
           const randomBloodline = getRandomElement(bloodlinePool);
           if (!randomBloodline) throw serverError("NOT_FOUND", "No bloodline found");
           // Success?
@@ -502,6 +504,7 @@ export const itemRouter = createTRPCRouter({
       return {
         success: true,
         message: `You used ${useritem.item.name}. ${messages.join(". ")}`,
+        data,
       };
     }),
   // Buy user item
