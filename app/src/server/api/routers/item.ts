@@ -392,7 +392,9 @@ export const itemRouter = createTRPCRouter({
           const randomBloodline = getRandomElement(bloodlinePool);
           if (!randomBloodline) throw serverError("NOT_FOUND", "No bloodline found");
           // Success?
-          const success = Math.random() * 100 < effect.power;
+          const roll = Math.random() * 100;
+          const success = roll < effect.power;
+          data.push({ roll, success });
           // Log action
           const previousRoll = previousRolls.find((r) =>
             success
