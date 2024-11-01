@@ -17,12 +17,7 @@ export default function Science() {
     data: prevRoll,
     isPending: isPendingBlood,
     refetch: refetchBloodline,
-  } = api.bloodline.getRolls.useQuery(
-    {
-      currentBloodlineId: userData?.bloodlineId,
-    },
-    { staleTime: Infinity, enabled: userData !== undefined },
-  );
+  } = api.bloodline.getNaturalRolls.useQuery(undefined, { staleTime: Infinity });
 
   // Heal finish time
   if (!userData) return <Loader explanation="Loading userdata" />;

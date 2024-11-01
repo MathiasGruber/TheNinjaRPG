@@ -349,6 +349,36 @@ export const RYO_CAP = 1000000000;
 export const MAX_STATS_CAP = 450000;
 export const MAX_GENS_CAP = 200000;
 
+export const ROLL_CHANCE = {
+  ["H"]: 0,
+  ["S"]: 0.005,
+  ["A"]: 0.015,
+  ["B"]: 0.065,
+  ["C"]: 0.315,
+  ["D"]: 0.615,
+} as const;
+
+export const ROLL_CHANCE_PERCENTAGE = {
+  ["H"]: 0,
+  ["S"]: 0.005,
+  ["A"]: 0.01,
+  ["B"]: 0.05,
+  ["C"]: 0.25,
+  ["D"]: 0.3,
+} as const;
+
+// Bloodline Pricing
+export const BLOODLINE_COST = {
+  ["H"]: 999999,
+  ["S"]: 999999,
+  ["A"]: 200,
+  ["B"]: 190,
+  ["C"]: 180,
+  ["D"]: 170,
+} as const;
+
+export const REMOVAL_COST = 5;
+
 // Bank config
 export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
 
@@ -422,6 +452,8 @@ export const RYO_FOR_REP_DAYS_FROZEN = 3;
 export const RYO_FOR_REP_DAYS_AUTO_DELIST = 30;
 export const RYO_FOR_REP_MAX_LISTINGS = 5;
 export const RYO_FOR_REP_MIN_REPS = 5;
+export const PITY_BLOODLINE_ROLLS = 150;
+export const PITY_SYSTEM_ENABLED = true;
 
 // Reputation purchase config
 export const MAX_REPS_PER_MONTH = 4000;

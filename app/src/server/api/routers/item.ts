@@ -2,7 +2,6 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, gte, and, like } from "drizzle-orm";
 import { item, userItem, userData, actionLog, bloodlineRolls } from "@/drizzle/schema";
-import { bloodline } from "@/drizzle/schema";
 import { ItemTypes, ItemSlots } from "@/drizzle/constants";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
@@ -23,6 +22,8 @@ import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { HealTag } from "@/libs/combat/types";
 import { itemFilteringSchema } from "@/validators/item";
+import { filterRollableBloodlines } from "@/libs/bloodline";
+import { fetchBloodlines } from "@/routers/bloodline";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -345,10 +346,7 @@ export const itemRouter = createTRPCRouter({
           forceRegen: true,
         }),
         fetchUserItem(ctx.drizzle, ctx.userId, input.userItemId),
-        ctx.drizzle.query.bloodline.findMany({
-          columns: { id: true, name: true, rank: true, villageId: true },
-          where: eq(bloodline.hidden, false),
-        }),
+        fetchBloodlines(ctx.drizzle),
         fetchItemBloodlineRolls(ctx.drizzle, ctx.userId),
       ]);
       const { user } = updatedUser;
@@ -376,18 +374,12 @@ export const itemRouter = createTRPCRouter({
       const promises: Promise<ExecutedQuery<any[] | Record<string, any>>>[] = [];
       useritem.item.effects.forEach((effect) => {
         if (effect.type === "rollbloodline") {
-          const bloodlinePool = bloodlines
-            .filter((b) => b.rank === effect.rank)
-            .filter((b) => !b.villageId || b.villageId === user.villageId)
-            .map((b) => ({
-              ...b,
-              prevRolls: previousRolls.find((r) => r.bloodlineId === b.id)?.used || 0,
-            }))
-            .sort((a, b) => a.prevRolls - b.prevRolls)
-            .filter((b, _, all) => {
-              const minRolls = all?.[0]?.prevRolls || 0;
-              return b.prevRolls <= minRolls;
-            });
+          const bloodlinePool = filterRollableBloodlines({
+            bloodlines,
+            user,
+            previousRolls,
+            rank: effect.rank,
+          });
           data.push(bloodlinePool);
           const randomBloodline = getRandomElement(bloodlinePool);
           if (!randomBloodline) throw serverError("NOT_FOUND", "No bloodline found");
@@ -405,7 +397,7 @@ export const itemRouter = createTRPCRouter({
             promises.push(
               ctx.drizzle
                 .update(bloodlineRolls)
-                .set({ used: sql`${bloodlineRolls.used} + 1` })
+                .set({ used: sql`${bloodlineRolls.used} + 1`, updatedAt: new Date() })
                 .where(eq(bloodlineRolls.id, previousRoll.id)),
             );
           } else {

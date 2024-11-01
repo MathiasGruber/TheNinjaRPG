@@ -334,6 +334,7 @@ export const bloodlineRolls = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     used: smallint("used").default(0).notNull(),
+    pityRolls: tinyint("pityRolls").default(0).notNull(),
     type: mysqlEnum("type", consts.BLOODLINE_ROLL_TYPES).default("NATURAL").notNull(),
     goal: mysqlEnum("rank", consts.LetterRanks),
   },
@@ -344,6 +345,7 @@ export const bloodlineRolls = mysqlTable(
     };
   },
 );
+export type BloodlineRolls = InferSelectModel<typeof bloodlineRolls>;
 
 export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
   bloodline: one(bloodline, {

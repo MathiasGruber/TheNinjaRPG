@@ -152,6 +152,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       if (data.success) {
         await utils.profile.getUser.invalidate();
         await utils.item.getUserItems.invalidate();
+        await utils.bloodline.getItemRolls.invalidate();
       }
     },
     onSettled,

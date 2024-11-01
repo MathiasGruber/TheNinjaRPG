@@ -12,10 +12,10 @@ import NavTabs from "@/layout/NavTabs";
 import Confirm from "@/layout/Confirm";
 import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Label } from "src/components/ui/label";
 import { getSearchValidator } from "@/validators/register";
 import { ReceiptJapaneseYen, ShoppingCart, X } from "lucide-react";
-import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
@@ -24,6 +24,7 @@ import { api } from "@/utils/api";
 import { secondsFromDate } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
+import { filterRollableBloodlines } from "@/libs/bloodline";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import {
   Form,
@@ -34,7 +35,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import GraphBlackmarketLedger from "@/layout/GraphBlackmarketLedger";
-import { Waypoints } from "lucide-react";
+import { Waypoints, Dices } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PITY_BLOODLINE_ROLLS, PITY_SYSTEM_ENABLED } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -91,17 +93,119 @@ export default function BlackMarket() {
       {tab === "Bloodline" && <Bloodline userData={userData} />}
       {tab === "Ryo" && <RyoShop userData={userData} />}
       {tab === "Item" && (
-        <Shop
-          userData={userData}
-          defaultType="CONSUMABLE"
-          initialBreak={true}
-          minRepsCost={1}
-          subtitle="Buy rare items"
-        />
+        <>
+          <Shop
+            userData={userData}
+            defaultType="CONSUMABLE"
+            initialBreak={true}
+            minRepsCost={1}
+            subtitle="Buy rare items"
+          />
+          {PITY_SYSTEM_ENABLED && <PityBloodlineRoll userData={userData} />}
+        </>
       )}
     </>
   );
 }
+
+/**
+ * For every 150 failed rolls, let the user get a free bloodline of the given rank
+ * @param param0
+ * @returns
+ */
+const PityBloodlineRoll: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
+  userData,
+}) => {
+  // tRPC utils
+  const utils = api.useUtils();
+
+  // Get data from DB
+  const { data: prevRolls, isPending: isPendingRolls } =
+    api.bloodline.getItemRolls.useQuery(undefined, { staleTime: Infinity });
+  const { data: bloodlines, isPending: isPendingBloodlines } =
+    api.bloodline.getAll.useQuery({ limit: 500 }, { staleTime: Infinity });
+
+  // Pity roll mutation
+  const { mutate: pityRoll } = api.bloodline.pityRoll.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.bloodline.getItemRolls.invalidate();
+      }
+    },
+  });
+
+  // Loaders
+  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isPendingRolls) return <Loader explanation="Loading previous rolls" />;
+  if (isPendingBloodlines) return <Loader explanation="Loading bloodlines" />;
+  if (!prevRolls || !bloodlines) return null;
+
+  // Process data for table
+  const itemRolls = prevRolls?.map((entry) => {
+    const unusedRolls = entry.used - PITY_BLOODLINE_ROLLS * entry.pityRolls;
+    const pityRolls = Math.floor(unusedRolls / PITY_BLOODLINE_ROLLS);
+    const bloodlinePool = filterRollableBloodlines({
+      bloodlines: bloodlines.data,
+      user: userData,
+      previousRolls: prevRolls,
+      rank: entry.goal,
+    });
+    return {
+      ...entry,
+      currentPool: (
+        <div>
+          {bloodlinePool.map((b, i) => (
+            <div key={`${entry.goal}-${i}-pool`}>{b.name}</div>
+          ))}
+        </div>
+      ),
+      pityButton: (
+        <div className="text-center">
+          {pityRolls > 0 ? (
+            <Button
+              hoverText={`Roll for a random ${entry.goal} bloodline`}
+              onClick={() => pityRoll({ rank: entry.goal })}
+            >
+              <Dices className="h-6 w-6" />
+            </Button>
+          ) : (
+            "N/A"
+          )}
+          {entry.pityRolls > 0 && <div className="italic">{pityRolls} used</div>}
+        </div>
+      ),
+    };
+  });
+
+  // Table
+  type PrevRoll = ArrayElement<typeof itemRolls>;
+  const columns: ColumnDefinitionType<PrevRoll, keyof PrevRoll>[] = [
+    { key: "goal", header: "Rank", type: "string" },
+    { key: "updatedAt", header: "Last Roll", type: "date" },
+    { key: "used", header: "#Rolls", type: "string" },
+    { key: "currentPool", header: "Current Pool", type: "jsx" },
+    { key: "pityButton", header: "Pity Rolls", type: "jsx" },
+  ];
+
+  return (
+    <ContentBox
+      title="Bloodline Rolls"
+      subtitle="Overview of previous rolls"
+      initialBreak={true}
+      padding={false}
+    >
+      <Table data={itemRolls} columns={columns} />
+      <p className="italic text-xs p-3">
+        Once you have have rolled {PITY_BLOODLINE_ROLLS} times for a given rank
+        bloodline using items, you get 1 free roll, which is guarenteed to give you a
+        random bloodline of the given rank. <b>Note:</b> Pity system will be disabled
+        next monday alongside sales of S-rank items!
+      </p>
+    </ContentBox>
+  );
+};
 
 /**
  * Purchase & Remove Bloodlines

@@ -11,12 +11,14 @@ import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
-import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/libs/bloodline";
+import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/drizzle/constants";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { canSwapBloodline } from "@/utils/permissions";
 import { calculateContentDiff } from "@/utils/diff";
 import { bloodlineFilteringSchema } from "@/validators/bloodline";
+import { filterRollableBloodlines, getPityRolls } from "@/libs/bloodline";
+import { LetterRanks, PITY_SYSTEM_ENABLED } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { BloodlineRank, UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -35,7 +37,6 @@ export const bloodlineRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      console.log(input);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.bloodline.findMany({
@@ -124,18 +125,38 @@ export const bloodlineRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const entry = await fetchBloodline(ctx.drizzle, input.id);
-      if (entry && canChangeContent(user.role)) {
-        await ctx.drizzle.delete(bloodline).where(eq(bloodline.id, input.id));
-        await ctx.drizzle
+      // Fetch
+      const [user, entry, usersWithBloodline] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchBloodline(ctx.drizzle, input.id),
+        ctx.drizzle.query.userData.findMany({
+          where: and(
+            eq(userData.bloodlineId, input.id),
+            eq(userData.isAi, false),
+            eq(userData.role, "USER"),
+          ),
+        }),
+      ]);
+      // Derived
+      const usernames = usersWithBloodline.map((u) => u.username).join(", ");
+      // Guard
+      if (!entry) return errorResponse("Bloodline does not exist");
+      if (!user) return errorResponse("User does not exist");
+      if (!canChangeContent(user.role)) {
+        return errorResponse("Not allowed to delete bloodline");
+      }
+      if (usersWithBloodline.length > 0) {
+        return errorResponse(`Bloodline used by users: ${usernames}, cannot delete`);
+      }
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.delete(bloodline).where(eq(bloodline.id, input.id)),
+        ctx.drizzle
           .update(userData)
           .set({ bloodlineId: null })
-          .where(eq(userData.bloodlineId, input.id));
-        return { success: true, message: `Bloodline deleted` };
-      } else {
-        return { success: false, message: `Not allowed to delete bloodline` };
-      }
+          .where(eq(userData.bloodlineId, input.id)),
+      ]);
+      return { success: true, message: `Bloodline deleted` };
     }),
   // Update a bloodline
   update: protectedProcedure
@@ -183,11 +204,12 @@ export const bloodlineRouter = createTRPCRouter({
       }
     }),
   // Get bloodline roll of a specific user
-  getRolls: protectedProcedure
-    .input(z.object({ currentBloodlineId: z.string().optional().nullable() }))
-    .query(async ({ ctx }) => {
-      return (await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
-    }),
+  getNaturalRolls: protectedProcedure.query(async ({ ctx }) => {
+    return (await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId)) ?? null;
+  }),
+  getItemRolls: protectedProcedure.query(async ({ ctx }) => {
+    return await fetchItemBloodlineRolls(ctx.drizzle, ctx.userId);
+  }),
   // Roll a bloodline
   roll: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     const [user, prevRoll] = await Promise.all([
@@ -252,6 +274,51 @@ export const bloodlineRouter = createTRPCRouter({
       message: "After thorough examination the doctors conclude you have no bloodline",
     };
   }),
+  // Pity Roll a bloodline
+  pityRoll: protectedProcedure
+    .input(z.object({ rank: z.enum(LetterRanks).optional().nullish() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, bloodlines, previousRolls] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchBloodlines(ctx.drizzle),
+        fetchItemBloodlineRolls(ctx.drizzle, ctx.userId),
+      ]);
+      // Derived
+      const bloodlinePool = filterRollableBloodlines({
+        bloodlines,
+        user,
+        previousRolls,
+        rank: input.rank,
+      });
+      // Guard
+      if (!PITY_SYSTEM_ENABLED) return errorResponse("Pity system is disabled");
+      const prevRoll = previousRolls.find((r) => r.goal === input.rank);
+      if (!prevRoll) return errorResponse("No previous roll found");
+      const availablePityRolls = getPityRolls(prevRoll);
+      if (availablePityRolls <= 0) return errorResponse("No pity rolls available");
+      const randomBloodline = getRandomElement(bloodlinePool);
+      if (!randomBloodline) return errorResponse("No bloodlines in the pool?");
+      // Update roll & user if successfull
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ bloodlineId: randomBloodline.id })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(bloodlineRolls)
+          .set({
+            pityRolls: sql`${bloodlineRolls.pityRolls} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(bloodlineRolls.id, prevRoll.id)),
+      ]);
+      return {
+        success: true,
+        message: `You have been granted a bloodline: ${randomBloodline.name}`,
+      };
+    }),
   // Remove a bloodline from session user
   removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -422,4 +489,8 @@ export const fetchBloodline = async (client: DrizzleClient, bloodlineId: string)
   return await client.query.bloodline.findFirst({
     where: eq(bloodline.id, bloodlineId),
   });
+};
+
+export const fetchBloodlines = async (client: DrizzleClient) => {
+  return await client.query.bloodline.findMany({ where: eq(bloodline.hidden, false) });
 };
