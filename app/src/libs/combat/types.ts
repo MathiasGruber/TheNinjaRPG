@@ -653,7 +653,7 @@ export const WeaknessTag = z.object({
   statTypes: z.array(z.enum(StatTypes)).default([]),
   generalTypes: z.array(z.enum(GeneralTypes)).default([]),
   description: msg("Extra raw damage from specific things"),
-  dmgModifier: z.coerce.number().min(1).max(5).default(1).optional(),
+  dmgModifier: z.coerce.number().min(1).max(50).default(1).optional(),
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
