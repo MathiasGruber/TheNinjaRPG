@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import Pusher from "pusher-js";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { showMutationToast } from "@/libs/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { env } from "@/env/client.mjs";
@@ -20,6 +20,7 @@ export type UserEvent = {
 export const usePusherHandler = (userId?: string | null) => {
   // Navigation
   const router = useRouter();
+  const pathname = usePathname();
 
   // tRPC utility
   const utils = api.useUtils();
@@ -57,7 +58,19 @@ export const usePusherHandler = (userId?: string | null) => {
         if (data.type === "battle") {
           router.push("/combat");
         } else if (data.type === "newInbox") {
-          console.log("Received inbox");
+          console.log(pathname);
+          if (!pathname.includes("/inbox")) {
+            showMutationToast({
+              success: true,
+              message: "You have a new message",
+              title: "Notification!",
+              action: (
+                <ToastAction altText="To Inbox">
+                  <Link href="/inbox">To Inbox</Link>
+                </ToastAction>
+              ),
+            });
+          }
         } else if (data.type === "userMessage") {
           showMutationToast({
             success: true,
@@ -79,6 +92,7 @@ export const usePusherHandler = (userId?: string | null) => {
         pusher.disconnect();
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, router, utils]);
 
   return pusher;

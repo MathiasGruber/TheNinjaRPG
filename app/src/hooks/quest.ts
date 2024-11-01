@@ -146,7 +146,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     });
   }
 
-  // For everything except daily, add timeframe
+  // For everything except daily, add timeframe & expiry
   if (questType !== "daily") {
     formData.push({ id: "timeFrame", type: "str_array", values: TimeFrames });
   }

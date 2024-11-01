@@ -45,7 +45,7 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
-import { CheckCheck } from "lucide-react";
+import { CheckCheck, DoorOpen } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { Handshake, UserRoundCheck } from "lucide-react";
@@ -186,10 +186,21 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
       },
     });
 
+  const { mutate: leaveSensei, isPending: isLeaving } =
+    api.sensei.leaveSensei.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
+      },
+    });
+
   // Derived features
   const isPending =
     isFetching ||
     isCreating ||
+    isLeaving ||
     isAccepting ||
     isRejecting ||
     isCancelling ||
@@ -254,7 +265,13 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
       )}
       {/* Show Sensei */}
       {showSensei && (
-        <PublicUserComponent initialBreak userId={showSensei} title="Your Sensei" />
+        <div className="flex flex-col gap-2">
+          <PublicUserComponent initialBreak userId={showSensei} title="Your Sensei" />
+          <Button onClick={() => leaveSensei()}>
+            <DoorOpen className="w-6 h-6 mr-2" />
+            Leave Sensei
+          </Button>
+        </div>
       )}
       {/* Show Requests */}
       {showRequestSystem && (

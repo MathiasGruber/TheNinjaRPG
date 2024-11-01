@@ -149,6 +149,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           });
         });
         await utils.profile.getUser.invalidate();
+        await utils.item.getUserItems.invalidate();
       }
     },
   });

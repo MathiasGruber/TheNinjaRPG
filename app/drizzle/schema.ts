@@ -639,6 +639,7 @@ export const user2conversation = mysqlTable(
     assignedAt: datetime("assignedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    lastReadAt: datetime("lastReadAt", { mode: "date", fsp: 3 }),
   },
   (table) => {
     return {

@@ -24,7 +24,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { SquarePen, Users, X, Trash2 } from "lucide-react";
+import { SquarePen, Users, X, Trash2, BellRing } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createConversationSchema } from "@/validators/comments";
@@ -91,6 +91,8 @@ interface ShowConversationsProps {
   setSelectedConvo: React.Dispatch<React.SetStateAction<string | null>>;
 }
 const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
+  // Get user data & destructure
+  const { data: userData } = useRequiredUserData();
   const { selectedConvo, setSelectedConvo } = props;
 
   // Fetch conversations. Note we pass the selected convo to automatically re-fetch when it changes
@@ -100,11 +102,21 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     isPending,
   } = api.comments.getUserConversations.useQuery({ selectedConvo: selectedConvo });
 
+  // Mutations
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({
     onSuccess: async () => {
       await refetch();
     },
   });
+
+  // Derived
+  const filteredConversations = allConversations?.map((c) => {
+    const user = c.users.find((u) => u.userId === userData?.userId);
+    const hasNewMessages = !user?.lastReadAt || user.lastReadAt < c.updatedAt;
+    return { ...c, hasNewMessages };
+  });
+
+  // Render
   return (
     <div>
       {isPending && <Loader explanation="Looking for conversations" />}
@@ -129,10 +141,10 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
             </li>
 
             <hr />
-            {allConversations.map((convo) => (
+            {filteredConversations?.map((convo) => (
               <li
-                className={`relative mx-3 my-3 flex h-12 flex-row items-center rounded-lg hover:bg-orange-200 ${
-                  selectedConvo && selectedConvo === convo.id ? "bg-orange-200" : ""
+                className={`relative mx-3 my-3 flex h-12 flex-row items-center rounded-lg hover:bg-popover ${
+                  selectedConvo && selectedConvo === convo.id ? "bg-popover" : ""
                 }`}
                 key={convo.id}
                 onClick={() => setSelectedConvo(convo.id)}
@@ -164,11 +176,14 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 >
                   {convo.title}
                   <br />
-                  {convo.createdAt.toDateString()}s
+                  {convo.createdAt.toDateString()}
                 </span>
                 <div className="grow"></div>
+                {convo.hasNewMessages && (
+                  <BellRing className="h-6 w-6 text-red-500 hover:text-orange-500 hover:cursor-pointer animate-[wiggle_1s_ease-in-out_infinite]" />
+                )}
                 <Trash2
-                  className="mx-2 h-6 w-6 cursor-pointer rounded-full hover:text-orange-500"
+                  className="mx-2 h-6 w-6 hover:cursor-pointer rounded-full hover:text-orange-500"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

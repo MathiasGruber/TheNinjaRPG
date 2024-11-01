@@ -30,7 +30,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
-import { hideQuestInformation } from "@/libs/quest";
+import { hideQuestInformation, filterHiddenAndExpiredQuest } from "@/libs/quest";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
@@ -146,7 +146,7 @@ export const questsRouter = createTRPCRouter({
       ]);
       events.forEach((r) => hideQuestInformation(r));
       return events
-        .filter((e) => !e.hidden || canChangeContent(user.role))
+        .filter((e) => filterHiddenAndExpiredQuest(e, user.role))
         .filter(
           (e) => !e.previousAttempts || (e.previousAttempts <= 1 && e.completed === 0),
         );
@@ -163,13 +163,13 @@ export const questsRouter = createTRPCRouter({
             rank: quest.questRank,
             name: quest.name,
             image: quest.image,
+            hidden: quest.hidden,
             id: quest.id,
           })
           .from(quest)
           .where(
             and(
               inArray(quest.questType, ["mission", "errand", "crime"]),
-              eq(quest.hidden, false),
               lte(quest.requiredLevel, input.level),
               gte(quest.maxLevel, input.level),
               or(
@@ -185,7 +185,7 @@ export const questsRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "Wrong Village");
       }
       // Return
-      return summary;
+      return summary.filter((e) => filterHiddenAndExpiredQuest(e, user.role));
     }),
   startRandom: protectedProcedure
     .input(
@@ -237,14 +237,15 @@ export const questsRouter = createTRPCRouter({
           eq(quest.questRank, input.rank),
           lte(quest.requiredLevel, user.level),
           gte(quest.maxLevel, user.level),
-          eq(quest.hidden, false),
           or(
             isNull(quest.requiredVillage),
             eq(quest.requiredVillage, user.villageId ?? ""),
           ),
         ),
       });
-      const result = getRandomElement(results);
+      const result = getRandomElement(
+        results.filter((e) => filterHiddenAndExpiredQuest(e, user.role)),
+      );
       if (!result) return errorResponse("No assignments at this level could be found");
 
       // Insert quest entry
@@ -281,6 +282,9 @@ export const questsRouter = createTRPCRouter({
       if (!questData) return errorResponse("Quest does not exist");
       if (questData.hidden && !canPlayHiddenQuests(user.role)) {
         return errorResponse("Quest is hidden / not released");
+      }
+      if (questData.expiresAt && new Date(questData.expiresAt) < new Date()) {
+        return errorResponse("Quest has expired");
       }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
@@ -600,13 +604,16 @@ export const questsRouter = createTRPCRouter({
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))
     .mutation(async ({ ctx }) => {
+      // Fetch
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
+      // Guard
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
+      // Get updated quest information
       const { trackers, notifications, consequences } = getNewTrackers(user, [
         { task: "move_to_location" },
         { task: "collect_item" },
@@ -639,47 +646,53 @@ export const questsRouter = createTRPCRouter({
       }
       // Database updates
       if (notifications.length > 0) {
-        await Promise.all([
-          // Update quest data
-          ctx.drizzle
-            .update(userData)
-            .set({ questData: user.questData })
-            .where(eq(userData.userId, ctx.userId)),
-          // Update collected items
-          ...(collected.map(({ id }) =>
-            ctx.drizzle.insert(userItem).values({
-              id: nanoid(),
-              userId: ctx.userId,
-              itemId: id,
-              quantity: 1,
-              equipped: "NONE",
-            }),
-          ) || []),
-          // Initiate battle if needed
-          ...[
-            opponent
-              ? initiateBattle(
-                  {
-                    longitude: user.longitude,
-                    latitude: user.latitude,
-                    sector: user.sector,
-                    userIds: [user.userId],
-                    targetIds: [opponent.id],
-                    client: ctx.drizzle,
-                    scaleTarget: opponent.scaleStats ? true : false,
-                  },
-                  "QUEST",
-                  determineCombatBackground("ground"),
-                  opponent.scaleGains ?? 1,
-                )
-              : undefined,
-          ],
-        ]);
+        // First update user to see if someone already called this function
+        const result = await ctx.drizzle
+          .update(userData)
+          .set({ questData: user.questData, updatedAt: new Date() })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              eq(userData.updatedAt, user.updatedAt),
+            ),
+          );
+        // If succeeded in updating user, also update other things
+        if (result.rowsAffected > 0) {
+          await Promise.all([
+            // Update collected items
+            ...(collected.map(({ id }) =>
+              ctx.drizzle.insert(userItem).values({
+                id: nanoid(),
+                userId: ctx.userId,
+                itemId: id,
+                quantity: 1,
+                equipped: "NONE",
+              }),
+            ) || []),
+            // Initiate battle if needed
+            ...[
+              opponent
+                ? initiateBattle(
+                    {
+                      longitude: user.longitude,
+                      latitude: user.latitude,
+                      sector: user.sector,
+                      userIds: [user.userId],
+                      targetIds: [opponent.id],
+                      client: ctx.drizzle,
+                      scaleTarget: opponent.scaleStats ? true : false,
+                    },
+                    "QUEST",
+                    determineCombatBackground("ground"),
+                    opponent.scaleGains ?? 1,
+                  )
+                : undefined,
+            ],
+          ]);
+          return { success: true, notifications };
+        }
       }
-      return {
-        success: notifications.length > 0 ? true : false,
-        notifications,
-      };
+      return { success: false, notifications };
     }),
 });
 

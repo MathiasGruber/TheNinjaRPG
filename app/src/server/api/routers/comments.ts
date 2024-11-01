@@ -278,13 +278,14 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         }),
+        // Remove the counter of new conversations
         ctx.drizzle
           .update(userData)
           .set({ inboxNews: 0 })
           .where(eq(userData.userId, ctx.userId)),
       ]);
       // Filter off blacklisted conversations
-      return data?.conversations
+      const filteredConverations = data?.conversations
         .filter(
           (c) =>
             !c.conversation.users
@@ -299,6 +300,8 @@ export const commentsRouter = createTRPCRouter({
         )
         .map((c) => c.conversation)
         .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1));
+      // Return filtered conversations
+      return filteredConverations;
     }),
   createConversation: protectedProcedure
     .use(ratelimitMiddleware)
@@ -488,10 +491,24 @@ export const commentsRouter = createTRPCRouter({
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),
-        ctx.drizzle
-          .update(userData)
-          .set({ inboxNews: 0 })
-          .where(eq(userData.userId, ctx.userId)),
+        // Update last read
+        ...(convo.isPublic
+          ? []
+          : [
+              ctx.drizzle
+                .update(user2conversation)
+                .set({ lastReadAt: new Date() })
+                .where(
+                  and(
+                    eq(user2conversation.userId, ctx.userId),
+                    eq(user2conversation.conversationId, convo.id),
+                  ),
+                ),
+              ctx.drizzle
+                .update(conversation)
+                .set({ updatedAt: new Date() })
+                .where(eq(conversation.id, convo.id)),
+            ]),
       ]);
       // Fetch
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
@@ -526,7 +543,6 @@ export const commentsRouter = createTRPCRouter({
           .set({ inboxNews: sql`${userData.inboxNews} + 1` })
           .where(inArray(userData.userId, userIds));
       }
-
       // Update conversation & update user notifications
       const commentId = nanoid();
       const pusher = getServerPusher();
@@ -535,9 +551,11 @@ export const commentsRouter = createTRPCRouter({
         fromId: ctx.userId,
         commentId: commentId,
       });
-      userIds.forEach(
-        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
-      );
+      if (!convo.isPublic) {
+        userIds.forEach(
+          (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
+        );
+      }
       // Auto-moderation
       const sanitized = sanitize(input.comment);
       await Promise.all([
@@ -558,6 +576,10 @@ export const commentsRouter = createTRPCRouter({
           userId: ctx.userId,
           conversationId: convo.id,
         }),
+        ctx.drizzle
+          .update(conversation)
+          .set({ updatedAt: new Date() })
+          .where(eq(conversation.id, convo.id)),
       ]);
       // Insert
       return { success: true, message: "Comment posted" };

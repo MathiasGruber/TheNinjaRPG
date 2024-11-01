@@ -3,7 +3,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import {
   IMG_MISSION_S,
   IMG_MISSION_A,
@@ -12,7 +12,7 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
 } from "@/drizzle/constants";
-import type { LetterRank } from "@/drizzle/constants";
+import type { LetterRank, UserRole } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest, UserData } from "@/drizzle/schema";
@@ -398,4 +398,20 @@ export const hideQuestInformation = (quest: Quest, user?: UserData) => {
       objective.sector = 1337;
     }
   });
+};
+
+/**
+ * Filters out hidden and expired quests based on the user's role.
+ *
+ * @param quest - The quest object to be checked.
+ * @param role - The role of the user.
+ * @returns A boolean indicating whether the quest is either hidden and the user can play hidden quests, or the quest is not expired.
+ */
+export const filterHiddenAndExpiredQuest = (
+  quest: { hidden: boolean; expiresAt?: string | null },
+  role: UserRole,
+) => {
+  const hideCheck = !quest.hidden;
+  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
+  return (hideCheck || canPlayHiddenQuests(role)) && expiresCheck;
 };

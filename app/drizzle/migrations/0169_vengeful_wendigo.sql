@@ -1,0 +1,1 @@
+ALTER TABLE `UsersInConversation` ADD `lastReadAt` datetime(3);
