@@ -815,6 +815,7 @@ export const historicalAvatar = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey().notNull(),
     avatar: varchar("avatar", { length: 191 }),
+    avatarLight: varchar("avatarLight", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1310,6 +1311,7 @@ export const userData = mysqlTable(
       .notNull(),
     approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
+    avatarLight: varchar("avatarLight", { length: 191 }),
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(7).notNull(),

@@ -10,7 +10,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
-import { updateAvatar } from "@/libs/replicate";
+import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
 import { canSeeReport } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
@@ -635,7 +635,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       if (!canChangePublicUser(user)) return errorResponse("You cannot clear nindos");
       // Mutate
-      void updateAvatar(ctx.drizzle, target);
+      void requestAvatarForUser(ctx.drizzle, target);
       await Promise.all([
         ctx.drizzle.insert(reportLog).values({
           id: nanoid(),
@@ -645,7 +645,7 @@ export const reportsRouter = createTRPCRouter({
         }),
         ctx.drizzle
           .update(userData)
-          .set({ avatar: null })
+          .set({ avatar: null, avatarLight: null })
           .where(eq(userData.userId, input.userId)),
       ]);
       return { success: true, message: "Avatar update request sent" };

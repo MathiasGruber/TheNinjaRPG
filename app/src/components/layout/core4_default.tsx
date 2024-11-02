@@ -218,7 +218,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         src={imageset.wallpaper}
         width={1600}
         height={800}
-        alt="logo"
+        alt="wallpaper"
         priority
         unoptimized
       />
@@ -487,8 +487,7 @@ const StrongestUsersBanner: React.FC = () => {
                 <p className="pl-2">{i + 1}</p>
                 <div className="col-span-2">
                   <AvatarImage
-                    href={user.avatar}
-                    userId={user.userId}
+                    href={user.avatarLight}
                     alt={user.username}
                     size={100}
                     priority

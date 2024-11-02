@@ -72,6 +72,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
+import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
 import { moderateContent } from "@/libs/moderator";
 import type { GetPublicUsersSchema } from "@/validators/user";
@@ -364,6 +365,7 @@ export const profileRouter = createTRPCRouter({
         username: `New AI - ${id}`,
         gender: "Unknown",
         avatar: IMG_AVATAR_DEFAULT,
+        avatarLight: IMG_AVATAR_DEFAULT,
         villageId: null,
         approvedTos: 1,
         sector: 0,
@@ -777,6 +779,7 @@ export const profileRouter = createTRPCRouter({
           where: and(eq(userData.userId, input.userId)),
           columns: {
             avatar: true,
+            avatarLight: true,
             bloodlineId: true,
             curChakra: true,
             curHealth: true,
@@ -854,6 +857,14 @@ export const profileRouter = createTRPCRouter({
       }
       if (!canSeeIps(requester.role)) {
         user.lastIp = "hidden";
+      }
+      // If no avatarLight version, create one
+      if (!user.avatarLight && user.avatar) {
+        const thumbnail = await createThumbnail(user.avatar);
+        await ctx.drizzle
+          .update(userData)
+          .set({ avatarLight: thumbnail })
+          .where(eq(userData.userId, user.userId));
       }
       // Return
       return {
@@ -1342,6 +1353,7 @@ export const fetchPublicUsers = async (
         userId: true,
         username: true,
         avatar: true,
+        avatarLight: true,
         rank: true,
         isOutlaw: true,
         level: true,

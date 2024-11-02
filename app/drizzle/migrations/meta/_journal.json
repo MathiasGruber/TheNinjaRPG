@@ -1191,6 +1191,13 @@
       "when": 1730462886405,
       "tag": "0169_vengeful_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "5",
+      "when": 1730570230144,
+      "tag": "0170_steep_mulholland_black",
+      "breakpoints": true
     }
   ]
 }
