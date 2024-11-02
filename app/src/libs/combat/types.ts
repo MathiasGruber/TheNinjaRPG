@@ -780,6 +780,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "decreasestat",
       "clear",
       "damage",
+      "moveprevent",
       "pierce",
       "recoil",
       "flee",
