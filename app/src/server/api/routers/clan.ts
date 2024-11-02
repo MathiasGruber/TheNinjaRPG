@@ -263,12 +263,24 @@ export const clanRouter = createTRPCRouter({
         fetchClan(ctx.drizzle, input.clanId),
         fetchUser(ctx.drizzle, input.memberId),
       ]);
+      if (!fetchedClan) return errorResponse("Clan not found");
       // Derived
       const isLeader = user.userId === fetchedClan?.leaderId;
       const isColeader = checkCoLeader(user.userId, fetchedClan);
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const updateData = (() => {
-        if (isMemberColeader && isLeader) return { leaderId: input.memberId };
+        if (isMemberColeader && isLeader)
+          return {
+            leaderId: input.memberId,
+            coLeader1:
+              fetchedClan.coLeader1 === input.memberId ? null : fetchedClan.coLeader1,
+            coLeader2:
+              fetchedClan.coLeader2 === input.memberId ? null : fetchedClan.coLeader2,
+            coLeader3:
+              fetchedClan.coLeader3 === input.memberId ? null : fetchedClan.coLeader3,
+            coLeader4:
+              fetchedClan.coLeader4 === input.memberId ? null : fetchedClan.coLeader4,
+          };
         if (!fetchedClan?.coLeader1) return { coLeader1: input.memberId };
         if (!fetchedClan?.coLeader2) return { coLeader2: input.memberId };
         if (!fetchedClan?.coLeader3) return { coLeader3: input.memberId };
@@ -276,7 +288,6 @@ export const clanRouter = createTRPCRouter({
         return null;
       })();
       // Guards
-      if (!fetchedClan) return errorResponse("Clan not found");
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
       if (!isLeader && !isColeader) return errorResponse("Only leaders can promote");
