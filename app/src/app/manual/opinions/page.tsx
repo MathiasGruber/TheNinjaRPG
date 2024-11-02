@@ -84,7 +84,6 @@ interface ReportimageProps {
 const ReportImage: React.FC<ReportimageProps> = (props) => {
   // Destructure information
   const { user } = props;
-  console.log(props);
 
   // Utils
   const utils = api.useUtils();

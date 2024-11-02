@@ -124,7 +124,7 @@ const Register: React.FC = () => {
   // Handle form submit
   const handleCreateCharacter = form.handleSubmit(
     (data) => createCharacter(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   // Options used for select fields

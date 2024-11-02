@@ -1275,7 +1275,6 @@ export const clearPrevent = (
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be cleared");
-    console.log(info);
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;

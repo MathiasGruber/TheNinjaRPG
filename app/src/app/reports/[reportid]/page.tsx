@@ -137,32 +137,32 @@ export default function Report({ params }: { params: { reportid: string } }) {
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitBan = handleSubmit(
     (data) => banUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitSilence = handleSubmit(
     (data) => silenceUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitEscalation = handleSubmit(
     (data) => escalateReport.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitClear = handleSubmit(
     (data) => clearReport.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitWarn = handleSubmit(
     (data) => warnUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   if (!userData || !report) {

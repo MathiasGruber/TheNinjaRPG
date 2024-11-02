@@ -177,7 +177,6 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
           }) || sectorVillage.type === "SAFEZONE";
         // Redirect user
         if (!inVillage || !sectorVillage || !access) {
-          console.log(inVillage, sectorVillage, access);
           void router.push("/");
         } else {
           setAccess(true);

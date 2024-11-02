@@ -59,8 +59,6 @@ export default function MyItems() {
   const canAfford =
     userData.reputationPoints && userData.reputationPoints >= COST_EXTRA_ITEM_SLOT;
 
-  console.log("userData", userData);
-
   return (
     <ContentBox
       title="Item Management"

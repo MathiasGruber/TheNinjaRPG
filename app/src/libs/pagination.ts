@@ -46,7 +46,6 @@ export const useInfinitePagination = ({
   useEffect(() => {
     const fetchData = async () => {
       if (page > 0 && isSignedIn) {
-        console.log("Fetching next page");
         await fetchNextPage();
       }
     };

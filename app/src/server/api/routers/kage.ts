@@ -206,10 +206,6 @@ export const kageRouter = createTRPCRouter({
       if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
       const { total } = calcStructureUpgrade(structure, userVillage);
       if (userVillage.tokens < total) return errorResponse("Not enough tokens");
-      console.log(
-        secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt),
-        new Date(),
-      );
       if (secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been kage for 24 hours");
       }

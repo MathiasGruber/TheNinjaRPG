@@ -58,7 +58,6 @@ export const usePusherHandler = (userId?: string | null) => {
         if (data.type === "battle") {
           router.push("/combat");
         } else if (data.type === "newInbox") {
-          console.log(pathname);
           if (!pathname.includes("/inbox")) {
             showMutationToast({
               success: true,

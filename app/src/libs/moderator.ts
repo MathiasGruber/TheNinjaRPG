@@ -273,9 +273,6 @@ export const generateModerationDecision = async (
     }),
     prompt: getSystemPrompt(content, prevReports),
   });
-  // console.log("=====================================");
-  // console.log(getSystemPrompt(content, prevReports));
-  // console.log("DECISION: ", object);
   return { decision: object, aiInterpretation };
 };
 

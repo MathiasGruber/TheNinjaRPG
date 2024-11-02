@@ -88,7 +88,6 @@ export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        console.log("Invalidating");
         await utils.comments.getForumComments.invalidate();
         setEditing(false);
       }

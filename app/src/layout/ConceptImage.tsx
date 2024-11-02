@@ -53,7 +53,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
       }
     },
     onError: (error) => {
-      console.log(error);
+      console.error(error);
     },
   });
 

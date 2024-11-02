@@ -130,11 +130,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   const actionEffects: ActionEffect[] = [];
 
   // Convert all ground effects to user effects on the users standing on the tile
-  // console.log(
-  //   "Ground effects: ",
-  //   groundEffects.length,
-  //   groundEffects.map((e) => e.type)
-  // );
   groundEffects.sort(sortEffects).forEach((e) => {
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
