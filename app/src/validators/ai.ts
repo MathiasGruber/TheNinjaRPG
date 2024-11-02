@@ -4,6 +4,10 @@ export const AvailableTargets = [
   "SELF",
   "RANDOM_OPPONENT",
   "CLOSEST_OPPONENT",
+  "BARRIER_BETWEEN",
+  "RANDOM_ALLY",
+  "CLOSEST_ALLY",
+  "BARRIER_BLOCKING_CLOSEST_OPPONENT",
 ] as const;
 
 export type AvailableTarget = (typeof AvailableTargets)[number];

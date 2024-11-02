@@ -80,9 +80,11 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         if (
           profile.rules.at(-1)?.action?.type !== "use_highest_power_action" ||
           profile.rules.at(-1)?.conditions.length !== 0 ||
-          profile.rules.at(-2)?.action?.type !== "move_towards_opponent" ||
-          profile.rules.at(-2)?.conditions?.[0]?.type !== "distance_higher_than" ||
-          profile.rules.at(-2)?.conditions?.[0]?.value !== 2
+          profile.rules.at(-2)?.action?.type !== "use_highest_power_action" ||
+          profile.rules.at(-2)?.conditions.length !== 0 ||
+          profile.rules.at(-3)?.action?.type !== "move_towards_opponent" ||
+          profile.rules.at(-3)?.conditions?.[0]?.type !== "distance_higher_than" ||
+          profile.rules.at(-3)?.conditions?.[0]?.value !== 2
         ) {
           profile.rules.push(
             AiRule.parse({
@@ -94,6 +96,15 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             AiRule.parse({
               conditions: [],
               action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
+            }),
+          );
+          profile.rules.push(
+            AiRule.parse({
+              conditions: [],
+              action: ActionWithEffectHighestPower.parse({
+                effect: "damage",
+                target: "BARRIER_BLOCKING_CLOSEST_OPPONENT",
+              }),
             }),
           );
         }
@@ -158,19 +169,19 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       {rules.map((rule, i) => {
         const currentActionType = rule.action.type;
         const actionSchema = getActionSchema(currentActionType);
-        const isLastTwo = i >= rules.length - 2;
         const isLastThree = i >= rules.length - 3;
+        const isLastFour = i >= rules.length - 4;
         return (
           <Accordion
             key={`rule-${i}`}
-            className={isDefault && isLastTwo ? "opacity-50" : ""}
+            className={isDefault && isLastThree ? "opacity-50" : ""}
             title={`Rule ${i + 1}`}
             titlePostfix={`: ${rule.conditions.map((c) => c.type).join(", ")} -> ${rule.action.type}`}
             selectedTitle={activeElement}
             onClick={setActiveElement}
             options={
               <>
-                {(!isDefault || !isLastTwo) && (
+                {(!isDefault || !isLastThree) && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -186,7 +197,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastThree) && (
+                {(!isDefault || !isLastFour) && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -202,7 +213,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastTwo) && (
+                {(!isDefault || !isLastThree) && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {

@@ -4,12 +4,14 @@ import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { stillInBattle } from "@/libs/combat/actions";
 import { findUser, findBarrier, calcPoolCost } from "@/libs/combat/util";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
+import { getBarriersBetween } from "@/libs/combat/util";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
-import type { CombatAction } from "@/libs/combat/types";
+import type { CombatAction, GroundEffect } from "@/libs/combat/types";
 import type { CompleteBattle, ZodAllTags } from "@/libs/combat/types";
 import type { TerrainHex } from "../hexgrid";
 import type { ZodAllAiCondition, ZodAllAiAction } from "@/validators/ai";
 import type { Grid } from "honeycomb-grid";
+import type { Point2D, UserLocation } from "@/libs/hexgrid";
 
 type ActionWithTarget = {
   action: CombatAction;
@@ -18,7 +20,7 @@ type ActionWithTarget = {
 };
 
 // Debug flag when testing AI
-const debug = false;
+const debug = true;
 
 export const performAIaction = (
   battle: CompleteBattle,
@@ -35,20 +37,7 @@ export const performAIaction = (
   const aiUsers = nextBattle.usersState.filter((user) => user.isAi);
 
   // Path finder on grid in path lines
-  const astar = new PathCalculator(grid);
-
-  // Path finder accounting for obstacles
-  const aStarWithObstacles = new PathCalculator(
-    grid.map((tile) => {
-      if (
-        findUser(nextBattle.usersState, tile.col, tile.row) ||
-        findBarrier(nextBattle.groundEffects, tile.col, tile.row)
-      ) {
-        tile.cost = 100;
-      }
-      return tile;
-    }),
-  );
+  let astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
 
   // Find the AI user
   const user = aiUsers.find((user) => user.userId === aiUserId);
@@ -75,21 +64,32 @@ export const performAIaction = (
     // User hex
     const origin = findHex(grid, user);
     // Get user enemies
-    const enemies = getEnemies(battle.usersState, user.userId).map((u) => {
-      const hex = findHex(grid, u);
-      const path = hex && origin ? astar.getShortestPath(origin, hex) : undefined;
-      return {
-        ...u,
-        hex: hex,
-        distance: path?.length ? path.length : 0,
-      };
-    });
+    const enemies = getEnemies(battle.usersState, user.userId).map((u) =>
+      mapDistancesToTarget(grid, astar, u, origin),
+    );
+    // Get user allies
+    const allies = getAllies(battle.usersState, user.userId).map((u) =>
+      mapDistancesToTarget(grid, astar, u, origin),
+    );
     // Derived for convenience
     const userWithDistance = { ...user, path: undefined, distance: 0 };
     const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
     const closestEnemy = enemies.reduce((prev, current) =>
       prev.distance < current.distance ? prev : current,
     );
+    const randomAlly = allies[Math.floor(Math.random() * allies.length)];
+    const closestAlly = allies.reduce((prev, current) =>
+      prev.distance < current.distance ? prev : current,
+    );
+    // Get barriers between user and closest enemy
+    astar = new PathCalculator(resetGridFromObstacles(grid));
+    const tHex = findHex(grid, closestEnemy);
+    const barriers = getBarriers(astar, nextBattle.groundEffects, origin, tHex).map(
+      (b) => mapDistancesToTarget(grid, astar, b, origin),
+    );
+    astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
+    console.log("barriers", barriers);
+
     // Convenience for getting target
     const getTarget = (entry: ZodAllAiCondition | ZodAllAiAction) => {
       if (!("target" in entry)) return undefined;
@@ -98,6 +98,12 @@ export const performAIaction = (
           return randomEnemy;
         case "CLOSEST_OPPONENT":
           return closestEnemy;
+        case "RANDOM_ALLY":
+          return randomAlly;
+        case "CLOSEST_ALLY":
+          return closestAlly;
+        case "BARRIER_BLOCKING_CLOSEST_OPPONENT":
+          return barriers[0];
         case "SELF":
           return userWithDistance;
       }
@@ -145,7 +151,7 @@ export const performAIaction = (
         if (rule.action.type === "move_towards_opponent") {
           const move = actions.find((a) => a.id === "move");
           if (target && targetHex && origin && move) {
-            const path = aStarWithObstacles.getShortestPath(origin, targetHex);
+            const path = astar.getShortestPath(origin, targetHex);
             const hex = path?.[1];
             if (path && hex && path.length > 2) {
               nextAction = { action: move, long: hex.col, lat: hex.row };
@@ -237,6 +243,9 @@ export const performAIaction = (
     }
   }
 
+  // Reset grid from obstacles
+  resetGridFromObstacles(grid);
+
   // Return the new state
   return { nextBattle, nextActionEffects, aiDescriptions };
 };
@@ -260,4 +269,104 @@ const getEnemies = (usersState: BattleUserState[], userId: string) => {
         : u.controllerId !== user?.controllerId,
     )
     .filter((u) => stillInBattle(u));
+};
+
+/**
+ * Retrieves a list of allies for a given user in a battle.
+ *
+ * This function filters the users who are still in battle and belong to the same village or
+ * have the same controller as the specified user. If there are multiple villages involved,
+ * it filters by the user's village; otherwise, it filters by the user's controller.
+ *
+ * @param usersState - An array of `BattleUserState` objects representing the state of all users in the battle.
+ * @param userId - The ID of the user for whom to find allies.
+ * @returns An array of `BattleUserState` objects representing the allies of the specified user.
+ */
+const getAllies = (usersState: BattleUserState[], userId: string) => {
+  const villageIds = [
+    ...new Set(usersState.filter(stillInBattle).map((u) => u.villageId)),
+  ];
+  const user = usersState.find((u) => u.userId === userId);
+  return usersState
+    .filter((u) =>
+      villageIds.length > 1
+        ? u.villageId === user?.villageId
+        : u.controllerId === user?.controllerId,
+    )
+    .filter((u) => stillInBattle(u));
+};
+
+const getBarriers = (
+  aStar: PathCalculator,
+  groundEffects: GroundEffect[],
+  origin?: TerrainHex,
+  target?: TerrainHex,
+) => {
+  const barrierCheck =
+    origin &&
+    target &&
+    getBarriersBetween("no-filter", aStar, groundEffects, origin, target);
+  const barriers = barrierCheck ? barrierCheck.barriers : [];
+  return barriers;
+};
+
+/**
+ * Maps distances to a target object from a given origin within a grid using the A* pathfinding algorithm.
+ *
+ * @template T - The type of the target object, which extends either Point2D or UserLocation.
+ * @param origin - The starting hex from which distances are calculated.
+ * @param grid - The grid containing TerrainHex objects.
+ * @param astar - The A* pathfinding algorithm instance used to calculate the shortest path.
+ * @param obj - The target object for which the distance is calculated.
+ * @returns - The target object extended with the hex it is located in and the distance from the origin.
+ */
+const mapDistancesToTarget = <T extends Point2D | UserLocation>(
+  grid: Grid<TerrainHex>,
+  astar: PathCalculator,
+  obj: T,
+  origin?: TerrainHex,
+) => {
+  const hex = findHex(grid, obj);
+  const path = hex && origin ? astar.getShortestPath(origin, hex) : undefined;
+  return {
+    ...obj,
+    hex: hex,
+    distance: path?.length ? path.length : 0,
+  };
+};
+
+/**
+ * Updates the given grid by marking tiles with obstacles.
+ *
+ * This function iterates over each tile in the provided grid and checks if the tile
+ * is occupied by a user or a barrier. If an obstacle is found on the tile, the cost
+ * of the tile is set to 100.
+ *
+ * @param grid - The grid of TerrainHex tiles to be updated.
+ * @param battle - The current state of the battle, containing information about users and ground effects.
+ * @returns A new grid with updated tile costs where obstacles are present.
+ */
+const updateGridWithObstacles = (grid: Grid<TerrainHex>, battle: CompleteBattle) => {
+  return grid.map((tile) => {
+    if (
+      findUser(battle.usersState, tile.col, tile.row) ||
+      findBarrier(battle.groundEffects, tile.col, tile.row)
+    ) {
+      tile.cost = 100;
+    }
+    return tile;
+  });
+};
+
+/**
+ * Resets the cost of all tiles in the given grid to 1, effectively removing any obstacles.
+ *
+ * @param grid - The grid of TerrainHex tiles to be reset.
+ * @returns A new grid with all tile costs set to 1.
+ */
+const resetGridFromObstacles = (grid: Grid<TerrainHex>) => {
+  return grid.map((tile) => {
+    tile.cost = 1;
+    return tile;
+  });
 };
