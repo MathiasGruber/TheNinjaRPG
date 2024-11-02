@@ -258,7 +258,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
         isDone = false;
       }
       if (isDone) {
-        const thumbnail = await createThumnail(url);
+        const thumbnail = url ? await createThumnail(url) : null;
         await client
           .update(historicalAvatar)
           .set({
