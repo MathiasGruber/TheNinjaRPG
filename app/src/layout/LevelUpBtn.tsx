@@ -13,9 +13,7 @@ import { calcLevelRequirements } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 
-interface LevelUpBtnProps {}
-
-const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
+const LevelUpBtn: React.FC = () => {
   // State
   const { data: userData } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);

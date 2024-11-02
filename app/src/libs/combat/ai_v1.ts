@@ -149,7 +149,7 @@ const getSearchSpaceSize = (searchTree: SearchAction[]) => {
   return size;
 };
 
-const getHighestFitness = (searchTree: SearchAction, depth: number = 0) => {
+const getHighestFitness = (searchTree: SearchAction, depth = 0) => {
   let moves = searchTree.action?.name;
   let fitness = searchTree.fitness;
   if (searchTree.nextActions && searchTree.nextActions?.length > 0) {
@@ -215,7 +215,7 @@ const getAiTiles = (
       const target = findHex(grid, enemy);
       if (origin && target) {
         const path = astar.getShortestPath(origin, target);
-        return path && path[1] ? [path[1]] : [];
+        return path?.[1] ? [path[1]] : [];
       }
     }
   } else {

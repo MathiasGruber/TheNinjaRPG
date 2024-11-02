@@ -759,7 +759,7 @@ export const initiateBattle = async (
   }
 
   // Loop through each user
-  for (let i = 0; i < users.length; i++) {
+  for (const i of users.keys()) {
     // Get the user
     const user = users[i];
     if (!user) return { success: false, message: "Could not find expected user" };

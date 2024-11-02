@@ -177,8 +177,8 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       setRules((prevRules) => {
                         if (i < 1) return prevRules;
                         const newRules = [...prevRules];
-                        const a = newRules[i] as AiRuleType;
-                        const b = newRules[i - 1] as AiRuleType;
+                        const a = newRules[i]!;
+                        const b = newRules[i - 1]!;
                         newRules[i] = b;
                         newRules[i - 1] = a;
                         return newRules;
@@ -193,8 +193,8 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       setRules((prevRules) => {
                         if (i + 1 >= prevRules.length) return prevRules;
                         const newRules = [...prevRules];
-                        const a = newRules[i] as AiRuleType;
-                        const b = newRules[i + 1] as AiRuleType;
+                        const a = newRules[i]!;
+                        const b = newRules[i + 1]!;
                         newRules[i] = b;
                         newRules[i + 1] = a;
                         return newRules;

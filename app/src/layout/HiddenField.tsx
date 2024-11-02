@@ -9,7 +9,7 @@ interface HiddenFieldProps {
 const HiddenField: React.FC<HiddenFieldProps> = (props) => {
   return (
     <input
-      {...(props.register && props.register(props.id))}
+      {...props?.register?.(props.id)}
       id={props.id}
       type="hidden"
       name="action"

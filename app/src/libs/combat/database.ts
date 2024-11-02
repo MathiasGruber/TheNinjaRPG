@@ -46,7 +46,7 @@ export const updateBattle = async (
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
 
   // If user won and it's a clan battle, update the clan battle queue
-  if (result && result.didWin && newBattle.battleType === "CLAN_BATTLE") {
+  if (result?.didWin && newBattle.battleType === "CLAN_BATTLE") {
     const user = newBattle.usersState.find((u) => u.userId === userId);
     const other = newBattle.usersState.find((u) => u.userId !== userId);
     if (user && other) {
@@ -271,7 +271,7 @@ export const updateVillageAnbuClan = async (
   const user = curBattle.usersState.find((u) => u.userId === userId);
   // Guards
   if (!user || !user.villageId) return;
-  if (!result || !result.didWin) return;
+  if (!result?.didWin) return;
   // Mutate
   await Promise.all([
     ...(result.villageTokens > 0

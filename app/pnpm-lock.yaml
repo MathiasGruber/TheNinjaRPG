@@ -18,8 +18,8 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1(react-dom@18.2.0(react@18.2.0))(react-hook-form@7.43.0(react@18.2.0))(react@18.2.0)
       '@hookform/resolvers':
-        specifier: 2.9.10
-        version: 2.9.10(react-hook-form@7.43.0(react@18.2.0))
+        specifier: 3.9.1
+        version: 3.9.1(react-hook-form@7.43.0(react@18.2.0))
       '@icons-pack/react-simple-icons':
         specifier: ^9.6.0
         version: 9.6.0(react@18.2.0)
@@ -167,6 +167,9 @@ importers:
       emoji-picker-react:
         specifier: ^4.9.2
         version: 4.9.2(react@18.2.0)
+      eslint-plugin-drizzle:
+        specifier: ^0.2.3
+        version: 0.2.3(eslint@8.57.1)
       honeycomb-grid:
         specifier: 4.1.5
         version: 4.1.5
@@ -1041,8 +1044,8 @@ packages:
       react-dom: '>=16.8.0'
       react-hook-form: ^7.0.0
 
-  '@hookform/resolvers@2.9.10':
-    resolution: {integrity: sha512-JIL1DgJIlH9yuxcNGtyhsWX/PgNltz+5Gr6+8SX9fhXc/hPbEIk6wPI82nhgvp3uUb6ZfAM5mqg/x7KR7NAb+A==}
+  '@hookform/resolvers@3.9.1':
+    resolution: {integrity: sha512-ud2HqmGBM0P0IABqoskKWI6PEf6ZDDBZkFqe2Vnl+mTHCEHzr3ISjjZyCwTjC/qpL25JC9aIDkloQejvMeq0ug==}
     peerDependencies:
       react-hook-form: ^7.0.0
 
@@ -3603,6 +3606,11 @@ packages:
         optional: true
       eslint-import-resolver-webpack:
         optional: true
+
+  eslint-plugin-drizzle@0.2.3:
+    resolution: {integrity: sha512-BO+ymHo33IUNoJlC0rbd7HP9EwwpW4VIp49R/tWQF/d2E1K2kgTf0tCXT0v9MSiBr6gGR1LtPwMLapTKEWSg9A==}
+    peerDependencies:
+      eslint: '>=8.0.0'
 
   eslint-plugin-import@2.28.1:
     resolution: {integrity: sha512-9I9hFlITvOV55alzoKBI+K9q74kv0iKMeY6av5+umsNwayt59fz692daGyjR+oStBQgx6nwR9rXldDev3Clw+A==}
@@ -6443,7 +6451,7 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       react-hook-form: 7.43.0(react@18.2.0)
 
-  '@hookform/resolvers@2.9.10(react-hook-form@7.43.0(react@18.2.0))':
+  '@hookform/resolvers@3.9.1(react-hook-form@7.43.0(react@18.2.0))':
     dependencies:
       react-hook-form: 7.43.0(react@18.2.0)
 
@@ -9295,6 +9303,10 @@ snapshots:
       eslint-import-resolver-typescript: 3.5.5(@typescript-eslint/parser@8.8.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.7)(eslint-plugin-import@2.28.1)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
+
+  eslint-plugin-drizzle@0.2.3(eslint@8.57.1):
+    dependencies:
+      eslint: 8.57.1
 
   eslint-plugin-import@2.28.1(@typescript-eslint/parser@8.8.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-typescript@3.5.5)(eslint@8.57.1):
     dependencies:

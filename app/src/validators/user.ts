@@ -46,7 +46,7 @@ export const getUserElements = (user: UserWithRelations) => {
   // Create final list of elements
   const finalElements = bloodlineElements.length > 0 ? bloodlineElements : userElements;
   if (bloodlineElements.length === 1 && userElements.length === 2) {
-    finalElements.push(userElements[1] as ElementName);
+    finalElements.push(userElements[1]!);
   }
   finalElements.push("None");
   return Array.from(new Set(finalElements));

@@ -245,7 +245,7 @@ export const profileRouter = createTRPCRouter({
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
             .from(userReport)
             .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
-          const userReports = reportCounts?.[0]?.count || 0;
+          const userReports = reportCounts?.[0]?.count ?? 0;
           if (userReports > 0) {
             notifications.push({
               href: "/reports",
@@ -457,7 +457,7 @@ export const profileRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Set empty strings to null
       setEmptyStringsToNulls(input.data);
-      input.data.customTitle = input.data.customTitle || "";
+      input.data.customTitle = input.data.customTitle ?? "";
 
       // Queries
       const user = await fetchUser(ctx.drizzle, ctx.userId);

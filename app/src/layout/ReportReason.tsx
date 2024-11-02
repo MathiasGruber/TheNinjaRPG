@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { UserReport } from "../../drizzle/schema";
 import { parseHtml } from "@/utils/parse";
 
@@ -47,9 +48,10 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
         <div className="py-5">
           <b>Image:</b>
           <hr />
-          <img
+          <Image
             src={(props.report.infraction as { image: string }).image}
-            width="100%"
+            width={100}
+            className="w-full"
             alt="ReportingImage"
           />
         </div>

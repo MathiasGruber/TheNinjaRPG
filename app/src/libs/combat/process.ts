@@ -96,7 +96,7 @@ const getVisual = (
   longitude: number,
   latitude: number,
   animation?: string,
-  round: number = 0,
+  round = 0,
 ): GroundEffect => {
   return {
     ...VisualTag.parse({

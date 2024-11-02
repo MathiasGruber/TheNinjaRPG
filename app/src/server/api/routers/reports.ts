@@ -712,7 +712,7 @@ export const reportsRouter = createTRPCRouter({
           id: nanoid(),
           targetUserId: input.staffUserId,
           authorUserId: ctx.userId,
-          authorIp: ctx.userIp || "unknown",
+          authorIp: ctx.userIp ?? "unknown",
           positive: input.positive,
           review: input.review,
         });

@@ -14,9 +14,7 @@ import { getSearchValidator } from "@/validators/register";
 import { showMutationToast } from "@/libs/toast";
 import type { z } from "zod";
 
-interface UserBlacklistControlProps {}
-
-const UserBlacklistControl: React.FC<UserBlacklistControlProps> = () => {
+const UserBlacklistControl: React.FC = () => {
   // Get react query utility
   const utils = api.useUtils();
 

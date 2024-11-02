@@ -56,18 +56,13 @@ import type { UserNindo } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { ClanRouter } from "@/routers/clan";
 
-/**
- * Show an overview of the clans in the village
- */
-interface ClansOverviewProps {}
-
-export const ClansOverview: React.FC<ClansOverviewProps> = () => {
+export const ClansOverview: React.FC = () => {
   // Must be in allied village
   const { userData } = useRequireInVillage("/clanhall");
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
-    { villageId: userData?.villageId as string },
+    { villageId: userData?.villageId ?? "" },
     { enabled: !!userData?.villageId },
   );
   const allClans = data?.map((clan) => ({

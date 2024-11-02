@@ -36,7 +36,7 @@ export const kageRouter = createTRPCRouter({
             ),
           ),
       ]);
-      const previousCount = previous?.[0]?.count || 0;
+      const previousCount = previous?.[0]?.count ?? 0;
       // Guards
       if (!village) return errorResponse("Village not found");
       if (kage.villageId !== village.id) return errorResponse("No longer kage");

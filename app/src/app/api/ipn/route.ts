@@ -78,7 +78,7 @@ export async function GET(req: Request) {
 /**
  * Fetch a paypal order
  */
-export const verifyWebhookEvent = async (input: { body: any; token: string }) => {
+export const verifyWebhookEvent = async (input: { body: unknown; token: string }) => {
   const order = await fetch(
     `${process.env.NEXT_PUBLIC_PAYPAL_URL}/v1/notifications/verify-webhook-signature`,
     {

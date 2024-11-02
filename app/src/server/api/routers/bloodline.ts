@@ -221,15 +221,15 @@ export const bloodlineRouter = createTRPCRouter({
     }
     const rand = Math.random();
     let bloodlineRank: BloodlineRank | undefined = undefined;
-    if (rand < ROLL_CHANCE["S"]) {
+    if (rand < ROLL_CHANCE.S) {
       bloodlineRank = "S";
-    } else if (rand < ROLL_CHANCE["A"]) {
+    } else if (rand < ROLL_CHANCE.A) {
       bloodlineRank = "A";
-    } else if (rand < ROLL_CHANCE["B"]) {
+    } else if (rand < ROLL_CHANCE.B) {
       bloodlineRank = "B";
-    } else if (rand < ROLL_CHANCE["C"]) {
+    } else if (rand < ROLL_CHANCE.C) {
       bloodlineRank = "C";
-    } else if (rand < ROLL_CHANCE["D"]) {
+    } else if (rand < ROLL_CHANCE.D) {
       bloodlineRank = "D";
     }
     // Update roll & user if successfull

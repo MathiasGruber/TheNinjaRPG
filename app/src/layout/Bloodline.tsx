@@ -272,11 +272,11 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
           Statistically, the chances for the different ranks of bloodlines are:
         </p>
         <ul className="pl-5 pt-3">
-          <li>S-Ranked: {ROLL_CHANCE_PERCENTAGE["S"] * 100}%</li>
-          <li>A-Ranked: {ROLL_CHANCE_PERCENTAGE["A"] * 100}%</li>
-          <li>B-Ranked: {ROLL_CHANCE_PERCENTAGE["B"] * 100}%</li>
-          <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE["C"] * 100}%</li>
-          <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE["D"] * 100}%</li>
+          <li>S-Ranked: {ROLL_CHANCE_PERCENTAGE.S * 100}%</li>
+          <li>A-Ranked: {ROLL_CHANCE_PERCENTAGE.A * 100}%</li>
+          <li>B-Ranked: {ROLL_CHANCE_PERCENTAGE.B * 100}%</li>
+          <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE.C * 100}%</li>
+          <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE.D * 100}%</li>
         </ul>
         <p className="pt-3">
           <b>NOTE:</b> If you have an existing bloodline it will be replaced in the

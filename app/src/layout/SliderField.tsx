@@ -38,7 +38,7 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           type="range"
           min={props.min}
           max={props.max}
-          {...(props.register && props.register(props.id, { valueAsNumber: true }))}
+          {...props?.register?.(props.id, { valueAsNumber: true })}
           className="h-5 w-full cursor-pointer appearance-none  rounded-lg bg-orange-200 accent-orange-800"
         />
         <PlusCircle

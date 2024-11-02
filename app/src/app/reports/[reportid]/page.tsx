@@ -384,23 +384,22 @@ export default function Report({ params }: { params: { reportid: string } }) {
             )}
           </div>
         </form>
-        {allComments &&
-          allComments.map((comment, i) => (
-            <div
-              key={comment.id}
-              ref={i === allComments.length - 1 ? setLastElement : null}
+        {allComments?.map((comment, i) => (
+          <div
+            key={comment.id}
+            ref={i === allComments.length - 1 ? setLastElement : null}
+          >
+            <CommentOnReport
+              title={reportCommentExplain(comment.decision)}
+              user={comment.user}
+              hover_effect={false}
+              comment={comment}
+              color={reportCommentColor(comment.decision)}
             >
-              <CommentOnReport
-                title={reportCommentExplain(comment.decision)}
-                user={comment.user}
-                hover_effect={false}
-                comment={comment}
-                color={reportCommentColor(comment.decision)}
-              >
-                {parseHtml(comment.content)}
-              </CommentOnReport>
-            </div>
-          ))}
+              {parseHtml(comment.content)}
+            </CommentOnReport>
+          </div>
+        ))}
       </ContentBox>
       {report.additionalContext.length > 0 && (
         <ContentBox

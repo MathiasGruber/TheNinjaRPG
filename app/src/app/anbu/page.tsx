@@ -39,7 +39,7 @@ export default function ANBU() {
 
   // Queries
   const { data } = api.anbu.getAll.useQuery(
-    { villageId: userData?.villageId as string },
+    { villageId: userData?.villageId ?? "" },
     { enabled: !!userData?.villageId },
   );
   const allSquads = data?.map((squad) => ({

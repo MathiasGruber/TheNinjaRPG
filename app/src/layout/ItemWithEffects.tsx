@@ -445,7 +445,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             // Get schema for parsing effect
             const schema = getTagSchema(effect.type);
             // Delete description, so that we get the default one
-            if ("description" in effect) delete effect["description"];
+            if ("description" in effect) delete effect.description;
             const result = schema.safeParse(effect);
             const parsedEffect = result.success ? result.data : undefined;
 

@@ -46,9 +46,9 @@ interface MassEditContentProps {
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
   // For quests
-  const [questType, setQuestType] = useState(QuestTypes[0] as QuestType);
+  const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
   // For AI, item, jutsus
-  const [tagType, setTagType] = useState(effectFilters[0] as EffectType);
+  const [tagType, setTagType] = useState<EffectType>(effectFilters[0]!);
   const [stat, setStat] = useState<StatGenType | undefined>(undefined);
 
   // Data queries

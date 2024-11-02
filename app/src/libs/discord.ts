@@ -12,7 +12,7 @@ export const callDiscordContent = async (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      avatar_url: image_url && image_url.includes("https") ? image_url : "",
+      avatar_url: image_url?.includes("https") ? image_url : "",
       content: `**${username} updated ${updated_name}**\n* ${diff.join("\n* ")}`,
     }),
   });
@@ -29,7 +29,7 @@ export const callDiscordNews = async (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      avatar_url: image_url && image_url.includes("https") ? image_url : "",
+      avatar_url: image_url?.includes("https") ? image_url : "",
       content: nhm.translate(`**${title}**\n* ${content} @everyone`),
     }),
   });
@@ -48,7 +48,7 @@ export const callDiscordTicket = async (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      avatar_url: image_url && image_url.includes("https") ? image_url : "",
+      avatar_url: image_url?.includes("https") ? image_url : "",
       content: content,
       username: user.username,
       thread_name,

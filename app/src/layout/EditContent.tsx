@@ -367,14 +367,14 @@ export const EditContent = <
                       onClick={() => {
                         let prompt = "";
                         // Generate based on name, title and description
-                        if (currentValues?.["name"]) {
-                          prompt += `${currentValues?.["name"]} `;
+                        if (currentValues?.name) {
+                          prompt += `${currentValues?.name} `;
                         }
-                        if (currentValues?.["username"]) {
-                          prompt += `${currentValues?.["username"]} `;
+                        if (currentValues?.username) {
+                          prompt += `${currentValues?.username} `;
                         }
-                        if (currentValues?.["title"]) {
-                          prompt += `${currentValues?.["title"]} `;
+                        if (currentValues?.title) {
+                          prompt += `${currentValues?.title} `;
                         }
                         if (prompt && !load) {
                           // Different qualifiers for different content types
@@ -538,7 +538,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).map((key) => {
           if (!["type", "calculation", "direction"].includes(key) && key in curTag) {
-            // @ts-ignore
+            // @ts-expect-error - we know this is a key of the object
             shownTag[key] = curTag[key];
           }
         });

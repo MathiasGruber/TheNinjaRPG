@@ -204,7 +204,7 @@ export const itemRouter = createTRPCRouter({
       const totalQuantity = userItems.reduce((acc, i) => acc + i.quantity, 0);
       if (info && userItems.length > 0) {
         let currentCount = 0;
-        for (let i = 0; i < userItems.length; i++) {
+        for (const i of userItems.keys()) {
           const id = userItems?.[i]?.id;
           const newQuantity = Math.min(info.stackSize, totalQuantity - currentCount);
           if (id) {

@@ -4,8 +4,7 @@ import { getUnique } from "@/utils/grouping";
 import Loader from "@/layout/Loader";
 import GraphUsersGeneric from "@/layout/GraphUsersGeneric";
 
-interface GraphBlackmarketLedgerProps {}
-const GraphBlackmarketLedger: React.FC<GraphBlackmarketLedgerProps> = () => {
+const GraphBlackmarketLedger: React.FC = () => {
   // Queries
   const { data, isPending } = api.blackmarket.getGraph.useQuery(undefined, {
     staleTime: Infinity,

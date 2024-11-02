@@ -434,7 +434,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
     >
       <div className="grid grid-cols-4 text-center font-bold">
         {UserStatNames.map((stat, i) => {
-          const part = stat.match(/[a-z]+/g)?.[0] as string;
+          const part = stat.match(/[a-z]+/g)?.[0] ?? "";
           const label = part.charAt(0).toUpperCase() + part.slice(1);
           const cap =
             stat.includes("Offence") || stat.includes("Defence")
@@ -513,6 +513,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                   </PopoverTrigger>
                   <PopoverContent>
                     <p className="font-bold text-lg">Verify Humanity</p>
+                    {/* eslint-disable-next-line */}
                     <img
                       alt="captcha"
                       className="mb-2"

@@ -84,15 +84,15 @@ export function scaleUserStats(user: UserData) {
   const poolMod = user.poolsMultiplier ?? 1;
   const statMod = user.statsMultiplier ?? 1;
   // Pools
-  user["curHealth"] = calcHP(user.level) * poolMod;
-  user["maxHealth"] = calcHP(user.level) * poolMod;
-  user["curStamina"] = calcSP(user.level) * poolMod;
-  user["maxStamina"] = calcSP(user.level) * poolMod;
-  user["curChakra"] = calcCP(user.level) * poolMod;
-  user["maxChakra"] = calcCP(user.level) * poolMod;
+  user.curHealth = calcHP(user.level) * poolMod;
+  user.maxHealth = calcHP(user.level) * poolMod;
+  user.curStamina = calcSP(user.level) * poolMod;
+  user.maxStamina = calcSP(user.level) * poolMod;
+  user.curChakra = calcCP(user.level) * poolMod;
+  user.maxChakra = calcCP(user.level) * poolMod;
   // Stats
   const exp = calcLevelRequirements(user.level) - 500;
-  user["experience"] = exp;
+  user.experience = exp;
   const sum = [
     user.ninjutsuOffence ?? 0,
     user.ninjutsuDefence ?? 0,
@@ -110,41 +110,41 @@ export function scaleUserStats(user: UserData) {
   const calcStat = (stat: keyof StatDistribution) => {
     return 10 + Math.floor(((user[stat] ?? 0) / sum) * exp * 100) / 100;
   };
-  user["ninjutsuOffence"] = calcStat("ninjutsuOffence") * statMod;
-  user["ninjutsuDefence"] = calcStat("ninjutsuDefence") * statMod;
-  user["genjutsuOffence"] = calcStat("genjutsuOffence") * statMod;
-  user["genjutsuDefence"] = calcStat("genjutsuDefence") * statMod;
-  user["taijutsuOffence"] = calcStat("taijutsuOffence") * statMod;
-  user["taijutsuDefence"] = calcStat("taijutsuDefence") * statMod;
-  user["bukijutsuOffence"] = calcStat("bukijutsuOffence") * statMod;
-  user["bukijutsuDefence"] = calcStat("bukijutsuDefence") * statMod;
-  user["strength"] = calcStat("strength") * statMod;
-  user["intelligence"] = calcStat("intelligence") * statMod;
-  user["willpower"] = calcStat("willpower") * statMod;
-  user["speed"] = calcStat("speed") * statMod;
+  user.ninjutsuOffence = calcStat("ninjutsuOffence") * statMod;
+  user.ninjutsuDefence = calcStat("ninjutsuDefence") * statMod;
+  user.genjutsuOffence = calcStat("genjutsuOffence") * statMod;
+  user.genjutsuDefence = calcStat("genjutsuDefence") * statMod;
+  user.taijutsuOffence = calcStat("taijutsuOffence") * statMod;
+  user.taijutsuDefence = calcStat("taijutsuDefence") * statMod;
+  user.bukijutsuOffence = calcStat("bukijutsuOffence") * statMod;
+  user.bukijutsuDefence = calcStat("bukijutsuDefence") * statMod;
+  user.strength = calcStat("strength") * statMod;
+  user.intelligence = calcStat("intelligence") * statMod;
+  user.willpower = calcStat("willpower") * statMod;
+  user.speed = calcStat("speed") * statMod;
 }
 
 /** Assign stats of user, meant for the training dummy */
 export function manuallyAssignUserStats(user: UserData, stats: StatSchemaType) {
   // Stats
-  user["ninjutsuOffence"] = stats.ninjutsuOffence;
-  user["ninjutsuDefence"] = stats.ninjutsuDefence;
-  user["genjutsuOffence"] = stats.genjutsuOffence;
-  user["genjutsuDefence"] = stats.genjutsuDefence;
-  user["taijutsuOffence"] = stats.taijutsuOffence;
-  user["taijutsuDefence"] = stats.taijutsuDefence;
-  user["bukijutsuOffence"] = stats.bukijutsuOffence;
-  user["bukijutsuDefence"] = stats.bukijutsuDefence;
-  user["strength"] = stats.strength;
-  user["intelligence"] = stats.intelligence;
-  user["willpower"] = stats.willpower;
-  user["speed"] = stats.speed;
+  user.ninjutsuOffence = stats.ninjutsuOffence;
+  user.ninjutsuDefence = stats.ninjutsuDefence;
+  user.genjutsuOffence = stats.genjutsuOffence;
+  user.genjutsuDefence = stats.genjutsuDefence;
+  user.taijutsuOffence = stats.taijutsuOffence;
+  user.taijutsuDefence = stats.taijutsuDefence;
+  user.bukijutsuOffence = stats.bukijutsuOffence;
+  user.bukijutsuDefence = stats.bukijutsuDefence;
+  user.strength = stats.strength;
+  user.intelligence = stats.intelligence;
+  user.willpower = stats.willpower;
+  user.speed = stats.speed;
 }
 
 export const activityStreakRewards = (streak: number) => {
   const rewards = { money: streak * 100, reputationPoints: 0 };
   if (streak % 10 === 0) {
-    rewards["reputationPoints"] = Math.floor(streak / 10);
+    rewards.reputationPoints = Math.floor(streak / 10);
   }
   return rewards;
 };

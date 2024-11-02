@@ -80,7 +80,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           }
           const isGreyed =
             (props.selectedId !== undefined && props.selectedId !== item.id) ||
-            (props.greyedIds !== undefined && props.greyedIds.includes(item.id));
+            (props.greyedIds?.includes(item.id) ?? false);
           const isHighlight = item.highlight ?? false;
           const elements = item.effects
             ? item.effects.flatMap((e) =>

@@ -431,7 +431,7 @@ export const insertAction = (info: {
               }
             }
             // Extra: If no target, check if there is a barrier & apply damage only
-            if (['damage', 'pierce'].includes(tag.type)) {
+            if (["damage", "pierce"].includes(tag.type)) {
               barriers.forEach((barrier) => {
                 const idx = `${barrier.id}-${effect.id}`;
                 if (!barrierAttacks.includes(idx)) {
@@ -656,7 +656,7 @@ export const stillInBattle = (user: ReturnedUserState) => {
 export const calcActiveUser = (
   battle: ReturnedBattle,
   userId?: string | null,
-  timeDiff: number = 0,
+  timeDiff = 0,
 ) => {
   const syncedTime = Date.now() - timeDiff;
   const mseconds = syncedTime - new Date(battle.roundStartAt).getTime();

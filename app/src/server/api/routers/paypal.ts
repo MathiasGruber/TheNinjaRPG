@@ -456,7 +456,7 @@ export const updateSubscription = async (input: {
         .set({
           status: input.status,
           federalStatus: input.federalStatus,
-          updatedAt: input.lastPayment || new Date(),
+          updatedAt: input.lastPayment ?? new Date(),
         })
         .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
     } else {
@@ -468,7 +468,7 @@ export const updateSubscription = async (input: {
         orderId: input.orderId,
         status: input.status,
         federalStatus: input.federalStatus,
-        updatedAt: input.lastPayment || new Date(),
+        updatedAt: input.lastPayment ?? new Date(),
       });
     }
   });
@@ -699,7 +699,7 @@ export const getPaypalAccessToken = async () => {
   })
     .then((response) => response.json())
     .then((data: { access_token: string }) => {
-      return data["access_token"];
+      return data.access_token;
     });
 };
 

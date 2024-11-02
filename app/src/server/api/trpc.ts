@@ -46,10 +46,10 @@ export const createAppTRPCContext = async (opts: {
   const sesh = await auth();
   const userId = sesh.userId;
   // Get IP
-  const ip = readHeaders.get("x-forwarded-for") || undefined;
+  const ip = readHeaders.get("x-forwarded-for") ?? undefined;
   const userIp = typeof ip === "string" ? ip.split(/, /)[0] : "unknown";
   // Get agent
-  const userAgent = readHeaders.get("user-agent") || undefined;
+  const userAgent = readHeaders.get("user-agent") ?? undefined;
   return {
     drizzle: drizzleDB,
     userIp,
@@ -103,7 +103,7 @@ export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
       code: "UNAUTHORIZED",
     });
   }
-  const identifier = `${path}-${ctx.userId || ctx.userIp}`;
+  const identifier = `${path}-${ctx.userId ?? ctx.userIp}`;
   const { success } = await ratelimit.limit(identifier);
   if (!success) {
     if (ctx.userId) {

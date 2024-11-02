@@ -12,9 +12,9 @@ declare global {
 }
 
 export const drizzleDB =
-  global.drizzle ||
+  global.drizzle ??
   drizzle(
-    new Client({ url: process.env["DATABASE_URL"] }),
+    new Client({ url: process.env.DATABASE_URL }),
     { schema }, // ,  logger: true
   );
 

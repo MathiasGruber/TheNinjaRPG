@@ -153,124 +153,121 @@ export default function Board({ params }: { params: { boardid: string } }) {
       }
     >
       {allThreads?.length === 0 && <div>No threads found</div>}
-      {allThreads &&
-        allThreads.map((thread, i) => {
-          // Icons, which have to be clickable for moderators+, but just shown otherwise
-          const MyBookmark = (
-            <Bookmark
-              className={`mr-2 h-6 w-6 ${
-                thread.isPinned
-                  ? "text-orange-500"
-                  : canEdit
-                    ? "hover:text-orange-500"
-                    : ""
-              }`}
-            />
-          );
-          const MyLockIcon = thread.isLocked ? (
-            <Lock className="h-6 w-6 text-orange-500" />
-          ) : (
-            <Unlock className={`h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`} />
-          );
-          const MyDeleteIcon = (
-            <Trash2
-              className={`ml-2 h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`}
-            />
-          );
-          // Dynamic Names
-          const pinAction = thread.isPinned ? "unpin" : "pin";
-          const lockAction = thread.isLocked ? "unlock" : "lock";
-          let title = thread.title;
-          title = thread.isLocked ? "[Locked] " + title : title;
-          title = thread.isPinned ? "[Pinned] " + title : title;
+      {allThreads?.map((thread, i) => {
+        // Icons, which have to be clickable for moderators+, but just shown otherwise
+        const MyBookmark = (
+          <Bookmark
+            className={`mr-2 h-6 w-6 ${
+              thread.isPinned
+                ? "text-orange-500"
+                : canEdit
+                  ? "hover:text-orange-500"
+                  : ""
+            }`}
+          />
+        );
+        const MyLockIcon = thread.isLocked ? (
+          <Lock className="h-6 w-6 text-orange-500" />
+        ) : (
+          <Unlock className={`h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`} />
+        );
+        const MyDeleteIcon = (
+          <Trash2
+            className={`ml-2 h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`}
+          />
+        );
+        // Dynamic Names
+        const pinAction = thread.isPinned ? "unpin" : "pin";
+        const lockAction = thread.isLocked ? "unlock" : "lock";
+        let title = thread.title;
+        title = thread.isLocked ? "[Locked] " + title : title;
+        title = thread.isPinned ? "[Pinned] " + title : title;
 
-          return (
-            <div
-              key={thread.id}
-              ref={i === allThreads.length - 1 ? setLastElement : null}
-            >
-              <Link href={"/forum/" + board.id + "/" + thread.id}>
-                <Post
-                  title={title}
-                  hover_effect={true}
-                  align_middle={true}
-                  image={
-                    <div className="mr-3 basis-1/12">
-                      <Image
-                        src={IMG_ICON_FORUM}
-                        width={100}
-                        height={100}
-                        alt="Forum Icon"
-                        className={
-                          secondsPassed(thread.updatedAt) > 3600 * 24
-                            ? "opacity-50"
-                            : ""
-                        }
-                      ></Image>
+        return (
+          <div
+            key={thread.id}
+            ref={i === allThreads.length - 1 ? setLastElement : null}
+          >
+            <Link href={"/forum/" + board.id + "/" + thread.id}>
+              <Post
+                title={title}
+                hover_effect={true}
+                align_middle={true}
+                image={
+                  <div className="mr-3 basis-1/12">
+                    <Image
+                      src={IMG_ICON_FORUM}
+                      width={100}
+                      height={100}
+                      alt="Forum Icon"
+                      className={
+                        secondsPassed(thread.updatedAt) > 3600 * 24 ? "opacity-50" : ""
+                      }
+                    ></Image>
+                  </div>
+                }
+                options={
+                  <div className="ml-3">
+                    <div className="mt-2 flex flex-row items-center ">
+                      {userData && canModerate(userData.role) ? (
+                        <>
+                          <Confirm
+                            title={`Confirm ${pinAction}ning thread`}
+                            button={MyBookmark}
+                            onAccept={(e) => {
+                              e.preventDefault();
+                              pinThread({
+                                thread_id: thread.id,
+                                status: !thread.isPinned,
+                              });
+                            }}
+                          >
+                            You are about to {pinAction} a thread. Are you sure?
+                          </Confirm>
+                          <Confirm
+                            title={`Confirm ${lockAction}ing thread`}
+                            button={MyLockIcon}
+                            onAccept={(e) => {
+                              e.preventDefault();
+                              lockThread({
+                                thread_id: thread.id,
+                                status: !thread.isLocked,
+                              });
+                            }}
+                          >
+                            You are about to {lockAction} a thread. Are you sure?
+                          </Confirm>
+                          <Confirm
+                            title={`Confirm deleting thread`}
+                            button={MyDeleteIcon}
+                            onAccept={(e) => {
+                              e.preventDefault();
+                              deleteThread({ thread_id: thread.id });
+                            }}
+                          >
+                            You are about to delete a thread. Are you sure?
+                          </Confirm>
+                        </>
+                      ) : (
+                        <>
+                          {MyBookmark}
+                          {MyLockIcon}
+                        </>
+                      )}
                     </div>
-                  }
-                  options={
-                    <div className="ml-3">
-                      <div className="mt-2 flex flex-row items-center ">
-                        {userData && canModerate(userData.role) ? (
-                          <>
-                            <Confirm
-                              title={`Confirm ${pinAction}ning thread`}
-                              button={MyBookmark}
-                              onAccept={(e) => {
-                                e.preventDefault();
-                                pinThread({
-                                  thread_id: thread.id,
-                                  status: !thread.isPinned,
-                                });
-                              }}
-                            >
-                              You are about to {pinAction} a thread. Are you sure?
-                            </Confirm>
-                            <Confirm
-                              title={`Confirm ${lockAction}ing thread`}
-                              button={MyLockIcon}
-                              onAccept={(e) => {
-                                e.preventDefault();
-                                lockThread({
-                                  thread_id: thread.id,
-                                  status: !thread.isLocked,
-                                });
-                              }}
-                            >
-                              You are about to {lockAction} a thread. Are you sure?
-                            </Confirm>
-                            <Confirm
-                              title={`Confirm deleting thread`}
-                              button={MyDeleteIcon}
-                              onAccept={(e) => {
-                                e.preventDefault();
-                                deleteThread({ thread_id: thread.id });
-                              }}
-                            >
-                              You are about to delete a thread. Are you sure?
-                            </Confirm>
-                          </>
-                        ) : (
-                          <>
-                            {MyBookmark}
-                            {MyLockIcon}
-                          </>
-                        )}
-                      </div>
-                      <div className="mt-2">
-                        <span className="font-bold">{board.nPosts} </span> replies
-                      </div>
+                    <div className="mt-2">
+                      <span className="font-bold">{board.nPosts} </span> replies
                     </div>
-                  }
-                >
-                  Started by {thread.user.username},{" "}
-                  {thread.createdAt.toLocaleDateString()}
-                </Post>
-              </Link>
-            </div>
-          );
-        })}
+                  </div>
+                }
+              >
+                Started by {thread.user.username},{" "}
+                {thread.createdAt.toLocaleDateString()}
+              </Post>
+            </Link>
+          </div>
+        );
+      })}
     </ContentBox>
   );
 }

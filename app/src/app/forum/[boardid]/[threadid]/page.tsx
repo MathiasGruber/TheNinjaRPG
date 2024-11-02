@@ -77,21 +77,20 @@ export default function Thread({ params }: { params: { threadid: string } }) {
         back_href={"/forum/" + thread.boardId}
         subtitle={thread.title}
       >
-        {allComments &&
-          allComments.map((comment, i) => {
-            return (
-              <div key={comment.id}>
-                <CommentOnForum
-                  title={i === 0 && page === 0 ? thread.title : undefined}
-                  user={comment.user}
-                  hover_effect={false}
-                  comment={comment}
-                >
-                  {parseHtml(comment.content)}
-                </CommentOnForum>
-              </div>
-            );
-          })}
+        {allComments?.map((comment, i) => {
+          return (
+            <div key={comment.id}>
+              <CommentOnForum
+                title={i === 0 && page === 0 ? thread.title : undefined}
+                user={comment.user}
+                hover_effect={false}
+                comment={comment}
+              >
+                {parseHtml(comment.content)}
+              </CommentOnForum>
+            </div>
+          );
+        })}
         {thread &&
           userData &&
           !thread.isLocked &&

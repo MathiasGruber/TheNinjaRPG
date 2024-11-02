@@ -40,7 +40,7 @@ export default function VillageOverview() {
 
   // Queries
   const { data, isFetching: isFetchingVillage } = api.village.get.useQuery(
-    { id: sectorVillage?.id as string },
+    { id: sectorVillage?.id ?? "" },
     { enabled: !!sectorVillage, staleTime: Infinity },
   );
 

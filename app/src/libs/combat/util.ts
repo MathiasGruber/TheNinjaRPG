@@ -603,7 +603,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Things to reward for non-spars
       if (battleType !== "SPARRING" && battleType !== "TRAINING") {
         // Money stolen/given
-        result["money"] = moneyDelta * battle.rewardScaling + user.moneyStolen;
+        result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
         let total = user.usedStats.length + user.usedGenerals.length;
@@ -637,7 +637,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           assignedExp += value;
         });
         // Experience
-        result["experience"] = assignedExp;
+        result.experience = assignedExp;
       }
 
       // Return results
@@ -665,7 +665,7 @@ export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) =
     const done = actor.curHealth <= 0 || actor.fledBattle || actor.leftBattle;
     if (!done) {
       const actions = availableUserActions(battle, actorId, !actor.isAi);
-      for (let j = 0; j < actions.length; j++) {
+      for (const j of actions.keys()) {
         const action = actions[j];
         if (action) {
           const notWait = action.id !== "wait";
@@ -924,12 +924,12 @@ export const processUsersForBattle = (info: {
     } else {
       if (leftSideUserIds?.includes(user.userId)) {
         const { x, y } = assignLocation(1, 5);
-        user["longitude"] = x;
-        user["latitude"] = y;
+        user.longitude = x;
+        user.latitude = y;
       } else {
         const { x, y } = assignLocation(7, 11);
-        user["longitude"] = x;
-        user["latitude"] = y;
+        user.longitude = x;
+        user.latitude = y;
       }
     }
 

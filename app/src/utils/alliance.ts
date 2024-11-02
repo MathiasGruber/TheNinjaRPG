@@ -38,8 +38,8 @@ export const findVillageUserRelationship = (
   userVillageId?: string | null,
 ) => {
   const relationships = [
-    ...(villageData.relationshipA || []),
-    ...(villageData.relationshipB || []),
+    ...(villageData.relationshipA ?? []),
+    ...(villageData.relationshipB ?? []),
   ];
   const relationship = findRelationship(
     relationships,
@@ -81,7 +81,7 @@ export const getAllyStatus = (
     },
     userVillageId,
   );
-  return relationship?.status || "NEUTRAL";
+  return relationship?.status ?? "NEUTRAL";
 };
 
 /**

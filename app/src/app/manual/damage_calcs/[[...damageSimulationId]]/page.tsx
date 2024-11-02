@@ -179,7 +179,7 @@ export default function Simulator({
     } as UserEffect;
     const consequences = new Map<string, Consequence>();
     damageUser(effect, attacker, defender, consequences, 1, configValues);
-    const result = consequences.get(effect.id)?.damage as number;
+    const result = consequences.get(effect.id)?.damage ?? 0;
     return parseFloat(result.toFixed(2));
   };
 

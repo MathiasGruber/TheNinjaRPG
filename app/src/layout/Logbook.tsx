@@ -21,12 +21,10 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 
-interface LogbookProps {}
-
 const tabs = ["Active", "History", "Battles"] as const;
 type tabType = (typeof tabs)[number];
 
-const Logbook: React.FC<LogbookProps> = () => {
+const Logbook: React.FC = () => {
   // State
   const [tab, setTab] = useState<tabType | null>(null);
 

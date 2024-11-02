@@ -92,7 +92,7 @@ export const questsRouter = createTRPCRouter({
       const [result, user] = await Promise.all([
         fetchQuest(ctx.drizzle, input.id),
         ctx.drizzle.query.userData.findFirst({
-          where: eq(userData.userId, ctx.userId || ""),
+          where: eq(userData.userId, ctx.userId ?? ""),
         }),
       ]);
       if (!result) {
@@ -540,7 +540,7 @@ export const questsRouter = createTRPCRouter({
               o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
           )
           .map((o) => CollectItem.parse(o))
-          .map((o) => o.collect_item_id as string) || [];
+          .map((o) => o.collect_item_id!) ?? [];
 
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
@@ -631,7 +631,7 @@ export const questsRouter = createTRPCRouter({
             const random = Math.random();
             if (random * 100 < objective.attackers_chance) {
               const idx = Math.floor(Math.random() * objective.attackers.length);
-              const randomOpponent = objective.attackers[idx] as string;
+              const randomOpponent = objective.attackers[idx]!;
               opponent = {
                 type: "combat",
                 id: randomOpponent,
@@ -742,7 +742,7 @@ export const updateRewards = async (
 
   // Update userdata
   const getNewRank = rewards.reward_rank !== "NONE";
-  const updatedUserData: { [key: string]: any } = {
+  const updatedUserData: Record<string, unknown> = {
     questData: user.questData,
     money: user.money + rewards.reward_money,
     earnedExperience: user.earnedExperience + rewards.reward_exp,
@@ -750,7 +750,7 @@ export const updateRewards = async (
     rank: getNewRank ? rewards.reward_rank : user.rank,
   };
   if (questCounterField) {
-    updatedUserData["questFinishAt"] = new Date();
+    updatedUserData.questFinishAt = new Date();
     updatedUserData[questCounterField] = sql`${userData[questCounterField]} + 1`;
   }
 

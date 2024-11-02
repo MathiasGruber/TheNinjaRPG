@@ -1,3 +1,4 @@
+import { MultisessionAppSupport } from "@clerk/nextjs/internal";
 import { ClerkProvider } from "@clerk/nextjs";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { UserContextProvider } from "@/utils/UserContext";
@@ -30,15 +31,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         >
-          <TrpcClientProvider>
-            <UserContextProvider>
-              {env.NEXT_PUBLIC_MEASUREMENT_ID && (
-                <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
-              )}
-              <Toaster />
-              <LayoutCore4>{children}</LayoutCore4>
-            </UserContextProvider>
-          </TrpcClientProvider>
+          <MultisessionAppSupport>
+            <TrpcClientProvider>
+              <UserContextProvider>
+                {env.NEXT_PUBLIC_MEASUREMENT_ID && (
+                  <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
+                )}
+                <Toaster />
+                <LayoutCore4>{children}</LayoutCore4>
+              </UserContextProvider>
+            </TrpcClientProvider>
+          </MultisessionAppSupport>
         </ClerkProvider>
       </body>
     </html>

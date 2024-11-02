@@ -103,7 +103,7 @@ export default function Travel() {
   useEffect(() => {
     if (userData && globe) {
       setCurrentPosition({ x: userData.longitude, y: userData.latitude });
-      setCurrentTile(globe.tiles[userData.sector] as GlobalTile);
+      setCurrentTile(globe.tiles[userData.sector]!);
     }
   }, [userData, currentSector, globe]);
 
@@ -127,7 +127,7 @@ export default function Travel() {
           setShowModal(false);
           setActiveTab(globalLink);
           if (globe) {
-            setCurrentTile(globe.tiles[data.sector] as GlobalTile);
+            setCurrentTile(globe.tiles[data.sector]!);
           }
         }
       },

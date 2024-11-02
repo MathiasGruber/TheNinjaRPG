@@ -236,30 +236,29 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               />
             </div>
           )}
-          {allComments &&
-            allComments
-              .filter((c) => c.conversationId === conversation?.id)
-              .filter((c) => {
-                const duplicate = unique.has(c.id);
-                unique.add(c.id);
-                return !duplicate;
-              })
-              .map((comment, i) => {
-                return (
-                  <div
-                    key={comment.id}
-                    ref={i === allComments.length - 1 ? setLastElement : null}
+          {allComments
+            ?.filter((c) => c.conversationId === conversation?.id)
+            .filter((c) => {
+              const duplicate = unique.has(c.id);
+              unique.add(c.id);
+              return !duplicate;
+            })
+            .map((comment, i) => {
+              return (
+                <div
+                  key={comment.id}
+                  ref={i === allComments.length - 1 ? setLastElement : null}
+                >
+                  <CommentOnConversation
+                    user={comment}
+                    hover_effect={false}
+                    comment={comment}
                   >
-                    <CommentOnConversation
-                      user={comment}
-                      hover_effect={false}
-                      comment={comment}
-                    >
-                      {parseHtml(comment.content)}
-                    </CommentOnConversation>
-                  </div>
-                );
-              })}
+                    {parseHtml(comment.content)}
+                  </CommentOnConversation>
+                </div>
+              );
+            })}
           {silence && (
             <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-start bg-black bg-opacity-80">
               <div className="text-center text-white pt-10">

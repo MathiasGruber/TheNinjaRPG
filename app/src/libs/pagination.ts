@@ -23,7 +23,7 @@ export const useInfinitePagination = ({
   useEffect(() => {
     observer.current = new IntersectionObserver((entries) => {
       const first = entries[0];
-      if (first && first.isIntersecting) {
+      if (first?.isIntersecting) {
         setPage((prev: number) => prev + 1);
       }
     });

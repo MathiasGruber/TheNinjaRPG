@@ -86,7 +86,7 @@ export const miscRouter = createTRPCRouter({
       const setting = await ctx.drizzle.query.gameSetting.findFirst({
         where: eq(gameSetting.name, input.name),
       });
-      return setting || null;
+      return setting ?? null;
     }),
   setEventGameSetting: protectedProcedure
     .input(changeSettingSchema)
@@ -131,7 +131,7 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
     where: and(eq(captcha.userId, userId), eq(captcha.used, false)),
   });
   // Value to guess
-  const value = current?.value || randomString(6);
+  const value = current?.value ?? randomString(6);
   // Create the SVG
   const fontPath = path.resolve("./fonts/OpenSans.ttf");
   const textToSVG = TextToSVG.loadSync(fontPath);

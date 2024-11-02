@@ -406,7 +406,8 @@ export const villageRouter = createTRPCRouter({
       // Derived
       const alliance = relationships.find((r) => r.id === input.allianceId);
       // Guards
-      if (!user || !user.villageId) return errorResponse("Not in this village");
+      if (!user) return errorResponse("Could not find user");
+      if (!user.villageId) return errorResponse("Not in this village");
       if (!alliance) return errorResponse("Alliance not found");
       if (!isKage(user)) return errorResponse("You are not kage");
       const aId = alliance.villageIdA;

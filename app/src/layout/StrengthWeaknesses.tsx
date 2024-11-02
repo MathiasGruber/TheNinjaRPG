@@ -11,9 +11,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { Chart as ChartJS } from "chart.js/auto";
 import { getUserElements } from "@/validators/user";
 
-interface StrengthWeaknessesProps {}
-
-const StrengthWeaknesses: React.FC<StrengthWeaknessesProps> = () => {
+const StrengthWeaknesses: React.FC = () => {
   // State
   const { data: userData } = useRequiredUserData();
   const [showGraphs, setShowGraphs] = useState<boolean | undefined>(undefined);
