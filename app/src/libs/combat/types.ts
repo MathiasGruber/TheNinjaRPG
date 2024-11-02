@@ -738,8 +738,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
     [
       "absorb",
       "buffprevent",
-      "cleanseprevent",
-      "clearprevent",
+      // "clearprevent",
       "stealth",
       "debuffprevent",
       "decreasedamagetaken",
@@ -774,6 +773,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
+      // "cleanseprevent",
       "decreasedamagegiven",
       "increasedamagetaken",
       "decreasehealgiven",
