@@ -644,16 +644,21 @@ const getImageSet = () => {
   switch (getCurrentSeason()) {
     case "winter":
       base.wallpaper = IMG_WALLPAPER_WINTER;
+      break;
     case "spring":
       base.wallpaper = IMG_WALLPAPER_SPRING;
+      break;
     case "summer":
       base.wallpaper = IMG_WALLPAPER_SUMMER;
+      break;
     case "fall":
       base.wallpaper = IMG_WALLPAPER_FALL;
+      break;
     case "halloween":
       base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
       base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
       base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
+      break;
   }
   return base;
 };
