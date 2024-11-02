@@ -740,6 +740,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "buffprevent",
       "cleanseprevent",
       "clearprevent",
+      "stealth",
       "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
