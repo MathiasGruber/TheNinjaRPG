@@ -3,7 +3,7 @@ import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/api/trpc";
 import { baseServerResponse, errorResponse } from "@/api/trpc";
 import { requestAvatarForUser, checkAvatar } from "@/libs/replicate";
-import { createThumnail } from "@/libs/replicate";
+import { createThumbnail } from "@/libs/replicate";
 import { fetchUser } from "@/routers/profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -88,7 +88,7 @@ export const avatarRouter = createTRPCRouter({
       // If no thumbnail, we need to generate one and save it for future usage
       let thumbnailUrl = avatar.avatarLight;
       if (!thumbnailUrl && avatar.avatar) {
-        thumbnailUrl = await createThumnail(avatar.avatar);
+        thumbnailUrl = await createThumbnail(avatar.avatar);
         await ctx.drizzle
           .update(historicalAvatar)
           .set({ avatarLight: thumbnailUrl })

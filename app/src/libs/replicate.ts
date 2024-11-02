@@ -248,7 +248,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
       } else if (prediction.status == "succeeded" && replicateUrl) {
         url = await uploadToUT(replicateUrl);
         if (url) {
-          thumbnail = await createThumnail(url);
+          thumbnail = await createThumbnail(url);
           await client
             .update(userData)
             .set({ avatar: url, avatarLight: thumbnail })
@@ -258,7 +258,7 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
         isDone = false;
       }
       if (isDone) {
-        const thumbnail = url ? await createThumnail(url) : null;
+        const thumbnail = url ? await createThumbnail(url) : null;
         await client
           .update(historicalAvatar)
           .set({
@@ -281,7 +281,7 @@ interface FileEsque extends Blob {
 /**
  * Create a thumbnail for the image
  */
-export const createThumnail = async (url: string) => {
+export const createThumbnail = async (url: string) => {
   const res = await fetch(url);
   const blob = await res.arrayBuffer();
   const resultBuffer = await sharp(blob).resize(64, 64).toBuffer();

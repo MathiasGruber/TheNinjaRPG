@@ -5,7 +5,7 @@ import { eq, sql, gt, and, isNotNull } from "drizzle-orm";
 import { historicalAvatar, userData } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
 import { getUserFederalStatus } from "@/utils/paypal";
-import { createThumnail } from "@/libs/replicate";
+import { createThumbnail } from "@/libs/replicate";
 import type { FileRouter } from "uploadthing/next";
 import type { FederalStatuses } from "@/drizzle/constants";
 
@@ -109,7 +109,7 @@ const uploadHistoricalAvatar = async (
   userId: string,
   updateUser?: boolean,
 ) => {
-  const thumbnailUrl = await createThumnail(file.url);
+  const thumbnailUrl = await createThumbnail(file.url);
   const promises = [
     drizzleDB.insert(historicalAvatar).values({
       replicateId: null,
