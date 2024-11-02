@@ -279,8 +279,7 @@ export const sortEffects = (
     "seal",
     "stun",
     "summon",
-    // Post-moodifiers
-    "absorb",
+    // Post-moodifiers before pierce
     "decreasedamagegiven",
     "decreasedamagetaken",
     "decreaseheal",
@@ -288,10 +287,12 @@ export const sortEffects = (
     "increasedamagetaken",
     "increaseheal",
     "lifesteal",
+    // Piercing damage
+    "pierce",
+    // Post-modifiers after pierce
+    "absorb",
     "recoil",
     "reflect",
-    // Piercing damage after post-modifiers
-    "pierce",
     // End-modifiers
     "move",
     "visual",

@@ -431,7 +431,7 @@ export const insertAction = (info: {
               }
             }
             // Extra: If no target, check if there is a barrier & apply damage only
-            if (tag.type === "damage") {
+            if (['damage', 'pierce'].includes(tag.type)) {
               barriers.forEach((barrier) => {
                 const idx = `${barrier.id}-${effect.id}`;
                 if (!barrierAttacks.includes(idx)) {

@@ -773,7 +773,6 @@ export const calcDmgModifier = (
       return check1 || check2 || check3 || check4 || check5;
     })
     .sort((a, v) => v.power - a.power);
-  console.log("Weaknesses", weaknesses);
   const biggestWeakness = weaknesses[0];
   return biggestWeakness?.dmgModifier || 1;
 };
@@ -997,7 +996,7 @@ export const reflect = (
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert =
+          const dmgConvert =
             Math.floor(
               effect.calculation === "percentage"
                 ? consequence.damage * (power / 100)
@@ -1006,7 +1005,7 @@ export const reflect = (
                   : power,
             ) * ratio;
           // consequence.damage -= convert;
-          consequence.reflect = convert;
+          consequence.reflect = dmgConvert;
         }
       }
     });
