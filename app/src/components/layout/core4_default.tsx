@@ -224,6 +224,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         width={1600}
         height={800}
         alt="wallpaper"
+        loading="eager"
         priority
         unoptimized
       />
