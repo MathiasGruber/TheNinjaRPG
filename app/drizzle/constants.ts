@@ -523,15 +523,15 @@ export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 export const IMG_AVATAR_DEFAULT =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
 export const IMG_WALLPAPER_WINTER =
-  "https://utfs.io/f/f2d97eb9-a4e1-4ccc-8256-5a5f6cb7a6a1-o5u8s0.webp";
+  "https://tnrprod.b-cdn.net/layout/wallpaper-winter.webp";
 export const IMG_WALLPAPER_SPRING =
-  "https://utfs.io/f/20131551-db19-44c8-ab76-31e1ed3069c8-mdknco.webp";
+  "https://tnrprod.b-cdn.net/layout/wallpaper-spring.webp";
 export const IMG_WALLPAPER_SUMMER =
-  "https://utfs.io/f/5f637e42-b2e3-4fdd-9b96-578d0f729fb0-mg8i56.webp";
+  "https://tnrprod.b-cdn.net/layout/wallpaper-summer.webp";
 export const IMG_WALLPAPER_FALL =
-  "https://utfs.io/f/e6f437e0-1cfa-4986-b9e5-bb4957ff3813-ul0asa.webp";
+  "https://tnrprod.b-cdn.net/layout/wallpaper-fall.webp";
 export const IMG_WALLPAPER_HALLOWEEN =
-  "https://utfs.io/f/Hzww9EQvYURJ7dGuA2BXKPBOUWGyFuM4DlL1v5HNTZhkte0z";
+  "https://tnrprod.b-cdn.net/layout/wallpaper-halloween.webp";
 export const IMG_LAYOUT_NAVBAR =
   "https://utfs.io/f/Hzww9EQvYURJ1znttRb6bo95WClq4K0wxZUmJcvThgdVenO3";
 export const IMG_LAYOUT_NAVBAR_HALLOWEEN =
