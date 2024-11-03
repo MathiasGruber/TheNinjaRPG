@@ -11,8 +11,7 @@ export default function Reports() {
   const { data: userData } = useRequiredUserData();
 
   const { data, isFetching } = api.reports.getReportStatistics.useQuery(undefined, {
-    staleTime: Infinity,
-    enabled: userData?.role !== "USER",
+    enabled: !!userData && userData.role !== "USER",
   });
 
   if (!userData) return <Loader explanation="Loading userdata" />;

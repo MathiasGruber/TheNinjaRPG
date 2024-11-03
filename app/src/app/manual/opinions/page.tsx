@@ -20,7 +20,7 @@ export default function ManualTravel() {
   // Users Query
   const { data, isPending: isLoadingUsers } = api.profile.getPublicUsers.useQuery(
     { orderBy: "Staff", isAi: false, limit: 50 },
-    { staleTime: Infinity },
+    {},
   );
   const users = data?.data || [];
 

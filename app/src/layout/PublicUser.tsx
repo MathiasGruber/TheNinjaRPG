@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { parseHtml } from "@/utils/parse";
 import Link from "next/link";
 import Image from "next/image";
@@ -94,7 +93,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
 }) => {
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
-  const { isSignedIn } = useAuth();
   const { data: userData } = useUserData();
   const canSeeSecrets = userData && canSeeSecretData(userData.role);
   const enableReports = showReports && canSeeSecrets;
@@ -108,13 +106,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   const { data: profile, isPending: isPendingProfile } =
     api.profile.getPublicUser.useQuery(
       { userId: userId },
-      { enabled: userId !== undefined, staleTime: Infinity },
+      { enabled: userId !== undefined },
     );
 
   const { data: reports, isPending: isPendingReports } =
     api.reports.getUserReports.useQuery(
       { userId: userId },
-      { enabled: !!enableReports, staleTime: Infinity },
+      { enabled: !!enableReports },
     );
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -122,13 +120,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
     { staleTime: 300000 },
   );
 
-  const { data: badges } = api.badge.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: badges } = api.badge.getAllNames.useQuery(undefined);
 
   const { data: todayPveCount } = api.profile.getUserDailyPveBattleCount.useQuery(
     { userId: userId },
-    { staleTime: Infinity },
+    {},
   );
 
   // tRPC utility
@@ -192,7 +188,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
   });
 
   // Derived
-  const canChange = isSignedIn && userData && canChangePublicUser(userData);
+  const canChange = userData && canChangePublicUser(userData);
   const availableRoles = userData && canChangeUserRole(userData.role);
 
   // Loaders
@@ -730,7 +726,7 @@ const UserTrainingLog: React.FC<TrainingStatsComponentProps> = ({ userId }) => {
   // Query
   const { data: logEntries } = api.train.getTrainingLog.useQuery(
     { userId: userId },
-    { staleTime: Infinity },
+    {},
   );
 
   // Create dataset for each training speed

@@ -43,12 +43,8 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
   const { setInArena, setIsEvent, setIsSummon } = props.state;
 
   // Query
-  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
+  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Name search schema
   const form = useForm<GetPublicUsersSchema>({

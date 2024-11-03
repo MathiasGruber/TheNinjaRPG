@@ -50,11 +50,11 @@ export default function MyJutsu() {
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
     getFilter(state),
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
   const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
     undefined,
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
@@ -88,7 +88,7 @@ export default function MyJutsu() {
         const newLoadout = data?.data.equipped
           ? [...currentLoadout, jutsuId]
           : [currentLoadout.filter((id) => id !== jutsuId)];
-        utils.profile.getUser.setData({}, (old) => {
+        utils.profile.getUser.setData(undefined, (old) => {
           return {
             ...old,
             userData: { ...old?.userData, loadout: { jutsuIds: newLoadout } },

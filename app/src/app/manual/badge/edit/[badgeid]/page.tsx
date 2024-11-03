@@ -22,7 +22,7 @@ export default function BadgeEdit({ params }: { params: { badgeid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.badge.get.useQuery(
     { id: badgeId },
-    { staleTime: Infinity, enabled: badgeId !== undefined },
+    { enabled: !!badgeId && !!userData },
   );
 
   // Redirect to profile if not content or admin

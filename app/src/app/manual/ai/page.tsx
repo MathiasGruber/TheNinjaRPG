@@ -38,7 +38,6 @@ export default function ManualAI() {
     { ...getFilter(state), limit: 30, orderBy: "Weakest", isAi: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      staleTime: Infinity,
     },
   );
   const allUsers = users?.pages

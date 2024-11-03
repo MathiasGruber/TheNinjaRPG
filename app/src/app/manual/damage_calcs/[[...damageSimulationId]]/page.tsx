@@ -105,11 +105,10 @@ export default function Simulator({
   // Query for fetching previous entries
   const { data, refetch } = api.simulator.getDamageSimulations.useQuery(undefined, {
     enabled: !!userData,
-    staleTime: Infinity,
   });
   const { data: previous } = api.simulator.getDamageSimulation.useQuery(
     { id: damageSimulationId ? damageSimulationId : "" },
-    { enabled: !!damageSimulationId, staleTime: Infinity },
+    { enabled: !!damageSimulationId },
   );
 
   // Mutation for creating new entry

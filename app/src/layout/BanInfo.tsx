@@ -13,9 +13,7 @@ interface BanInfoProps {
 }
 
 const BanInfo: React.FC<BanInfoProps> = (props) => {
-  const { data: report } = api.reports.getBan.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: report } = api.reports.getBan.useQuery(undefined);
 
   if (!report?.reportedUser) return <Loader explanation="Loading ban info" />;
 

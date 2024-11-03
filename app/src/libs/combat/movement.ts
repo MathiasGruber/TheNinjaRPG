@@ -40,7 +40,7 @@ export const isValidMove = (info: {
       return true;
     }
   } else {
-    if (action.effects.find((e) => ['damage', 'pierce'].includes(e.type))) {
+    if (action.effects.find((e) => ["damage", "pierce"].includes(e.type))) {
       return true;
     }
   }

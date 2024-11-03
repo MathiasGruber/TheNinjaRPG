@@ -372,7 +372,7 @@ const NewAiAvatar: React.FC = () => {
     },
   });
   const userAttributes = api.profile.getUserAttributes.useQuery(undefined, {
-    staleTime: Infinity,
+    enabled: !!userData,
   });
 
   if (createAvatar.isPending) return <Loader explanation="Processing avatar..." />;
@@ -456,7 +456,6 @@ const HistoricalAiAvatar: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
@@ -543,7 +542,6 @@ const SwapVillage: React.FC = () => {
   const { data, isFetching } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
     placeholderData: (previousData) => previousData,
-    staleTime: Infinity,
   });
   const villages = data
     ?.filter((village) => ["VILLAGE", "OUTLAW"].includes(village.type))
@@ -644,7 +642,6 @@ const SwapBloodline: React.FC = () => {
       enabled: !!userData,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
@@ -832,9 +829,7 @@ const AttributeChange: React.FC = () => {
   const [skinColor, setSkinColor] = useState<(typeof skin_colors)[number]>("Light");
 
   // Queries
-  const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined);
   const selectedAttributes = data
     ? data.map((a) => a.attribute as (typeof attributes)[number])
     : [];
@@ -1069,7 +1064,7 @@ const NameChange: React.FC = () => {
   // Queries
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: searchTerm },
-    { staleTime: Infinity },
+    {},
   );
 
   // Mutations

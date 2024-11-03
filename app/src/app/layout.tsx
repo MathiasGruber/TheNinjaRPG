@@ -23,7 +23,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
         <ClerkProvider
-          dynamic
           appearance={{
             variables: {
               colorPrimary: "#ce7e00",

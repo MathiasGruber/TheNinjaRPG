@@ -16,10 +16,7 @@ export default function ManualJutsuBalance() {
   const [filter, setFilter] = useState<(typeof availFilters)[number]>("Incomplete");
 
   // Queries
-  const { data, isPending } = api.jutsu.getAll.useQuery(
-    { limit: 500 },
-    { staleTime: Infinity },
-  );
+  const { data, isPending } = api.jutsu.getAll.useQuery({ limit: 500 }, {});
   const allJutsus = data?.data;
 
   // Table processing

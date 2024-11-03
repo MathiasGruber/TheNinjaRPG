@@ -11,7 +11,6 @@ import { createTRPCNext } from "@trpc/next";
 import { toast } from "@/components/ui/use-toast";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
-
 import { type AppRouter } from "../server/api/root";
 import { QueryClient, QueryCache, MutationCache } from "@tanstack/react-query";
 
@@ -30,6 +29,11 @@ export const api = createTRPCNext<AppRouter>({
 
       // Handle errors by showing a toast
       queryClient: new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: Infinity,
+          },
+        },
         queryCache: new QueryCache({
           onError: onError,
         }),

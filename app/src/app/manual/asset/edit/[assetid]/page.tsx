@@ -20,7 +20,7 @@ export default function AssetEdit({ params }: { params: { assetid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.gameAsset.get.useQuery(
     { id: assetId },
-    { staleTime: Infinity, enabled: assetId !== undefined },
+    { enabled: assetId !== undefined },
   );
 
   // Redirect to profile if not content or admin

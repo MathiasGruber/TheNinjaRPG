@@ -22,7 +22,7 @@ export default function Profile() {
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
-    { staleTime: 300000 },
+    { enabled: !!userData, staleTime: 300000 },
   );
 
   // Derived

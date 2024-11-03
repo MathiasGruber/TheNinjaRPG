@@ -23,8 +23,7 @@ export default function Thread({ params }: { params: { threadid: string } }) {
   const { data: comments, refetch } = api.comments.getForumComments.useQuery(
     { thread_id: thread_id, limit: limit, cursor: page },
     {
-      enabled: thread_id !== undefined,
-      staleTime: Infinity,
+      enabled: !!thread_id,
       placeholderData: (previousData) => previousData,
     },
   );

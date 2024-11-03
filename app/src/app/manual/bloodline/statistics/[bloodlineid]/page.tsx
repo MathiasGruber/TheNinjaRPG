@@ -15,7 +15,7 @@ export default function BloodlineStatistics({
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: bloodlineId, type: "bloodline" },
-    { staleTime: Infinity, enabled: bloodlineId !== undefined },
+    { enabled: !!bloodlineId },
   );
   const bloodline = data?.info;
   const usage = data?.usage;

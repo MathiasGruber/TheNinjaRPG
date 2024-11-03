@@ -46,10 +46,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   const isDefault = aiProfileId === "Default";
 
   // Data
-  const { data: profile } = api.ai.getAiProfile.useQuery(
-    { id: aiProfileId },
-    { staleTime: Infinity },
-  );
+  const { data: profile } = api.ai.getAiProfile.useQuery({ id: aiProfileId }, {});
 
   // Mutations
   const { mutate: toggleAiProfile, isPending: isToggling } =

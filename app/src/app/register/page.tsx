@@ -57,9 +57,7 @@ const Register: React.FC = () => {
   const { data: userData, status: userStatus } = useUserData();
 
   // Available villages
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Create avatar mutation
   const createAvatar = api.avatar.createAvatar.useMutation();
@@ -88,7 +86,7 @@ const Register: React.FC = () => {
   // Checking for unique username
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: watchUsername },
-    { staleTime: Infinity },
+    {},
   );
 
   // If selected username found in database, set error. If not, clear error.

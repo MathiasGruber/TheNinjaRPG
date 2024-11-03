@@ -11,7 +11,7 @@ const GraphCombatLog: React.FC<GraphCombatLogProps> = (props) => {
   // Queries
   const { data, isPending } = api.combat.getGraph.useQuery(
     { userId: props.userId },
-    { staleTime: Infinity },
+    {},
   );
 
   if (!data || isPending) return <Loader explanation="Loading Battle Data" />;

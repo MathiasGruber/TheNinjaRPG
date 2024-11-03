@@ -47,7 +47,7 @@ const RegenGainSystem: React.FC = () => {
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data: setting } = api.misc.getSetting.useQuery(
     { name: "regenGainMultiplier" },
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Mutate
@@ -136,7 +136,7 @@ const TrainingGainSystem: React.FC = () => {
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data: setting } = api.misc.getSetting.useQuery(
     { name: "trainingGainMultiplier" },
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Mutate
@@ -240,7 +240,6 @@ const NotificationSystem: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const notifications = data?.pages.map((page) => page.data).flat();

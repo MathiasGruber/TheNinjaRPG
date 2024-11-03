@@ -102,7 +102,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
   // Get information from the sector the user is currently in. No stale time
   const { data: sector } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
-    { enabled: !!userData, staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Based on user status, update href of systems

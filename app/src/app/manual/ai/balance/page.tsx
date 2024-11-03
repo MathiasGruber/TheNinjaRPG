@@ -17,10 +17,9 @@ export default function ManualAIsBalance() {
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   // // Queries
-  const { data, isPending } = api.data.getAiBalanceStatistics.useQuery(
-    { battleType: filter },
-    { staleTime: Infinity },
-  );
+  const { data, isPending } = api.data.getAiBalanceStatistics.useQuery({
+    battleType: filter,
+  });
 
   useEffect(() => {
     const ctx = chartRef?.current?.getContext("2d");

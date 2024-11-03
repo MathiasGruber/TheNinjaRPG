@@ -35,7 +35,6 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
       placeholderData: (previousData) => previousData,
       refetchOnMount: false,
       refetchOnReconnect: false,
-      staleTime: Infinity,
     },
   );
   const allThreads = threads?.pages.map((page) => page.threads).flat();

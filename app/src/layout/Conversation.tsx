@@ -58,7 +58,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     placeholderData: (previousData) => previousData,
-    staleTime: Infinity,
   });
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;

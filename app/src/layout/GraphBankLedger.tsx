@@ -6,9 +6,7 @@ import GraphUsersGeneric from "@/layout/GraphUsersGeneric";
 
 const GraphBankLedger: React.FC = () => {
   // Queries
-  const { data, isPending } = api.bank.getGraph.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data, isPending } = api.bank.getGraph.useQuery(undefined);
 
   if (!data || isPending) return <Loader explanation="Loading bank ledger graph" />;
 

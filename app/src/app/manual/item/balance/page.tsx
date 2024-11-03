@@ -20,7 +20,7 @@ export default function ManualItemsBalance() {
   // Queries
   const { data, isPending } = api.data.getItemBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity },
+    {},
   );
 
   useEffect(() => {

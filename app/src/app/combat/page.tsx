@@ -26,7 +26,7 @@ export default function CombatPage() {
   const { data: userData } = useRequiredUserData();
   const { data, isLoading } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
-    { enabled: !!userData?.battleId, staleTime: Infinity },
+    { enabled: !!userData?.battleId },
   );
 
   // Derived variables

@@ -11,7 +11,7 @@ export default function ManualAIsStatistcs({ params }: { params: { aiid: string 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: aiId, type: "ai" },
-    { staleTime: Infinity, enabled: aiId !== undefined },
+    { enabled: !!aiId },
   );
   const ai = data?.info;
   const usage = data?.usage;

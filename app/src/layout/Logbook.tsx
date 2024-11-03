@@ -99,10 +99,9 @@ const LogbookActive: React.FC = () => {
  * ```
  */
 const LogbookBattles: React.FC = () => {
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(
-    { secondsBack: 3600 * 3 },
-    { staleTime: Infinity },
-  );
+  const { data: history, isPending } = api.combat.getBattleHistory.useQuery({
+    secondsBack: 3600 * 3,
+  });
   const allHistory = history?.map((e) => ({
     attackerUsername: e.attacker.username,
     attackerUserId: e.attacker.userId,
@@ -160,7 +159,6 @@ const LogbookHistory: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allHistory = history?.pages

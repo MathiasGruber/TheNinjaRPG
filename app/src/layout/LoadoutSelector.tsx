@@ -23,7 +23,6 @@ const LoadoutSelector: React.FC<LoadoutSelectorProps> = (props) => {
   // Get loadouts
   const { data, isFetching } = api.jutsu.getLoadouts.useQuery(undefined, {
     enabled: maxLoadouts > 1,
-    staleTime: Infinity,
   });
 
   // Mutations

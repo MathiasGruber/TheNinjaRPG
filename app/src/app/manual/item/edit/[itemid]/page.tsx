@@ -28,7 +28,7 @@ export default function ItemEdit({ params }: { params: { itemid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.item.get.useQuery(
     { id: itemId },
-    { staleTime: Infinity, enabled: itemId !== undefined },
+    { enabled: !!itemId },
   );
 
   // Convert key null values to empty strings, preparing data for form

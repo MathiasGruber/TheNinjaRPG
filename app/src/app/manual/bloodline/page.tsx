@@ -40,7 +40,6 @@ export default function ManualBloodlines() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();

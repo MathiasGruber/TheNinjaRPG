@@ -39,7 +39,6 @@ export default function ManualJutsus() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const alljutsus = jutsus?.pages.map((page) => page.data).flat();

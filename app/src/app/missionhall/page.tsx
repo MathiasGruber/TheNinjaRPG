@@ -27,7 +27,7 @@ export default function MissionHall() {
 
   const { data: hallData } = api.quests.missionHall.useQuery(
     { villageId: userData?.villageId ?? "", level: userData?.level ?? 0 },
-    { enabled: !!userData, staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   const { mutate: startRandom, isPending } = api.quests.startRandom.useMutation({

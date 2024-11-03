@@ -423,6 +423,7 @@ const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
 
   // Query
   const { data: requests } = api.anbu.getRequests.useQuery(undefined, {
+    enabled: !!squadId,
     staleTime: 5000,
   });
 

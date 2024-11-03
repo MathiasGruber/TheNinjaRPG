@@ -125,13 +125,11 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined);
 
   const { data: ai } = api.profile.getAi.useQuery(
     { userId: aiId ?? "" },
-    { staleTime: Infinity, enabled: !!aiId },
+    { enabled: !!aiId },
   );
 
   const sortedAis = aiData
@@ -356,6 +354,7 @@ const ActiveChallenges: React.FC = () => {
   // Queries
   const { data: challenges } = api.sparring.getUserChallenges.useQuery(undefined, {
     staleTime: 5000,
+    enabled: !!userData,
   });
 
   // tRPC utility

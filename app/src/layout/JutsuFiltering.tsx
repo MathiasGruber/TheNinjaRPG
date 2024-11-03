@@ -56,13 +56,9 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const { fixedBloodline } = props;
 
   // Get all bloodlines
-  const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined);
 
-  const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined);
 
   // Filter shown bloodlines
   const bloodlines = fixedBloodline

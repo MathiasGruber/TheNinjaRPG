@@ -13,12 +13,12 @@ import { ExternalLink } from "lucide-react";
 import { api } from "@/utils/api";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showUserRank } from "@/libs/profile";
-import { useUserData } from "@/utils/UserContext";
+import { useRequiredUserData } from "@/utils/UserContext";
 import UserFiltering, { useFiltering, getFilter } from "@/layout/UserFiltering";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
-  const { data: userData } = useUserData();
+  const { data: userData, isClerkLoaded } = useRequiredUserData();
   const tabNames = ["Online", "Strongest", "PvP"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
@@ -34,12 +34,15 @@ export default function Users() {
   } = api.profile.getPublicUsers.useInfiniteQuery(
     { ...getFilter(state), limit: 30, orderBy: activeTab, isAi: false },
     {
+      enabled: isClerkLoaded,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: 1000 * 60 * 5, // every 5min
+      staleTime: 1000 * 60 * 5,
     },
   );
-  const { data: onlineStats } = api.profile.countOnlineUsers.useQuery();
+  const { data: onlineStats } = api.profile.countOnlineUsers.useQuery(undefined, {
+    enabled: isClerkLoaded,
+  });
   const userCountNow = onlineStats?.onlineNow || 0;
   const userCountDay = onlineStats?.onlineDay || 0;
   const maxOnline = onlineStats?.maxOnline || 0;

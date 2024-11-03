@@ -11,7 +11,7 @@ export default function JutsuStatistics({ params }: { params: { jutsuid: string 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: jutsuId, type: "jutsu" },
-    { staleTime: Infinity, enabled: jutsuId !== undefined },
+    { enabled: !!jutsuId },
   );
   const jutsu = data?.info;
   const usage = data?.usage;

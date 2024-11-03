@@ -19,9 +19,7 @@ const UserBlacklistControl: React.FC = () => {
   const utils = api.useUtils();
 
   // Query
-  const { data } = api.profile.getBlacklist.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data } = api.profile.getBlacklist.useQuery(undefined);
 
   // Mutations
   const { mutate: toggleEntry, isPending } =

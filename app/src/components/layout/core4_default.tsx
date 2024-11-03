@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/
 import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
 import { api } from "@/utils/api";
 import { showUserRank } from "@/libs/profile";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
 import {
   IMG_WALLPAPER_WINTER,
@@ -442,10 +442,10 @@ export default LayoutCore4;
  */
 const StrongestUsersBanner: React.FC = () => {
   // State
-  const { isSignedIn } = useAuth();
+  const { isLoaded } = useUser();
   const tabNames = ["Online", "Strongest", "Staff"] as const;
   type TabName = (typeof tabNames)[number];
-  const [activeTab, setActiveTab] = useState<TabName>("Online");
+  const [activeTab, setActiveTab] = useState<TabName>("Strongest");
   // Query
   const { data: userData, isPending } = api.profile.getPublicUsers.useQuery(
     {
@@ -453,7 +453,7 @@ const StrongestUsersBanner: React.FC = () => {
       orderBy: activeTab,
       isAi: false,
     },
-    { enabled: isSignedIn === false, staleTime: 1000 * 60 * 5 },
+    { enabled: isLoaded, staleTime: 1000 * 60 * 5 },
   );
   const users = userData?.data;
 

@@ -34,8 +34,7 @@ export default function MyItems() {
   // Data from DB
   useRequiredUserData();
   const { data: userItems, isFetching } = api.item.getUserItems.useQuery(undefined, {
-    staleTime: Infinity,
-    enabled: userData !== undefined,
+    enabled: !!userData,
   });
 
   // Mutations

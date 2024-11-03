@@ -64,7 +64,6 @@ const Shop: React.FC<ShopProps> = (props) => {
       enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allItems = items?.pages.map((page) => page.data).flat();

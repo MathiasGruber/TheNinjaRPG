@@ -23,8 +23,7 @@ export default function BotPerformance() {
   const { data, isFetching } = api.reports.getModBotPerformance.useQuery(
     { timeframe },
     {
-      staleTime: Infinity,
-      enabled: userData?.role !== "USER",
+      enabled: !!userData && userData.role !== "USER",
     },
   );
   const totalUserReports = data?.totalUserReports;

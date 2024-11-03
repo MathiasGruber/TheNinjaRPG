@@ -85,7 +85,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { data: userData, pusher } = useRequiredUserData();
   const { data } = api.travel.getSectorData.useQuery(
     { sector: sector },
-    { enabled: sector !== undefined, staleTime: Infinity },
+    { enabled: sector !== undefined },
   );
   const villageData = data?.village;
   const fetchedUsers = data?.users;
@@ -633,9 +633,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   const { userData, storedLvl, setStoredLvl } = props;
 
   // Query
-  const { data } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data } = api.village.getAll.useQuery(undefined);
 
   // Form schema
   const levelSliderSchema = z.object({

@@ -6,9 +6,7 @@ import GraphUsersGeneric from "@/layout/GraphUsersGeneric";
 
 const GraphBlackmarketLedger: React.FC = () => {
   // Queries
-  const { data, isPending } = api.blackmarket.getGraph.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data, isPending } = api.blackmarket.getGraph.useQuery(undefined);
 
   if (!data || isPending) return <Loader explanation="Loading black market ledger" />;
 

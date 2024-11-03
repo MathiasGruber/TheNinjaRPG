@@ -100,7 +100,10 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     data: allConversations,
     refetch,
     isPending,
-  } = api.comments.getUserConversations.useQuery({ selectedConvo: selectedConvo });
+  } = api.comments.getUserConversations.useQuery(
+    { selectedConvo: selectedConvo },
+    { enabled: !!userData, staleTime: 300000 },
+  );
 
   // Mutations
   const { mutate: exitConversation } = api.comments.exitConversation.useMutation({

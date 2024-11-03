@@ -48,7 +48,6 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages
@@ -174,7 +173,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   const utils = api.useUtils();
   const { data, isFetching } = api.bloodline.get.useQuery(
     { id: props.bloodlineId },
-    { staleTime: Infinity },
+    {},
   );
 
   // Mutations

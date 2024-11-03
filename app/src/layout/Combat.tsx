@@ -70,9 +70,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const suid = userData?.userId;
 
   // Query data
-  const { data: gameAssets } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: gameAssets } = api.misc.getAllGameAssetNames.useQuery(undefined);
 
   // Convenience method for helping people to not move too fast
   const canPerformAction = () => {

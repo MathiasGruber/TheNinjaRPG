@@ -62,8 +62,7 @@ export default function Travel() {
   // Data from database
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-    enabled: userData !== undefined,
+    enabled: !!userData,
   });
   const villages = data?.filter((v) => {
     if (userData?.isOutlaw) {

@@ -33,7 +33,7 @@ export default function ManualBloodlineEdit({
   // Queries
   const { data, isPending, refetch } = api.quests.get.useQuery(
     { id: questId },
-    { staleTime: Infinity, enabled: questId !== undefined },
+    { enabled: !!questId },
   );
 
   // Redirect to profile if not content or admin

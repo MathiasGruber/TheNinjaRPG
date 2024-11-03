@@ -29,7 +29,7 @@ export default function AdministrationBuilding() {
       level: userData?.level,
       rank: userData?.rank ? availableQuestLetterRanks(userData.rank) : [],
     },
-    { enabled: !!userData, staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Mutations

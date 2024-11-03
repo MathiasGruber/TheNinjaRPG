@@ -41,7 +41,7 @@ export default function VillageOverview() {
   // Queries
   const { data, isFetching: isFetchingVillage } = api.village.get.useQuery(
     { id: sectorVillage?.id ?? "" },
-    { enabled: !!sectorVillage, staleTime: Infinity },
+    { enabled: !!sectorVillage },
   );
 
   // tRPC utility
@@ -312,10 +312,7 @@ const UpgradeButton = ({
 }) => {
   const utils = api.useUtils();
 
-  const { data } = api.village.get.useQuery(
-    { id: structure.villageId },
-    { staleTime: Infinity },
-  );
+  const { data } = api.village.get.useQuery({ id: structure.villageId }, {});
 
   const { mutate: purchase } = api.kage.upgradeStructure.useMutation({
     onSuccess: async (data) => {

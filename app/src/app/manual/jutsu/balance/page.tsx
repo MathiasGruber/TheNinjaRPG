@@ -20,7 +20,7 @@ export default function ManualJutsusBalance() {
   // Queries
   const { data, isPending } = api.data.getJutsuBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity },
+    {},
   );
 
   useEffect(() => {

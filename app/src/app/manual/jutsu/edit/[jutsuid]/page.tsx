@@ -30,7 +30,7 @@ export default function JutsuEdit({ params }: { params: { jutsuid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.jutsu.get.useQuery(
     { id: jutsuId },
-    { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined },
+    { retry: false, enabled: !!jutsuId },
   );
 
   // Convert key null values to empty strings, preparing data for form

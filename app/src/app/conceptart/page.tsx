@@ -84,7 +84,6 @@ export default function ConceptArt() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allImage = data?.pages

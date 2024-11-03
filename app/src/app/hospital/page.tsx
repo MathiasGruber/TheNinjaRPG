@@ -199,6 +199,7 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
   // Queries
   const { data: hospitalized } = api.hospital.getHospitalizedUsers.useQuery(undefined, {
     refetchInterval: 5000,
+    enabled: !!userData,
   });
   const allHospitalized = hospitalized?.map((user) => {
     const missingHealth = user.maxHealth - user.curHealth;

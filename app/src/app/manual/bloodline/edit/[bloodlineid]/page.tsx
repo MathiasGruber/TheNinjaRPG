@@ -28,7 +28,7 @@ export default function BloodlineEdit({ params }: { params: { bloodlineid: strin
   // Queries
   const { data, isPending, refetch } = api.bloodline.get.useQuery(
     { id: bloodlineId },
-    { staleTime: Infinity, retry: false, enabled: bloodlineId !== undefined },
+    { retry: false, enabled: !!bloodlineId && !!userData },
   );
 
   // Convert key null values to empty strings, preparing data for form

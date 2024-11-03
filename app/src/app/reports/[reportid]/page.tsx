@@ -51,7 +51,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
 
   const { data } = api.reports.get.useQuery(
     { id: report_id },
-    { enabled: !!report_id },
+    { enabled: !!report_id && !!userData },
   );
   const { report, prevReports } = data || {};
 

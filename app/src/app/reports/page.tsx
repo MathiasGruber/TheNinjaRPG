@@ -44,7 +44,6 @@ export default function Reports() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: userData !== undefined,
     },
   );

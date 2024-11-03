@@ -34,13 +34,9 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: bloodlines, isPending: l1 } = api.bloodline.getAllNames.useQuery(
-    undefined,
-    { staleTime: Infinity },
-  );
-  const { data: villages, isPending: l2 } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: bloodlines, isPending: l1 } =
+    api.bloodline.getAllNames.useQuery(undefined);
+  const { data: villages, isPending: l2 } = api.village.getAll.useQuery(undefined);
 
   // Mutation for updating jutsu
   const { mutate: updateJutsu, isPending: l3 } = api.jutsu.update.useMutation({

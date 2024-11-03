@@ -39,9 +39,7 @@ const ReportFiltering: React.FC<ReportFilteringProps> = (props) => {
   const { setReportedUser, setReporterUser, setStatus, setSystem } = props.state;
 
   // Get all systems with reports
-  const { data: systemsData } = api.reports.getReportSystemNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: systemsData } = api.reports.getReportSystemNames.useQuery(undefined);
 
   // Name search schemas
   const reporterForm = useForm<UserSearchSchema>({

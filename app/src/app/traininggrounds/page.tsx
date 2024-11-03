@@ -123,11 +123,12 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   // Queries
   const { data: students, isFetching } = api.sensei.getStudents.useQuery(
     { userId: userData.userId },
-    { enabled: SENSEI_RANKS.includes(userData.rank), staleTime: Infinity },
+    { enabled: SENSEI_RANKS.includes(userData.rank) },
   );
 
   const { data: requests } = api.sensei.getRequests.useQuery(undefined, {
     staleTime: 5000,
+    enabled: !!userData,
   });
 
   // Mutations
@@ -579,7 +580,6 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: userData !== undefined,
     },
   );
@@ -588,7 +588,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // User Jutsus
   const { data: userJutsus, isPending: isRefetchingUserJutsu } =
     api.jutsu.getUserJutsus.useQuery(getFilter(state), {
-      staleTime: Infinity,
+      enabled: !!userData,
     });
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {

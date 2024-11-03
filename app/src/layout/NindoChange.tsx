@@ -21,7 +21,7 @@ export const NindoChange: React.FC<NindoChangeProps> = (props) => {
   // Queries
   const { data, isPending } = api.profile.getNindo.useQuery(
     { userId: props.userId },
-    { enabled: !!props.userId, staleTime: Infinity },
+    { enabled: !!props.userId },
   );
 
   // Form control

@@ -652,7 +652,11 @@ const FederalStore = () => {
  * Subscriptions overview component
  */
 const SubscriptionsOverview = () => {
-  const { data: subscriptions, refetch } = api.paypal.getPaypalSubscriptions.useQuery();
+  const { data: userData } = useRequiredUserData();
+  const { data: subscriptions, refetch } = api.paypal.getPaypalSubscriptions.useQuery(
+    undefined,
+    { enabled: !!userData },
+  );
   const allSubscriptions = subscriptions?.map((subscription) => {
     return {
       ...subscription,

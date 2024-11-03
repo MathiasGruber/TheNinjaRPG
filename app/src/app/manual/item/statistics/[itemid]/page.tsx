@@ -11,7 +11,7 @@ export default function ItemStatistics({ params }: { params: { itemid: string } 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: itemId, type: "item" },
-    { staleTime: Infinity, enabled: itemId !== undefined },
+    { enabled: !!itemId },
   );
   const item = data?.info;
   const usage = data?.usage;

@@ -27,15 +27,9 @@ export const useUserEditForm = (
   });
 
   // Query for bloodlines and villages
-  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
+  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
+  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateUser, isPending: l4 } = api.profile.updateUser.useMutation({

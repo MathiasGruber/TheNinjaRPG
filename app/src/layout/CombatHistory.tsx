@@ -30,7 +30,6 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     {
       enabled: battleId !== undefined,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");

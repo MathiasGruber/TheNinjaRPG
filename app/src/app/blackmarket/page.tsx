@@ -121,9 +121,9 @@ const PityBloodlineRoll: React.FC<{ userData: NonNullable<UserWithRelations> }> 
 
   // Get data from DB
   const { data: prevRolls, isPending: isPendingRolls } =
-    api.bloodline.getItemRolls.useQuery(undefined, { staleTime: Infinity });
+    api.bloodline.getItemRolls.useQuery(undefined);
   const { data: bloodlines, isPending: isPendingBloodlines } =
-    api.bloodline.getAll.useQuery({ limit: 500 }, { staleTime: Infinity });
+    api.bloodline.getAll.useQuery({ limit: 500 });
 
   // Pity roll mutation
   const { mutate: pityRoll } = api.bloodline.pityRoll.useMutation({

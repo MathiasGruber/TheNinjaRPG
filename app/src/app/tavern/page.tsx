@@ -31,11 +31,11 @@ export default function Tavern() {
   // Data
   const { data: userData } = useRequiredUserData();
   const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
+    enabled: !!userData,
   });
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
-    { enabled: !!userData, staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Tavern name based on user village

@@ -19,7 +19,7 @@ export default function ManualBloodlineBalance() {
   // // Queries
   const { data, isPending } = api.data.getBloodlineBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity },
+    {},
   );
 
   useEffect(() => {

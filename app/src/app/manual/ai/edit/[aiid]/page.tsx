@@ -30,7 +30,7 @@ export default function ManualAisEdit({ params }: { params: { aiid: string } }) 
   // Queries
   const { data, isPending, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
-    { staleTime: Infinity, enabled: aiId !== undefined },
+    { enabled: aiId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form

@@ -479,22 +479,18 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
 
   // Queries
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: Object.keys(shownTag).includes("aiId"),
   });
 
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("jutsus"),
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("items"),
   });
 
   const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled:
       fields.includes("staticAssetPath") ||
       fields.includes("appearAnimation") ||
@@ -749,22 +745,18 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   const fields = Object.keys(shownTag);
   const hasAIs = fields.includes("attackerAIs") || fields.includes("opponent_ai");
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: hasAIs,
   });
 
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_jutsus"),
   });
 
   const { data: badgeData } = api.badge.getAll.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_badges"),
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_items") || fields.includes("collect_item_id"),
   });
 

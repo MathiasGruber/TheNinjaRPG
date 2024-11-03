@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useUserData } from "@/utils/UserContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import FancyForumThreads from "@/layout/FancyForumThreads";
@@ -18,8 +18,8 @@ export default function IndexPage({
   initialNews: Awaited<InfiniteThreads>;
 }) {
   // Fetch data
-  const { isLoaded, isSignedIn, userId } = useAuth();
-  const { data: userData, status: userStatus } = useUserData();
+  const { isLoaded, isSignedIn } = useUser();
+  const { data: userData, status: userStatus, userId } = useUserData();
 
   // Navigation
   const router = useRouter();

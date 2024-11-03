@@ -20,7 +20,7 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
   const { data: userData } = useRequiredUserData();
   const { data } = api.combat.getBattle.useQuery(
     { battleId: battleId },
-    { enabled: !!battleId, staleTime: Infinity },
+    { enabled: !!battleId },
   );
 
   // Derived variables

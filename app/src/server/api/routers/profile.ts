@@ -193,155 +193,153 @@ export const profileRouter = createTRPCRouter({
     return { success: true, message: `User leveled up to ${newLevel}` };
   }),
   // Get all information on logged in user
-  getUser: protectedProcedure
-    .input(z.object({ token: z.string().optional().nullable() }))
-    .query(async ({ ctx }) => {
-      // Query
-      const { user, settings, rewards } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        userIp: ctx.userIp,
-        // forceRegen: true, // This should be disabled in prod to save on DB calls
-      });
-      // Figure out notifications
-      const notifications: NavBarDropdownLink[] = [];
-      if (rewards) {
-        if (rewards.money > 0) {
-          notifications.push({
-            href: "/profile",
-            name: `Activity streak reward: ${rewards.money} ryo`,
-            color: "toast",
-          });
-        }
-        if (rewards.reputationPoints > 0) {
-          notifications.push({
-            href: "/profile",
-            name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
-            color: "toast",
-          });
-        }
-      }
-      // Settings
-      const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
-      if (trainingBoost) {
-        notifications.push({
-          href: "/traininggrounds",
-          name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
-          color: "green",
-        });
-      }
-      const regenBoost = getGameSettingBoost("regenGainMultiplier", settings);
-      if (regenBoost) {
+  getUser: protectedProcedure.query(async ({ ctx }) => {
+    // Query
+    const { user, settings, rewards } = await fetchUpdatedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+      userIp: ctx.userIp,
+      // forceRegen: true, // This should be disabled in prod to save on DB calls
+    });
+    // Figure out notifications
+    const notifications: NavBarDropdownLink[] = [];
+    if (rewards) {
+      if (rewards.money > 0) {
         notifications.push({
           href: "/profile",
-          name: `${regenBoost.value}X regen | ${regenBoost.daysLeft} days`,
-          color: "green",
+          name: `Activity streak reward: ${rewards.money} ryo`,
+          color: "toast",
         });
       }
-      // User specific
-      if (user) {
-        // Get number of un-resolved user reports
-        if (canModerateRoles.includes(user.role)) {
-          const reportCounts = await ctx.drizzle
-            .select({ count: sql<number>`count(*)`.mapWith(Number) })
-            .from(userReport)
-            .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
-          const userReports = reportCounts?.[0]?.count ?? 0;
-          if (userReports > 0) {
-            notifications.push({
-              href: "/reports",
-              name: `${userReports} waiting!`,
-              color: "blue",
-            });
-          }
-        }
-        // Check if user is banned
-        if (user.isBanned) {
+      if (rewards.reputationPoints > 0) {
+        notifications.push({
+          href: "/profile",
+          name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
+          color: "toast",
+        });
+      }
+    }
+    // Settings
+    const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
+    if (trainingBoost) {
+      notifications.push({
+        href: "/traininggrounds",
+        name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
+        color: "green",
+      });
+    }
+    const regenBoost = getGameSettingBoost("regenGainMultiplier", settings);
+    if (regenBoost) {
+      notifications.push({
+        href: "/profile",
+        name: `${regenBoost.value}X regen | ${regenBoost.daysLeft} days`,
+        color: "green",
+      });
+    }
+    // User specific
+    if (user) {
+      // Get number of un-resolved user reports
+      if (canModerateRoles.includes(user.role)) {
+        const reportCounts = await ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userReport)
+          .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
+        const userReports = reportCounts?.[0]?.count ?? 0;
+        if (userReports > 0) {
           notifications.push({
             href: "/reports",
-            name: "Banned!",
-            color: "red",
-          });
-        }
-        // Unused experience points
-        if (user.earnedExperience > 0) {
-          notifications.push({
-            href: "/profile/experience",
-            name: `Earned exp: ${user.earnedExperience}`,
+            name: `${userReports} waiting!`,
             color: "blue",
           });
         }
-        // Check if reduced gains
-        const reducedDays = getReducedGainsDays(user);
-        if (reducedDays > 0) {
-          notifications.push({
-            href: "/village",
-            name: `Slowed ${Math.ceil(reducedDays)} days`,
-            color: "red",
-          });
-        }
-        // Add deletion timer to notifications
-        if (user?.deletionAt) {
-          notifications?.push({
-            href: "/profile",
-            name: "Being deleted",
-            color: "red",
-          });
-        }
-        // Is in combat
-        if (user.status === "BATTLE") {
-          notifications?.push({
-            href: "/combat",
-            name: "In combat",
-            color: "red",
-          });
-        }
-        // Is in hospital
-        if (user.status === "HOSPITALIZED") {
-          notifications?.push({
-            href: "/hospital",
-            name: "In hospital",
-            color: "red",
-          });
-        }
-        // Stuff in inbox
-        if (user.inboxNews > 0) {
-          notifications?.push({
-            href: "/inbox",
-            name: `${user.inboxNews} new messages`,
-            color: "green",
-          });
-        }
-        // Stuff in news
-        if (user.unreadNews > 0) {
+      }
+      // Check if user is banned
+      if (user.isBanned) {
+        notifications.push({
+          href: "/reports",
+          name: "Banned!",
+          color: "red",
+        });
+      }
+      // Unused experience points
+      if (user.earnedExperience > 0) {
+        notifications.push({
+          href: "/profile/experience",
+          name: `Earned exp: ${user.earnedExperience}`,
+          color: "blue",
+        });
+      }
+      // Check if reduced gains
+      const reducedDays = getReducedGainsDays(user);
+      if (reducedDays > 0) {
+        notifications.push({
+          href: "/village",
+          name: `Slowed ${Math.ceil(reducedDays)} days`,
+          color: "red",
+        });
+      }
+      // Add deletion timer to notifications
+      if (user?.deletionAt) {
+        notifications?.push({
+          href: "/profile",
+          name: "Being deleted",
+          color: "red",
+        });
+      }
+      // Is in combat
+      if (user.status === "BATTLE") {
+        notifications?.push({
+          href: "/combat",
+          name: "In combat",
+          color: "red",
+        });
+      }
+      // Is in hospital
+      if (user.status === "HOSPITALIZED") {
+        notifications?.push({
+          href: "/hospital",
+          name: "In hospital",
+          color: "red",
+        });
+      }
+      // Stuff in inbox
+      if (user.inboxNews > 0) {
+        notifications?.push({
+          href: "/inbox",
+          name: `${user.inboxNews} new messages`,
+          color: "green",
+        });
+      }
+      // Stuff in news
+      if (user.unreadNews > 0) {
+        notifications?.push({
+          href: "/news",
+          name: `${user.unreadNews} new news`,
+          color: "green",
+        });
+      }
+      if (user.unreadNotifications > 0) {
+        const [unread] = await Promise.all([
+          ctx.drizzle.query.notification.findMany({
+            limit: user.unreadNotifications,
+            orderBy: desc(notification.createdAt),
+          }),
+          ctx.drizzle
+            .update(userData)
+            .set({ unreadNotifications: 0 })
+            .where(eq(userData.userId, ctx.userId)),
+        ]);
+        unread?.forEach((n) => {
           notifications?.push({
             href: "/news",
-            name: `${user.unreadNews} new news`,
-            color: "green",
+            name: n.content,
+            color: "toast",
           });
-        }
-        if (user.unreadNotifications > 0) {
-          const [unread] = await Promise.all([
-            ctx.drizzle.query.notification.findMany({
-              limit: user.unreadNotifications,
-              orderBy: desc(notification.createdAt),
-            }),
-            ctx.drizzle
-              .update(userData)
-              .set({ unreadNotifications: 0 })
-              .where(eq(userData.userId, ctx.userId)),
-          ]);
-          unread?.forEach((n) => {
-            notifications?.push({
-              href: "/news",
-              name: n.content,
-              color: "toast",
-            });
-          });
-        }
+        });
       }
-      return { userData: user, notifications: notifications, serverTime: Date.now() };
-    }),
+    }
+    return { userData: user, notifications: notifications, serverTime: Date.now() };
+  }),
   // Get an AI
   getAi: protectedProcedure
     .input(z.object({ userId: z.string() }))
@@ -1410,7 +1408,7 @@ export const fetchPublicUsers = async (
     nextCursor: nextCursor,
   };
 };
-export type FetchedPublicUsers = ReturnType<typeof fetchPublicUsers>;
+export type FetchedPublicUsers = Awaited<ReturnType<typeof fetchPublicUsers>>;
 
 export const fetchAttributes = async (client: DrizzleClient, userId: string) => {
   return await client.query.userAttribute.findMany({

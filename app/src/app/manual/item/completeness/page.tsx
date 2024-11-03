@@ -16,10 +16,7 @@ export default function ManualBloodlineBalance() {
   const [filter, setFilter] = useState<(typeof availFilters)[number]>("Incomplete");
 
   // Queries
-  const { data, isPending } = api.item.getAll.useQuery(
-    { limit: 500 },
-    { staleTime: Infinity },
-  );
+  const { data, isPending } = api.item.getAll.useQuery({ limit: 500 }, {});
   const allItems = data?.data;
 
   // Table processing
