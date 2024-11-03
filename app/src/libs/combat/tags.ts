@@ -1406,7 +1406,10 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
     effect.isNew = false;
     if (user && "aiHp" in effect) {
       const ai = usersState.find((u) => u.userId === effect.aiId);
-      const obj = usersState.find((u) => u.username === ai?.username && u.curHealth);
+      const obj = usersState.find(
+        (u) =>
+          u.username === ai?.username && u.curHealth && u.controllerId === user.userId,
+      );
       if (ai && !obj) {
         const newAi = structuredClone(ai);
         // Place on battlefield
