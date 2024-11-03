@@ -66,7 +66,6 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
   // Listen on user channel for live updates on things
   const pusher = usePusherHandler(userId);
   // Get user data
-  console.log("USER CONTEXT PROVIDER CALLED: ", isSignedIn, isLoaded, user?.id);
   const { data: data, status: userStatus } = api.profile.getUser.useQuery(undefined, {
     enabled: !!userId && isSignedIn && isLoaded,
     retry: false,
@@ -132,7 +131,7 @@ export const useRequiredUserData = () => {
   const info = useUserData();
   const { data, status } = info;
   useEffect(() => {
-    if (isLoaded && status !== "pending" && (data === undefined || !isSignedIn)) {
+    if (isLoaded && (!isSignedIn || (data === undefined && status !== "pending"))) {
       router.push("/");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -871,7 +871,7 @@ export const profileRouter = createTRPCRouter({
         items: user?.items.map((i) => i.itemId),
       };
     }),
-  countOnlineUsers: protectedProcedure.query(async ({ ctx }) => {
+  countOnlineUsers: publicProcedure.query(async ({ ctx }) => {
     // Fetch
     const [current, daily, maxOnline] = await Promise.all([
       ctx.drizzle
