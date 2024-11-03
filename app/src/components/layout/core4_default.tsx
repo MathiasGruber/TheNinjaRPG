@@ -237,7 +237,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             width={384}
             height={138}
             alt="logo"
-            priority
+            loading="lazy"
           />
           <Image
             className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
@@ -245,7 +245,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             width={250}
             height={122}
             alt="logo"
-            priority
+            loading="lazy"
           />
         </Link>
         {/* DESKTOP NAVBAR */}
@@ -256,7 +256,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             width={1280}
             height={133}
             alt="navbar"
-            priority
+            loading="lazy"
           />
           <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
             {navbarMenuItemsLeft.map((link) => (
@@ -301,7 +301,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           width={127}
           height={112}
           alt="handsign"
-          priority
+          loading="lazy"
         />
         <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10">
           {/* LEFT SIDEBANNER DESKTOP */}
@@ -314,7 +314,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 height={235}
                 style={{ width: "100%", height: "100%" }}
                 alt="leftbanner"
-                priority
+                loading="lazy"
               ></Image>
               <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
             </div>
@@ -324,7 +324,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               width={250}
               height={68}
               alt="leftbanner"
-              priority
+              loading="lazy"
             ></Image>
             <StrongestUsersBanner />
           </div>
@@ -349,7 +349,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 width={143}
                 height={272}
                 alt="leftbottomdecor"
-                priority
+                loading="lazy"
               ></Image>
               <Image
                 className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
@@ -357,7 +357,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 width={143}
                 height={272}
                 alt="rightbottomdecor"
-                priority
+                loading="lazy"
               ></Image>
               <div className="absolute top-4 left-0 right-0">
                 <Footer />
@@ -374,7 +374,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 height={235}
                 style={{ width: "100%", height: "100%" }}
                 alt="rightbanner"
-                priority
+                loading="lazy"
               ></Image>
               <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
             </div>
@@ -384,7 +384,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               width={250}
               height={68}
               alt="leftbanner"
-              priority
+              loading="lazy"
             ></Image>
           </div>
         </div>
@@ -472,7 +472,7 @@ const StrongestUsersBanner: React.FC = () => {
           width={260}
           height={138}
           alt="usersbanner_top"
-          priority
+          loading="lazy"
         ></Image>
         <div className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-[url('/layout/usersbanner_middle.webp')] bg-contain bg-repeat-y">
           <div className="relative top-[-40px]">
@@ -512,7 +512,7 @@ const StrongestUsersBanner: React.FC = () => {
           width={260}
           height={138}
           alt="usersbanner_bottom"
-          priority
+          loading="lazy"
         ></Image>
       </div>
     </SignedOut>
