@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-// import * as UAParser from "ua-parser-js";
-// import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 // import type { NextRequest } from "next/server";
+// import * as UAParser from "ua-parser-js";
 
 const isPublicRoute = createRouteMatcher([
   "/(.*)",
@@ -35,12 +35,32 @@ const isPublicRoute = createRouteMatcher([
 //   return NextResponse.next();
 // }
 
+/**
+ * Optimize requests, see: https://web.dev/articles/preconnect-and-dns-prefetch#resolve-domain-name-early-with-reldns-prefetch
+ * @param request
+ * @returns
+ */
+export function dnsPrefetchingMiddleware() {
+  const response = NextResponse.next();
+  response.headers.append(
+    "Link",
+    "<https://o4507797256601600.ingest.de.sentry.io>; rel=dns-prefetch",
+  );
+  response.headers.append(
+    "Link",
+    "<https://consentcdn.cookiebot.com>; rel=dns-prefetch",
+  );
+  return response;
+}
+
 export default clerkMiddleware(
   async (auth, request) => {
     // Protect all routes except for the public ones
     if (!isPublicRoute(request)) {
       await auth.protect();
     }
+    // Optimize prefetching
+    dnsPrefetchingMiddleware();
     // Ensure valid user agent
     // return uaMiddleware(request);
   },
