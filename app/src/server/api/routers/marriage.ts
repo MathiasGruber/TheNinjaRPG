@@ -2,7 +2,7 @@ import { userAssociation } from "@/drizzle/schema";
 import { z } from "zod";
 import type { inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { errorResponse, baseServerResponse } from "@/server/api/trpc";
+import { errorResponse, baseServerResponse, publicProcedure } from "@/server/api/trpc";
 import { getServerPusher } from "@/libs/pusher";
 import { fetchUser } from "@/routers/profile";
 import {
@@ -118,12 +118,12 @@ export const marriageRouter = createTRPCRouter({
       // Create
       return { success: true, message: "Proposal Accepted" };
     }),
-  getMarriedUsers: protectedProcedure
+  getMarriedUsers: publicProcedure
     .input(z.object({ id: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       const associations = await fetchAssociations(
         ctx.drizzle,
-        input.id ?? ctx.userId,
+        input.id ?? ctx.userId ?? "",
         "MARRIAGE",
       );
       const marriedUsers = associations.map((x) =>

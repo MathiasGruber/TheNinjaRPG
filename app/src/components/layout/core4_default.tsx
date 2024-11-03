@@ -484,24 +484,25 @@ const StrongestUsersBanner: React.FC = () => {
               className="text-orange-100 hover:text-orange-300"
             />
             {users?.map((user, i) => (
-              <div
-                key={i}
-                className={`py-1 grid grid-cols-12 items-center justify-center relative top-2 left-8 lg:left-10 w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] ${
-                  i % 2 == 0 ? "bg-pink-900" : ""
-                } bg-opacity-50 text-xs lg:text-base`}
-              >
-                <p className="pl-2">{i + 1}</p>
-                <div className="col-span-2">
-                  <AvatarImage
-                    href={user.avatarLight}
-                    alt={user.username}
-                    size={100}
-                    priority
-                  />
+              <Link href={`/users/${user.userId}`} key={i} className="hover:opacity-50">
+                <div
+                  className={`py-1 grid grid-cols-12 items-center justify-center relative top-2 left-8 lg:left-10 w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] ${
+                    i % 2 == 0 ? "bg-pink-900" : ""
+                  } bg-opacity-50 text-xs lg:text-base`}
+                >
+                  <p className="pl-2">{i + 1}</p>
+                  <div className="col-span-2">
+                    <AvatarImage
+                      href={user.avatarLight}
+                      alt={user.username}
+                      size={100}
+                      priority
+                    />
+                  </div>
+                  <p className="col-span-5">{user.username}</p>
+                  <p className="col-span-4">{showUserRank(user)}</p>
                 </div>
-                <p className="col-span-5">{user.username}</p>
-                <p className="col-span-4">{showUserRank(user)}</p>
-              </div>
+              </Link>
             ))}
             {isPending && <Loader explanation="Loading top players" />}
           </div>

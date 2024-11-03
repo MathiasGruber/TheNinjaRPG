@@ -132,6 +132,7 @@ export const useRequiredUserData = () => {
   const { data, status } = info;
   useEffect(() => {
     if (isLoaded && (!isSignedIn || (data === undefined && status !== "pending"))) {
+      console.log("REDIRECT HERE?");
       router.push("/");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -11,7 +11,7 @@ import Post from "./Post";
 
 import { type UserReportSchema, type systems } from "../validators/reports";
 import { userReportSchema } from "../validators/reports";
-import { useRequiredUserData } from "@/utils/UserContext";
+import { useUserData } from "@/utils/UserContext";
 import { api } from "@/utils/api";
 import { showMutationToast } from "@/libs/toast";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
@@ -38,7 +38,7 @@ interface ReportUserProps {
 }
 
 const ReportUser: React.FC<ReportUserProps> = (props) => {
-  const { data: userData } = useRequiredUserData();
+  const { data: userData } = useUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
 
   // Get utils
@@ -76,6 +76,8 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
     },
     (errors) => console.error(errors),
   );
+
+  if (!userData) return null;
 
   if (showModal) {
     return (

@@ -753,7 +753,7 @@ export const profileRouter = createTRPCRouter({
         limit: 5,
       });
     }),
-  getUserDailyPveBattleCount: protectedProcedure
+  getUserDailyPveBattleCount: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       //Query
@@ -767,12 +767,15 @@ export const profileRouter = createTRPCRouter({
       return (await result).length;
     }),
   // Get public information on a user
-  getPublicUser: protectedProcedure
+  getPublicUser: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Query
       const [requester, user] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId ?? ""),
+          columns: { role: true },
+        }),
         ctx.drizzle.query.userData.findFirst({
           where: and(eq(userData.userId, input.userId)),
           columns: {
@@ -849,11 +852,11 @@ export const profileRouter = createTRPCRouter({
       // Guard
       if (!user) return null;
       // Hide secrets
-      if (!canSeeSecretData(requester.role)) {
+      if (!requester || !canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
         user.isBanned = false;
       }
-      if (!canSeeIps(requester.role)) {
+      if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";
       }
       // If no avatarLight version, create one

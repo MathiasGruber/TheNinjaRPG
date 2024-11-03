@@ -104,10 +104,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
 
   // Queries
   const { data: profile, isPending: isPendingProfile } =
-    api.profile.getPublicUser.useQuery(
-      { userId: userId },
-      { enabled: userId !== undefined },
-    );
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
 
   const { data: reports, isPending: isPendingReports } =
     api.reports.getUserReports.useQuery(
@@ -193,7 +190,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
 
   // Loaders
   if (isPendingProfile) return <Loader explanation="Fetching Public User Data" />;
-  if (!userData) return <Loader explanation="Fetching Your User Data" />;
+
+  // Show profile
   if (!profile) {
     return (
       <ContentBox
@@ -241,7 +239,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
               system="user_profile"
               button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
             />
-            {canUnstuckVillage(userData.role) ? (
+            {userData && canUnstuckVillage(userData.role) ? (
               <>
                 <Confirm
                   title="Confirm force change user state to awake"
@@ -299,7 +297,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
             <p>Federal Support: {profile.federalStatus.toLowerCase()}</p>
-            {canSeeSecretData(userData.role) && (
+            {userData && canSeeSecretData(userData.role) && (
               <div>
                 <br />
                 <b>Information</b>
@@ -470,7 +468,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           initialBreak={true}
           topRightContent={
             <>
-              {badges && canModifyUserBadges(userData.role) && (
+              {badges && userData && canModifyUserBadges(userData.role) && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button className="w-full">
@@ -511,7 +509,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 <div>
                   <div className="font-bold">{userbadge.badge.name}</div>
                 </div>
-                {canModifyUserBadges(userData.role) && (
+                {userData && canModifyUserBadges(userData.role) && (
                   <Trash2
                     className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:fill-orange-500"
                     onClick={() => removeUserBadge.mutate(userbadge)}
@@ -533,18 +531,23 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           className="flex flex-col items-center justify-center mt-3"
           onValueChange={(value) => setShowActive(value)}
         >
-          <TabsList className="text-center">
-            {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
-            {showCombatLogs && <TabsTrigger value="graph">Combat Graph</TabsTrigger>}
-            {showTransactions && (
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            )}
-            {showReports && <TabsTrigger value="reports">Reports</TabsTrigger>}
-            {showTrainingLogs && (
-              <TabsTrigger value="training">Training Log</TabsTrigger>
-            )}
-            {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
-          </TabsList>
+          {userData && (
+            <TabsList className="text-center">
+              {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
+              {showCombatLogs && <TabsTrigger value="graph">Combat Graph</TabsTrigger>}
+              {showTransactions && enablePaypal && (
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+              )}
+              {showReports && enableReports && (
+                <TabsTrigger value="reports">Reports</TabsTrigger>
+              )}
+              {showTrainingLogs && enableLogs && (
+                <TabsTrigger value="training">Training Log</TabsTrigger>
+              )}
+              {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
+            </TabsList>
+          )}
+
           {/* USER NINDO */}
           {showNindo && profile.nindo && (
             <TabsContent value="nindo">
