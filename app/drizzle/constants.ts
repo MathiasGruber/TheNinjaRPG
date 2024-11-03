@@ -540,11 +540,11 @@ export const IMG_LAYOUT_HANDSIGN =
   "https://utfs.io/f/Hzww9EQvYURJ0hKI3IgrYldRWJcD6vE10SjNsXHeA9pVMfQi";
 export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://utfs.io/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
-
-export const IMG_LOGO_FULL =
-  "https://utfs.io/f/5a8a34a2-b126-4674-b95d-db37a14b028e-1zbfv.webp";
+export const IMG_LAYOUT_WELCOME_IMG =
+  "https://tnrprod.b-cdn.net/layout/welcomeimage.webp";
+export const IMG_LOGO_FULL = "https://tnrprod.b-cdn.net/layout/logo.webp";
 export const IMG_LOGO_SHORT =
-  "https://utfs.io/f/c7486cf8-83ac-4fee-a451-a0faffc4cc58-io417c.webp";
+  "https://tnrprod.b-cdn.net/layout/logo_short_compressed.webp";
 export const IMG_LOADER =
   "https://utfs.io/f/4a3100e5-97c6-4e5a-96e2-1c3520838179-gwm3dh.svg";
 export const IMG_SECTOR_INFO =

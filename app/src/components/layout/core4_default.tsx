@@ -243,7 +243,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
             src={IMG_LOGO_SHORT}
             width={250}
-            height={122}
+            height={63}
             alt="logo"
             loading="lazy"
           />

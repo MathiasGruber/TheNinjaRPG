@@ -10,6 +10,7 @@ import { useUserData } from "@/utils/UserContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import FancyForumThreads from "@/layout/FancyForumThreads";
 import Loader from "@/layout/Loader";
+import { IMG_LAYOUT_WELCOME_IMG } from "@/drizzle/constants";
 import type { InfiniteThreads } from "@/routers/forum";
 
 export default function IndexPage({
@@ -67,10 +68,10 @@ const Welcome: React.FC = () => {
         </div>
         <Image
           className=""
-          src="/layout/welcomeimage.webp"
+          src={IMG_LAYOUT_WELCOME_IMG}
           alt="TNR Logo"
           width={1000}
-          height={172}
+          height={181}
           priority
         />
         <p className="p-2">
