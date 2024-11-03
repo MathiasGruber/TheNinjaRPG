@@ -11,8 +11,7 @@ import TrpcClientProvider from "@/app/_trpc/Provider";
 import LayoutCore4 from "@/components/layout/core4_default";
 import type { Viewport, Metadata } from "next";
 
-import "@uploadthing/react/styles.css";
-import "../styles/app_globals.css";
+import "../styles/globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

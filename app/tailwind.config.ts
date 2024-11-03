@@ -1,5 +1,7 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import { withUt } from "uploadthing/tw";
+import { type Config } from "tailwindcss";
+
+export default withUt({
   darkMode: ["selector"],
   content: [
     "./pages/**/*.{ts,tsx}",
@@ -49,10 +51,6 @@ module.exports = {
           DEFAULT: "hsl(var(--popover)  / <alpha-value>)",
           foreground: "hsl(var(--popover-foreground)  / <alpha-value>)",
         },
-        popover: {
-          DEFAULT: "hsl(var(--popover)  / <alpha-value>)",
-          foreground: "hsl(var(--popover-foreground)  / <alpha-value>)",
-        },
         poppopover: {
           DEFAULT: "hsl(var(--poppopover)  / <alpha-value>)",
           foreground: "hsl(var(--poppopover-foreground)  / <alpha-value>)",
@@ -83,5 +81,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
-};
+  plugins: [require("tailwindcss-animate")], // eslint-disable-line
+}) satisfies Config;
