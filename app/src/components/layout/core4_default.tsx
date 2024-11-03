@@ -1,5 +1,6 @@
 "use client";
 
+import ReactDOM from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -47,6 +48,10 @@ export interface LayoutProps {
 }
 
 const LayoutCore4: React.FC<LayoutProps> = (props) => {
+  // Prefetching
+  ReactDOM.prefetchDNS("https://o4507797256601600.ingest.de.sentry.io");
+  ReactDOM.prefetchDNS("https://consentcdn.cookiebot.com");
+
   // Get data
   const { data: userData, timeDiff, notifications } = useUserData();
   const { systems, location } = useGameMenu(userData);
