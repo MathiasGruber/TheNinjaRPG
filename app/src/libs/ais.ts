@@ -4,8 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/utils/api";
 import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
-import { insertUserDataSchema } from "@/drizzle/schema";
-import type { InsertUserDataSchema } from "@/drizzle/schema";
+import { insertAiSchema } from "@/drizzle/schema";
+import type { InsertAiSchema } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 import type { UserJutsu } from "@/drizzle/schema";
 import type { UserItem } from "@/drizzle/schema";
@@ -27,12 +27,12 @@ export const useAiEditForm = (
   };
 
   // Form handling
-  const form = useForm<InsertUserDataSchema>({
+  const form = useForm<InsertAiSchema>({
     mode: "all",
     criteriaMode: "all",
     values: processedUser,
     defaultValues: processedUser,
-    resolver: zodResolver(insertUserDataSchema),
+    resolver: zodResolver(insertAiSchema),
   });
 
   // Query for content
@@ -77,7 +77,7 @@ export const useAiEditForm = (
   const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
   // Object for form values
-  const formData: FormEntry<keyof InsertUserDataSchema | "jutsus" | "items">[] = [
+  const formData: FormEntry<keyof InsertAiSchema | "jutsus" | "items">[] = [
     { id: "username", type: "text" },
     { id: "customTitle", type: "text" },
     { id: "avatar", type: "avatar", href: avatarUrl },

@@ -16,7 +16,7 @@ import { WeaknessTag } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
-import { insertUserDataSchema } from "@/drizzle/schema";
+import { insertAiSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
@@ -139,7 +139,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               total={processedUser.maxStamina}
             />
             <EditContent
-              schema={insertUserDataSchema}
+              schema={insertAiSchema}
               form={form}
               formData={formData}
               showSubmit={form.formState.isDirty}

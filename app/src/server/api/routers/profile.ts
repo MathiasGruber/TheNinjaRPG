@@ -45,7 +45,7 @@ import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { callDiscordContent } from "@/libs/discord";
 import { scaleUserStats } from "@/libs/profile";
-import { insertUserDataSchema } from "@/drizzle/schema";
+import { insertAiSchema } from "@/drizzle/schema";
 import { calcLevelRequirements } from "@/libs/profile";
 import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
@@ -452,7 +452,7 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update a AI
   updateAi: protectedProcedure
-    .input(z.object({ id: z.string(), data: insertUserDataSchema }))
+    .input(z.object({ id: z.string(), data: insertAiSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Set empty strings to null

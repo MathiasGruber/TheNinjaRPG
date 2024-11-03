@@ -1410,7 +1410,7 @@ export const userData = mysqlTable(
     };
   },
 );
-export const insertUserDataSchema = createInsertSchema(userData)
+export const insertAiSchema = createInsertSchema(userData)
   .omit({
     trainingStartedAt: true,
     currentlyTraining: true,
@@ -1426,25 +1426,25 @@ export const insertUserDataSchema = createInsertSchema(userData)
       secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       level: z.coerce.number().min(1).max(200),
       regeneration: z.coerce.number().min(1).max(100),
-      ninjutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      ninjutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      genjutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      genjutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      taijutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      taijutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      bukijutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      bukijutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
+      ninjutsuOffence: z.coerce.number().min(10),
+      ninjutsuDefence: z.coerce.number().min(10),
+      genjutsuOffence: z.coerce.number().min(10),
+      genjutsuDefence: z.coerce.number().min(10),
+      taijutsuOffence: z.coerce.number().min(10),
+      taijutsuDefence: z.coerce.number().min(10),
+      bukijutsuOffence: z.coerce.number().min(10),
+      bukijutsuDefence: z.coerce.number().min(10),
       statsMultiplier: z.coerce.number().min(1).max(50),
       poolsMultiplier: z.coerce.number().min(1).max(50),
-      strength: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      intelligence: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      willpower: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      speed: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
+      strength: z.coerce.number().min(10),
+      intelligence: z.coerce.number().min(10),
+      willpower: z.coerce.number().min(10),
+      speed: z.coerce.number().min(10),
       isSummon: z.coerce.boolean(),
       effects: z.array(AllTags).superRefine(SuperRefineEffects),
     }),
   );
-export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
+export type InsertAiSchema = z.infer<typeof insertAiSchema>;
 export type UserData = InferSelectModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
