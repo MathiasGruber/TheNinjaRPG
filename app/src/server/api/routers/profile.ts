@@ -1020,15 +1020,11 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
   ]);
 };
 
-export const fetchUser = async (
-  client: DrizzleClient,
-  userId: string,
-  throwOnNone = true,
-) => {
+export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
   });
-  if (!user && throwOnNone) {
+  if (!user) {
     throw new Error(`fetchUser: User not found: ${userId}`);
   }
   return user;
@@ -1397,7 +1393,13 @@ export const fetchPublicUsers = async (
       limit: input.limit,
       orderBy: getOrder(),
     }),
-    ...(userId ? [fetchUser(client, userId, false)] : [null]),
+    ...(userId
+      ? [
+          client.query.userData.findFirst({
+            where: eq(userData.userId, userId),
+          }),
+        ]
+      : [null]),
   ]);
   // Guard
   if (input.ip && (!user || !canSeeSecretData(user.role))) {
