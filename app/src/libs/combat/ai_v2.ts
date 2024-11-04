@@ -6,6 +6,7 @@ import { findUser, findBarrier, calcPoolCost } from "@/libs/combat/util";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { ActionEndTurn, getBackupRules } from "@/validators/ai";
+import { enforceExtraRules } from "@/validators/ai";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction, GroundEffect } from "@/libs/combat/types";
 import type { CompleteBattle, ZodAllTags } from "@/libs/combat/types";
@@ -92,8 +93,9 @@ export const performAIaction = (
     astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
 
     // If this is a user AI, add the backup rules
-    if (user.userId.includes("user_")) {
-      user.aiProfile.rules.push(...getBackupRules());
+    if (user.userId.includes("user_") || user.aiProfile.includeDefaultRules) {
+      const backupRules = getBackupRules();
+      enforceExtraRules(user.aiProfile.rules, backupRules);
     }
 
     // If we only have the last three actions (end turn, wait, and move),
@@ -217,6 +219,15 @@ export const performAIaction = (
           );
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
+          }
+        } else if (rule.action.type === "use_combo_action") {
+          const userActions = user.usedActions.map((a) => a.id);
+          const { nextId } = getComboStatus(rule.action.comboIds, userActions);
+          if (nextId) {
+            const action = availActions.find((a) => a.id === nextId);
+            if (action && target) {
+              nextAction = { action, long: target.longitude, lat: target.latitude };
+            }
           }
         } else if (rule.action.type === "end_turn") {
           const wait = availActions.find((a) => a.id === "wait");
@@ -394,4 +405,53 @@ const resetGridFromObstacles = (grid: Grid<TerrainHex>) => {
     tile.cost = 1;
     return tile;
   });
+};
+
+/**
+ * Determines the combo status based on the provided combo IDs and the latest actions.
+ *
+ * @param comboIds - An array of strings representing the sequence of combo IDs.
+ * @param latestActions - An array of strings representing the latest actions performed.
+ * @returns An object containing:
+ *   - `inCombo`: A boolean indicating whether the latest actions are part of the combo sequence.
+ *   - `nextId` (optional): The next combo ID in the sequence if the combo is in progress, otherwise undefined.
+ */
+export const getComboStatus = (
+  comboIds: string[],
+  latestActions: string[],
+): { inCombo: boolean; nextId: string | undefined } => {
+  const N = comboIds.length;
+  const M = latestActions.length;
+
+  if (N === 0) {
+    // No combo defined
+    return { inCombo: false, nextId: undefined };
+  }
+
+  let maxMatchLength = 0;
+
+  const maxK = Math.min(N, M);
+  for (let K = maxK; K >= 1; K--) {
+    let match = true;
+    for (let i = 0; i < K; i++) {
+      if (latestActions[M - K + i] !== comboIds[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      maxMatchLength = K;
+      break;
+    }
+  }
+
+  if (maxMatchLength > 0 && maxMatchLength < N) {
+    const inCombo = true;
+    const nextId = comboIds[maxMatchLength];
+    return { inCombo, nextId };
+  } else {
+    const inCombo = false;
+    const nextId = comboIds[0];
+    return { inCombo, nextId };
+  }
 };

@@ -1,3 +1,4 @@
+import { detailedDiff } from "deep-object-diff";
 import { z } from "zod";
 
 export const AvailableTargets = [
@@ -118,6 +119,13 @@ export const ActionWithEffectHighestPower = z.object({
   effect: z.string().default("damage"),
 });
 
+export const ActionSpecificCombo = z.object({
+  type: z.literal("use_combo_action").default("use_combo_action"),
+  description: z.string().default("Cycly through a specific combo of jutsu & items"),
+  comboIds: z.array(z.string()).default([]),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+});
+
 export const ZodAllAiActions = z.union([
   ActionMoveTowardsOpponent,
   ActionEndTurn,
@@ -128,6 +136,7 @@ export const ZodAllAiActions = z.union([
   ActionWithEffectHighestPower,
   ActionWithHighestPowerJutsuEffect,
   ActionWithHighestPowerItemEffect,
+  ActionSpecificCombo,
 ]);
 
 export const AiActionTypes = ZodAllAiActions._def.options.map(
@@ -195,4 +204,22 @@ export const getBackupRules = () => {
     }),
   );
   return rules;
+};
+
+/**
+ * Enforces the backup rules by comparing the provided rules with the backup rules.
+ * If the backup rules are not present in the provided rules, they are added.
+ *
+ * @param rules - The array of AI rules to be validated and potentially updated.
+ */
+export const enforceExtraRules = (rules: AiRuleType[], enforced: AiRuleType[]) => {
+  const diff = detailedDiff(enforced, rules.slice(-enforced.length));
+  const hasEnforcedRules =
+    Object.keys(diff.added).length === 0 &&
+    Object.keys(diff.deleted).length === 0 &&
+    Object.keys(diff.updated).length === 0;
+  if (!hasEnforcedRules) {
+    console.log("Adding backup rules");
+    rules.push(...enforced);
+  }
 };

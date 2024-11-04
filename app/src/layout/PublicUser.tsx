@@ -226,7 +226,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
               />
             )}
             {availableRoles && availableRoles.length > 0 && (
-              <EditUserComponent userId={profile.userId} profile={profile} />
+              <EditUserComponent
+                userId={profile.userId}
+                profile={{
+                  ...profile,
+                  items: profile.items.map((ui) => ui.itemId),
+                  jutsus: profile.jutsus.map((ui) => ui.jutsuId),
+                }}
+              />
             )}
             <ReportUser
               user={profile}

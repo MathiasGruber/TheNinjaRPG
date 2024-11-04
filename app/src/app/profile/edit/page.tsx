@@ -15,6 +15,7 @@ import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import NindoChange from "@/layout/NindoChange";
+import AiProfileEdit from "@/layout/AiProfileEdit";
 import {
   Form,
   FormControl,
@@ -209,6 +210,15 @@ export default function EditProfile() {
         >
           <RerollElement />
         </Accordion>
+        <Accordion
+          title="AI Profile"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Adjust how your character is played by AI"
+          selectedSubtitle=""
+          onClick={setActiveElement}
+        >
+          <AdjustAiProfile userId={userData.userId} />
+        </Accordion>
         {canSwapBloodline(userData.role) && (
           <Accordion
             title="Swap Bloodline"
@@ -235,6 +245,29 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
+
+/**
+ * AI Profile Edit
+ */
+const AdjustAiProfile: React.FC<{ userId: string }> = ({ userId }) => {
+  // Queries & mutations
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+
+  // Loaders
+  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
+
+  // Render
+  return (
+    <div className="pb-3">
+      <p>
+        Play with the AI profile of your character. This allows you to change how your
+        character behaves in the game in e.g. kage battles.
+      </p>
+      <AiProfileEdit userData={profile} hideTitle />
+    </div>
+  );
+};
 
 /**
  * Marriage

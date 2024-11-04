@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import ContentBox from "@/layout/ContentBox";
+import Toggle from "@/components/control/Toggle";
+import Accordion from "@/layout/Accordion";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import Accordion from "@/layout/Accordion";
 import { FilePlus, Trash2, Save } from "lucide-react";
 import { SquareArrowUp, SquareArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,29 +21,47 @@ import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
-import { detailedDiff } from "deep-object-diff";
-import { getBackupRules, ActionMoveTowardsOpponent } from "@/validators/ai";
+import { ActionMoveTowardsOpponent } from "@/validators/ai";
+import { getBackupRules, enforceExtraRules } from "@/validators/ai";
+import { canChangeContent } from "@/utils/permissions";
 import { AvailableTargets } from "@/validators/ai";
 import { tagTypes } from "@/libs/combat/types";
+import { useRequiredUserData } from "@/utils/UserContext";
+import { MultiSelect } from "@/components/ui/multi-select";
 import type { AiRuleType, ZodAllAiCondition } from "@/validators/ai";
 import type { AiConditionType, AiActionType } from "@/validators/ai";
-import type { AiWithRelations } from "@/routers/profile";
 
 interface AiProfileEditProps {
-  userData: AiWithRelations;
+  userData: {
+    aiProfileId: string | null;
+    userId: string;
+    jutsus: { jutsuId: string; jutsu: { name: string } }[];
+    items: { itemId: string; item: { name: string } }[];
+  };
+  hideTitle?: boolean;
 }
 
 const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
+  // User information
+  const { data: userData } = useRequiredUserData();
+
   // State
   const availableTabs = ["Default", "Custom"] as const;
+  const [includeDefault, setIncludeDefault] = useState<boolean | undefined>(undefined);
   const [rules, setRules] = useState<AiRuleType[]>([]);
   const [activeElement, setActiveElement] = useState<string>("");
   const aiProfileId = props.userData.aiProfileId || "Default";
   const utils = api.useUtils();
   const isDefault = aiProfileId === "Default";
 
+  // Check role
+  const isStaff = canChangeContent(userData?.role ?? "USER");
+
   // Data
-  const { data: profile } = api.ai.getAiProfile.useQuery({ id: aiProfileId }, {});
+  const { data: profile, isPending } = api.ai.getAiProfile.useQuery(
+    { id: aiProfileId },
+    {},
+  );
 
   // Mutations
   const { mutate: toggleAiProfile, isPending: isToggling } =
@@ -51,6 +70,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         showMutationToast(data);
         if (data.success) {
           await utils.profile.getAi.invalidate();
+          await utils.profile.getPublicUser.invalidate();
         }
       },
     });
@@ -61,6 +81,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         showMutationToast(data);
         if (data.success) {
           await utils.profile.getAi.invalidate();
+          await utils.profile.getPublicUser.invalidate();
         }
       },
     });
@@ -68,32 +89,27 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   // Get backup rules
   const backupRules = getBackupRules();
 
+  // Update based on profile state
+  useEffect(() => {
+    if (profile) {
+      setIncludeDefault(profile.includeDefaultRules);
+    }
+  }, [profile]);
+
   // Insert rules from database into client state
   useEffect(() => {
     if (profile) {
       // The rules we'll set
       const copyRules = structuredClone(profile.rules);
       // If the last two rules are not move -> attack, add a default one
-      if (isDefault) {
-        // Check that all the backup rules are matches by the last rules in the profile
-        const diff = detailedDiff(
-          backupRules,
-          profile.rules.slice(-backupRules.length),
-        );
-        const hasBackupRules =
-          Object.keys(diff.added).length === 0 &&
-          Object.keys(diff.deleted).length === 0 &&
-          Object.keys(diff.updated).length === 0;
-        if (!hasBackupRules) {
-          console.log("Adding backup rules");
-          copyRules.push(...backupRules);
-        }
+      if (includeDefault || !isStaff) {
+        enforceExtraRules(copyRules, backupRules);
       }
       setRules(copyRules);
       setActiveElement(`Rule ${profile.rules.length}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, isDefault]);
+  }, [includeDefault, isDefault]);
 
   // Convenience method for updating rules
   const updateCondition = (
@@ -123,15 +139,15 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
     );
   };
 
+  // If no profile
+  if (isPending) return <Loader explanation="Loading AI Profile" />;
+  if (!profile) return <Loader explanation="No AI profiles? Should not get here" />;
+
   // Render
   return (
     <ContentBox
-      title="AI Profile"
-      subtitle={
-        isDefault
-          ? "Default AI Profile [Used by Many]"
-          : "Custom AI Profile [Only this AI]"
-      }
+      title={props.hideTitle ? "" : "AI Profile"}
+      subtitle={isDefault ? "Default AI Profile" : "Custom AI Profile"}
       initialBreak={true}
       padding={false}
       topRightContent={
@@ -142,7 +158,9 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             id="profileSelection"
             current={isDefault ? "Default" : "Custom"}
             options={availableTabs}
-            onChange={() => toggleAiProfile({ aiId: props.userData.userId })}
+            onChange={() => {
+              toggleAiProfile({ aiId: props.userData.userId });
+            }}
           />
         )
       }
@@ -155,14 +173,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         return (
           <Accordion
             key={`rule-${i}`}
-            className={isDefault && isLastTwo ? "opacity-50" : ""}
+            className={includeDefault && isLastTwo ? "opacity-50" : ""}
             title={`Rule ${i + 1}`}
             titlePostfix={`: ${rule.conditions.map((c) => c.type).join(", ")} -> ${rule.action.type}`}
             selectedTitle={activeElement}
             onClick={setActiveElement}
             options={
               <>
-                {(!isDefault || !isLastTwo) && (
+                {(!includeDefault || !isLastTwo) && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -178,7 +196,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastThree) && (
+                {(!includeDefault || !isLastThree) && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -194,7 +212,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastTwo) && (
+                {(!includeDefault || !isLastTwo) && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -385,6 +403,37 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       </SelectContent>
                     </Select>
                   )}
+                  {"comboIds" in rule.action && (
+                    <MultiSelect
+                      selected={rule.action.comboIds}
+                      options={[
+                        ...props.userData?.items?.map((ui) => ({
+                          value: ui.itemId,
+                          label: ui.item.name,
+                        })),
+                        ...props.userData?.jutsus?.map((uj) => ({
+                          value: uj.jutsuId,
+                          label: uj.jutsu.name,
+                        })),
+                      ]}
+                      onChange={(e) => {
+                        setRules((prevRules) =>
+                          prevRules.map((rule, k) => {
+                            if (k === i) {
+                              return {
+                                ...rule,
+                                action: actionSchema.parse({
+                                  ...rule.action,
+                                  comboIds: e,
+                                }),
+                              };
+                            }
+                            return rule;
+                          }),
+                        );
+                      }}
+                    />
+                  )}
                   {"target" in rule.action && (
                     <Select
                       defaultValue={rule.action.target}
@@ -458,9 +507,29 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         );
       })}
 
+      {!includeDefault && (
+        <div>
+          <Badge className="bg-red-500 m-3 p-3 animate-pulse">
+            WARNING: Not including the default rules allow you to seriously shoot
+            yourself in the foot, with AIs just standing around not doing anything, or
+            worse resulting in battle errors. Be careful, and note that usually it is
+            good to include default rules as a final catch-all.
+          </Badge>
+        </div>
+      )}
       <div className="p-3 flex flex-row items-center gap-2">
         {rules.length === 0 && <p>No rules added to this AI profile yet</p>}
         <div className="grow"></div>
+        {isStaff && (
+          <Toggle
+            id="toggle-damage-simulator"
+            value={includeDefault}
+            disabled={isDefault}
+            setShowActive={setIncludeDefault}
+            labelActive="Include Default"
+            labelInactive="No Default"
+          />
+        )}
         {!isSaving && (
           <Button
             onClick={() => {
@@ -481,7 +550,11 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         {!isSaving && rules.length > 0 && (
           <Button
             onClick={() => {
-              updateAiProfile({ id: aiProfileId, rules: rules });
+              updateAiProfile({
+                id: aiProfileId,
+                rules: rules,
+                includeDefaultRules: !!includeDefault,
+              });
             }}
           >
             <Save className="h-6 w-6 mr-2" /> Save Profile

@@ -83,6 +83,7 @@ export const aiProfile = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     rules: json("rules").$type<AiRuleType[]>().notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
   },
   (table) => {
     return {

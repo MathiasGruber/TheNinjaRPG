@@ -76,7 +76,7 @@ import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
 import { moderateContent } from "@/libs/moderator";
 import type { GetPublicUsersSchema } from "@/validators/user";
-import type { UserJutsu, Jutsu, UserItem, Item } from "@/drizzle/schema";
+import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
@@ -808,14 +808,15 @@ export const profileRouter = createTRPCRouter({
             pveFights: true,
             isBanned: true,
             deletionAt: true,
+            aiProfileId: true,
           },
           with: {
             village: true,
             bloodline: true,
             nindo: true,
             clan: true,
-            jutsus: { columns: { jutsuId: true } },
-            items: { columns: { itemId: true } },
+            jutsus: { with: { jutsu: { columns: { id: true, name: true } } } },
+            items: { with: { item: { columns: { id: true, name: true } } } },
             badges: { with: { badge: true } },
             recruitedUsers: {
               columns: {
@@ -868,11 +869,7 @@ export const profileRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId));
       }
       // Return
-      return {
-        ...user,
-        jutsus: user?.jutsus.map((j) => j.jutsuId),
-        items: user?.items.map((i) => i.itemId),
-      };
+      return user;
     }),
   countOnlineUsers: publicProcedure.query(async ({ ctx }) => {
     // Fetch
@@ -1443,6 +1440,6 @@ export type UserWithRelations =
   | undefined;
 
 export type AiWithRelations = UserData & {
-  jutsus: (UserJutsu & { jutsu: Jutsu })[];
-  items: (UserItem & { item: Item })[];
+  jutsus: (UserJutsu & { jutsu: { id: string; name: string } })[];
+  items: (UserItem & { item: { id: string; name: string } })[];
 };

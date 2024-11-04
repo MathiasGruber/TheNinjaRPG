@@ -36,7 +36,13 @@ export const aiRouter = createTRPCRouter({
       return { success: true, message: "AiProfile created" };
     }),
   updateAiProfile: protectedProcedure
-    .input(z.object({ id: z.string(), rules: z.array(AiRule) }))
+    .input(
+      z.object({
+        id: z.string(),
+        rules: z.array(AiRule),
+        includeDefaultRules: z.boolean(),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -46,11 +52,13 @@ export const aiRouter = createTRPCRouter({
       ]);
       // Guard
       if (!profile) return errorResponse("Profile not found");
-      if (!canChangeContent(user.role)) return errorResponse("Unauthorized");
+      if (!canChangeContent(user.role) && user.userId !== profile.userId) {
+        return errorResponse("Unauthorized");
+      }
       // Update
       await ctx.drizzle
         .update(aiProfile)
-        .set({ rules: input.rules })
+        .set({ rules: input.rules, includeDefaultRules: input.includeDefaultRules })
         .where(eq(aiProfile.id, input.id));
       return { success: true, message: "AiProfile updated" };
     }),
@@ -65,7 +73,9 @@ export const aiRouter = createTRPCRouter({
         fetchAiProfileByUserId(ctx.drizzle, input.aiId),
       ]);
       // Guard
-      if (!canChangeContent(user.role)) return errorResponse("Unauthorized");
+      if (!canChangeContent(user.role) && user.userId !== target.userId) {
+        return errorResponse("Unauthorized");
+      }
       // Update
       if (target.aiProfileId) {
         await ctx.drizzle
