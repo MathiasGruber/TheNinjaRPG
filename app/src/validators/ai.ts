@@ -155,3 +155,44 @@ export const AiRule = z.object({
 });
 
 export type AiRuleType = z.infer<typeof AiRule>;
+
+/**
+ * Get a set of backup AI rules to the provided rules array.
+ *
+ * The rules are as follows:
+ * 1. If the distance to the opponent is greater than 2, move towards the opponent.
+ * 2. If the distance to the opponent is less than 2, perform an action with the highest power effect that causes damage.
+ * 3. If no conditions are met, perform an action with the highest power effect
+ *
+ * @param rules - The array of AI rules to which the backup rules will be added.
+ * @returns void
+ */
+export const getBackupRules = () => {
+  const rules: AiRuleType[] = [];
+  rules.push(
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceLowerThan.parse({ value: 2 })],
+      action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
+    }),
+    AiRule.parse({
+      conditions: [],
+      action: ActionWithEffectHighestPower.parse({
+        effect: "damage",
+        target: "BARRIER_BLOCKING_CLOSEST_OPPONENT",
+      }),
+    }),
+  );
+  return rules;
+};

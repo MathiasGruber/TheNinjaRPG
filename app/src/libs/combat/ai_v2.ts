@@ -5,6 +5,7 @@ import { stillInBattle } from "@/libs/combat/actions";
 import { findUser, findBarrier, calcPoolCost } from "@/libs/combat/util";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { getBarriersBetween } from "@/libs/combat/util";
+import { ActionEndTurn, getBackupRules } from "@/validators/ai";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction, GroundEffect } from "@/libs/combat/types";
 import type { CompleteBattle, ZodAllTags } from "@/libs/combat/types";
@@ -20,18 +21,23 @@ type ActionWithTarget = {
 };
 
 // Debug flag when testing AI
-const debug = true;
+const debug = false;
 
 export const performAIaction = (
   battle: CompleteBattle,
   grid: Grid<TerrainHex>,
   aiUserId: string,
 ) => {
-  if (debug) console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> AI ACTION");
+  if (debug) {
+    console.log(">> performAIaction Start");
+    const ai = battle.usersState.find((u) => u.userId === aiUserId);
+    console.log(">> Action Points 1: ", ai?.actionPoints);
+  }
   // New stats to return
   const nextActionEffects: ActionEffect[] = [];
   const aiDescriptions: string[] = [];
   let nextBattle = battle;
+  const returnBattle = structuredClone(nextBattle);
 
   // Find AI users who are in control of themselves (i.e. not controlled by a player)
   const aiUsers = nextBattle.usersState.filter((user) => user.isAi);
@@ -43,23 +49,19 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Possible actions
-    const actions = availableUserActions(nextBattle, user.userId, true, true)
-      .filter((action) => {
+    const allActions = availableUserActions(nextBattle, user.userId, true, true).filter(
+      (action) => {
         const costs = calcPoolCost(action, nextBattle.usersEffects, user);
         if (user.curHealth < costs.hpCost) return false;
         if (user.curChakra < costs.cpCost) return false;
         if (user.curStamina < costs.spCost) return false;
         return true;
-      })
-      .filter((action) => {
-        const check = actionPointsAfterAction(user, nextBattle, action);
-        return check.canAct;
-      });
-    if (debug)
-      console.log(
-        "Actions: ",
-        actions.map((a) => a.name),
-      );
+      },
+    );
+    const availActions = allActions.filter((action) => {
+      const check = actionPointsAfterAction(user, nextBattle, action);
+      return check.canAct;
+    });
 
     // User hex
     const origin = findHex(grid, user);
@@ -88,7 +90,20 @@ export const performAIaction = (
       (b) => mapDistancesToTarget(grid, astar, b, origin),
     );
     astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
-    console.log("barriers", barriers);
+
+    // If this is a user AI, add the backup rules
+    if (user.userId.includes("user_")) {
+      user.aiProfile.rules.push(...getBackupRules());
+    }
+
+    // If we only have the last three actions (end turn, wait, and move),
+    // available, but more actions in total, then add wait rule
+    if (allActions?.find((a) => !["flee", "wait", "move"].includes(a.id))) {
+      user.aiProfile.rules.push({
+        conditions: [],
+        action: ActionEndTurn.parse({}),
+      });
+    }
 
     // Convenience for getting target
     const getTarget = (entry: ZodAllAiCondition | ZodAllAiAction) => {
@@ -112,7 +127,8 @@ export const performAIaction = (
     // Go through rules
     let nextAction: ActionWithTarget | undefined = undefined;
     for (const rule of user.aiProfile.rules) {
-      if (debug) console.log("Rule: ", rule);
+      // if (debug) console.log("Rule: ", rule);
+
       /** ************************ */
       /** CHECK CONDITIONS         */
       /** ************************ */
@@ -149,61 +165,61 @@ export const performAIaction = (
         const targetHex = target?.hex;
         // Go through different actions
         if (rule.action.type === "move_towards_opponent") {
-          const move = actions.find((a) => a.id === "move");
+          const move = availActions.find((a) => a.id === "move");
           if (target && targetHex && origin && move) {
             const path = astar.getShortestPath(origin, targetHex);
             const hex = path?.[1];
-            if (path && hex && path.length > 2) {
+            if (path && hex && path.length > 2 && hex.cost < 100) {
               nextAction = { action: move, long: hex.col, lat: hex.row };
             }
           }
         } else if (rule.action.type === "use_specific_jutsu") {
-          const action = actions.find(
+          const action = availActions.find(
             (a) => "jutsuId" in rule.action && a.id === rule.action.jutsuId,
           );
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_specific_item") {
-          const action = actions.find(
+          const action = availActions.find(
             (a) => "itemId" in rule.action && a.id === rule.action.itemId,
           );
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_random_jutsu") {
-          const jutsus = actions.filter((a) => a.type === "jutsu");
+          const jutsus = availActions.filter((a) => a.type === "jutsu");
           const action = jutsus[Math.floor(Math.random() * jutsus.length)];
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_random_item") {
-          const items = actions.filter((a) => a.type === "item");
+          const items = availActions.filter((a) => a.type === "item");
           const action = items[Math.floor(Math.random() * items.length)];
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_highest_power_action") {
-          const action = getHighestPowerAction(actions);
+          const action = getHighestPowerAction(availActions);
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_highest_power_jutsu") {
           const action = getHighestPowerAction(
-            actions.filter((a) => a.type === "jutsu"),
+            availActions.filter((a) => a.type === "jutsu"),
           );
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_highest_power_item") {
           const action = getHighestPowerAction(
-            actions.filter((a) => a.type === "item"),
+            availActions.filter((a) => a.type === "item"),
           );
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "end_turn") {
-          const wait = actions.find((a) => a.id === "wait");
+          const wait = availActions.find((a) => a.id === "wait");
           if (wait) {
             nextAction = { action: wait, long: user.longitude, lat: user.latitude };
           }
@@ -213,10 +229,10 @@ export const performAIaction = (
       /** CHECK IF ACTION IS VALID */
       /** ************************ */
       if (nextAction) {
-        if (debug) console.log("Action: ", nextAction.action.name);
+        // if (debug) console.log("Action: ", nextAction.action.name);
         const check = actionPointsAfterAction(user, nextBattle, nextAction?.action);
         const result = performBattleAction({
-          battle: structuredClone(nextBattle),
+          battle: returnBattle,
           action: nextAction.action,
           grid,
           contextUserId: user.userId,
@@ -241,10 +257,19 @@ export const performAIaction = (
       aiDescriptions.push(`${user.username} is exhausted and has to give up`);
       user.curHealth = 0;
     }
+    if (debug) {
+      console.log(">> Performed action: ", nextAction);
+    }
   }
 
   // Reset grid from obstacles
   resetGridFromObstacles(grid);
+
+  if (debug) {
+    console.log(">> performAIaction End. Had action: ");
+    const ai = nextBattle.usersState.find((u) => u.userId === aiUserId);
+    console.log(">> Action Points 2: ", ai?.actionPoints);
+  }
 
   // Return the new state
   return { nextBattle, nextActionEffects, aiDescriptions };

@@ -670,8 +670,7 @@ export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) =
         if (action) {
           const notWait = action.id !== "wait";
           const { canAct } = actionPointsAfterAction(actor, battle, action);
-          const aiMove = actor.isAi && action.id === "move";
-          if (canAct && notWait && !aiMove) {
+          if (canAct && notWait) {
             return false;
           }
         }

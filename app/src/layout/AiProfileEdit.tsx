@@ -20,12 +20,8 @@ import { showMutationToast } from "@/libs/toast";
 import { api } from "@/utils/api";
 import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
-import {
-  AiRule,
-  ActionMoveTowardsOpponent,
-  ActionWithEffectHighestPower,
-  ConditionDistanceHigherThan,
-} from "@/validators/ai";
+import { detailedDiff } from "deep-object-diff";
+import { getBackupRules, ActionMoveTowardsOpponent } from "@/validators/ai";
 import { AvailableTargets } from "@/validators/ai";
 import { tagTypes } from "@/libs/combat/types";
 import type { AiRuleType, ZodAllAiCondition } from "@/validators/ai";
@@ -69,46 +65,34 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       },
     });
 
+  // Get backup rules
+  const backupRules = getBackupRules();
+
   // Insert rules from database into client state
   useEffect(() => {
     if (profile) {
+      // The rules we'll set
+      const copyRules = structuredClone(profile.rules);
       // If the last two rules are not move -> attack, add a default one
       if (isDefault) {
-        if (
-          profile.rules.at(-1)?.action?.type !== "use_highest_power_action" ||
-          profile.rules.at(-1)?.conditions.length !== 0 ||
-          profile.rules.at(-2)?.action?.type !== "use_highest_power_action" ||
-          profile.rules.at(-2)?.conditions.length !== 0 ||
-          profile.rules.at(-3)?.action?.type !== "move_towards_opponent" ||
-          profile.rules.at(-3)?.conditions?.[0]?.type !== "distance_higher_than" ||
-          profile.rules.at(-3)?.conditions?.[0]?.value !== 2
-        ) {
-          profile.rules.push(
-            AiRule.parse({
-              conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
-              action: ActionMoveTowardsOpponent.parse({}),
-            }),
-          );
-          profile.rules.push(
-            AiRule.parse({
-              conditions: [],
-              action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
-            }),
-          );
-          profile.rules.push(
-            AiRule.parse({
-              conditions: [],
-              action: ActionWithEffectHighestPower.parse({
-                effect: "damage",
-                target: "BARRIER_BLOCKING_CLOSEST_OPPONENT",
-              }),
-            }),
-          );
+        // Check that all the backup rules are matches by the last rules in the profile
+        const diff = detailedDiff(
+          backupRules,
+          profile.rules.slice(-backupRules.length),
+        );
+        const hasBackupRules =
+          Object.keys(diff.added).length === 0 &&
+          Object.keys(diff.deleted).length === 0 &&
+          Object.keys(diff.updated).length === 0;
+        if (!hasBackupRules) {
+          console.log("Adding backup rules");
+          copyRules.push(...backupRules);
         }
       }
-      setRules(profile.rules);
+      setRules(copyRules);
       setActiveElement(`Rule ${profile.rules.length}`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, isDefault]);
 
   // Convenience method for updating rules
@@ -166,19 +150,19 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       {rules.map((rule, i) => {
         const currentActionType = rule.action.type;
         const actionSchema = getActionSchema(currentActionType);
-        const isLastThree = i >= rules.length - 3;
-        const isLastFour = i >= rules.length - 4;
+        const isLastTwo = i >= rules.length - backupRules.length;
+        const isLastThree = i >= rules.length - backupRules.length - 1;
         return (
           <Accordion
             key={`rule-${i}`}
-            className={isDefault && isLastThree ? "opacity-50" : ""}
+            className={isDefault && isLastTwo ? "opacity-50" : ""}
             title={`Rule ${i + 1}`}
             titlePostfix={`: ${rule.conditions.map((c) => c.type).join(", ")} -> ${rule.action.type}`}
             selectedTitle={activeElement}
             onClick={setActiveElement}
             options={
               <>
-                {(!isDefault || !isLastThree) && (
+                {(!isDefault || !isLastTwo) && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -194,7 +178,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastFour) && (
+                {(!isDefault || !isLastThree) && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -210,7 +194,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!isDefault || !isLastThree) && (
+                {(!isDefault || !isLastTwo) && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {

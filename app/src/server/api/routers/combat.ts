@@ -318,7 +318,9 @@ export const combatRouter = createTRPCRouter({
           // Update the battle to the correct activeUserId & round. Default to current user
           const { actor, actionRound } = alignBattle(newBattle, suid);
           if (debug) {
-            console.log(`============ 1. Actor: ${actor.username} ============`);
+            console.log(
+              `============ 1. Actor: ${actor.username} - ${actor.userId} ============`,
+            );
           }
 
           // Only allow action if it is the users turn
