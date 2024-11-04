@@ -56,6 +56,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
 
   // Check role
   const isStaff = canChangeContent(userData?.role ?? "USER");
+  const canEdit = isStaff || !isDefault;
 
   // Data
   const { data: profile, isPending } = api.ai.getAiProfile.useQuery(
@@ -180,7 +181,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             onClick={setActiveElement}
             options={
               <>
-                {(!includeDefault || !isLastTwo) && (
+                {canEdit && (!includeDefault || !isLastTwo) && (
                   <SquareArrowUp
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -196,7 +197,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!includeDefault || !isLastThree) && (
+                {canEdit && (!includeDefault || !isLastThree) && (
                   <SquareArrowDown
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -212,7 +213,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                     }}
                   />
                 )}
-                {(!includeDefault || !isLastTwo) && (
+                {canEdit && (!includeDefault || !isLastTwo) && (
                   <Trash2
                     className="w-6 h-6 hover:cursor-pointer hover:text-orange-500"
                     onClick={() => {
@@ -530,7 +531,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             labelInactive="No Default"
           />
         )}
-        {!isSaving && (
+        {!isSaving && canEdit && (
           <Button
             onClick={() => {
               setRules((prevRules) => [
@@ -547,7 +548,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             <FilePlus className="h-6 w-6 mr-2" /> Add Rule
           </Button>
         )}
-        {!isSaving && rules.length > 0 && (
+        {!isSaving && canEdit && rules.length > 0 && (
           <Button
             onClick={() => {
               updateAiProfile({
