@@ -55,6 +55,9 @@ export const aiRouter = createTRPCRouter({
       if (!canChangeContent(user.role) && user.userId !== profile.userId) {
         return errorResponse("Unauthorized");
       }
+      if (profile.id === "Default" && !canChangeContent(user.role)) {
+        return errorResponse("Unauthorized");
+      }
       // Update
       await ctx.drizzle
         .update(aiProfile)
