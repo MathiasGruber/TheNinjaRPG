@@ -314,7 +314,7 @@ export const updateUser = async (
   result: CombatResult | null,
   userId: string,
 ) => {
-  const user = curBattle.usersState.find((user) => user.userId === userId);
+  const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {
     // Update quest tracker with battle result
     if (result.didWin > 0) {
@@ -334,11 +334,13 @@ export const updateUser = async (
     // Update trackers
     const { trackers, notifications } = getNewTrackers(
       user,
-      curBattle.usersState.map((u) => ({
-        task: "defeat_opponents",
-        contentId: u.userId,
-        text: result.outcome,
-      })),
+      curBattle.usersState
+        .filter((u) => u.userId !== userId)
+        .map((u) => ({
+          task: "defeat_opponents",
+          contentId: u.userId,
+          text: result.outcome,
+        })),
     );
     user.questData = trackers;
     // Add notifications to combatResult

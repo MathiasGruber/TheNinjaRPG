@@ -4,6 +4,7 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import AvatarImage from "@/layout/Avatar";
 import RichInput from "@/layout/RichInput";
+import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -17,6 +18,9 @@ import { cn } from "src/libs/shadui";
 import { api } from "@/app/_trpc/client";
 
 export default function ManualTravel() {
+  // User state
+  const { data: userData } = useUserData();
+
   // Users Query
   const { data, isPending: isLoadingUsers } = api.profile.getPublicUsers.useQuery(
     { orderBy: "Staff", isAi: false, limit: 50 },
@@ -25,7 +29,9 @@ export default function ManualTravel() {
   const users = data?.data || [];
 
   // Current user reviews
-  const { data: userReviews } = api.reports.getUserStaffReviews.useQuery();
+  const { data: userReviews } = api.reports.getUserStaffReviews.useQuery(undefined, {
+    enabled: !!userData,
+  });
 
   return (
     <>

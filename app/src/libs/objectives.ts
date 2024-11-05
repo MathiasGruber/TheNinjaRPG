@@ -84,6 +84,8 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: "/badges/stats_trained.webp", title: "Stats Trained" };
     case "days_in_village":
       return { image: "/badges/time_in_village.webp", title: "Days in Village" };
+    case "reputation_points":
+      return { image: "/badges/reputation_points.webp", title: "Reputation Bought" };
     case "user_level":
       return { image: "/badges/user_level.webp", title: "User Level" };
     // case "students_trained":

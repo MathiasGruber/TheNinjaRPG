@@ -5,7 +5,7 @@ import { forumPost, forumThread, questHistory, userAttribute } from "@/drizzle/s
 import { bankTransfers, bloodlineRolls, conceptImage } from "@/drizzle/schema";
 import { userData, battle, dataBattleAction, userJutsu, jutsu } from "@/drizzle/schema";
 import { userItem, mpvpBattleQueue, mpvpBattleUser } from "@/drizzle/schema";
-import { trainingLog, village, captcha } from "@/drizzle/schema";
+import { trainingLog, village, captcha, userRequest } from "@/drizzle/schema";
 import { battleHistory, battleAction, historicalAvatar, clan } from "@/drizzle/schema";
 import { conversation, user2conversation, conversationComment } from "@/drizzle/schema";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
@@ -208,6 +208,11 @@ export async function GET() {
     await drizzleDB.execute(
       sql`DELETE FROM ${captcha} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`,
     );
+
+    // Step 28: Clear old challenges:
+    await drizzleDB
+      .delete(userRequest)
+      .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
 
     return Response.json(`OK`);
   } catch (cause) {

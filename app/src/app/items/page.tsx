@@ -237,25 +237,27 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                 </Button>
               )}
               <div className="grow"></div>
-              {useritem.item.isEventItem ? (
-                <Button
-                  id="sell"
-                  variant="destructive"
-                  onClick={() => sell({ userItemId: useritem.id })}
-                >
-                  <ArrowDownToLine className="mr-2 h-5 w-5" />
-                  Drop Item
-                </Button>
-              ) : (
-                <Button
-                  id="sell"
-                  variant="destructive"
-                  onClick={() => sell({ userItemId: useritem.id })}
-                >
-                  <CircleDollarSign className="mr-2 h-5 w-5" />
-                  Sell Item [{Math.floor(sellPrice)} ryo]
-                </Button>
-              )}
+              <Confirm
+                title="Security Confirmation"
+                proceed_label="Submit"
+                button={
+                  useritem.item.isEventItem ? (
+                    <Button id="sell" variant="destructive">
+                      <ArrowDownToLine className="mr-2 h-5 w-5" />
+                      Drop Item
+                    </Button>
+                  ) : (
+                    <Button id="sell" variant="destructive">
+                      <CircleDollarSign className="mr-2 h-5 w-5" />
+                      Sell Item [{Math.floor(sellPrice)} ryo]
+                    </Button>
+                  )
+                }
+                onAccept={() => sell({ userItemId: useritem.id })}
+              >
+                Are you absolutely sure you wish to remove this item from your
+                inventory?
+              </Confirm>
             </div>
           )}
           {isMerging && <Loader explanation={`Merging ${useritem.item.name} stacks`} />}

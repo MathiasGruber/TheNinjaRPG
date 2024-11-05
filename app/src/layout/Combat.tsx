@@ -17,7 +17,7 @@ import { highlightUsers } from "@/libs/combat/drawing";
 import { calcActiveUser } from "@/libs/combat/actions";
 import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/app/_trpc/client";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";
@@ -59,6 +59,9 @@ const Combat: React.FC<CombatProps> = (props) => {
   const mouse = new Vector2();
   const battleId = battle.current?.id;
   const battleType = battle.current?.battleType;
+
+  // Mutation protection
+  const onMutateCheck = useGlobalOnMutateProtect();
 
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
@@ -130,6 +133,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // User Action
   const { mutate: performAction, isPending } = api.combat.performAction.useMutation({
     onMutate: () => {
+      onMutateCheck();
       document.body.style.cursor = "wait";
       setBattleState({ battle: battle.current, result: null, isPending: true });
     },

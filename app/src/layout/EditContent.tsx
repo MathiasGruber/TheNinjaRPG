@@ -383,7 +383,7 @@ export const EditContent = <
                           } else if (props.type === "item") {
                             prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "badge") {
-                            prompt = `${prompt} badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
+                            prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "jutsu") {
                             prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
                           } else if (props.type === "bloodline") {

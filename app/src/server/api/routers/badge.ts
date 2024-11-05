@@ -93,7 +93,7 @@ export const badgeRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(badge).values({
         id: id,
-        name: "Placeholder",
+        name: `New Badge - ${id}`,
         image: IMG_AVATAR_DEFAULT,
         description: "",
       });

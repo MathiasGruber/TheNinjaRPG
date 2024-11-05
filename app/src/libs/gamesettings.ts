@@ -1,8 +1,10 @@
+import { TRPCError } from "@trpc/server";
+import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { gameSetting } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
-import { secondsPassed } from "@/utils/time";
+import { secondsPassed, addDays } from "@/utils/time";
 import { round } from "@/utils/math";
 import type { DrizzleClient } from "@/server/db";
 import type { GameSetting } from "@/drizzle/schema";
@@ -19,7 +21,7 @@ export const getGameSetting = async (client: DrizzleClient, name: string) => {
     where: eq(gameSetting.name, name),
   });
   if (!setting) {
-    setting = { id: nanoid(), name: name, time: new Date(), value: 0 };
+    setting = { id: nanoid(), name: name, time: addDays(new Date(), -2), value: 0 };
     await client.insert(gameSetting).values(setting);
   }
   return setting;
@@ -44,6 +46,29 @@ export const updateGameSetting = async (
     .update(gameSetting)
     .set({ value, time })
     .where(eq(gameSetting.name, setting.name));
+};
+
+/**
+ * Locks the game with a timer based on the specified frequency and unit.
+ *
+ * @param client - The DrizzleClient instance to interact with the game settings.
+ * @param frequency - The frequency value for the timer.
+ * @param unit - The unit of time for the frequency (default is "h" for hours).
+ * @param prefix - The prefix to use for the timer identifier (default is "timer").
+ * @returns A promise that resolves to the response from the checkGameTimer function.
+ */
+export const lockWithGameTimer = async (
+  client: DrizzleClient,
+  frequency: number,
+  unit = "h",
+  prefix = "timer",
+) => {
+  const response = await checkGameTimer(client, frequency, unit, prefix);
+  const idx = `${prefix}-${frequency}${unit}`;
+  if (!response) {
+    await updateGameSetting(client, idx, 0, new Date());
+  }
+  return response;
 };
 
 /**
@@ -87,4 +112,25 @@ export const getGameSettingBoost = (settingName: string, settings: GameSetting[]
     }
   }
   return null;
+};
+
+/**
+ * Handles errors that occur during endpoint processing.
+ * Logs the error to the console and returns an appropriate HTTP response.
+ *
+ * @param cause - The error that occurred. This can be of any type.
+ * @returns A JSON response with the error details and the appropriate HTTP status code.
+ *          If the error is an instance of TRPCError, the response will contain the error details
+ *          and the corresponding HTTP status code. Otherwise, it returns a generic "Internal server error"
+ *          message with a 500 status code.
+ */
+export const handleEndpointError = (cause: unknown) => {
+  console.error(cause);
+  if (cause instanceof TRPCError) {
+    // An error from tRPC occured
+    const httpCode = getHTTPStatusCodeFromError(cause);
+    return Response.json(cause, { status: httpCode });
+  }
+  // Another error occured
+  return Response.json("Internal server error", { status: 500 });
 };

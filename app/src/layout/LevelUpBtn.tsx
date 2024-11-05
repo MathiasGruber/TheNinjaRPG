@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sendGTMEvent } from "@next/third-parties/google";
-import { api } from "@/app/_trpc/client";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { calcLevelRequirements } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -15,6 +15,7 @@ import { showMutationToast } from "@/libs/toast";
 
 const LevelUpBtn: React.FC = () => {
   // State
+  const onMutateCheck = useGlobalOnMutateProtect();
   const { data: userData } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [isLevelling, setIsLevelling] = useState<boolean>(false);
@@ -25,6 +26,7 @@ const LevelUpBtn: React.FC = () => {
   // Fetch avatar query
   const { mutate: levelUp } = api.profile.levelUp.useMutation({
     onMutate: () => {
+      onMutateCheck();
       setIsLevelling(true);
     },
     onSuccess: async (data) => {

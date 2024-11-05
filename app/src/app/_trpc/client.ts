@@ -5,6 +5,7 @@
 import { TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { toast } from "@/components/ui/use-toast";
+import { useUser } from "@clerk/nextjs";
 import { type AppRouter } from "@/api/root";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 
@@ -42,4 +43,13 @@ export const onError = (err: unknown) => {
       description: err.message,
     });
   }
+};
+
+export const useGlobalOnMutateProtect = () => {
+  const { isSignedIn } = useUser();
+  return () => {
+    if (!isSignedIn) {
+      throw new Error("You need to be signed in to perform this action.");
+    }
+  };
 };

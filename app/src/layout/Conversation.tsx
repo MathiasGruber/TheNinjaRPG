@@ -10,7 +10,7 @@ import Loader from "@/layout/Loader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/app/_trpc/client";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { Check } from "lucide-react";
@@ -33,6 +33,7 @@ interface ConversationProps {
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
+  const onMutateCheck = useGlobalOnMutateProtect();
   const { data: userData, pusher } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
@@ -151,6 +152,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const { mutate: createComment, isPending: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onMutate: async (newMessage) => {
+        onMutateCheck();
         return await optimisticConversationUpdate(newMessage);
       },
       onSuccess: () => {

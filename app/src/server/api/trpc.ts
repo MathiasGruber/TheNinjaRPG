@@ -42,10 +42,11 @@ export const createAppTRPCContext = async (opts: {
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
 }) => {
-  const { readHeaders } = opts;
+  // Get user ID - SIMPLE
   const sesh = await auth();
   const userId = sesh.userId;
   // Get IP
+  const { readHeaders } = opts;
   const ip = readHeaders.get("x-forwarded-for") ?? undefined;
   const userIp = typeof ip === "string" ? ip.split(/, /)[0] : "unknown";
   // Get agent

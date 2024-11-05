@@ -67,24 +67,25 @@ const LogbookActive: React.FC = () => {
 
   return (
     <div className="">
-      {userData?.userQuests
-        ?.filter((uq) => uq.quest.questType !== "achievement")
-        .map((uq, i) => {
-          const tracker = userData?.questData?.find((q) => q.id === uq.questId);
-          return (
-            tracker && (
-              <Accordion
-                key={i}
-                title={uq.quest.name}
-                selectedTitle={activeElement}
-                titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
-                onClick={setActiveElement}
-              >
-                <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
-              </Accordion>
-            )
-          );
-        })}
+      {userData?.userQuests.map((uq, i) => {
+        const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+        return (
+          tracker &&
+          (uq.quest.questType !== "achievement" ? (
+            <Accordion
+              key={i}
+              title={uq.quest.name}
+              selectedTitle={activeElement}
+              titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
+              onClick={setActiveElement}
+            >
+              <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+            </Accordion>
+          ) : (
+            <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+          ))
+        );
+      })}
     </div>
   );
 };

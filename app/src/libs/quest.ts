@@ -188,6 +188,8 @@ export const getNewTrackers = (
           } else if (task === "days_in_village") {
             const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
             status.value = days;
+          } else if (task === "reputation_points") {
+            status.value = user.reputationPointsTotal;
           } else if (task === "minutes_passed" && questTracker) {
             const minutes = Math.floor(
               secondsPassed(new Date(questTracker.startAt)) / 60,

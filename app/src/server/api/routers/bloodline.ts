@@ -108,7 +108,7 @@ export const bloodlineRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(bloodline).values({
         id: id,
-        name: "New Bloodline",
+        name: `New Bloodline - ${id}`,
         image: IMG_AVATAR_DEFAULT,
         description: "New bloodline description",
         effects: [],

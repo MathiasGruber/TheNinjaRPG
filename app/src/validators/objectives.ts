@@ -25,6 +25,7 @@ export const SimpleTasks = [
   "days_in_village",
   "jutsus_mastered",
   "user_level",
+  "reputation_points",
   //"students_trained",
 ] as const;
 

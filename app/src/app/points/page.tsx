@@ -441,72 +441,70 @@ const PayPalSubscriptionButton = (props: {
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
       </div>
-      {upgradeCost && (
-        <div className="bg-amber-200 text-black border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
-          <PayPalButtons
-            style={{ layout: "horizontal", label: "subscribe", tagline: false }}
-            forceReRender={[props.userId]}
-            createSubscription={(data, actions) => {
-              return actions.subscription.create({
-                plan_id: props.subscriptionPlan,
-                custom_id: `${props.buyerId}-${props.userId}`,
+      <div className="bg-amber-200 text-black border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
+        <PayPalButtons
+          style={{ layout: "horizontal", label: "subscribe", tagline: false }}
+          forceReRender={[props.userId]}
+          createSubscription={(data, actions) => {
+            return actions.subscription.create({
+              plan_id: props.subscriptionPlan,
+              custom_id: `${props.buyerId}-${props.userId}`,
+            });
+          }}
+          onApprove={(data, actions) => {
+            if (data.subscriptionID) {
+              subscribe({
+                subscriptionId: data.subscriptionID,
+                orderId: data.orderID,
               });
-            }}
-            onApprove={(data, actions) => {
-              if (data.subscriptionID) {
-                subscribe({
-                  subscriptionId: data.subscriptionID,
-                  orderId: data.orderID,
-                });
-              } else {
-                showMutationToast({
-                  success: false,
-                  message:
-                    "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-                  title: "No subscription",
-                });
-              }
-              // Send GTM event with conversion data
-              if (actions.order) {
-                return actions.order.capture().then((details) => {
-                  const purchaseUnit = details.purchase_units[0];
-                  const transaction_id = purchaseUnit?.invoice_id;
-                  const currency = purchaseUnit?.amount?.currency_code;
-                  const value = purchaseUnit?.amount?.value;
-                  if (transaction_id && currency && value) {
-                    sendGTMEvent({ ecommerce: null });
-                    sendGTMEvent({
-                      event: "purchase",
-                      transaction_id: transaction_id,
-                      currency: currency,
-                      value: Number(value),
-                      items: [
-                        {
-                          item_id: data.subscriptionID,
-                          item_name: props.buttonStatus,
-                        },
-                      ],
-                    });
-                  }
-                });
-              } else {
-                return new Promise(() => {
-                  return null;
-                });
-              }
-            }}
-          />
-          {props.buttonStatus === "NORMAL" && (
-            <h3 className="font-bold italic">$5 / Month</h3>
-          )}
-          {props.buttonStatus === "SILVER" && (
-            <h3 className="font-bold italic">$10 / Month</h3>
-          )}
-          {props.buttonStatus === "GOLD" && (
-            <h3 className="font-bold italic">$15 / Month</h3>
-          )}
-        </div>
-      )}
+            } else {
+              showMutationToast({
+                success: false,
+                message:
+                  "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
+                title: "No subscription",
+              });
+            }
+            // Send GTM event with conversion data
+            if (actions.order) {
+              return actions.order.capture().then((details) => {
+                const purchaseUnit = details.purchase_units[0];
+                const transaction_id = purchaseUnit?.invoice_id;
+                const currency = purchaseUnit?.amount?.currency_code;
+                const value = purchaseUnit?.amount?.value;
+                if (transaction_id && currency && value) {
+                  sendGTMEvent({ ecommerce: null });
+                  sendGTMEvent({
+                    event: "purchase",
+                    transaction_id: transaction_id,
+                    currency: currency,
+                    value: Number(value),
+                    items: [
+                      {
+                        item_id: data.subscriptionID,
+                        item_name: props.buttonStatus,
+                      },
+                    ],
+                  });
+                }
+              });
+            } else {
+              return new Promise(() => {
+                return null;
+              });
+            }
+          }}
+        />
+        {props.buttonStatus === "NORMAL" && (
+          <h3 className="font-bold italic">$5 / Month</h3>
+        )}
+        {props.buttonStatus === "SILVER" && (
+          <h3 className="font-bold italic">$10 / Month</h3>
+        )}
+        {props.buttonStatus === "GOLD" && (
+          <h3 className="font-bold italic">$15 / Month</h3>
+        )}
+      </div>
       {!hasSubscription && (
         <Confirm
           title="Confirm Upgrade"

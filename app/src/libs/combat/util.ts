@@ -555,13 +555,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           deltaPrestige -= isAlly || sameVillage ? FRIENDLY_PRESTIGE_COST : 0;
 
           // Village tokens for killing enemies
-          deltaTokens += target.relations
-            .filter((r) => r.status === "ENEMY")
-            .filter(
-              (r) =>
-                (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
-                (r.villageIdA === target.villageId && r.villageIdB === vilId),
-            ).length;
+          deltaTokens +=
+            target.relations
+              .filter((r) => r.status === "ENEMY")
+              .filter(
+                (r) =>
+                  (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
+                  (r.villageIdA === target.villageId && r.villageIdB === vilId),
+              ).length * 5;
         });
       }
 
