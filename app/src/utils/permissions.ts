@@ -30,6 +30,10 @@ export const canModifyEventGains = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
+export const canChangeDefaultAiProfile = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
 export const canChangeUserRole = (role: UserRole) => {
   if (role === "CODING-ADMIN") {
     return UserRoles;

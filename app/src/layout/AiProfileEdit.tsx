@@ -23,7 +23,7 @@ import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
 import { ActionMoveTowardsOpponent } from "@/validators/ai";
 import { getBackupRules, enforceExtraRules } from "@/validators/ai";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canChangeDefaultAiProfile } from "@/utils/permissions";
 import { AvailableTargets } from "@/validators/ai";
 import { tagTypes } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -523,12 +523,12 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         <div className="grow"></div>
         {isStaff && (
           <Toggle
-            id="toggle-damage-simulator"
+            id="catchAllRules"
             value={includeDefault}
             disabled={isDefault}
             setShowActive={setIncludeDefault}
-            labelActive="Include Default"
-            labelInactive="No Default"
+            labelActive="Include CatchAll"
+            labelInactive="No CatchAll"
           />
         )}
         {!isSaving && canEdit && (

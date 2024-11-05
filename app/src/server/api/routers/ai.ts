@@ -5,8 +5,9 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { aiProfile, userData } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canChangeDefaultAiProfile } from "@/utils/permissions";
 import { AiRule } from "@/validators/ai";
+import { AI_PROFILE_MAX_RULES } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const aiRouter = createTRPCRouter({
@@ -55,8 +56,11 @@ export const aiRouter = createTRPCRouter({
       if (!canChangeContent(user.role) && user.userId !== profile.userId) {
         return errorResponse("Unauthorized");
       }
-      if (profile.id === "Default" && !canChangeContent(user.role)) {
-        return errorResponse("Unauthorized");
+      if (profile.id === "Default" && !canChangeDefaultAiProfile(user.role)) {
+        return errorResponse("Default profile only modifiable by content admin");
+      }
+      if (input.rules.length > AI_PROFILE_MAX_RULES) {
+        return errorResponse(`Maximum of ${AI_PROFILE_MAX_RULES} rules allowed`);
       }
       // Update
       await ctx.drizzle

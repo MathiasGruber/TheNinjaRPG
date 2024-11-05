@@ -436,6 +436,9 @@ export const MEDNIN_REQUIRED_EXP = {
   MASTER: 400000,
 } as { [key in MEDNIN_RANK]: number };
 
+// Ai profile config
+export const AI_PROFILE_MAX_RULES = 20;
+
 // Training config
 export const JUTSU_XP_TO_LEVEL = 1000;
 export const JUTSU_LEVEL_CAP = 20;
