@@ -102,7 +102,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
     isPending,
   } = api.comments.getUserConversations.useQuery(
     { selectedConvo: selectedConvo },
-    { enabled: !!userData, staleTime: 300000 },
+    { enabled: !!userData, staleTime: 0 },
   );
 
   // Mutations

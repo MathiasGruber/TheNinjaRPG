@@ -504,10 +504,6 @@ export const commentsRouter = createTRPCRouter({
                     eq(user2conversation.conversationId, convo.id),
                   ),
                 ),
-              ctx.drizzle
-                .update(conversation)
-                .set({ updatedAt: new Date() })
-                .where(eq(conversation.id, convo.id)),
             ]),
       ]);
       // Fetch
