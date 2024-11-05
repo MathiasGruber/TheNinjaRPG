@@ -6,7 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { Button } from "@/components/ui/button";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { FilePlus } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserData } from "@/utils/UserContext";

@@ -2,7 +2,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BloodlineValidator } from "@/libs/combat/types";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { LetterRanks } from "@/drizzle/constants";
 import { StatTypes } from "@/drizzle/constants";

@@ -15,7 +15,7 @@ import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { getScriptID, destroySDKScript } from "@paypal/react-paypal-js";
 import { usePayPalScriptReducer } from "@paypal/react-paypal-js";
-import { api, onError } from "@/utils/api";
+import { api, onError } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reps2dollars, calcFedUgradeCost, fedStatusRepsCost } from "@/utils/paypal";

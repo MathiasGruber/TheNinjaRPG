@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sendGTMEvent } from "@next/third-parties/google";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { calcLevelRequirements } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";

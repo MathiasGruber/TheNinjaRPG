@@ -21,7 +21,7 @@ import { mutateContentSchema } from "@/validators/comments";
 import { CircleArrowUp, GitFork } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { calcStructureUpgrade } from "@/utils/village";
 import { useRequireInVillage } from "@/utils/UserContext";

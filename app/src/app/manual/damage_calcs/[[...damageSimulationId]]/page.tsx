@@ -15,7 +15,7 @@ import { calcLevel, calcHP } from "@/libs/profile";
 import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { statSchema, actSchema, confSchema } from "@/libs/combat/types";
 import { dmgConfig } from "@/libs/combat/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Chart as ChartJS } from "chart.js/auto";
 import { MultiSelect } from "@/components/ui/multi-select";

@@ -14,7 +14,7 @@ import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { showMutationToast } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { sleep } from "@/utils/time";
 import { Button } from "@/components/ui/button";

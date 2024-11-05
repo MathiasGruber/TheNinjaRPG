@@ -6,7 +6,7 @@ import Countdown from "@/layout/Countdown";
 import ParsedReportJson from "@/layout/ReportReason";
 import { reportCommentExplain } from "@/utils/reports";
 import { reportCommentColor } from "@/utils/reports";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 interface BanInfoProps {
   hideContentBox?: boolean;

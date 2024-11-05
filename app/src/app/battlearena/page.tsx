@@ -19,7 +19,7 @@ import { getSearchValidator } from "@/validators/register";
 import { useRouter } from "next/navigation";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

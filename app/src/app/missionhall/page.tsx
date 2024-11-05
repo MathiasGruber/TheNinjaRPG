@@ -6,7 +6,7 @@ import BanInfo from "@/layout/BanInfo";
 import { LogbookEntry } from "@/layout/Logbook";
 import Image from "next/image";
 import { showMutationToast } from "@/libs/toast";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";

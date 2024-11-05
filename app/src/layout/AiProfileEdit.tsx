@@ -18,12 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showMutationToast } from "@/libs/toast";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getConditionSchema, getActionSchema } from "@/validators/ai";
 import { AiActionTypes, AiConditionTypes } from "@/validators/ai";
 import { ActionMoveTowardsOpponent } from "@/validators/ai";
 import { getBackupRules, enforceExtraRules } from "@/validators/ai";
-import { canChangeContent, canChangeDefaultAiProfile } from "@/utils/permissions";
+import { canChangeContent } from "@/utils/permissions";
 import { AvailableTargets } from "@/validators/ai";
 import { tagTypes } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";

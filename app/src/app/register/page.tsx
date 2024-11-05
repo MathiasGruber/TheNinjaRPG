@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { registrationSchema } from "@/validators/register";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";

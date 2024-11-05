@@ -35,7 +35,7 @@ import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { canSeeSecretData, canSeeIps } from "@/utils/permissions";
 import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";

@@ -11,7 +11,7 @@ import { LogbookEntry } from "@/layout/Logbook";
 import { Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { IMG_BUILDING_ADMINBUILDING } from "@/drizzle/constants";

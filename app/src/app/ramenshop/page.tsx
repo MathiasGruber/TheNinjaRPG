@@ -4,7 +4,7 @@ import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";

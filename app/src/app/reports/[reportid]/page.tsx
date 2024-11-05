@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { CommentOnReport } from "@/layout/Comment";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { reportCommentSchema } from "@/validators/reports";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";

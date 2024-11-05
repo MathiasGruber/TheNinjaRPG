@@ -29,7 +29,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import Tournament from "@/layout/Tournament";
 import { ObjectiveReward } from "@/validators/objectives";
 import { mutateContentSchema } from "@/validators/comments";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";

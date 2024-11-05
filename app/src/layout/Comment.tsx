@@ -9,7 +9,7 @@ import ReportUser from "@/layout/Report";
 import { cn } from "src/libs/shadui";
 import { canDeleteComment } from "@/utils/permissions";
 import { mutateCommentSchema } from "@/validators/comments";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import type { systems } from "@/validators/reports";

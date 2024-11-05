@@ -16,7 +16,7 @@ import {
   REMOVAL_COST,
   ROLL_CHANCE_PERCENTAGE,
 } from "@/drizzle/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import type { Bloodline } from "@/drizzle/schema";
 

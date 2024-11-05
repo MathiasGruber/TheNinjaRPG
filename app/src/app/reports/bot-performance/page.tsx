@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Toggle from "@/components/control/Toggle";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { groupBy } from "@/utils/grouping";
 import { Chart as ChartJS } from "chart.js/auto";
 import { useRequiredUserData } from "@/utils/UserContext";

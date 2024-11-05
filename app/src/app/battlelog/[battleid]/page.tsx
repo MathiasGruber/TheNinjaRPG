@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import ActionTimer from "@/layout/ActionTimer";
 import ContentBox from "@/layout/ContentBox";

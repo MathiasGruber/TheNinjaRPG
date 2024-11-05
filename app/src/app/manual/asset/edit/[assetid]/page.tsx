@@ -3,7 +3,7 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { useRouter } from "next/navigation";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useEffect } from "react";
 import { EditContent } from "@/layout/EditContent";
 import { useRequiredUserData } from "@/utils/UserContext";

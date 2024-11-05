@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { calcItemSellingPrice } from "@/libs/item";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { calcMaxItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";

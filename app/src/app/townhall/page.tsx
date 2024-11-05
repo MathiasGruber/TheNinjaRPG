@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { useRouter } from "next/navigation";
 import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";

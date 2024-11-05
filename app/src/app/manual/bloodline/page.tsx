@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen, ChartCandlestick } from "lucide-react";
 import { ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";

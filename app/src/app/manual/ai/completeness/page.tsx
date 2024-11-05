@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import WordCloud from "@/layout/Wordcloud";
 import { Chart as ChartJS } from "chart.js/auto";

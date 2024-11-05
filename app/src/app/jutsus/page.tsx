@@ -23,7 +23,7 @@ import {
   hasRequiredLevel,
 } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getUserElements } from "@/validators/user";
 import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";

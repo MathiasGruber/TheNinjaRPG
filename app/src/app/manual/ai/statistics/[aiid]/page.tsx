@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UsageStats } from "@/layout/UsageStatistics";
 
 export default function ManualAIsStatistcs({ params }: { params: { aiid: string } }) {

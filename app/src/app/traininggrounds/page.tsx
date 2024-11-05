@@ -42,7 +42,7 @@ import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/train";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { CheckCheck, DoorOpen } from "lucide-react";

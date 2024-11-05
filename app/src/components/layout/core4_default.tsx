@@ -19,7 +19,7 @@ import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
 import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";

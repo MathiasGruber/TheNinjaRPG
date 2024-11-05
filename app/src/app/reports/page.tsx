@@ -11,7 +11,7 @@ import ParsedReportJson from "@/layout/ReportReason";
 import { Presentation, Eraser, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentExplain } from "@/utils/reports";

@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { forumBoardSchema, type ForumBoardSchema } from "@/validators/forum";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";

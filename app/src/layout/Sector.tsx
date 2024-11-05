@@ -15,7 +15,7 @@ import { z } from "zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useForm } from "react-hook-form";
 import { Vector2, OrthographicCamera, Group } from "three";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRouter } from "next/navigation";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";

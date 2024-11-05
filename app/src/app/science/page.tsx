@@ -6,7 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import { RollBloodline, CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { IMG_BUILDING_SCIENCEBUILDING } from "@/drizzle/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 export default function Science() {
   // Settings

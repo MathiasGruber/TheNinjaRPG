@@ -3,7 +3,7 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";

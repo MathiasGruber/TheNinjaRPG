@@ -1,7 +1,7 @@
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UserRoles, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { updateUserSchema } from "@/validators/user";

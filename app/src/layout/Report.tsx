@@ -12,7 +12,7 @@ import Post from "./Post";
 import { type UserReportSchema, type systems } from "../validators/reports";
 import { userReportSchema } from "../validators/reports";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 

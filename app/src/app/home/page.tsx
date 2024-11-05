@@ -5,7 +5,7 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";

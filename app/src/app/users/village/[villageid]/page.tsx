@@ -7,7 +7,7 @@ import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import NavTabs from "@/layout/NavTabs";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserSearch } from "@/utils/search";
 import type { ArrayElement } from "@/utils/typeutils";

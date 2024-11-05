@@ -1,6 +1,6 @@
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { JutsuValidator } from "@/libs/combat/types";
 import { AttackTargets } from "@/drizzle/constants";

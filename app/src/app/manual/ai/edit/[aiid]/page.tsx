@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { FilePlus, FileMinus } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { tagTypes } from "@/libs/combat/types";
 import { WeaknessTag } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";

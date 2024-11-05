@@ -7,7 +7,7 @@ import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import ExportGraph from "@/layout/ExportGraph";
 import { getUsageChart } from "@/layout/UsageStatistics";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { BattleTypes } from "@/drizzle/constants";
 
 export default function ManualJutsusBalance() {

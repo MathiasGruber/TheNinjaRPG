@@ -1,5 +1,5 @@
 import React from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getUnique } from "@/utils/grouping";
 import Loader from "@/layout/Loader";
 import GraphUsersGeneric from "@/layout/GraphUsersGeneric";

@@ -6,7 +6,7 @@ import Loader from "@/layout/Loader";
 import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Info } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { cn } from "src/libs/shadui";
 
 export default function Staff() {

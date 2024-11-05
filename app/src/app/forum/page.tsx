@@ -8,7 +8,7 @@ import ContentBox from "@/layout/ContentBox";
 import Post from "@/layout/Post";
 import Loader from "@/layout/Loader";
 
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { secondsPassed } from "@/utils/time";
 import { groupBy } from "@/utils/grouping";
 import { IMG_ICON_FORUM } from "@/drizzle/constants";

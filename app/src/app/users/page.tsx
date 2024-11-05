@@ -10,7 +10,7 @@ import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import { canSeeIps } from "@/utils/permissions";
 import { ExternalLink } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showUserRank } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";

@@ -17,7 +17,7 @@ import { highlightUsers } from "@/libs/combat/drawing";
 import { calcActiveUser } from "@/libs/combat/actions";
 import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";

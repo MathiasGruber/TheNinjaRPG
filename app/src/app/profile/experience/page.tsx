@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 
 export default function AssignExperience() {

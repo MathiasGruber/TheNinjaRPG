@@ -10,7 +10,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { useInfinitePagination } from "@/libs/pagination";
 import { getSearchValidator } from "@/validators/register";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useRequireInVillage } from "@/utils/UserContext";

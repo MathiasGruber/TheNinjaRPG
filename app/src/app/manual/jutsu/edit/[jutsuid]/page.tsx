@@ -8,7 +8,7 @@ import ChatInputField from "@/layout/ChatInputField";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { FilePlus, FileMinus } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { DamageTag } from "@/libs/combat/types";
 import { JutsuValidator } from "@/libs/combat/types";

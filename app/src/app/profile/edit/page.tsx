@@ -46,7 +46,7 @@ import {
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useUserSearch } from "@/utils/search";
 import { showMutationToast } from "@/libs/toast";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";

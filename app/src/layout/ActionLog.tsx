@@ -4,7 +4,7 @@ import { useState } from "react";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { ActionLogSchema } from "@/validators/logs";

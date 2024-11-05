@@ -12,7 +12,7 @@ import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
 import { structureBoost } from "@/utils/village";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";

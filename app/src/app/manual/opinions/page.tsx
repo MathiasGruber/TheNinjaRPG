@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { showMutationToast } from "@/libs/toast";
 import { userReviewSchema, type UserReviewSchema } from "@/validators/reports";
 import { cn } from "src/libs/shadui";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 export default function ManualTravel() {
   // Users Query

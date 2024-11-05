@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { secondsFromDate } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";

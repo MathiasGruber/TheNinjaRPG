@@ -10,7 +10,7 @@ import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import { CommentOnForum } from "@/layout/Comment";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { mutateCommentSchema } from "@/validators/comments";
 import { type MutateCommentSchema } from "@/validators/comments";
 

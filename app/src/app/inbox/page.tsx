@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { SquarePen, Users, X, Trash2, BellRing } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createConversationSchema } from "@/validators/comments";
 import { type CreateConversationSchema } from "@/validators/comments";

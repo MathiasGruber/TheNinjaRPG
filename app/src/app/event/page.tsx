@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canSubmitNotification } from "@/utils/permissions";
 import { canModifyEventGains } from "@/utils/permissions";

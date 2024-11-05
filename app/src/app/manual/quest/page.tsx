@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { Button } from "@/components/ui/button";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { FilePlus, SquarePen } from "lucide-react";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";

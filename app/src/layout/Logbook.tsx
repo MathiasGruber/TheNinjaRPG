@@ -12,7 +12,7 @@ import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import { parseHtml } from "@/utils/parse";

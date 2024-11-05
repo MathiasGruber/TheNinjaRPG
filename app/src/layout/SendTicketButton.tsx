@@ -14,7 +14,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocalStorage } from "@/hooks/localstorage";

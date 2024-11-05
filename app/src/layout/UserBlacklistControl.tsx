@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import AvatarImage from "@/layout/Avatar";
 import Loader from "@/layout/Loader";

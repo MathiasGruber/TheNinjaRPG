@@ -1,6 +1,6 @@
 import React from "react";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { Folder } from "lucide-react";
 import { showMutationToast } from "@/libs/toast";

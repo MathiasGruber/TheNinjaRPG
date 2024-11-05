@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { DamageTag } from "@/libs/combat/types";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";

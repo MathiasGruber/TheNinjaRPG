@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import ContentBox from "@/layout/ContentBox";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { fetchMap } from "@/libs/travel/globe";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 const Map = dynamic(() => import("@/layout/Map"), {
   ssr: false,

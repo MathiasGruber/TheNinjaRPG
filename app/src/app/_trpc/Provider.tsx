@@ -18,6 +18,11 @@ export default function TrpcClientProvider(props: { children: React.ReactNode })
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: Infinity,
+          },
+        },
         queryCache: new QueryCache({
           onError: onError,
         }),

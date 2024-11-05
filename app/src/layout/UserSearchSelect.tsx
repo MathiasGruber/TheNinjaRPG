@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/form";
 import { X } from "lucide-react";
 import { getUnique } from "@/utils/grouping";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { FederalStatus } from "../../drizzle/schema";
 import type { UseFormReturn } from "react-hook-form";
 

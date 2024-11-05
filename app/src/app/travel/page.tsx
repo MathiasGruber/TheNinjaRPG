@@ -15,7 +15,7 @@ import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
