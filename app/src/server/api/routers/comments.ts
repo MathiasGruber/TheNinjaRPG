@@ -548,9 +548,11 @@ export const commentsRouter = createTRPCRouter({
         commentId: commentId,
       });
       if (!convo.isPublic) {
-        userIds.forEach(
-          (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
-        );
+        userIds
+          .filter((id) => id !== ctx.userId)
+          .forEach(
+            (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
+          );
       }
       // Auto-moderation
       const sanitized = sanitize(input.comment);
