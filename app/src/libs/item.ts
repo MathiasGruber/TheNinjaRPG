@@ -69,7 +69,7 @@ export const calcItemSellingPrice = (
   structures: VillageStructure[] | undefined,
 ) => {
   if (!useritem) return 0;
-  const bDiscount = 50;
+  const bDiscount = 80;
   const sDiscount = structureBoost("itemDiscountPerLvl", structures);
   const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
   const discount = Math.min(bDiscount + sDiscount + aDiscount, 95);
