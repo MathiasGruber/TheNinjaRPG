@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
         <ClerkProvider
+          telemetry={false}
           appearance={{
             variables: {
               colorPrimary: "#ce7e00",
