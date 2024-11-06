@@ -524,13 +524,7 @@ export const itemRouter = createTRPCRouter({
           .select({ count: sql<number>`count(*)`.mapWith(Number), hidden: item.hidden })
           .from(userItem)
           .innerJoin(item, eq(userItem.itemId, item.id))
-          .where(
-            and(
-              eq(userItem.userId, uid),
-              eq(userItem.equipped, "NONE"),
-              eq(item.hidden, false),
-            ),
-          ),
+          .where(and(eq(userItem.userId, uid), eq(item.hidden, false))),
       ]);
       // Derived
       const userItemsCount = counts?.[0]?.count || 0;
