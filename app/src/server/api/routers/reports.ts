@@ -221,6 +221,7 @@ export const reportsRouter = createTRPCRouter({
                     eq(userReport.reportedUserId, ctx.userId),
                     inArray(userReport.status, [
                       "BAN_ACTIVATED",
+                      "BAN_ESCALATED",
                       "OFFICIAL_WARNING",
                       "SILENCE_ACTIVATED",
                     ]),
