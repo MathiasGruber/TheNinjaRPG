@@ -143,6 +143,8 @@ export const performAIaction = (
             return target ? target.distance >= condition.value : false;
           case "distance_lower_than":
             return target ? target.distance <= condition.value : false;
+          case "specific_round":
+            return nextBattle.round === condition.value ? true : false;
         }
       });
       /** ************************ */

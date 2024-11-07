@@ -36,8 +36,15 @@ export const ConditionDistanceLowerThan = z.object({
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
+export const ConditionSpecificRound = z.object({
+  type: z.literal("specific_round").default("specific_round"),
+  description: z.string().default("A specific round number"),
+  value: z.coerce.number().int().positive().default(10),
+});
+
 export const ZodAllAiConditions = z.union([
   ConditionHealthBelow,
+  ConditionSpecificRound,
   ConditionDistanceHigherThan,
   ConditionDistanceLowerThan,
 ]);
