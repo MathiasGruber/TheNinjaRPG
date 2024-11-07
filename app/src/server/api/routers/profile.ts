@@ -243,6 +243,7 @@ export const profileRouter = createTRPCRouter({
         const reportCounts = await ctx.drizzle
           .select({ count: sql<number>`count(*)`.mapWith(Number) })
           .from(userReport)
+          .innerJoin(userData, eq(userData.userId, userReport.reportedUserId))
           .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
         const userReports = reportCounts?.[0]?.count ?? 0;
         if (userReports > 0) {
