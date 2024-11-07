@@ -35,6 +35,8 @@ export async function GET() {
     // Get transactions where refereal reputation points have not been added
     const mainTransaction = alias(paypalTransaction, "mainTransaction");
     const refTransaction = alias(paypalTransaction, "refTransaction");
+    const buyerUser = alias(userData, "buyerUserData");
+    const recruiterUser = alias(userData, "recruiterUserData");
     const unawardedTransactions = await drizzleDB
       .select({
         originalTransactionId: mainTransaction.transactionId,
@@ -43,22 +45,23 @@ export async function GET() {
         invoiceId: mainTransaction.invoiceId,
         amount: mainTransaction.amount,
         currency: mainTransaction.currency,
-        recruiterId: userData.recruiterId,
+        recruiterId: recruiterUser.recruiterId,
         referalTransactionId: refTransaction.transactionId,
       })
       .from(mainTransaction)
-      .leftJoin(userData, eq(mainTransaction.affectedUserId, userData.userId))
+      .leftJoin(buyerUser, eq(mainTransaction.createdById, buyerUser.userId))
+      .leftJoin(recruiterUser, eq(buyerUser.recruiterId, recruiterUser.userId))
       .leftJoin(
         refTransaction,
         and(
           eq(mainTransaction.invoiceId, refTransaction.invoiceId),
-          eq(refTransaction.affectedUserId, userData.recruiterId),
+          eq(refTransaction.affectedUserId, buyerUser.recruiterId),
         ),
       )
       .where(
         and(
           gt(mainTransaction.reputationPoints, 0),
-          isNotNull(userData.recruiterId),
+          isNotNull(buyerUser.recruiterId),
           isNull(refTransaction.id),
         ),
       );
