@@ -350,6 +350,9 @@ export const insertAction = (info: {
         // ADD GROUND EFFECTS
         const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
         action.effects.forEach((tag) => {
+          // If it is a move effect, use the target tile instead of AOE tile
+          const effectTile = tag.type === "move" ? targetTile : tile;
+          // Target conditions
           if (tag.target === "SELF") {
             const effect = realizeTag({
               tag: tag as UserEffect,
@@ -377,8 +380,8 @@ export const insertAction = (info: {
               round: battle.round,
               barrierAbsorb: totalAbsorb,
             });
-            effect.longitude = tile.col;
-            effect.latitude = tile.row;
+            effect.longitude = effectTile.col;
+            effect.latitude = effectTile.row;
             groundEffects.push({ ...effect });
             if (
               target &&
