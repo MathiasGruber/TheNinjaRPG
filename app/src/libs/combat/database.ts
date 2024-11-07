@@ -169,15 +169,21 @@ export const updateKage = async (
   userId: string,
 ) => {
   // Fetch
-  const user = curBattle.usersState.find((u) => u.userId === userId);
+  const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
   if (curBattle.battleType !== "KAGE_CHALLENGE") return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
   // Lost items for the kage
-  const deleteKageItems = kage.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
-  const updateKageItems = kage.items.filter((ui) => ui.quantity > 0);
+  const deleteItems = [
+    ...kage.items.filter((ui) => ui.quantity <= 0).map((i) => i.id),
+    ...user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id),
+  ];
+  const updateItems = [
+    ...kage.items.filter((ui) => ui.quantity > 0),
+    ...user.items.filter((ui) => ui.quantity > 0),
+  ];
   // Apply
   if (result) {
     await Promise.all([
@@ -189,11 +195,11 @@ export const updateKage = async (
               .where(eq(village.id, user.villageId)),
           ]
         : []),
-      ...(deleteKageItems.length > 0
-        ? [client.delete(userItem).where(inArray(userItem.id, deleteKageItems))]
+      ...(deleteItems.length > 0
+        ? [client.delete(userItem).where(inArray(userItem.id, deleteItems))]
         : []),
-      ...(updateKageItems.length > 0
-        ? updateKageItems.map((ui) =>
+      ...(updateItems.length > 0
+        ? updateItems.map((ui) =>
             client
               .update(userItem)
               .set({ quantity: ui.quantity })
