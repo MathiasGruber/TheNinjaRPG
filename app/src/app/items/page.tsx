@@ -61,7 +61,7 @@ export default function MyItems() {
   return (
     <ContentBox
       title="Item Management"
-      subtitle={`Inventory ${nonEquipped?.length}/${calcMaxItems(userData)}`}
+      subtitle={`Inventory ${userItems?.length}/${calcMaxItems(userData)}`}
       padding={false}
       topRightContent={
         <Confirm

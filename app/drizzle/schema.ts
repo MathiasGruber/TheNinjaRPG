@@ -1065,6 +1065,7 @@ export const paypalTransaction = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     amount: double("amount").notNull(),
+    type: mysqlEnum("type", consts.TRANSACTION_TYPES).default("REP_PURCHASE").notNull(),
     reputationPoints: int("reputationPoints").default(0).notNull(),
     currency: varchar("currency", { length: 191 }).default("USD").notNull(),
     status: varchar("status", { length: 191 }).notNull(),

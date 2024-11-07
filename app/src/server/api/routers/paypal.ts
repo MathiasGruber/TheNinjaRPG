@@ -13,6 +13,7 @@ import { FederalStatuses } from "@/drizzle/constants";
 import { canSeeSecretData } from "@/utils/permissions";
 import { searchPaypalTransactionSchema } from "@/validators/points";
 import { addDays, secondsFromNow } from "@/utils/time";
+import type { TransactionType } from "@/drizzle/constants";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -129,6 +130,7 @@ export const paypalRouter = createTRPCRouter({
         currency: currency_code,
         status: "COMPLETED",
         reps: dollars2reps(parseFloat(value)),
+        type: "REP_PURCHASE",
         raw: order,
       });
       // If this user was recruited, also give 10% to the recruiter
@@ -146,6 +148,7 @@ export const paypalRouter = createTRPCRouter({
           currency: currency_code,
           status: "COMPLETED",
           reps: referralBonus,
+          type: "REFERRAL",
           raw: {},
         });
       }
@@ -489,6 +492,7 @@ export const updateReps = async (input: {
   currency: string;
   status: string;
   reps: number;
+  type: TransactionType;
   raw: JsonData;
 }) => {
   await input.client
@@ -510,6 +514,7 @@ export const updateReps = async (input: {
     reputationPoints: input.reps,
     currency: input.currency,
     status: input.status,
+    type: input.type,
     rawData: input.raw,
   });
 };
@@ -617,6 +622,7 @@ export const syncTransactions = async (
               currency: currency,
               status: "COMPLETED",
               reps: dollars2reps(parsedValue),
+              type: "REP_PURCHASE",
               raw: t,
             });
             return `Transaction ID ${info.transaction_id} synced!`;

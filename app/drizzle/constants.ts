@@ -395,6 +395,10 @@ export const USER_CAPS: {
   NONE: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
 } as const;
 
+// Paypal shop config
+export const TRANSACTION_TYPES = ["REP_PURCHASE", "REFERRAL"] as const;
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;
