@@ -78,6 +78,7 @@ export const canModerateRoles: UserRole[] = [
   "MODERATOR",
   "HEAD_MODERATOR",
   "MODERATOR-ADMIN",
+  "CODING-ADMIN",
 ] as const;
 export const canModerate = (role: UserRole) => {
   return canModerateRoles.includes(role);
