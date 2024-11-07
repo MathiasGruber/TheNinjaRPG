@@ -1,25 +1,22 @@
-import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import { drizzleDB } from "@/server/db";
 import { getPaypalAccessToken } from "@/server/api/routers/paypal";
 import { syncTransactions } from "@/server/api/routers/paypal";
 import { getPaypalTransactions } from "@/server/api/routers/paypal";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
-import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
 import { dollars2reps } from "@/utils/paypal";
 import { eq, gt, and, isNull, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { updateReps } from "@/routers/paypal";
 import { paypalTransaction, userData } from "@/drizzle/schema";
+import { lockWithGameTimer, handleEndpointError } from "@/libs/gamesettings";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
   cookies();
 
   // Check timer
-  const frequency = 3;
-  const response = await checkGameTimer(drizzleDB, frequency);
+  const response = await lockWithGameTimer(drizzleDB, 1, "h", "transaction-sync");
   if (response) return response;
 
   try {
@@ -87,17 +84,9 @@ export async function GET() {
       }
     }
 
-    // Update timer
-    await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
-
     // Return information
     return Response.json(`OK. ${msgs.join(", ")}`);
   } catch (cause) {
-    console.error(cause);
-    if (cause instanceof TRPCError) {
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause);
   }
 }

@@ -749,6 +749,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
     { key: "transactionId", header: "Transaction ID", type: "string" },
     { key: "reputationPoints", header: "Points", type: "string" },
     { key: "value", header: "Amount", type: "string" },
+    { key: "type", header: "Type", type: "capitalized" },
     { key: "transactionUpdatedDate", header: "Last Update", type: "string" },
   ];
 
