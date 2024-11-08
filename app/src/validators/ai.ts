@@ -2,13 +2,15 @@ import { detailedDiff } from "deep-object-diff";
 import { z } from "zod";
 
 export const AvailableTargets = [
-  "SELF",
-  "RANDOM_OPPONENT",
-  "CLOSEST_OPPONENT",
   "BARRIER_BETWEEN",
-  "RANDOM_ALLY",
-  "CLOSEST_ALLY",
   "BARRIER_BLOCKING_CLOSEST_OPPONENT",
+  "CLOSEST_ALLY",
+  "CLOSEST_OPPONENT",
+  "EMPTY_GROUND_CLOSEST_TO_OPPONENT",
+  "EMPTY_GROUND_CLOSEST_TO_SELF",
+  "RANDOM_ALLY",
+  "RANDOM_OPPONENT",
+  "SELF",
 ] as const;
 
 export type AvailableTarget = (typeof AvailableTargets)[number];
@@ -42,11 +44,17 @@ export const ConditionSpecificRound = z.object({
   value: z.coerce.number().int().positive().default(10),
 });
 
+export const ConditionDoesNotHaveSummon = z.object({
+  type: z.literal("does_not_have_summon").default("does_not_have_summon"),
+  description: z.string().default("Does not have a summon active"),
+});
+
 export const ZodAllAiConditions = z.union([
   ConditionHealthBelow,
   ConditionSpecificRound,
   ConditionDistanceHigherThan,
   ConditionDistanceLowerThan,
+  ConditionDoesNotHaveSummon,
 ]);
 
 export const AiConditionTypes = ZodAllAiConditions._def.options.map(

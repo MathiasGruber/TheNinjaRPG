@@ -7,6 +7,7 @@ import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { ActionEndTurn, getBackupRules } from "@/validators/ai";
 import { enforceExtraRules } from "@/validators/ai";
+import { spiral } from "honeycomb-grid";
 import type { ActionEffect, BattleUserState } from "@/libs/combat/types";
 import type { CombatAction, GroundEffect } from "@/libs/combat/types";
 import type { CompleteBattle, ZodAllTags } from "@/libs/combat/types";
@@ -63,7 +64,6 @@ export const performAIaction = (
       const check = actionPointsAfterAction(user, nextBattle, action);
       return check.canAct;
     });
-
     // User hex
     const origin = findHex(grid, user);
     // Get user enemies
@@ -107,8 +107,42 @@ export const performAIaction = (
       });
     }
 
+    // Convenience for getting path to target
+    const getPath = (origin?: TerrainHex, target?: { hex?: TerrainHex }) => {
+      return origin && target?.hex && astar.getShortestPath(origin, target.hex);
+    };
+
+    // Convenience for getting targetable tiles
+    const getTargetableTiles = (origin?: TerrainHex, action?: CombatAction) => {
+      if (!origin) return undefined;
+      if (!action) return undefined;
+      if (!closestEnemy) return undefined;
+      const f = spiral<TerrainHex>({
+        start: [origin.q, origin.r],
+        radius: action.range,
+      });
+      const tiles = grid
+        .traverse(f)
+        .toArray()
+        .filter(
+          (hex) =>
+            !findUser(nextBattle.usersState, hex.col, hex.row) &&
+            !findBarrier(nextBattle.groundEffects, hex.col, hex.row),
+        )
+        .map((hex) => {
+          const path = getPath(origin, closestEnemy);
+          const distance = path?.length ? path.length : 0;
+          return { hex, distance };
+        })
+        .sort((a, b) => b.distance - a.distance);
+      return tiles;
+    };
+
     // Convenience for getting target
-    const getTarget = (entry: ZodAllAiCondition | ZodAllAiAction) => {
+    const getTarget = (
+      entry: ZodAllAiCondition | ZodAllAiAction,
+      action?: CombatAction,
+    ) => {
       if (!("target" in entry)) return undefined;
       switch (entry?.target) {
         case "RANDOM_OPPONENT":
@@ -123,7 +157,32 @@ export const performAIaction = (
           return barriers[0];
         case "SELF":
           return userWithDistance;
+        case "EMPTY_GROUND_CLOSEST_TO_OPPONENT":
+          const closestTiles = getTargetableTiles(origin, action);
+          const closestTarget = closestTiles?.[0];
+          if (closestTarget) {
+            return {
+              hex: closestTarget.hex,
+              distance: closestTarget.distance,
+              longitude: closestTarget.hex.col,
+              latitude: closestTarget.hex.row,
+            };
+          }
+          break;
+        case "EMPTY_GROUND_CLOSEST_TO_SELF":
+          const furthestTiles = getTargetableTiles(origin, action);
+          const furthestTarget = furthestTiles?.at(-1);
+          if (furthestTarget) {
+            return {
+              hex: furthestTarget.hex,
+              distance: furthestTarget.distance,
+              longitude: furthestTarget.hex.col,
+              latitude: furthestTarget.hex.row,
+            };
+          }
+          break;
       }
+      return undefined;
     };
 
     // Go through rules
@@ -145,6 +204,10 @@ export const performAIaction = (
             return target ? target.distance <= condition.value : false;
           case "specific_round":
             return nextBattle.round === condition.value ? true : false;
+          case "does_not_have_summon":
+            return !nextBattle.usersState.find(
+              (u) => u.controllerId === user.userId && u.isSummon && u.curHealth > 0,
+            );
         }
       });
       /** ************************ */
@@ -164,14 +227,12 @@ export const performAIaction = (
               return prev && current ? current.power - prev.power : 0;
             })[0];
         };
-        // Get target and target hex
-        const target = getTarget(rule.action);
-        const targetHex = target?.hex;
         // Go through different actions
         if (rule.action.type === "move_towards_opponent") {
+          const target = getTarget(rule.action);
           const move = availActions.find((a) => a.id === "move");
-          if (target && targetHex && origin && move) {
-            const path = astar.getShortestPath(origin, targetHex);
+          if (move) {
+            const path = getPath(origin, target);
             const hex = path?.[1];
             if (path && hex && path.length > 2 && hex.cost < 100) {
               nextAction = { action: move, long: hex.col, lat: hex.row };
@@ -181,6 +242,7 @@ export const performAIaction = (
           const action = availActions.find(
             (a) => "jutsuId" in rule.action && a.id === rule.action.jutsuId,
           );
+          const target = getTarget(rule.action, action);
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
@@ -188,23 +250,27 @@ export const performAIaction = (
           const action = availActions.find(
             (a) => "itemId" in rule.action && a.id === rule.action.itemId,
           );
+          const target = getTarget(rule.action, action);
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_random_jutsu") {
           const jutsus = availActions.filter((a) => a.type === "jutsu");
           const action = jutsus[Math.floor(Math.random() * jutsus.length)];
+          const target = getTarget(rule.action, action);
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_random_item") {
           const items = availActions.filter((a) => a.type === "item");
           const action = items[Math.floor(Math.random() * items.length)];
+          const target = getTarget(rule.action, action);
           if (action && target) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
         } else if (rule.action.type === "use_highest_power_action") {
           const action = getHighestPowerAction(availActions);
+          const target = getTarget(rule.action, action);
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
@@ -212,6 +278,7 @@ export const performAIaction = (
           const action = getHighestPowerAction(
             availActions.filter((a) => a.type === "jutsu"),
           );
+          const target = getTarget(rule.action, action);
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
@@ -219,6 +286,7 @@ export const performAIaction = (
           const action = getHighestPowerAction(
             availActions.filter((a) => a.type === "item"),
           );
+          const target = getTarget(rule.action, action);
           if (target && action) {
             nextAction = { action, long: target.longitude, lat: target.latitude };
           }
@@ -227,6 +295,7 @@ export const performAIaction = (
           const { nextId } = getComboStatus(rule.action.comboIds, userActions);
           if (nextId) {
             const action = availActions.find((a) => a.id === nextId);
+            const target = getTarget(rule.action, action);
             if (action && target) {
               nextAction = { action, long: target.longitude, lat: target.latitude };
             }
