@@ -527,7 +527,8 @@ export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
-export const IMG_BADGE_PVPKILLS = "";
+export const IMG_BADGE_PVPKILLS =
+  "https://utfs.io/f/Hzww9EQvYURJyPU0OdukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 export const IMG_BADGE_ARENAKILLS =
   "https://utfs.io/f/Hzww9EQvYURJZXqeTaYQrBIUTu69nkMxWmS4ah0O7LVCp8bz";
 export const IMG_BADGE_MINUTES_PASSED =
