@@ -73,7 +73,7 @@ export const drawCombatBackground = (
   background: string,
 ) => {
   // Set scene background
-  const bg_texture = loadTexture(`/locations/${background}`);
+  const bg_texture = loadTexture(background);
   const bg_material = new SpriteMaterial({ map: bg_texture });
   const bg_sprite = new Sprite(bg_material);
   bg_sprite.scale.set(width, height, 1);
