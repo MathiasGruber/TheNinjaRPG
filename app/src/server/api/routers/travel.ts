@@ -14,7 +14,7 @@ import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
-import * as map from "@/public/map/hexasphere.json";
+import * as map from "@/data/hexasphere.json";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { GlobalMapData } from "@/libs/travel/types";
 

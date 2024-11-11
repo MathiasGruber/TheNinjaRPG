@@ -12,6 +12,7 @@ import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { calcLevelRequirements } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import { IMG_PROFILE_LEVELUPGUY } from "@/drizzle/constants";
 
 const LevelUpBtn: React.FC = () => {
   // State
@@ -87,7 +88,7 @@ const LevelUpBtn: React.FC = () => {
           <div className="basis-1/2 absolute top-0 right-0 opacity-20">
             <Image
               alt="Level up graphic"
-              src="/images/levelupguy.webp"
+              src={IMG_PROFILE_LEVELUPGUY}
               width={375}
               height={436}
             />

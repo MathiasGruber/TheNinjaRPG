@@ -10,6 +10,12 @@ import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { structureBoost } from "@/utils/village";
 import { useAwake } from "@/utils/routing";
+import {
+  IMG_RAMEN_WELCOME,
+  IMG_RAMEN_SMALL,
+  IMG_RAMEN_MEDIUM,
+  IMG_RAMEN_LARGE,
+} from "@/drizzle/constants";
 import type { RamenOption } from "@/utils/ramen";
 import type { UserWithRelations } from "@/routers/profile";
 
@@ -42,7 +48,7 @@ export default function RamenShop() {
     >
       <Image
         alt="welcome"
-        src="/ramen/welcome.webp"
+        src={IMG_RAMEN_WELCOME}
         width={512}
         height={221}
         className="w-full"
@@ -53,21 +59,21 @@ export default function RamenShop() {
           <MenuEntry
             title="Small Bowl"
             entry="small"
-            image="/ramen/small_bowl.webp"
+            image={IMG_RAMEN_SMALL}
             userData={userData}
             onPurchase={() => mutate({ ramen: "small" })}
           />
           <MenuEntry
             title="Medium Bowl"
             entry="medium"
-            image="/ramen/medium_bowl.webp"
+            image={IMG_RAMEN_MEDIUM}
             userData={userData}
             onPurchase={() => mutate({ ramen: "medium" })}
           />
           <MenuEntry
             title="Large Bowl"
             entry="large"
-            image="/ramen/large_bowl.webp"
+            image={IMG_RAMEN_LARGE}
             userData={userData}
             onPurchase={() => mutate({ ramen: "large" })}
           />

@@ -67,7 +67,7 @@ export const sparringRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "SPARRING",
-        determineArenaBackground("Unknown"),
+        determineArenaBackground("default"),
       );
       if (result.success) {
         await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");

@@ -50,6 +50,15 @@ import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
+import {
+  IMG_BG_COLISEUM,
+  IMG_BG_ARENA_KONOKI,
+  IMG_BG_ARENA_SILENCE,
+  IMG_BG_OCEAN,
+  IMG_BG_ICE,
+  IMG_BG_FOREST,
+  IMG_BG_DESSERT,
+} from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
@@ -552,7 +561,7 @@ export const combatRouter = createTRPCRouter({
             statDistribution: input.stats ?? undefined,
           },
           input.stats ? "TRAINING" : "ARENA",
-          determineArenaBackground(user.village?.name || "Unknown"),
+          determineArenaBackground(user.village?.name || "default"),
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -655,11 +664,11 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
 export const determineArenaBackground = (villageName: string) => {
   switch (villageName) {
     case "Konoki":
-      return "midjourney_konoki_arena.webp";
+      return IMG_BG_ARENA_KONOKI;
     case "Silence":
-      return "midjourney_silence_arena.webp";
+      return IMG_BG_ARENA_SILENCE;
     default:
-      return "coliseum.webp";
+      return IMG_BG_COLISEUM;
   }
 };
 
@@ -668,13 +677,13 @@ export const determineCombatBackground = (
 ) => {
   switch (asset) {
     case "ocean":
-      return "midjourney_ocean.webp";
+      return IMG_BG_OCEAN;
     case "ice":
-      return "midjourney_ocean.webp";
+      return IMG_BG_ICE;
     case "ground":
-      return "midjourney_forest.webp";
+      return IMG_BG_FOREST;
     default:
-      return "midjourney_dessert.webp";
+      return IMG_BG_DESSERT;
   }
 };
 
@@ -690,7 +699,7 @@ export const initiateBattle = async (
     scaleTarget?: boolean;
   },
   battleType: BattleType,
-  background = "forest.webp",
+  background = IMG_BG_FOREST,
   scaleGains = 1,
 ): Promise<BaseServerResponse> => {
   // Destructure

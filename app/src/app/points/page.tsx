@@ -39,6 +39,9 @@ import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
+import { IMG_REPSHOP_BRONZE } from "@/drizzle/constants";
+import { IMG_REPSHOP_SILVER } from "@/drizzle/constants";
+import { IMG_REPSHOP_GOLD } from "@/drizzle/constants";
 import {
   Form,
   FormControl,
@@ -594,7 +597,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/bronze_fed.webp"
+              imageSrc={IMG_REPSHOP_BRONZE}
               buttonStatus="NORMAL"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {
@@ -612,7 +615,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/silver_fed.webp"
+              imageSrc={IMG_REPSHOP_SILVER}
               buttonStatus="SILVER"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {
@@ -630,7 +633,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/gold_fed.webp"
+              imageSrc={IMG_REPSHOP_GOLD}
               buttonStatus="GOLD"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {

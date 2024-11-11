@@ -24,6 +24,7 @@ import { useSetAtom } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { Check } from "lucide-react";
 import { PvpBattleTypes } from "@/drizzle/constants";
+import { IMG_INITIATIVE_D20 } from "@/drizzle/constants";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle, StatSchemaType } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -581,7 +582,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                       >
                         <Image
                           alt={`roll-${u.userId}`}
-                          src="/combat/d20.webp"
+                          src={IMG_INITIATIVE_D20}
                           height={80}
                           width={80}
                         ></Image>

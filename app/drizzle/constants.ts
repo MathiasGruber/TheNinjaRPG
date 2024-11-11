@@ -527,18 +527,150 @@ export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
+export const IMG_BADGE_PVPKILLS = "";
+export const IMG_BADGE_ARENAKILLS =
+  "https://utfs.io/f/Hzww9EQvYURJZXqeTaYQrBIUTu69nkMxWmS4ah0O7LVCp8bz";
+export const IMG_BADGE_MINUTES_PASSED =
+  "https://utfs.io/f/Hzww9EQvYURJCmrv4YU26OYrIJuNP1pvSyz29edFtKbngjRc";
+export const IMG_BADGE_ERRANDS_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJFkFklPG2iOewJtjGzvNcmEX3TBnoSfMDZPH4";
+export const IMG_BADGE_D_MISSION_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJuD6udtCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_BADGE_C_MISSION_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJGudreBRfoVrha0LP4mAS5KM7wtiZbUNXJxdC";
+export const IMG_BADGE_B_MISSION_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJy2Uv1s5ukVH2MI5Lo4ehEfAXvZdcmtWqPg7r";
+export const IMG_BADGE_A_MISSION_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJEJpK3acLfKL5D7TAFe29bymSaPCIQ846MdzG";
+export const IMG_BADGE_D_CRIME_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJDyHMWFlzEwoh0WXMnscL279N8ayVQUCbRzS3";
+export const IMG_BADGE_C_CRIME_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJnJ43OQmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_B_CRIME_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJHS8H1zQvYURJhgs76VZtf9wxpMa13Cq0iOnr";
+export const IMG_BADGE_A_CRIME_TOTAL =
+  "https://utfs.io/f/Hzww9EQvYURJQ6PtAxjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+export const IMG_BADGE_MINUTES_TRAINING =
+  "https://utfs.io/f/Hzww9EQvYURJbZSRGyZAtYUndMi56GkX19q0A4PzyeIloBrE";
+export const IMG_BADGE_JUTSUS_MASTERED =
+  "https://utfs.io/f/Hzww9EQvYURJDyHTMUuzEwoh0WXMnscL279N8ayVQUCbRzS3";
+export const IMG_BADGE_STATS_TRAINED =
+  "https://utfs.io/f/Hzww9EQvYURJVNQSNpF2veAXohUuE59nTQHRJIYjtiG18aF4";
+export const IMG_BADGE_DAYS_IN_VILLAGE =
+  "https://utfs.io/f/Hzww9EQvYURJ2HU2el8nMXlcRpYmJ5do0zKw4Qx6PVEtBa9b";
+export const IMG_BADGE_REPUTATION_POINTS =
+  "https://utfs.io/f/Hzww9EQvYURJxyYNkgWZsq9k0Von5rUfP6OgQ2TyptCKHS4u";
+export const IMG_BADGE_USER_LEVEL =
+  "https://utfs.io/f/Hzww9EQvYURJo6lBgeZ9MPZpHJ7VliuEWDfATdxhv62SXnm4";
+export const IMG_BADGE_MOVE_TO_LOCATION =
+  "https://utfs.io/f/Hzww9EQvYURJ5qXZuJi797jl4ubX8xrRqTZasyMp2WA5eLGU";
+export const IMG_BADGE_COLLECT_ITEM =
+  "https://utfs.io/f/Hzww9EQvYURJtxtluhUYJDfpFXWm3nrcPluEtIZqyLkaSV1j";
+export const IMG_BADGE_DEFEAT_OPPONENTS =
+  "https://utfs.io/f/Hzww9EQvYURJYwI8YKOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
+
+export const IMG_BG_COLISEUM =
+  "https://utfs.io/f/Hzww9EQvYURJo5wb6hZ9MPZpHJ7VliuEWDfATdxhv62SXnm4";
+export const IMG_BG_ARENA_KONOKI =
+  "https://utfs.io/f/Hzww9EQvYURJDyj0BtAzEwoh0WXMnscL279N8ayVQUCbRzS3";
+export const IMG_BG_ARENA_SILENCE =
+  "https://utfs.io/f/Hzww9EQvYURJSZtKvF3jWrEB7TyZlmpoAxMK5Qi16kNPVJuH";
+export const IMG_BG_OCEAN =
+  "https://utfs.io/f/Hzww9EQvYURJWrGawgvszvj71yaSYC0MDOmbko5q9JAGuLHf";
+export const IMG_BG_FOREST =
+  "https://utfs.io/f/Hzww9EQvYURJIPGHFyxfOewksxBoS1HQCihpL7c42Ky9uUFv";
+export const IMG_BG_DESSERT =
+  "https://utfs.io/f/Hzww9EQvYURJnAdfRSmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BG_ICE =
+  "https://utfs.io/f/Hzww9EQvYURJGVWObnRfoVrha0LP4mAS5KM7wtiZbUNXJxdC";
+
+export const IMG_RARITY_RARE =
+  "https://utfs.io/f/Hzww9EQvYURJvSyOMsEmSnXwslYEpV1yOeNL8gMtqhjPdf36";
+export const IMG_RARITY_LEGENDARY =
+  "https://utfs.io/f/Hzww9EQvYURJoooBQZ9MPZpHJ7VliuEWDfATdxhv62SXnm4B";
+export const IMG_RARITY_EPIC =
+  "https://utfs.io/f/Hzww9EQvYURJeCIgGvhyV3OvUJQExAi0bGoIZDF74LqSnHRd";
+export const IMG_RARITY_COMMON =
+  "https://utfs.io/f/Hzww9EQvYURJQP8otBjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+
+export const IMG_PROFILE_LEVELUPGUY =
+  "https://utfs.io/f/Hzww9EQvYURJaeS5LnYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_RAMEN_WELCOME =
+  "https://utfs.io/f/Hzww9EQvYURJmd2fWKHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap";
+export const IMG_RAMEN_SMALL =
+  "https://utfs.io/f/Hzww9EQvYURJj7ESnm4XzPI8f1v96qBot0Q3wsUp2nxu7SMb";
+export const IMG_RAMEN_MEDIUM =
+  "https://utfs.io/f/Hzww9EQvYURJyoMsmMukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
+export const IMG_RAMEN_LARGE =
+  "https://utfs.io/f/Hzww9EQvYURJHKlC2sQvYURJhgs76VZtf9wxpMa13Cq0iOnr";
+export const IMG_REPSHOP_BRONZE =
+  "https://utfs.io/f/Hzww9EQvYURJCg005h26OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_REPSHOP_SILVER =
+  "https://utfs.io/f/Hzww9EQvYURJSk2raeh3jWrEB7TyZlmpoAxMK5Qi16kNPVJu";
+export const IMG_REPSHOP_GOLD =
+  "https://utfs.io/f/Hzww9EQvYURJebK38NyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_EQUIP_SILHOUETTE =
+  "https://utfs.io/f/Hzww9EQvYURJ6e2pEi7DfT5pyNCaUruzhPtAJqb8Kj9mc1nl";
+export const IMG_HOME_TRAIN =
+  "https://utfs.io/f/Hzww9EQvYURJ25o9TnMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8C";
+export const IMG_HOME_EAT =
+  "https://utfs.io/f/Hzww9EQvYURJbZ8Rz1xAtYUndMi56GkX19q0A4PzyeIloBrE";
+export const IMG_HOME_SLEEP =
+  "https://utfs.io/f/Hzww9EQvYURJu8FpvZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_HOME_AWAKE =
+  "https://utfs.io/f/Hzww9EQvYURJ1BKctL6bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_MANUAL_COMBAT =
+  "https://utfs.io/f/Hzww9EQvYURJUvE8xxILCIhwPniJ69VxpvAbTDWkOyGzS8rM";
+export const IMG_MANUAL_TRAVEL =
+  "https://utfs.io/f/Hzww9EQvYURJu1h1uHCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_MANUAL_BLOODLINE =
+  "https://utfs.io/f/Hzww9EQvYURJaCMo8gYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_MANUAL_JUTSU =
+  "https://utfs.io/f/Hzww9EQvYURJMI7fE4tsO4cexqW2RDgkE3zZbNXSFGitmnar";
+export const IMG_MANUAL_ITEM =
+  "https://utfs.io/f/Hzww9EQvYURJb59vlYAtYUndMi56GkX19q0A4PzyeIloBrEa";
+export const IMG_MANUAL_AI =
+  "https://utfs.io/f/Hzww9EQvYURJuTQifZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_MANUAL_QUEST =
+  "https://utfs.io/f/Hzww9EQvYURJmWVaWXHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap";
+export const IMG_MANUAL_LOGS =
+  "https://utfs.io/f/Hzww9EQvYURJwvy6QoT2j854CWbaITZyegfXimvd7s16cO0h";
+export const IMG_MANUAL_DAM_CALCS =
+  "https://utfs.io/f/Hzww9EQvYURJQF6qYYjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+export const IMG_MANUAL_BADGE =
+  "https://utfs.io/f/Hzww9EQvYURJOUM5LPVHevxIThUauQkGJEBY3D2cPqy8f5sp";
+export const IMG_MANUAL_ASSET =
+  "https://utfs.io/f/Hzww9EQvYURJaGvHErYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
+export const IMG_MANUAL_OPINION =
+  "https://utfs.io/f/Hzww9EQvYURJ0dX0Z3grYldRWJcD6vE10SjNsXHeA9pVMfQi";
+export const IMG_LAYOUT_USERBANNER_MIDDLE =
+  "https://utfs.io/f/Hzww9EQvYURJ6sgzOzDfT5pyNCaUruzhPtAJqb8Kj9mc1nlH";
+export const IMG_LAYOUT_SIDESCROLL =
+  "https://utfs.io/f/Hzww9EQvYURJAElfIGoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+export const IMG_LAYOUT_SIDETOPBANNER_CONTENT =
+  "https://utfs.io/f/Hzww9EQvYURJOG9gcTWVHevxIThUauQkGJEBY3D2cPqy8f5s";
+export const IMG_LAYOUT_SIDETOPBANNER_BOTTOM =
+  "https://utfs.io/f/Hzww9EQvYURJ19AHU06bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_LAYOUT_SCROLLBOTTOM_DECOR =
+  "https://utfs.io/f/Hzww9EQvYURJCVjF0e26OYrIJuNP1pvSyz29edFtKbngjRcA";
+export const IMG_LAYOUT_USERSBANNER_TOP =
+  "https://utfs.io/f/Hzww9EQvYURJDV31MCzEwoh0WXMnscL279N8ayVQUCbRzS3p";
+export const IMG_LAYOUT_USERSBANNER_BOTTOM =
+  "https://utfs.io/f/Hzww9EQvYURJhWwvubMfUBdnwAX5LTajlNc4mrgzi0RJtqpM";
 export const IMG_AVATAR_DEFAULT =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
 export const IMG_WALLPAPER_WINTER =
-  "https://tnrprod.b-cdn.net/layout/wallpaper-winter.webp";
+  "https://utfs.io/f/Hzww9EQvYURJwpxgkdT2j854CWbaITZyegfXimvd7s16cO0h";
 export const IMG_WALLPAPER_SPRING =
-  "https://tnrprod.b-cdn.net/layout/wallpaper-spring.webp";
+  "https://utfs.io/f/Hzww9EQvYURJYq2fE0OMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_WALLPAPER_SUMMER =
-  "https://tnrprod.b-cdn.net/layout/wallpaper-summer.webp";
+  "https://utfs.io/f/Hzww9EQvYURJ1HIpcx6bo95WClq4K0wxZUmJcvThgdVenO3P";
 export const IMG_WALLPAPER_FALL =
-  "https://tnrprod.b-cdn.net/layout/wallpaper-fall.webp";
+  "https://utfs.io/f/Hzww9EQvYURJ8B1Blddkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
 export const IMG_WALLPAPER_HALLOWEEN =
-  "https://tnrprod.b-cdn.net/layout/wallpaper-halloween.webp";
+  "https://utfs.io/f/Hzww9EQvYURJACVJVzoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+export const IMG_LAYOUT_BUTTONDECOR =
+  "https://utfs.io/f/Hzww9EQvYURJYectQDOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_LAYOUT_NAVBAR =
   "https://utfs.io/f/Hzww9EQvYURJ1znttRb6bo95WClq4K0wxZUmJcvThgdVenO3";
 export const IMG_LAYOUT_NAVBAR_HALLOWEEN =
@@ -548,10 +680,11 @@ export const IMG_LAYOUT_HANDSIGN =
 export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://utfs.io/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_LAYOUT_WELCOME_IMG =
-  "https://tnrprod.b-cdn.net/layout/welcomeimage.webp";
-export const IMG_LOGO_FULL = "https://tnrprod.b-cdn.net/layout/logo.webp";
+  "https://utfs.io/f/Hzww9EQvYURJSuVdlu3jWrEB7TyZlmpoAxMK5Qi16kNPVJuH";
+export const IMG_LOGO_FULL =
+  "https://utfs.io/f/Hzww9EQvYURJ8b0eqBkkp45TvAnoIBa0rtCf1lbyXYjVKQ2q";
 export const IMG_LOGO_SHORT =
-  "https://tnrprod.b-cdn.net/layout/logo_short_compressed.webp";
+  "https://utfs.io/f/Hzww9EQvYURJCClYWI26OYrIJuNP1pvSyz29edFtKbngjRcA";
 export const IMG_LOADER =
   "https://utfs.io/f/4a3100e5-97c6-4e5a-96e2-1c3520838179-gwm3dh.svg";
 export const IMG_SECTOR_INFO =
@@ -574,7 +707,6 @@ export const IMG_SECTOR_WALL_STONE_TOWER =
   "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
   "https://utfs.io/f/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
-
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
 export const IMG_TRAIN_WILLPOWER =
@@ -717,3 +849,10 @@ export const IMG_ACTIONTIMER_GREEN =
   "https://utfs.io/f/Hzww9EQvYURJwSFJxPT2j854CWbaITZyegfXimvd7s16cO0h";
 export const IMG_ACTIONTIMER_OVERLAY =
   "https://utfs.io/f/Hzww9EQvYURJHVKSE4QvYURJhgs76VZtf9wxpMa13Cq0iOnr";
+
+export const IMG_INITIATIVE_D20 =
+  "https://utfs.io/f/Hzww9EQvYURJE7476GLfKL5D7TAFe29bymSaPCIQ846MdzGg";
+export const IMG_BATTLEFIELD_TOMBSTONE =
+  "https://utfs.io/f/Hzww9EQvYURJVVIq2fF2veAXohUuE59nTQHRJIYjtiG18aF4";
+export const IMG_BATTLEFIELD_STAR =
+  "https://utfs.io/f/Hzww9EQvYURJuGvcEjCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";

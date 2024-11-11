@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { IMG_LAYOUT_BUTTONDECOR } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 
 const buttonVariants = cva(
@@ -93,14 +94,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           <>
             <Image
               className="absolute top-[-1px] left-[-3px] scale-x-[-1] h-full aspect-square"
-              src={`/layout/buttondecor.webp`}
+              src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-left"
               width={8}
               height={25}
             ></Image>
             <Image
               className="absolute top-[-1px] right-[-3px] bottom-[0px] h-full aspect-square"
-              src={`/layout/buttondecor.webp`}
+              src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-right"
               width={8}
               height={25}

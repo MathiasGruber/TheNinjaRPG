@@ -18,7 +18,7 @@ import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { calcMaxItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";
-import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { COST_EXTRA_ITEM_SLOT, IMG_EQUIP_SILHOUETTE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
 
@@ -324,7 +324,7 @@ const Character: React.FC<CharacterProps> = (props) => {
     <div className="flex flex-row items-center justify-center text-center">
       <Image
         className="w-full opacity-50"
-        src="/equip/silhouette.webp"
+        src={IMG_EQUIP_SILHOUETTE}
         alt="background"
         width={290}
         height={461}

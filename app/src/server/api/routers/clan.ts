@@ -769,7 +769,7 @@ export const clanRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "CLAN_BATTLE",
-        determineArenaBackground("coliseum.webp"),
+        determineArenaBackground("default"),
       );
 
       if (result.success) {

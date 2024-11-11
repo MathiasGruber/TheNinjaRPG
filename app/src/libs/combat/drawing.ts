@@ -25,6 +25,8 @@ import {
   IMG_SECTOR_USER_MARKER,
   IMG_SECTOR_USER_SPRITE_MASK,
   IMG_SECTOR_SHADOW,
+  IMG_BATTLEFIELD_TOMBSTONE,
+  IMG_BATTLEFIELD_STAR,
 } from "@/drizzle/constants";
 import type { GameAsset } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -447,7 +449,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 
   // If this is the original and our user (we have SP/CP), then show a star
   if ("curStamina" in userData && userData.isOriginal && !userData.isAi) {
-    const marker = loadTexture("/combat/star.webp");
+    const marker = loadTexture(IMG_BATTLEFIELD_STAR);
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.scale.set(h / 2.5, h / 2.5, 1);
@@ -479,7 +481,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Create tombstone but hide it for now
-  const tomb_texture = loadTexture("/combat/tombstone.webp");
+  const tomb_texture = loadTexture(IMG_BATTLEFIELD_TOMBSTONE);
   const tomb_material = new SpriteMaterial({ map: tomb_texture });
   const tomb_sprite = new Sprite(tomb_material);
   tomb_sprite.name = "tombstone";

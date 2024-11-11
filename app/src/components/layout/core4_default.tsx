@@ -39,6 +39,13 @@ import {
   IMG_LAYOUT_NAVBAR_HALLOWEEN,
   IMG_LAYOUT_HANDSIGN,
   IMG_LAYOUT_HANDSIGN_HALLOWEEN,
+  IMG_LAYOUT_USERBANNER_MIDDLE,
+  IMG_LAYOUT_SIDESCROLL,
+  IMG_LAYOUT_SIDETOPBANNER_CONTENT,
+  IMG_LAYOUT_SIDETOPBANNER_BOTTOM,
+  IMG_LAYOUT_SCROLLBOTTOM_DECOR,
+  IMG_LAYOUT_USERSBANNER_TOP,
+  IMG_LAYOUT_USERSBANNER_BOTTOM,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -309,7 +316,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <div className="relative">
               <Image
                 className="left-0 absolute -z-10 select-none"
-                src="/layout/sidetopbanner_content.webp"
+                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
                 style={{ width: "100%", height: "100%" }}
@@ -320,7 +327,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             </div>
             <Image
               className="left-0 relative select-none"
-              src="/layout/sidetopbanner_bottom.webp"
+              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}
               alt="leftbanner"
@@ -331,11 +338,17 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           {/* MAIN CONTENT */}
           <div className="w-full flex-1 min-w-0 flex flex-col">
             <div className="w-full flex flex-row">
-              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+              <div
+                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+              ></div>
               <div className="w-full bg-background bg-opacity-50 md:bg-opacity-100 grow flex flex-col overflow-x-scroll min-h-[200px]">
                 <div className="p-3">{props.children}</div>
               </div>
-              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+              <div
+                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+              ></div>
             </div>
             <div className="h-20 max-h-28 flex flex-col relative">
               <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
@@ -345,7 +358,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               </div>
               <Image
                 className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
-                src="/layout/scroll_bottom_decor.webp"
+                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
                 width={143}
                 height={272}
                 alt="leftbottomdecor"
@@ -353,7 +366,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               ></Image>
               <Image
                 className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
-                src="/layout/scroll_bottom_decor.webp"
+                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
                 width={143}
                 height={272}
                 alt="rightbottomdecor"
@@ -369,7 +382,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <div className="relative">
               <Image
                 className="right-0 absolute -z-10 scale-x-[-1] select-none"
-                src="/layout/sidetopbanner_content.webp"
+                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
                 style={{ width: "100%", height: "100%" }}
@@ -380,7 +393,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             </div>
             <Image
               className="left-0 relative select-none scale-x-[-1]"
-              src="/layout/sidetopbanner_bottom.webp"
+              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}
               alt="leftbanner"
@@ -468,13 +481,16 @@ const StrongestUsersBanner: React.FC = () => {
       <div className="relative top-[-30px]">
         <Image
           className="left-0 relative -z-10 select-none w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px]"
-          src="/layout/usersbanner_top.webp"
+          src={IMG_LAYOUT_USERSBANNER_TOP}
           width={260}
           height={138}
           alt="usersbanner_top"
           loading="lazy"
         ></Image>
-        <div className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-[url('/layout/usersbanner_middle.webp')] bg-contain bg-repeat-y">
+        <div
+          className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-contain bg-repeat-y"
+          style={{ backgroundImage: `url(${IMG_LAYOUT_USERBANNER_MIDDLE})` }}
+        >
           <div className="relative top-[-40px]">
             <NavTabs
               current={activeTab}
@@ -509,7 +525,7 @@ const StrongestUsersBanner: React.FC = () => {
         </div>
         <Image
           className="left-0 top-[-10px] relative -z-10 select-none w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px]"
-          src="/layout/usersbanner_bottom.webp"
+          src={IMG_LAYOUT_USERSBANNER_BOTTOM}
           width={260}
           height={138}
           alt="usersbanner_bottom"

@@ -2,7 +2,13 @@ import React, { useRef } from "react";
 import NextImage from "next/image";
 import Loader from "@/layout/Loader";
 import { cn } from "src/libs/shadui";
-import { ItemRarities } from "@/drizzle/constants";
+import {
+  ItemRarities,
+  IMG_RARITY_RARE,
+  IMG_RARITY_LEGENDARY,
+  IMG_RARITY_EPIC,
+  IMG_RARITY_COMMON,
+} from "@/drizzle/constants";
 import type { ItemRarity } from "@/drizzle/schema";
 
 interface ContentImageProps {
@@ -88,7 +94,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
               props.roundFull ? "rounded-full" : "rounded-xl",
               props.hideBorder ? "" : "border-2",
             )}
-            src={`/rarity/${props.rarity}.webp`}
+            src={getRarityBackground(props.rarity)}
             alt={props.alt}
             width={125}
             height={125}
@@ -121,3 +127,18 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
 };
 
 export default ContentImage;
+
+export const getRarityBackground = (rarity: ItemRarity) => {
+  switch (rarity) {
+    case "COMMON":
+      return IMG_RARITY_COMMON;
+    case "EPIC":
+      return IMG_RARITY_EPIC;
+    case "LEGENDARY":
+      return IMG_RARITY_LEGENDARY;
+    case "RARE":
+      return IMG_RARITY_RARE;
+    default:
+      return "";
+  }
+};
