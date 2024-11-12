@@ -139,6 +139,8 @@ export const travelRouter = createTRPCRouter({
   moveInSector: protectedProcedure
     .input(
       z.object({
+        curLongitude: z.number().int(),
+        curLatitude: z.number().int(),
         longitude: z
           .number()
           .int()
@@ -179,10 +181,15 @@ export const travelRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       // Convenience
       const { longitude, latitude, sector, villageId } = input;
+      const { curLongitude, curLatitude } = input;
       const userId = ctx.userId;
       const userVillage = villageId ?? "syndicate";
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
       const location = isVillage ? "Village" : "";
+      const travelLength = maxDistance(
+        { longitude: curLongitude, latitude: curLatitude },
+        { x: longitude, y: latitude },
+      );
       // Optimistic update & query simultaneously
       const [result, sectorVillage] = await Promise.all([
         ctx.drizzle
@@ -198,8 +205,8 @@ export const travelRouter = createTRPCRouter({
               eq(userData.userId, userId),
               eq(userData.status, "AWAKE"),
               eq(userData.sector, sector),
-              sql`ABS(longitude - ${longitude}) <= 1`,
-              sql`ABS(latitude - ${latitude}) <= 1`,
+              eq(userData.longitude, curLongitude),
+              eq(userData.latitude, curLatitude),
               villageId
                 ? eq(userData.villageId, villageId)
                 : isNull(userData.villageId),
@@ -227,7 +234,7 @@ export const travelRouter = createTRPCRouter({
           const relation = findRelationship(relations, userVillage, sectorVillage.id);
           if (relation?.status === "ENEMY") {
             const chance = structureBoost("patrolsPerLvl", sectorVillage.structures);
-            if (Math.random() < chance / 100) {
+            if (Math.random() < (travelLength * chance) / 100) {
               const battle = await initiateBattle(
                 {
                   longitude: longitude,
