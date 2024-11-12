@@ -59,7 +59,6 @@ import {
   IMG_BG_FOREST,
   IMG_BG_DESSERT,
 } from "@/drizzle/constants";
-import type { BaseServerResponse } from "@/server/api/trpc";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
@@ -514,7 +513,7 @@ export const combatRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(z.object({ aiId: z.string(), stats: statSchema.nullish() }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Get information
       const { user } = await fetchUpdatedUser({
@@ -701,7 +700,7 @@ export const initiateBattle = async (
   battleType: BattleType,
   background = IMG_BG_FOREST,
   scaleGains = 1,
-): Promise<BaseServerResponse> => {
+) => {
   // Destructure
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
@@ -1081,5 +1080,5 @@ export const initiateBattle = async (
   }
 
   // Return the battle
-  return { success: true, message: battleId };
+  return { success: true, message: "You have attacked", battleId };
 };

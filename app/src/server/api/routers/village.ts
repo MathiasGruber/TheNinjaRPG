@@ -69,7 +69,14 @@ export const villageRouter = createTRPCRouter({
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        cost: z.number().optional(),
+        newHealth: z.number().optional(),
+        newStamina: z.number().optional(),
+        newChakra: z.number().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const [user, structures] = await Promise.all([
@@ -86,22 +93,38 @@ export const villageRouter = createTRPCRouter({
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
       // Mutate with guard
-      const newHealth = user.curHealth + (user.maxHealth * healPercentage) / 100;
-      const newStamina = user.curStamina + (user.maxStamina * healPercentage) / 100;
-      const newChakra = user.curChakra + (user.maxChakra * healPercentage) / 100;
+      const newHealth = Math.min(
+        user.maxHealth,
+        user.curHealth + (user.maxHealth * healPercentage) / 100,
+      );
+      const newStamina = Math.min(
+        user.maxStamina,
+        user.curStamina + (user.maxStamina * healPercentage) / 100,
+      );
+      const newChakra = Math.min(
+        user.maxChakra,
+        user.curChakra + (user.maxChakra * healPercentage) / 100,
+      );
       const result = await ctx.drizzle
         .update(userData)
         .set({
           money: user.money - cost,
-          curHealth: Math.min(user.maxHealth, newHealth),
-          curStamina: Math.min(user.maxStamina, newStamina),
-          curChakra: Math.min(user.maxChakra, newChakra),
+          curHealth: newHealth,
+          curStamina: newStamina,
+          curChakra: newChakra,
         })
         .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
       if (result.rowsAffected === 0) {
         return errorResponse("Error trying to buy food. Try again.");
       } else {
-        return { success: true, message: "You have bought food" };
+        return {
+          success: true,
+          message: "You have bought food",
+          cost,
+          newHealth,
+          newStamina,
+          newChakra,
+        };
       }
     }),
   leaveVillage: protectedProcedure

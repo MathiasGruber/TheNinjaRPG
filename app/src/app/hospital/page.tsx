@@ -22,7 +22,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export default function Hospital() {
   // Settings
-  const { userData, access, timeDiff } = useRequireInVillage("/hospital");
+  const { userData, access, timeDiff, updateUser } = useRequireInVillage("/hospital");
   const isHospitalized = userData?.status === "HOSPITALIZED";
 
   // Hospital name
@@ -110,33 +110,32 @@ export default function Hospital() {
         <p className="p-3">You are not hospitalized.</p>
       )}
       {!isPending && !isHospitalized && canHealOthers && (
-        <HealOthersComponent userData={userData} timeDiff={timeDiff} />
+        <HealOthersComponent
+          userData={userData}
+          timeDiff={timeDiff}
+          updateUser={updateUser}
+        />
       )}
       {isPending && <Loader explanation="Healing User" />}
     </ContentBox>
   );
 }
 
+/**
+ * HealOthersComponent is a React functional component that allows users to heal other users in a hospital setting.
+ * It calculates the maximum healing capacity based on the user's current chakra and updates it periodically.
+ * The component also fetches the list of hospitalized users and provides buttons to heal them by different percentages.
+ *
+ */
 interface HealOthersComponentProps {
   userData: NonNullable<UserWithRelations>;
   timeDiff: number;
+  updateUser: (data: Partial<UserWithRelations>) => Promise<void>;
 }
 
-/**
- * Represents a component that allows the user to heal other hospitalized users.
- *
- * @component
- * @example
- * ```tsx
- * <HealOthersComponent userData={userData} />
- * ```
- *
- * @param {HealOthersComponentProps} props - The component props.
- * @returns {JSX.Element} The rendered component.
- */
 const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
   // Settings
-  const { userData, timeDiff } = props;
+  const { userData, timeDiff, updateUser } = props;
 
   // Maximum heal capacity
   const [maxHeal, setMaxHeal] = useState(
@@ -190,8 +189,11 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       await utils.hospital.getHospitalizedUsers.invalidate();
-      if (data.success) {
-        await utils.profile.getUser.invalidate();
+      if (data.success && userData) {
+        await updateUser({
+          curChakra: userData.curChakra - (data.chakraCost || 0),
+          medicalExperience: userData.medicalExperience + (data.expGain || 0),
+        });
       }
     },
   });

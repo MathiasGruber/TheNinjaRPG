@@ -41,7 +41,7 @@ export default function MyJutsu() {
 
   // Settings
   const now = new Date();
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
@@ -82,18 +82,12 @@ export default function MyJutsu() {
       }
       // Optimistically update loadout
       if (data?.data && userData) {
-        await utils.profile.getUser.cancel();
         const currentLoadout = userData?.loadout?.jutsuIds || [];
         const jutsuId = data.data.jutsuId;
         const newLoadout = data?.data.equipped
           ? [...currentLoadout, jutsuId]
-          : [currentLoadout.filter((id) => id !== jutsuId)];
-        utils.profile.getUser.setData(undefined, (old) => {
-          return {
-            ...old,
-            userData: { ...old?.userData, loadout: { jutsuIds: newLoadout } },
-          } as typeof old;
-        });
+          : currentLoadout.filter((id) => id !== jutsuId);
+        await updateUser({ loadout: { jutsuIds: newLoadout } });
       }
     },
     onSettled,

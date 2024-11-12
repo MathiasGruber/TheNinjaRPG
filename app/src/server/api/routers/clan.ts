@@ -772,25 +772,11 @@ export const clanRouter = createTRPCRouter({
         determineArenaBackground("default"),
       );
 
-      if (result.success) {
+      if (result.success && result.battleId) {
         await ctx.drizzle
           .update(mpvpBattleQueue)
-          .set({ battleId: result.message })
+          .set({ battleId: result.battleId })
           .where(eq(mpvpBattleQueue.id, input.clanBattleId));
-        // await Promise.all([
-        //   ctx.drizzle
-        //     .delete(mpvpBattleQueue)
-        //     .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
-        //   ctx.drizzle
-        //     .delete(mpvpBattleUser)
-        //     .where(eq(mpvpBattleUser.clanBattleId, input.clanBattleId)),
-        //   ctx.drizzle
-        //     .update(userData)
-        //     .set({ status: "AWAKE" })
-        //     .where(
-        //       and(inArray(userData.userId, allIds), eq(userData.status, "QUEUED")),
-        //     ),
-        // ]);
         return { success: true, message: "Clan battle initiated" };
       }
       return errorResponse("Failed to initiate clan battle");

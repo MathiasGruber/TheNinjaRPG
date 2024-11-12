@@ -44,7 +44,7 @@ export const sparringRouter = createTRPCRouter({
     }),
   acceptChallenge: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch
       const [challenge, user] = await Promise.all([

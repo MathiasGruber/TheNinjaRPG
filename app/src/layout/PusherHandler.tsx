@@ -84,7 +84,6 @@ export const usePusherHandler = (userId?: string | null) => {
             ),
           });
         }
-        await utils.invalidate();
       });
       return () => {
         pusher.unsubscribe(userId);

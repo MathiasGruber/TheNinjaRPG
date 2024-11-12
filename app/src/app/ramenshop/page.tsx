@@ -20,15 +20,18 @@ import type { RamenOption } from "@/utils/ramen";
 import type { UserWithRelations } from "@/routers/profile";
 
 export default function RamenShop() {
-  const util = api.useUtils();
-
-  const { userData, access } = useRequireInVillage("/ramenshop");
+  const { userData, access, updateUser } = useRequireInVillage("/ramenshop");
 
   const { mutate, isPending } = api.village.buyFood.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
-        await util.profile.getUser.invalidate();
+      if (data.success && userData) {
+        await updateUser({
+          money: userData.money - (data?.cost || 0),
+          curHealth: data?.newHealth || userData.curHealth,
+          curStamina: data?.newStamina || userData.curStamina,
+          curChakra: data?.newChakra || userData.curChakra,
+        });
       }
     },
   });

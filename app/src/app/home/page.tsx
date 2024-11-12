@@ -17,16 +17,15 @@ import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function Home() {
-  const util = api.useUtils();
-
-  const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
+  const { userData, sectorVillage, access, ownVillage, updateUser } =
+    useRequireInVillage("/home");
 
   const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) {
-          await util.profile.getUser.invalidate();
+        if (data.success && data.newStatus) {
+          await updateUser({ status: data.newStatus });
         }
       },
     });
