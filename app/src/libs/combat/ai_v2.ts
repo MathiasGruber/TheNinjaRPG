@@ -100,7 +100,8 @@ export const performAIaction = (
 
     // If we only have the last three actions (end turn, wait, and move),
     // available, but more actions in total, then add wait rule
-    if (allActions?.find((a) => !["flee", "wait", "move"].includes(a.id))) {
+    const nonEffectActions = ["flee", "wait", "move", "cleanse", "clear"];
+    if (allActions?.find((a) => !nonEffectActions.includes(a.id))) {
       user.aiProfile.rules.push({
         conditions: [],
         action: ActionEndTurn.parse({}),

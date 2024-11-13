@@ -264,11 +264,11 @@ export const getBasicActions = (
       id: "cleanse",
       name: "Cleanse",
       image: IMG_BASIC_CLEANSE,
-      battleDescription: "%user clears all negative effects from %target",
+      battleDescription: "%user clears all negative effects self",
       type: "basic" as const,
-      target: "ALLY" as const,
+      target: "SELF" as const,
       method: "SINGLE" as const,
-      range: 1,
+      range: 4,
       updatedAt: Date.now(),
       cooldown: 10,
       lastUsedRound:
@@ -287,7 +287,7 @@ export const getBasicActions = (
       type: "basic" as const,
       target: "OTHER_USER" as const,
       method: "SINGLE" as const,
-      range: 1,
+      range: 4,
       updatedAt: Date.now(),
       cooldown: 10,
       lastUsedRound:
