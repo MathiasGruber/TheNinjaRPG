@@ -97,7 +97,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
    * SIDEBAR: Left Side
    */
   const leftSideBar = (
-    <div onClick={() => setLeftSideBarOpen(false)}>
+    <div>
       <SignedIn>
         <SideBannerTitle>{userData?.username || "Loading user..."}</SideBannerTitle>
         <MenuBoxProfile />
@@ -195,7 +195,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const signedInIcons = (
     <div className="flex flex-row">
       <SignedIn>
-        <UserButton />
+        <UserButton
+          appearance={{
+            elements: { userButtonPopoverCard: { pointerEvents: "initial" } },
+          }}
+        />
       </SignedIn>
       <Link href="/event" onClick={() => setLeftSideBarOpen(false)}>
         <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
@@ -203,7 +207,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <Eclipse
         className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
-          setLeftSideBarOpen(false);
           const localTheme = localStorage.getItem("theme");
           if (!localTheme || localTheme === "light") {
             localStorage.setItem("theme", "dark");
