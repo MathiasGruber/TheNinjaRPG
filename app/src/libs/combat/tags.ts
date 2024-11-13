@@ -482,6 +482,10 @@ export const increaseHealGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
@@ -491,6 +495,10 @@ export const decreaseHealGiven = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustHealGiven(effect, usersEffects, consequences, target);
@@ -1020,6 +1028,10 @@ export const recoil = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed with recoil");
+  }
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {

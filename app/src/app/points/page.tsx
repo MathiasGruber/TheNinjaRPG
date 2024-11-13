@@ -274,9 +274,6 @@ const ReputationStore = (props: { currency: string }) => {
           <Loader />
         )}
       </div>
-      <p className="italic text-slate-500 font-bold text-center">
-        PS: Points do carry to final release!
-      </p>
     </>
   );
 };

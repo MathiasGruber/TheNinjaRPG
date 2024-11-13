@@ -782,6 +782,10 @@ export const IMG_BASIC_WAIT =
   "https://utfs.io/f/Hzww9EQvYURJ8ByNJwOkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
 export const IMG_BASIC_MOVE =
   "https://utfs.io/f/Hzww9EQvYURJnQxuGeXmojJ0EqeDCvBrNmZaXVdY97gSpOWi";
+export const IMG_BASIC_CLEANSE =
+  "https://utfs.io/f/Hzww9EQvYURJ5oYOji797jl4ubX8xrRqTZasyMp2WA5eLGUP";
+export const IMG_BASIC_CLEAR =
+  "https://utfs.io/f/Hzww9EQvYURJTWnPJE5IU29dZYJPoOKSh5vmlqatMub3EigH";
 
 export const IMG_ICON_DISCORD =
   "https://utfs.io/f/Hzww9EQvYURJCZvaND26OYrIJuNP1pvSyz29edFtKbngjRcA";

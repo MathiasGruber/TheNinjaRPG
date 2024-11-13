@@ -1,4 +1,5 @@
 import { MoveTag, DamageTag, FleeTag, HealTag } from "@/libs/combat/types";
+import { ClearTag, CleanseTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
@@ -16,6 +17,8 @@ import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
 import {
   IMG_BASIC_HEAL,
   IMG_BASIC_ATTACK,
+  IMG_BASIC_CLEANSE,
+  IMG_BASIC_CLEAR,
   IMG_BASIC_FLEE,
   IMG_BASIC_WAIT,
   IMG_BASIC_MOVE,
@@ -51,7 +54,9 @@ export const availableUserActions = (
     ...(basicMoves && !isStealth ? [basicActions.basicAttack] : []),
     ...(basicMoves ? [basicActions.basicHeal] : []),
     ...(!isImmobilized ? [basicActions.basicMove] : []),
-    ...(basicMoves && !isStealth ? [basicActions.basicFlee] : []),
+    ...(basicMoves && !isStealth
+      ? [basicActions.basicClear, basicActions.basicCleanse, basicActions.basicFlee]
+      : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
@@ -173,6 +178,8 @@ export const getBasicActions = (
 ): {
   basicAttack: CombatAction;
   basicHeal: CombatAction;
+  basicCleanse: CombatAction;
+  basicClear: CombatAction;
   basicMove: CombatAction;
   basicFlee: CombatAction;
 } => {
@@ -252,6 +259,44 @@ export const getBasicActions = (
       staminaCost: 0,
       actionCostPerc: 30,
       effects: [MoveTag.parse({ power: 100 })],
+    },
+    basicCleanse: {
+      id: "cleanse",
+      name: "Cleanse",
+      image: IMG_BASIC_CLEANSE,
+      battleDescription: "%user clears all negative effects from %target",
+      type: "basic" as const,
+      target: "ALLY" as const,
+      method: "SINGLE" as const,
+      range: 1,
+      updatedAt: Date.now(),
+      cooldown: 10,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "cleanse")?.lastUsedRound ?? -10,
+      healthCost: 0,
+      chakraCost: 0,
+      staminaCost: 0,
+      actionCostPerc: 40,
+      effects: [CleanseTag.parse({ power: 100 })],
+    },
+    basicClear: {
+      id: "clear",
+      name: "Clear",
+      image: IMG_BASIC_CLEAR,
+      battleDescription: "%user cleanses all positive effects from %target",
+      type: "basic" as const,
+      target: "OTHER_USER" as const,
+      method: "SINGLE" as const,
+      range: 1,
+      updatedAt: Date.now(),
+      cooldown: 10,
+      lastUsedRound:
+        user?.basicActions?.find((ba) => ba.id == "clear")?.lastUsedRound ?? -10,
+      healthCost: 0,
+      chakraCost: 0,
+      staminaCost: 0,
+      actionCostPerc: 40,
+      effects: [ClearTag.parse({ power: 100 })],
     },
     basicFlee: {
       id: "flee",

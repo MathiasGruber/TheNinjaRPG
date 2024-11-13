@@ -359,6 +359,11 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     if (val.damage) {
       current.damage = current.damage ? current.damage + val.damage : val.damage;
     }
+    if (val.residual) {
+      current.residual = current.residual
+        ? current.residual + val.residual
+        : val.residual;
+    }
     if (val.heal_hp) {
       current.heal_hp = current.heal_hp ? current.heal_hp + val.heal_hp : val.heal_hp;
     }
