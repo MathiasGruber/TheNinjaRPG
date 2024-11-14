@@ -20,6 +20,8 @@ export const canSubmitNotification = (role: UserRole) => {
   return [
     "CONTENT",
     "EVENT",
+    "HEAD_MODERATOR",
+    "MODERATOR",
     "CODING-ADMIN",
     "MODERATOR-ADMIN",
     "CONTENT-ADMIN",

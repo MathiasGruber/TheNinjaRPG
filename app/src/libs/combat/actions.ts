@@ -276,7 +276,7 @@ export const getBasicActions = (
       healthCost: 0,
       chakraCost: 0,
       staminaCost: 0,
-      actionCostPerc: 40,
+      actionCostPerc: 60,
       effects: [CleanseTag.parse({ power: 100 })],
     },
     basicClear: {
@@ -295,7 +295,7 @@ export const getBasicActions = (
       healthCost: 0,
       chakraCost: 0,
       staminaCost: 0,
-      actionCostPerc: 40,
+      actionCostPerc: 60,
       effects: [ClearTag.parse({ power: 100 })],
     },
     basicFlee: {

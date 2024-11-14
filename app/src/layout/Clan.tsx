@@ -42,6 +42,7 @@ import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { CLAN_LOBBY_SECONDS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
+import { CLAN_MPVP_MAX_USERS_PER_SIDE } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -302,7 +303,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     }[],
   ) => {
     const canJoin = clan.id === userClanId;
-    const crewLength = Math.max(6, queue.length);
+    const crewLength = Math.max(CLAN_MPVP_MAX_USERS_PER_SIDE, queue.length);
     const empties = Array(crewLength - queue.length).fill(null);
     const hasWinner = !!winnerId;
     const border = hasWinner ? "grayscale border-2" : "";
