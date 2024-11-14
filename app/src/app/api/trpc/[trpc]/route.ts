@@ -17,13 +17,14 @@ const handler = (req: NextRequest) => {
     createContext() {
       return createAppTRPCContext({ req, readHeaders, readCookies });
     },
-    onError: ({ path, error }) => {
-      // Console.error
-      console.error(
-        `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
-          error.stack
-        }`,
-      );
+    onError: ({ error, path }) => {
+      if (error.code !== 401) {
+        console.error(
+          `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
+            error.stack
+          }`,
+        );
+      }
     },
   });
 };
