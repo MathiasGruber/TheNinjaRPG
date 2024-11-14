@@ -18,7 +18,7 @@ const handler = (req: NextRequest) => {
       return createAppTRPCContext({ req, readHeaders, readCookies });
     },
     onError: ({ error, path }) => {
-      if (error.code !== 401) {
+      if (error.code !== "UNAUTHORIZED") {
         console.error(
           `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
             error.stack
