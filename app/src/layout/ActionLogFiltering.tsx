@@ -88,9 +88,6 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
                   <SelectValue placeholder={logtype || "None"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem key={"None"} value="None">
-                    None
-                  </SelectItem>
                   {LOG_TYPES.map((m) => (
                     <SelectItem key={m} value={m}>
                       {m}

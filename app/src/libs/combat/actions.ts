@@ -732,9 +732,15 @@ export const calcActiveUser = (
   // Find the user in question, and return him
   const actor = usersInBattle.find((u) => u.userId === activeUserId);
   if (!actor) {
-    throw new Error(
-      `No active user: ${activeUserId}. Initial userId: ${userId}. Check 1/2/3: ${check1}/${check2}/${check3}`,
-    );
+    throw new Error(`
+      No active user: ${activeUserId}. 
+      Initial userId: ${userId}. 
+      Check 1/2/3: ${check1}/${check2}/${check3}.
+      BattleRound: ${battle.round}.
+      BattleType: ${battle.battleType}.
+      activeUserId: ${battle.activeUserId}.
+      usersInBattle: ${usersInBattle.length}.
+    `);
   }
   // Check if we have a new active user
   const changedActor = actor.userId !== battle.activeUserId;
