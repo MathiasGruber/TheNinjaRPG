@@ -789,7 +789,6 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "onehitkill",
       "rob",
       "seal",
-      "stun",
       "summonprevent",
       "weakness",
     ].includes(tag.type)
