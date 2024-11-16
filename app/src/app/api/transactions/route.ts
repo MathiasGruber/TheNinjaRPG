@@ -58,6 +58,8 @@ export async function GET() {
       .where(
         and(
           gt(mainTransaction.reputationPoints, 0),
+          gt(mainTransaction.amount, 0),
+          eq(mainTransaction.status, "REP_PURCHASE"),
           isNotNull(buyerUser.recruiterId),
           isNull(refTransaction.id),
         ),
