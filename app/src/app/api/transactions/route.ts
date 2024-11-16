@@ -42,7 +42,7 @@ export async function GET() {
         invoiceId: mainTransaction.invoiceId,
         amount: mainTransaction.amount,
         currency: mainTransaction.currency,
-        recruiterId: recruiterUser.recruiterId,
+        recruiterId: recruiterUser.userId,
         referalTransactionId: refTransaction.transactionId,
       })
       .from(mainTransaction)
