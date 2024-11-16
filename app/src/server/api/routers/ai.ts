@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
-import { aiProfile, userData } from "@/drizzle/schema";
+import { aiProfile, userData, jutsu, item } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { canChangeContent, canChangeDefaultAiProfile } from "@/utils/permissions";
 import { AiRule } from "@/validators/ai";
@@ -61,6 +61,36 @@ export const aiRouter = createTRPCRouter({
       }
       if (input.rules.length > AI_PROFILE_MAX_RULES) {
         return errorResponse(`Maximum of ${AI_PROFILE_MAX_RULES} rules allowed`);
+      }
+      if (profile.userId === user.userId) {
+        const [jutsus, items] = await Promise.all([
+          ctx.drizzle.query.jutsu.findMany({
+            where: inArray(
+              jutsu.id,
+              input.rules
+                .filter((r) => "jutsuId" in r.action)
+                .map((r) => (r.action as { jutsuId: string }).jutsuId),
+            ),
+          }),
+          ctx.drizzle.query.item.findMany({
+            where: inArray(
+              item.id,
+              input.rules
+                .filter((r) => "itemId" in r.action)
+                .map((r) => (r.action as { itemId: string }).itemId),
+            ),
+          }),
+        ]);
+        const effects = [...jutsus, ...items].flatMap((e) => e.effects);
+        const hasMove = effects.some((e) => "type" in e && e.type === "move");
+        const hasSummon = effects.some((e) => "type" in e && e.type === "summon");
+        console.log(effects, hasMove, hasSummon);
+        if (hasMove) {
+          return errorResponse("Items/jutsu with move effects are not allowed");
+        }
+        if (hasSummon) {
+          return errorResponse("Items/jutsu with summon effects are not allowed");
+        }
       }
       // Update
       await ctx.drizzle
