@@ -18,7 +18,7 @@ const handler = (req: NextRequest) => {
       return createAppTRPCContext({ req, readHeaders, readCookies });
     },
     onError: ({ error, path }) => {
-      if (error.code !== "UNAUTHORIZED") {
+      if (!["UNAUTHORIZED", "TOO_MANY_REQUESTS"].includes(error.code)) {
         console.error(
           `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}: ${error.message}. Stack: ${
             error.stack

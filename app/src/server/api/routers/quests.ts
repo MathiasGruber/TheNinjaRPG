@@ -164,6 +164,7 @@ export const questsRouter = createTRPCRouter({
             name: quest.name,
             image: quest.image,
             hidden: quest.hidden,
+            requiredVillage: quest.requiredVillage,
             id: quest.id,
           })
           .from(quest)
@@ -179,13 +180,10 @@ export const questsRouter = createTRPCRouter({
             ),
           ),
       ]);
-      // Guards
-      if (!user) throw serverError("PRECONDITION_FAILED", "User does not exist");
-      if (user.villageId !== input.villageId) {
-        throw serverError("PRECONDITION_FAILED", "Wrong Village");
-      }
       // Return
-      return summary.filter((e) => filterHiddenAndExpiredQuest(e, user.role));
+      return summary
+        .filter((e) => filterHiddenAndExpiredQuest(e, user.role))
+        .filter((e) => e.requiredVillage === user.villageId || !e.requiredVillage);
     }),
   startRandom: protectedProcedure
     .input(
@@ -500,10 +498,10 @@ export const questsRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       if (!user) {
-        throw serverError("PRECONDITION_FAILED", "User does not exist");
+        return errorResponse("User does not exist");
       }
       if (user.status !== "AWAKE") {
-        throw serverError("PRECONDITION_FAILED", "Must be awake to finish quests");
+        return errorResponse("Must be awake to finish quests");
       }
 
       // Figure out if any finished quests & get rewards
@@ -599,7 +597,14 @@ export const questsRouter = createTRPCRouter({
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
       rewards.reward_badges = badges.map((i) => i.name);
-      return { successDescriptions, rewards, userQuest, resolved, badges };
+      return {
+        success: true,
+        successDescriptions,
+        rewards,
+        userQuest,
+        resolved,
+        badges,
+      };
     }),
   checkLocationQuest: protectedProcedure
     .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))

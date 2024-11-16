@@ -107,7 +107,9 @@ export const profileRouter = createTRPCRouter({
             eq(userBlackList.targetUserId, input.userId),
           ),
         }),
-        fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, input.userId),
+        }),
       ]);
       // Guard
       if (!target) return errorResponse("User not found");
@@ -350,7 +352,7 @@ export const profileRouter = createTRPCRouter({
         with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
       if (!user) {
-        throw serverError("NOT_FOUND", "AI not found");
+        throw serverError("NOT_FOUND", `AI not found: ${input.userId}`);
       }
       return user;
     }),

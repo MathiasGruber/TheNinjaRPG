@@ -216,9 +216,9 @@ export const bloodlineRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
     ]);
-    if (prevRoll) {
-      throw serverError("PRECONDITION_FAILED", "You have already rolled a bloodline");
-    }
+    // Guard
+    if (prevRoll) return errorResponse("You have already rolled a bloodline");
+    // Derived
     const rand = Math.random();
     let bloodlineRank: BloodlineRank | undefined = undefined;
     if (rand < ROLL_CHANCE.S) {

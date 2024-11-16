@@ -86,12 +86,7 @@ export const getPublicUsersSchema = z.object({
   limit: z.number().min(1).max(100),
   isAi: z.boolean().default(false),
   orderBy: z.enum(["Online", "Strongest", "Weakest", "PvP", "Staff"]),
-  username: z
-    .string()
-    .regex(new RegExp("^[a-zA-Z0-9\\s]*$"), {
-      message: "Must only contain alphanumeric characters and no spaces",
-    })
-    .optional(),
+  username: z.string().optional(),
   ip: z.string().optional(),
   village: z.string().optional(),
   bloodline: z.string().optional(),

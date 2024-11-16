@@ -226,6 +226,13 @@ export const hospitalRouter = createTRPCRouter({
       if (result.rowsAffected === 1) {
         return { success: true, message: "You have been healed", cost };
       } else {
+        const latestUser = await fetchUser(ctx.drizzle, ctx.userId);
+        if (latestUser.status !== "HOSPITALIZED") {
+          return errorResponse("You are not hospitalized");
+        }
+        if (latestUser.money < cost) {
+          return errorResponse("You don't have enough money");
+        }
         throw serverError("PRECONDITION_FAILED", "Something went wrong during healing");
       }
     }),

@@ -234,14 +234,14 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
-    onSuccess: async ({
-      successDescriptions,
-      rewards,
-      userQuest,
-      resolved,
-      badges,
-    }) => {
-      if (userQuest) {
+    onSuccess: async (data) => {
+      // If a failutre, show a toast
+      if (!data.success && "message" in data) {
+        showMutationToast({ success: data.success, message: data.message });
+      }
+      // If there is a userQuest, show the rewards
+      if ("userQuest" in data && data.userQuest) {
+        const { successDescriptions, rewards, userQuest, resolved, badges } = data;
         const quest = userQuest.quest;
         const reward = (
           <div className="flex flex-col gap-2">

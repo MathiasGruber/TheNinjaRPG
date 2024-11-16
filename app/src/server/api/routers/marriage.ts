@@ -123,7 +123,7 @@ export const marriageRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const associations = await fetchAssociations(
         ctx.drizzle,
-        input.id ?? ctx.userId ?? "",
+        input.id ?? ctx?.userId ?? "",
         "MARRIAGE",
       );
       const marriedUsers = associations.map((x) =>

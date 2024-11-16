@@ -36,7 +36,7 @@ export const calcGlobalTravelTime = (
     const distance = r * Math.acos((a.x * b.x + a.y * b.y + a.z * b.z) / r ** 2);
     return Math.floor(distance / 2);
   }
-  return Infinity;
+  return 300;
 };
 
 // Calculate if we are in village or not.

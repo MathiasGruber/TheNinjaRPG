@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { eq, or, and, gt, inArray } from "drizzle-orm";
 import { SPAR_EXPIRY_SECONDS } from "@/libs/combat/constants";
@@ -30,7 +30,7 @@ export const sparringRouter = createTRPCRouter({
       ]);
       // Guard
       if (recent.length > 0) {
-        throw serverError("FORBIDDEN", "Max 1 challenge per 10 seconds");
+        return errorResponse("Max 1 challenge per 10 seconds");
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, target.userId, "SPAR");
@@ -53,10 +53,10 @@ export const sparringRouter = createTRPCRouter({
       ]);
       // Guards
       if (challenge.receiverId !== ctx.userId) {
-        throw serverError("FORBIDDEN", "Not your challenge to accept");
+        return errorResponse("Not your challenge to accept");
       }
       if (challenge.status !== "PENDING") {
-        throw serverError("FORBIDDEN", "Challenge not pending");
+        return errorResponse("Challenge not pending");
       }
       // Mutate
       const result = await initiateBattle(
@@ -86,10 +86,10 @@ export const sparringRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const challenge = await fetchRequest(ctx.drizzle, input.id, "SPAR");
       if (challenge.receiverId !== ctx.userId) {
-        throw serverError("FORBIDDEN", "You can only reject challenge for yourself");
+        return errorResponse("You can only reject challenge for yourself");
       }
       if (challenge.status !== "PENDING") {
-        throw serverError("FORBIDDEN", "You can only reject pending challenges");
+        return errorResponse("Can only reject pending challenges");
       }
       void pusher.trigger(challenge.senderId, "event", {
         type: "userMessage",
@@ -105,10 +105,10 @@ export const sparringRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const challenge = await fetchRequest(ctx.drizzle, input.id, "SPAR");
       if (challenge.senderId !== ctx.userId) {
-        throw serverError("FORBIDDEN", "You can only cancel challenges created by you");
+        return errorResponse("You can only cancel challenges created by you");
       }
       if (challenge.status !== "PENDING") {
-        throw serverError("FORBIDDEN", "You can only cancel pending challenges");
+        return errorResponse("Can only cancel pending challenges");
       }
       return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "SPAR");
     }),

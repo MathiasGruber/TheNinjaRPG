@@ -264,8 +264,11 @@ export const travelRouter = createTRPCRouter({
         if (userData.status !== "AWAKE") {
           return errorResponse(`Status is: ${userData.status.toLowerCase()}`);
         }
-        if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
-          return errorResponse(`Cannot move more than one square at a time`);
+        if (userData.sector !== sector) {
+          return errorResponse("You are not in the correct sector");
+        }
+        if (userData.longitude !== curLongitude || userData.latitude !== curLatitude) {
+          return errorResponse("You have moved since you started this move");
         }
         throw serverError("BAD_REQUEST", `Unknown error while moving`);
       }

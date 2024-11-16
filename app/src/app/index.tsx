@@ -27,8 +27,10 @@ export default function IndexPage({
   const searchParams = useSearchParams();
 
   // Save referrer in local storage if present
-  const ref = searchParams?.get("ref");
-  if (ref) localStorage.setItem("ref", ref);
+  useEffect(() => {
+    const ref = searchParams?.get("ref");
+    if (ref) localStorage.setItem("ref", ref);
+  }, [searchParams]);
 
   // Redirect based on user status
   useEffect(() => {

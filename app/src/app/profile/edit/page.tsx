@@ -1192,6 +1192,11 @@ const CustomTitle: React.FC = () => {
   });
   const curTitle = form.watch("title");
 
+  // Form handlers
+  const onSubmit = form.handleSubmit((data) => {
+    updateUsername(data);
+  });
+
   // Only show if we have userData
   if (!userData) return <Loader explanation="Loading profile page..." />;
 
@@ -1228,10 +1233,7 @@ const CustomTitle: React.FC = () => {
                 {canBuyUsername ? "Set custom title" : "Not enough points"}
               </Button>
             }
-            onAccept={(e) => {
-              e.preventDefault();
-              updateUsername({ title: curTitle });
-            }}
+            onAccept={onSubmit}
           >
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to
