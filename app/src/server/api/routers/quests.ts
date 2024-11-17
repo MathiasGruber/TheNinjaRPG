@@ -725,7 +725,10 @@ export const updateRewards = async (
       ? client
           .select({ id: jutsu.id, name: jutsu.name })
           .from(jutsu)
-          .leftJoin(userJutsu, eq(jutsu.id, userJutsu.jutsuId))
+          .leftJoin(
+            userJutsu,
+            and(eq(jutsu.id, userJutsu.jutsuId), eq(userJutsu.userId, user.userId)),
+          )
           .where(
             and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
           )
