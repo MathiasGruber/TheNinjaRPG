@@ -4,9 +4,10 @@ FROM nanomathias/vscode-devcontainer:release-1.2.3
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 RUN apt-get update && apt-get install -y \
   default-libmysqlclient-dev \
-  pkg-config \
+  pkg-config \  
   gcc \
   pkg-config \
+  imagemagick \
   && rm -rf /var/lib/apt/lists/*
 
 # Install gitmoji
