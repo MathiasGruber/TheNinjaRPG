@@ -152,11 +152,16 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user && e.type !== "visual") {
           if (checkFriendlyFire(e, user, newUsersState)) {
-            usersEffects.push({
-              ...e,
-              targetId: user.userId,
-              fromGround: true,
-            } as UserEffect);
+            const hasEffect = usersEffects.some((ue) => ue.id === e.id);
+            const isInstant = ["damage", "heal", "pierce"].includes(e.type);
+            if (!hasEffect) {
+              usersEffects.push({
+                ...e,
+                rounds: isInstant ? 0 : 1,
+                targetId: user.userId,
+                fromGround: true,
+              } as UserEffect);
+            }
           }
         }
         // Forward any damage effects, which should be applied to barriers as well
