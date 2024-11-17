@@ -201,7 +201,7 @@ export const fetchAssociations = async (
   idOne?: string,
   type?: UserAssociation,
 ) => {
-  return await client.query.userAssociation.findMany({
+  const results = await client.query.userAssociation.findMany({
     where: and(
       ...(idOne
         ? [or(eq(userAssociation.userOne, idOne), eq(userAssociation.userTwo, idOne))]
@@ -214,6 +214,7 @@ export const fetchAssociations = async (
     },
     orderBy: (table, { asc }) => [asc(table.createdAt)],
   });
+  return results.filter((x) => x.userOne && x.userTwo);
 };
 
 export type MarriageRouter = inferRouterOutputs<typeof marriageRouter>;

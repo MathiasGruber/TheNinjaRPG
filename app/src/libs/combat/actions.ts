@@ -720,13 +720,15 @@ export const calcActiveUser = (
   // Check 3: Current active userID is not in active user array
   const check3 = activeUserId && !inBattleuserIds.includes(activeUserId);
   // Progress to next user in case of any checks went through
-  if (inBattleuserIds.length > 0 && (check1 || check2 || check3)) {
+  if (inBattleuserIds.length > 1 && (check1 || check2 || check3)) {
     const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
     const newIdx = (curIdx + 1) % inBattleuserIds.length;
     const curUser = usersInBattle.find((u) => u.userId === activeUserId);
     if (curUser) curUser.round = battle.round;
     if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
     activeUserId = inBattleuserIds[newIdx] || userId;
+  } else if (inBattleuserIds.length === 1) {
+    activeUserId = inBattleuserIds[0];
   }
 
   // Find the user in question, and return him

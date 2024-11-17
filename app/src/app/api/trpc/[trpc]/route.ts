@@ -20,7 +20,7 @@ const handler = (req: NextRequest) => {
     onError: ({ error, path, input }) => {
       if (!["UNAUTHORIZED", "TOO_MANY_REQUESTS"].includes(error.code)) {
         console.error(
-          `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}. Message: ${error.message}. Input: ${input}. Stack: ${error.stack}`,
+          `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}. Message: ${error.message}. Input: ${JSON.stringify(input)}. Stack: ${error.stack}`,
         );
       }
     },

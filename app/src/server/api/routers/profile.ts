@@ -351,10 +351,7 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
         with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
-      if (!user) {
-        throw serverError("NOT_FOUND", `AI not found: ${input.userId}`);
-      }
-      return user;
+      return user ?? null;
     }),
   // Create new AI
   create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {

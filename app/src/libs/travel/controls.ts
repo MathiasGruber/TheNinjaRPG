@@ -34,7 +34,7 @@ export const calcGlobalTravelTime = (
   const r = map?.radius;
   if (a && b && r) {
     const distance = r * Math.acos((a.x * b.x + a.y * b.y + a.z * b.z) / r ** 2);
-    return Math.floor(distance / 2);
+    return Math.floor(distance / 2) || 5;
   }
   return 300;
 };
