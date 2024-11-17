@@ -101,6 +101,7 @@ export default function ManualBadges() {
           {!isPending && (
             <div className="relative">
               <ItemWithEffects
+                hideImage
                 item={badge}
                 key={badge.id}
                 onDelete={(id: string) => {

@@ -3,7 +3,13 @@ import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
 import { sql, and, desc, eq } from "drizzle-orm";
-import { notification, userData, gameSetting, captcha } from "@/drizzle/schema";
+import {
+  notification,
+  userData,
+  gameSetting,
+  gameAsset,
+  captcha,
+} from "@/drizzle/schema";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -185,5 +191,5 @@ export const validateCaptcha = async (
  * @returns A promise that resolves to an array of game assets, each containing the id, name, and image.
  */
 export const fetchGameAssets = async (client: DrizzleClient) => {
-  return await client.query.gameAsset.findMany();
+  return await client.query.gameAsset.findMany({ where: eq(gameAsset.hidden, false) });
 };

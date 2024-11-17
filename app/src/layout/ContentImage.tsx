@@ -27,12 +27,15 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
   // The image to show
   const imgRef = useRef<HTMLCanvasElement>(null);
   const pixels = 112;
-  const tailwindSize = "max-w-40 max-h-40";
+  const tailwindSize = "max-w-40 max-h-40 w-full h-full";
   let img: null | React.ReactNode = null;
   if (props.image) {
     if (props.speed && props.frames) {
       img = (
-        <div className="flex flex-row items-center justify-center h-full">
+        <div
+          className="flex flex-row items-center justify-center h-full"
+          onClick={props.onClick}
+        >
           <canvas
             ref={imgRef}
             id={`img-${props.alt}`}
@@ -43,6 +46,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
         </div>
       );
       let currentFrame = 0;
+      let frameCount = 0;
       const spritesheet = new Image();
       const ctx = imgRef?.current?.getContext("2d");
       spritesheet.src = props.image;
@@ -53,7 +57,13 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
         window.requestAnimationFrame(step);
       }
       function step() {
-        if (ctx && imgRef?.current && props.frames) {
+        if (ctx && imgRef?.current && props.frames && props.speed) {
+          frameCount++;
+          if (frameCount < 15) {
+            window.requestAnimationFrame(step);
+            return;
+          }
+          frameCount = 0;
           const h = spritesheet.height / props.frames;
           const w = spritesheet.width;
           ctx.clearRect(0, 0, pixels, pixels);

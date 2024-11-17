@@ -41,11 +41,13 @@ export interface ItemWithEffectsProps {
   showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge" | "asset";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   hideTitle?: boolean;
+  hideImage?: boolean;
   onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, showStatistic, hideTitle, hideDetails, onDelete } = props;
+  const { item, showEdit, showStatistic, hideTitle, hideDetails, hideImage, onDelete } =
+    props;
   const { data: userData } = useUserData();
 
   // Extract effects if they exist
@@ -110,11 +112,18 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow ">
-      {!hideDetails && <div className="mx-3 hidden basis-1/3 md:block">{image}</div>}
+      {!hideDetails && !hideImage && (
+        <div className="mx-3 hidden basis-1/3 md:block">{image}</div>
+      )}
 
-      <div className={cn("basis-full text-sm", hideDetails || "md:basis-2/3")}>
+      <div
+        className={cn("basis-full text-sm", hideDetails || hideImage || "md:basis-2/3")}
+      >
         <div className="flex flex-row">
-          <div className="relative block md:hidden md:basis-1/3">{image}</div>
+          {!hideImage && (
+            <div className="relative block md:hidden md:basis-1/3">{image}</div>
+          )}
+
           <div className="relative flex basis-full flex-col pl-5 md:pl-0">
             {!hideTitle ? (
               <h3 className="text-xl font-bold tracking-tight text-popover-foreground">

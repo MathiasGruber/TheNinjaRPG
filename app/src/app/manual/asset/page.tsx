@@ -5,17 +5,22 @@ import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import Modal from "@/layout/Modal";
 import { Button } from "@/components/ui/button";
 import { api } from "@/app/_trpc/client";
 import { FilePlus } from "lucide-react";
+import { ActionSelector } from "@/layout/CombatActions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
+import type { GameAsset } from "@/drizzle/schema";
 
 export default function ManualAssets() {
   // Settings
   const { data: userData } = useUserData();
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [asset, setAsset] = useState<GameAsset | undefined>(undefined);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for forwarding
@@ -59,44 +64,71 @@ export default function ManualAssets() {
 
   // Return JSX
   return (
-    <>
-      <ContentBox
-        title="Game Assets"
-        subtitle="Animations, static images, etc."
-        back_href="/manual"
-      >
-        Here you can see the list of all game assets. Click on an asset to view.
-      </ContentBox>
-      <ContentBox
-        title="Database"
-        subtitle="All assets"
-        initialBreak={true}
-        topRightContent={
-          <div className="flex flex-row gap-1 items-center">
-            {userData && canChangeContent(userData.role) && (
-              <>
-                <Button id="create-bloodline" onClick={() => create()}>
-                  <FilePlus className="sm:mr-2 h-5 w-5" />
-                  New
-                </Button>
-              </>
-            )}
-            {/* <BloodFiltering state={state} /> */}
-          </div>
-        }
-      >
-        {isPending && <Loader explanation="Loading data" />}
-        {allAssets?.map((asset, i) => (
-          <div key={asset.id} ref={i === allAssets.length - 1 ? setLastElement : null}>
-            <ItemWithEffects
-              item={asset}
-              key={asset.id}
-              onDelete={(id: string) => remove({ id })}
-              showEdit="asset"
-            />
-          </div>
-        ))}
-      </ContentBox>
-    </>
+    <ContentBox
+      title="Database"
+      subtitle="All assets"
+      back_href="/manual"
+      initialBreak={true}
+      topRightContent={
+        <div className="flex flex-row gap-1 items-center">
+          {userData && canChangeContent(userData.role) && (
+            <>
+              <Button id="create-bloodline" onClick={() => create()}>
+                <FilePlus className="sm:mr-2 h-5 w-5" />
+                New
+              </Button>
+            </>
+          )}
+          {/* <BloodFiltering state={state} /> */}
+        </div>
+      }
+    >
+      <ActionSelector
+        items={allAssets?.map((asset) => ({
+          ...asset,
+          type: "asset",
+          assetType: asset.type,
+        }))}
+        labelSingles={true}
+        onClick={(id) => {
+          console.log(id);
+          setAsset(allAssets?.find((asset) => asset.id === id));
+          setIsOpen(true);
+        }}
+        showBgColor={false}
+        roundFull={true}
+        hideBorder={true}
+        showLabels={true}
+        lastElement={lastElement}
+        setLastElement={setLastElement}
+        gridClassNameOverwrite="grid grid-cols-3 md:grid-cols-4"
+        emptyText="No assets exist yet."
+      />
+      {isPending && <Loader explanation="Loading data" />}
+      {isOpen && userData && asset && (
+        <Modal
+          title="Asset Details"
+          setIsOpen={setIsOpen}
+          isValid={false}
+          className="max-w-3xl"
+        >
+          {!isPending && (
+            <div className="relative">
+              <ItemWithEffects
+                hideImage
+                item={asset}
+                key={asset.id}
+                onDelete={(id: string) => {
+                  remove({ id });
+                  setIsOpen(false);
+                }}
+                showEdit="asset"
+              />
+            </div>
+          )}
+          {isPending && <Loader explanation={`Processing ${asset.name}`} />}
+        </Modal>
+      )}
+    </ContentBox>
   );
 }

@@ -55,6 +55,7 @@ export const useAssetEditForm = (asset: GameAsset, refetch: () => void) => {
     { id: "licenseDetails", type: "text", label: "License Details" },
     { id: "type", type: "str_array", values: GameAssetTypes },
     { id: "onInitialBattleField", type: "boolean" },
+    { id: "hidden", type: "boolean" },
   ];
 
   return { asset, form, formData, handleAssetSubmit };

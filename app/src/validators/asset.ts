@@ -9,6 +9,7 @@ export const gameAssetValidator = z.object({
   type: z.enum(GameAssetTypes),
   licenseDetails: z.string().min(1).max(512),
   onInitialBattleField: z.boolean(),
+  hidden: z.coerce.boolean().optional(),
 });
 
 export type ZodGameAssetType = z.infer<typeof gameAssetValidator>;
