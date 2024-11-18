@@ -98,8 +98,14 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
   // Destructure
   const { title, entry, image, userData, onPurchase } = props;
 
-  // Get structures
-  const discount = structureBoost("ramenDiscountPerLvl", userData.village?.structures);
+  // Get current village
+  const { data: sectorVillage } = api.travel.getVillageInSector.useQuery(
+    { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
+    { enabled: !!userData },
+  );
+
+  // Get structure discount
+  const discount = structureBoost("ramenDiscountPerLvl", sectorVillage?.structures);
 
   // Convenience
   const factor = (100 - discount) / 100;
