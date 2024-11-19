@@ -575,6 +575,8 @@ export const IMG_BADGE_DEFEAT_OPPONENTS =
 
 export const IMG_BG_COLISEUM =
   "https://utfs.io/f/Hzww9EQvYURJo5wb6hZ9MPZpHJ7VliuEWDfATdxhv62SXnm4";
+export const IMG_BG_ARENA_CHRISMAS =
+  "https://utfs.io/f/Hzww9EQvYURJQr5mXyjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
 export const IMG_BG_ARENA_KONOKI =
   "https://utfs.io/f/Hzww9EQvYURJDyj0BtAzEwoh0WXMnscL279N8ayVQUCbRzS3";
 export const IMG_BG_ARENA_SILENCE =

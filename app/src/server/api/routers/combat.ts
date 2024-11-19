@@ -54,6 +54,7 @@ import {
   IMG_BG_COLISEUM,
   IMG_BG_ARENA_KONOKI,
   IMG_BG_ARENA_SILENCE,
+  IMG_BG_ARENA_CHRISMAS,
   IMG_BG_OCEAN,
   IMG_BG_ICE,
   IMG_BG_FOREST,
@@ -661,6 +662,11 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
 };
 
 export const determineArenaBackground = (villageName: string) => {
+  const now = new Date();
+  const month = now.getMonth();
+  if (month > 9) {
+    return IMG_BG_ARENA_CHRISMAS;
+  }
   switch (villageName) {
     case "Konoki":
       return IMG_BG_ARENA_KONOKI;
