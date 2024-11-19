@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { getSearchValidator } from "@/validators/register";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canSubmitNotification } from "@/utils/permissions";
 import { canModifyEventGains } from "@/utils/permissions";
@@ -47,7 +47,7 @@ const RegenGainSystem: React.FC = () => {
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data: setting } = api.misc.getSetting.useQuery(
     { name: "regenGainMultiplier" },
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Mutate
@@ -136,7 +136,7 @@ const TrainingGainSystem: React.FC = () => {
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data: setting } = api.misc.getSetting.useQuery(
     { name: "trainingGainMultiplier" },
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Mutate
@@ -240,7 +240,6 @@ const NotificationSystem: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const notifications = data?.pages.map((page) => page.data).flat();

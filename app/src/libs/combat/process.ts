@@ -96,7 +96,7 @@ const getVisual = (
   longitude: number,
   latitude: number,
   animation?: string,
-  round: number = 0,
+  round = 0,
 ): GroundEffect => {
   return {
     ...VisualTag.parse({
@@ -130,11 +130,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   const actionEffects: ActionEffect[] = [];
 
   // Convert all ground effects to user effects on the users standing on the tile
-  // console.log(
-  //   "Ground effects: ",
-  //   groundEffects.length,
-  //   groundEffects.map((e) => e.type)
-  // );
   groundEffects.sort(sortEffects).forEach((e) => {
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
@@ -157,11 +152,16 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user && e.type !== "visual") {
           if (checkFriendlyFire(e, user, newUsersState)) {
-            usersEffects.push({
-              ...e,
-              targetId: user.userId,
-              fromGround: true,
-            } as UserEffect);
+            const hasEffect = usersEffects.some((ue) => ue.id === e.id);
+            const isInstant = ["damage", "heal", "pierce"].includes(e.type);
+            if (!hasEffect) {
+              usersEffects.push({
+                ...e,
+                rounds: isInstant ? 0 : 1,
+                targetId: user.userId,
+                fromGround: true,
+              } as UserEffect);
+            }
           }
         }
         // Forward any damage effects, which should be applied to barriers as well

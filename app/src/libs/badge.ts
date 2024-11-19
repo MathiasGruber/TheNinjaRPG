@@ -2,7 +2,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BadgeValidator } from "@/validators/badge";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { Badge } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";

@@ -5,10 +5,12 @@ import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { serverError } from "../trpc";
 import { eq, sql, desc, asc } from "drizzle-orm";
 import { forumBoardSchema } from "@/validators/forum";
-import { canModerate, canCreateNews } from "@/validators/forum";
+import { canModerate, canCreateNews } from "@/utils/permissions";
 import { callDiscordNews } from "../../../libs/discord";
 import { fetchUser } from "./profile";
 import { nanoid } from "nanoid";
+import { moderateContent } from "@/libs/moderator";
+import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
 export const forumRouter = createTRPCRouter({
@@ -52,7 +54,7 @@ export const forumRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
       const isNews = board.name === "News";
-      if (isNews && !canCreateNews(user)) {
+      if (isNews && !canCreateNews(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not authorized to create news");
       }
       if (user.isBanned || user.isSilenced) {
@@ -64,8 +66,16 @@ export const forumRouter = createTRPCRouter({
       if (isNews) {
         await callDiscordNews(user.username, input.title, input.content, user.avatar);
       }
+      const sanitized = sanitize(input.content);
+      const postId = nanoid();
       await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: postId,
+        }),
         ctx.drizzle.insert(forumThread).values({
           id: threadId,
           title: input.title,
@@ -73,8 +83,8 @@ export const forumRouter = createTRPCRouter({
           userId: ctx.userId,
         }),
         ctx.drizzle.insert(forumPost).values({
-          id: nanoid(),
-          content: input.content,
+          id: postId,
+          content: sanitized,
           threadId: threadId,
           userId: ctx.userId,
         }),
@@ -99,7 +109,7 @@ export const forumRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const thread = await fetchThread(ctx.drizzle, input.thread_id);
-      if (!canModerate(user)) {
+      if (!canModerate(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
       return await ctx.drizzle
@@ -117,7 +127,7 @@ export const forumRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const thread = await fetchThread(ctx.drizzle, input.thread_id);
-      if (!canModerate(user)) {
+      if (!canModerate(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
       return await ctx.drizzle
@@ -130,7 +140,7 @@ export const forumRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const thread = await fetchThread(ctx.drizzle, input.thread_id);
-      if (!canModerate(user)) {
+      if (!canModerate(user.role)) {
         throw serverError("UNAUTHORIZED", "You are not authorized");
       }
       await ctx.drizzle.delete(forumThread).where(eq(forumThread.id, thread.id));

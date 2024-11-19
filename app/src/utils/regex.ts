@@ -16,5 +16,5 @@ export const DateTimeRegExp = new RegExp(
 export const extractValueFromJson = (data: string, key: string) => {
   const rx = new RegExp(key + '"s?:s?"(.+)"');
   const values = rx.exec(data);
-  return values && values[1];
+  return values?.[1];
 };

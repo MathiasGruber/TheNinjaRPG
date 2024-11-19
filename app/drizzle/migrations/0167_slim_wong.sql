@@ -1,0 +1,1 @@
+ALTER TABLE `UserReport` ADD `additionalContext` json DEFAULT ('[]') NOT NULL;

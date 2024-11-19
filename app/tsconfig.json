@@ -1,22 +1,30 @@
 {
   "compilerOptions": {
-    "target": "es2021",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    /* Base Options: */
+    "esModuleInterop": true,
     "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    /* Strictness */
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "checkJs": false,
+    /* Bundled projects */
+    "lib": ["dom", "dom.iterable", "ES2022"],
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }],
+    "incremental": true,
+    /* Extra settings */
     "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "noUncheckedIndexedAccess": true,
     "noErrorTruncation": false,
+    /* Path aliases */
     "baseUrl": ".",
     "paths": {
       "@/env/*": ["src/env/*"],
@@ -29,18 +37,15 @@
       "@/server/*": ["src/server/*"],
       "@/api/*": ["src/server/api/*"],
       "@/app/*": ["src/app/*"],
+      "@/data/*": ["src/data/*"],
       "@/routers/*": ["src/server/api/routers/*"],
       "@/components/*": ["src/components/*"],
       "@/contentbox/*": ["src/components/contentboxes/*"],
-      "@/public/*": ["public/*"],
-    },
-    "plugins": [
-      {
-        "name": "next",
-      },
-    ],
+      "@/public/*": ["public/*"]
+    }
   },
   "include": [
+    ".eslintrc.cjs",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
@@ -49,7 +54,7 @@
     "src/libs/drawThreeJson.js",
     "src/libs/travel/SpriteMixer.js",
     "public/service-worker.js",
-    ".next/types/**/*.ts",
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next"],
+  "exclude": ["node_modules", ".next"]
 }

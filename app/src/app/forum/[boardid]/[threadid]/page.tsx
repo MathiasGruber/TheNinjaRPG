@@ -10,7 +10,7 @@ import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import { CommentOnForum } from "@/layout/Comment";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { mutateCommentSchema } from "@/validators/comments";
 import { type MutateCommentSchema } from "@/validators/comments";
 
@@ -23,8 +23,7 @@ export default function Thread({ params }: { params: { threadid: string } }) {
   const { data: comments, refetch } = api.comments.getForumComments.useQuery(
     { thread_id: thread_id, limit: limit, cursor: page },
     {
-      enabled: thread_id !== undefined,
-      staleTime: Infinity,
+      enabled: !!thread_id,
       placeholderData: (previousData) => previousData,
     },
   );
@@ -77,21 +76,20 @@ export default function Thread({ params }: { params: { threadid: string } }) {
         back_href={"/forum/" + thread.boardId}
         subtitle={thread.title}
       >
-        {allComments &&
-          allComments.map((comment, i) => {
-            return (
-              <div key={comment.id}>
-                <CommentOnForum
-                  title={i === 0 && page === 0 ? thread.title : undefined}
-                  user={comment.user}
-                  hover_effect={false}
-                  comment={comment}
-                >
-                  {parseHtml(comment.content)}
-                </CommentOnForum>
-              </div>
-            );
-          })}
+        {allComments?.map((comment, i) => {
+          return (
+            <div key={comment.id}>
+              <CommentOnForum
+                title={i === 0 && page === 0 ? thread.title : undefined}
+                user={comment.user}
+                hover_effect={false}
+                comment={comment}
+              >
+                {parseHtml(comment.content)}
+              </CommentOnForum>
+            </div>
+          );
+        })}
         {thread &&
           userData &&
           !thread.isLocked &&

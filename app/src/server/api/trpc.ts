@@ -37,19 +37,20 @@ import type { TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
  * that goes through your tRPC endpoint. This is for the app router.
  * @see https://trpc.io/docs/context
  */
-export const createAppTRPCContext = (opts: {
+export const createAppTRPCContext = async (opts: {
   req: NextRequest;
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
 }) => {
-  const { readHeaders } = opts;
-  const sesh = auth();
+  // Get user ID - SIMPLE
+  const sesh = await auth();
   const userId = sesh.userId;
   // Get IP
-  const ip = readHeaders.get("x-forwarded-for") || undefined;
+  const { readHeaders } = opts;
+  const ip = readHeaders.get("x-forwarded-for") ?? undefined;
   const userIp = typeof ip === "string" ? ip.split(/, /)[0] : "unknown";
   // Get agent
-  const userAgent = readHeaders.get("user-agent") || undefined;
+  const userAgent = readHeaders.get("user-agent") ?? undefined;
   return {
     drizzle: drizzleDB,
     userIp,
@@ -103,7 +104,7 @@ export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
       code: "UNAUTHORIZED",
     });
   }
-  const identifier = `${path}-${ctx.userId || ctx.userIp}`;
+  const identifier = `${path}-${ctx.userId ?? ctx.userIp}`;
   const { success } = await ratelimit.limit(identifier);
   if (!success) {
     if (ctx.userId) {

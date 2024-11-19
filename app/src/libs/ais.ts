@@ -1,11 +1,11 @@
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { ElementNames, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
-import { insertUserDataSchema } from "@/drizzle/schema";
-import type { InsertUserDataSchema } from "@/drizzle/schema";
+import { insertAiSchema } from "@/drizzle/schema";
+import type { InsertAiSchema } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 import type { UserJutsu } from "@/drizzle/schema";
 import type { UserItem } from "@/drizzle/schema";
@@ -27,30 +27,20 @@ export const useAiEditForm = (
   };
 
   // Form handling
-  const form = useForm<InsertUserDataSchema>({
+  const form = useForm<InsertAiSchema>({
     mode: "all",
     criteriaMode: "all",
     values: processedUser,
     defaultValues: processedUser,
-    resolver: zodResolver(insertUserDataSchema),
+    resolver: zodResolver(insertAiSchema),
   });
 
   // Query for content
-  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: clans, isPending: l5 } = api.clan.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: anbus, isPending: l6 } = api.anbu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
+  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
+  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
+  const { data: clans, isPending: l5 } = api.clan.getAllNames.useQuery(undefined);
+  const { data: anbus, isPending: l6 } = api.anbu.getAllNames.useQuery(undefined);
 
   // tRPC utility
   const utils = api.useUtils();
@@ -87,7 +77,7 @@ export const useAiEditForm = (
   const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
   // Object for form values
-  const formData: FormEntry<keyof InsertUserDataSchema | "jutsus" | "items">[] = [
+  const formData: FormEntry<keyof InsertAiSchema | "jutsus" | "items">[] = [
     { id: "username", type: "text" },
     { id: "customTitle", type: "text" },
     { id: "avatar", type: "avatar", href: avatarUrl },
@@ -109,8 +99,8 @@ export const useAiEditForm = (
     { id: "taijutsuDefence", label: "Tai Def Focus", type: "number" },
     { id: "bukijutsuOffence", label: "Buku Off Focus", type: "number" },
     { id: "bukijutsuDefence", label: "Buki Def Focus", type: "number" },
-    { id: "statsMultiplier", type: "number" },
-    { id: "poolsMultiplier", type: "number" },
+    { id: "statsMultiplier", type: "number", label: "Stat Multiplier [Go beyond cap]" },
+    { id: "poolsMultiplier", type: "number", label: "Pool Modifier [Go beyond cap]" },
     { id: "strength", label: "Strength Focus", type: "number" },
     { id: "intelligence", label: "Intelligence Focus", type: "number" },
     { id: "willpower", label: "Willpower Focus", type: "number" },

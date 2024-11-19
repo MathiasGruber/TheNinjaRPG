@@ -1,9 +1,16 @@
+import { detailedDiff } from "deep-object-diff";
 import { z } from "zod";
 
 export const AvailableTargets = [
-  "SELF",
-  "RANDOM_OPPONENT",
+  "BARRIER_BETWEEN",
+  "BARRIER_BLOCKING_CLOSEST_OPPONENT",
+  "CLOSEST_ALLY",
   "CLOSEST_OPPONENT",
+  "EMPTY_GROUND_CLOSEST_TO_OPPONENT",
+  "EMPTY_GROUND_CLOSEST_TO_SELF",
+  "RANDOM_ALLY",
+  "RANDOM_OPPONENT",
+  "SELF",
 ] as const;
 
 export type AvailableTarget = (typeof AvailableTargets)[number];
@@ -31,10 +38,23 @@ export const ConditionDistanceLowerThan = z.object({
   target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
 });
 
+export const ConditionSpecificRound = z.object({
+  type: z.literal("specific_round").default("specific_round"),
+  description: z.string().default("A specific round number"),
+  value: z.coerce.number().int().positive().default(10),
+});
+
+export const ConditionDoesNotHaveSummon = z.object({
+  type: z.literal("does_not_have_summon").default("does_not_have_summon"),
+  description: z.string().default("Does not have a summon active"),
+});
+
 export const ZodAllAiConditions = z.union([
   ConditionHealthBelow,
+  ConditionSpecificRound,
   ConditionDistanceHigherThan,
   ConditionDistanceLowerThan,
+  ConditionDoesNotHaveSummon,
 ]);
 
 export const AiConditionTypes = ZodAllAiConditions._def.options.map(
@@ -114,6 +134,13 @@ export const ActionWithEffectHighestPower = z.object({
   effect: z.string().default("damage"),
 });
 
+export const ActionSpecificCombo = z.object({
+  type: z.literal("use_combo_action").default("use_combo_action"),
+  description: z.string().default("Cycly through a specific combo of jutsu & items"),
+  comboIds: z.array(z.string()).default([]),
+  target: z.enum(AvailableTargets).default("RANDOM_OPPONENT"),
+});
+
 export const ZodAllAiActions = z.union([
   ActionMoveTowardsOpponent,
   ActionEndTurn,
@@ -124,6 +151,7 @@ export const ZodAllAiActions = z.union([
   ActionWithEffectHighestPower,
   ActionWithHighestPowerJutsuEffect,
   ActionWithHighestPowerItemEffect,
+  ActionSpecificCombo,
 ]);
 
 export const AiActionTypes = ZodAllAiActions._def.options.map(
@@ -151,3 +179,62 @@ export const AiRule = z.object({
 });
 
 export type AiRuleType = z.infer<typeof AiRule>;
+
+/**
+ * Get a set of backup AI rules to the provided rules array.
+ *
+ * The rules are as follows:
+ * 1. If the distance to the opponent is greater than 2, move towards the opponent.
+ * 2. If the distance to the opponent is less than 2, perform an action with the highest power effect that causes damage.
+ * 3. If no conditions are met, perform an action with the highest power effect
+ *
+ * @param rules - The array of AI rules to which the backup rules will be added.
+ * @returns void
+ */
+export const getBackupRules = () => {
+  const rules: AiRuleType[] = [];
+  rules.push(
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+      action: ActionMoveTowardsOpponent.parse({}),
+    }),
+    AiRule.parse({
+      conditions: [ConditionDistanceLowerThan.parse({ value: 2 })],
+      action: ActionWithEffectHighestPower.parse({ effect: "damage" }),
+    }),
+    AiRule.parse({
+      conditions: [],
+      action: ActionWithEffectHighestPower.parse({
+        effect: "damage",
+        target: "BARRIER_BLOCKING_CLOSEST_OPPONENT",
+      }),
+    }),
+  );
+  return rules;
+};
+
+/**
+ * Enforces the backup rules by comparing the provided rules with the backup rules.
+ * If the backup rules are not present in the provided rules, they are added.
+ *
+ * @param rules - The array of AI rules to be validated and potentially updated.
+ */
+export const enforceExtraRules = (rules: AiRuleType[], enforced: AiRuleType[]) => {
+  const diff = detailedDiff(enforced, rules.slice(-enforced.length));
+  const hasEnforcedRules =
+    Object.keys(diff.added).length === 0 &&
+    Object.keys(diff.deleted).length === 0 &&
+    Object.keys(diff.updated).length === 0;
+  if (!hasEnforcedRules) {
+    console.log("Adding backup rules");
+    rules.push(...enforced);
+  }
+};

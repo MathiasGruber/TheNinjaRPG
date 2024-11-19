@@ -3,7 +3,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { secondsPassed } from "@/utils/time";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import {
   IMG_MISSION_S,
   IMG_MISSION_A,
@@ -12,10 +12,10 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
 } from "@/drizzle/constants";
-import type { LetterRank } from "@/drizzle/constants";
+import type { LetterRank, UserRole } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest } from "@/drizzle/schema";
+import type { Quest, UserData } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -188,6 +188,8 @@ export const getNewTrackers = (
           } else if (task === "days_in_village") {
             const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
             status.value = days;
+          } else if (task === "reputation_points") {
+            status.value = user.reputationPointsTotal;
           } else if (task === "minutes_passed" && questTracker) {
             const minutes = Math.floor(
               secondsPassed(new Date(questTracker.startAt)) / 60,
@@ -373,4 +375,45 @@ export const mockAchievementHistoryEntries = (
       endAt: null,
       startedAt: new Date(),
     }));
+};
+
+/**
+ * Hides the location information of quest objectives if certain conditions are met.
+ *
+ * @param quest - The quest object containing objectives.
+ * @param user - Optional user data to check against objective sectors.
+ *
+ * This function iterates over each objective in the quest's content. If an objective has the
+ * `hideLocation` property set to true and the user's sector does not match the objective's sector,
+ * it will obfuscate the objective's location by setting its latitude, longitude, and sector to 1337.
+ */
+export const hideQuestInformation = (quest: Quest, user?: UserData) => {
+  quest.content.objectives.forEach((objective) => {
+    if (
+      "hideLocation" in objective &&
+      objective.hideLocation &&
+      user?.sector !== objective.sector &&
+      !canChangeContent(user?.role || "USER")
+    ) {
+      objective.latitude = 1337;
+      objective.longitude = 1337;
+      objective.sector = 1337;
+    }
+  });
+};
+
+/**
+ * Filters out hidden and expired quests based on the user's role.
+ *
+ * @param quest - The quest object to be checked.
+ * @param role - The role of the user.
+ * @returns A boolean indicating whether the quest is either hidden and the user can play hidden quests, or the quest is not expired.
+ */
+export const filterHiddenAndExpiredQuest = (
+  quest: { hidden: boolean; expiresAt?: string | null },
+  role: UserRole,
+) => {
+  const hideCheck = !quest.hidden;
+  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
+  return (hideCheck || canPlayHiddenQuests(role)) && expiresCheck;
 };

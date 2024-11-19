@@ -10,13 +10,13 @@ import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { FilePlus, FileMinus } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { tagTypes } from "@/libs/combat/types";
 import { WeaknessTag } from "@/libs/combat/types";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { canChangeContent } from "@/utils/permissions";
-import { insertUserDataSchema } from "@/drizzle/schema";
+import { insertAiSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
@@ -30,7 +30,7 @@ export default function ManualAisEdit({ params }: { params: { aiid: string } }) 
   // Queries
   const { data, isPending, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
-    { staleTime: Infinity, enabled: aiId !== undefined },
+    { enabled: aiId !== undefined },
   );
 
   // Convert key null values to empty strings, preparing data for form
@@ -139,7 +139,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               total={processedUser.maxStamina}
             />
             <EditContent
-              schema={insertUserDataSchema}
+              schema={insertAiSchema}
               form={form}
               formData={formData}
               showSubmit={form.formState.isDirty}

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse } from "@/api/trpc";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { badge, userBadge } from "@/drizzle/schema";
 import { actionLog } from "@/drizzle/schema";
 import { BadgeValidator } from "@/validators/badge";
@@ -36,6 +36,7 @@ export const badgeRouter = createTRPCRouter({
       const results = await ctx.drizzle.query.badge.findMany({
         offset: skip,
         limit: limit,
+        orderBy: asc(badge.name),
       });
       const nextCursor = results.length < limit ? null : currentCursor + 1;
       return {
@@ -93,7 +94,7 @@ export const badgeRouter = createTRPCRouter({
       const id = nanoid();
       await ctx.drizzle.insert(badge).values({
         id: id,
-        name: "Placeholder",
+        name: `New Badge - ${id}`,
         image: IMG_AVATAR_DEFAULT,
         description: "",
       });

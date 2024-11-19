@@ -1,6 +1,6 @@
 import React from "react";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { Folder } from "lucide-react";
 import { showMutationToast } from "@/libs/toast";
@@ -23,7 +23,6 @@ const LoadoutSelector: React.FC<LoadoutSelectorProps> = (props) => {
   // Get loadouts
   const { data, isFetching } = api.jutsu.getLoadouts.useQuery(undefined, {
     enabled: maxLoadouts > 1,
-    staleTime: Infinity,
   });
 
   // Mutations

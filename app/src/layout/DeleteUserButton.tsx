@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Trash2 } from "lucide-react";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";

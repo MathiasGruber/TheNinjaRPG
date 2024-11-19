@@ -46,7 +46,7 @@ export const updateBattle = async (
   const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
 
   // If user won and it's a clan battle, update the clan battle queue
-  if (result && result.didWin && newBattle.battleType === "CLAN_BATTLE") {
+  if (result?.didWin && newBattle.battleType === "CLAN_BATTLE") {
     const user = newBattle.usersState.find((u) => u.userId === userId);
     const other = newBattle.usersState.find((u) => u.userId !== userId);
     if (user && other) {
@@ -169,12 +169,21 @@ export const updateKage = async (
   userId: string,
 ) => {
   // Fetch
-  const user = curBattle.usersState.find((u) => u.userId === userId);
+  const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
   if (curBattle.battleType !== "KAGE_CHALLENGE") return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
+  // Lost items for the kage
+  const deleteItems = [
+    ...kage.items.filter((ui) => ui.quantity <= 0).map((i) => i.id),
+    ...user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id),
+  ];
+  const updateItems = [
+    ...kage.items.filter((ui) => ui.quantity > 0),
+    ...user.items.filter((ui) => ui.quantity > 0),
+  ];
   // Apply
   if (result) {
     await Promise.all([
@@ -182,9 +191,20 @@ export const updateKage = async (
         ? [
             client
               .update(village)
-              .set({ kageId: user.userId })
+              .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
           ]
+        : []),
+      ...(deleteItems.length > 0
+        ? [client.delete(userItem).where(inArray(userItem.id, deleteItems))]
+        : []),
+      ...(updateItems.length > 0
+        ? updateItems.map((ui) =>
+            client
+              .update(userItem)
+              .set({ quantity: ui.quantity })
+              .where(eq(userItem.id, ui.id)),
+          )
         : []),
       client.insert(kageDefendedChallenges).values({
         id: nanoid(),
@@ -257,7 +277,7 @@ export const updateVillageAnbuClan = async (
   const user = curBattle.usersState.find((u) => u.userId === userId);
   // Guards
   if (!user || !user.villageId) return;
-  if (!result || !result.didWin) return;
+  if (!result?.didWin) return;
   // Mutate
   await Promise.all([
     ...(result.villageTokens > 0
@@ -300,7 +320,7 @@ export const updateUser = async (
   result: CombatResult | null,
   userId: string,
 ) => {
-  const user = curBattle.usersState.find((user) => user.userId === userId);
+  const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {
     // Update quest tracker with battle result
     if (result.didWin > 0) {
@@ -320,11 +340,13 @@ export const updateUser = async (
     // Update trackers
     const { trackers, notifications } = getNewTrackers(
       user,
-      curBattle.usersState.map((u) => ({
-        task: "defeat_opponents",
-        contentId: u.userId,
-        text: result.outcome,
-      })),
+      curBattle.usersState
+        .filter((u) => u.userId !== userId)
+        .map((u) => ({
+          task: "defeat_opponents",
+          contentId: u.userId,
+          text: result.outcome,
+        })),
     );
     user.questData = trackers;
     // Add notifications to combatResult

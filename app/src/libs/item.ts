@@ -12,12 +12,6 @@ import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schem
  * @param userData - The user data.
  * @returns True if the item is consumable outside of combat, false otherwise.
  */
-/**
- * Checks if an item is consumable outside of combat.
- * @param item - The item to check.
- * @param userData - The user data.
- * @returns True if the item is consumable outside of combat, false otherwise.
- */
 export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
   if (item.itemType !== "CONSUMABLE") {
     return false;
@@ -75,7 +69,7 @@ export const calcItemSellingPrice = (
   structures: VillageStructure[] | undefined,
 ) => {
   if (!useritem) return 0;
-  const bDiscount = 50;
+  const bDiscount = 80;
   const sDiscount = structureBoost("itemDiscountPerLvl", structures);
   const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
   const discount = Math.min(bDiscount + sDiscount + aDiscount, 95);

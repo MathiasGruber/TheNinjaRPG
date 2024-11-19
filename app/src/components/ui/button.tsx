@@ -1,8 +1,14 @@
 import * as React from "react";
 import Image from "next/image";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-
+import { IMG_LAYOUT_BUTTONDECOR } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 
 const buttonVariants = cva(
@@ -40,25 +46,47 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  hoverText?: string;
   decoration?: "gold" | "none";
   animation?: "pulse";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, asChild = false, decoration = "none", ...props },
+    {
+      className,
+      variant,
+      size,
+      hoverText,
+      asChild = false,
+      decoration = "none",
+      ...props
+    },
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
     const animation = props.animation ? "animate-pulse hover:animate-none" : "";
-    const element = (
+    // Button element
+    let element = (
       <Comp
         className={cn(buttonVariants({ variant, size, className }), animation)}
         ref={ref}
         {...props}
       />
     );
+    if (hoverText) {
+      element = (
+        <TooltipProvider delayDuration={50}>
+          <Tooltip>
+            <TooltipTrigger asChild>{element}</TooltipTrigger>
+            <TooltipContent>{hoverText}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    // No decoration, just return button
     if (decoration === "none") return element;
+    // With decoration
     return (
       <div className={cn("relative")}>
         {element}
@@ -66,14 +94,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           <>
             <Image
               className="absolute top-[-1px] left-[-3px] scale-x-[-1] h-full aspect-square"
-              src={`/layout/buttondecor.webp`}
+              src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-left"
               width={8}
               height={25}
             ></Image>
             <Image
               className="absolute top-[-1px] right-[-3px] bottom-[0px] h-full aspect-square"
-              src={`/layout/buttondecor.webp`}
+              src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-right"
               width={8}
               height={25}

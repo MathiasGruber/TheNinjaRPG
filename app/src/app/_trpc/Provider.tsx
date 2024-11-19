@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TRPCClientError, httpBatchLink, loggerLink } from "@trpc/client";
 import { toast } from "@/components/ui/use-toast";
 import { QueryCache, MutationCache } from "@tanstack/react-query";
-import { api } from "./client";
+import { api, useGlobalOnMutateProtect } from "./client";
 
 const getBaseUrl = () => {
   if (typeof window !== "undefined") return "";
@@ -15,9 +15,25 @@ const getBaseUrl = () => {
 };
 
 export default function TrpcClientProvider(props: { children: React.ReactNode }) {
+  const onMutateCheck = useGlobalOnMutateProtect();
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: Infinity,
+          },
+          mutations: {
+            onMutate: () => {
+              onMutateCheck();
+              document.body.style.cursor = "wait";
+            },
+            onSettled: () => {
+              document.body.style.cursor = "default";
+            },
+            onError: onError,
+          },
+        },
         queryCache: new QueryCache({
           onError: onError,
         }),

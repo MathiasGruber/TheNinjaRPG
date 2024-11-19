@@ -8,7 +8,7 @@ import Image from "next/image";
 import { parseHtml } from "@/utils/parse";
 import { Button } from "@/components/ui/button";
 import { SquarePen, MessagesSquare } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import type { InfiniteThreads } from "@/routers/forum";
 
@@ -35,7 +35,6 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
       placeholderData: (previousData) => previousData,
       refetchOnMount: false,
       refetchOnReconnect: false,
-      staleTime: Infinity,
     },
   );
   const allThreads = threads?.pages.map((page) => page.threads).flat();

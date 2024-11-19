@@ -14,7 +14,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocalStorage } from "@/hooks/localstorage";
@@ -55,7 +55,7 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
 
   return (
     <Popover>
-      <PopoverTrigger>{props.children}</PopoverTrigger>
+      <PopoverTrigger id="helpBtn">{props.children}</PopoverTrigger>
       <PopoverContent className="m-2 min-w-96 max-w-96">
         {isSuccess && (
           <div>

@@ -3,7 +3,7 @@
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
@@ -28,7 +28,7 @@ export default function ItemEdit({ params }: { params: { itemid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.item.get.useQuery(
     { id: itemId },
-    { staleTime: Infinity, enabled: itemId !== undefined },
+    { enabled: !!itemId },
   );
 
   // Convert key null values to empty strings, preparing data for form

@@ -46,7 +46,7 @@ export class Pusher {
         body: body,
       });
     } catch (error) {
-      console.log("Error", error);
+      console.error("Error", error);
     }
   }
   private _md5(str: string) {

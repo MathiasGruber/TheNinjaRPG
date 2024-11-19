@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { sleep } from "@/utils/time";
 import { cn } from "src/libs/shadui";
 
@@ -68,6 +68,7 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
         width={props.size}
         height={props.size}
         priority={props.priority}
+        loading={props.priority ? "eager" : "lazy"}
         unoptimized={true}
       />
     );

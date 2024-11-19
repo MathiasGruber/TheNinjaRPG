@@ -9,7 +9,7 @@ import Loader from "@/layout/Loader";
 import LevelUpBtn from "@/layout/LevelUpBtn";
 import { Wrench, Share2 } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
@@ -22,7 +22,7 @@ export default function Profile() {
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
-    { staleTime: 300000 },
+    { enabled: !!userData, staleTime: 300000 },
   );
 
   // Derived

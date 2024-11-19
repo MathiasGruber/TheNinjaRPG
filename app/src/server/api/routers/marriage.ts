@@ -2,7 +2,7 @@ import { userAssociation } from "@/drizzle/schema";
 import { z } from "zod";
 import type { inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { errorResponse, baseServerResponse } from "@/server/api/trpc";
+import { errorResponse, baseServerResponse, publicProcedure } from "@/server/api/trpc";
 import { getServerPusher } from "@/libs/pusher";
 import { fetchUser } from "@/routers/profile";
 import {
@@ -118,16 +118,16 @@ export const marriageRouter = createTRPCRouter({
       // Create
       return { success: true, message: "Proposal Accepted" };
     }),
-  getMarriedUsers: protectedProcedure
+  getMarriedUsers: publicProcedure
     .input(z.object({ id: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       const associations = await fetchAssociations(
         ctx.drizzle,
-        input.id ?? ctx.userId,
+        input.id ?? ctx?.userId ?? "",
         "MARRIAGE",
       );
       const marriedUsers = associations.map((x) =>
-        x.userOne.userId !== (input.id ?? ctx.userId) ? x.userOne : x.userTwo,
+        x.userOne.userId !== (input.id ?? ctx?.userId) ? x.userOne : x.userTwo,
       );
 
       return marriedUsers;
@@ -201,7 +201,7 @@ export const fetchAssociations = async (
   idOne?: string,
   type?: UserAssociation,
 ) => {
-  return await client.query.userAssociation.findMany({
+  const results = await client.query.userAssociation.findMany({
     where: and(
       ...(idOne
         ? [or(eq(userAssociation.userOne, idOne), eq(userAssociation.userTwo, idOne))]
@@ -214,6 +214,7 @@ export const fetchAssociations = async (
     },
     orderBy: (table, { asc }) => [asc(table.createdAt)],
   });
+  return results.filter((x) => x.userOne && x.userTwo);
 };
 
 export type MarriageRouter = inferRouterOutputs<typeof marriageRouter>;

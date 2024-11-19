@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UsageStats } from "@/layout/UsageStatistics";
 
 export default function ItemStatistics({ params }: { params: { itemid: string } }) {
@@ -11,7 +11,7 @@ export default function ItemStatistics({ params }: { params: { itemid: string } 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: itemId, type: "item" },
-    { staleTime: Infinity, enabled: itemId !== undefined },
+    { enabled: !!itemId },
   );
   const item = data?.info;
   const usage = data?.usage;

@@ -19,7 +19,7 @@ import {
 } from "@/routers/sparring";
 import { initiateBattle, determineArenaBackground } from "@/routers/combat";
 import { CLAN_LOBBY_SECONDS, CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { CLAN_CREATE_RYO_COST } from "@/drizzle/constants";
+import { CLAN_CREATE_RYO_COST, CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
@@ -188,12 +188,14 @@ export const clanRouter = createTRPCRouter({
       if (!village) return errorResponse("Village not found");
       if (!structure) return errorResponse("Clan hall not found");
       if (villageId !== user.villageId) return errorResponse("Wrong user village");
-      if (clans.length > structure.level) return errorResponse("Max clans reached");
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
       if (clans.find((c) => c.leaderId === ctx.userId))
         if (user.clanId) return errorResponse("Already in a clan");
       if (user.isAi) return errorResponse("AI cannot be leader");
       if (user.money < CLAN_CREATE_RYO_COST) return errorResponse("Not enough ryo");
+      if (clans.length > structure.level * CLANS_PER_STRUCTURE_LEVEL) {
+        return errorResponse("Max clans reached");
+      }
       if (user.villagePrestige < CLAN_CREATE_PRESTIGE_REQUIREMENT) {
         return errorResponse("Not enough prestige");
       }
@@ -261,12 +263,24 @@ export const clanRouter = createTRPCRouter({
         fetchClan(ctx.drizzle, input.clanId),
         fetchUser(ctx.drizzle, input.memberId),
       ]);
+      if (!fetchedClan) return errorResponse("Clan not found");
       // Derived
       const isLeader = user.userId === fetchedClan?.leaderId;
       const isColeader = checkCoLeader(user.userId, fetchedClan);
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const updateData = (() => {
-        if (isMemberColeader && isLeader) return { leaderId: input.memberId };
+        if (isMemberColeader && isLeader)
+          return {
+            leaderId: input.memberId,
+            coLeader1:
+              fetchedClan.coLeader1 === input.memberId ? null : fetchedClan.coLeader1,
+            coLeader2:
+              fetchedClan.coLeader2 === input.memberId ? null : fetchedClan.coLeader2,
+            coLeader3:
+              fetchedClan.coLeader3 === input.memberId ? null : fetchedClan.coLeader3,
+            coLeader4:
+              fetchedClan.coLeader4 === input.memberId ? null : fetchedClan.coLeader4,
+          };
         if (!fetchedClan?.coLeader1) return { coLeader1: input.memberId };
         if (!fetchedClan?.coLeader2) return { coLeader2: input.memberId };
         if (!fetchedClan?.coLeader3) return { coLeader3: input.memberId };
@@ -274,7 +288,6 @@ export const clanRouter = createTRPCRouter({
         return null;
       })();
       // Guards
-      if (!fetchedClan) return errorResponse("Clan not found");
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
       if (!isLeader && !isColeader) return errorResponse("Only leaders can promote");
@@ -404,7 +417,12 @@ export const clanRouter = createTRPCRouter({
       if (user.isSilenced) return errorResponse("User is silenced");
       if (!leaderLike) return errorResponse("Not in clan leadership");
       // Update
-      return updateNindo(ctx.drizzle, fetchedClan.leaderOrderId, input.content);
+      return updateNindo(
+        ctx.drizzle,
+        fetchedClan.leaderOrderId,
+        input.content,
+        "clanOrder",
+      );
     }),
   fightLeader: protectedProcedure
     .input(z.object({ clanId: z.string(), villageId: z.string() }))
@@ -751,28 +769,14 @@ export const clanRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "CLAN_BATTLE",
-        determineArenaBackground("coliseum.webp"),
+        determineArenaBackground("default"),
       );
 
-      if (result.success) {
+      if (result.success && result.battleId) {
         await ctx.drizzle
           .update(mpvpBattleQueue)
-          .set({ battleId: result.message })
+          .set({ battleId: result.battleId })
           .where(eq(mpvpBattleQueue.id, input.clanBattleId));
-        // await Promise.all([
-        //   ctx.drizzle
-        //     .delete(mpvpBattleQueue)
-        //     .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
-        //   ctx.drizzle
-        //     .delete(mpvpBattleUser)
-        //     .where(eq(mpvpBattleUser.clanBattleId, input.clanBattleId)),
-        //   ctx.drizzle
-        //     .update(userData)
-        //     .set({ status: "AWAKE" })
-        //     .where(
-        //       and(inArray(userData.userId, allIds), eq(userData.status, "QUEUED")),
-        //     ),
-        // ]);
         return { success: true, message: "Clan battle initiated" };
       }
       return errorResponse("Failed to initiate clan battle");

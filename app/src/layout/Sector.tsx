@@ -15,7 +15,7 @@ import { z } from "zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useForm } from "react-hook-form";
 import { Vector2, OrthographicCamera, Group } from "three";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRouter } from "next/navigation";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
@@ -30,6 +30,7 @@ import { isLocationObjective } from "@/libs/quest";
 import { getAllyStatus } from "@/utils/alliance";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
+import { sleep } from "@/utils/time";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
@@ -85,7 +86,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { data: userData, pusher } = useRequiredUserData();
   const { data } = api.travel.getSectorData.useQuery(
     { sector: sector },
-    { enabled: sector !== undefined, staleTime: Infinity },
+    { enabled: sector !== undefined },
   );
   const villageData = data?.village;
   const fetchedUsers = data?.users;
@@ -149,20 +150,48 @@ const Sector: React.FC<SectorProps> = (props) => {
           });
         });
         await utils.profile.getUser.invalidate();
+        await utils.item.getUserItems.invalidate();
       }
     },
   });
 
   // Convenience method for updating user list
-  const updateUsersList = (data: UserData) => {
+  const updateUsersList = async (data: UserData, instantMove = false) => {
     if (users.current) {
       const allianceStatus = getAllyStatus(userData?.village, data.villageId);
       const idx = users.current.findIndex((user) => user.userId === data.userId);
-      const enrichedData = { ...data, allianceStatus };
-      if (idx !== -1) {
-        users.current[idx] = enrichedData;
+      if (idx !== -1 && users.current[idx]) {
+        if (instantMove) {
+          // User exists - instant movement
+          users.current[idx] = { ...data, allianceStatus };
+        } else {
+          // User exists - animate movement
+          const currentHex = findHex(grid.current, {
+            x: users.current[idx].longitude,
+            y: users.current[idx].latitude,
+          });
+          const targetHex = findHex(grid.current, {
+            x: data.longitude,
+            y: data.latitude,
+          });
+          if (pathFinder.current && currentHex && targetHex) {
+            const path = pathFinder.current.getShortestPath(currentHex, targetHex);
+            if (path) {
+              for (const tile of path) {
+                users.current[idx] = {
+                  ...data,
+                  allianceStatus,
+                  longitude: tile.col,
+                  latitude: tile.row,
+                };
+                await sleep(50);
+              }
+            }
+          }
+        }
       } else {
-        users.current.push(enrichedData);
+        // New user enters
+        users.current.push({ ...data, allianceStatus });
       }
       // Remove users who are no longer in the sector
       users.current
@@ -187,48 +216,58 @@ const Sector: React.FC<SectorProps> = (props) => {
         await utils.profile.getUser.invalidate();
       }
       // If success with data, then we moved
-      if (res.success && res.data) {
-        const data = res.data;
-        origin.current = findHex(grid.current, {
-          x: data.longitude,
-          y: data.latitude,
-        });
-        updateUsersList({
-          ...userData,
-          longitude: data.longitude,
-          latitude: data.latitude,
-          location: data.location,
-        } as UserData);
-        setPosition({ x: data.longitude, y: data.latitude });
-        setMoves((prev) => prev + 1);
-        if (data.location !== userData?.location) {
-          await utils.profile.getUser.invalidate();
+      const data = res.data;
+      if (res.success && data && pathFinder.current && origin.current) {
+        // Get the path the user moved
+        const target = findHex(grid.current, { x: data.longitude, y: data.latitude });
+        if (!target) return;
+        const path = pathFinder.current.getShortestPath(origin.current, target);
+        if (!path) return;
+        // Show movement 1 step at a time with a small sleep between moves
+        for (const tile of path) {
+          origin.current = tile;
+          void updateUsersList(
+            {
+              ...userData,
+              longitude: tile.col,
+              latitude: tile.row,
+              location: data.location,
+            } as UserData,
+            true,
+          );
+          setPosition({ x: tile.col, y: tile.row });
+          setMoves((prev) => prev + 1);
+          if (data.location !== userData?.location) {
+            await utils.profile.getUser.invalidate();
+          }
+          await sleep(50);
         }
-        if (userData) {
-          userData?.userQuests?.forEach((userquest) => {
-            const tracker = userData.questData?.find((q) => q.id === userquest.questId);
-            userquest.quest.content.objectives.forEach((objective, i) => {
-              if (
-                (!tracker || isQuestObjectiveAvailable(userquest.quest, tracker, i)) &&
-                // If an objective is a location objective, then check quest
-                (isLocationObjective(
-                  {
-                    sector: data.sector,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                  },
-                  objective,
-                ) ||
-                  // If we have attackers, check for these
-                  (objective.attackers &&
-                    objective.attackers.length > 0 &&
-                    objective.attackers_chance > 0))
-              ) {
-                checkQuest();
-              }
-            });
+      }
+      // Check Quests
+      if (userData && data) {
+        userData?.userQuests?.forEach((userquest) => {
+          const tracker = userData.questData?.find((q) => q.id === userquest.questId);
+          userquest.quest.content.objectives.forEach((objective, i) => {
+            if (
+              (!tracker || isQuestObjectiveAvailable(userquest.quest, tracker, i)) &&
+              // If an objective is a location objective, then check quest
+              (isLocationObjective(
+                {
+                  sector: data.sector,
+                  longitude: data.longitude,
+                  latitude: data.latitude,
+                },
+                objective,
+              ) ||
+                // If we have attackers, check for these
+                (objective.attackers &&
+                  objective.attackers.length > 0 &&
+                  objective.attackers_chance > 0))
+            ) {
+              checkQuest();
+            }
           });
-        }
+        });
       }
     },
   });
@@ -259,7 +298,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
         if (data.userId !== userData?.userId) {
-          updateUsersList(data);
+          void updateUsersList(data);
         }
       });
       return () => {
@@ -273,6 +312,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     showUsers.current = showActive;
   }, [showActive]);
 
+  // This is where the actua
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
       // Check user status
@@ -286,13 +326,13 @@ const Sector: React.FC<SectorProps> = (props) => {
       if (!targetHex) return;
       if (target.x === origin.current.col && target.y === origin.current.row) return;
       // Get shortest path
-      const path = pathFinder.current.getShortestPath(origin.current, targetHex);
-      const next = path?.[1];
-      if (next && !isMoving) {
+      if (!isMoving) {
         document.body.style.cursor = "wait";
         move({
-          longitude: next.col,
-          latitude: next.row,
+          curLongitude: origin.current.col,
+          curLatitude: origin.current.row,
+          longitude: targetHex.col,
+          latitude: targetHex.row,
           sector: sector,
           avatar: userData.avatar,
           villageId: userData.villageId,
@@ -321,7 +361,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Update information whenever we fetch new user data
   useEffect(() => {
     if (userData) {
-      updateUsersList(userData);
+      void updateUsersList(userData);
       userRef.current = userData;
     }
 
@@ -548,9 +588,11 @@ const Sector: React.FC<SectorProps> = (props) => {
         window.removeEventListener("resize", handleResize);
         document.removeEventListener("keydown", onDocumentKeyDown, false);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
-        sceneRef.removeChild(renderer.domElement);
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
+        if (sceneRef.contains(renderer.domElement)) {
+          sceneRef.removeChild(renderer.domElement);
+        }
         void utils.profile.getUser.invalidate();
       };
     }
@@ -630,9 +672,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   const { userData, storedLvl, setStoredLvl } = props;
 
   // Query
-  const { data } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data } = api.village.getAll.useQuery(undefined);
 
   // Form schema
   const levelSliderSchema = z.object({

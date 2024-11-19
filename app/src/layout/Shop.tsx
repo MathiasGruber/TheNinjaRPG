@@ -14,7 +14,7 @@ import {
 import { ActionSelector } from "@/layout/CombatActions";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useAwake } from "@/utils/routing";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { ItemTypes } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
@@ -64,7 +64,6 @@ const Shop: React.FC<ShopProps> = (props) => {
       enabled: userData !== undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allItems = items?.pages.map((page) => page.data).flat();

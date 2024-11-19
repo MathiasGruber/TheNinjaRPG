@@ -1,3 +1,4 @@
+import { MultisessionAppSupport } from "@clerk/nextjs/internal";
 import { ClerkProvider } from "@clerk/nextjs";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { UserContextProvider } from "@/utils/UserContext";
@@ -10,8 +11,7 @@ import TrpcClientProvider from "@/app/_trpc/Provider";
 import LayoutCore4 from "@/components/layout/core4_default";
 import type { Viewport, Metadata } from "next";
 
-import "@uploadthing/react/styles.css";
-import "../styles/app_globals.css";
+import "../styles/globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
         <ClerkProvider
+          telemetry={false}
           appearance={{
             variables: {
               colorPrimary: "#ce7e00",
@@ -29,13 +30,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         >
-          <TrpcClientProvider>
-            <UserContextProvider>
-              {env.NEXT_PUBLIC_MEASUREMENT_ID && <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />}
-              <Toaster />
-              <LayoutCore4>{children}</LayoutCore4>
-            </UserContextProvider>
-          </TrpcClientProvider>
+          <MultisessionAppSupport>
+            <TrpcClientProvider>
+              <UserContextProvider>
+                {env.NEXT_PUBLIC_MEASUREMENT_ID && (
+                  <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
+                )}
+                <Toaster />
+                <LayoutCore4>{children}</LayoutCore4>
+              </UserContextProvider>
+            </TrpcClientProvider>
+          </MultisessionAppSupport>
         </ClerkProvider>
       </body>
     </html>
@@ -104,6 +109,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
 };

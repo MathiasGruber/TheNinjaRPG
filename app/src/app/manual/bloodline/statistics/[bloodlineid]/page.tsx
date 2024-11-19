@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UsageStats, LevelStats } from "@/layout/UsageStatistics";
 
 export default function BloodlineStatistics({
@@ -15,7 +15,7 @@ export default function BloodlineStatistics({
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: bloodlineId, type: "bloodline" },
-    { staleTime: Infinity, enabled: bloodlineId !== undefined },
+    { enabled: !!bloodlineId },
   );
   const bloodline = data?.info;
   const usage = data?.usage;

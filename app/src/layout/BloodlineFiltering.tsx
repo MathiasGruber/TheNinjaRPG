@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,9 +52,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
   const { rank, classification, hidden } = props.state;
 
   // Get all villages
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Filter shown bloodlines
   const villageData = villages?.find((b) => b.id === village);

@@ -23,15 +23,17 @@ import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
 import { deleteCommentSchema } from "@/validators/comments";
-import { canPostReportComment } from "@/validators/reports";
-import { canSeeReport } from "@/validators/reports";
-import { canDeleteComment } from "@/validators/reports";
+import { canPostReportComment } from "@/utils/permissions";
+import { canSeeReport } from "@/utils/permissions";
+import { canDeleteComment } from "@/utils/permissions";
+import { canModerateRoles } from "@/utils/permissions";
 import { canSeeSecretData } from "@/utils/permissions";
 import { createConversationSchema } from "@/validators/comments";
-import { getServerPusher } from "../../../libs/pusher";
-import { fetchUserReport } from "./reports";
-import { fetchThread } from "./forum";
-import { fetchUser } from "./profile";
+import { getServerPusher } from "@/libs/pusher";
+import { fetchUserReport } from "@/routers/reports";
+import { fetchThread } from "@/routers/forum";
+import { fetchUser } from "@/routers/profile";
+import { moderateContent } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
@@ -161,12 +163,21 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
+      const sanitized = sanitize(input.comment);
+      const createdId = nanoid();
       await Promise.all([
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: createdId,
+          contextId: thread.id,
+        }),
         ctx.drizzle.insert(forumPost).values({
-          id: nanoid(),
+          id: createdId,
           userId: ctx.userId,
           threadId: thread.id,
-          content: sanitize(input.comment),
+          content: sanitized,
         }),
         ctx.drizzle
           .update(forumThread)
@@ -194,10 +205,20 @@ export const commentsRouter = createTRPCRouter({
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
       // Mutate
-      await ctx.drizzle
-        .update(forumPost)
-        .set({ content: sanitize(input.comment) })
-        .where(eq(forumPost.id, input.object_id));
+      const postId = input.object_id;
+      const sanitized = sanitize(input.comment);
+      await Promise.all([
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "forumPost",
+          relationId: postId,
+        }),
+        ctx.drizzle
+          .update(forumPost)
+          .set({ content: sanitized })
+          .where(eq(forumPost.id, postId)),
+      ]);
       return { success: true, message: "Comment edited" };
     }),
   deleteForumComment: protectedProcedure
@@ -257,13 +278,14 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         }),
+        // Remove the counter of new conversations
         ctx.drizzle
           .update(userData)
           .set({ inboxNews: 0 })
           .where(eq(userData.userId, ctx.userId)),
       ]);
       // Filter off blacklisted conversations
-      return data?.conversations
+      const filteredConverations = data?.conversations
         .filter(
           (c) =>
             !c.conversation.users
@@ -278,6 +300,8 @@ export const commentsRouter = createTRPCRouter({
         )
         .map((c) => c.conversation)
         .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1));
+      // Return filtered conversations
+      return filteredConverations;
     }),
   createConversation: protectedProcedure
     .use(ratelimitMiddleware)
@@ -334,6 +358,7 @@ export const commentsRouter = createTRPCRouter({
           content: conversationComment.content,
           conversationId: conversationComment.conversationId,
           isPinned: conversationComment.isPinned,
+          isReported: conversationComment.isReported,
           villageName: village.name,
           villageHexColor: village.hexColor,
           villageKageId: village.kageId,
@@ -354,7 +379,7 @@ export const commentsRouter = createTRPCRouter({
         .leftJoin(
           posterBlacklist,
           and(
-            notInArray(readerUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
+            notInArray(readerUser.role, canModerateRoles),
             eq(posterBlacklist.creatorUserId, conversationComment.userId),
             eq(posterBlacklist.targetUserId, ctx.userId),
           ),
@@ -370,10 +395,7 @@ export const commentsRouter = createTRPCRouter({
         .where(
           and(
             eq(conversationComment.id, input.commentId),
-            or(
-              isNull(readerBlacklist.id),
-              inArray(posterUser.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
-            ),
+            or(isNull(readerBlacklist.id), inArray(posterUser.role, canModerateRoles)),
             isNull(posterBlacklist.id),
           ),
         );
@@ -424,6 +446,7 @@ export const commentsRouter = createTRPCRouter({
             content: conversationComment.content,
             conversationId: conversationComment.conversationId,
             isPinned: conversationComment.isPinned,
+            isReported: conversationComment.isReported,
             villageName: village.name,
             villageHexColor: village.hexColor,
             villageKageId: village.kageId,
@@ -461,20 +484,27 @@ export const commentsRouter = createTRPCRouter({
           .where(
             and(
               eq(conversationComment.conversationId, convo.id),
-              or(
-                isNull(readerBlacklist.id),
-                inArray(userData.role, ["MODERATOR", "HEAD_MODERATOR", "ADMIN"]),
-              ),
+              or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
               isNull(posterBlacklist.id),
             ),
           )
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),
-        ctx.drizzle
-          .update(userData)
-          .set({ inboxNews: 0 })
-          .where(eq(userData.userId, ctx.userId)),
+        // Update last read
+        ...(convo.isPublic
+          ? []
+          : [
+              ctx.drizzle
+                .update(user2conversation)
+                .set({ lastReadAt: new Date() })
+                .where(
+                  and(
+                    eq(user2conversation.userId, ctx.userId),
+                    eq(user2conversation.conversationId, convo.id),
+                  ),
+                ),
+            ]),
       ]);
       // Fetch
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
@@ -509,7 +539,6 @@ export const commentsRouter = createTRPCRouter({
           .set({ inboxNews: sql`${userData.inboxNews} + 1` })
           .where(inArray(userData.userId, userIds));
       }
-
       // Update conversation & update user notifications
       const commentId = nanoid();
       const pusher = getServerPusher();
@@ -518,15 +547,40 @@ export const commentsRouter = createTRPCRouter({
         fromId: ctx.userId,
         commentId: commentId,
       });
-      userIds.forEach(
-        (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
-      );
-      return await ctx.drizzle.insert(conversationComment).values({
-        id: commentId,
-        content: sanitize(input.comment),
-        userId: ctx.userId,
-        conversationId: convo.id,
-      });
+      if (!convo.isPublic) {
+        userIds
+          .filter((id) => id !== ctx.userId)
+          .forEach(
+            (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
+          );
+      }
+      // Auto-moderation
+      const sanitized = sanitize(input.comment);
+      await Promise.all([
+        ...(convo.isPublic
+          ? [
+              moderateContent(ctx.drizzle, {
+                content: sanitized,
+                userId: ctx.userId,
+                relationType: "comment",
+                relationId: commentId,
+                contextId: convo.id,
+              }),
+            ]
+          : []),
+        ctx.drizzle.insert(conversationComment).values({
+          id: commentId,
+          content: sanitized,
+          userId: ctx.userId,
+          conversationId: convo.id,
+        }),
+        ctx.drizzle
+          .update(conversation)
+          .set({ updatedAt: new Date() })
+          .where(eq(conversation.id, convo.id)),
+      ]);
+      // Insert
+      return { success: true, message: "Comment posted" };
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
@@ -547,10 +601,20 @@ export const commentsRouter = createTRPCRouter({
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
       // Mutate
-      await ctx.drizzle
-        .update(conversationComment)
-        .set({ content: sanitize(input.comment) })
-        .where(eq(conversationComment.id, input.object_id));
+      const commentId = input.object_id;
+      const sanitized = sanitize(input.comment);
+      await Promise.all([
+        moderateContent(ctx.drizzle, {
+          content: sanitized,
+          userId: ctx.userId,
+          relationType: "comment",
+          relationId: commentId,
+        }),
+        ctx.drizzle
+          .update(conversationComment)
+          .set({ content: sanitized })
+          .where(eq(conversationComment.id, commentId)),
+      ]);
       return { success: true, message: "Comment edited" };
     }),
   deleteConversationComment: protectedProcedure
@@ -646,6 +710,8 @@ export const createConvo = async (
   );
   // Update DB concurrently
   const convoId = nanoid();
+  const messageId = nanoid();
+  const sanitized = sanitize(content);
   await Promise.all([
     client.insert(conversation).values({
       id: convoId,
@@ -669,8 +735,8 @@ export const createConvo = async (
         ]
       : []),
     client.insert(conversationComment).values({
-      id: nanoid(),
-      content: sanitize(content),
+      id: messageId,
+      content: sanitized,
       userId: senderUserId,
       conversationId: convoId,
     }),

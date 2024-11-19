@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and } from "drizzle-orm";
@@ -10,7 +11,11 @@ import type { UserStatus } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        newStatus: z.enum(["AWAKE", "ASLEEP"]).optional(),
+      }),
+    )
     .mutation(async ({ ctx }) => {
       // Query
       const { user } = await fetchUpdatedUser({
@@ -78,6 +83,7 @@ export const homeRouter = createTRPCRouter({
       return {
         success: true,
         message: newStatus === "AWAKE" ? "You have woken up" : "You have gone to sleep",
+        newStatus,
       };
     }),
 });

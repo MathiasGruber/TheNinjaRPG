@@ -10,7 +10,7 @@ import Loader from "@/layout/Loader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { Check } from "lucide-react";
@@ -33,6 +33,7 @@ interface ConversationProps {
 }
 
 const Conversation: React.FC<ConversationProps> = (props) => {
+  const onMutateCheck = useGlobalOnMutateProtect();
   const { data: userData, pusher } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
@@ -58,7 +59,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     placeholderData: (previousData) => previousData,
-    staleTime: Infinity,
   });
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
@@ -116,6 +116,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               conversationId: conversation.id,
               content: newMessage.comment,
               isPinned: 0,
+              isReported: false,
               villageName: userData.village?.name ?? null,
               villageHexColor: userData.village?.hexColor ?? null,
               villageKageId: userData.village?.kageId ?? null,
@@ -151,6 +152,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const { mutate: createComment, isPending: isCommenting } =
     api.comments.createConversationComment.useMutation({
       onMutate: async (newMessage) => {
+        onMutateCheck();
         return await optimisticConversationUpdate(newMessage);
       },
       onSuccess: () => {
@@ -235,30 +237,29 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               />
             </div>
           )}
-          {allComments &&
-            allComments
-              .filter((c) => c.conversationId === conversation?.id)
-              .filter((c) => {
-                const duplicate = unique.has(c.id);
-                unique.add(c.id);
-                return !duplicate;
-              })
-              .map((comment, i) => {
-                return (
-                  <div
-                    key={comment.id}
-                    ref={i === allComments.length - 1 ? setLastElement : null}
+          {allComments
+            ?.filter((c) => c.conversationId === conversation?.id)
+            .filter((c) => {
+              const duplicate = unique.has(c.id);
+              unique.add(c.id);
+              return !duplicate;
+            })
+            .map((comment, i) => {
+              return (
+                <div
+                  key={comment.id}
+                  ref={i === allComments.length - 1 ? setLastElement : null}
+                >
+                  <CommentOnConversation
+                    user={comment}
+                    hover_effect={false}
+                    comment={comment}
                   >
-                    <CommentOnConversation
-                      user={comment}
-                      hover_effect={false}
-                      comment={comment}
-                    >
-                      {parseHtml(comment.content)}
-                    </CommentOnConversation>
-                  </div>
-                );
-              })}
+                    {parseHtml(comment.content)}
+                  </CommentOnConversation>
+                </div>
+              );
+            })}
           {silence && (
             <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-start bg-black bg-opacity-80">
               <div className="text-center text-white pt-10">

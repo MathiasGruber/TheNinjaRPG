@@ -2,7 +2,8 @@ import { z } from "zod";
 import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/api/trpc";
 import { baseServerResponse, errorResponse } from "@/api/trpc";
-import { updateAvatar, checkAvatar } from "@/libs/replicate";
+import { requestAvatarForUser, checkAvatar } from "@/libs/replicate";
+import { createThumbnail } from "@/libs/replicate";
 import { fetchUser } from "@/routers/profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -23,11 +24,12 @@ export const avatarRouter = createTRPCRouter({
         .update(userData)
         .set({
           avatar: null,
+          avatarLight: null,
           reputationPoints: sql`${userData.reputationPoints} - 1`,
         })
         .where(and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)));
       if (result.rowsAffected === 1) {
-        await updateAvatar(ctx.drizzle, user);
+        await requestAvatarForUser(ctx.drizzle, user);
         return { success: true, message: "Avatar created" };
       } else {
         return errorResponse("Failed to upload avatar");
@@ -83,10 +85,19 @@ export const avatarRouter = createTRPCRouter({
       if (!avatar) return errorResponse("Avatar not found");
       if (avatar.userId !== ctx.userId) return errorResponse("Not yours");
       if (user.isBanned) return errorResponse("You are banned");
+      // If no thumbnail, we need to generate one and save it for future usage
+      let thumbnailUrl = avatar.avatarLight;
+      if (!thumbnailUrl && avatar.avatar) {
+        thumbnailUrl = await createThumbnail(avatar.avatar);
+        await ctx.drizzle
+          .update(historicalAvatar)
+          .set({ avatarLight: thumbnailUrl })
+          .where(eq(historicalAvatar.id, input.avatar));
+      }
       // Mutation
       await ctx.drizzle
         .update(userData)
-        .set({ avatar: avatar.avatar })
+        .set({ avatar: avatar.avatar, avatarLight: thumbnailUrl })
         .where(eq(userData.userId, ctx.userId));
       return { success: true, message: "Avatar updated" };
     }),

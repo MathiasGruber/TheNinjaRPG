@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { useRouter } from "next/navigation";
 import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";
@@ -74,7 +74,7 @@ const ElderHall: React.FC<{
   // Fetch elders
   const { data: elders, isPending } = api.kage.getElders.useQuery(
     { villageId: user.villageId ?? "" },
-    { staleTime: 10000 },
+    { staleTime: 10000, enabled: !!user.villageId },
   );
 
   // Mutations for promoting & resigning elders
@@ -229,7 +229,7 @@ const KageHall: React.FC<{
   // Query
   const { data: village, isPending } = api.village.get.useQuery(
     { id: user.villageId ?? "" },
-    { staleTime: 10000 },
+    { staleTime: 10000, enabled: !!user.villageId },
   );
 
   // Mutations

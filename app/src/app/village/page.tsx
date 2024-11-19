@@ -21,13 +21,14 @@ import { mutateContentSchema } from "@/validators/comments";
 import { CircleArrowUp, GitFork } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { calcStructureUpgrade } from "@/utils/village";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { hasRequiredRank } from "@/libs/train";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
+import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { calcBankInterest } from "@/utils/village";
 import type { Village } from "@/drizzle/schema";
 import type { VillageStructure } from "@/drizzle/schema";
@@ -39,8 +40,8 @@ export default function VillageOverview() {
 
   // Queries
   const { data, isFetching: isFetchingVillage } = api.village.get.useQuery(
-    { id: sectorVillage?.id as string },
-    { enabled: !!sectorVillage, staleTime: Infinity },
+    { id: sectorVillage?.id ?? "" },
+    { enabled: !!sectorVillage },
   );
 
   // tRPC utility
@@ -311,10 +312,7 @@ const UpgradeButton = ({
 }) => {
   const utils = api.useUtils();
 
-  const { data } = api.village.get.useQuery(
-    { id: structure.villageId },
-    { staleTime: Infinity },
-  );
+  const { data } = api.village.get.useQuery({ id: structure.villageId }, {});
 
   const { mutate: purchase } = api.kage.upgradeStructure.useMutation({
     onSuccess: async (data) => {
@@ -385,7 +383,7 @@ const StructureRewardEntries = (structure: VillageStructure) => {
       msgs.push(`Market discount: ${structure.blackDiscountPerLvl * level}%`);
     }
     if (structure.clansPerLvl > 0) {
-      msgs.push(`Clans: +${structure.clansPerLvl * level}`);
+      msgs.push(`Clans: +${structure.clansPerLvl * level * CLANS_PER_STRUCTURE_LEVEL}`);
     }
     if (structure.hospitalSpeedupPerLvl > 0) {
       msgs.push(`Hospital Speed: +${structure.hospitalSpeedupPerLvl * level}%`);

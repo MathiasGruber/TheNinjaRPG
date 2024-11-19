@@ -19,7 +19,7 @@ import { getSearchValidator } from "@/validators/register";
 import { useRouter } from "next/navigation";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -125,13 +125,11 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
   const { data: userData } = useRequiredUserData();
 
   // Queries
-  const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined);
 
   const { data: ai } = api.profile.getAi.useQuery(
     { userId: aiId ?? "" },
-    { staleTime: Infinity, enabled: !!aiId },
+    { enabled: !!aiId },
   );
 
   const sortedAis = aiData
@@ -224,10 +222,7 @@ interface ChallengeAIProps {
 const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
   // Data from database
   const { aiId } = props;
-  const { data: userData } = useRequiredUserData();
-
-  // tRPC utility
-  const utils = api.useUtils();
+  const { data: userData, updateUser } = useRequiredUserData();
 
   // Router for forwarding
   const router = useRouter();
@@ -236,8 +231,12 @@ const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
   const { mutate: attack, isPending: isAttacking } =
     api.combat.startArenaBattle.useMutation({
       onSuccess: async (data) => {
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+        if (data.success && data.battleId) {
+          await updateUser({
+            status: "BATTLE",
+            battleId: data.battleId,
+            updatedAt: new Date(),
+          });
           router.push("/combat");
           showMutationToast({ ...data, message: "Entering the Arena" });
         } else {
@@ -351,11 +350,12 @@ const ChallengeUser: React.FC = () => {
 
 const ActiveChallenges: React.FC = () => {
   // Data from database
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, updateUser } = useRequiredUserData();
 
   // Queries
   const { data: challenges } = api.sparring.getUserChallenges.useQuery(undefined, {
     staleTime: 5000,
+    enabled: !!userData,
   });
 
   // tRPC utility
@@ -369,8 +369,12 @@ const ActiveChallenges: React.FC = () => {
     api.sparring.acceptChallenge.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+        if (data.success && data.battleId) {
+          await updateUser({
+            status: "BATTLE",
+            battleId: data.battleId,
+            updatedAt: new Date(),
+          });
           await utils.sparring.getUserChallenges.invalidate();
           router.push("/combat");
         }
@@ -435,22 +439,21 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
   // Destructure
   const { statDistribution, setStatDistribution } = props;
   // Data from database
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, updateUser } = useRequiredUserData();
   // Seeded Training Dummy Id
   const aiId = "tra93opw09262024jut5ufa8f";
-
-  // tRPC utility
-  const utils = api.useUtils();
-
   // Router for forwarding
   const router = useRouter();
-
   // Mutation for starting a fight
   const { mutate: attack, isPending: isAttacking } =
     api.combat.startArenaBattle.useMutation({
       onSuccess: async (data) => {
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+        if (data.success && data.battleId) {
+          await updateUser({
+            status: "BATTLE",
+            battleId: data.battleId,
+            updatedAt: new Date(),
+          });
           router.push("/combat");
           showMutationToast({ ...data, message: "Entering the Training Arena" });
         } else {

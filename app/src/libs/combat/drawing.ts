@@ -25,6 +25,8 @@ import {
   IMG_SECTOR_USER_MARKER,
   IMG_SECTOR_USER_SPRITE_MASK,
   IMG_SECTOR_SHADOW,
+  IMG_BATTLEFIELD_TOMBSTONE,
+  IMG_BATTLEFIELD_STAR,
 } from "@/drizzle/constants";
 import type { GameAsset } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -71,7 +73,7 @@ export const drawCombatBackground = (
   background: string,
 ) => {
   // Set scene background
-  const bg_texture = loadTexture(`/locations/${background}`);
+  const bg_texture = loadTexture(background);
   const bg_material = new SpriteMaterial({ map: bg_texture });
   const bg_sprite = new Sprite(bg_material);
   bg_sprite.scale.set(width, height, 1);
@@ -150,7 +152,7 @@ export const drawCombatBackground = (
  * Draw/update the users on the map. Should be called on every render
  */
 export const drawCombatEffects = (info: {
-  groupGround: Group;
+  groupEffects: Group;
   battle: ReturnedBattle;
   grid: Grid<TerrainHex>;
   animationId: number;
@@ -158,7 +160,7 @@ export const drawCombatEffects = (info: {
   gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { battle, groupGround, spriteMixer, animationId, gameAssets } = info;
+  const { battle, groupEffects, spriteMixer, animationId, gameAssets } = info;
   const { groundEffects, usersEffects, usersState } = battle;
 
   // Record of drawn IDs
@@ -171,7 +173,7 @@ export const drawCombatEffects = (info: {
       y: effect.latitude,
     });
     drawCombatEffect({
-      groupGround,
+      groupEffects,
       effect,
       animationId,
       hex,
@@ -189,7 +191,7 @@ export const drawCombatEffects = (info: {
         y: user.latitude,
       });
       drawCombatEffect({
-        groupGround,
+        groupEffects,
         effect,
         animationId,
         hex,
@@ -201,7 +203,7 @@ export const drawCombatEffects = (info: {
   });
 
   // Hide all which are not used anymore
-  groupGround.children.forEach((object) => {
+  groupEffects.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
     }
@@ -209,7 +211,7 @@ export const drawCombatEffects = (info: {
 };
 
 export const drawCombatEffect = (info: {
-  groupGround: Group;
+  groupEffects: Group;
   effect: GroundEffect | UserEffect;
   animationId: number;
   hex?: TerrainHex;
@@ -218,12 +220,12 @@ export const drawCombatEffect = (info: {
   gameAssets: GameAsset[];
 }) => {
   // Destructure
-  const { effect, groupGround, animationId, hex, drawnIds } = info;
+  const { effect, groupEffects, animationId, hex, drawnIds } = info;
   const { spriteMixer, gameAssets } = info;
   if (hex) {
     if (effect.staticAssetPath || effect.appearAnimation || effect.disappearAnimation) {
       const { height: h, width: w } = hex;
-      let asset = groupGround.getObjectByName(effect.id) as Group;
+      let asset = groupEffects.getObjectByName(effect.id) as Group;
       if (!asset) {
         // Group for the asset
         asset = new Group();
@@ -232,7 +234,6 @@ export const drawCombatEffect = (info: {
         // Sprite to show
         if (effect.staticAssetPath) {
           const obj = gameAssets.find((a) => a.id === effect.staticAssetPath);
-          console.log("obj", obj);
           if (obj) {
             const texture = loadTexture(obj.image);
             const material = new SpriteMaterial({ map: texture });
@@ -271,7 +272,7 @@ export const drawCombatEffect = (info: {
           hp_background.visible = false;
         }
         // Add to group
-        groupGround.add(asset);
+        groupEffects.add(asset);
       }
 
       // Set visibility
@@ -448,7 +449,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
 
   // If this is the original and our user (we have SP/CP), then show a star
   if ("curStamina" in userData && userData.isOriginal && !userData.isAi) {
-    const marker = loadTexture("/combat/star.webp");
+    const marker = loadTexture(IMG_BATTLEFIELD_STAR);
     const markerMat = new SpriteMaterial({ map: marker });
     const markerSprite = new Sprite(markerMat);
     markerSprite.scale.set(h / 2.5, h / 2.5, 1);
@@ -480,7 +481,7 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
   }
 
   // Create tombstone but hide it for now
-  const tomb_texture = loadTexture("/combat/tombstone.webp");
+  const tomb_texture = loadTexture(IMG_BATTLEFIELD_TOMBSTONE);
   const tomb_material = new SpriteMaterial({ map: tomb_texture });
   const tomb_sprite = new Sprite(tomb_material);
   tomb_sprite.name = "tombstone";

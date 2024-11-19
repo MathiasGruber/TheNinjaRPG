@@ -1,7 +1,7 @@
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UserRoles, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { updateUserSchema } from "@/validators/user";
@@ -27,15 +27,9 @@ export const useUserEditForm = (
   });
 
   // Query for bloodlines and villages
-  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
+  const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
+  const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateUser, isPending: l4 } = api.profile.updateUser.useMutation({

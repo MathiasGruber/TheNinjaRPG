@@ -34,9 +34,9 @@ export const calcGlobalTravelTime = (
   const r = map?.radius;
   if (a && b && r) {
     const distance = r * Math.acos((a.x * b.x + a.y * b.y + a.z * b.z) / r ** 2);
-    return Math.floor(distance / 2);
+    return Math.floor(distance / 2) || 5;
   }
-  return Infinity;
+  return 300;
 };
 
 // Calculate if we are in village or not.
@@ -48,7 +48,7 @@ export const calcIsInVillage = (position: SectorPoint) => {
     if ([1, 2, 3, 17, 18].includes(position.x)) return false;
   }
   if (position.y === 1) {
-    if ([1, 2, 3, 16, 17, 18].includes(position.x)) return false;
+    if ([1, 2, 3, 4, 16, 17, 18].includes(position.x)) return false;
   }
   if (position.y === 2) {
     if ([1, 2, 18].includes(position.x)) return false;

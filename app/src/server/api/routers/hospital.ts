@@ -48,6 +48,8 @@ export const hospitalRouter = createTRPCRouter({
         level: true,
         status: true,
         sector: true,
+        longitude: true,
+        latitude: true,
         rank: true,
         isOutlaw: true,
       },
@@ -72,7 +74,12 @@ export const hospitalRouter = createTRPCRouter({
         healPercentage: z.number().int().min(1).max(100),
       }),
     )
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        chakraCost: z.number().optional(),
+        expGain: z.number().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query for fetching latest user & target
       const [updatedUser, updatedTarget] = await Promise.all([
@@ -151,7 +158,12 @@ export const hospitalRouter = createTRPCRouter({
             routeText: "To profile",
           });
           void updateUserOnMap(pusher, t.sector, t);
-          return { success: true, message: "You have healed the target user" };
+          return {
+            success: true,
+            message: "You have healed the target user",
+            chakraCost,
+            expGain,
+          };
         } else {
           return { success: false, message: "Could not heal target" };
         }
@@ -162,7 +174,7 @@ export const hospitalRouter = createTRPCRouter({
   // Pay to heal & get out of hospital
   heal: protectedProcedure
     .input(z.object({ villageId: z.string().nullish() }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ cost: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Query
       const [user, structures] = await Promise.all([
@@ -178,7 +190,9 @@ export const hospitalRouter = createTRPCRouter({
       const finishAt = calcHealFinish({ user, boost });
       // Mutate w. validation
       let result: ExecutedQuery;
+      let cost: number;
       if (finishAt <= new Date()) {
+        cost = 0;
         result = await ctx.drizzle
           .update(userData)
           .set({
@@ -190,7 +204,7 @@ export const hospitalRouter = createTRPCRouter({
             and(eq(userData.userId, ctx.userId), eq(userData.status, "HOSPITALIZED")),
           );
       } else {
-        const cost = calcHealCost(user);
+        cost = calcHealCost(user);
         if (user.money < cost) {
           return errorResponse("You don't have enough money");
         }
@@ -212,8 +226,15 @@ export const hospitalRouter = createTRPCRouter({
         void updateUserOnMap(pusher, user.sector, user);
       }
       if (result.rowsAffected === 1) {
-        return { success: true, message: "You have been healed" };
+        return { success: true, message: "You have been healed", cost };
       } else {
+        const latestUser = await fetchUser(ctx.drizzle, ctx.userId);
+        if (latestUser.status !== "HOSPITALIZED") {
+          return errorResponse("You are not hospitalized");
+        }
+        if (latestUser.money < cost) {
+          return errorResponse("You don't have enough money");
+        }
         throw serverError("PRECONDITION_FAILED", "Something went wrong during healing");
       }
     }),

@@ -181,6 +181,15 @@ export default function GameRules() {
           While discussion amongst users in private is fine, it is to be kept out of the
           public taverns.
         </p>
+        <p className="my-2">
+          <b>
+            <u>Staff information: </u>
+          </b>{" "}
+          Staff has access to various user information unavailable to the public
+          (including by not limited to IP address, usage information etc.). Sharing of
+          this information outside of staff circles is strictly prohibited, and will
+          result in severe consequences.
+        </p>
         <p className="my-2 text-2xl">
           <b>ACCOUNTS</b>
         </p>{" "}

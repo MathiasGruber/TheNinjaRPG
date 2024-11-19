@@ -1,5 +1,6 @@
 "use client";
 
+import ReactDOM from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -18,21 +19,33 @@ import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
 import {
   IMG_WALLPAPER_WINTER,
   IMG_WALLPAPER_SPRING,
   IMG_WALLPAPER_SUMMER,
   IMG_WALLPAPER_FALL,
+  IMG_WALLPAPER_HALLOWEEN,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
   IMG_ICON_DISCORD,
   IMG_ICON_FACEBOOK,
   IMG_ICON_GITHUB,
   IMG_ICON_GOOGLE,
+  IMG_LAYOUT_NAVBAR,
+  IMG_LAYOUT_NAVBAR_HALLOWEEN,
+  IMG_LAYOUT_HANDSIGN,
+  IMG_LAYOUT_HANDSIGN_HALLOWEEN,
+  IMG_LAYOUT_USERBANNER_MIDDLE,
+  IMG_LAYOUT_SIDESCROLL,
+  IMG_LAYOUT_SIDETOPBANNER_CONTENT,
+  IMG_LAYOUT_SIDETOPBANNER_BOTTOM,
+  IMG_LAYOUT_SCROLLBOTTOM_DECOR,
+  IMG_LAYOUT_USERSBANNER_TOP,
+  IMG_LAYOUT_USERSBANNER_BOTTOM,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -42,6 +55,10 @@ export interface LayoutProps {
 }
 
 const LayoutCore4: React.FC<LayoutProps> = (props) => {
+  // Prefetching
+  ReactDOM.prefetchDNS("https://o4507797256601600.ingest.de.sentry.io");
+  ReactDOM.prefetchDNS("https://consentcdn.cookiebot.com");
+
   // Get data
   const { data: userData, timeDiff, notifications } = useUserData();
   const { systems, location } = useGameMenu(userData);
@@ -73,11 +90,14 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     }
   }, [theme]);
 
+  // Images
+  const imageset = getImageSet();
+
   /**
    * SIDEBAR: Left Side
    */
   const leftSideBar = (
-    <div onClick={() => setLeftSideBarOpen(false)}>
+    <div>
       <SignedIn>
         <SideBannerTitle>{userData?.username || "Loading user..."}</SideBannerTitle>
         <MenuBoxProfile />
@@ -175,7 +195,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const signedInIcons = (
     <div className="flex flex-row">
       <SignedIn>
-        <UserButton />
+        <UserButton
+          appearance={{
+            elements: { userButtonPopoverCard: { pointerEvents: "initial" } },
+          }}
+        />
       </SignedIn>
       <Link href="/event" onClick={() => setLeftSideBarOpen(false)}>
         <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
@@ -183,7 +207,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <Eclipse
         className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
-          setLeftSideBarOpen(false);
           const localTheme = localStorage.getItem("theme");
           if (!localTheme || localTheme === "light") {
             localStorage.setItem("theme", "dark");
@@ -197,20 +220,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     </div>
   );
 
-  // Get wallpaper based on the season
-  const getWallpaperUrl = () => {
-    switch (getCurrentSeason()) {
-      case "winter":
-        return IMG_WALLPAPER_WINTER;
-      case "spring":
-        return IMG_WALLPAPER_SPRING;
-      case "summer":
-        return IMG_WALLPAPER_SUMMER;
-      case "fall":
-        return IMG_WALLPAPER_FALL;
-    }
-  };
-
   return (
     <div className="w-full">
       <div className="fixed right-5 bottom-5 z-50 bg-slate-500 rounded-full">
@@ -221,10 +230,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       {/* WALLPAPER BACKGROUND */}
       <Image
         className="absolute left-[50%] translate-x-[-50%] select-none"
-        src={getWallpaperUrl()}
+        src={imageset.wallpaper}
         width={1600}
         height={800}
-        alt="logo"
+        alt="wallpaper"
+        loading="eager"
         priority
         unoptimized
       />
@@ -237,26 +247,26 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             width={384}
             height={138}
             alt="logo"
-            priority
+            loading="lazy"
           />
           <Image
             className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
             src={IMG_LOGO_SHORT}
             width={250}
-            height={122}
+            height={63}
             alt="logo"
-            priority
+            loading="lazy"
           />
         </Link>
         {/* DESKTOP NAVBAR */}
         <div className="hidden md:block z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
           <Image
             className="select-none"
-            src="/layout/navbar.webp"
+            src={imageset.navbar}
             width={1280}
             height={133}
             alt="navbar"
-            priority
+            loading="lazy"
           />
           <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
             {navbarMenuItemsLeft.map((link) => (
@@ -297,11 +307,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         {/* DESKTOP HANDSIGN */}
         <Image
           className="hidden md:block z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
-          src="/layout/handsign.webp"
+          src={imageset.handsign}
           width={127}
           height={112}
           alt="handsign"
-          priority
+          loading="lazy"
         />
         <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10">
           {/* LEFT SIDEBANNER DESKTOP */}
@@ -309,33 +319,39 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <div className="relative">
               <Image
                 className="left-0 absolute -z-10 select-none"
-                src="/layout/sidetopbanner_content.webp"
+                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
                 style={{ width: "100%", height: "100%" }}
                 alt="leftbanner"
-                priority
+                loading="lazy"
               ></Image>
               <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
             </div>
             <Image
               className="left-0 relative select-none"
-              src="/layout/sidetopbanner_bottom.webp"
+              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}
               alt="leftbanner"
-              priority
+              loading="lazy"
             ></Image>
             <StrongestUsersBanner />
           </div>
           {/* MAIN CONTENT */}
           <div className="w-full flex-1 min-w-0 flex flex-col">
             <div className="w-full flex flex-row">
-              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+              <div
+                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+              ></div>
               <div className="w-full bg-background bg-opacity-50 md:bg-opacity-100 grow flex flex-col overflow-x-scroll min-h-[200px]">
                 <div className="p-3">{props.children}</div>
               </div>
-              <div className="w-12 shrink-0 bg-[url('/layout/sidescroll.webp')] bg-fill bg-repeat-y hidden lg:block"></div>
+              <div
+                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+              ></div>
             </div>
             <div className="h-20 max-h-28 flex flex-col relative">
               <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
@@ -345,19 +361,19 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               </div>
               <Image
                 className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
-                src="/layout/scroll_bottom_decor.webp"
+                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
                 width={143}
                 height={272}
                 alt="leftbottomdecor"
-                priority
+                loading="lazy"
               ></Image>
               <Image
                 className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
-                src="/layout/scroll_bottom_decor.webp"
+                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
                 width={143}
                 height={272}
                 alt="rightbottomdecor"
-                priority
+                loading="lazy"
               ></Image>
               <div className="absolute top-4 left-0 right-0">
                 <Footer />
@@ -369,28 +385,28 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <div className="relative">
               <Image
                 className="right-0 absolute -z-10 scale-x-[-1] select-none"
-                src="/layout/sidetopbanner_content.webp"
+                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
                 style={{ width: "100%", height: "100%" }}
                 alt="rightbanner"
-                priority
+                loading="lazy"
               ></Image>
               <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
             </div>
             <Image
               className="left-0 relative select-none scale-x-[-1]"
-              src="/layout/sidetopbanner_bottom.webp"
+              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}
               alt="leftbanner"
-              priority
+              loading="lazy"
             ></Image>
           </div>
         </div>
         {/* LEFT SIDEBAR MOBILE */}
         <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
-          <SheetTrigger className="absolute top-4 left-4">
+          <SheetTrigger className="absolute top-4 left-4" id="homeBtn">
             <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent side="left">
@@ -426,7 +442,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
         {/* RIGHT SIDEBAR MOBILE */}
         <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
-          <SheetTrigger className="absolute top-4 right-4">
+          <SheetTrigger className="absolute top-4 right-4" id="gameBtn">
             <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent onClick={() => setRightSideBarOpen(false)}>
@@ -448,10 +464,10 @@ export default LayoutCore4;
  */
 const StrongestUsersBanner: React.FC = () => {
   // State
-  const { isSignedIn } = useAuth();
+  const { isLoaded } = useUser();
   const tabNames = ["Online", "Strongest", "Staff"] as const;
   type TabName = (typeof tabNames)[number];
-  const [activeTab, setActiveTab] = useState<TabName>("Online");
+  const [activeTab, setActiveTab] = useState<TabName>("Strongest");
   // Query
   const { data: userData, isPending } = api.profile.getPublicUsers.useQuery(
     {
@@ -459,7 +475,7 @@ const StrongestUsersBanner: React.FC = () => {
       orderBy: activeTab,
       isAi: false,
     },
-    { enabled: isSignedIn === false, staleTime: 1000 * 60 * 5 },
+    { enabled: isLoaded, staleTime: 1000 * 60 * 5 },
   );
   const users = userData?.data;
 
@@ -468,13 +484,16 @@ const StrongestUsersBanner: React.FC = () => {
       <div className="relative top-[-30px]">
         <Image
           className="left-0 relative -z-10 select-none w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px]"
-          src="/layout/usersbanner_top.webp"
+          src={IMG_LAYOUT_USERSBANNER_TOP}
           width={260}
           height={138}
           alt="usersbanner_top"
-          priority
+          loading="lazy"
         ></Image>
-        <div className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-[url('/layout/usersbanner_middle.webp')] bg-contain bg-repeat-y">
+        <div
+          className="text-orange-100 relative left-0 w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px] bg-contain bg-repeat-y"
+          style={{ backgroundImage: `url(${IMG_LAYOUT_USERBANNER_MIDDLE})` }}
+        >
           <div className="relative top-[-40px]">
             <NavTabs
               current={activeTab}
@@ -484,36 +503,36 @@ const StrongestUsersBanner: React.FC = () => {
               className="text-orange-100 hover:text-orange-300"
             />
             {users?.map((user, i) => (
-              <div
-                key={i}
-                className={`py-1 grid grid-cols-12 items-center justify-center relative top-2 left-8 lg:left-10 w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] ${
-                  i % 2 == 0 ? "bg-pink-900" : ""
-                } bg-opacity-50 text-xs lg:text-base`}
-              >
-                <p className="pl-2">{i + 1}</p>
-                <div className="col-span-2">
-                  <AvatarImage
-                    href={user.avatar}
-                    userId={user.userId}
-                    alt={user.username}
-                    size={100}
-                    priority
-                  />
+              <Link href={`/users/${user.userId}`} key={i} className="hover:opacity-50">
+                <div
+                  className={`py-1 grid grid-cols-12 items-center justify-center relative top-2 left-8 lg:left-10 w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] ${
+                    i % 2 == 0 ? "bg-pink-900" : ""
+                  } bg-opacity-50 text-xs lg:text-base`}
+                >
+                  <p className="pl-2">{i + 1}</p>
+                  <div className="col-span-2">
+                    <AvatarImage
+                      href={user.avatarLight}
+                      alt={user.username}
+                      size={100}
+                      priority
+                    />
+                  </div>
+                  <p className="col-span-5">{user.username}</p>
+                  <p className="col-span-4">{showUserRank(user)}</p>
                 </div>
-                <p className="col-span-5">{user.username}</p>
-                <p className="col-span-4">{showUserRank(user)}</p>
-              </div>
+              </Link>
             ))}
             {isPending && <Loader explanation="Loading top players" />}
           </div>
         </div>
         <Image
           className="left-0 top-[-10px] relative -z-10 select-none w-[200px] lg:w-[260px] max-w-[200px] lg:max-w-[260px]"
-          src="/layout/usersbanner_bottom.webp"
+          src={IMG_LAYOUT_USERSBANNER_BOTTOM}
           width={260}
           height={138}
           alt="usersbanner_bottom"
-          priority
+          loading="lazy"
         ></Image>
       </div>
     </SignedOut>
@@ -638,4 +657,33 @@ const RightSideBar: React.FC<{
       )}
     </>
   );
+};
+
+// Get wallpaper based on the season
+const getImageSet = () => {
+  const base = {
+    navbar: IMG_LAYOUT_NAVBAR,
+    handsign: IMG_LAYOUT_HANDSIGN,
+    wallpaper: IMG_WALLPAPER_SUMMER,
+  };
+  switch (getCurrentSeason()) {
+    case "winter":
+      base.wallpaper = IMG_WALLPAPER_WINTER;
+      break;
+    case "spring":
+      base.wallpaper = IMG_WALLPAPER_SPRING;
+      break;
+    case "summer":
+      base.wallpaper = IMG_WALLPAPER_SUMMER;
+      break;
+    case "fall":
+      base.wallpaper = IMG_WALLPAPER_FALL;
+      break;
+    case "halloween":
+      base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
+      base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
+      base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
+      break;
+  }
+  return base;
 };

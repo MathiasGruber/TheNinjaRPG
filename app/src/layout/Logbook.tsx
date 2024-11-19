@@ -12,7 +12,7 @@ import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import { parseHtml } from "@/utils/parse";
@@ -21,12 +21,10 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 
-interface LogbookProps {}
-
 const tabs = ["Active", "History", "Battles"] as const;
 type tabType = (typeof tabs)[number];
 
-const Logbook: React.FC<LogbookProps> = () => {
+const Logbook: React.FC = () => {
   // State
   const [tab, setTab] = useState<tabType | null>(null);
 
@@ -69,24 +67,25 @@ const LogbookActive: React.FC = () => {
 
   return (
     <div className="">
-      {userData?.userQuests
-        ?.filter((uq) => uq.quest.questType !== "achievement")
-        .map((uq, i) => {
-          const tracker = userData?.questData?.find((q) => q.id === uq.questId);
-          return (
-            tracker && (
-              <Accordion
-                key={i}
-                title={uq.quest.name}
-                selectedTitle={activeElement}
-                titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
-                onClick={setActiveElement}
-              >
-                <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
-              </Accordion>
-            )
-          );
-        })}
+      {userData?.userQuests.map((uq, i) => {
+        const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+        return (
+          tracker &&
+          (uq.quest.questType !== "achievement" ? (
+            <Accordion
+              key={i}
+              title={uq.quest.name}
+              selectedTitle={activeElement}
+              titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
+              onClick={setActiveElement}
+            >
+              <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+            </Accordion>
+          ) : (
+            <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+          ))
+        );
+      })}
     </div>
   );
 };
@@ -101,10 +100,9 @@ const LogbookActive: React.FC = () => {
  * ```
  */
 const LogbookBattles: React.FC = () => {
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(
-    { secondsBack: 3600 * 3 },
-    { staleTime: Infinity },
-  );
+  const { data: history, isPending } = api.combat.getBattleHistory.useQuery({
+    secondsBack: 3600 * 3,
+  });
   const allHistory = history?.map((e) => ({
     attackerUsername: e.attacker.username,
     attackerUserId: e.attacker.userId,
@@ -162,7 +160,6 @@ const LogbookHistory: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allHistory = history?.pages
@@ -237,14 +234,14 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
-    onSuccess: async ({
-      successDescriptions,
-      rewards,
-      userQuest,
-      resolved,
-      badges,
-    }) => {
-      if (userQuest) {
+    onSuccess: async (data) => {
+      // If a failutre, show a toast
+      if (!data.success && "message" in data) {
+        showMutationToast({ success: data.success, message: data.message });
+      }
+      // If there is a userQuest, show the rewards
+      if ("userQuest" in data && data.userQuest) {
+        const { successDescriptions, rewards, userQuest, resolved, badges } = data;
         const quest = userQuest.quest;
         const reward = (
           <div className="flex flex-col gap-2">

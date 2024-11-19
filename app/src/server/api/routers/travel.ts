@@ -14,7 +14,7 @@ import { initiateBattle, determineCombatBackground } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
-import * as map from "@/public/map/hexasphere.json";
+import * as map from "@/data/hexasphere.json";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { GlobalMapData } from "@/libs/travel/types";
 
@@ -139,6 +139,8 @@ export const travelRouter = createTRPCRouter({
   moveInSector: protectedProcedure
     .input(
       z.object({
+        curLongitude: z.number().int(),
+        curLatitude: z.number().int(),
         longitude: z
           .number()
           .int()
@@ -179,10 +181,15 @@ export const travelRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       // Convenience
       const { longitude, latitude, sector, villageId } = input;
+      const { curLongitude, curLatitude } = input;
       const userId = ctx.userId;
       const userVillage = villageId ?? "syndicate";
       const isVillage = calcIsInVillage({ x: longitude, y: latitude });
       const location = isVillage ? "Village" : "";
+      const travelLength = maxDistance(
+        { longitude: curLongitude, latitude: curLatitude },
+        { x: longitude, y: latitude },
+      );
       // Optimistic update & query simultaneously
       const [result, sectorVillage] = await Promise.all([
         ctx.drizzle
@@ -198,8 +205,8 @@ export const travelRouter = createTRPCRouter({
               eq(userData.userId, userId),
               eq(userData.status, "AWAKE"),
               eq(userData.sector, sector),
-              sql`ABS(longitude - ${longitude}) <= 1`,
-              sql`ABS(latitude - ${latitude}) <= 1`,
+              eq(userData.longitude, curLongitude),
+              eq(userData.latitude, curLatitude),
               villageId
                 ? eq(userData.villageId, villageId)
                 : isNull(userData.villageId),
@@ -227,7 +234,7 @@ export const travelRouter = createTRPCRouter({
           const relation = findRelationship(relations, userVillage, sectorVillage.id);
           if (relation?.status === "ENEMY") {
             const chance = structureBoost("patrolsPerLvl", sectorVillage.structures);
-            if (Math.random() < chance / 100) {
+            if (Math.random() < (travelLength * chance) / 100) {
               const battle = await initiateBattle(
                 {
                   longitude: longitude,
@@ -257,8 +264,11 @@ export const travelRouter = createTRPCRouter({
         if (userData.status !== "AWAKE") {
           return errorResponse(`Status is: ${userData.status.toLowerCase()}`);
         }
-        if (maxDistance(userData, { x: longitude, y: latitude }) > 1) {
-          return errorResponse(`Cannot move more than one square at a time`);
+        if (userData.sector !== sector) {
+          return errorResponse("You are not in the correct sector");
+        }
+        if (userData.longitude !== curLongitude || userData.latitude !== curLatitude) {
+          return errorResponse("You have moved since you started this move");
         }
         throw serverError("BAD_REQUEST", `Unknown error while moving`);
       }

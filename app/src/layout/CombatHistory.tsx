@@ -1,7 +1,7 @@
 import React from "react";
 import Loader from "./Loader";
 import ElementImage from "@/layout/ElementImage";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { groupBy } from "@/utils/grouping";
 import { insertComponentsIntoText } from "@/utils/string";
 import { cn } from "src/libs/shadui";
@@ -30,7 +30,6 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     {
       enabled: battleId !== undefined,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");

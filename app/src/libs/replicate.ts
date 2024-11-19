@@ -184,7 +184,7 @@ export const fetchReplicateResult = async (replicateId: string) => {
 /**
  * Send a request to update the avatar for a user
  */
-export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
+export const requestAvatarForUser = async (client: DrizzleClient, user: UserData) => {
   const currentProcessing = await client.query.historicalAvatar.findFirst({
     where: and(
       eq(historicalAvatar.userId, user.userId),
@@ -198,12 +198,13 @@ export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
     if (user.avatar) {
       await client
         .update(userData)
-        .set({ avatar: null })
+        .set({ avatar: null, avatarLight: null })
         .where(eq(userData.userId, user.userId));
     }
     await client.insert(historicalAvatar).values({
       replicateId: result.id,
       avatar: null,
+      avatarLight: null,
       status: result.status,
       userId: user.userId,
     });
@@ -215,6 +216,7 @@ export const updateAvatar = async (client: DrizzleClient, user: UserData) => {
  * Check if any avatars are unfinished. If so, check for updates, and update the avatar if it is finished
  */
 export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
+  // Currently processing
   const avatars = await client.query.historicalAvatar.findMany({
     where: and(
       eq(historicalAvatar.userId, user.userId),
@@ -222,12 +224,16 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
       isNotNull(historicalAvatar.replicateId),
     ),
   });
+  // If none processing, request new avatar and return
   if (avatars.length === 0 && !user.avatar) {
-    return await updateAvatar(client, user);
+    return await requestAvatarForUser(client, user);
   }
+  // Go through processing avatars and see if any finished
   let url = user.avatar;
+  let thumbnail = user.avatarLight;
   for (const avatar of avatars) {
     if (avatar.replicateId) {
+      // Get the URL on replicate for the end result
       const { prediction, replicateUrl } = await fetchReplicateResult(
         avatar.replicateId,
       );
@@ -238,22 +244,29 @@ export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
         prediction.status === "canceled" ||
         (prediction.status === "succeeded" && !prediction.output)
       ) {
-        await updateAvatar(client, user);
+        await requestAvatarForUser(client, user);
       } else if (prediction.status == "succeeded" && replicateUrl) {
         url = await uploadToUT(replicateUrl);
         if (url) {
+          thumbnail = await createThumbnail(url);
           await client
             .update(userData)
-            .set({ avatar: url })
+            .set({ avatar: url, avatarLight: thumbnail })
             .where(eq(userData.userId, user.userId));
         }
       } else {
         isDone = false;
       }
       if (isDone) {
+        const thumbnail = url ? await createThumbnail(url) : null;
         await client
           .update(historicalAvatar)
-          .set({ done: 1, avatar: url, status: prediction.status })
+          .set({
+            done: 1,
+            avatar: url,
+            avatarLight: thumbnail,
+            status: prediction.status,
+          })
           .where(eq(historicalAvatar.id, avatar.id));
       }
     }
@@ -265,6 +278,24 @@ interface FileEsque extends Blob {
   name: string;
 }
 
+/**
+ * Create a thumbnail for the image
+ */
+export const createThumbnail = async (url: string) => {
+  const res = await fetch(url);
+  const blob = await res.arrayBuffer();
+  const resultBuffer = await sharp(blob).resize(64, 64).toBuffer();
+  const thumbnail = new Blob([resultBuffer]) as FileEsque;
+  thumbnail.name = "thumbnail.png";
+  const utapi = new UTApi();
+  const response = await utapi.uploadFiles(thumbnail);
+  const imageUrl = response.data?.url;
+  return imageUrl ?? url;
+};
+
+/**
+ * Sync image with Replicate API
+ */
 export const syncImage = async (
   client: DrizzleClient,
   prediction: Prediction,

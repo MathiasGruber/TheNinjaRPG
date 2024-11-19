@@ -32,7 +32,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           }`}
         >
           <div className="self-start">
-            <h2 className="text-2xl font-bold text-background-foreground">
+            <h1 className="text-2xl font-bold text-background-foreground">
               {props.back_href ? (
                 <Link
                   className="ml-1 flex flex-row items-center hover:text-orange-700"
@@ -45,10 +45,9 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
               ) : (
                 <div>{props.title}</div>
               )}
-            </h2>
-
+            </h1>
             {props.subtitle && (
-              <h3 className=" text-background-foreground">{props.subtitle}</h3>
+              <h2 className=" text-background-foreground">{props.subtitle}</h2>
             )}
           </div>
           <div className="flex flex-row grow">

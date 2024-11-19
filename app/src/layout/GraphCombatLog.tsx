@@ -1,5 +1,5 @@
 import React from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getUnique } from "@/utils/grouping";
 import Loader from "@/layout/Loader";
 import GraphUsersGeneric from "@/layout/GraphUsersGeneric";
@@ -11,7 +11,7 @@ const GraphCombatLog: React.FC<GraphCombatLogProps> = (props) => {
   // Queries
   const { data, isPending } = api.combat.getGraph.useQuery(
     { userId: props.userId },
-    { staleTime: Infinity },
+    {},
   );
 
   if (!data || isPending) return <Loader explanation="Loading Battle Data" />;

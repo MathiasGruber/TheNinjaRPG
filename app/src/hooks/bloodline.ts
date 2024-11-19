@@ -2,7 +2,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BloodlineValidator } from "@/libs/combat/types";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { LetterRanks } from "@/drizzle/constants";
 import { StatTypes } from "@/drizzle/constants";
@@ -29,9 +29,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: villages, isPending: l1 } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: villages, isPending: l1 } = api.village.getAll.useQuery(undefined);
 
   // Mutation for updating bloodline
   const { mutate: updateBloodline, isPending: l2 } = api.bloodline.update.useMutation({

@@ -1,0 +1,1 @@
+ALTER TABLE `GameAsset` ADD `hidden` boolean DEFAULT true NOT NULL;

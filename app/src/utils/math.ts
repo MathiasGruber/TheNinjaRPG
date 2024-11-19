@@ -11,6 +11,6 @@ export const randomInt = (min: number, max: number) => {
  * @param decimals - The number of decimal places to round to.
  * @returns The rounded number.
  */
-export const round = (value: number, decimals: number = 2) => {
+export const round = (value: number, decimals = 2) => {
   return Number(Math.round(Number(value + "e" + decimals)) + "e-" + decimals);
 };

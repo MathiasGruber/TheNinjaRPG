@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,13 +56,9 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const { fixedBloodline } = props;
 
   // Get all bloodlines
-  const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined);
 
-  const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined);
 
   // Filter shown bloodlines
   const bloodlines = fixedBloodline

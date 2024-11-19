@@ -8,7 +8,7 @@ import ActionTimer from "@/layout/ActionTimer";
 import CombatHistory from "@/layout/CombatHistory";
 import { availableUserActions } from "@/libs/combat/actions";
 import { ActionSelector } from "@/layout/CombatActions";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { useSetAtom, useAtom } from "jotai";
 import { userBattleAtom, combatActionIdAtom } from "@/utils/UserContext";
@@ -26,7 +26,7 @@ export default function CombatPage() {
   const { data: userData } = useRequiredUserData();
   const { data, isLoading } = api.combat.getBattle.useQuery(
     { battleId: userData?.battleId },
-    { enabled: !!userData?.battleId, staleTime: Infinity },
+    { enabled: !!userData?.battleId },
   );
 
   // Derived variables

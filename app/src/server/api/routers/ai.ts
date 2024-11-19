@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
-import { aiProfile, userData } from "@/drizzle/schema";
+import { aiProfile, userData, jutsu, item } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canChangeDefaultAiProfile } from "@/utils/permissions";
 import { AiRule } from "@/validators/ai";
+import { AI_PROFILE_MAX_RULES } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const aiRouter = createTRPCRouter({
@@ -36,7 +37,13 @@ export const aiRouter = createTRPCRouter({
       return { success: true, message: "AiProfile created" };
     }),
   updateAiProfile: protectedProcedure
-    .input(z.object({ id: z.string(), rules: z.array(AiRule) }))
+    .input(
+      z.object({
+        id: z.string(),
+        rules: z.array(AiRule),
+        includeDefaultRules: z.boolean(),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -46,11 +53,49 @@ export const aiRouter = createTRPCRouter({
       ]);
       // Guard
       if (!profile) return errorResponse("Profile not found");
-      if (!canChangeContent(user.role)) return errorResponse("Unauthorized");
+      if (!canChangeContent(user.role) && user.userId !== profile.userId) {
+        return errorResponse("Unauthorized");
+      }
+      if (profile.id === "Default" && !canChangeDefaultAiProfile(user.role)) {
+        return errorResponse("Default profile only modifiable by content admin");
+      }
+      if (input.rules.length > AI_PROFILE_MAX_RULES) {
+        return errorResponse(`Maximum of ${AI_PROFILE_MAX_RULES} rules allowed`);
+      }
+      if (profile.userId === user.userId) {
+        const [jutsus, items] = await Promise.all([
+          ctx.drizzle.query.jutsu.findMany({
+            where: inArray(
+              jutsu.id,
+              input.rules
+                .filter((r) => "jutsuId" in r.action)
+                .map((r) => (r.action as { jutsuId: string }).jutsuId),
+            ),
+          }),
+          ctx.drizzle.query.item.findMany({
+            where: inArray(
+              item.id,
+              input.rules
+                .filter((r) => "itemId" in r.action)
+                .map((r) => (r.action as { itemId: string }).itemId),
+            ),
+          }),
+        ]);
+        const effects = [...jutsus, ...items].flatMap((e) => e.effects);
+        const hasMove = effects.some((e) => "type" in e && e.type === "move");
+        const hasSummon = effects.some((e) => "type" in e && e.type === "summon");
+        console.log(effects, hasMove, hasSummon);
+        if (hasMove) {
+          return errorResponse("Items/jutsu with move effects are not allowed");
+        }
+        if (hasSummon) {
+          return errorResponse("Items/jutsu with summon effects are not allowed");
+        }
+      }
       // Update
       await ctx.drizzle
         .update(aiProfile)
-        .set({ rules: input.rules })
+        .set({ rules: input.rules, includeDefaultRules: input.includeDefaultRules })
         .where(eq(aiProfile.id, input.id));
       return { success: true, message: "AiProfile updated" };
     }),
@@ -65,7 +110,9 @@ export const aiRouter = createTRPCRouter({
         fetchAiProfileByUserId(ctx.drizzle, input.aiId),
       ]);
       // Guard
-      if (!canChangeContent(user.role)) return errorResponse("Unauthorized");
+      if (!canChangeContent(user.role) && user.userId !== target.userId) {
+        return errorResponse("Unauthorized");
+      }
       // Update
       if (target.aiProfileId) {
         await ctx.drizzle

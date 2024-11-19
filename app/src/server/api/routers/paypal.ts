@@ -13,6 +13,7 @@ import { FederalStatuses } from "@/drizzle/constants";
 import { canSeeSecretData } from "@/utils/permissions";
 import { searchPaypalTransactionSchema } from "@/validators/points";
 import { addDays, secondsFromNow } from "@/utils/time";
+import type { TransactionType } from "@/drizzle/constants";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { DrizzleClient } from "../../db";
 import type { JsonData } from "@/utils/typeutils";
@@ -62,6 +63,8 @@ type PaypalTransaction = {
     transaction_updated_date: string;
     paypal_reference_id: string;
     paypal_reference_id_type: "ODR" | "TXN" | "SUB" | "PAP";
+    transaction_event_code: string;
+    transaction_subject: string;
     transaction_amount: PaypalAmount;
     transaction_status: "D" | "P" | "S" | "V";
     custom_field: string;
@@ -127,6 +130,7 @@ export const paypalRouter = createTRPCRouter({
         currency: currency_code,
         status: "COMPLETED",
         reps: dollars2reps(parseFloat(value)),
+        type: "REP_PURCHASE",
         raw: order,
       });
       // If this user was recruited, also give 10% to the recruiter
@@ -144,6 +148,7 @@ export const paypalRouter = createTRPCRouter({
           currency: currency_code,
           status: "COMPLETED",
           reps: referralBonus,
+          type: "REFERRAL",
           raw: {},
         });
       }
@@ -400,14 +405,10 @@ export const paypalRouter = createTRPCRouter({
       }
       // If successfull cancel, update database subscription
       if (status === 204) {
-        await updateSubscription({
-          client: ctx.drizzle,
-          createdById: createdByUserId,
-          affectedUserId: affectedUserId,
-          federalStatus: dbSub.federalStatus,
-          status: "CANCELLED",
-          subscriptionId: paypalSub.id,
-        });
+        await ctx.drizzle
+          .update(paypalSubscription)
+          .set({ status: "CANCELLED" })
+          .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
         return { success: true, message: "Successfully canceled subscription" };
       } else {
         throw serverError("INTERNAL_SERVER_ERROR", "Could not cancel subscription");
@@ -458,7 +459,7 @@ export const updateSubscription = async (input: {
         .set({
           status: input.status,
           federalStatus: input.federalStatus,
-          updatedAt: input.lastPayment || new Date(),
+          updatedAt: input.lastPayment ?? new Date(),
         })
         .where(eq(paypalSubscription.subscriptionId, input.subscriptionId));
     } else {
@@ -470,7 +471,7 @@ export const updateSubscription = async (input: {
         orderId: input.orderId,
         status: input.status,
         federalStatus: input.federalStatus,
-        updatedAt: input.lastPayment || new Date(),
+        updatedAt: input.lastPayment ?? new Date(),
       });
     }
   });
@@ -491,6 +492,7 @@ export const updateReps = async (input: {
   currency: string;
   status: string;
   reps: number;
+  type: TransactionType;
   raw: JsonData;
 }) => {
   await input.client
@@ -512,6 +514,7 @@ export const updateReps = async (input: {
     reputationPoints: input.reps,
     currency: input.currency,
     status: input.status,
+    type: input.type,
     rawData: input.raw,
   });
 };
@@ -569,7 +572,10 @@ export const syncTransactions = async (
           return `Transaction ID ${info.transaction_id} invalid`;
         }
         // Handle different cases
-        if (info.paypal_reference_id_type === "SUB") {
+        if (
+          info.paypal_reference_id_type === "SUB" ||
+          info.transaction_event_code === "T0002"
+        ) {
           // Fetch from internal & paypal
           const externalSubscription = await getPaypalSubscription(
             info.paypal_reference_id,
@@ -616,6 +622,7 @@ export const syncTransactions = async (
               currency: currency,
               status: "COMPLETED",
               reps: dollars2reps(parsedValue),
+              type: "REP_PURCHASE",
               raw: t,
             });
             return `Transaction ID ${info.transaction_id} synced!`;
@@ -698,7 +705,7 @@ export const getPaypalAccessToken = async () => {
   })
     .then((response) => response.json())
     .then((data: { access_token: string }) => {
-      return data["access_token"];
+      return data.access_token;
     });
 };
 

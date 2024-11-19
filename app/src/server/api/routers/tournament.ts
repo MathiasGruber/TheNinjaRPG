@@ -246,7 +246,7 @@ export const tournamentRouter = createTRPCRouter({
             client: ctx.drizzle,
           },
           "TOURNAMENT",
-          determineArenaBackground("coliseum.webp"),
+          determineArenaBackground("default"),
         );
       }
       // We we failed to create battle, let this user win by default

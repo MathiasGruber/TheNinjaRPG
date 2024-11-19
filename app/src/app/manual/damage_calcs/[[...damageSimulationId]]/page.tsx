@@ -15,7 +15,7 @@ import { calcLevel, calcHP } from "@/libs/profile";
 import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { statSchema, actSchema, confSchema } from "@/libs/combat/types";
 import { dmgConfig } from "@/libs/combat/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Chart as ChartJS } from "chart.js/auto";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -105,11 +105,10 @@ export default function Simulator({
   // Query for fetching previous entries
   const { data, refetch } = api.simulator.getDamageSimulations.useQuery(undefined, {
     enabled: !!userData,
-    staleTime: Infinity,
   });
   const { data: previous } = api.simulator.getDamageSimulation.useQuery(
     { id: damageSimulationId ? damageSimulationId : "" },
-    { enabled: !!damageSimulationId, staleTime: Infinity },
+    { enabled: !!damageSimulationId },
   );
 
   // Mutation for creating new entry
@@ -179,7 +178,7 @@ export default function Simulator({
     } as UserEffect;
     const consequences = new Map<string, Consequence>();
     damageUser(effect, attacker, defender, consequences, 1, configValues);
-    const result = consequences.get(effect.id)?.damage as number;
+    const result = consequences.get(effect.id)?.damage ?? 0;
     return parseFloat(result.toFixed(2));
   };
 

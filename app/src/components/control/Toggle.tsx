@@ -8,13 +8,14 @@ interface ToggleProps {
   labelActive?: string;
   labelInactive?: string;
   value?: boolean;
+  disabled?: boolean;
   setShowActive: React.Dispatch<React.SetStateAction<boolean | undefined>>;
   verticalLayout?: boolean;
 }
 
 const Toggle: React.FC<ToggleProps> = (props) => {
   // Destructure
-  const { id, value, labelActive, labelInactive, setShowActive } = props;
+  const { id, disabled, value, labelActive, labelInactive, setShowActive } = props;
 
   // State
   const active = labelActive ?? "Unhandled";
@@ -49,7 +50,11 @@ const Toggle: React.FC<ToggleProps> = (props) => {
       <Label htmlFor="tag_name" className="mr-2">
         {value ? active : inactive}
       </Label>
-      <Switch onCheckedChange={() => setState(!value)} checked={value} />
+      <Switch
+        onCheckedChange={() => setState(!value)}
+        checked={value}
+        disabled={disabled}
+      />
     </div>
   );
 };

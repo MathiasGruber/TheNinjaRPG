@@ -7,9 +7,9 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { Button } from "@/components/ui/button";
-import { FilePlus, Presentation } from "lucide-react";
+import { FilePlus, ChartCandlestick, ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
@@ -38,7 +38,6 @@ export default function ManualAI() {
     { ...getFilter(state), limit: 30, orderBy: "Weakest", isAi: true },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      staleTime: Infinity,
     },
   );
   const allUsers = users?.pages
@@ -89,12 +88,18 @@ export default function ManualAI() {
         subtitle="NPC Opponents"
         back_href="/manual"
         topRightContent={
-          <Link href="/manual/ai/balance">
-            <Button id="jutsu-statistics">
-              <Presentation className="mr-2 h-6 w-6" />
-              Balance Statistics
-            </Button>
-          </Link>
+          <div className="flex flex-row gap-1">
+            <Link href="/manual/ai/balance">
+              <Button id="ai-statistics" hoverText="Balance Statistics">
+                <ChartCandlestick className="h-6 w-6" />
+              </Button>
+            </Link>
+            <Link href="/manual/ai/completeness">
+              <Button id="ai-completeness" hoverText="Content Completeness">
+                <ChartPie className="h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
         }
       >
         <p>

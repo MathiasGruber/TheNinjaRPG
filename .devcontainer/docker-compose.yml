@@ -84,7 +84,7 @@ services:
   planetscale:
     container_name: tnr_planetscale
     image: ghcr.io/mattrobenolt/ps-http-sim:latest
-    command: ["-listen-port=8080", "-mysql-dbname=tnr", "-mysql-addr=db"]
+    command: ["-listen-port=8080", "-mysql-dbname=tnr", "-mysql-addr=db", "-mysql-idle-timeout=1s"]
     depends_on:
       - db
     ports:

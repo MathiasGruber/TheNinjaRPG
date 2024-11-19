@@ -2,7 +2,10 @@
  * This is the client-side entrypoint for your tRPC API.
  */
 
+import { TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
+import { toast } from "@/components/ui/use-toast";
+import { useUser } from "@clerk/nextjs";
 import { type AppRouter } from "@/api/root";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 
@@ -25,3 +28,28 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  * @example type HelloOutput = RouterOutputs['example']['hello']
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+export const onError = (err: unknown) => {
+  if (err instanceof TRPCClientError) {
+    toast({
+      variant: "destructive",
+      title: err?.data?.code ?? "Unknown", // eslint-disable-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      description: err.message,
+    });
+  } else if (err instanceof Error) {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: err.message,
+    });
+  }
+};
+
+export const useGlobalOnMutateProtect = () => {
+  const { isSignedIn } = useUser();
+  return () => {
+    if (!isSignedIn) {
+      throw new Error("You need to be signed in to perform this action.");
+    }
+  };
+};

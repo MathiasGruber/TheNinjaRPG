@@ -42,10 +42,10 @@ import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/train";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
-import { CheckCheck } from "lucide-react";
+import { CheckCheck, DoorOpen } from "lucide-react";
 import { UserStatNames } from "@/drizzle/constants";
 import { TrainingSpeeds } from "@/drizzle/constants";
 import { Handshake, UserRoundCheck } from "lucide-react";
@@ -123,11 +123,12 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   // Queries
   const { data: students, isFetching } = api.sensei.getStudents.useQuery(
     { userId: userData.userId },
-    { enabled: SENSEI_RANKS.includes(userData.rank), staleTime: Infinity },
+    { enabled: SENSEI_RANKS.includes(userData.rank) },
   );
 
   const { data: requests } = api.sensei.getRequests.useQuery(undefined, {
     staleTime: 5000,
+    enabled: !!userData,
   });
 
   // Mutations
@@ -186,10 +187,21 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
       },
     });
 
+  const { mutate: leaveSensei, isPending: isLeaving } =
+    api.sensei.leaveSensei.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
+      },
+    });
+
   // Derived features
   const isPending =
     isFetching ||
     isCreating ||
+    isLeaving ||
     isAccepting ||
     isRejecting ||
     isCancelling ||
@@ -254,7 +266,13 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
       )}
       {/* Show Sensei */}
       {showSensei && (
-        <PublicUserComponent initialBreak userId={showSensei} title="Your Sensei" />
+        <div className="flex flex-col gap-2">
+          <PublicUserComponent initialBreak userId={showSensei} title="Your Sensei" />
+          <Button onClick={() => leaveSensei()}>
+            <DoorOpen className="w-6 h-6 mr-2" />
+            Leave Sensei
+          </Button>
+        </div>
       )}
       {/* Show Requests */}
       {showRequestSystem && (
@@ -417,7 +435,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
     >
       <div className="grid grid-cols-4 text-center font-bold">
         {UserStatNames.map((stat, i) => {
-          const part = stat.match(/[a-z]+/g)?.[0] as string;
+          const part = stat.match(/[a-z]+/g)?.[0] ?? "";
           const label = part.charAt(0).toUpperCase() + part.slice(1);
           const cap =
             stat.includes("Offence") || stat.includes("Defence")
@@ -496,6 +514,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
                   </PopoverTrigger>
                   <PopoverContent>
                     <p className="font-bold text-lg">Verify Humanity</p>
+                    {/* eslint-disable-next-line */}
                     <img
                       alt="captcha"
                       className="mb-2"
@@ -561,7 +580,6 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: userData !== undefined,
     },
   );
@@ -570,7 +588,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // User Jutsus
   const { data: userJutsus, isPending: isRefetchingUserJutsu } =
     api.jutsu.getUserJutsus.useQuery(getFilter(state), {
-      staleTime: Infinity,
+      enabled: !!userData,
     });
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {

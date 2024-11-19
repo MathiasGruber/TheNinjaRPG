@@ -13,7 +13,7 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
 import { ObjectiveReward } from "@/validators/objectives";
 import { cn } from "src/libs/shadui";
-import type { ItemRarity } from "@/drizzle/schema";
+import type { ItemRarity, GameAsset } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
 
@@ -34,18 +34,20 @@ export type GenericObject = {
 };
 
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu | Quest | GenericObject;
+  item: Bloodline | Item | Jutsu | Quest | GameAsset | GenericObject;
   hideDetails?: boolean;
   imageBorder?: boolean;
   imageExtra?: React.ReactNode;
-  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge";
+  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge" | "asset";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   hideTitle?: boolean;
+  hideImage?: boolean;
   onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, showStatistic, hideTitle, hideDetails, onDelete } = props;
+  const { item, showEdit, showStatistic, hideTitle, hideDetails, hideImage, onDelete } =
+    props;
   const { data: userData } = useUserData();
 
   // Extract effects if they exist
@@ -62,8 +64,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     <div className="relative flex flex-col items-center justify-center">
       <ContentImage
         image={item.image}
-        alt={item.name}
+        frames={"frames" in item ? item.frames : undefined}
+        speed={"speed" in item ? item.speed : undefined}
         rarity={"rarity" in item ? item.rarity : undefined}
+        alt={item.name}
         className=""
       />
       {props.imageExtra}
@@ -108,11 +112,18 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow ">
-      {!hideDetails && <div className="mx-3 hidden basis-1/3 md:block">{image}</div>}
+      {!hideDetails && !hideImage && (
+        <div className="mx-3 hidden basis-1/3 md:block">{image}</div>
+      )}
 
-      <div className={cn("basis-full text-sm", hideDetails || "md:basis-2/3")}>
+      <div
+        className={cn("basis-full text-sm", hideDetails || hideImage || "md:basis-2/3")}
+      >
         <div className="flex flex-row">
-          <div className="relative block md:hidden md:basis-1/3">{image}</div>
+          {!hideImage && (
+            <div className="relative block md:hidden md:basis-1/3">{image}</div>
+          )}
+
           <div className="relative flex basis-full flex-col pl-5 md:pl-0">
             {!hideTitle ? (
               <h3 className="text-xl font-bold tracking-tight text-popover-foreground">
@@ -174,7 +185,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
 
             <hr className="py-1" />
-            {!hideDetails && item.description && (
+            {!hideDetails && "description" in item && item.description && (
               <div>{parseHtml(item.description)}</div>
             )}
           </div>
@@ -229,6 +240,31 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             {"rank" in item && item.rank && (
               <p>
                 <b>Rank</b>: {item.rank}
+              </p>
+            )}
+            {"frames" in item && item.frames && (
+              <p>
+                <b>Frames</b>: {item.frames}
+              </p>
+            )}
+            {"speed" in item && item.speed && (
+              <p>
+                <b>Speed</b>: {item.speed}
+              </p>
+            )}
+            {"type" in item && item.type && (
+              <p>
+                <b>Type</b>: {item.type.toLowerCase()}
+              </p>
+            )}
+            {"onInitialBattleField" in item && item.onInitialBattleField && (
+              <p>
+                <b>On battlefield</b>: {item.onInitialBattleField ? "yes" : "no"}
+              </p>
+            )}
+            {"licenseDetails" in item && item.licenseDetails && (
+              <p className="col-span-2">
+                <b>License</b>: {item.licenseDetails}
               </p>
             )}
             {"village" in item &&
@@ -418,7 +454,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             // Get schema for parsing effect
             const schema = getTagSchema(effect.type);
             // Delete description, so that we get the default one
-            if ("description" in effect) delete effect["description"];
+            if ("description" in effect) delete effect.description;
             const result = schema.safeParse(effect);
             const parsedEffect = result.success ? result.data : undefined;
 

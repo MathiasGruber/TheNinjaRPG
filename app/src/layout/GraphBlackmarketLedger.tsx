@@ -1,15 +1,12 @@
 import React from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getUnique } from "@/utils/grouping";
 import Loader from "@/layout/Loader";
 import GraphUsersGeneric from "@/layout/GraphUsersGeneric";
 
-interface GraphBlackmarketLedgerProps {}
-const GraphBlackmarketLedger: React.FC<GraphBlackmarketLedgerProps> = () => {
+const GraphBlackmarketLedger: React.FC = () => {
   // Queries
-  const { data, isPending } = api.blackmarket.getGraph.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data, isPending } = api.blackmarket.getGraph.useQuery(undefined);
 
   if (!data || isPending) return <Loader explanation="Loading black market ledger" />;
 

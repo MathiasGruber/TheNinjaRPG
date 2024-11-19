@@ -157,6 +157,22 @@ export const senseiRouter = createTRPCRouter({
         .where(eq(userData.userId, student.userId));
       return { success: true, message: "Student removed" };
     }),
+  leaveSensei: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!user.senseiId) {
+        return errorResponse("You do not have a sensei");
+      }
+      // Update
+      await ctx.drizzle
+        .update(userData)
+        .set({ senseiId: null })
+        .where(eq(userData.userId, user.userId));
+      return { success: true, message: "Left sensei" };
+    }),
 });
 
 /**

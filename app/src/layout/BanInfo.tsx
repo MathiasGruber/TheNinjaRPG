@@ -6,16 +6,14 @@ import Countdown from "@/layout/Countdown";
 import ParsedReportJson from "@/layout/ReportReason";
 import { reportCommentExplain } from "@/utils/reports";
 import { reportCommentColor } from "@/utils/reports";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 interface BanInfoProps {
   hideContentBox?: boolean;
 }
 
 const BanInfo: React.FC<BanInfoProps> = (props) => {
-  const { data: report } = api.reports.getBan.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: report } = api.reports.getBan.useQuery(undefined);
 
   if (!report?.reportedUser) return <Loader explanation="Loading ban info" />;
 

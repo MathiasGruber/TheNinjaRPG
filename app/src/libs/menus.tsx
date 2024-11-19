@@ -4,7 +4,7 @@ import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -102,7 +102,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
   // Get information from the sector the user is currently in. No stale time
   const { data: sector } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
-    { enabled: !!userData, staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   // Based on user status, update href of systems

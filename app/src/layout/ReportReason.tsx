@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { UserReport } from "../../drizzle/schema";
 import { parseHtml } from "@/utils/parse";
 
@@ -10,7 +11,7 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
       <b>Report Reason:</b> {parseHtml(props.report.reason)}
       <br />
       {props.report.infraction?.hasOwnProperty("title") && (
-        <div>
+        <div className="py-5">
           <b>Reported Title:</b>
           <hr />
           {parseHtml((props.report.infraction as { title: string }).title)}
@@ -19,7 +20,7 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("summary") && (
-        <div>
+        <div className="py-5">
           <b>Reported Summary:</b>
           <hr />
           {parseHtml((props.report.infraction as { summary: string }).summary)}
@@ -28,24 +29,33 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("content") && (
-        <div>
+        <div className="py-5">
           <b>Reported Content:</b>
           <hr />
           {parseHtml((props.report.infraction as { content: string }).content)}
         </div>
       )}
+      {props.report.aiInterpretation && (
+        <div className="py-5">
+          <b>AI Interpretation:</b>
+          <hr />
+          {props.report.aiInterpretation}
+          <br />
+          <b>AI Prediction:</b> {props.report.predictedStatus}
+        </div>
+      )}
       {props.report.infraction?.hasOwnProperty("image") && (
-        <div>
+        <div className="py-5">
           <b>Image:</b>
           <hr />
-          <img
+          <Image
             src={(props.report.infraction as { image: string }).image}
-            width="100%"
+            width={100}
+            className="w-full"
             alt="ReportingImage"
           />
         </div>
       )}
-      <br />
       <b>System:</b> {props.report.system}
       <br />
       <b>Report time</b> {props.report.createdAt.toLocaleString()}

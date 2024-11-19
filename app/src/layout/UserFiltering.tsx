@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +43,8 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
   const { setInArena, setIsEvent, setIsSummon } = props.state;
 
   // Query
-  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
+  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Name search schema
   const form = useForm<GetPublicUsersSchema>({

@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { useRouter } from "next/navigation";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useEffect } from "react";
 import { EditContent } from "@/layout/EditContent";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -22,7 +22,7 @@ export default function BadgeEdit({ params }: { params: { badgeid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.badge.get.useQuery(
     { id: badgeId },
-    { staleTime: Infinity, enabled: badgeId !== undefined },
+    { enabled: !!badgeId && !!userData },
   );
 
   // Redirect to profile if not content or admin

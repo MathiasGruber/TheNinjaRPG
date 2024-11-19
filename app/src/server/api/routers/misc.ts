@@ -3,7 +3,13 @@ import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
 import { sql, and, desc, eq } from "drizzle-orm";
-import { notification, userData, gameSetting, captcha } from "@/drizzle/schema";
+import {
+  notification,
+  userData,
+  gameSetting,
+  gameAsset,
+  captcha,
+} from "@/drizzle/schema";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -86,7 +92,7 @@ export const miscRouter = createTRPCRouter({
       const setting = await ctx.drizzle.query.gameSetting.findFirst({
         where: eq(gameSetting.name, input.name),
       });
-      return setting || null;
+      return setting ?? null;
     }),
   setEventGameSetting: protectedProcedure
     .input(changeSettingSchema)
@@ -131,7 +137,7 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
     where: and(eq(captcha.userId, userId), eq(captcha.used, false)),
   });
   // Value to guess
-  const value = current?.value || randomString(6);
+  const value = current?.value ?? randomString(6);
   // Create the SVG
   const fontPath = path.resolve("./fonts/OpenSans.ttf");
   const textToSVG = TextToSVG.loadSync(fontPath);
@@ -185,5 +191,5 @@ export const validateCaptcha = async (
  * @returns A promise that resolves to an array of game assets, each containing the id, name, and image.
  */
 export const fetchGameAssets = async (client: DrizzleClient) => {
-  return await client.query.gameAsset.findMany();
+  return await client.query.gameAsset.findMany({ where: eq(gameAsset.hidden, false) });
 };

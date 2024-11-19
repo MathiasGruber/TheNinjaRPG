@@ -5,22 +5,27 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
-import { api } from "@/utils/api";
+import {
+  IMG_HOME_TRAIN,
+  IMG_HOME_EAT,
+  IMG_HOME_SLEEP,
+  IMG_HOME_AWAKE,
+} from "@/drizzle/constants";
+import { api } from "@/app/_trpc/client";
 import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function Home() {
-  const util = api.useUtils();
-
-  const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
+  const { userData, sectorVillage, access, ownVillage, updateUser } =
+    useRequireInVillage("/home");
 
   const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) {
-          await util.profile.getUser.invalidate();
+        if (data.success && data.newStatus) {
+          await updateUser({ status: data.newStatus });
         }
       },
     });
@@ -43,7 +48,7 @@ export default function Home() {
             <Image
               className="hover:opacity-30"
               alt="train"
-              src="/home/train.webp"
+              src={IMG_HOME_TRAIN}
               width={256}
               height={256}
             />
@@ -53,7 +58,7 @@ export default function Home() {
             <Image
               className="hover:opacity-30"
               alt="eat"
-              src="/home/eat.webp"
+              src={IMG_HOME_EAT}
               width={256}
               height={256}
             />
@@ -67,7 +72,7 @@ export default function Home() {
                   <Image
                     className="hover:opacity-30 animate-pulse"
                     alt="sleeping"
-                    src="/home/sleep.webp"
+                    src={IMG_HOME_SLEEP}
                     width={256}
                     height={256}
                   />
@@ -78,7 +83,7 @@ export default function Home() {
                   <Image
                     className="hover:opacity-30"
                     alt="sleeping"
-                    src="/home/awake.webp"
+                    src={IMG_HOME_AWAKE}
                     width={256}
                     height={256}
                   />

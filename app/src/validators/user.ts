@@ -46,7 +46,7 @@ export const getUserElements = (user: UserWithRelations) => {
   // Create final list of elements
   const finalElements = bloodlineElements.length > 0 ? bloodlineElements : userElements;
   if (bloodlineElements.length === 1 && userElements.length === 2) {
-    finalElements.push(userElements[1] as ElementName);
+    finalElements.push(userElements[1]!);
   }
   finalElements.push("None");
   return Array.from(new Set(finalElements));
@@ -86,12 +86,7 @@ export const getPublicUsersSchema = z.object({
   limit: z.number().min(1).max(100),
   isAi: z.boolean().default(false),
   orderBy: z.enum(["Online", "Strongest", "Weakest", "PvP", "Staff"]),
-  username: z
-    .string()
-    .regex(new RegExp("^[a-zA-Z0-9\\s]*$"), {
-      message: "Must only contain alphanumeric characters and no spaces",
-    })
-    .optional(),
+  username: z.string().optional(),
   ip: z.string().optional(),
   village: z.string().optional(),
   bloodline: z.string().optional(),

@@ -33,7 +33,8 @@ import {
   village,
   battleHistory,
 } from "@/drizzle/schema";
-import { canSeeSecretData, canDeleteUsers } from "@/utils/permissions";
+import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
+import { canChangeContent, canModerateRoles } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -44,8 +45,7 @@ import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { callDiscordContent } from "@/libs/discord";
 import { scaleUserStats } from "@/libs/profile";
-import { insertUserDataSchema } from "@/drizzle/schema";
-import { canChangeContent } from "@/utils/permissions";
+import { insertAiSchema } from "@/drizzle/schema";
 import { calcLevelRequirements } from "@/libs/profile";
 import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
@@ -70,15 +70,18 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
+import { createThumbnail } from "@/libs/replicate";
+import sanitize from "@/utils/sanitize";
+import { moderateContent } from "@/libs/moderator";
 import type { GetPublicUsersSchema } from "@/validators/user";
-import type { UserJutsu, Jutsu, UserItem, Item } from "@/drizzle/schema";
+import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserQuest, Clan } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
-import type { ExecutedQuery } from "@planetscale/database";
 
 const pusher = getServerPusher();
 
@@ -104,7 +107,9 @@ export const profileRouter = createTRPCRouter({
             eq(userBlackList.targetUserId, input.userId),
           ),
         }),
-        fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, input.userId),
+        }),
       ]);
       // Guard
       if (!target) return errorResponse("User not found");
@@ -190,155 +195,154 @@ export const profileRouter = createTRPCRouter({
     return { success: true, message: `User leveled up to ${newLevel}` };
   }),
   // Get all information on logged in user
-  getUser: protectedProcedure
-    .input(z.object({ token: z.string().optional().nullable() }))
-    .query(async ({ ctx }) => {
-      // Query
-      const { user, settings, rewards } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        userIp: ctx.userIp,
-        // forceRegen: true, // This should be disabled in prod to save on DB calls
-      });
-      // Figure out notifications
-      const notifications: NavBarDropdownLink[] = [];
-      if (rewards) {
-        if (rewards.money > 0) {
-          notifications.push({
-            href: "/profile",
-            name: `Activity streak reward: ${rewards.money} ryo`,
-            color: "toast",
-          });
-        }
-        if (rewards.reputationPoints > 0) {
-          notifications.push({
-            href: "/profile",
-            name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
-            color: "toast",
-          });
-        }
-      }
-      // Settings
-      const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
-      if (trainingBoost) {
-        notifications.push({
-          href: "/traininggrounds",
-          name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
-          color: "green",
-        });
-      }
-      const regenBoost = getGameSettingBoost("regenGainMultiplier", settings);
-      if (regenBoost) {
+  getUser: protectedProcedure.query(async ({ ctx }) => {
+    // Query
+    const { user, settings, rewards } = await fetchUpdatedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+      userIp: ctx.userIp,
+      // forceRegen: true, // This should be disabled in prod to save on DB calls
+    });
+    // Figure out notifications
+    const notifications: NavBarDropdownLink[] = [];
+    if (rewards) {
+      if (rewards.money > 0) {
         notifications.push({
           href: "/profile",
-          name: `${regenBoost.value}X regen | ${regenBoost.daysLeft} days`,
-          color: "green",
+          name: `Activity streak reward: ${rewards.money} ryo`,
+          color: "toast",
         });
       }
-      // User specific
-      if (user) {
-        // Get number of un-resolved user reports
-        if (["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role)) {
-          const reportCounts = await ctx.drizzle
-            .select({ count: sql<number>`count(*)`.mapWith(Number) })
-            .from(userReport)
-            .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
-          const userReports = reportCounts?.[0]?.count || 0;
-          if (userReports > 0) {
-            notifications.push({
-              href: "/reports",
-              name: `${userReports} waiting!`,
-              color: "blue",
-            });
-          }
-        }
-        // Check if user is banned
-        if (user.isBanned) {
+      if (rewards.reputationPoints > 0) {
+        notifications.push({
+          href: "/profile",
+          name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
+          color: "toast",
+        });
+      }
+    }
+    // Settings
+    const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
+    if (trainingBoost) {
+      notifications.push({
+        href: "/traininggrounds",
+        name: `${trainingBoost.value}X gains | ${trainingBoost.daysLeft} days`,
+        color: "green",
+      });
+    }
+    const regenBoost = getGameSettingBoost("regenGainMultiplier", settings);
+    if (regenBoost) {
+      notifications.push({
+        href: "/profile",
+        name: `${regenBoost.value}X regen | ${regenBoost.daysLeft} days`,
+        color: "green",
+      });
+    }
+    // User specific
+    if (user) {
+      // Get number of un-resolved user reports
+      if (canModerateRoles.includes(user.role)) {
+        const reportCounts = await ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(userReport)
+          .innerJoin(userData, eq(userData.userId, userReport.reportedUserId))
+          .where(inArray(userReport.status, ["UNVIEWED", "BAN_ESCALATED"]));
+        const userReports = reportCounts?.[0]?.count ?? 0;
+        if (userReports > 0) {
           notifications.push({
             href: "/reports",
-            name: "Banned!",
-            color: "red",
-          });
-        }
-        // Unused experience points
-        if (user.earnedExperience > 0) {
-          notifications.push({
-            href: "/profile/experience",
-            name: `Earned exp: ${user.earnedExperience}`,
+            name: `${userReports} waiting!`,
             color: "blue",
           });
         }
-        // Check if reduced gains
-        const reducedDays = getReducedGainsDays(user);
-        if (reducedDays > 0) {
-          notifications.push({
-            href: "/village",
-            name: `Slowed ${Math.ceil(reducedDays)} days`,
-            color: "red",
-          });
-        }
-        // Add deletion timer to notifications
-        if (user?.deletionAt) {
-          notifications?.push({
-            href: "/profile",
-            name: "Being deleted",
-            color: "red",
-          });
-        }
-        // Is in combat
-        if (user.status === "BATTLE") {
-          notifications?.push({
-            href: "/combat",
-            name: "In combat",
-            color: "red",
-          });
-        }
-        // Is in hospital
-        if (user.status === "HOSPITALIZED") {
-          notifications?.push({
-            href: "/hospital",
-            name: "In hospital",
-            color: "red",
-          });
-        }
-        // Stuff in inbox
-        if (user.inboxNews > 0) {
-          notifications?.push({
-            href: "/inbox",
-            name: `${user.inboxNews} new messages`,
-            color: "green",
-          });
-        }
-        // Stuff in news
-        if (user.unreadNews > 0) {
+      }
+      // Check if user is banned
+      if (user.isBanned) {
+        notifications.push({
+          href: "/reports",
+          name: "Banned!",
+          color: "red",
+        });
+      }
+      // Unused experience points
+      if (user.earnedExperience > 0) {
+        notifications.push({
+          href: "/profile/experience",
+          name: `Earned exp: ${user.earnedExperience}`,
+          color: "blue",
+        });
+      }
+      // Check if reduced gains
+      const reducedDays = getReducedGainsDays(user);
+      if (reducedDays > 0) {
+        notifications.push({
+          href: "/village",
+          name: `Slowed ${Math.ceil(reducedDays)} days`,
+          color: "red",
+        });
+      }
+      // Add deletion timer to notifications
+      if (user?.deletionAt) {
+        notifications?.push({
+          href: "/profile",
+          name: "Being deleted",
+          color: "red",
+        });
+      }
+      // Is in combat
+      if (user.status === "BATTLE") {
+        notifications?.push({
+          href: "/combat",
+          name: "In combat",
+          color: "red",
+        });
+      }
+      // Is in hospital
+      if (user.status === "HOSPITALIZED") {
+        notifications?.push({
+          href: "/hospital",
+          name: "In hospital",
+          color: "red",
+        });
+      }
+      // Stuff in inbox
+      if (user.inboxNews > 0) {
+        notifications?.push({
+          href: "/inbox",
+          name: `${user.inboxNews} new messages`,
+          color: "green",
+        });
+      }
+      // Stuff in news
+      if (user.unreadNews > 0) {
+        notifications?.push({
+          href: "/news",
+          name: `${user.unreadNews} new news`,
+          color: "green",
+        });
+      }
+      if (user.unreadNotifications > 0) {
+        const [unread] = await Promise.all([
+          ctx.drizzle.query.notification.findMany({
+            limit: user.unreadNotifications,
+            orderBy: desc(notification.createdAt),
+          }),
+          ctx.drizzle
+            .update(userData)
+            .set({ unreadNotifications: 0 })
+            .where(eq(userData.userId, ctx.userId)),
+        ]);
+        unread?.forEach((n) => {
           notifications?.push({
             href: "/news",
-            name: `${user.unreadNews} new news`,
-            color: "green",
+            name: n.content,
+            color: "toast",
           });
-        }
-        if (user.unreadNotifications > 0) {
-          const [unread] = await Promise.all([
-            ctx.drizzle.query.notification.findMany({
-              limit: user.unreadNotifications,
-              orderBy: desc(notification.createdAt),
-            }),
-            ctx.drizzle
-              .update(userData)
-              .set({ unreadNotifications: 0 })
-              .where(eq(userData.userId, ctx.userId)),
-          ]);
-          unread?.forEach((n) => {
-            notifications?.push({
-              href: "/news",
-              name: n.content,
-              color: "toast",
-            });
-          });
-        }
+        });
       }
-      return { userData: user, notifications: notifications, serverTime: Date.now() };
-    }),
+    }
+    return { userData: user, notifications: notifications, serverTime: Date.now() };
+  }),
   // Get an AI
   getAi: protectedProcedure
     .input(z.object({ userId: z.string() }))
@@ -347,10 +351,7 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
         with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
-      if (!user) {
-        throw serverError("NOT_FOUND", "AI not found");
-      }
-      return user;
+      return user ?? null;
     }),
   // Create new AI
   create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
@@ -362,6 +363,7 @@ export const profileRouter = createTRPCRouter({
         username: `New AI - ${id}`,
         gender: "Unknown",
         avatar: IMG_AVATAR_DEFAULT,
+        avatarLight: IMG_AVATAR_DEFAULT,
         villageId: null,
         approvedTos: 1,
         sector: 0,
@@ -450,12 +452,12 @@ export const profileRouter = createTRPCRouter({
     }),
   // Update a AI
   updateAi: protectedProcedure
-    .input(z.object({ id: z.string(), data: insertUserDataSchema }))
+    .input(z.object({ id: z.string(), data: insertAiSchema }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Set empty strings to null
       setEmptyStringsToNulls(input.data);
-      input.data.customTitle = input.data.customTitle || "";
+      input.data.customTitle = input.data.customTitle ?? "";
 
       // Queries
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -669,7 +671,7 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("You can't change for other users");
       }
       // Mutate
-      return updateNindo(ctx.drizzle, input.userId, input.content);
+      return updateNindo(ctx.drizzle, input.userId, input.content, "userNindo");
     }),
   // Insert attribute
   insertAttribute: protectedProcedure
@@ -751,7 +753,7 @@ export const profileRouter = createTRPCRouter({
         limit: 5,
       });
     }),
-  getUserDailyPveBattleCount: protectedProcedure
+  getUserDailyPveBattleCount: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       //Query
@@ -765,16 +767,20 @@ export const profileRouter = createTRPCRouter({
       return (await result).length;
     }),
   // Get public information on a user
-  getPublicUser: protectedProcedure
+  getPublicUser: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Query
       const [requester, user] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId ?? ""),
+          columns: { role: true },
+        }),
         ctx.drizzle.query.userData.findFirst({
           where: and(eq(userData.userId, input.userId)),
           columns: {
             avatar: true,
+            avatarLight: true,
             bloodlineId: true,
             curChakra: true,
             curHealth: true,
@@ -802,14 +808,15 @@ export const profileRouter = createTRPCRouter({
             pveFights: true,
             isBanned: true,
             deletionAt: true,
+            aiProfileId: true,
           },
           with: {
             village: true,
             bloodline: true,
             nindo: true,
             clan: true,
-            jutsus: { columns: { jutsuId: true } },
-            items: { columns: { itemId: true } },
+            jutsus: { with: { jutsu: { columns: { id: true, name: true } } } },
+            items: { with: { item: { columns: { id: true, name: true } } } },
             badges: { with: { badge: true } },
             recruitedUsers: {
               columns: {
@@ -846,19 +853,25 @@ export const profileRouter = createTRPCRouter({
       // Guard
       if (!user) return null;
       // Hide secrets
-      if (!canSeeSecretData(requester.role)) {
+      if (!requester || !canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
-        user.lastIp = "hidden";
         user.isBanned = false;
       }
+      if (!requester || !canSeeIps(requester.role)) {
+        user.lastIp = "hidden";
+      }
+      // If no avatarLight version, create one
+      if (!user.avatarLight && user.avatar) {
+        const thumbnail = await createThumbnail(user.avatar);
+        await ctx.drizzle
+          .update(userData)
+          .set({ avatarLight: thumbnail })
+          .where(eq(userData.userId, user.userId));
+      }
       // Return
-      return {
-        ...user,
-        jutsus: user?.jutsus.map((j) => j.jutsuId),
-        items: user?.items.map((i) => i.itemId),
-      };
+      return user;
     }),
-  countOnlineUsers: protectedProcedure.query(async ({ ctx }) => {
+  countOnlineUsers: publicProcedure.query(async ({ ctx }) => {
     // Fetch
     const [current, daily, maxOnline] = await Promise.all([
       ctx.drizzle
@@ -945,28 +958,31 @@ export const updateNindo = async (
   client: DrizzleClient,
   userId: string,
   content: string,
+  type: "userNindo" | "clanOrder" | "anbuOrder" | "kageOrder",
 ) => {
   const nindo = await client.query.userNindo.findFirst({
     where: eq(userNindo.userId, userId),
   });
-  let result: ExecutedQuery;
-  if (!nindo) {
-    result = await client.insert(userNindo).values({
-      id: nanoid(),
+  const sanitized = sanitize(content);
+  await Promise.all([
+    moderateContent(client, {
+      content: sanitized,
       userId: userId,
-      content: content,
-    });
-  } else {
-    result = await client
-      .update(userNindo)
-      .set({ content: content })
-      .where(eq(userNindo.userId, userId));
-  }
-  if (result.rowsAffected === 0) {
-    return { success: false, message: "Could not update content" };
-  } else {
-    return { success: true, message: "Content updated" };
-  }
+      relationType: type,
+      relationId: userId,
+    }),
+    nindo
+      ? client
+          .update(userNindo)
+          .set({ content: content })
+          .where(eq(userNindo.userId, userId))
+      : client.insert(userNindo).values({
+          id: nanoid(),
+          userId: userId,
+          content: content,
+        }),
+  ]);
+  return { success: true, message: "Content updated" };
 };
 
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
@@ -1168,6 +1184,11 @@ export const fetchUpdatedUser = async (props: {
     );
   }
 
+  // Hide information relating to quests
+  user?.userQuests.forEach((q) => {
+    hideQuestInformation(q.quest, user);
+  });
+
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = deduceActiveUserRegen(user, settings);
@@ -1330,6 +1351,7 @@ export const fetchPublicUsers = async (
         userId: true,
         username: true,
         avatar: true,
+        avatarLight: true,
         rank: true,
         isOutlaw: true,
         level: true,
@@ -1368,7 +1390,13 @@ export const fetchPublicUsers = async (
       limit: input.limit,
       orderBy: getOrder(),
     }),
-    ...(userId ? [fetchUser(client, userId)] : [null]),
+    ...(userId
+      ? [
+          client.query.userData.findFirst({
+            where: eq(userData.userId, userId),
+          }),
+        ]
+      : [null]),
   ]);
   // Guard
   if (input.ip && (!user || !canSeeSecretData(user.role))) {
@@ -1376,7 +1404,7 @@ export const fetchPublicUsers = async (
   }
   // Hide stuff
   users.filter((u) => !u.lastIp).forEach((u) => (u.lastIp = "Proxied"));
-  if (!user || !canSeeSecretData(user.role)) {
+  if (!user || !canSeeIps(user.role)) {
     users.forEach((u) => (u.lastIp = "hidden"));
   }
   // Return
@@ -1386,7 +1414,7 @@ export const fetchPublicUsers = async (
     nextCursor: nextCursor,
   };
 };
-export type FetchedPublicUsers = ReturnType<typeof fetchPublicUsers>;
+export type FetchedPublicUsers = Awaited<ReturnType<typeof fetchPublicUsers>>;
 
 export const fetchAttributes = async (client: DrizzleClient, userId: string) => {
   return await client.query.userAttribute.findMany({
@@ -1412,6 +1440,6 @@ export type UserWithRelations =
   | undefined;
 
 export type AiWithRelations = UserData & {
-  jutsus: (UserJutsu & { jutsu: Jutsu })[];
-  items: (UserItem & { item: Item })[];
+  jutsus: (UserJutsu & { jutsu: { id: string; name: string } })[];
+  items: (UserItem & { item: { id: string; name: string } })[];
 };

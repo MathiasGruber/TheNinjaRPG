@@ -9,9 +9,9 @@ import Loader from "@/layout/Loader";
 import MassEditContent from "@/layout/MassEditContent";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { Button } from "@/components/ui/button";
-import { FilePlus, SquarePen, Presentation } from "lucide-react";
+import { FilePlus, SquarePen, ChartCandlestick, ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
@@ -39,7 +39,6 @@ export default function ManualJutsus() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const alljutsus = jutsus?.pages.map((page) => page.data).flat();
@@ -71,12 +70,18 @@ export default function ManualJutsus() {
         subtitle="What are they?"
         back_href="/manual"
         topRightContent={
-          <Link href="/manual/jutsu/balance">
-            <Button id="jutsu-statistics">
-              <Presentation className="sm:mr-2 h-6 w-6" />
-              <p className="hidden sm:block">Balance Statistics</p>
-            </Button>
-          </Link>
+          <div className="flex flex-row gap-1">
+            <Link href="/manual/jutsu/balance">
+              <Button id="jutsu-statistics" hoverText="Balance Statistics">
+                <ChartCandlestick className="h-6 w-6" />
+              </Button>
+            </Link>
+            <Link href="/manual/jutsu/completeness">
+              <Button id="jutsu-completeness" hoverText="Content Completeness">
+                <ChartPie className="h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
         }
       >
         <p>

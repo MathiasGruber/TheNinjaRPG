@@ -2,21 +2,24 @@
 
 import { useState } from "react";
 import ContentBox from "@/layout/ContentBox";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { BriefcaseBusiness } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canSeeIps } from "@/utils/permissions";
 import { ExternalLink } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showUserRank } from "@/libs/profile";
-import { useUserData } from "@/utils/UserContext";
+import { useRequiredUserData } from "@/utils/UserContext";
 import UserFiltering, { useFiltering, getFilter } from "@/layout/UserFiltering";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
-  const { data: userData } = useUserData();
-  const tabNames = ["Online", "Strongest", "PvP", "Staff"] as const;
+  const { data: userData, isClerkLoaded } = useRequiredUserData();
+  const tabNames = ["Online", "Strongest", "PvP"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -31,12 +34,15 @@ export default function Users() {
   } = api.profile.getPublicUsers.useInfiniteQuery(
     { ...getFilter(state), limit: 30, orderBy: activeTab, isAi: false },
     {
+      enabled: isClerkLoaded,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: 1000 * 60 * 5, // every 5min
+      staleTime: 1000 * 60 * 5,
     },
   );
-  const { data: onlineStats } = api.profile.countOnlineUsers.useQuery();
+  const { data: onlineStats } = api.profile.countOnlineUsers.useQuery(undefined, {
+    enabled: isClerkLoaded,
+  });
   const userCountNow = onlineStats?.onlineNow || 0;
   const userCountDay = onlineStats?.onlineDay || 0;
   const maxOnline = onlineStats?.maxOnline || 0;
@@ -71,12 +77,10 @@ export default function Users() {
     columns.push({ key: "experience", header: "Experience", type: "string" });
   } else if (activeTab === "Online") {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
-  } else if (activeTab === "Staff") {
-    columns.push({ key: "role", header: "Role", type: "capitalized" });
   } else if (activeTab === "PvP") {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
   }
-  if (userData && canSeeSecretData(userData.role)) {
+  if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
   }
 
@@ -88,7 +92,7 @@ export default function Users() {
       subtitle={`Top ${activeTab}`}
       padding={false}
       topRightContent={
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-1">
           <NavTabs
             id="tab"
             className="text-xs"
@@ -96,6 +100,12 @@ export default function Users() {
             options={tabNames}
             setValue={setActiveTab}
           />
+          <Link href="/staff">
+            <Button>
+              <BriefcaseBusiness className="h-6 w-6 mr-2" />
+              Staff
+            </Button>
+          </Link>
           <UserFiltering state={state} />
         </div>
       }

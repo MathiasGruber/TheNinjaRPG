@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import Confirm from "@/layout/Confirm";
 import AvatarImage from "@/layout/Avatar";
 import Countdown from "@/layout/Countdown";

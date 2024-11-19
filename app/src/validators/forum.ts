@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { UserData } from "../../drizzle/schema";
 
 export const forumBoardSchema = z
   .object({
@@ -11,17 +10,3 @@ export const forumBoardSchema = z
   .required();
 
 export type ForumBoardSchema = z.infer<typeof forumBoardSchema>;
-
-/**
- * Which user roles have access to moderate
- */
-export const canModerate = (user: UserData) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role);
-};
-
-/**
- * Which user roles can create news
- */
-export const canCreateNews = (user: UserData) => {
-  return user.role !== "USER";
-};

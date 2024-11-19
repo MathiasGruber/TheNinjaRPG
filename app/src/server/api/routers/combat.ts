@@ -19,6 +19,7 @@ import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
+import { hideQuestInformation } from "@/libs/quest";
 import {
   updateVillageAnbuClan,
   updateKage,
@@ -49,7 +50,15 @@ import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
-import type { BaseServerResponse } from "@/server/api/trpc";
+import {
+  IMG_BG_COLISEUM,
+  IMG_BG_ARENA_KONOKI,
+  IMG_BG_ARENA_SILENCE,
+  IMG_BG_OCEAN,
+  IMG_BG_ICE,
+  IMG_BG_FOREST,
+  IMG_BG_DESSERT,
+} from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
@@ -317,7 +326,9 @@ export const combatRouter = createTRPCRouter({
           // Update the battle to the correct activeUserId & round. Default to current user
           const { actor, actionRound } = alignBattle(newBattle, suid);
           if (debug) {
-            console.log(`============ 1. Actor: ${actor.username} ============`);
+            console.log(
+              `============ 1. Actor: ${actor.username} - ${actor.userId} ============`,
+            );
           }
 
           // Only allow action if it is the users turn
@@ -502,7 +513,7 @@ export const combatRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(z.object({ aiId: z.string(), stats: statSchema.nullish() }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Get information
       const { user } = await fetchUpdatedUser({
@@ -549,7 +560,7 @@ export const combatRouter = createTRPCRouter({
             statDistribution: input.stats ?? undefined,
           },
           input.stats ? "TRAINING" : "ARENA",
-          determineArenaBackground(user.village?.name || "Unknown"),
+          determineArenaBackground(user.village?.name || "default"),
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -652,11 +663,11 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
 export const determineArenaBackground = (villageName: string) => {
   switch (villageName) {
     case "Konoki":
-      return "midjourney_konoki_arena.webp";
+      return IMG_BG_ARENA_KONOKI;
     case "Silence":
-      return "midjourney_silence_arena.webp";
+      return IMG_BG_ARENA_SILENCE;
     default:
-      return "coliseum.webp";
+      return IMG_BG_COLISEUM;
   }
 };
 
@@ -665,13 +676,13 @@ export const determineCombatBackground = (
 ) => {
   switch (asset) {
     case "ocean":
-      return "midjourney_ocean.webp";
+      return IMG_BG_OCEAN;
     case "ice":
-      return "midjourney_ocean.webp";
+      return IMG_BG_ICE;
     case "ground":
-      return "midjourney_forest.webp";
+      return IMG_BG_FOREST;
     default:
-      return "midjourney_dessert.webp";
+      return IMG_BG_DESSERT;
   }
 };
 
@@ -687,9 +698,9 @@ export const initiateBattle = async (
     scaleTarget?: boolean;
   },
   battleType: BattleType,
-  background = "forest.webp",
+  background = IMG_BG_FOREST,
   scaleGains = 1,
-): Promise<BaseServerResponse> => {
+) => {
   // Destructure
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
@@ -743,6 +754,11 @@ export const initiateBattle = async (
       }),
     ]);
 
+  // Hide some information from quests
+  users.forEach((user) =>
+    user.userQuests?.forEach((q) => hideQuestInformation(q.quest, user)),
+  );
+
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
 
@@ -753,7 +769,7 @@ export const initiateBattle = async (
   }
 
   // Loop through each user
-  for (let i = 0; i < users.length; i++) {
+  for (const i of users.keys()) {
     // Get the user
     const user = users[i];
     if (!user) return { success: false, message: "Could not find expected user" };
@@ -1064,5 +1080,5 @@ export const initiateBattle = async (
   }
 
   // Return the battle
-  return { success: true, message: battleId };
+  return { success: true, message: "You have attacked", battleId };
 };

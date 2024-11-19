@@ -6,7 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import { RollBloodline, CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { IMG_BUILDING_SCIENCEBUILDING } from "@/drizzle/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 
 export default function Science() {
   // Settings
@@ -17,12 +17,9 @@ export default function Science() {
     data: prevRoll,
     isPending: isPendingBlood,
     refetch: refetchBloodline,
-  } = api.bloodline.getRolls.useQuery(
-    {
-      currentBloodlineId: userData?.bloodlineId,
-    },
-    { staleTime: Infinity, enabled: userData !== undefined },
-  );
+  } = api.bloodline.getNaturalRolls.useQuery(undefined, {
+    enabled: !!userData,
+  });
 
   // Heal finish time
   if (!userData) return <Loader explanation="Loading userdata" />;

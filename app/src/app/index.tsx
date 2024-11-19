@@ -5,11 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useUserData } from "@/utils/UserContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import FancyForumThreads from "@/layout/FancyForumThreads";
 import Loader from "@/layout/Loader";
+import { IMG_LAYOUT_WELCOME_IMG } from "@/drizzle/constants";
 import type { InfiniteThreads } from "@/routers/forum";
 
 export default function IndexPage({
@@ -18,16 +19,18 @@ export default function IndexPage({
   initialNews: Awaited<InfiniteThreads>;
 }) {
   // Fetch data
-  const { isLoaded, isSignedIn, userId } = useAuth();
-  const { data: userData, status: userStatus } = useUserData();
+  const { isLoaded, isSignedIn } = useUser();
+  const { data: userData, status: userStatus, userId } = useUserData();
 
   // Navigation
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Save referrer in local storage if present
-  const ref = searchParams?.get("ref");
-  if (ref) localStorage.setItem("ref", ref);
+  useEffect(() => {
+    const ref = searchParams?.get("ref");
+    if (ref) localStorage.setItem("ref", ref);
+  }, [searchParams]);
 
   // Redirect based on user status
   useEffect(() => {
@@ -67,10 +70,10 @@ const Welcome: React.FC = () => {
         </div>
         <Image
           className=""
-          src="/layout/welcomeimage.webp"
+          src={IMG_LAYOUT_WELCOME_IMG}
           alt="TNR Logo"
           width={1000}
-          height={172}
+          height={181}
           priority
         />
         <p className="p-2">

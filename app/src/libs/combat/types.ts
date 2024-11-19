@@ -22,6 +22,10 @@ export type BattleUserState = UserWithRelations & {
     jutsu: Jutsu;
     lastUsedRound: number;
   })[];
+  basicActions: {
+    id: string;
+    lastUsedRound: number;
+  }[];
   items: (UserItem & {
     item: Item;
     lastUsedRound: number;
@@ -649,7 +653,7 @@ export const WeaknessTag = z.object({
   statTypes: z.array(z.enum(StatTypes)).default([]),
   generalTypes: z.array(z.enum(GeneralTypes)).default([]),
   description: msg("Extra raw damage from specific things"),
-  dmgModifier: z.coerce.number().min(1).max(5).default(1).optional(),
+  dmgModifier: z.coerce.number().min(1).max(50).default(1).optional(),
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
@@ -733,9 +737,8 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
   if (
     [
       "absorb",
-      "buffprevent",
-      "cleanseprevent",
-      "clearprevent",
+      // "clearprevent",
+      "stealth",
       "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
@@ -769,6 +772,8 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
+      // "cleanseprevent",
+      "buffprevent",
       "decreasedamagegiven",
       "increasedamagetaken",
       "decreasehealgiven",
@@ -776,6 +781,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "decreasestat",
       "clear",
       "damage",
+      "moveprevent",
       "pierce",
       "recoil",
       "flee",
@@ -783,7 +789,6 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "onehitkill",
       "rob",
       "seal",
-      "stun",
       "summonprevent",
       "weakness",
     ].includes(tag.type)

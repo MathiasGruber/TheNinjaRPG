@@ -17,13 +17,14 @@ import { highlightUsers } from "@/libs/combat/drawing";
 import { calcActiveUser } from "@/libs/combat/actions";
 import { drawCombatUsers } from "@/libs/combat/drawing";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
 import { useSetAtom } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { Check } from "lucide-react";
 import { PvpBattleTypes } from "@/drizzle/constants";
+import { IMG_INITIATIVE_D20 } from "@/drizzle/constants";
 import type { Grid } from "honeycomb-grid";
 import type { ReturnedBattle, StatSchemaType } from "@/libs/combat/types";
 import type { CombatAction } from "@/libs/combat/types";
@@ -60,6 +61,9 @@ const Combat: React.FC<CombatProps> = (props) => {
   const battleId = battle.current?.id;
   const battleType = battle.current?.battleType;
 
+  // Mutation protection
+  const onMutateCheck = useGlobalOnMutateProtect();
+
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
   const { data: userData, pusher, timeDiff } = useRequiredUserData();
@@ -70,9 +74,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const suid = userData?.userId;
 
   // Query data
-  const { data: gameAssets } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: gameAssets } = api.misc.getAllGameAssetNames.useQuery(undefined);
 
   // Convenience method for helping people to not move too fast
   const canPerformAction = () => {
@@ -132,6 +134,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // User Action
   const { mutate: performAction, isPending } = api.combat.performAction.useMutation({
     onMutate: () => {
+      onMutateCheck();
       document.body.style.cursor = "wait";
       setBattleState({ battle: battle.current, result: null, isPending: true });
     },
@@ -386,6 +389,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       // js groups for organization
       const group_users = new Group();
       const group_ground = new Group();
+      const group_effects = new Group();
 
       // Enable controls
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -399,6 +403,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       scene.add(group_edges);
       scene.add(group_ground);
       scene.add(group_users);
+      scene.add(group_effects);
 
       // Capture clicks to update move direction
       const onClick = () => {
@@ -468,7 +473,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
           // Draw all ground effects on the map
           drawCombatEffects({
-            groupGround: group_ground,
+            groupEffects: group_effects,
             battle: battle.current,
             grid: grid.current,
             animationId,
@@ -524,7 +529,9 @@ const Combat: React.FC<CombatProps> = (props) => {
         window.removeEventListener("resize", handleResize);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
         sceneRef.removeEventListener("mouseleave", onDocumentMouseLeave);
-        sceneRef.removeChild(renderer.domElement);
+        if (sceneRef.contains(renderer.domElement)) {
+          sceneRef.removeChild(renderer.domElement);
+        }
         cleanUp(scene, renderer);
         cancelAnimationFrame(animationId);
       };
@@ -575,7 +582,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                       >
                         <Image
                           alt={`roll-${u.userId}`}
-                          src="/combat/d20.webp"
+                          src={IMG_INITIATIVE_D20}
                           height={80}
                           width={80}
                         ></Image>

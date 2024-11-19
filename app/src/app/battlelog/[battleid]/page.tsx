@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import ActionTimer from "@/layout/ActionTimer";
 import ContentBox from "@/layout/ContentBox";
@@ -20,7 +20,7 @@ export default function BattleLog({ params }: { params: { battleid: string } }) 
   const { data: userData } = useRequiredUserData();
   const { data } = api.combat.getBattle.useQuery(
     { battleId: battleId },
-    { enabled: !!battleId, staleTime: Infinity },
+    { enabled: !!battleId },
   );
 
   // Derived variables

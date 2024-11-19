@@ -1,7 +1,7 @@
 import { publicState, allState } from "./constants";
 import { getPower } from "./tags";
 import { randomInt } from "@/utils/math";
-import { availableUserActions } from "./actions";
+import { availableUserActions, getBasicActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
@@ -94,7 +94,13 @@ export const isUserStealthed = (
   userEffects: UserEffect[] | undefined,
 ) => {
   return userEffects?.some(
-    (e) => e.type === "stealth" && e.targetId === userId && !e.castThisRound,
+    (e) =>
+      e.type === "stealth" &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      "rounds" in e &&
+      e.rounds &&
+      e.rounds > 0,
   );
 };
 
@@ -273,8 +279,7 @@ export const sortEffects = (
     "seal",
     "stun",
     "summon",
-    // Post-moodifiers
-    "absorb",
+    // Post-moodifiers before pierce
     "decreasedamagegiven",
     "decreasedamagetaken",
     "decreaseheal",
@@ -282,10 +287,12 @@ export const sortEffects = (
     "increasedamagetaken",
     "increaseheal",
     "lifesteal",
+    // Piercing damage
+    "pierce",
+    // Post-modifiers after pierce
+    "absorb",
     "recoil",
     "reflect",
-    // Piercing damage after post-modifiers
-    "pierce",
     // End-modifiers
     "move",
     "visual",
@@ -351,6 +358,11 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
   if (current) {
     if (val.damage) {
       current.damage = current.damage ? current.damage + val.damage : val.damage;
+    }
+    if (val.residual) {
+      current.residual = current.residual
+        ? current.residual + val.residual
+        : val.residual;
     }
     if (val.heal_hp) {
       current.heal_hp = current.heal_hp ? current.heal_hp + val.heal_hp : val.heal_hp;
@@ -548,13 +560,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           deltaPrestige -= isAlly || sameVillage ? FRIENDLY_PRESTIGE_COST : 0;
 
           // Village tokens for killing enemies
-          deltaTokens += target.relations
-            .filter((r) => r.status === "ENEMY")
-            .filter(
-              (r) =>
-                (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
-                (r.villageIdA === target.villageId && r.villageIdB === vilId),
-            ).length;
+          deltaTokens +=
+            target.relations
+              .filter((r) => r.status === "ENEMY")
+              .filter(
+                (r) =>
+                  (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
+                  (r.villageIdA === target.villageId && r.villageIdB === vilId),
+              ).length * 5;
         });
       }
 
@@ -596,7 +609,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       // Things to reward for non-spars
       if (battleType !== "SPARRING" && battleType !== "TRAINING") {
         // Money stolen/given
-        result["money"] = moneyDelta * battle.rewardScaling + user.moneyStolen;
+        result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
         let total = user.usedStats.length + user.usedGenerals.length;
@@ -630,7 +643,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           assignedExp += value;
         });
         // Experience
-        result["experience"] = assignedExp;
+        result.experience = assignedExp;
       }
 
       // Return results
@@ -658,13 +671,12 @@ export const hasNoAvailableActions = (battle: ReturnedBattle, actorId: string) =
     const done = actor.curHealth <= 0 || actor.fledBattle || actor.leftBattle;
     if (!done) {
       const actions = availableUserActions(battle, actorId, !actor.isAi);
-      for (let j = 0; j < actions.length; j++) {
+      for (const j of actions.keys()) {
         const action = actions[j];
         if (action) {
           const notWait = action.id !== "wait";
           const { canAct } = actionPointsAfterAction(actor, battle, action);
-          const aiMove = actor.isAi && action.id === "move";
-          if (canAct && notWait && !aiMove) {
+          if (canAct && notWait) {
             return false;
           }
         }
@@ -917,12 +929,12 @@ export const processUsersForBattle = (info: {
     } else {
       if (leftSideUserIds?.includes(user.userId)) {
         const { x, y } = assignLocation(1, 5);
-        user["longitude"] = x;
-        user["latitude"] = y;
+        user.longitude = x;
+        user.latitude = y;
       } else {
         const { x, y } = assignLocation(7, 11);
-        user["longitude"] = x;
-        user["latitude"] = y;
+        user.longitude = x;
+        user.latitude = y;
       }
     }
 
@@ -1027,6 +1039,12 @@ export const processUsersForBattle = (info: {
         userjutsu.lastUsedRound = -userjutsu.jutsu.cooldown;
         return userjutsu;
       });
+
+    // Add basic actions to user for tracking cooldowns
+    user.basicActions = Object.values(getBasicActions(user)).map((action) => ({
+      id: action.id,
+      lastUsedRound: -action.cooldown,
+    }));
 
     // Sort if we have a loadout
     if (user?.loadout?.jutsuIds) {

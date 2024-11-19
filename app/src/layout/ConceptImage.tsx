@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import { Trash2, Flag, Info } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useUserData } from "@/utils/UserContext";
 import { secondsPassed } from "@/utils/time";
 import {
@@ -53,7 +53,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
       }
     },
     onError: (error) => {
-      console.log(error);
+      console.error(error);
     },
   });
 

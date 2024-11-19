@@ -7,7 +7,7 @@ import Loader from "@/layout/Loader";
 import { ClipboardCopy } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Recruit() {

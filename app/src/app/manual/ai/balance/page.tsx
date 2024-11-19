@@ -6,7 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import { getUsageChart } from "@/layout/UsageStatistics";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { BattleTypes } from "@/drizzle/constants";
 
 export default function ManualAIsBalance() {
@@ -17,10 +17,9 @@ export default function ManualAIsBalance() {
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   // // Queries
-  const { data, isPending } = api.data.getAiBalanceStatistics.useQuery(
-    { battleType: filter },
-    { staleTime: Infinity },
-  );
+  const { data, isPending } = api.data.getAiBalanceStatistics.useQuery({
+    battleType: filter,
+  });
 
   useEffect(() => {
     const ctx = chartRef?.current?.getContext("2d");

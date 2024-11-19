@@ -11,7 +11,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { effectFilters } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
 import { BloodlineValidator } from "@/libs/combat/types";
@@ -46,9 +46,9 @@ interface MassEditContentProps {
 const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   const [showModal, setShowModal] = useState<boolean>(false);
   // For quests
-  const [questType, setQuestType] = useState(QuestTypes[0] as QuestType);
+  const [questType, setQuestType] = useState<QuestType>(QuestTypes[0]);
   // For AI, item, jutsus
-  const [tagType, setTagType] = useState(effectFilters[0] as EffectType);
+  const [tagType, setTagType] = useState<EffectType>(effectFilters[0]!);
   const [stat, setStat] = useState<StatGenType | undefined>(undefined);
 
   // Data queries
@@ -61,7 +61,6 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: props.type === "jutsu" && showModal,
     },
   );
@@ -80,7 +79,6 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: props.type === "bloodline" && showModal,
     },
   );
@@ -94,7 +92,6 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: props.type === "item" && showModal,
     },
   );
@@ -108,7 +105,6 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
       enabled: props.type === "quest" && showModal,
     },
   );

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   mysqlTable,
   boolean,
+  customType,
   uniqueIndex,
   varchar,
   datetime,
@@ -30,6 +31,24 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+import type { AdditionalContext } from "@/validators/reports";
+
+export const vector = customType<{
+  data: ArrayBuffer;
+  config: { length: number };
+  configRequired: true;
+  driverData: Buffer;
+}>({
+  dataType(config) {
+    return `VECTOR(${config.length})`;
+  },
+  fromDriver(value) {
+    return value.buffer as ArrayBuffer;
+  },
+  toDriver(value) {
+    return Buffer.from(value);
+  },
+});
 
 export const gameAsset = mysqlTable(
   "GameAsset",
@@ -40,6 +59,15 @@ export const gameAsset = mysqlTable(
     image: varchar("image", { length: 191 }).notNull(),
     frames: tinyint("frames").default(1).notNull(),
     speed: tinyint("speed").default(1).notNull(),
+    hidden: boolean("hidden").default(true).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    licenseDetails: text("licenseDetails").default("TNR").notNull(),
+    createdByUserId: varchar("createdByUserId", { length: 191 }),
     onInitialBattleField: boolean("onInitialBattleField").default(false).notNull(),
   },
   (table) => {
@@ -56,6 +84,7 @@ export const aiProfile = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     rules: json("rules").$type<AiRuleType[]>().notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
   },
   (table) => {
     return {
@@ -306,7 +335,8 @@ export const bloodlineRolls = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
-    used: tinyint("used").default(0).notNull(),
+    used: smallint("used").default(0).notNull(),
+    pityRolls: tinyint("pityRolls").default(0).notNull(),
     type: mysqlEnum("type", consts.BLOODLINE_ROLL_TYPES).default("NATURAL").notNull(),
     goal: mysqlEnum("rank", consts.LetterRanks),
   },
@@ -317,6 +347,7 @@ export const bloodlineRolls = mysqlTable(
     };
   },
 );
+export type BloodlineRolls = InferSelectModel<typeof bloodlineRolls>;
 
 export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
   bloodline: one(bloodline, {
@@ -610,6 +641,7 @@ export const user2conversation = mysqlTable(
     assignedAt: datetime("assignedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    lastReadAt: datetime("lastReadAt", { mode: "date", fsp: 3 }),
   },
   (table) => {
     return {
@@ -644,6 +676,7 @@ export const conversationComment = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     conversationId: varchar("conversationId", { length: 191 }),
     isPinned: tinyint("isPinned").default(0).notNull(),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
@@ -724,6 +757,7 @@ export const forumPost = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     threadId: varchar("threadId", { length: 191 }).notNull(),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
@@ -783,6 +817,7 @@ export const historicalAvatar = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey().notNull(),
     avatar: varchar("avatar", { length: 191 }),
+    avatarLight: varchar("avatarLight", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1031,6 +1066,7 @@ export const paypalTransaction = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     amount: double("amount").notNull(),
+    type: mysqlEnum("type", consts.TRANSACTION_TYPES).default("REP_PURCHASE").notNull(),
     reputationPoints: int("reputationPoints").default(0).notNull(),
     currency: varchar("currency", { length: 191 }).default("USD").notNull(),
     status: varchar("status", { length: 191 }).notNull(),
@@ -1278,6 +1314,7 @@ export const userData = mysqlTable(
       .notNull(),
     approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
+    avatarLight: varchar("avatarLight", { length: 191 }),
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(7).notNull(),
@@ -1376,7 +1413,7 @@ export const userData = mysqlTable(
     };
   },
 );
-export const insertUserDataSchema = createInsertSchema(userData)
+export const insertAiSchema = createInsertSchema(userData)
   .omit({
     trainingStartedAt: true,
     currentlyTraining: true,
@@ -1392,25 +1429,25 @@ export const insertUserDataSchema = createInsertSchema(userData)
       secondaryElement: z.enum([...consts.ElementNames, ""]).nullish(),
       level: z.coerce.number().min(1).max(200),
       regeneration: z.coerce.number().min(1).max(100),
-      ninjutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      ninjutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      genjutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      genjutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      taijutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      taijutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      bukijutsuOffence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      bukijutsuDefence: z.coerce.number().min(10).max(consts.MAX_STATS_CAP),
-      statsMultiplier: z.coerce.number().min(1).max(10),
-      poolsMultiplier: z.coerce.number().min(1).max(10),
-      strength: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      intelligence: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      willpower: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
-      speed: z.coerce.number().min(10).max(consts.MAX_GENS_CAP),
+      ninjutsuOffence: z.coerce.number().min(10),
+      ninjutsuDefence: z.coerce.number().min(10),
+      genjutsuOffence: z.coerce.number().min(10),
+      genjutsuDefence: z.coerce.number().min(10),
+      taijutsuOffence: z.coerce.number().min(10),
+      taijutsuDefence: z.coerce.number().min(10),
+      bukijutsuOffence: z.coerce.number().min(10),
+      bukijutsuDefence: z.coerce.number().min(10),
+      statsMultiplier: z.coerce.number().min(1).max(50),
+      poolsMultiplier: z.coerce.number().min(1).max(50),
+      strength: z.coerce.number().min(10),
+      intelligence: z.coerce.number().min(10),
+      willpower: z.coerce.number().min(10),
+      speed: z.coerce.number().min(10),
       isSummon: z.coerce.boolean(),
       effects: z.array(AllTags).superRefine(SuperRefineEffects),
     }),
   );
-export type InsertUserDataSchema = z.infer<typeof insertUserDataSchema>;
+export type InsertAiSchema = z.infer<typeof insertAiSchema>;
 export type UserData = InferSelectModel<typeof userData>;
 export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
@@ -1466,6 +1503,27 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     references: [aiProfile.id],
   }),
 }));
+
+export const userReview = mysqlTable(
+  "UserReview",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    authorUserId: varchar("authorUserId", { length: 191 }).notNull(),
+    targetUserId: varchar("targetUserId", { length: 191 }).notNull(),
+    positive: boolean("positive").default(true).notNull(),
+    review: text("review").notNull(),
+    authorIp: varchar("authorIp", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      authorUserIdIdx: index("UserReview_authorUserId_idx").on(table.authorUserId),
+      targetUserIdIdx: index("UserReview_targetUserId_idx").on(table.targetUserId),
+    };
+  },
+);
 
 export const userNindo = mysqlTable(
   "UserNindo",
@@ -1583,6 +1641,12 @@ export const userReport = mysqlTable(
     banEnd: datetime("banEnd", { mode: "date", fsp: 3 }),
     adminResolved: tinyint("adminResolved").default(0).notNull(),
     status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
+    aiInterpretation: text("aiInterpretation").notNull(),
+    predictedStatus: mysqlEnum("predictedStatus", consts.BanStates),
+    additionalContext: json("additionalContext")
+      .$type<AdditionalContext[]>()
+      .notNull()
+      .default([]),
   },
   (table) => {
     return {
@@ -1620,6 +1684,7 @@ export const userReportComment = mysqlTable(
     userId: varchar("userId", { length: 191 }).notNull(),
     reportId: varchar("reportId", { length: 191 }).notNull(),
     decision: mysqlEnum("decision", consts.BanStates),
+    isReported: boolean("isReported").default(false).notNull(),
   },
   (table) => {
     return {
@@ -1637,6 +1702,40 @@ export const userReportCommentRelations = relations(userReportComment, ({ one })
   }),
 }));
 
+export const automatedModeration = mysqlTable(
+  "AutomatedModeration",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    content: text("content").notNull(),
+    relationType: mysqlEnum("relationType", consts.AutomoderationCategories).notNull(),
+    // Categories
+    sexual: boolean("sexual").default(false).notNull(),
+    sexual_minors: boolean("sexual_minors").default(false).notNull(),
+    harassment: boolean("harassment").default(false).notNull(),
+    harassment_threatening: boolean("harassment_threatening").default(false).notNull(),
+    hate: boolean("hate").default(false).notNull(),
+    hate_threatening: boolean("hate_threatening").default(false).notNull(),
+    illicit: boolean("illicit").default(false).notNull(),
+    illicit_violent: boolean("illicit_violent").default(false).notNull(),
+    self_harm: boolean("self_harm").default(false).notNull(),
+    self_harm_intent: boolean("self_harm_intent").default(false).notNull(),
+    self_harm_instructions: boolean("self_harm_instructions").default(false).notNull(),
+    violence: boolean("violence").default(false).notNull(),
+    violence_graphic: boolean("violence_graphic").default(false).notNull(),
+    // Timestamps
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("AutoMod_userId_idx").on(table.userId),
+      relationTypeIdx: index("AutoMod_relationType_idx").on(table.relationType),
+    };
+  },
+);
+
 export const village = mysqlTable(
   "Village",
   {
@@ -1652,6 +1751,9 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    leaderUpdatedAt: datetime("leaderUpdatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     hexColor: varchar("hexColor", { length: 191 }).default("#000000").notNull(),

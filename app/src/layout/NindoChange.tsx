@@ -6,7 +6,7 @@ import RichInput from "@/layout/RichInput";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { mutateContentSchema } from "@/validators/comments";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { MutateContentSchema } from "@/validators/comments";
 
 interface NindoChangeProps {
@@ -21,7 +21,7 @@ export const NindoChange: React.FC<NindoChangeProps> = (props) => {
   // Queries
   const { data, isPending } = api.profile.getNindo.useQuery(
     { userId: props.userId },
-    { enabled: !!props.userId, staleTime: Infinity },
+    { enabled: !!props.userId },
   );
 
   // Form control

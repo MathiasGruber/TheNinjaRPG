@@ -4,7 +4,7 @@ import React, { createContext, useEffect, useState } from "react";
 import { parseHtml } from "@/utils/parse";
 import { useContext } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/app/_trpc/client";
 import { secondsFromDate } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
@@ -37,12 +37,16 @@ export const UserContext = createContext<{
   status: string;
   pusher: Pusher | undefined;
   timeDiff: number;
+  userId: string | null | undefined;
+  isClerkLoaded: boolean;
 }>({
   data: undefined,
   notifications: undefined,
   status: "unknown",
   pusher: undefined,
   timeDiff: 0,
+  userId: null,
+  isClerkLoaded: false,
 });
 
 /**
@@ -54,33 +58,23 @@ export const UserContext = createContext<{
  * @returns The UserContextProvider component.
  */
 export function UserContextProvider(props: { children: React.ReactNode }) {
-  // Clerk token
-  const [token, setToken] = useState<string | null>(null);
   // Difference between client time and server time
   const [timeDiff, setTimeDiff] = useState<number>(0);
+
   // Get logged in user
-  const { userId, sessionId, isSignedIn, isLoaded, getToken } = useAuth();
+  const { isSignedIn, isLoaded, user } = useUser();
+  const userId = user?.id;
+
   // Listen on user channel for live updates on things
   const pusher = usePusherHandler(userId);
-  // Set the token from clerk
-  useEffect(() => {
-    if (isSignedIn && isLoaded) {
-      const fetch = async () => {
-        setToken(await getToken());
-      };
-      fetch().catch(console.error);
-    }
-  }, [sessionId, isSignedIn, isLoaded, getToken]);
+
   // Get user data
-  const { data: data, status: userStatus } = api.profile.getUser.useQuery(
-    { token: token },
-    {
-      enabled: !!userId && isSignedIn && isLoaded && !!token,
-      staleTime: Infinity,
-      retry: false,
-      refetchInterval: 300000,
-    },
-  );
+  const { data: data, status: userStatus } = api.profile.getUser.useQuery(undefined, {
+    enabled: !!userId && isSignedIn && isLoaded,
+    retry: false,
+    refetchInterval: 300000,
+  });
+
   // Time diff setting
   useEffect(() => {
     if (data?.serverTime) {
@@ -99,6 +93,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       setTimeDiff(discrepancy);
     }
   }, [data?.userData, data?.serverTime]);
+
   // Show user notifications in toast
   useEffect(() => {
     data?.notifications
@@ -120,6 +115,8 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
         pusher: pusher,
         status: userStatus,
         timeDiff: timeDiff,
+        userId: userId,
+        isClerkLoaded: isLoaded,
       }}
     >
       {props.children}
@@ -134,17 +131,31 @@ export const useUserData = () => {
 
 // Require the user to be logged in
 export const useRequiredUserData = () => {
+  // Router for redirection
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
+  // tRPC utility
+  const utils = api.useUtils();
+  // Get auth information
+  const { isLoaded, isSignedIn } = useUser();
+  // Get user information
   const info = useUserData();
+  // Redirection if not logged in
   const { data, status } = info;
   useEffect(() => {
-    if (isLoaded && status !== "pending" && (data === undefined || !isSignedIn)) {
+    if (isLoaded && (!isSignedIn || (data === undefined && status !== "pending"))) {
       router.push("/");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, data, isLoaded, isSignedIn]);
-  return info;
+  // Optimistic user info update function
+  const updateUser = async (updatedData: Partial<UserWithRelations>) => {
+    await utils.profile.getUser.cancel();
+    utils.profile.getUser.setData(undefined, (old) => {
+      return { ...old, userData: { ...old?.userData, ...updatedData } } as typeof old;
+    });
+  };
+  // Return state and update function
+  return { ...info, updateUser };
 };
 
 /**
@@ -156,11 +167,11 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   // Access state
   const [access, setAccess] = useState<boolean>(false);
   // Get user information
-  const { data: userData, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff, updateUser } = useRequiredUserData();
   // Get sector information based on user data
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
-    { enabled: !!userData?.sector, staleTime: Infinity },
+    { enabled: !!userData?.sector },
   );
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
   const router = useRouter();
@@ -177,7 +188,6 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
           }) || sectorVillage.type === "SAFEZONE";
         // Redirect user
         if (!inVillage || !sectorVillage || !access) {
-          console.log(inVillage, sectorVillage, access);
           void router.push("/");
         } else {
           setAccess(true);
@@ -187,5 +197,5 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
       }
     }
   }, [userData, sectorVillage, router, isPending, structureRoute, ownVillage]);
-  return { userData, sectorVillage, ownVillage, timeDiff, access };
+  return { userData, updateUser, sectorVillage, ownVillage, timeDiff, access };
 };

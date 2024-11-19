@@ -6,7 +6,7 @@ import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import { getUsageChart } from "@/layout/UsageStatistics";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import type { BattleTypes } from "@/drizzle/constants";
 
 export default function ManualBloodlineBalance() {
@@ -19,7 +19,7 @@ export default function ManualBloodlineBalance() {
   // // Queries
   const { data, isPending } = api.data.getBloodlineBalanceStatistics.useQuery(
     { battleType: filter },
-    { staleTime: Infinity },
+    {},
   );
 
   useEffect(() => {

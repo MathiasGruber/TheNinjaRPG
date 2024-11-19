@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
-
+import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
@@ -15,21 +15,31 @@ import SliderField from "@/layout/SliderField";
 import Post from "@/layout/Post";
 import ParsedReportJson from "@/layout/ReportReason";
 import Loader from "@/layout/Loader";
-
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { CommentOnReport } from "@/layout/Comment";
-import { api } from "@/utils/api";
-import { type ReportCommentSchema } from "@/validators/reports";
+import { api } from "@/app/_trpc/client";
 import { reportCommentSchema } from "@/validators/reports";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reportCommentColor } from "@/utils/reports";
 import { reportCommentExplain } from "@/utils/reports";
 import { showMutationToast } from "@/libs/toast";
-import { canPostReportComment } from "@/validators/reports";
-import { canModerateReports } from "@/validators/reports";
-import { canEscalateBan } from "@/validators/reports";
-import { canClearReport } from "@/validators/reports";
+import { canPostReportComment } from "@/utils/permissions";
+import { canModerateReports } from "@/utils/permissions";
+import { canEscalateBan } from "@/utils/permissions";
+import { canClearReport } from "@/utils/permissions";
+import { TimeUnits } from "@/drizzle/constants";
+import { TERR_BOT_ID } from "@/drizzle/constants";
+import type { ReportCommentSchema } from "@/validators/reports";
+import type { TimeUnit } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 
 export default function Report({ params }: { params: { reportid: string } }) {
@@ -39,10 +49,11 @@ export default function Report({ params }: { params: { reportid: string } }) {
 
   const report_id = params.reportid;
 
-  const { data: report } = api.reports.get.useQuery(
+  const { data } = api.reports.get.useQuery(
     { id: report_id },
-    { enabled: !!report_id },
+    { enabled: !!report_id && !!userData },
   );
+  const { report, prevReports } = data || {};
 
   const {
     data: comments,
@@ -57,12 +68,7 @@ export default function Report({ params }: { params: { reportid: string } }) {
     },
   );
   const allComments = comments?.pages.map((page) => page.data).flat();
-
-  useInfinitePagination({
-    fetchNextPage,
-    hasNextPage,
-    lastElement,
-  });
+  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
   // Form handling
   const {
@@ -76,11 +82,14 @@ export default function Report({ params }: { params: { reportid: string } }) {
   } = useForm<ReportCommentSchema>({
     defaultValues: {
       banTime: 0,
+      banTimeUnit: "days",
     },
     resolver: zodResolver(reportCommentSchema),
   });
 
+  const watchedComment = watch("comment", "");
   const watchedLength = watch("banTime", 0);
+  const watchedUnit = watch("banTimeUnit", "days");
 
   // Get utils
   const utils = api.useUtils();
@@ -110,40 +119,50 @@ export default function Report({ params }: { params: { reportid: string } }) {
     silenceUser.isPending ||
     warnUser.isPending;
 
+  const isAi =
+    allComments !== undefined &&
+    allComments.length === 0 &&
+    report &&
+    report.reporterUserId === TERR_BOT_ID;
+
   useEffect(() => {
     if (report) {
       setValue("object_id", report.id);
+      if (isAi && watchedComment === "") {
+        setValue("comment", report.reason);
+      }
     }
-  }, [report, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAi, report, setValue]);
 
   const handleSubmitComment = handleSubmit(
     (data) => createComment.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitBan = handleSubmit(
     (data) => banUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitSilence = handleSubmit(
     (data) => silenceUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitEscalation = handleSubmit(
     (data) => escalateReport.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitClear = handleSubmit(
     (data) => clearReport.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   const handleSubmitWarn = handleSubmit(
     (data) => warnUser.mutate(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   if (!userData || !report) {
@@ -191,19 +210,40 @@ export default function Report({ params }: { params: { reportid: string } }) {
         <form>
           <div className="mb-3">
             {canBan && (
-              <SliderField
-                id="banTime"
-                default={0}
-                min={0}
-                max={365}
-                unit="days"
-                label="Select ban duration in days"
-                register={register}
-                setValue={setValue}
-                watchedValue={watchedLength}
-                error={errors.banTime?.message}
-              />
+              <div className="flex flex-row items-end">
+                <div className="grow">
+                  <SliderField
+                    id="banTime"
+                    default={0}
+                    min={0}
+                    max={100}
+                    unit={watchedUnit}
+                    label={`Select duration in ${watchedUnit}`}
+                    register={register}
+                    setValue={setValue}
+                    watchedValue={watchedLength}
+                    error={errors.banTime?.message}
+                  />
+                </div>
+                <Select
+                  onValueChange={(e) => setValue("banTimeUnit", e as TimeUnit)}
+                  defaultValue={watchedUnit}
+                  value={watchedUnit}
+                >
+                  <SelectTrigger className="basis-1/4 m-1">
+                    <SelectValue placeholder={`None`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TimeUnits.map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
+
             {canWrite && (
               <RichInput
                 id="comment"
@@ -213,6 +253,24 @@ export default function Report({ params }: { params: { reportid: string } }) {
                 error={errors.comment?.message}
                 control={control}
               />
+            )}
+            {canWrite && report.reportedUserId !== userData.userId && (
+              <div className="p-2 flex flex-row gap-2">
+                {isAi && (
+                  <Badge
+                    className="bg-slate-500"
+                    onClick={() => setValue("comment", "False positive from AI")}
+                  >
+                    False Positive from AI
+                  </Badge>
+                )}
+                <Badge
+                  className="bg-slate-500"
+                  onClick={() => setValue("comment", "This report is unjustified")}
+                >
+                  Unjustified report
+                </Badge>
+              </div>
             )}
             {isPending && <Loader explanation="Executing action..." />}
             {!isPending && (
@@ -326,24 +384,57 @@ export default function Report({ params }: { params: { reportid: string } }) {
             )}
           </div>
         </form>
-        {allComments &&
-          allComments.map((comment, i) => (
-            <div
-              key={comment.id}
-              ref={i === allComments.length - 1 ? setLastElement : null}
+        {allComments?.map((comment, i) => (
+          <div
+            key={comment.id}
+            ref={i === allComments.length - 1 ? setLastElement : null}
+          >
+            <CommentOnReport
+              title={reportCommentExplain(comment.decision)}
+              user={comment.user}
+              hover_effect={false}
+              comment={comment}
+              color={reportCommentColor(comment.decision)}
             >
-              <CommentOnReport
-                title={reportCommentExplain(comment.decision)}
-                user={comment.user}
-                hover_effect={false}
-                comment={comment}
-                color={reportCommentColor(comment.decision)}
-              >
-                {parseHtml(comment.content)}
-              </CommentOnReport>
-            </div>
-          ))}
+              {parseHtml(comment.content)}
+            </CommentOnReport>
+          </div>
+        ))}
       </ContentBox>
+      {report.additionalContext.length > 0 && (
+        <ContentBox
+          title="Conversatino Context"
+          subtitle="Latest 10 messages leading up to report"
+          initialBreak
+        >
+          {report.additionalContext.map((context, i) => (
+            <Post key={`context-${i}`} user={context}>
+              {context.content}
+              <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
+                @{context.createdAt.toLocaleString()}
+              </p>
+            </Post>
+          ))}
+        </ContentBox>
+      )}
+      {prevReports && prevReports.length > 0 && (
+        <ContentBox
+          title="Related Reports"
+          subtitle="Note: Search will be improved once Vector Search is available"
+          initialBreak
+        >
+          {prevReports?.map((report, i) => (
+            <Link href={"/reports/" + report.id} key={`report-key-${i}`}>
+              <Post hover_effect={true}>
+                <div className="p-2">
+                  <ParsedReportJson report={report} />
+                  <b>Current status:</b> {report.status}
+                </div>
+              </Post>
+            </Link>
+          ))}
+        </ContentBox>
+      )}
     </>
   );
 }

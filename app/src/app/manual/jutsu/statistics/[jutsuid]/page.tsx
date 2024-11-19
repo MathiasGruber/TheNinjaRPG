@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UsageStats, LevelStats } from "@/layout/UsageStatistics";
 
 export default function JutsuStatistics({ params }: { params: { jutsuid: string } }) {
@@ -11,7 +11,7 @@ export default function JutsuStatistics({ params }: { params: { jutsuid: string 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: jutsuId, type: "jutsu" },
-    { staleTime: Infinity, enabled: jutsuId !== undefined },
+    { enabled: !!jutsuId },
   );
   const jutsu = data?.info;
   const usage = data?.usage;

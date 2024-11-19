@@ -1,5 +1,7 @@
 import { z } from "zod";
-import type { UserData, UserReport } from "../../drizzle/schema";
+import { TimeUnits } from "@/drizzle/constants";
+import { BanStates } from "@/drizzle/constants";
+import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
 
 export const systems = [
   "forum_comment",
@@ -21,91 +23,38 @@ export type UserReportSchema = z.infer<typeof userReportSchema>;
 export const reportCommentSchema = z.object({
   comment: z.string().min(10).max(5000),
   object_id: z.string(),
-  banTime: z.number().min(0).max(365),
+  banTime: z.number().min(0).max(100),
+  banTimeUnit: z.enum(TimeUnits),
 });
 
 export type ReportCommentSchema = z.infer<typeof reportCommentSchema>;
 
-/**
- * Whether a user can see a given report based on his role & userId
- */
-export const canSeeReport = (user: UserData, report: UserReport) => {
-  return (
-    report.reporterUserId === user.userId ||
-    report.reportedUserId === user.userId ||
-    ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role)
-  );
+export const userReviewSchema = z.object({
+  staffUserId: z.string(),
+  review: z.string(),
+  positive: z.boolean().optional(),
+});
+export type UserReviewSchema = z.infer<typeof userReviewSchema>;
+
+export type AdditionalContext = {
+  userId: string;
+  username: string;
+  avatar: string | null;
+  level: number;
+  rank: UserRank;
+  federalStatus: FederalStatus;
+  isOutlaw: boolean;
+  role: UserRole;
+  content: string;
+  createdAt: Date;
 };
 
-/**
- * Depending on status of the report, we allow or disallow posting comments
- */
-export const canPostReportComment = (report: UserReport) => {
-  return ["UNVIEWED", "BAN_ESCALATED"].includes(report.status);
-};
-
-/**
- * Which user roles have access to moderate reports
- */
-export const canModerateReports = (user: UserData, report: UserReport) => {
-  return (
-    report.reportedUserId !== user.userId &&
-    ((user.role === "ADMIN" && report.status === "UNVIEWED") ||
-      (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "UNVIEWED") ||
-      (user.role === "ADMIN" && report.status === "OFFICIAL_WARNING") ||
-      (user.role === "ADMIN" && report.status === "BAN_ACTIVATED") ||
-      (user.role === "ADMIN" && report.status === "BAN_ESCALATED") ||
-      (user.role === "ADMIN" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "ADMIN" && report.status === "SILENCE_ESCALATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "BAN_ACTIVATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "BAN_ESCALATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED"))
-  );
-};
-
-/**
- * Whether a given user can delete a comment
- */
-export const canDeleteComment = (user: UserData, commentAuthorId: string) => {
-  return (
-    ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role) ||
-    user.userId === commentAuthorId
-  );
-};
-
-/**
- * If ban is set by moderator, user can escalate to admin
- */
-export const canEscalateBan = (user: UserData, report: UserReport) => {
-  return (
-    !report.adminResolved &&
-    !canModerateReports(user, report) &&
-    report.status === "BAN_ACTIVATED" &&
-    report.banEnd &&
-    report.banEnd > new Date()
-  );
-};
-
-/**
- * Whether a given report (and/or ban) can be cleared
- */
-export const canClearReport = (user: UserData, report: UserReport) => {
-  return (
-    // Moderators
-    canModerateReports(user, report) ||
-    // Users with finished bans
-    (report.status === "BAN_ACTIVATED" &&
-      report.banEnd &&
-      report.banEnd <= new Date() &&
-      report.reportedUserId === user.userId)
-  );
-};
-
-/**
- * Can change another user's avatar
- */
-export const canChangePublicUser = (user: UserData) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "ADMIN"].includes(user.role);
-};
+export const reportFilteringSchema = z.object({
+  reportedUser: z.string().optional(),
+  reporterUser: z.string().optional(),
+  status: z.enum(BanStates),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  system: z.string().optional(),
+});
+export type ReportFilteringSchema = z.infer<typeof reportFilteringSchema>;

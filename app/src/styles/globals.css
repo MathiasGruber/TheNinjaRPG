@@ -17,14 +17,17 @@
   }
 
   :root {
-    --background: 55 92% 95%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 55 92% 95%; /* yellow-50 */
+    --foreground: 15 75% 28%;
 
-    --card: 48 100% 96%;
+    --card: 48 100% 96%; /* amber-50 */
     --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 33 100% 93%;
+    --popover: 33 100% 93%; /* orange-100 */
     --popover-foreground: 222.2 84% 4.9%;
+
+    --poppopover: 32 98% 83%; /* orange-200 */
+    --poppopover-foreground: 210 40% 98%;
 
     --primary: 22 78% 26%;
     --primary-foreground: 210 40% 98%;
@@ -35,7 +38,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 48 100% 96%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 72% 51%;
@@ -47,22 +50,50 @@
 
     --radius: 0.5rem;
   }
-}
 
-@layer base {
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 34 100% 92%;
+
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 25% 27%;
+    --popover-foreground: 210 40% 98%;
+
+    --poppopover: 215 19% 35%;
+    --poppopover-foreground: 210 40% 98%;
+
+    --primary: 22 78% 26%;
+    --primary-foreground: 34 100% 92%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 215 19% 35%;
+    --accent-foreground: 215 19% 35%;
+
+    --destructive: 38 92% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 16% 47%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 0 0% 100%;
+  }
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    @apply bg-[#dfdede];
   }
-}
-
-body {
-  @apply bg-[url('/wallpaperDouble.webp')] bg-repeat-y;
-  @apply bg-center;
-  @apply bg-[size:100%];
-  @apply bg-[position:top];
+  .dark body {
+    @apply bg-background text-foreground;
+    @apply bg-zinc-700;
+  }
 }
 
 html {
@@ -120,6 +151,41 @@ html {
     }
     100% {
       background-position: 0% 52%;
+    }
+  }
+  @keyframes wiggle {
+    0% {
+      transform: skewX(9deg);
+    }
+    10% {
+      transform: skewX(-8deg);
+    }
+    20% {
+      transform: skewX(7deg);
+    }
+    30% {
+      transform: skewX(-6deg);
+    }
+    40% {
+      transform: skewX(5deg);
+    }
+    50% {
+      transform: skewX(-4deg);
+    }
+    60% {
+      transform: skewX(3deg);
+    }
+    70% {
+      transform: skewX(-2deg);
+    }
+    80% {
+      transform: skewX(1deg);
+    }
+    90% {
+      transform: skewX(0deg);
+    }
+    100% {
+      transform: skewX(0deg);
     }
   }
 }

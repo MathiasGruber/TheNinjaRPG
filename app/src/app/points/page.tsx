@@ -15,7 +15,7 @@ import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { getScriptID, destroySDKScript } from "@paypal/react-paypal-js";
 import { usePayPalScriptReducer } from "@paypal/react-paypal-js";
-import { api, onError } from "@/utils/api";
+import { api, onError } from "@/app/_trpc/client";
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { reps2dollars, calcFedUgradeCost, fedStatusRepsCost } from "@/utils/paypal";
@@ -39,6 +39,9 @@ import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_NORMAL_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_SILVER_BANK_INTEREST } from "@/drizzle/constants";
 import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
+import { IMG_REPSHOP_BRONZE } from "@/drizzle/constants";
+import { IMG_REPSHOP_SILVER } from "@/drizzle/constants";
+import { IMG_REPSHOP_GOLD } from "@/drizzle/constants";
 import {
   Form,
   FormControl,
@@ -271,9 +274,6 @@ const ReputationStore = (props: { currency: string }) => {
           <Loader />
         )}
       </div>
-      <p className="italic text-slate-500 font-bold text-center">
-        PS: Points do carry to final release!
-      </p>
     </>
   );
 };
@@ -441,72 +441,70 @@ const PayPalSubscriptionButton = (props: {
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
       </div>
-      {!hasSubscription && (
-        <div className="bg-amber-200 text-black border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
-          <PayPalButtons
-            style={{ layout: "horizontal", label: "subscribe", tagline: false }}
-            forceReRender={[props.userId]}
-            createSubscription={(data, actions) => {
-              return actions.subscription.create({
-                plan_id: props.subscriptionPlan,
-                custom_id: `${props.buyerId}-${props.userId}`,
+      <div className="bg-amber-200 text-black border-2 z-0 border-black p-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
+        <PayPalButtons
+          style={{ layout: "horizontal", label: "subscribe", tagline: false }}
+          forceReRender={[props.userId]}
+          createSubscription={(data, actions) => {
+            return actions.subscription.create({
+              plan_id: props.subscriptionPlan,
+              custom_id: `${props.buyerId}-${props.userId}`,
+            });
+          }}
+          onApprove={(data, actions) => {
+            if (data.subscriptionID) {
+              subscribe({
+                subscriptionId: data.subscriptionID,
+                orderId: data.orderID,
               });
-            }}
-            onApprove={(data, actions) => {
-              if (data.subscriptionID) {
-                subscribe({
-                  subscriptionId: data.subscriptionID,
-                  orderId: data.orderID,
-                });
-              } else {
-                showMutationToast({
-                  success: false,
-                  message:
-                    "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
-                  title: "No subscription",
-                });
-              }
-              // Send GTM event with conversion data
-              if (actions.order) {
-                return actions.order.capture().then((details) => {
-                  const purchaseUnit = details.purchase_units[0];
-                  const transaction_id = purchaseUnit?.invoice_id;
-                  const currency = purchaseUnit?.amount?.currency_code;
-                  const value = purchaseUnit?.amount?.value;
-                  if (transaction_id && currency && value) {
-                    sendGTMEvent({ ecommerce: null });
-                    sendGTMEvent({
-                      event: "purchase",
-                      transaction_id: transaction_id,
-                      currency: currency,
-                      value: Number(value),
-                      items: [
-                        {
-                          item_id: data.subscriptionID,
-                          item_name: props.buttonStatus,
-                        },
-                      ],
-                    });
-                  }
-                });
-              } else {
-                return new Promise(() => {
-                  return null;
-                });
-              }
-            }}
-          />
-          {props.buttonStatus === "NORMAL" && (
-            <h3 className="font-bold italic">$5 / Month</h3>
-          )}
-          {props.buttonStatus === "SILVER" && (
-            <h3 className="font-bold italic">$10 / Month</h3>
-          )}
-          {props.buttonStatus === "GOLD" && (
-            <h3 className="font-bold italic">$15 / Month</h3>
-          )}
-        </div>
-      )}
+            } else {
+              showMutationToast({
+                success: false,
+                message:
+                  "Subscription ID not returned. Please wait for the order to clear, then your status should be updated.",
+                title: "No subscription",
+              });
+            }
+            // Send GTM event with conversion data
+            if (actions.order) {
+              return actions.order.capture().then((details) => {
+                const purchaseUnit = details.purchase_units[0];
+                const transaction_id = purchaseUnit?.invoice_id;
+                const currency = purchaseUnit?.amount?.currency_code;
+                const value = purchaseUnit?.amount?.value;
+                if (transaction_id && currency && value) {
+                  sendGTMEvent({ ecommerce: null });
+                  sendGTMEvent({
+                    event: "purchase",
+                    transaction_id: transaction_id,
+                    currency: currency,
+                    value: Number(value),
+                    items: [
+                      {
+                        item_id: data.subscriptionID,
+                        item_name: props.buttonStatus,
+                      },
+                    ],
+                  });
+                }
+              });
+            } else {
+              return new Promise(() => {
+                return null;
+              });
+            }
+          }}
+        />
+        {props.buttonStatus === "NORMAL" && (
+          <h3 className="font-bold italic">$5 / Month</h3>
+        )}
+        {props.buttonStatus === "SILVER" && (
+          <h3 className="font-bold italic">$10 / Month</h3>
+        )}
+        {props.buttonStatus === "GOLD" && (
+          <h3 className="font-bold italic">$15 / Month</h3>
+        )}
+      </div>
       {!hasSubscription && (
         <Confirm
           title="Confirm Upgrade"
@@ -596,7 +594,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/bronze_fed.webp"
+              imageSrc={IMG_REPSHOP_BRONZE}
               buttonStatus="NORMAL"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {
@@ -614,7 +612,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/silver_fed.webp"
+              imageSrc={IMG_REPSHOP_SILVER}
               buttonStatus="SILVER"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {
@@ -632,7 +630,7 @@ const FederalStore = () => {
               subscriptionPlan={process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD}
               userId={selectedUser.userId}
               buyerId={userData.userId}
-              imageSrc="/repshop/gold_fed.webp"
+              imageSrc={IMG_REPSHOP_GOLD}
               buttonStatus="GOLD"
               currentUserStatus={selectedUser.federalStatus}
               onSuccess={() => {
@@ -652,7 +650,11 @@ const FederalStore = () => {
  * Subscriptions overview component
  */
 const SubscriptionsOverview = () => {
-  const { data: subscriptions, refetch } = api.paypal.getPaypalSubscriptions.useQuery();
+  const { data: userData } = useRequiredUserData();
+  const { data: subscriptions, refetch } = api.paypal.getPaypalSubscriptions.useQuery(
+    undefined,
+    { enabled: !!userData },
+  );
   const allSubscriptions = subscriptions?.map((subscription) => {
     return {
       ...subscription,
@@ -747,6 +749,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
     { key: "transactionId", header: "Transaction ID", type: "string" },
     { key: "reputationPoints", header: "Points", type: "string" },
     { key: "value", header: "Amount", type: "string" },
+    { key: "type", header: "Type", type: "capitalized" },
     { key: "transactionUpdatedDate", header: "Last Update", type: "string" },
   ];
 

@@ -23,7 +23,7 @@ import {
   hasRequiredLevel,
 } from "@/libs/train";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getUserElements } from "@/validators/user";
 import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
@@ -41,7 +41,7 @@ export default function MyJutsu() {
 
   // Settings
   const now = new Date();
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
@@ -50,11 +50,11 @@ export default function MyJutsu() {
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
     getFilter(state),
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
   const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
     undefined,
-    { staleTime: Infinity },
+    { enabled: !!userData },
   );
 
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
@@ -79,6 +79,15 @@ export default function MyJutsu() {
       showMutationToast(data);
       if (data.success) {
         await utils.jutsu.getUserJutsus.invalidate();
+      }
+      // Optimistically update loadout
+      if (data?.data && userData) {
+        const currentLoadout = userData?.loadout?.jutsuIds || [];
+        const jutsuId = data.data.jutsuId;
+        const newLoadout = data?.data.equipped
+          ? [...currentLoadout, jutsuId]
+          : currentLoadout.filter((id) => id !== jutsuId);
+        await updateUser({ loadout: { jutsuIds: newLoadout } });
       }
     },
     onSettled,

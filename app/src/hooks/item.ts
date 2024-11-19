@@ -8,7 +8,7 @@ import { AttackMethods } from "@/drizzle/constants";
 import { ItemTypes } from "@/drizzle/constants";
 import { ItemRarities } from "@/drizzle/constants";
 import { ItemSlotTypes } from "@/drizzle/constants";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { Item } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";

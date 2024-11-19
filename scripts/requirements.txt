@@ -1,4 +1,5 @@
 Pillow
+boto3
 numpy
 pandas
 pyarrow
@@ -7,3 +8,4 @@ ipykernel
 mysqlclient
 openai
 retry
+nanoid

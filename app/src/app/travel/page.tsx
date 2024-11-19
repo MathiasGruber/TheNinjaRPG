@@ -15,7 +15,7 @@ import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -62,8 +62,7 @@ export default function Travel() {
   // Data from database
   const { data: userData, timeDiff } = useRequiredUserData();
   const { data } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-    enabled: userData !== undefined,
+    enabled: !!userData,
   });
   const villages = data?.filter((v) => {
     if (userData?.isOutlaw) {
@@ -103,7 +102,7 @@ export default function Travel() {
   useEffect(() => {
     if (userData && globe) {
       setCurrentPosition({ x: userData.longitude, y: userData.latitude });
-      setCurrentTile(globe.tiles[userData.sector] as GlobalTile);
+      setCurrentTile(globe.tiles[userData.sector]!);
     }
   }, [userData, currentSector, globe]);
 
@@ -127,7 +126,7 @@ export default function Travel() {
           setShowModal(false);
           setActiveTab(globalLink);
           if (globe) {
-            setCurrentTile(globe.tiles[data.sector] as GlobalTile);
+            setCurrentTile(globe.tiles[data.sector]!);
           }
         }
       },

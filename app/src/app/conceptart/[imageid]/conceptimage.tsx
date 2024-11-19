@@ -16,7 +16,7 @@ const ConceptBox_ConceptImage: React.FC<ConceptBox_ConceptImageProps> = (props) 
   // Fetch data
   const { data: image, isFetching } = api.conceptart.get.useQuery(
     { id: props.imageid ?? "" },
-    { staleTime: Infinity, enabled: !!props.imageid },
+    { enabled: !!props.imageid },
   );
 
   // Guard

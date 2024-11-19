@@ -8,7 +8,7 @@ import ChatInputField from "@/layout/ChatInputField";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
 import { FilePlus, FileMinus } from "lucide-react";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { DamageTag } from "@/libs/combat/types";
 import { JutsuValidator } from "@/libs/combat/types";
@@ -30,7 +30,7 @@ export default function JutsuEdit({ params }: { params: { jutsuid: string } }) {
   // Queries
   const { data, isPending, refetch } = api.jutsu.get.useQuery(
     { id: jutsuId },
-    { staleTime: Infinity, retry: false, enabled: jutsuId !== undefined },
+    { retry: false, enabled: !!jutsuId },
   );
 
   // Convert key null values to empty strings, preparing data for form

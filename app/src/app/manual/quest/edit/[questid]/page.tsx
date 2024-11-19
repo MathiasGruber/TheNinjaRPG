@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { nanoid } from "nanoid";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
@@ -33,7 +33,7 @@ export default function ManualBloodlineEdit({
   // Queries
   const { data, isPending, refetch } = api.quests.get.useQuery(
     { id: questId },
-    { staleTime: Infinity, enabled: questId !== undefined },
+    { enabled: !!questId },
   );
 
   // Redirect to profile if not content or admin

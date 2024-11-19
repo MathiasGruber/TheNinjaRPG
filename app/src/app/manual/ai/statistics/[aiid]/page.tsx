@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { UsageStats } from "@/layout/UsageStatistics";
 
 export default function ManualAIsStatistcs({ params }: { params: { aiid: string } }) {
@@ -11,7 +11,7 @@ export default function ManualAIsStatistcs({ params }: { params: { aiid: string 
   // Queries
   const { data, isPending } = api.data.getStatistics.useQuery(
     { id: aiId, type: "ai" },
-    { staleTime: Infinity, enabled: aiId !== undefined },
+    { enabled: !!aiId },
   );
   const ai = data?.info;
   const usage = data?.usage;

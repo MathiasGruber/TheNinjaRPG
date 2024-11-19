@@ -11,8 +11,12 @@ import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFilte
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { BLOODLINE_COST, REMOVAL_COST, ROLL_CHANCE_PERCENTAGE } from "@/libs/bloodline";
-import { api } from "@/utils/api";
+import {
+  BLOODLINE_COST,
+  REMOVAL_COST,
+  ROLL_CHANCE_PERCENTAGE,
+} from "@/drizzle/constants";
+import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import type { Bloodline } from "@/drizzle/schema";
 
@@ -44,7 +48,6 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages
@@ -170,7 +173,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   const utils = api.useUtils();
   const { data, isFetching } = api.bloodline.get.useQuery(
     { id: props.bloodlineId },
-    { staleTime: Infinity },
+    {},
   );
 
   // Mutations
@@ -268,11 +271,11 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
           Statistically, the chances for the different ranks of bloodlines are:
         </p>
         <ul className="pl-5 pt-3">
-          <li>S-Ranked: {ROLL_CHANCE_PERCENTAGE["S"] * 100}%</li>
-          <li>A-Ranked: {ROLL_CHANCE_PERCENTAGE["A"] * 100}%</li>
-          <li>B-Ranked: {ROLL_CHANCE_PERCENTAGE["B"] * 100}%</li>
-          <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE["C"] * 100}%</li>
-          <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE["D"] * 100}%</li>
+          <li>S-Ranked: {ROLL_CHANCE_PERCENTAGE.S * 100}%</li>
+          <li>A-Ranked: {ROLL_CHANCE_PERCENTAGE.A * 100}%</li>
+          <li>B-Ranked: {ROLL_CHANCE_PERCENTAGE.B * 100}%</li>
+          <li>C-Ranked: {ROLL_CHANCE_PERCENTAGE.C * 100}%</li>
+          <li>D-Ranked: {ROLL_CHANCE_PERCENTAGE.D * 100}%</li>
         </ul>
         <p className="pt-3">
           <b>NOTE:</b> If you have an existing bloodline it will be replaced in the

@@ -8,7 +8,7 @@ import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { FilePlus } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
@@ -101,6 +101,7 @@ export default function ManualBadges() {
           {!isPending && (
             <div className="relative">
               <ItemWithEffects
+                hideImage
                 item={badge}
                 key={badge.id}
                 onDelete={(id: string) => {

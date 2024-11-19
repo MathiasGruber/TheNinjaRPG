@@ -15,6 +15,7 @@ import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import NindoChange from "@/layout/NindoChange";
+import AiProfileEdit from "@/layout/AiProfileEdit";
 import {
   Form,
   FormControl,
@@ -45,7 +46,7 @@ import {
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { useUserSearch } from "@/utils/search";
 import { showMutationToast } from "@/libs/toast";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
@@ -209,6 +210,15 @@ export default function EditProfile() {
         >
           <RerollElement />
         </Accordion>
+        <Accordion
+          title="AI Profile"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Adjust how your character is played by AI"
+          selectedSubtitle=""
+          onClick={setActiveElement}
+        >
+          <AdjustAiProfile userId={userData.userId} />
+        </Accordion>
         {canSwapBloodline(userData.role) && (
           <Accordion
             title="Swap Bloodline"
@@ -235,6 +245,29 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
+
+/**
+ * AI Profile Edit
+ */
+const AdjustAiProfile: React.FC<{ userId: string }> = ({ userId }) => {
+  // Queries & mutations
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+
+  // Loaders
+  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
+
+  // Render
+  return (
+    <div className="pb-3">
+      <p>
+        Play with the AI profile of your character. This allows you to change how your
+        character behaves in the game in e.g. kage battles.
+      </p>
+      <AiProfileEdit userData={profile} hideTitle />
+    </div>
+  );
+};
 
 /**
  * Marriage
@@ -372,7 +405,7 @@ const NewAiAvatar: React.FC = () => {
     },
   });
   const userAttributes = api.profile.getUserAttributes.useQuery(undefined, {
-    staleTime: Infinity,
+    enabled: !!userData,
   });
 
   if (createAvatar.isPending) return <Loader explanation="Processing avatar..." />;
@@ -456,7 +489,6 @@ const HistoricalAiAvatar: React.FC = () => {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const pageAvatars = historicalAvatars?.pages.map((page) => page.data).flat();
@@ -543,7 +575,6 @@ const SwapVillage: React.FC = () => {
   const { data, isFetching } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
     placeholderData: (previousData) => previousData,
-    staleTime: Infinity,
   });
   const villages = data
     ?.filter((village) => ["VILLAGE", "OUTLAW"].includes(village.type))
@@ -644,7 +675,6 @@ const SwapBloodline: React.FC = () => {
       enabled: !!userData,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
-      staleTime: Infinity,
     },
   );
   const allBloodlines = bloodlines?.pages.map((page) => page.data).flat();
@@ -832,9 +862,7 @@ const AttributeChange: React.FC = () => {
   const [skinColor, setSkinColor] = useState<(typeof skin_colors)[number]>("Light");
 
   // Queries
-  const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data, refetch } = api.profile.getUserAttributes.useQuery(undefined);
   const selectedAttributes = data
     ? data.map((a) => a.attribute as (typeof attributes)[number])
     : [];
@@ -1069,7 +1097,7 @@ const NameChange: React.FC = () => {
   // Queries
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: searchTerm },
-    { staleTime: Infinity },
+    {},
   );
 
   // Mutations
@@ -1164,6 +1192,11 @@ const CustomTitle: React.FC = () => {
   });
   const curTitle = form.watch("title");
 
+  // Form handlers
+  const onSubmit = form.handleSubmit((data) => {
+    updateUsername(data);
+  });
+
   // Only show if we have userData
   if (!userData) return <Loader explanation="Loading profile page..." />;
 
@@ -1200,10 +1233,7 @@ const CustomTitle: React.FC = () => {
                 {canBuyUsername ? "Set custom title" : "Not enough points"}
               </Button>
             }
-            onAccept={(e) => {
-              e.preventDefault();
-              updateUsername({ title: curTitle });
-            }}
+            onAccept={onSubmit}
           >
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to

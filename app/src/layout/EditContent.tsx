@@ -14,7 +14,7 @@ import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { showMutationToast } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { sleep } from "@/utils/time";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ interface EditContentProps<T, K, S extends FieldValues> {
   buttonTxt?: string;
   allowImageUpload?: boolean;
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
-  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge";
+  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge" | "asset";
   bgColor?: "bg-slate-600" | "";
   onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined,
@@ -367,14 +367,14 @@ export const EditContent = <
                       onClick={() => {
                         let prompt = "";
                         // Generate based on name, title and description
-                        if (currentValues?.["name"]) {
-                          prompt += `${currentValues?.["name"]} `;
+                        if (currentValues?.name) {
+                          prompt += `${currentValues?.name} `;
                         }
-                        if (currentValues?.["username"]) {
-                          prompt += `${currentValues?.["username"]} `;
+                        if (currentValues?.username) {
+                          prompt += `${currentValues?.username} `;
                         }
-                        if (currentValues?.["title"]) {
-                          prompt += `${currentValues?.["title"]} `;
+                        if (currentValues?.title) {
+                          prompt += `${currentValues?.title} `;
                         }
                         if (prompt && !load) {
                           // Different qualifiers for different content types
@@ -383,7 +383,7 @@ export const EditContent = <
                           } else if (props.type === "item") {
                             prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "badge") {
-                            prompt = `${prompt} badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
+                            prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
                           } else if (props.type === "jutsu") {
                             prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
                           } else if (props.type === "bloodline") {
@@ -479,22 +479,18 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
 
   // Queries
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: Object.keys(shownTag).includes("aiId"),
   });
 
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("jutsus"),
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("items"),
   });
 
   const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled:
       fields.includes("staticAssetPath") ||
       fields.includes("appearAnimation") ||
@@ -538,7 +534,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).map((key) => {
           if (!["type", "calculation", "direction"].includes(key) && key in curTag) {
-            // @ts-ignore
+            // @ts-expect-error - we know this is a key of the object
             shownTag[key] = curTag[key];
           }
         });
@@ -749,22 +745,18 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   const fields = Object.keys(shownTag);
   const hasAIs = fields.includes("attackerAIs") || fields.includes("opponent_ai");
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: hasAIs,
   });
 
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_jutsus"),
   });
 
   const { data: badgeData } = api.badge.getAll.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_badges"),
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    staleTime: Infinity,
     enabled: fields.includes("reward_items") || fields.includes("collect_item_id"),
   });
 

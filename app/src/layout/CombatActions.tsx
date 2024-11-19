@@ -16,17 +16,20 @@ import type { ZodAllTags } from "@/libs/combat/types";
 
 interface ActionSelectorProps {
   className?: string;
+  gridClassNameOverwrite?: string;
   items?: {
     id: string;
     name: string;
     image: string;
     warning?: string;
     rarity?: ItemRarity;
-    type?: "jutsu" | "item" | "basic" | "village";
+    type?: "jutsu" | "item" | "basic" | "village" | "asset";
     effects?: ZodAllTags[];
     highlight?: boolean;
     hidden?: boolean | number;
     cooldown?: number;
+    frames?: number;
+    speed?: number;
     lastUsedRound?: number;
   }[];
   counts?: {
@@ -52,13 +55,14 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
   const filtered = props.items?.filter(
     (i) => !i.hidden || (userData && canChangeContent(userData.role)),
   );
-  const base = "grid gap-1 grid-cols-6 md:grid-cols-8 text-xs";
+  const base = "gap-1 text-xs";
+  const grid = props.gridClassNameOverwrite || "grid grid-cols-6 md:grid-cols-8";
   const bgColor = props.showBgColor
     ? "border-b-2 border-l-2 border-r-2 bg-slate-50 text-black"
     : "";
   return (
     <>
-      <div className={cn(base, bgColor, props.className)}>
+      <div className={cn(base, grid, bgColor, props.className)}>
         {filtered?.map((item, i) => {
           let bgColor = "";
           if (item.type === "jutsu") {
@@ -80,7 +84,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
           }
           const isGreyed =
             (props.selectedId !== undefined && props.selectedId !== item.id) ||
-            (props.greyedIds !== undefined && props.greyedIds.includes(item.id));
+            (props.greyedIds?.includes(item.id) ?? false);
           const isHighlight = item.highlight ?? false;
           const elements = item.effects
             ? item.effects.flatMap((e) =>
@@ -108,6 +112,8 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 hideBorder={props.hideBorder}
                 rarity={item.rarity}
                 cooldown={item.cooldown}
+                frames={item.frames}
+                speed={item.speed}
                 lastUsedRound={item.lastUsedRound}
                 currentRound={props.currentRound}
                 txt={props.showLabels ? item.name : ""}
@@ -146,6 +152,8 @@ interface ActionOptionProps {
   warning?: string;
   rarity?: ItemRarity;
   count?: number;
+  frames?: number;
+  speed?: number;
   isGreyed: boolean;
   className?: string;
   roundFull?: boolean;
@@ -182,6 +190,8 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           className=""
           roundFull={props.roundFull}
           hideBorder={props.hideBorder}
+          frames={props.frames}
+          speed={props.speed}
           onClick={props.onClick}
         />
         {props.count !== undefined && (props.labelSingles || props.count > 1) && (

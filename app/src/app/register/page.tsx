@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { useUserData } from "@/utils/UserContext";
-import { api } from "@/utils/api";
+import { api } from "@/app/_trpc/client";
 import { registrationSchema } from "@/validators/register";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -57,9 +57,7 @@ const Register: React.FC = () => {
   const { data: userData, status: userStatus } = useUserData();
 
   // Available villages
-  const { data: villages } = api.village.getAll.useQuery(undefined, {
-    staleTime: Infinity,
-  });
+  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Create avatar mutation
   const createAvatar = api.avatar.createAvatar.useMutation();
@@ -88,7 +86,7 @@ const Register: React.FC = () => {
   // Checking for unique username
   const { data: databaseUsername } = api.profile.getUsername.useQuery(
     { username: watchUsername },
-    { staleTime: Infinity },
+    {},
   );
 
   // If selected username found in database, set error. If not, clear error.
@@ -124,7 +122,7 @@ const Register: React.FC = () => {
   // Handle form submit
   const handleCreateCharacter = form.handleSubmit(
     (data) => createCharacter(data),
-    (errors) => console.log(errors),
+    (errors) => console.error(errors),
   );
 
   // Options used for select fields

@@ -7,16 +7,16 @@ import Loader from "@/layout/Loader";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sendGTMEvent } from "@next/third-parties/google";
-import { api } from "@/utils/api";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { calcLevelRequirements } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import { IMG_PROFILE_LEVELUPGUY } from "@/drizzle/constants";
 
-interface LevelUpBtnProps {}
-
-const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
+const LevelUpBtn: React.FC = () => {
   // State
+  const onMutateCheck = useGlobalOnMutateProtect();
   const { data: userData } = useRequiredUserData();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [isLevelling, setIsLevelling] = useState<boolean>(false);
@@ -27,6 +27,7 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
   // Fetch avatar query
   const { mutate: levelUp } = api.profile.levelUp.useMutation({
     onMutate: () => {
+      onMutateCheck();
       setIsLevelling(true);
     },
     onSuccess: async (data) => {
@@ -87,7 +88,7 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = () => {
           <div className="basis-1/2 absolute top-0 right-0 opacity-20">
             <Image
               alt="Level up graphic"
-              src="/images/levelupguy.webp"
+              src={IMG_PROFILE_LEVELUPGUY}
               width={375}
               height={436}
             />
