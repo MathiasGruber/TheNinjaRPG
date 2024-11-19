@@ -32,7 +32,9 @@ export const checkFriendlyFire = (
   usersState: BattleUserState[],
 ) => {
   // In case of multiple villages in the battle; friendly based on villageId, otherwise based on controllerId
-  const villageIds = [...new Set(usersState.map((u) => u.villageId))];
+  const villageIds = [
+    ...new Set(usersState.filter((u) => !u.isSummon).map((u) => u.villageId)),
+  ];
   const isFriendly =
     villageIds.length > 1
       ? target.villageId === effect.villageId
