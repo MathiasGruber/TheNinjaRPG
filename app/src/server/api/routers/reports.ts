@@ -163,7 +163,10 @@ export const reportsRouter = createTRPCRouter({
       const [user, reports] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.userReport.findMany({
-          where: eq(userReport.reportedUserId, input.userId),
+          where: and(
+            eq(userReport.reportedUserId, input.userId),
+            ne(userReport.status, "REPORT_CLEARED"),
+          ),
           with: {
             reporterUser: {
               columns: {
