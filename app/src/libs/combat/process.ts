@@ -155,11 +155,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         if (user && e.type !== "visual") {
           if (checkFriendlyFire(e, user, newUsersState)) {
             const hasEffect = usersEffects.some((ue) => ue.id === e.id);
-            const isInstant = ["damage", "heal", "pierce"].includes(e.type);
             if (!hasEffect) {
               usersEffects.push({
                 ...e,
-                rounds: isInstant ? 0 : 1,
+                rounds: 1,
                 targetId: user.userId,
                 fromGround: true,
               } as UserEffect);
