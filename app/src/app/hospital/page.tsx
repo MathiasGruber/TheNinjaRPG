@@ -11,6 +11,7 @@ import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
 import { structureBoost } from "@/utils/village";
+import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -203,7 +204,7 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
     refetchInterval: 5000,
     enabled: !!userData,
   });
-  const allHospitalized = hospitalized?.map((user) => {
+  const allHospitalized = hospitalized?.filter((user) => calcIsInVillage({x: user.longitude, y: user.latitude}) === true).map((user) => {
     const missingHealth = user.maxHealth - user.curHealth;
     return {
       ...user,
