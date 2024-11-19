@@ -430,7 +430,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         }
         if (c.lifesteal_hp && c.lifesteal_hp > 0) {
           user.curHealth += c.lifesteal_hp;
-          user.curHealth = Math.max(0, user.curHealth);
+          user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
             txt: `${user.username} steals ${c.lifesteal_hp.toFixed(2)} damage as health`,
             color: "green",
