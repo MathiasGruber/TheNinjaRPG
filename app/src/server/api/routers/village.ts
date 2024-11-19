@@ -78,12 +78,12 @@ export const villageRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Query
-      const [user, structures] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchStructures(ctx.drizzle, input.villageId),
-      ]);
-      // Derived
+      // Get structures of current (visiting) village or Sydicate if outlaw
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const village = await fetchSectorVillage(ctx.drizzle, user.sector, user.isOutlaw);
+      const structures = await fetchStructures(ctx.drizzle, village?.id);
+
+      // Calculate cost
       const discount = structureBoost("ramenDiscountPerLvl", structures);
       const factor = (100 - discount) / 100;
       const healPercentage = getRamenHealPercentage(input.ramen);
