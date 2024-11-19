@@ -732,7 +732,7 @@ export const calcActiveUser = (
   }
 
   // Find the user in question, and return him
-  const actor = usersInBattle.find((u) => u.userId === activeUserId);
+  const actor = battle.usersState.find((u) => u.userId === activeUserId);
   if (!actor) {
     throw new Error(`
       No active user: ${activeUserId}. 
