@@ -191,5 +191,8 @@ export const validateCaptcha = async (
  * @returns A promise that resolves to an array of game assets, each containing the id, name, and image.
  */
 export const fetchGameAssets = async (client: DrizzleClient) => {
-  return await client.query.gameAsset.findMany({ where: eq(gameAsset.hidden, false) });
+  return await client.query.gameAsset.findMany({
+    where: eq(gameAsset.hidden, false),
+    orderBy: [desc(gameAsset.name)],
+  });
 };

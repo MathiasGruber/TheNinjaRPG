@@ -9,3 +9,5 @@ mysqlclient
 openai
 retry
 nanoid
+sqlalchemy
+tqdm

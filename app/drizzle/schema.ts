@@ -78,6 +78,36 @@ export const gameAsset = mysqlTable(
 );
 export type GameAsset = InferSelectModel<typeof gameAsset>;
 
+export const gameAssetTag = mysqlTable(
+  "GameAssetTag",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    assetId: varchar("assetId", { length: 191 }).notNull(),
+    tagId: varchar("tagId", { length: 191 }).notNull(),
+  },
+  (table) => {
+    return {
+      assetIdTagKey: uniqueIndex("GameAssetTag_assetId_tag_key").on(
+        table.assetId,
+        table.tagId,
+      ),
+    };
+  },
+);
+
+export const contentTag = mysqlTable(
+  "ContentTag",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("ContentTag_name_key").on(table.name),
+    };
+  },
+);
+
 export const aiProfile = mysqlTable(
   "AiProfile",
   {

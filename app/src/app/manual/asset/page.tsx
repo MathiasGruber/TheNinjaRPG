@@ -14,6 +14,10 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
+import GameAssetFiltering, {
+  useFiltering,
+  getFilter,
+} from "@/layout/GameAssetFiltering";
 import type { GameAsset } from "@/drizzle/schema";
 
 export default function ManualAssets() {
@@ -22,6 +26,9 @@ export default function ManualAssets() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [asset, setAsset] = useState<GameAsset | undefined>(undefined);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // filtering
+  const state = useFiltering();
 
   // Router for forwarding
   const router = useRouter();
@@ -34,7 +41,7 @@ export default function ManualAssets() {
     fetchNextPage,
     hasNextPage,
   } = api.gameAsset.getAll.useInfiniteQuery(
-    { limit: 50 },
+    { limit: 60, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -79,7 +86,7 @@ export default function ManualAssets() {
               </Button>
             </>
           )}
-          {/* <BloodFiltering state={state} /> */}
+          <GameAssetFiltering state={state} />
         </div>
       }
     >

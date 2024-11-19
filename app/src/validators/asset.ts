@@ -13,3 +13,11 @@ export const gameAssetValidator = z.object({
 });
 
 export type ZodGameAssetType = z.infer<typeof gameAssetValidator>;
+
+export const gameAssetSchema = z.object({
+  name: z.string().optional(),
+  type: z.enum(GameAssetTypes),
+  tags: z.array(z.string()).optional(),
+});
+
+export type GameAssetSchema = z.infer<typeof gameAssetSchema>;

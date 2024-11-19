@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import NextImage from "next/image";
 import Loader from "@/layout/Loader";
 import { cn } from "src/libs/shadui";
@@ -28,6 +28,46 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
   const imgRef = useRef<HTMLCanvasElement>(null);
   const pixels = 112;
   const tailwindSize = "max-w-40 max-h-40 w-full h-full";
+
+  useEffect(() => {
+    if (props.image && props.speed && props.frames) {
+      let currentFrame = 0;
+      let frameCount = 0;
+      let timerId = 0;
+      const spritesheet = new Image();
+      const ctx = imgRef?.current?.getContext("2d");
+      spritesheet.src = props.image;
+      spritesheet.onload = function () {
+        init();
+      };
+      function init() {
+        timerId = window.requestAnimationFrame(step);
+      }
+      function step() {
+        if (ctx && imgRef?.current && props.frames && props.speed) {
+          frameCount++;
+          if (frameCount < 10) {
+            timerId = window.requestAnimationFrame(step);
+            return;
+          }
+          frameCount = 0;
+          const h = spritesheet.height / props.frames;
+          const w = spritesheet.width;
+          ctx.clearRect(0, 0, pixels, pixels);
+          ctx.drawImage(spritesheet, 0, currentFrame * h, w, h, 0, 0, pixels, pixels);
+          currentFrame++;
+          if (currentFrame >= props.frames) currentFrame = 0;
+          timerId = window.requestAnimationFrame(step);
+        }
+      }
+      return () => {
+        window.cancelAnimationFrame(timerId);
+        spritesheet.onload = null;
+      };
+    }
+  }, [props.image, props.speed, props.frames]);
+
+  // Image is either an animation or static image
   let img: null | React.ReactNode = null;
   if (props.image) {
     if (props.speed && props.frames) {
@@ -45,34 +85,6 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
           ></canvas>
         </div>
       );
-      let currentFrame = 0;
-      let frameCount = 0;
-      const spritesheet = new Image();
-      const ctx = imgRef?.current?.getContext("2d");
-      spritesheet.src = props.image;
-      spritesheet.onload = function () {
-        init();
-      };
-      function init() {
-        window.requestAnimationFrame(step);
-      }
-      function step() {
-        if (ctx && imgRef?.current && props.frames && props.speed) {
-          frameCount++;
-          if (frameCount < 15) {
-            window.requestAnimationFrame(step);
-            return;
-          }
-          frameCount = 0;
-          const h = spritesheet.height / props.frames;
-          const w = spritesheet.width;
-          ctx.clearRect(0, 0, pixels, pixels);
-          ctx.drawImage(spritesheet, 0, currentFrame * h, w, h, 0, 0, pixels, pixels);
-          currentFrame++;
-          if (currentFrame >= props.frames) currentFrame = 0;
-          window.requestAnimationFrame(step);
-        }
-      }
     } else {
       img = (
         <NextImage
