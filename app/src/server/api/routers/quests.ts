@@ -305,6 +305,12 @@ export const questsRouter = createTRPCRouter({
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
         }
+        const current = user?.userQuests?.find(
+          (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,
+        );
+        if (current) {
+          return errorResponse(`Already active ${current.questType}`);
+        }
         if (user.dailyMissions >= MISSIONS_PER_DAY) {
           return errorResponse("Limit reached");
         }
