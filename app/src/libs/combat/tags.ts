@@ -471,6 +471,17 @@ export const adjustHealGiven = (
           consequence.lifesteal_hp = consequence.lifesteal_hp + change;
         }
       }
+      // Adjust absorb
+      if (consequence.userId === effect.targetId && consequence.absorb_hp) {
+        const absorbEffect = usersEffects.find((e) => e.id === effectId);
+        if (absorbEffect) {
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.absorb_hp
+              : power;
+          consequence.absorb_hp = consequence.absorb_hp + change;
+        }
+      }
     });
   }
   return getInfo(target, effect, `healing ability is ${adverb} by ${qualifier}`);
