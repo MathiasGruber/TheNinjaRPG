@@ -256,7 +256,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       const focusCheck = document.hasFocus();
-      if (!focusCheck) setHasFocus(false);
+      if (!focusCheck && process.env.NODE_ENV !== "development") setHasFocus(false);
       if (!hasFocus || !focusCheck) return;
       if (suid && battle.current && userId.current && !isPending && !result) {
         const { actor, changedActor } = calcActiveUser(battle.current, suid, timeDiff);
