@@ -522,6 +522,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                           {parsedEffect.powerPerLevel}
                         </span>
                       )}
+                      {"residualModifier" in parsedEffect && (
+                        <span>
+                          <b>Residual Modifier: </b>
+                          {parsedEffect.residualModifier}
+                        </span>
+                      )}
                       {"generalTypes" in parsedEffect &&
                         parsedEffect.generalTypes &&
                         parsedEffect.generalTypes.length > 0 && (

@@ -17,6 +17,7 @@ import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import type { JutsuFilteringSchema } from "@/validators/jutsu";
@@ -306,6 +307,13 @@ export const jutsuRouter = createTRPCRouter({
       const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
       const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
       const maxEquip = userData && calcJutsuEquipLimit(user);
+      const residualJutsus = userjutsus.filter(
+        (userjutsu) =>
+          userjutsu.equipped &&
+          userjutsu.jutsu.effects.some(
+            (e) => "residualModifier" in e && e.residualModifier,
+          ),
+      );
       // Guards
       if (!info) return errorResponse("Jutsu not found");
       if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
@@ -353,7 +361,10 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           jutsuId: input.jutsuId,
           finishTraining: new Date(Date.now() + trainTime),
-          equipped: curEquip < maxEquip ? 1 : 0,
+          equipped:
+            curEquip < maxEquip && residualJutsus.length <= JUTSU_MAX_RESIDUAL_EQUIPPED
+              ? 1
+              : 0,
         });
       }
       return { success: true, message: `You started training: ${info.name}` };
@@ -450,7 +461,22 @@ export const jutsuRouter = createTRPCRouter({
       const newEquippedState = isEquipped ? 0 : 1;
       const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
       const isLoaded = userjutsu && loadout?.jutsuIds.includes(userjutsu.jutsuId);
+      const residualJutsus = userjutsus.filter(
+        (userjutsu) =>
+          userjutsu.equipped &&
+          userjutsu.jutsu.effects.some(
+            (e) => "residualModifier" in e && e.residualModifier,
+          ),
+      );
       // Guard
+      if (
+        residualJutsus.length > JUTSU_MAX_RESIDUAL_EQUIPPED &&
+        newEquippedState === 1
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_RESIDUAL_EQUIPPED} residual jutsu. Please unequip first.`,
+        );
+      }
       if (!userjutsu) return errorResponse("Jutsu not found");
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
