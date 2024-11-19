@@ -338,7 +338,12 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input id="name" placeholder="Required level" {...field} />
+                      <Input
+                        id="name"
+                        type="number"
+                        placeholder="Required level"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
