@@ -48,7 +48,7 @@ export const calcIsInVillage = (position: SectorPoint) => {
     if ([1, 2, 3, 17, 18].includes(position.x)) return false;
   }
   if (position.y === 1) {
-    if ([1, 2, 3, 16, 17, 18].includes(position.x)) return false;
+    if ([1, 2, 3, 4, 16, 17, 18].includes(position.x)) return false;
   }
   if (position.y === 2) {
     if ([1, 2, 18].includes(position.x)) return false;
