@@ -48,8 +48,6 @@ export const hospitalRouter = createTRPCRouter({
         level: true,
         status: true,
         sector: true,
-        longitude: true,
-        latitude: true,
         rank: true,
         isOutlaw: true,
       },
