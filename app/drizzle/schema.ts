@@ -2260,3 +2260,36 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const backgroundSchemas = mysqlTable(
+  "BackgroundSchemas",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    schema: json("schema")
+      .$type<{
+        ocean: string;
+        ice: string;
+        dessert: string;
+        ground: string;
+        arena: string;
+        default: string;
+      }>()
+      .notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: varchar("description", { length: 191 }).notNull(),
+    isActive: boolean("isActive").default(false).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("BackgroundSchemas_name_key").on(table.name),
+    };
+  },
+);
+export type BackgroundSchemas = InferSelectModel<typeof backgroundSchemas>;
+export type BackgroundSchemaJson = BackgroundSchemas["schema"];
