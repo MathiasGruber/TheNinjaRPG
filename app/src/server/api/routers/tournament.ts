@@ -239,6 +239,7 @@ export const tournamentRouter = createTRPCRouter({
       // Start the battle
       let result: BaseServerResponse | undefined;
       if (matchData.userId1 && matchData.userId2) {
+        const background = await determineArenaBackground(ctx.drizzle, "default");
         result = await initiateBattle(
           {
             userIds: [matchData.userId2],
@@ -246,7 +247,7 @@ export const tournamentRouter = createTRPCRouter({
             client: ctx.drizzle,
           },
           "TOURNAMENT",
-          determineArenaBackground("default"),
+          background,
         );
       }
       // We we failed to create battle, let this user win by default
