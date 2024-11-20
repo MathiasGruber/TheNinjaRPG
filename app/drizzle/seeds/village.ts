@@ -6,7 +6,11 @@ export const seedVillages = async (client: DrizzleClient) => {
   const promises: Promise<void>[] = [];
   console.log("\nSyncing villages...");
   const villageData = await fs.readFile(process.cwd() + "/data/villages.sql", "utf8");
-  await client.execute(sql.raw(`${villageData}`));
+  for (const statement of villageData.split(";")) {
+    if (statement.trim()) {
+      await client.execute(sql.raw(`${statement.trim()};`));
+    }
+  }
 
   // Process all the stuff
   await Promise.all(promises).then(() => {

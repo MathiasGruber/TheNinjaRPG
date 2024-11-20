@@ -9,5 +9,9 @@ export const seedQuests = async (client: DrizzleClient) => {
   console.log("\nClearing old quests...");
   await client.delete(quest);
   console.log("Syncing quests...");
-  await client.execute(sql.raw(`${file}`));
+  for (const statement of file.split(";")) {
+    if (statement.trim()) {
+      await client.execute(sql.raw(`${statement.trim()};`));
+    }
+  }
 };

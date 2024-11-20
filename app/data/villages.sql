@@ -1,4 +1,6 @@
 DELETE FROM Village;
+DELETE FROM Conversation WHERE isPublic = 1;
+DELETE FROM VillageStructure;
 
 INSERT INTO `Village` (`id`, `name`, `sector`, `hexColor`, `description`, `createdAt`, `updatedAt`, `kageId`, `tokens`, `type`, `mapName`, `populationCount`, `joinable`, `villageLogo`, `villageGraphic`, `allianceSystem`)
 VALUES
@@ -13,7 +15,7 @@ VALUES
 
 UPDATE Village SET kageId = "";
 
-DELETE FROM VillageStructure;
+
 INSERT INTO `VillageStructure` (`id`, `name`, `image`, `villageId`, `level`, `maxLevel`, `curSp`, `maxSp`, `longitude`, `latitude`, `hasPage`, `anbuSquadsPerLvl`, `arenaRewardPerLvl`, `bankInterestPerLvl`, `blackDiscountPerLvl`, `clansPerLvl`, `hospitalSpeedupPerLvl`, `itemDiscountPerLvl`, `ramenDiscountPerLvl`, `regenIncreasePerLvl`, `sleepRegenPerLvl`, `structureDiscountPerLvl`, `trainBoostPerLvl`, `villageDefencePerLvl`, `patrolsPerLvl`, `baseCost`, `allyAccess`, `route`)
 VALUES
 	('_pz86MA1JrN9inUmybzgf', 'Protectors', 'https://utfs.io/f/0980ab97-1510-4202-982b-f5efa4dd0fdc-1m0.webp', 'ryBk0qD4EgvPPyav2K4OC', 1, 10, 100, 100, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 10000, 1, ''),
@@ -132,7 +134,7 @@ VALUES
 	('ZOefoWWrwTtxbKUH2pnE8', 'ANBU', 'https://utfs.io/f/81a92c01-0562-4004-9db6-65bf3d1b217d-x6lygk.webp', 'GQhLjH7uMMe0jN1qXzM7B', 2, 10, 100, 100, 9, 5, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 10000, 0, '/anbu'),
 	('ZShTaZzX3LEvQv4OZk-tr', 'Mission Hall', 'https://utfs.io/f/f28193c9-4ce5-42e0-b012-175e5e182159-og4jot.webp', 'TDSh81zWX-Vqolk2WPFZe', 1, 10, 100, 100, 11, 10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 10000, 1, '/missionhall');
 
-DELETE FROM Conversation WHERE isPublic = 1;
+
 INSERT INTO `Conversation` (`id`, `title`, `createdById`, `createdAt`, `updatedAt`, `isLocked`, `isPublic`)
 VALUES
 	('-A-EJA451-6bbmxXRWstEG', 'Freedom State ', NULL, '2024-02-07 12:06:58.316', '2024-02-07 12:06:58.316', 0, 1),
