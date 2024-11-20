@@ -50,16 +50,7 @@ import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
-import {
-  IMG_BG_COLISEUM,
-  IMG_BG_ARENA_KONOKI,
-  IMG_BG_ARENA_SILENCE,
-  IMG_BG_ARENA_CHRISMAS,
-  IMG_BG_OCEAN,
-  IMG_BG_ICE,
-  IMG_BG_FOREST,
-  IMG_BG_DESSERT,
-} from "@/drizzle/constants";
+import { backgroundSchemas } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
@@ -552,6 +543,10 @@ export const combatRouter = createTRPCRouter({
       }
       // Determine battle background
       if (selectedAI) {
+        const background = await determineArenaBackground(
+          ctx.drizzle,
+          user.village?.name || "default",
+        );
         return await initiateBattle(
           {
             sector: user.sector,
@@ -561,7 +556,7 @@ export const combatRouter = createTRPCRouter({
             statDistribution: input.stats ?? undefined,
           },
           input.stats ? "TRAINING" : "ARENA",
-          determineArenaBackground(user.village?.name || "default"),
+          background,
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -589,6 +584,10 @@ export const combatRouter = createTRPCRouter({
     )
     .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
+      const background = await determineCombatBackground(
+        ctx.drizzle,
+        input.asset || "ground",
+      );
       return await initiateBattle(
         {
           longitude: input.longitude,
@@ -599,7 +598,7 @@ export const combatRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "COMBAT",
-        determineCombatBackground(input.asset || "ground"),
+        background,
       );
     }),
   iAmHere: protectedProcedure
@@ -661,37 +660,73 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   return result as CompleteBattle;
 };
 
-export const determineArenaBackground = (villageName: string) => {
-  const now = new Date();
-  const month = now.getMonth();
-  if (month > 9) {
-    return IMG_BG_ARENA_CHRISMAS;
+export const determineArenaBackground = async (
+  client: DrizzleClient,
+  villageName: string,
+) => {
+  // Query the database to get the active schema
+  const activeSchema = await client.query.backgroundSchemas.findFirst({
+    where: eq(backgroundSchemas.isActive, true),
+  });
+
+  if (!activeSchema) {
+    throw new Error("No active background schema found");
   }
+
+  const schema = activeSchema.schema as {
+    ocean: string;
+    ice: string;
+    dessert: string;
+    ground: string;
+    arena: string;
+    default: string;
+  };
+
   switch (villageName) {
     case "Konoki":
-      return IMG_BG_ARENA_KONOKI;
+      return schema.arena || schema.default;
     case "Silence":
-      return IMG_BG_ARENA_SILENCE;
+      return schema.arena || schema.default;
     default:
-      return IMG_BG_COLISEUM;
+      return schema.default;
   }
 };
 
-export const determineCombatBackground = (
+export const determineCombatBackground = async (
+  client: DrizzleClient,
   asset: "ocean" | "ground" | "dessert" | "ice",
 ) => {
+  // Query the database to get the active schema
+  const activeSchema = await client.query.backgroundSchemas.findFirst({
+    where: eq(backgroundSchemas.isActive, true),
+  });
+
+  if (!activeSchema) {
+    throw new Error("No active background schema found");
+  }
+
+  const schema = activeSchema.schema as {
+    ocean: string;
+    ice: string;
+    dessert: string;
+    ground: string;
+    arena: string;
+    default: string;
+  };
+
   switch (asset) {
     case "ocean":
-      return IMG_BG_OCEAN;
+      return schema.ocean || schema.default;
     case "ice":
-      return IMG_BG_ICE;
+      return schema.ice || schema.default;
     case "ground":
-      return IMG_BG_FOREST;
+      return schema.ground || schema.default;
+    case "dessert":
+      return schema.dessert || schema.default;
     default:
-      return IMG_BG_DESSERT;
+      return schema.default;
   }
 };
-
 export const initiateBattle = async (
   info: {
     longitude?: number;
@@ -704,12 +739,39 @@ export const initiateBattle = async (
     scaleTarget?: boolean;
   },
   battleType: BattleType,
-  background = IMG_BG_FOREST,
+  background?: string, // Remove default value
   scaleGains = 1,
 ) => {
   // Destructure
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
+  // Fetch the background if not provided
+  if (!background) {
+    // Query the database to get the active schema
+    const activeSchema = await client.query.backgroundSchemas.findFirst({
+      where: eq(backgroundSchemas.isActive, true),
+    });
+
+    if (!activeSchema) {
+      throw new Error("No active background schema found");
+    }
+
+    const schema = activeSchema.schema as {
+      ocean: string;
+      ice: string;
+      dessert: string;
+      ground: string;
+      arena: string;
+      default: string;
+    };
+
+    // Use the default background from the schema
+    background = schema.default;
+
+    if (!background) {
+      throw new Error("No default background defined in the active schema");
+    }
+  }
   // Get user & target data, to be inserted into battle
   const [defaultProfile, assets, settings, villages, relations, achievements, users] =
     await Promise.all([
