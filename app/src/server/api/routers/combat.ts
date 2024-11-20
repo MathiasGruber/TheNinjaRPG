@@ -144,7 +144,7 @@ export const combatRouter = createTRPCRouter({
               );
             }
 
-            // Update user & delete the battle if it's done
+            // Update user
             if (result) {
               await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
             }

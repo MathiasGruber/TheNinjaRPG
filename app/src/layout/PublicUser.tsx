@@ -396,7 +396,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {marriages.map((user, i) => (
-              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+              <Link
+                href={`/users/${user.userId}`}
+                className="text-center"
+                key={`marriage-${i}`}
+              >
                 <AvatarImage
                   href={user.avatar}
                   alt={user.username}
@@ -422,7 +426,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.recruitedUsers.map((user, i) => (
-              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+              <Link
+                href={`/users/${user.userId}`}
+                className="text-center"
+                key={`recruited-${i}`}
+              >
                 <AvatarImage
                   href={user.avatar}
                   alt={user.username}
@@ -447,7 +455,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
         <ContentBox title="Students" subtitle={`Past and present`} initialBreak={true}>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.students.map((user, i) => (
-              <Link href={`/users/${user.userId}`} className="text-center" key={i}>
+              <Link
+                href={`/users/${user.userId}`}
+                className="text-center"
+                key={`student-${i}`}
+              >
                 <AvatarImage
                   href={user.avatar}
                   alt={user.username}
@@ -506,7 +518,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           {profile.badges.length === 0 && <p>No badges found</p>}
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.badges.map((userbadge, i) => (
-              <div key={i} className="text-center relative">
+              <div key={`badge-${i}`} className="text-center relative">
                 <Image
                   src={userbadge.badge.image}
                   alt={userbadge.badge.name}
@@ -634,7 +646,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
                 {reports?.length === 0 && <p>No reports found</p>}
                 {reports?.map((report) => {
                   return (
-                    <Link key={report.id} href={"/reports/" + report.id}>
+                    <Link key={`report-${report.id}`} href={"/reports/" + report.id}>
                       <Post
                         title={`${report.reporterUser?.username} on ${report.system}`}
                         hover_effect={true}
@@ -699,6 +711,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   const utils = api.useUtils();
 
   // Form handling
+  console.log("profile", profile);
   const { form, formData, handleUserSubmit } = useUserEditForm(
     userId,
     profile,

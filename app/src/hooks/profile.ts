@@ -30,6 +30,7 @@ export const useUserEditForm = (
   const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
   const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
+  const { data: villages, isPending: l5 } = api.village.getAll.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateUser, isPending: l4 } = api.profile.updateUser.useMutation({
@@ -51,7 +52,9 @@ export const useUserEditForm = (
   );
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4;
+  const loading = l1 || l2 || l3 || l4 || l5;
+
+  console.log(villages);
 
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
@@ -60,6 +63,7 @@ export const useUserEditForm = (
     { id: "role", type: "str_array", values: UserRoles },
     { id: "rank", type: "str_array", values: UserRanks },
     { id: "bloodlineId", type: "db_values", values: lines, resetButton: true },
+    { id: "villageId", type: "db_values", values: villages, resetButton: true },
     {
       id: "jutsus",
       type: "db_values",

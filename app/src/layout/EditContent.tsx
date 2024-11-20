@@ -196,7 +196,7 @@ export const EditContent = <
           // Render
           return (
             <div
-              key={id}
+              key={`formEntry-${id}`}
               className={`${type === "avatar" ? "row-span-5" : ""} ${
                 formEntry.doubleWidth ? "md:col-span-2" : ""
               } ${
@@ -308,7 +308,10 @@ export const EditContent = <
                               </FormControl>
                               <SelectContent>
                                 {options.map((option) => (
-                                  <SelectItem key={option.label} value={option.value}>
+                                  <SelectItem
+                                    key={`select-${option.label}`}
+                                    value={option.value}
+                                  >
                                     {option.label}
                                   </SelectItem>
                                 ))}
