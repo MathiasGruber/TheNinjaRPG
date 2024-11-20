@@ -143,15 +143,15 @@ export const combatRouter = createTRPCRouter({
                 fetchedVersion,
               );
             }
+
+            // Update user & delete the battle if it's done
+            if (result) {
+              await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
+            }
           }
 
           // Hide private state of non-session user
           const newMaskedBattle = maskBattle(userBattle, ctx.userId);
-
-          // Update user & delete the battle if it's done
-          if (result) {
-            await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
-          }
 
           // Return the new battle + result state if applicable
           return { battle: newMaskedBattle, result: result };
