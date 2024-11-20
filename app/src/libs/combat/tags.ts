@@ -472,7 +472,7 @@ export const adjustHealGiven = (
         }
       }
       // Adjust absorb
-      if (consequence.userId === effect.targetId && consequence.absorb_hp) {
+      if (consequence.targetId === effect.targetId && consequence.absorb_hp) {
         const absorbEffect = usersEffects.find((e) => e.id === effectId);
         if (absorbEffect) {
           const change =

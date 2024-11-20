@@ -54,8 +54,6 @@ export const useUserEditForm = (
   // Are we loading data
   const loading = l1 || l2 || l3 || l4 || l5;
 
-  console.log(villages);
-
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
     { id: "username", type: "text" },

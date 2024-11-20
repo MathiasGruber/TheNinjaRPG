@@ -124,6 +124,7 @@ const getVisual = (
 export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
+  const actor = usersState.find((u) => u.userId === actorId);
 
   // Things we wish to return
   const newUsersState = structuredClone(usersState);
@@ -150,16 +151,26 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user) e.rounds = 0;
       } else {
+        // Information on what was done
+        if (e.isNew && e.castThisRound && actor && e.type !== "visual") {
+          actionEffects.push({
+            txt: `${actor.username} marked [${e.longitude}, ${e.latitude}] the ground with ${e.type} for the next ${e.rounds} rounds`,
+            color: "blue",
+          });
+          e.isNew = false;
+        }
         // Apply all other ground effects to user
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user && e.type !== "visual") {
           if (checkFriendlyFire(e, user, newUsersState)) {
             const hasEffect = usersEffects.some((ue) => ue.id === e.id);
+            const isInstant = ["damage", "heal", "pierce"].includes(e.type);
             if (!hasEffect) {
               usersEffects.push({
                 ...e,
-                rounds: 1,
+                rounds: isInstant ? 0 : 1,
                 targetId: user.userId,
+                createdRound: curRound,
                 fromGround: true,
               } as UserEffect);
             }
